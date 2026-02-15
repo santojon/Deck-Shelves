@@ -1,0 +1,48 @@
+.deck-shelves-container {
+  width: 100%;
+}
+
+.deck-shelves-row {
+  margin: 8px 0 14px;
+}
+
+.deck-shelves-row-title {
+  font-size: 14px;
+  opacity: 0.9;
+  margin: 0 0 8px;
+}
+
+.deck-shelves-row-scroller {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.deck-shelves-game {
+  min-width: 260px;
+  max-width: 260px;
+}
+
+.deck-shelves-game-inner {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.deck-shelves-game-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.deck-shelves-game-icon-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.deck-shelves-row-loading {
+  padding: 10px 0;
+}

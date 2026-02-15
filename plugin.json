@@ -1,10 +1,21 @@
 {
-  "name": "Example Plugin",
-  "author": "John Doe",
-  "flags": ["debug", "_root"],
+  "name": "Deck Shelves",
+  "version": "0.1.0",
+  "author": "Jonathan Santos",
+  "main": "dist/index.js",
+  "flags": [
+    "root"
+  ],
+  "api_version": 1,
   "publish": {
-    "tags": ["template", "root"],
-    "description": "Decky example plugin.",
-    "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/PluginLoader"
-  }
+    "tags": [
+      "library",
+      "home",
+      "shelf",
+      "collections"
+    ],
+    "description": "Put Steam Shelves into Deck UI.",
+    "image": "assets/logo.png"
+  },
+  "icon": "assets/icon.png"
 }
