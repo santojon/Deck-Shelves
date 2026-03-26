@@ -13,9 +13,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
       - name: Resolve plugin and author info
         id: meta
         run: |
