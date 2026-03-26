@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: TypeScript check
+        run: pnpm run typecheck
+
+      - name: Static validation
+        run: node scripts/build/validate.mjs
+
+      - name: Build release archive
+        run: pnpm run dist
+
+      - name: Run compatibility checks
+        run: bash scripts/build/validate-compat.sh
+
+      - name: Resolve release tag
+        id: meta
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"
+
+          CHANGELOG=""
+          if [[ -f "CHANGELOG.md" ]]; then
+            CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          fi
+          if [[ -n "$CHANGELOG" ]]; then
+            {
+              echo "body<<BODY_EOF"
+              echo "$CHANGELOG"
+              echo "BODY_EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Deck Shelves ${{ steps.meta.outputs.tag }}
+          body: ${{ steps.meta.outputs.body || '' }}
+          generate_release_notes: ${{ steps.meta.outputs.body == '' }}
+          files: |
+            Deck-Shelves-v*.zip

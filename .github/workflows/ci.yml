@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: TypeScript check
+        run: pnpm run typecheck
+
+      - name: Static validation
+        run: node scripts/build/validate.mjs
+
+      - name: Build plugin (release mode)
+        run: pnpm run build:release
+
+      - name: Package release zip
+        run: pnpm run dist
+
+      - name: Run compatibility checks
+        run: bash scripts/build/validate-compat.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deck-shelves-${{ github.sha }}
+          path: |
+            Deck-Shelves-v*.zip

@@ -1,0 +1,21 @@
+{
+  "name": "Deck Shelves",
+  "author": "Jonathan Santos",
+  "api_version": 1,
+  "flags": [
+    "debug"
+  ],
+  "publish": {
+    "tags": [
+      "customization",
+      "library",
+      "home",
+      "shelves",
+      "collections",
+      "tabs",
+      "filters"
+    ],
+    "description": "Inject configurable shelves (Collections / Tabs / Filters) into the Steam Deck Home (library/home).",
+    "image": "assets/deck-shelves.png"
+  }
+}

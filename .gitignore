@@ -1,0 +1,34 @@
+# Node
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+
+# pnpm
+.pnpm-store/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# VSCode
+.vscode/
+
+# Decky build artifacts
+bin/
+backend/out/
+
+# Environment (secrets)
+.env
+.env.*
+
+# Build files
+build/*
+
+# Deploy staging
+.deploy/
+*.zip

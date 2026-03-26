@@ -1,0 +1,85 @@
+{
+  "name": "deck-shelves",
+  "version": "0.1.0",
+  "description": "Decky Loader plugin that injects configurable shelves into Steam Deck Home and provides a Steam Deck focused QAM editor.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build/build-decky.mjs",
+    "build:plugin": "node scripts/build/build-decky.mjs",
+    "build:release": "node scripts/build/build-decky.mjs --mode production",
+    "watch": "node scripts/build/build-decky.mjs --watch",
+    "check": "pnpm run typecheck && node scripts/build/validate.mjs",
+    "typecheck": "tsc --noEmit",
+    "package": "bash scripts/build/package.sh",
+    "dist": "bash scripts/build/package.sh",
+    "deck:setup": "bash scripts/deploy/deck-setup.sh",
+    "deploy:deck": "bash scripts/deploy/deploy-deck.sh",
+    "deploy:deck:hard": "bash scripts/deploy/deploy-deck.sh --hard",
+    "watch:deck": "node scripts/deck/watch-deck.mjs",
+    "watch:deck:hard": "node scripts/deck/watch-deck.mjs --hard",
+    "fix:deck:perms": "bash scripts/deck/fix-deck-perms.sh",
+    "deploy:deck:full": "pnpm run fix:deck:perms steamdeck && pnpm run deploy:deck:hard steamdeck",
+    "dev:all": "pnpm install && pnpm run build && pnpm run deploy:deck:hard steamdeck",
+    "deploy:full": "bash scripts/deploy/full-deploy.sh",
+    "restart:steam": "bash scripts/deck/restart-steam.sh",
+    "deck:check": "bash scripts/deck/deck-check.sh",
+    "logs:decky": "bash scripts/deck/logs-decky.sh",
+    "open:deck:debug": "bash scripts/deck/open-deck-debug.sh",
+    "upload:deckzip": "bash scripts/deploy/upload-deck-zip.sh",
+    "diag:deck:mount": "bash scripts/deck/deck-diag.sh steamdeck mount",
+    "diag:deck:rows": "bash scripts/deck/deck-diag.sh steamdeck rows",
+    "test:deck:smoke": "bash scripts/deck/deck-smoke-test.sh steamdeck",
+    "test:runtime": "pnpm run typecheck",
+    "screenshots": "python3 scripts/devtools/deck/screenshot.py",
+    "screenshots:validate": "node scripts/build/validate-screenshots.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/santojon/Deck-Shelves.git"
+  },
+  "keywords": [
+    "decky",
+    "plugin",
+    "steam-deck",
+    "shelves",
+    "collections"
+  ],
+  "author": "Jonathan Santos",
+  "license": "MIT",
+  "devDependencies": {
+    "@decky/ui": "^4.11.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "esbuild": "^0.27.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "ws": "^8.19.0"
+  },
+  "dependencies": {
+    "@decky/api": "^1.1.3",
+    "i18next": "^25.8.18",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-i18next": "^16.5.8",
+    "tslib": "^2.8.1",
+    "zod": "^4.3.6"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react",
+        "react-dom"
+      ]
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "overrides": {
+      "glob": "^13.0.0",
+      "rimraf": "^6.0.1",
+      "globby": "^14.1.0"
+    }
+  },
+  "packageManager": "pnpm@10.32.1"
+}

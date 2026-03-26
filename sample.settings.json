@@ -1,0 +1,75 @@
+{
+  "enabled": true,
+  "shelves": [
+    {
+      "id": "shelf-1",
+      "title": "Favoritos",
+      "source": { "type": "tab", "tab": "favorites" },
+      "limit": 12,
+      "hidden": false
+    },
+    {
+      "id": "shelf-2",
+      "title": "Jogos Recentes",
+      "source": { "type": "tab", "tab": "recent" },
+      "limit": 12,
+      "hidden": false
+    },
+    {
+      "id": "shelf-3",
+      "title": "Jogos Instalados",
+      "source": { "type": "filter", "filter": { "installed": true, "sort": "alphabetical" } },
+      "limit": 20,
+      "hidden": false
+    },
+    {
+      "id": "shelf-4",
+      "title": "Favoritos Não-Steam",
+      "source": { "type": "filter", "filter": { "favorites": true, "nonSteam": true, "sort": "recent" } },
+      "limit": 10,
+      "hidden": false
+    },
+    {
+      "id": "shelf-5",
+      "title": "Compatíveis Steam Deck",
+      "source": { "type": "filter", "filter": { "deckCompatibility": ["verified", "playable"] } },
+      "limit": 8,
+      "hidden": false
+    },
+    {
+      "id": "shelf-6",
+      "title": "Coleção RPG",
+      "source": { "type": "collection", "collectionId": "rpg-collection-123" },
+      "limit": 15,
+      "hidden": false
+    },
+    {
+      "id": "shelf-7",
+      "title": "Coleção Multiplayer",
+      "source": { "type": "collection", "collectionId": "multiplayer-collection-456" },
+      "limit": 10,
+      "hidden": false
+    },
+    {
+      "id": "shelf-8",
+      "title": "Jogos com nome 'Portal'",
+      "source": { "type": "filter", "filter": { "nameIncludes": "Portal", "sort": "alphabetical" } },
+      "limit": 5,
+      "hidden": false
+    },
+    {
+      "id": "shelf-9",
+      "title": "Jogos jogados nos últimos 30 dias",
+      "source": { "type": "filter", "filter": { "playedWithinDays": 30, "sort": "recent" } },
+      "limit": 10,
+      "hidden": false
+    },
+    {
+      "id": "shelf-10",
+      "title": "Jogos ocultos",
+      "source": { "type": "filter", "filter": { "hidden": true } },
+      "limit": 10,
+      "hidden": false
+    }
+  ]
+}
