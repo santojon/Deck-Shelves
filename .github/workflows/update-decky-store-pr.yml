@@ -1,0 +1,55 @@
+name: Update Decky Store PR with Main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-decky-store-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile || npm install -g pnpm && pnpm install --frozen-lockfile
+
+      - name: Find open PR for Decky Store
+        id: find_pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:decky-store`
+            });
+            if (pulls.length > 0) {
+              core.setOutput('pr_number', pulls[0].number);
+            } else {
+              core.setOutput('pr_number', '');
+            }
+
+      - name: Update Decky Store PR branch
+        if: steps.find_pr.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.updateBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(steps.find_pr.outputs.pr_number)
+            });
