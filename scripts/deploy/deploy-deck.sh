@@ -19,7 +19,7 @@ PLUGIN_SLUG="deck-shelves"
 DEV_DIR="/home/${USER_NAME}/dev-plugins/${PLUGIN_SLUG}"
 STAGE_DIR=".deploy/${PLUGIN_SLUG}"
 
-pnpm run build:plugin
+pnpm run build
 
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
