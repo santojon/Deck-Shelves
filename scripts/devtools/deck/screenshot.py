@@ -1,60 +1,78 @@
+
 #!/usr/bin/env python3
-"""Take Steam Deck GamepadUI screenshots via CDP.
-
-Captures the Home screen, QAM panel, shelf management modals, and game
-card actions by connecting to the CEF debug port through an SSH tunnel.
-
-The "Big Picture" CDP target renders the composited GamepadUI background.
-Popup targets (QAM, MainMenu, notifications) are overlay browser views
-that require fromSurface=false for Page.captureScreenshot to work.
-
-To open/close the QAM, the script calls
-SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed()
-via SharedJSContext, then navigates to the Deck Shelves tab by clicking
-its element in the QuickAccess_uid2 DOM.
-
-Prerequisites:
-  1. CEF remote debugging enabled on Steam Deck:
-     Settings → Developer → Enable CEF Remote Debugging → restart Steam
-  2. SSH tunnel from local machine to Steam Deck:
-     ssh -f -N -L 8081:localhost:8081 deck@steamdeck
-
-Targets:
-  home          Home screen (top)
-  home-shelves  Home screen scrolled to show shelves
-  qam           QAM with Deck Shelves tab active
-  game-detail   Game detail page (A button on shelf game)
-  game-menu     Game context menu (Menu button on shelf game)
-  shelf-actions Shelf context menu
-  shelf-edit    Edit shelf modal
-  shelf-hidden  QAM showing hidden shelf
-  shelf-delete  Delete shelf confirmation dialog
-  shelf-import  Import shelves modal
-  shelf-export  Export shelves modal
-  all           All of the above (default)
-
-Usage:
-  python3 scripts/devtools/deck/screenshot.py                        # all
-  python3 scripts/devtools/deck/screenshot.py --target home          # Home only
-  python3 scripts/devtools/deck/screenshot.py --target qam           # QAM only
-  python3 scripts/devtools/deck/screenshot.py --target game-detail   # game A-button
-  python3 scripts/devtools/deck/screenshot.py --host localhost        # explicit host
-
-Environment:
-  DECK_HOST      Hostname for CDP connection (default: localhost)
-  DECK_CDP_PORT  CEF debug port (default: 8081)
-"""
-
+import sys
 import argparse
 import base64
 import json
 import os
 import socket
 import struct
-import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+def capture_bigpicture(host: str, port: int, bp_target: dict, filename: str) -> Optional[Path]:
+    """Capture screenshot from Big Picture target using Page.captureScreenshot."""
+
+    ws_path = ws_path_for(bp_target, port)
+    sock = ws_connect(host, port, ws_path)
+    try:
+        cdp_call(sock, "Page.enable", msg_id=1)
+        result = cdp_call(sock, "Page.captureScreenshot", {"format": "png"}, msg_id=2)
+        data = result.get("result", {}).get("data", "")
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        out = OUTPUT_DIR / filename
+        raw = base64.b64decode(data) if data else b""
+        out.write_bytes(raw)
+        print(f"  Saved {filename} ({len(raw):,} bytes)")
+        return out
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+def get_targets(host: str, port: int) -> list:
+    """Fetch all CDP targets from the remote debug endpoint."""
+    import urllib.request
+    url = f"http://{host}:{port}/json"
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            return json.load(resp)
+    except Exception as e:
+        print(f"[get_targets] Failed to fetch targets: {e}")
+        return []
+
+def find_target(targets: list, title_substring: str) -> Optional[dict]:
+    """Find a target whose title contains the given substring."""
+    for t in targets:
+        if title_substring.lower() in t.get("title", "").lower():
+            return t
+    return None
+
+import sys
+import argparse
+import base64
+import json
+import os
+import socket
+import struct
+
+OPEN_QAM_EXPR = """
+(function() {
+    if (typeof SteamUIStore !== 'undefined' &&
+        SteamUIStore.WindowStore &&
+        SteamUIStore.WindowStore.GamepadUIMainWindowInstance &&
+        SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed) {
+        SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed();
+        return 'ok';
+    }
+    return 'not found';
+})()
+"""
+
+
+def ws_path_for(target: dict, port: int) -> str:
+    return target["webSocketDebuggerUrl"].split(f"{port}", 1)[1]
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent
@@ -105,6 +123,7 @@ def ws_send(sock: socket.socket, data: str) -> None:
 
 
 def ws_recv(sock: socket.socket) -> Optional[str]:
+    # cdp_eval was incorrectly nested here; moved to top-level below
     data = b""
     while True:
         chunk = sock.recv(262144)
@@ -128,6 +147,11 @@ def ws_recv(sock: socket.socket) -> Optional[str]:
         if len(data) >= offset + length:
             return data[offset:offset + length].decode(errors="replace")
 
+# Top-level cdp_eval function
+def cdp_eval(sock: socket.socket, expression: str, msg_id: int = 1) -> any:
+    result = cdp_call(sock, "Runtime.evaluate", {"expression": expression, "returnByValue": True}, msg_id)
+    return result.get("result", {}).get("result", {}).get("value")
+
 
 def cdp_call(sock: socket.socket, method: str, params: Optional[Dict] = None, msg_id: int = 1) -> Dict[str, Any]:
     payload: Dict[str, Any] = {"id": msg_id, "method": method}
@@ -135,63 +159,12 @@ def cdp_call(sock: socket.socket, method: str, params: Optional[Dict] = None, ms
         payload["params"] = params
     ws_send(sock, json.dumps(payload))
     while True:
-        raw = ws_recv(sock)
-        if raw is None:
-            raise RuntimeError(f"No CDP response for {method}")
-        msg = json.loads(raw)
+        resp = ws_recv(sock)
+        if not resp:
+            continue
+        msg = json.loads(resp)
         if msg.get("id") == msg_id:
             return msg
-
-
-def cdp_eval(sock: socket.socket, expression: str, msg_id: int = 1) -> Any:
-    result = cdp_call(sock, "Runtime.evaluate", {"expression": expression, "returnByValue": True}, msg_id)
-    return result.get("result", {}).get("result", {}).get("value")
-
-
-# ---------------------------------------------------------------------------
-# Target discovery
-# ---------------------------------------------------------------------------
-
-def get_targets(host: str, port: int) -> List[Dict[str, Any]]:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(5)
-    sock.connect((host, port))
-    sock.sendall(f"GET /json HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n".encode())
-    resp = b""
-    while True:
-        try:
-            chunk = sock.recv(4096)
-            if not chunk:
-                break
-            resp += chunk
-            if resp.endswith(b"\n]"):
-                break
-        except Exception:
-            break
-    sock.close()
-    if b"\r\n\r\n" not in resp:
-        return []
-    return json.loads(resp.split(b"\r\n\r\n", 1)[1])
-
-
-def find_target(targets: List[Dict], title_substr: str) -> Optional[Dict]:
-    for t in targets:
-        if title_substr.lower() in t.get("title", "").lower():
-            return t
-    return None
-
-
-def ws_path_for(target: Dict, port: int) -> str:
-    return target["webSocketDebuggerUrl"].split(f"{port}", 1)[1]
-
-
-# ---------------------------------------------------------------------------
-# Screenshot capture
-# ---------------------------------------------------------------------------
-
-def capture_bigpicture(host: str, port: int, bp_target: Dict, filename: str) -> Optional[Path]:
-    ws_path = ws_path_for(bp_target, port)
-    sock = ws_connect(host, port, ws_path)
     try:
         cdp_call(sock, "Page.enable", msg_id=1)
         result = cdp_call(sock, "Page.captureScreenshot", {"format": "png"}, msg_id=2)
@@ -215,21 +188,7 @@ def capture_bigpicture(host: str, port: int, bp_target: Dict, filename: str) -> 
 # QAM automation
 # ---------------------------------------------------------------------------
 
-OPEN_QAM_EXPR = "SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed()"
 
-CLICK_TAB_EXPR = """
-(function() {
-    var all = document.querySelectorAll('*');
-    for (var el of all) {
-        if (el.children.length === 0 && (el.textContent || '').trim() === 'Deck Shelves') {
-            var target = el.closest('button') || el.closest('[role=tab]') || el.parentElement || el;
-            target.click();
-            return 'ok';
-        }
-    }
-    return 'not found';
-})()
-"""
 
 
 def eval_target(host: str, port: int, ws_path: str, expression: str, msg_id: int = 1) -> Any:
@@ -247,12 +206,38 @@ def open_qam(host: str, port: int, shared_ws: str) -> None:
 
 def close_qam(host: str, port: int, shared_ws: str) -> None:
     open_qam(host, port, shared_ws)  # toggle
+    OPEN_QAM_EXPR = """
+        (function() {
+            if (typeof SteamUIStore !== 'undefined' &&
+                SteamUIStore.WindowStore &&
+                SteamUIStore.WindowStore.GamepadUIMainWindowInstance &&
+                SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed) {
+                SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed();
+                return 'ok';
+            }
+            return 'not found';
+        })()
+    """
 
 
 def click_deckshelves_tab(host: str, port: int, qam_ws: str) -> bool:
     result = eval_target(host, port, qam_ws, CLICK_TAB_EXPR)
     return result == "ok"
 
+# JavaScript expression to click the Deck Shelves tab in QAM
+CLICK_TAB_EXPR = """
+(function() {
+    var els = document.querySelectorAll('[role=tab], button');
+    for (var el of els) {
+        if (el.children.length === 0 && (el.textContent || '').trim() === 'Deck Shelves') {
+            var target = el.closest('button') || el.closest('[role=tab]') || el.parentElement || el;
+            target.click();
+            return 'ok';
+        }
+    }
+    return 'not found';
+})()
+"""
 
 def click_qam_button(host: str, port: int, qam_ws: str, svg_hint: str, index: int = 0) -> bool:
     """Click a button in the QAM by matching SVG content hint."""
@@ -350,9 +335,11 @@ def screenshot_home(host: str, port: int, bp: Dict) -> Optional[Path]:
     for _ in range(5):
         scroll_bp(host, port, bp, -2000)
         time.sleep(0.2)
-    # Fechar overlays
-    dismiss_bp_escape(host, port, bp)
-    time.sleep(0.5)
+    # Fechar overlays e menus múltiplas vezes para garantir foco
+    for _ in range(3):
+        dismiss_bp_escape(host, port, bp)
+        time.sleep(0.3)
+    time.sleep(0.7)
     print("  Capturando Home screen...")
     return capture_bigpicture(host, port, bp, "home.png")
 
@@ -360,6 +347,19 @@ def screenshot_home(host: str, port: int, bp: Dict) -> Optional[Path]:
 def screenshot_home_shelves(host: str, port: int, bp: Dict) -> Optional[Path]:
     """Scroll to top, then down to first shelf and capture."""
     bp_ws = ws_path_for(bp, port)
+
+    # Navega explicitamente para Home e fecha overlays
+    print("  Garantindo que está na Home e sem overlays...")
+    try:
+        eval_target(host, port, ws_path_for(bp, port), "SteamClient.Navigation.Navigate('/library/home')")
+        time.sleep(2.0)
+        # Fechar overlays e menus múltiplas vezes para garantir foco
+        for _ in range(3):
+            dismiss_bp_escape(host, port, bp)
+            time.sleep(0.3)
+        time.sleep(0.7)
+    except Exception as e:
+        print(f"  [WARN] Falha ao garantir Home: {e}")
 
     # Scroll all the way to top first
     print("  Scrolling to top...")
@@ -407,6 +407,12 @@ def screenshot_home_shelves(host: str, port: int, bp: Dict) -> Optional[Path]:
 
     # Extra settle time for scroll animation and asset loading to finish
     time.sleep(3.0)
+
+    # Garante que nenhum overlay/QAM/menu está aberto
+    for _ in range(3):
+        dismiss_bp_escape(host, port, bp)
+        time.sleep(0.3)
+    time.sleep(0.7)
 
     result = capture_bigpicture(host, port, bp, "home-shelves.png")
 
@@ -486,19 +492,49 @@ def screenshot_game_detail(host: str, port: int, bp: Dict, shared_ws: str) -> Op
 
     print(f"  Activating game card (appid {appid})...")
     eval_target(host, port, bp_ws, f"""
-(function() {{
-    var card = document.querySelector('.ds-card[data-appid="{appid}"]');
-    if (card) card.dispatchEvent(new Event('vgp_onok', {{bubbles: true}}));
-}})()
-""")
+        (function() {{
+            var card = document.querySelector('.ds-card[data-appid=\"{appid}\"]');
+            if (card) card.dispatchEvent(new Event('vgp_onok', {{bubbles: true}}));
+        }})()
+    """)
     time.sleep(3.0)
-    result = capture_bigpicture(host, port, bp, "game-detail.png")
 
-    print("  Navigating back to Home...")
-    eval_target(host, port, ws_path_for(find_target(get_targets(host, port), "SharedJSContext"), port),
-                "SteamClient.Navigation.Navigate('/library/home')")
-    time.sleep(3.0)
-    return result
+    # Apenas garante retorno à Home, sem capturar screenshot
+    print("  Tentando voltar para Home pressionando B...")
+    def is_home():
+        # Verifica se está na Home pelo seletor de prateleiras
+        try:
+            val = eval_target(host, port, bp_ws, "document.querySelectorAll('.ds-card[data-appid]').length")
+            return val is not None and int(val) > 0
+        except Exception:
+            return False
+
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        if is_home():
+            print("  Retornou para Home com sucesso.")
+            break
+        # Pressiona B (Escape)
+        print(f"  Pressionando B (tentativa {attempt+1})...")
+        ws_path = ws_path_for(bp, port)
+        sock = ws_connect(host, port, ws_path)
+        try:
+            cdp_call(sock, "Input.dispatchKeyEvent", {
+                "type": "keyDown", "key": "Escape", "code": "Escape",
+                "windowsVirtualKeyCode": 27, "nativeVirtualKeyCode": 27,
+            }, msg_id=1)
+            time.sleep(0.2)
+            cdp_call(sock, "Input.dispatchKeyEvent", {
+                "type": "keyUp", "key": "Escape", "code": "Escape",
+                "windowsVirtualKeyCode": 27, "nativeVirtualKeyCode": 27,
+            }, msg_id=2)
+        finally:
+            sock.close()
+        time.sleep(2.0)
+    else:
+        print("  [WARN] Não foi possível garantir retorno à Home após 3 tentativas.")
+
+    return None
 
 
 def screenshot_game_menu(host: str, port: int, bp: Dict, shared_ws: str) -> Optional[Path]:
@@ -722,6 +758,7 @@ def screenshot_shelf_export(host: str, port: int, bp: Dict, shared_ws: str, qam_
 def main() -> int:
     # Limpar todos os arquivos da pasta de screenshots antes de gerar novos
     screenshots_dir = PROJECT_ROOT / "assets" / "screenshots"
+    explicacoes = []
     if screenshots_dir.exists() and screenshots_dir.is_dir():
         for f in screenshots_dir.iterdir():
             if f.is_file():
@@ -800,139 +837,154 @@ def main() -> int:
 
     # Always capture in robust, explicit order for 'all'
 
-    if args.target == "all":
-        captured: List[Path] = []
+    captured: List[Path] = []
 
-        print("\n[screenshot] home-shelves ...")
-        p = screenshot_home_shelves(args.host, args.port, bp)
-        if p: captured.append(p)
-        time.sleep(2.5)
 
-        print("\n[screenshot] home ...")
-        # Forçar navegação para a Home antes do print
-        try:
-            eval_target(args.host, args.port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
-            time.sleep(3.0)  # Espera para garantir que a Home carregue
-            # Fechar overlays que possam estar abertos
-            dismiss_bp_escape(args.host, args.port, bp)
-            time.sleep(0.5)
-        except Exception as e:
-            print(f"  [WARN] Falha ao navegar para Home: {e}")
-        p = screenshot_home(args.host, args.port, bp)
-        if p: captured.append(p)
-        time.sleep(2.5)
 
-        print("\n[screenshot] game-menu ...")
-        try:
-            p = screenshot_game_menu(args.host, args.port, bp, shared_ws)
-            if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] game-menu screenshot failed: {e}")
+
+
+
+    # HOME: Garante topo, overlays fechados, print
+    print("\n[screenshot] home ...")
+    eval_target(args.host, args.port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
+    time.sleep(3.0)
+    for _ in range(6):
+        scroll_bp(args.host, args.port, bp, -2000)
+        time.sleep(0.15)
+    for _ in range(6):
+        dismiss_bp_escape(args.host, args.port, bp)
+        time.sleep(0.15)
+    p = capture_bigpicture(args.host, args.port, bp, "home.png")
+    if p:
+        captured.append(p)
+        explicacoes.append(("home.png", "Tela inicial da Steam Deck mostrando as prateleiras personalizadas do plugin Deck Shelves."))
+    time.sleep(1.2)
+
+    # HOME-SHELVES: Scroll até a segunda prateleira, overlays fechados, print
+    print("\n[screenshot] home-shelves ... (segunda prateleira)")
+    bp_ws = ws_path_for(bp, args.port)
+    shelf_rows = eval_target(args.host, args.port, bp_ws, """
+(function() {
+    var cards = Array.from(document.querySelectorAll('.ds-card'));
+    if (cards.length < 2) return null;
+    var rows = cards.map(card => card.closest('[class*=HorizontalScroll], [class*=Row]') || card.parentElement);
+    var uniqueRows = [];
+    var seen = new Set();
+    for (var row of rows) {
+        if (!row) continue;
+        var key = row.getBoundingClientRect().top + ':' + row.getBoundingClientRect().left;
+        if (!seen.has(key)) { uniqueRows.push(row); seen.add(key); }
+    }
+    if (uniqueRows.length < 2) return null;
+    return uniqueRows.slice(0,2).map(row => row.getBoundingClientRect().top);
+})()
+""")
+    if not shelf_rows or not isinstance(shelf_rows, list) or len(shelf_rows) < 2:
+        print("  [ERROR] At least 2 shelves are required for the home-shelves screenshot. Please create a second shelf and try again.")
+        return 1
+    row_top = shelf_rows[1]
+    target_y = 200
+    scroll_needed = int(row_top - target_y)
+    if scroll_needed > 50:
+        steps = max(1, scroll_needed // 300)
+        per_step = scroll_needed // steps
+        for _ in range(steps):
+            scroll_bp(args.host, args.port, bp, per_step)
+            time.sleep(0.25)
+        time.sleep(2.0)
+    else:
+        time.sleep(1.0)
+    for _ in range(6):
+        dismiss_bp_escape(args.host, args.port, bp)
+        time.sleep(0.15)
+    p = capture_bigpicture(args.host, args.port, bp, "home-shelves.png")
+    if p:
+        captured.append(p)
+        explicacoes.append(("home-shelves.png", "Home descida até a segunda prateleira, mostrando mais detalhes das coleções."))
+    time.sleep(1.2)
+
+
+    print("\n[screenshot] game-detail ... (primeira prateleira)")
+    screenshot_game_detail(args.host, args.port, bp, shared_ws)
+    time.sleep(2.0)
+
+    try:
+        eval_target(args.host, args.port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
+        time.sleep(2.0)
+        dismiss_bp_escape(args.host, args.port, bp)
+        time.sleep(0.5)
+    except Exception as e:
+        print(f"  [WARN] Falha ao voltar para Home: {e}")
+
+    print("\n[screenshot] game-menu ... (segunda prateleira)")
+    p = screenshot_game_menu(args.host, args.port, bp, shared_ws)
+    if p:
+        captured.append(p)
+        explicacoes.append(("game-menu.png", "Menu de contexto do primeiro jogo da segunda prateleira (botão menu)."))
+    time.sleep(2.0)
+
+    print("\n[screenshot] qam ...")
+    p = screenshot_qam(args.host, args.port, bp, shared_ws, qam_ws, qam)
+    if p:
+        captured.append(p)
+        explicacoes.append(("qam.png", "Quick Access Menu aberto na aba do plugin Deck Shelves."))
+    time.sleep(2.0)
+
+    print("\n[screenshot] shelf-hidden ... (ocultando prateleira)")
+    if qam_ws:
+        p = screenshot_shelf_hidden(args.host, args.port, bp, shared_ws, qam_ws, qam)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-hidden.png", "Prateleira oculta via menu do plugin (QAM)."))
+        time.sleep(2.0)
+
+    print("\n[screenshot] shelf-actions ...")
+    if qam_ws:
+        p = screenshot_shelf_actions(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-actions.png", "Menu de ações da prateleira (reticências)."))
         time.sleep(1.5)
 
-        print("\n[screenshot] qam ...")
-        try:
-            p = screenshot_qam(args.host, args.port, bp, shared_ws, qam_ws, qam)
-            if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] QAM screenshot failed: {e}")
+    print("\n[screenshot] shelf-edit ...")
+    if qam_ws:
+        p = screenshot_shelf_edit(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-edit.png", "Modal de edição de prateleira."))
+        time.sleep(1.5)
 
-        print("\n[screenshot] shelf-actions ...")
-        try:
-            if qam_ws:
-                p = screenshot_shelf_actions(args.host, args.port, bp, shared_ws, qam_ws)
-                if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] shelf-actions screenshot failed: {e}")
+    print("\n[screenshot] shelf-delete ...")
+    if qam_ws:
+        p = screenshot_shelf_delete(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-delete.png", "Confirmação de exclusão de prateleira."))
+        time.sleep(1.5)
 
-        print("\n[screenshot] shelf-edit ...")
-        try:
-            if qam_ws:
-                p = screenshot_shelf_edit(args.host, args.port, bp, shared_ws, qam_ws)
-                if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] shelf-edit screenshot failed: {e}")
+    print("\n[screenshot] shelf-import ...")
+    if qam_ws:
+        p = screenshot_shelf_import(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-import.png", "Modal de importação de prateleiras."))
+        time.sleep(1.5)
 
-        print("\n[screenshot] shelf-hidden ...")
-        try:
-            if qam_ws:
-                # Hide a shelf, capture QAM, then unhide
-                p = screenshot_shelf_hidden(args.host, args.port, bp, shared_ws, qam_ws, qam)
-                if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] shelf-hidden screenshot failed: {e}")
-
-        print("\n[screenshot] game-detail ...")
-        try:
-            p = screenshot_game_detail(args.host, args.port, bp, shared_ws)
-            if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] game-detail screenshot failed: {e}")
-
-        print("\n[screenshot] shelf-delete ...")
-        try:
-            if qam_ws:
-                p = screenshot_shelf_delete(args.host, args.port, bp, shared_ws, qam_ws)
-                if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] shelf-delete screenshot failed: {e}")
-
-        print("\n[screenshot] shelf-import ...")
-        try:
-            if qam_ws:
-                p = screenshot_shelf_import(args.host, args.port, bp, shared_ws, qam_ws)
-                if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] shelf-import screenshot failed: {e}")
-
-        print("\n[screenshot] shelf-export ...")
-        try:
-            if qam_ws:
-                p = screenshot_shelf_export(args.host, args.port, bp, shared_ws, qam_ws)
-                if p: captured.append(p)
-        except Exception as e:
-            print(f"  [ERROR] shelf-export screenshot failed: {e}")
-
-    else:
-        want = ALL_TARGETS if args.target == "all" else [args.target]
-        captured: List[Path] = []
-        for name in want:
-            print(f"\n[screenshot] {name} ...")
-            p = None
-            try:
-                if name == "home":
-                    p = screenshot_home(args.host, args.port, bp)
-                elif name == "home-shelves":
-                    p = screenshot_home_shelves(args.host, args.port, bp)
-                elif name == "qam":
-                    p = screenshot_qam(args.host, args.port, bp, shared_ws, qam_ws, qam)
-                elif name == "game-detail":
-                    p = screenshot_game_detail(args.host, args.port, bp, shared_ws)
-                elif name == "game-menu":
-                    p = screenshot_game_menu(args.host, args.port, bp, shared_ws)
-                elif name == "shelf-actions" and qam_ws:
-                    p = screenshot_shelf_actions(args.host, args.port, bp, shared_ws, qam_ws)
-                elif name == "shelf-edit" and qam_ws:
-                    p = screenshot_shelf_edit(args.host, args.port, bp, shared_ws, qam_ws)
-                elif name == "shelf-hidden" and qam_ws:
-                    p = screenshot_shelf_hidden(args.host, args.port, bp, shared_ws, qam_ws, qam)
-                elif name == "shelf-delete" and qam_ws:
-                    p = screenshot_shelf_delete(args.host, args.port, bp, shared_ws, qam_ws)
-                elif name == "shelf-import" and qam_ws:
-                    p = screenshot_shelf_import(args.host, args.port, bp, shared_ws, qam_ws)
-                elif name == "shelf-export" and qam_ws:
-                    p = screenshot_shelf_export(args.host, args.port, bp, shared_ws, qam_ws)
-                else:
-                    print(f"  [WARN] Skipping {name} (requires QAM target)")
-            except Exception as e:
-                print(f"  [ERROR] {name} screenshot failed: {e}")
-            if p:
-                captured.append(p)
+    print("\n[screenshot] shelf-export ...")
+    if qam_ws:
+        p = screenshot_shelf_export(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-export.png", "Modal de exportação de prateleiras."))
+        time.sleep(1.5)
 
     if captured:
         print(f"\n[screenshot] Saved {len(captured)} screenshot(s):")
         for p in captured:
             print(f"  {p.relative_to(PROJECT_ROOT)}")
+        print("\nExplicações das imagens geradas:")
+        for fname, texto in explicacoes:
+            print(f"- {fname}: {texto}")
         return 0
     else:
         print("\n[screenshot] No screenshots captured.")

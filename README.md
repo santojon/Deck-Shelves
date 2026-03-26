@@ -11,7 +11,8 @@
 [![Compatibility](https://img.shields.io/badge/checks-20%2F20-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 ![Platform](https://img.shields.io/badge/platform-Steam%20OS-orange.svg)
 ![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=brightgreen)
-[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon) [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/santojon)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/santojon)
 
 A [Decky Loader](https://decky.xyz) plugin for Steam Deck that injects configurable shelves into the Home screen with a built-in Quick Access Menu editor.
 
@@ -54,10 +55,6 @@ A [Decky Loader](https://decky.xyz) plugin for Steam Deck that injects configura
 </p>
 
 #### Game Actions
-
-<p align="center">
-  <img src="assets/screenshots/game-detail.png" alt="Deck Shelves — Game Detail (A Button)" width="768">
-</p>
 
 <p align="center">
   <img src="assets/screenshots/game-menu.png" alt="Deck Shelves — Game Context Menu (Menu Button)" width="768">
