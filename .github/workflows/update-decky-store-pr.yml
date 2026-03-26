@@ -9,19 +9,16 @@ jobs:
   update-decky-store-pr:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: false
 
-      - name: Checkout main branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.SUBMIT_TOKEN }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
@@ -29,26 +26,65 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
+      - name: Resolve plugin and author info
+        id: meta
+        run: |
+          PLUGIN_NAME=$(node -p "require('./plugin.json').name")
+          PLUGIN_AUTHOR=$(node -p "require('./plugin.json').author")
+          VERSION=$(node -p "require('./package.json').version")
+          COMMIT=$(git rev-parse HEAD)
+          PLUGIN_SLUG=$(echo "$PLUGIN_NAME" | tr ' ' '-')
+          echo "plugin_name=$PLUGIN_NAME" >> "$GITHUB_OUTPUT"
+          echo "plugin_author=$PLUGIN_AUTHOR" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "plugin_slug=$PLUGIN_SLUG" >> "$GITHUB_OUTPUT"
+
       - name: Set up git user
         run: |
-          git config user.name "Jonathan Santos"
-          git config user.email "santojon@users.noreply.github.com"
+          git config --global user.name "${{ steps.meta.outputs.plugin_author }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Fetch and checkout decky-store branch
-        run: |
-          git fetch origin decky-store:decky-store || git checkout -b decky-store
-          git checkout decky-store || git checkout -b decky-store
-          git reset --hard origin/main
-
-      - name: Build and package
-        run: |
-          pnpm run build:release
-          pnpm run dist
-
-      - name: Commit and push update
+      - name: Clone database fork & update PR branch
         env:
           GH_TOKEN: ${{ secrets.SUBMIT_TOKEN }}
         run: |
+          set -euo pipefail
+          PLUGIN="${{ steps.meta.outputs.plugin_name }}"
+          PLUGIN_SLUG="${{ steps.meta.outputs.plugin_slug }}"
+          FORK="${{ vars.DECKY_DATABASE_FORK }}"
+          COMMIT="${{ steps.meta.outputs.commit }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          BRANCH="submit-${PLUGIN_SLUG}-v${VERSION}"
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "❌ SUBMIT_TOKEN secret is not set."
+            exit 1
+          fi
+          if [[ -z "${FORK:-}" ]]; then
+            echo "❌ DECKY_DATABASE_FORK variable is not set."
+            exit 1
+          fi
+
+          echo "📦 Cloning fork: ${FORK}"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" db-fork
+          cd db-fork
+
+          git remote add upstream https://github.com/SteamDeckHomebrew/decky-plugin-database.git 2>/dev/null || true
+          git fetch upstream main --depth=1
+
+          # Create or reset PR branch to upstream/main
+          git checkout -B "${BRANCH}" upstream/main
+
+          # Remove old submodule and add new one at latest commit
+          rm -rf "plugins/${PLUGIN}"
+          REPO_URL="https://github.com/${{ github.repository }}.git"
+          git submodule add "$REPO_URL" "plugins/${PLUGIN}"
+          cd "plugins/${PLUGIN}"
+          git fetch origin main
+          git checkout "$COMMIT"
+          cd ../..
+
           git add .
-          git commit -m "Atualiza branch decky-store para o último commit da main" || echo "No changes to commit"
-          git push origin decky-store --force
+          git commit -m "Update ${PLUGIN} to v${VERSION} (commit $COMMIT)" || echo "No changes to commit"
+          git push -u origin "${BRANCH}" --force
