@@ -6,15 +6,17 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![License](https://img.shields.io/github/license/santojon/Deck-Shelves)](LICENSE)
 [![Compatibility](https://img.shields.io/badge/checks-20%2F20-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
+
+[![License](https://img.shields.io/github/license/santojon/Deck-Shelves)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Steam%20OS-orange.svg)
 ![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=brightgreen)
+
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/santojon)
+[![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest)](https://github.com/santojon/Deck-Shelves/releases/latest)
 
-A [Decky Loader](https://decky.xyz) plugin for Steam Deck that injects configurable shelves into the Home screen with a built-in Quick Access Menu editor.
+A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable shelves into the Home screen with a built-in Quick Access Menu editor.
 
 <p align="center">
   <img src="assets/deck-shelves.png" alt="Deck Shelves — Home Screen" width="768">

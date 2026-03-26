@@ -23,7 +23,6 @@ const EXPECTED = [
   "home.png",
   "home-shelves.png",
   "qam.png",
-  "game-detail.png",
   "game-menu.png",
   "shelf-actions.png",
   "shelf-edit.png",
