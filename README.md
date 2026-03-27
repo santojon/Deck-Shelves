@@ -207,29 +207,13 @@ bash scripts/build/validate-compat.sh
 | Decky Loader 3.x (API v1) | ✅ |
 | Decky Loader (API v1) | ✅ |
 | Decky Store (Publishing) | ✅ |
-| Decky Store Submission (Review Checklist) | ✅ |
 
 ### SteamOS
 
 | Check | Status |
 |---|---|
-| SteamOS 3.5 (Stable) | ✅ |
-| SteamOS 3.6 (Beta) | ✅ |
-| SteamOS 3.7 (Preview) | ✅ |
-| SteamOS 3.8 (Preview/Beta) | ✅ |
+| SteamOS (3.5–3.8) | ✅ |
 | SteamOS GamepadUI (3.5–3.8) | ✅ |
-
-### Plugins
-
-| Check | Status |
-|---|---|
-| TabMaster (Coexistence) | ✅ |
-| UnifiDeck (Coexistence) | ✅ |
-| CSS Loader (Coexistence) | ✅ |
-| Obsidian Theme (CSS Loader Theme) | ✅ |
-| CheatDeck (Coexistence) | ✅ |
-| HLTB (Coexistence) | ✅ |
-| SteamGridDB (Coexistence) | ✅ |
 
 ### Project
 
