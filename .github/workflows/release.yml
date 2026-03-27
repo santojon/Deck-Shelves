@@ -29,16 +29,12 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: TypeScript check
-        run: pnpm run typecheck
-
-      - name: Static validation
-        run: node scripts/build/validate.mjs
-
-      - name: Build release archive
-        run: pnpm run dist
-
-      - name: Run compatibility checks
-        run: bash scripts/build/validate-compat.sh
+        run: |
+          pnpm run typecheck
+          node scripts/build/validate.mjs
+          pnpm run dist
+          pnpm run verify:package
+          bash scripts/build/validate-compat.sh
 
       - name: Resolve release tag
         id: meta

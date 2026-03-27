@@ -78,6 +78,7 @@ jobs:
           pnpm run typecheck
           node scripts/build/validate.mjs
           pnpm run dist
+          pnpm run verify:package
           bash scripts/build/validate-compat.sh
 
       - name: Verify release zip

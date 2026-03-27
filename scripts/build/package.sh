@@ -46,7 +46,7 @@ if [[ -d i18n ]]; then mkdir -p "$PLUGIN_DIR/i18n" && rsync -a i18n/ "$PLUGIN_DI
 echo "[package] Created installable archive: $ZIP"
 
 # Verify package integrity and permissions
-if ! bash "$(dirname "$0")/verify-package.sh" "../../$ZIP"; then
+if ! bash "$(dirname "$0")/verify-package.sh" "$(pwd)/$ZIP"; then
   echo "[package] Package verification failed!" >&2
   exit 1
 fi
