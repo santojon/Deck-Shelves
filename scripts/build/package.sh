@@ -23,6 +23,9 @@ cp main.py "$PLUGIN_DIR/main.py"
 cp README.md "$PLUGIN_DIR/README.md"
 cp LICENSE "$PLUGIN_DIR/LICENSE"
 
+# Ensure backend is executable
+chmod +x "$PLUGIN_DIR/main.py"
+
 # Copy built frontend (non-minified build expected from development mode)
 rsync -a dist/ "$PLUGIN_DIR/dist/"
 
@@ -40,5 +43,10 @@ if [[ -d i18n ]]; then mkdir -p "$PLUGIN_DIR/i18n" && rsync -a i18n/ "$PLUGIN_DI
   cd "$STAGE_ROOT"
   zip -qr "../../$ZIP" "$NAME"
 )
-
 echo "[package] Created installable archive: $ZIP"
+
+# Verify package integrity and permissions
+if ! bash "$(dirname "$0")/verify-package.sh" "../../$ZIP"; then
+  echo "[package] Package verification failed!" >&2
+  exit 1
+fi
