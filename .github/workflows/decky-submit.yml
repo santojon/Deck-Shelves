@@ -83,7 +83,8 @@ jobs:
 
       - name: Verify release zip
         run: |
-          ZIP="Deck-Shelves-v${{ steps.meta.outputs.version }}.zip"
+          SLUG=$(node -p 'require("./package.json").name')
+          ZIP="${SLUG}-v${{ steps.meta.outputs.version }}.zip"
           if [[ ! -f "$ZIP" ]]; then
             echo "❌ Release zip not found: $ZIP"
             exit 1

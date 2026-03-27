@@ -16,7 +16,7 @@ if [[ -z "$HOST" ]]; then
 fi
 
 PLUGIN_SLUG="deck-shelves"
-DEV_DIR="/home/${USER_NAME}/dev-plugins/${PLUGIN_SLUG}"
+DEV_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
 STAGE_DIR=".deploy/${PLUGIN_SLUG}"
 
 pnpm run build
@@ -29,18 +29,19 @@ if [[ -d assets ]]; then mkdir -p "${STAGE_DIR}/assets" && rsync -a assets/ "${S
 if [[ -d i18n ]]; then mkdir -p "${STAGE_DIR}/i18n" && rsync -a i18n/ "${STAGE_DIR}/i18n/"; fi
 
 bash scripts/deck/fix-deck-perms.sh "${HOST}" "${USER_NAME}"
+# Upload files to the dev dir as the remote user (avoid creating root-owned files)
 rsync -az --delete --no-perms --omit-dir-times "${STAGE_DIR}/" "${USER_NAME}@${HOST}:${DEV_DIR}/"
 
-# Sync plugin files to the Decky plugins directory (real copy, not symlink)
-# Decky's web server does not follow symlinks, so we must copy files directly.
-# homebrew/plugins/ is owned by root, so we always use sudo for cleanup and ownership.
-PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/Deck Shelves"
-PLUGIN_DIR_ESCAPED="/home/${USER_NAME}/homebrew/plugins/Deck\ Shelves"
-ssh -t "${USER_NAME}@${HOST}" "sudo rm -rf '${PLUGIN_DIR}' && sudo mkdir -p '${PLUGIN_DIR}' && sudo chown -R ${USER_NAME}:${USER_NAME} '${PLUGIN_DIR}'"
-rsync -az --delete --no-perms --omit-dir-times "${STAGE_DIR}/" "${USER_NAME}@${HOST}:${PLUGIN_DIR_ESCAPED}/"
+PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
+# Create target dir if missing and ensure ownership — prefer running as the remote user
+ssh "${USER_NAME}@${HOST}" "mkdir -p '${PLUGIN_DIR}' && chown -R ${USER_NAME}:${USER_NAME} '${PLUGIN_DIR}' || true"
+rsync -az --delete --no-perms --omit-dir-times "${STAGE_DIR}/" "${USER_NAME}@${HOST}:${PLUGIN_DIR}/"
 
 # Verify dist/index.js
 ssh "${USER_NAME}@${HOST}" "ls '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] ERROR: dist/index.js not found!'"
+
+# Ensure executable bits for backend on remote (rsync --no-perms may remove +x)
+ssh "${USER_NAME}@${HOST}" "chmod -R u+rwX '${PLUGIN_DIR}' || true"
 
 if [[ "$HARD" == "1" ]]; then
   ssh "${USER_NAME}@${HOST}" "killall steam >/dev/null 2>&1 || true"

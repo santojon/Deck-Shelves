@@ -98,7 +98,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 ### Manual Installation
 
-1. Download the latest `Deck-Shelves-v*.zip` from the [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest)
+1. Download the latest `deck-shelves-v*.zip` from the [Releases page](https://github.com/santojon/Deck-Shelves/releases/latest)
 2. In game mode, go to Decky config page -> Developer -> Install from zip file
 3. Select the downloaded zip file and confirm
 4. Restart Steam if prompted

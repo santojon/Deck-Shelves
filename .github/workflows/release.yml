@@ -67,4 +67,4 @@ jobs:
           body: ${{ steps.meta.outputs.body || '' }}
           generate_release_notes: ${{ steps.meta.outputs.body == '' }}
           files: |
-            Deck-Shelves-v*.zip
+            deck-shelves-v*.zip

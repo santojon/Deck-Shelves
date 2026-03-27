@@ -10,8 +10,9 @@ fi
 
 ZIP="$(bash scripts/build/package.sh | sed -n 's/^\[package\] Created installable archive: //p' | tail -n1)"
 if [[ -z "$ZIP" || ! -f "$ZIP" ]]; then
-  VERSION="$(node -p "require('./package.json').version")"
-  ZIP="Deck-Shelves-v${VERSION}.zip"
+  VERSION="$(node -p 'require("./package.json").version')"
+  SLUG="$(node -p 'require("./package.json").name')"
+  ZIP="${SLUG}-v${VERSION}.zip"
 fi
 
 REMOTE_PATH="/home/${USER_NAME}/Downloads/${ZIP}"

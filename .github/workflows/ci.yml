@@ -45,4 +45,4 @@ jobs:
         with:
           name: deck-shelves-${{ github.sha }}
           path: |
-            Deck-Shelves-v*.zip
+            deck-shelves-v*.zip

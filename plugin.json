@@ -2,7 +2,9 @@
   "name": "Deck Shelves",
   "author": "Jonathan Santos",
   "api_version": 1,
-  
+  "flags": [
+    "debug"
+  ],
   "publish": {
     "tags": [
       "customization",
@@ -14,6 +16,6 @@
       "filters"
     ],
     "description": "Inject configurable shelves (Collections / Tabs / Filters) into the Steam Deck Home (library/home).",
-    "image": "https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/deck-shelves.png"
+    "image": "https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/home.png"
   }
 }
