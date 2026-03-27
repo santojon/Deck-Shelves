@@ -8,31 +8,33 @@ STAGE_ROOT="build/package"
 PLUGIN_DIR="${STAGE_ROOT}/${NAME}"
 ZIP="Deck-Shelves-v${VERSION}.zip"
 
-pnpm run build:release
+# Build in development mode to avoid minification
+pnpm run build
 
 rm -rf build "$ZIP"
 mkdir -p "$PLUGIN_DIR/dist"
 
-python3 -c "
-import json
-with open('plugin.json') as f: data = json.load(f)
-data.pop('flags', None)
-with open('${PLUGIN_DIR}/plugin.json', 'w') as f: json.dump(data, f, indent=2)
-"
+# Copy plugin.json and package.json verbatim (do not alter)
+cp plugin.json "${PLUGIN_DIR}/plugin.json"
+cp package.json "${PLUGIN_DIR}/package.json"
 
-python3 -c "
-import json
-with open('package.json') as f: data = json.load(f)
-out = {k: data[k] for k in ('name','version','description','author','license') if k in data}
-with open('${PLUGIN_DIR}/package.json', 'w') as f: json.dump(out, f, indent=2)
-"
-
+# Copy backend and docs
 cp main.py "$PLUGIN_DIR/main.py"
 cp README.md "$PLUGIN_DIR/README.md"
 cp LICENSE "$PLUGIN_DIR/LICENSE"
+
+# Copy built frontend (non-minified build expected from development mode)
 rsync -a dist/ "$PLUGIN_DIR/dist/"
-if [[ -d assets ]]; then mkdir -p "$PLUGIN_DIR/assets" && rsync -a assets/ "$PLUGIN_DIR/assets/"; fi
+
+# Copy assets but exclude screenshots to keep bundle smaller
+if [[ -d assets ]]; then
+  mkdir -p "$PLUGIN_DIR/assets" && rsync -a --exclude 'screenshots/' assets/ "$PLUGIN_DIR/assets/"
+fi
+
+# Copy i18n
 if [[ -d i18n ]]; then mkdir -p "$PLUGIN_DIR/i18n" && rsync -a i18n/ "$PLUGIN_DIR/i18n/"; fi
+
+# Do not include source files in release package (single bundled index.js desired)
 
 (
   cd "$STAGE_ROOT"
