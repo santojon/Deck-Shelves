@@ -246,6 +246,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
       ref={cardRef}
       className="ds-card"
       focusClassName="gpfocus"
+      role="listitem"
       onActivate={item.onActivate}
       onOKButton={item.onActivate}
       onMenuButton={item.onMenuButton}
@@ -460,6 +461,7 @@ export function DeckRow({ title, items }: { title?: string; items: DeckRowItem[]
   return (
     <div
       ref={outerRef}
+      className="Panel"
       style={{ marginBottom: 12, scrollMarginTop: 40, scrollMarginBottom: 40 }}
     >
       {title ? (

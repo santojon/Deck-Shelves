@@ -54,11 +54,6 @@ export function hasPendingFocus(): boolean {
   return !!pendingAppid;
 }
 
-/**
- * Try to restore focus to the previously focused shelf card.
- * Called from the polling loop after reparenting.
- * Returns true if focus was restored.
- */
 export function tryRestoreFocus(): boolean {
   if (!pendingAppid) return false;
   if (Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) {
@@ -79,6 +74,13 @@ export function tryRestoreFocus(): boolean {
   }
   if (!card) return false;
 
+  // Already has gamepad focus — we're done
+  if (card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement) {
+    pendingAppid = null;
+    pendingShelfId = null;
+    return true;
+  }
+
   const navNode = findNavNodeForElement(card);
 
   if (navNode) {
@@ -87,6 +89,7 @@ export function tryRestoreFocus(): boolean {
       if (typeof navNode.BTakeFocus === "function") {
         navNode.BTakeFocus(2 /* GAMEPAD */);
         pendingAppid = null;
+        pendingShelfId = null;
         return true;
       }
       // TakeFocus on the nav tree
@@ -94,6 +97,7 @@ export function tryRestoreFocus(): boolean {
       if (tree?.TakeFocus) {
         tree.TakeFocus(2 /* GAMEPAD */, navNode);
         pendingAppid = null;
+        pendingShelfId = null;
         return true;
       }
       // Fallback: OnGamepadNavigationTreeFocused on the controller
@@ -101,31 +105,21 @@ export function tryRestoreFocus(): boolean {
       if (ctrl?.OnGamepadNavigationTreeFocused && tree) {
         ctrl.OnGamepadNavigationTreeFocused(tree, navNode);
         pendingAppid = null;
+        pendingShelfId = null;
         return true;
       }
     } catch { /* ignore */ }
   }
 
-  // DOM fallback: focus the card element directly
   try {
     card.focus?.();
   } catch { /* ignore */ }
 
-  pendingAppid = null;
-  pendingShelfId = null;
   return false;
 }
 
 let focusObserver: MutationObserver | null = null;
 
-/**
- * Starts an aggressive focus-restoration loop backed by a MutationObserver.
- *
- * Instead of polling every 150ms, we watch for ANY class-attribute mutation on
- * the document body. Whenever something else acquires `gpfocus` while we have a
- * pending appid we immediately re-steal focus. This beats Steam's post-navigation
- * re-focus in all observed cases.
- */
 export function beginFocusRestoreLoop(): void {
   if (!pendingAppid) return;
 
@@ -199,7 +193,6 @@ export function beginFocusRestoreLoop(): void {
 
   focusObserver.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 
-  // Immediate attempt + periodic polling fallback
   attempt();
   const pollId = setInterval(() => {
     if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {

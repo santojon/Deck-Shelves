@@ -190,6 +190,149 @@ function hasAnyMethod(target: any, methodNames: string[]): boolean {
   return methodNames.some((name) => typeof target?.[name] === "function");
 }
 
+// ─── React fiber traversal for TabMaster context ───────────────────────────
+
+let tabMasterContextCache: { ts: number; value: any | null } | null = null;
+const TAB_MASTER_CACHE_TTL = 8000;
+
+/**
+ * Walks the React fiber tree from `startFiber` looking for a Context.Provider
+ * whose `memoizedProps.value` has the shape of TabMaster's context:
+ *   { visibleTabsList: TabContainer[], tabsMap: Map<string, TabContainer> }
+ *
+ * Uses an iterative DFS to avoid stack overflow on deep trees.
+ */
+function walkFiberForTabMasterValue(startFiber: any): any | null {
+  if (!startFiber) return null;
+  const stack: any[] = [startFiber];
+  const visited = new WeakSet();
+
+  while (stack.length > 0) {
+    const fiber = stack.pop();
+    if (!fiber || visited.has(fiber)) continue;
+    visited.add(fiber);
+
+    const val = fiber.memoizedProps?.value;
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const hasList = Array.isArray(val.visibleTabsList) && val.visibleTabsList.length > 0;
+      const hasMap = val.tabsMap instanceof Map && val.tabsMap.size > 0;
+      if (hasList || hasMap) return val;
+    }
+
+    if (fiber.child) stack.push(fiber.child);
+    if (fiber.sibling) stack.push(fiber.sibling);
+  }
+  return null;
+}
+
+/**
+ * Finds and caches TabMaster's React Context value by traversing the SP window
+ * fiber tree. Returns null if not found or if TabMaster is not installed.
+ */
+function findTabMasterContextValue(): any | null {
+  const now = Date.now();
+  if (tabMasterContextCache && now - tabMasterContextCache.ts < TAB_MASTER_CACHE_TTL) {
+    return tabMasterContextCache.value;
+  }
+
+  let value: any | null = null;
+  try {
+    const doc = getPreferredSteamDocument();
+    if (doc) {
+      const candidates = [
+        doc.getElementById("root"),
+        doc.body,
+        ...Array.from(doc.body.children).slice(0, 5),
+      ].filter(Boolean) as Element[];
+
+      for (const el of candidates) {
+        const fiberKey = Object.keys(el).find(
+          (k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"),
+        );
+        if (!fiberKey) continue;
+        const rootFiber = (el as any)[fiberKey];
+        if (!rootFiber) continue;
+        value = walkFiberForTabMasterValue(rootFiber);
+        if (value) break;
+      }
+    }
+  } catch {}
+
+  tabMasterContextCache = { ts: now, value };
+  return value;
+}
+
+/**
+ * Extracts the list of visible library tabs from TabMaster's React context.
+ * Returns an empty array if TabMaster is not installed or has no tabs.
+ */
+function getTabMasterTabs(): PlatformTab[] {
+  const ctx = findTabMasterContextValue();
+  if (!ctx) return [];
+  const out: PlatformTab[] = [];
+  const seen = new Set<string>();
+
+  if (Array.isArray(ctx.visibleTabsList)) {
+    for (const container of ctx.visibleTabsList) {
+      const id = String(container?.id ?? "").trim();
+      const name = String(container?.title ?? container?.name ?? "").trim();
+      if (id && name && !seen.has(id)) {
+        seen.add(id);
+        out.push({ id, name });
+      }
+    }
+  }
+
+  if (ctx.tabsMap instanceof Map) {
+    ctx.tabsMap.forEach((container: any, key: string) => {
+      const id = String(container?.id ?? key ?? "").trim();
+      const name = String(container?.title ?? container?.name ?? "").trim();
+      if (id && name && !seen.has(id)) {
+        seen.add(id);
+        out.push({ id, name });
+      }
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Resolves app IDs for a tab using TabMaster's collection.allApps Set.
+ * Returns an empty array if the tab is not found in TabMaster's context.
+ */
+function getTabMasterAppsForTab(tabId: string): number[] {
+  const ctx = findTabMasterContextValue();
+  if (!ctx?.tabsMap) return [];
+
+  const needle = normalizeText(tabId);
+  let tabContainer: any = null;
+
+  const matchScore = (container: any, key: string): number => {
+    const id = normalizeText(String(container?.id ?? key ?? ""));
+    const name = normalizeText(String(container?.title ?? container?.name ?? ""));
+    if (id === needle || name === needle) return 2;
+    if (id.includes(needle) || needle.includes(id) || name.includes(needle) || needle.includes(name)) return 1;
+    return 0;
+  };
+
+  let bestScore = 0;
+  if (ctx.tabsMap instanceof Map) {
+    ctx.tabsMap.forEach((container: any, key: string) => {
+      const score = matchScore(container, key);
+      if (score > bestScore) { bestScore = score; tabContainer = container; }
+    });
+  }
+
+  if (!tabContainer) return [];
+
+  const allApps = tabContainer?.collection?.allApps ?? tabContainer?.allApps;
+  if (allApps instanceof Set) {
+    return uniqNumbers(Array.from(allApps.values()).map(Number).filter(Number.isFinite));
+  }
+  return extractAppIdsDeep(allApps ?? tabContainer?.collection, 3);
+}
+
 function collectDynamicTabStores(): any[] {
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
@@ -297,6 +440,16 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
     { id: "hidden", name: "Hidden" },
     { id: "nonsteam", name: "Non-Steam" },
   ];
+
+  // React fiber traversal — finds TabMaster's context even though it doesn't expose globals
+  const tabMasterFiberTabs = getTabMasterTabs();
+  if (tabMasterFiberTabs.length > 0) {
+    try {
+      logInfo("STEAM", "listLibraryTabs: TabMaster fiber", { count: tabMasterFiberTabs.length, sample: tabMasterFiberTabs.slice(0, 6) });
+    } catch {}
+    return tabMasterFiberTabs;
+  }
+
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
 
@@ -1301,6 +1454,16 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
 
   if (source.type === "tab") {
     const rawTab = String(source.tab ?? "").trim();
+
+    // Try TabMaster fiber traversal first (works even when TabMaster exposes no globals)
+    const tabMasterIds = getTabMasterAppsForTab(rawTab);
+    if (tabMasterIds.length) {
+      try {
+        logInfo("STEAM", "resolveShelfAppIds(tab): TabMaster fiber", { tab: rawTab, count: tabMasterIds.length });
+      } catch {}
+      return tabMasterIds.slice(0, limit);
+    }
+
     let fromTabStore = await getTabAppIdsFromStore(rawTab);
     if (!fromTabStore.length && rawTab) {
       try {

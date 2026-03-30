@@ -448,7 +448,7 @@ async function buildShelfNode(shelf: Shelf): Promise<HTMLElement | null> {
     }
   }));
 
-  const section = doc.createElement("section");
+  const section = doc.createElement("div");
   section.className = "deck-shelves-section Panel";
 
   const header = doc.createElement("div");
@@ -475,15 +475,22 @@ async function buildShelfNode(shelf: Shelf): Promise<HTMLElement | null> {
   inner.setAttribute("data-shelf-id", shelf.id);
 
   for (const app of metas) {
-    inner.appendChild(createShelfCard(app, () => platform.navigateToApp(app.appid)));
+    const listItem = doc.createElement("div");
+    listItem.setAttribute("role", "listitem");
+    listItem.style.cssText = "position:relative;flex-shrink:0;display:inline-block;";
+    listItem.appendChild(createShelfCard(app, () => platform.navigateToApp(app.appid)));
+    inner.appendChild(listItem);
   }
 
-  const moreCard = createShelfCard(
+  const moreListItem = doc.createElement("div");
+  moreListItem.setAttribute("role", "listitem");
+  moreListItem.style.cssText = "position:relative;flex-shrink:0;display:inline-block;";
+  moreListItem.appendChild(createShelfCard(
     { appid: -1, name: i18next.t("view_more") },
     () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
     { isMore: true },
-  );
-  inner.appendChild(moreCard);
+  ));
+  inner.appendChild(moreListItem);
 
   const first = inner.querySelector<HTMLButtonElement>(".deck-shelves-item");
   if (first) first.classList.add("is-selected");
