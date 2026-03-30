@@ -15,6 +15,9 @@ __pycache__/
 *.pyd
 .pytest_cache/
 
+# VSCode
+.vscode/
+
 # Decky build artifacts
 bin/
 backend/out/
