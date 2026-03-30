@@ -24,10 +24,13 @@ run_checks() {
   fi
 
   local tab_files
-  tab_files=$(grep -rln "TabMasterStore\|TabMaster" "$src" 2>/dev/null | grep -v '\.d\.ts$')
+  # Only consider files where TabMaster appears outside of comment lines
+  tab_files=$(grep -rln "TabMasterStore\|TabMaster" "$src" 2>/dev/null | grep -v '\.d\.ts$' | while IFS= read -r f; do
+    if grep -v '^\s*[/*]' "$f" 2>/dev/null | grep -q "TabMasterStore\|TabMaster"; then echo "$f"; fi
+  done)
   local all_guarded=true
   for f in $tab_files; do
-    if grep -q "TabMasterStore\|TabMaster" "$f" 2>/dev/null; then
+    if grep -v '^\s*[/*]' "$f" 2>/dev/null | grep -q "TabMasterStore\|TabMaster"; then
       if ! grep -q "try {\|try$" "$f" 2>/dev/null; then
         all_guarded=false
         break

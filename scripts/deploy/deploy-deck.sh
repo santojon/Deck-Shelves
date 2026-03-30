@@ -2,6 +2,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load .env from project root if present
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a; source "${PROJECT_ROOT}/.env"; set +a
+fi
+
 HARD=0
 if [[ "${1:-}" == "--hard" ]]; then
   HARD=1
@@ -16,7 +24,7 @@ if [[ -z "$HOST" ]]; then
 fi
 
 PLUGIN_SLUG="deck-shelves"
-DEV_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
+PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
 STAGE_DIR=".deploy/${PLUGIN_SLUG}"
 
 pnpm run build
@@ -28,20 +36,14 @@ rsync -a dist/ "${STAGE_DIR}/dist/"
 if [[ -d assets ]]; then mkdir -p "${STAGE_DIR}/assets" && rsync -a assets/ "${STAGE_DIR}/assets/"; fi
 if [[ -d i18n ]]; then mkdir -p "${STAGE_DIR}/i18n" && rsync -a i18n/ "${STAGE_DIR}/i18n/"; fi
 
-bash scripts/deck/fix-deck-perms.sh "${HOST}" "${USER_NAME}"
-# Upload files to the dev dir as the remote user (avoid creating root-owned files)
-rsync -az --delete --no-perms --omit-dir-times "${STAGE_DIR}/" "${USER_NAME}@${HOST}:${DEV_DIR}/"
+# Ensure the remote plugin directory is owned by the remote user before rsync
+bash scripts/deck/fix-deck-perms.sh "${HOST}" "${USER_NAME}" "${PLUGIN_SLUG}"
 
-PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
-# Create target dir if missing and ensure ownership — prefer running as the remote user
-ssh "${USER_NAME}@${HOST}" "mkdir -p '${PLUGIN_DIR}' && chown -R ${USER_NAME}:${USER_NAME} '${PLUGIN_DIR}' || true"
+# Upload files (--no-perms avoids overwriting root-set permissions)
 rsync -az --delete --no-perms --omit-dir-times "${STAGE_DIR}/" "${USER_NAME}@${HOST}:${PLUGIN_DIR}/"
 
-# Verify dist/index.js
+# Verify dist/index.js landed
 ssh "${USER_NAME}@${HOST}" "ls '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] ERROR: dist/index.js not found!'"
-
-# Ensure executable bits for backend on remote (rsync --no-perms may remove +x)
-ssh "${USER_NAME}@${HOST}" "chmod -R u+rwX '${PLUGIN_DIR}' || true"
 
 if [[ "$HARD" == "1" ]]; then
   ssh "${USER_NAME}@${HOST}" "killall steam >/dev/null 2>&1 || true"
@@ -50,4 +52,4 @@ else
   echo "[deploy] Soft deploy complete. Decky debug mode should reload the plugin automatically."
 fi
 
-echo "[deploy] Runtime synced to ${USER_NAME}@${HOST}:${DEV_DIR}"
+echo "[deploy] Runtime synced to ${USER_NAME}@${HOST}:${PLUGIN_DIR}"

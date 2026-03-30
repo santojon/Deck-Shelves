@@ -1,3 +1,4 @@
+import type { FilterGroup, FilterItem } from "./types";
 import type { PlatformAppMeta, PlatformTab } from "./runtime/platform";
 import { logInfo, logWarn } from "./runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "./runtime/steamHost";
@@ -1141,6 +1142,76 @@ function resolveDynamicTab(tab: string, all: AppOverview[]): AppOverview[] {
   return byTab;
 }
 
+function evaluateFilterItem(item: FilterItem, app: AppOverview): boolean {
+  let result: boolean;
+  switch (item.type) {
+    case "installed":
+      result = isInstalledOf(app);
+      break;
+    case "favorites":
+      result = isFavoriteOf(app);
+      break;
+    case "nonSteam":
+      result = isNonSteamOf(app);
+      break;
+    case "hidden": {
+      const mode = item.params?.mode ?? "exclude";
+      if (mode === "only") result = isHiddenOf(app);
+      else if (mode === "exclude") result = !isHiddenOf(app);
+      else result = true;
+      break;
+    }
+    case "updatePending":
+      result = app.update_pending === true;
+      break;
+    case "deckCompatibility": {
+      const levels = item.params?.levels ?? [];
+      result = isDeckCompatMatch(app.deck_compatibility_category, levels);
+      break;
+    }
+    case "playedWithinDays": {
+      const days = Number(item.params?.days ?? 7);
+      const now = Math.floor(Date.now() / 1000);
+      const min = now - Math.floor(days * 86400);
+      result = lastPlayedOf(app) >= min;
+      break;
+    }
+    case "playtimeRange": {
+      const minHours: number | undefined = item.params?.minHours;
+      const maxHours: number | undefined = item.params?.maxHours;
+      const playtimeMinutes = app.playtime_forever ?? 0;
+      result = true;
+      if (typeof minHours === "number") result = playtimeMinutes >= minHours * 60;
+      if (result && typeof maxHours === "number") result = playtimeMinutes <= maxHours * 60;
+      break;
+    }
+    case "nameIncludes": {
+      const text = String(item.params?.text ?? "").toLowerCase();
+      result = !text || appNameOf(app).toLowerCase().includes(text);
+      break;
+    }
+    case "nameRegex": {
+      const pattern = String(item.params?.pattern ?? "");
+      if (!pattern) { result = true; break; }
+      try { result = new RegExp(pattern, "i").test(appNameOf(app)); }
+      catch { result = true; }
+      break;
+    }
+    default:
+      result = true;
+  }
+  return item.inverted ? !result : result;
+}
+
+function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[]): AppOverview[] {
+  if (!group.items || group.items.length === 0) return apps;
+  const mode = group.mode ?? "and";
+  if (mode === "or") {
+    return apps.filter((app) => group.items.some((item) => evaluateFilterItem(item, app)));
+  }
+  return apps.filter((app) => group.items.every((item) => evaluateFilterItem(item, app)));
+}
+
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number): Promise<number[]> {
   const all = await getAllAppOverviews();
 
@@ -1250,6 +1321,29 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
 
   if (source.type === "filter") {
     const f: CustomFilter = (source.filter ?? {}) as CustomFilter;
+
+    // New TabMaster-style filter group — takes priority over legacy flat fields
+    const filterGroup = (source.filter as any)?.filterGroup as FilterGroup | undefined;
+    if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
+      let filtered = evaluateFilterGroup(filterGroup, all);
+      const fSort = (source.filter as any)?.sort as string | undefined;
+      if (fSort === "recent") {
+        filtered = filtered.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
+      } else if (fSort === "playtime") {
+        filtered = filtered.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
+      } else {
+        filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+      }
+      const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
+      if (!ids.length) {
+        logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
+      } else {
+        logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
+      }
+      return ids;
+    }
+
+    // Legacy flat filter fields
     let filtered = all;
     if (f.favorites) filtered = filtered.filter((a) => isFavoriteOf(a));
     if (f.hidden === "only" || f.hidden === true) filtered = filtered.filter((a) => isHiddenOf(a));

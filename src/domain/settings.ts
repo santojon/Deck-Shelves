@@ -1,4 +1,4 @@
-import type { Settings, Shelf, ShelfFilter, ShelfSource } from "../types";
+import type { FilterGroup, FilterItem, Settings, Shelf, ShelfFilter, ShelfSource } from "../types";
 import { createDefaultFilter } from "./defaults";
 
 export function normalizeFilter(source: ShelfSource): ShelfFilter {
@@ -59,4 +59,73 @@ export function hiddenValueFromMode(mode: string): ShelfFilter["hidden"] {
   if (mode === "only") return "only";
   if (mode === "exclude") return false;
   return undefined;
+}
+
+/**
+ * Converts a legacy flat ShelfFilter into the new TabMaster-style FilterGroup.
+ * Used when opening an old shelf for editing in the new filter UI.
+ */
+export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
+  const items: FilterItem[] = [];
+
+  if (filter.installed !== undefined) {
+    items.push({ type: "installed", inverted: filter.installed === false, params: {} });
+  }
+  if (filter.favorites) {
+    items.push({ type: "favorites", inverted: false, params: {} });
+  }
+  if (filter.nonSteam) {
+    items.push({ type: "nonSteam", inverted: false, params: {} });
+  }
+  if (filter.hidden !== undefined) {
+    const mode = filter.hidden === "only" ? "only" : filter.hidden === false ? "exclude" : "any";
+    if (mode !== "any") {
+      items.push({ type: "hidden", inverted: false, params: { mode } });
+    }
+  }
+  if (filter.updatePending !== undefined) {
+    items.push({ type: "updatePending", inverted: filter.updatePending === false, params: {} });
+  }
+  if (filter.deckCompatibility && filter.deckCompatibility.length > 0) {
+    items.push({ type: "deckCompatibility", inverted: false, params: { levels: filter.deckCompatibility } });
+  }
+  if (typeof filter.playedWithinDays === "number") {
+    items.push({ type: "playedWithinDays", inverted: false, params: { days: filter.playedWithinDays } });
+  }
+  if (filter.minPlaytimeMinutes != null || filter.maxPlaytimeMinutes != null) {
+    items.push({
+      type: "playtimeRange",
+      inverted: false,
+      params: {
+        minHours: filter.minPlaytimeMinutes != null ? Math.round(filter.minPlaytimeMinutes / 60 * 10) / 10 : undefined,
+        maxHours: filter.maxPlaytimeMinutes != null ? Math.round(filter.maxPlaytimeMinutes / 60 * 10) / 10 : undefined,
+      },
+    });
+  }
+  if (filter.nameIncludes) {
+    items.push({ type: "nameIncludes", inverted: false, params: { text: filter.nameIncludes } });
+  }
+  if (filter.nameRegex) {
+    items.push({ type: "nameRegex", inverted: false, params: { pattern: filter.nameRegex } });
+  }
+
+  return { mode: "and", items };
+}
+
+/**
+ * Returns a ShelfFilter that uses the new filterGroup system, preserving the sort field.
+ */
+export function filterGroupToFilter(group: FilterGroup, sort: ShelfFilter["sort"] = "alphabetical"): ShelfFilter {
+  return { sort, filterGroup: group };
+}
+
+/**
+ * Returns the effective FilterGroup for a ShelfFilter — using the new filterGroup if present,
+ * or migrating from legacy fields otherwise.
+ */
+export function getEffectiveFilterGroup(filter: ShelfFilter): FilterGroup {
+  if (filter.filterGroup && Array.isArray(filter.filterGroup.items) && filter.filterGroup.items.length > 0) {
+    return filter.filterGroup;
+  }
+  return legacyFilterToGroup(filter);
 }

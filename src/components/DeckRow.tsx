@@ -43,7 +43,7 @@ function ensureStyles() {
       const style = doc.createElement("style");
       style.id = STYLE_ID;
       style.textContent = `
-        .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
         .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
         .ds-card {
           outline: none !important;
@@ -81,6 +81,7 @@ function ensureStyles() {
         .ds-card {
           scroll-margin-top: 90px;
           scroll-margin-bottom: 52px;
+          scroll-snap-align: start;
         }
         .ds-compat {
           position: absolute; bottom: 4px; right: 4px;
@@ -493,6 +494,8 @@ export function DeckRow({ title, items }: { title?: string; items: DeckRowItem[]
           overflowX: "auto",
           overflowY: "visible",
           scrollbarWidth: "none",
+          scrollBehavior: "smooth",
+          scrollSnapType: "x proximity",
           padding: "6px 0 46px 2.8vw",  /* bottom: label/scale room; left: aligns first card with shelf title */
           scrollPaddingInlineStart: "2.8vw",
           scrollPaddingInlineEnd: "2.8vw",

@@ -8,8 +8,8 @@ STAGE_ROOT="build/package"
 PLUGIN_DIR="${STAGE_ROOT}/${SLUG}"
 ZIP="${SLUG}-v${VERSION}.zip"
 
-# Build in development mode to avoid minification
-pnpm run build
+# Build in release mode for distribution package
+pnpm run build:release
 
 rm -rf build "$ZIP"
 mkdir -p "$PLUGIN_DIR/dist"
@@ -32,7 +32,7 @@ if [[ -f "$PLUGIN_DIR/main.py" ]]; then
   chmod u+x "$PLUGIN_DIR/main.py"
 fi
 
-# Copy built frontend (non-minified build expected from development mode)
+# Copy built frontend (minified release build)
 rsync -a dist/ "$PLUGIN_DIR/dist/"
 
 # Do not include assets/ in the release package (assets are intentionally excluded)
