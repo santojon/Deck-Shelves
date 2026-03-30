@@ -111,13 +111,18 @@
   "filter_group_mode_label": "Combine filters with",
   "filter_group_mode_and": "All must match (AND)",
   "filter_group_mode_or": "Any must match (OR)",
-  "filter_add": "Add filter",
+  "filter_add": "Add Filter",
   "filter_invert": "Invert",
+  "filter_invert_default": "Default",
+  "filter_invert_label": "Invert",
   "filter_not_inverted": "Remove invert",
   "filter_inverted": "inverted",
   "filter_remove": "Remove filter",
   "filter_no_items": "No filters — showing all games",
   "filter_playtime_min": "Min playtime",
   "filter_playtime_max": "Max playtime",
-  "filter_playtime_any": "unlimited"
+  "filter_playtime_any": "unlimited",
+  "filter_section_title": "Filters",
+  "filter_type_label": "Filter Type",
+  "filter_finish_before_adding": "Please finish the current filter before adding another"
 }

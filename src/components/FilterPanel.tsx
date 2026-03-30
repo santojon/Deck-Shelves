@@ -1,23 +1,22 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef, useEffect, useState } from "react";
 import {
-  ConfirmModal,
+  ButtonItem,
   DialogButton,
+  Dropdown,
   DropdownItem,
   Field,
   Focusable,
-  Menu,
-  MenuItem,
+  PanelSection,
+  PanelSectionRow,
   SingleDropdownOption,
   SliderField,
   TextField,
   ToggleField,
-  showContextMenu,
-  showModal,
 } from "@decky/ui";
 import type { FilterGroup, FilterItem, FilterItemType } from "../types";
 import i18n from "../i18n";
 
-const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
+// ---------- constants ----------
 
 const ALL_FILTER_TYPES: FilterItemType[] = [
   "installed",
@@ -32,20 +31,20 @@ const ALL_FILTER_TYPES: FilterItemType[] = [
   "nameRegex",
 ];
 
-/** Filter types that support the invert toggle */
-const INVERTIBLE_TYPES: FilterItemType[] = [
-  "installed",
+const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
+
+// Types that support the "Invert" dropdown (mirrors TabMaster)
+const INVERTIBLE_SET = new Set<FilterItemType>([
   "favorites",
-  "nonSteam",
-  "updatePending",
+  "deckCompatibility",
   "playedWithinDays",
   "playtimeRange",
   "nameIncludes",
   "nameRegex",
-];
+]);
 
 function canBeInverted(type: FilterItemType): boolean {
-  return INVERTIBLE_TYPES.includes(type);
+  return INVERTIBLE_SET.has(type);
 }
 
 function defaultParams(type: FilterItemType): Record<string, any> {
@@ -60,18 +59,33 @@ function defaultParams(type: FilterItemType): Record<string, any> {
   }
 }
 
-function icon(paths: React.ReactNode, size = 16) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths}
-    </svg>
-  );
+function isValidParams(item: FilterItem): boolean {
+  const p = item.params ?? {};
+  switch (item.type) {
+    case "installed":
+    case "favorites":
+    case "nonSteam":
+    case "updatePending":
+      return true;
+    case "hidden":
+      return !!p.mode;
+    case "deckCompatibility":
+      return Array.isArray(p.levels) && p.levels.length > 0;
+    case "playedWithinDays":
+      return Number(p.days ?? 0) > 0;
+    case "playtimeRange":
+      return true;
+    case "nameIncludes":
+      return String(p.text ?? "").length > 0;
+    case "nameRegex": {
+      const pat = String(p.pattern ?? "");
+      if (!pat) return false;
+      try { new RegExp(pat); return true; } catch { return false; }
+    }
+    default:
+      return true;
+  }
 }
-
-const trashIcon = icon(<><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M10 10v6" /><path d="M14 10v6" /><path d="M6 6l1 14h10l1-14" /></>);
-const addIcon = icon(<><path d="M12 5v14" /><path d="M5 12h14" /></>);
-
-// --- Helpers ---
 
 function getTypeLabel(type: FilterItemType): string {
   const t = i18n.t.bind(i18n);
@@ -90,47 +104,40 @@ function getTypeLabel(type: FilterItemType): string {
   return map[type] ?? type;
 }
 
-function getSummary(item: FilterItem): string {
-  const t = i18n.t.bind(i18n);
-  const p = item.params ?? {};
-  const inv = item.inverted ? ` (${t("filter_inverted")})` : "";
-  switch (item.type) {
-    case "installed":
-    case "favorites":
-    case "nonSteam":
-    case "updatePending":
-      return getTypeLabel(item.type) + inv;
-    case "hidden": {
-      const modeLabel =
-        p.mode === "only" ? t("filter_hidden_only") :
-        p.mode === "exclude" ? t("filter_hidden_exclude") :
-        t("filter_hidden_any");
-      return `${getTypeLabel(item.type)}: ${modeLabel}`;
-    }
-    case "deckCompatibility": {
-      const levels: string[] = Array.isArray(p.levels) ? p.levels : [];
-      return levels.length ? `${getTypeLabel(item.type)}: ${levels.map((l) => t(`compat_${l}`)).join(", ")}` : getTypeLabel(item.type);
-    }
-    case "playedWithinDays":
-      return `${getTypeLabel(item.type)}: ${p.days ?? 30}d${inv}`;
-    case "playtimeRange": {
-      const min = p.minHours != null ? `${p.minHours}h` : null;
-      const max = p.maxHours != null ? `${p.maxHours}h` : null;
-      if (min && max) return `${getTypeLabel(item.type)}: ${min}–${max}${inv}`;
-      if (min) return `${getTypeLabel(item.type)}: ≥${min}${inv}`;
-      if (max) return `${getTypeLabel(item.type)}: ≤${max}${inv}`;
-      return getTypeLabel(item.type) + inv;
-    }
-    case "nameIncludes":
-      return p.text ? `${getTypeLabel(item.type)}: "${p.text}"${inv}` : getTypeLabel(item.type) + inv;
-    case "nameRegex":
-      return p.pattern ? `${getTypeLabel(item.type)}: /${p.pattern}/${inv}` : getTypeLabel(item.type) + inv;
-    default:
-      return getTypeLabel(item.type) + inv;
-  }
+function capitalizeFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// --- Filter Item Options sub-component ---
+// ---------- icons (inline SVG, no external deps) ----------
+
+const CheckIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 3, flexShrink: 0 }}>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const XIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f44336" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 3, flexShrink: 0 }}>
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg
+    width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    style={{ transition: "transform 0.2s ease-in-out", transform: open ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0 }}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M10 10v6" /><path d="M14 10v6" /><path d="M6 6l1 14h10l1-14" />
+  </svg>
+);
+
+// ---------- FilterOptions: params UI per type ----------
 
 function FilterItemOptions({
   item,
@@ -158,108 +165,119 @@ function FilterItemOptions({
 
     case "hidden":
       return (
-        <DropdownItem
-          label={t("filter_type_hidden")}
-          rgOptions={HIDDEN_OPTIONS}
-          selectedOption={p.mode ?? "exclude"}
-          onChange={(opt: any) => patchParams({ mode: (opt?.data ?? opt) as string })}
-          bottomSeparator="none"
-        />
+        <PanelSectionRow>
+          <DropdownItem
+            label={t("filter_type_hidden")}
+            rgOptions={HIDDEN_OPTIONS}
+            selectedOption={p.mode ?? "exclude"}
+            onChange={(opt: any) => patchParams({ mode: (opt?.data ?? opt) as string })}
+            bottomSeparator="none"
+          />
+        </PanelSectionRow>
       );
 
     case "deckCompatibility": {
       const levels: string[] = Array.isArray(p.levels) ? p.levels : [];
       const compatSet = new Set(levels);
       return (
-        <div>
+        <>
           {COMPAT_LEVELS.map((key) => (
-            <ToggleField
-              key={key}
-              label={t(`compat_${key}`)}
-              checked={compatSet.has(key)}
-              onChange={(val: boolean) => {
-                const next = new Set(compatSet);
-                if (val) next.add(key); else next.delete(key);
-                patchParams({ levels: Array.from(next) });
-              }}
-              bottomSeparator="none"
-            />
+            <PanelSectionRow key={key}>
+              <ToggleField
+                label={t(`compat_${key}`)}
+                checked={compatSet.has(key)}
+                onChange={(val: boolean) => {
+                  const next = new Set(compatSet);
+                  if (val) next.add(key); else next.delete(key);
+                  patchParams({ levels: Array.from(next) });
+                }}
+                bottomSeparator="none"
+              />
+            </PanelSectionRow>
           ))}
-        </div>
+        </>
       );
     }
 
-    case "playedWithinDays":
+    case "playedWithinDays": {
+      const days = Number(p.days ?? 30);
       return (
-        <Field label={`${t("filter_days")}: ${p.days ?? 30}d`}>
-          <SliderField
-            label=""
-            value={p.days ?? 30}
-            min={1}
-            max={365}
-            step={1}
-            onChange={(v: number) => patchParams({ days: v })}
-          />
-        </Field>
+        <PanelSectionRow>
+          <Field label={`${t("filter_days")}: ${days}d`} bottomSeparator="none">
+            <SliderField
+              label=""
+              value={days}
+              min={1}
+              max={365}
+              step={1}
+              onChange={(v: number) => patchParams({ days: v })}
+            />
+          </Field>
+        </PanelSectionRow>
       );
+    }
 
     case "playtimeRange": {
-      const minH = p.minHours ?? 0;
-      const maxH = p.maxHours ?? 0;
+      const minH = Number(p.minHours ?? 0);
+      const maxH = Number(p.maxHours ?? 0);
       return (
-        <div>
-          <Field label={`${t("filter_playtime_min")}: ${minH}h`}>
-            <SliderField
-              label=""
-              value={minH}
-              min={0}
-              max={500}
-              step={5}
-              onChange={(v: number) => patchParams({ minHours: v > 0 ? v : undefined })}
-            />
-          </Field>
-          <Field label={`${t("filter_playtime_max")}: ${maxH > 0 ? maxH + "h" : t("filter_playtime_any")}`}>
-            <SliderField
-              label=""
-              value={maxH}
-              min={0}
-              max={500}
-              step={5}
-              onChange={(v: number) => patchParams({ maxHours: v > 0 ? v : undefined })}
-            />
-          </Field>
-        </div>
+        <>
+          <PanelSectionRow>
+            <Field label={`${t("filter_playtime_min")}: ${minH}h`} bottomSeparator="none">
+              <SliderField
+                label=""
+                value={minH}
+                min={0}
+                max={500}
+                step={5}
+                onChange={(v: number) => patchParams({ minHours: v > 0 ? v : undefined })}
+              />
+            </Field>
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <Field label={`${t("filter_playtime_max")}: ${maxH > 0 ? maxH + "h" : t("filter_playtime_any")}`} bottomSeparator="none">
+              <SliderField
+                label=""
+                value={maxH}
+                min={0}
+                max={500}
+                step={5}
+                onChange={(v: number) => patchParams({ maxHours: v > 0 ? v : undefined })}
+              />
+            </Field>
+          </PanelSectionRow>
+        </>
       );
     }
 
     case "nameIncludes":
       return (
-        <Field description={
-          <div className="deck-shelves-extra-wide-field deck-shelves-filter-text-field">
+        <PanelSectionRow>
+          <Field label={t("filter_type_nameIncludes")} bottomSeparator="none">
             <TextField
-              value={p.text ?? ""}
+              value={String(p.text ?? "")}
               onChange={(val: any) => {
                 const text = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
                 patchParams({ text });
               }}
             />
-          </div>
-        } />
+          </Field>
+        </PanelSectionRow>
       );
 
     case "nameRegex":
       return (
-        <Field description={
-          <div className="deck-shelves-extra-wide-field deck-shelves-filter-text-field">
+        <PanelSectionRow>
+          <Field label={t("filter_type_nameRegex")} bottomSeparator="none">
             <TextField
-              value={p.pattern ?? ""}
+              value={String(p.pattern ?? "")}
               onChange={(val: any) => {
                 const pattern = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
                 patchParams({ pattern });
               }}
             />
-          </div>
-        } />
+          </Field>
+        </PanelSectionRow>
       );
 
     default:
@@ -267,59 +285,79 @@ function FilterItemOptions({
   }
 }
 
-// --- Add Filter modal ---
+// ---------- FilterSectionAccordion ----------
 
-function AddFilterModal({
-  closeModal,
-  onAdd,
-  existing,
+function FilterSectionAccordion({
+  index,
+  item,
+  isOpen,
+  children,
 }: {
-  closeModal?: () => void;
-  onAdd: (type: FilterItemType) => void;
-  existing: FilterItemType[];
+  index: number;
+  item: FilterItem;
+  isOpen: boolean;
+  children: React.ReactNode;
 }) {
-  const t = i18n.t.bind(i18n);
+  const [open, setOpen] = useState(isOpen);
+  const valid = isValidParams(item);
+
+  // Sync open state when parent requests it (e.g. new filter added)
+  useEffect(() => {
+    if (isOpen) setOpen(true);
+  }, [isOpen]);
+
   return (
-    <ConfirmModal
-      strTitle={t("filter_add")}
-      bHideCloseIcon
-      onCancel={closeModal}
-      onEscKeypress={closeModal}
-      bAlertDialog
-    >
+    <Focusable style={{ width: "100%", padding: 0 }}>
       <Focusable>
-        {ALL_FILTER_TYPES.map((type) => {
-          const already = existing.filter((e) => e === type).length;
-          return (
-            <DialogButton
-              key={type}
-              disabled={["installed", "favorites", "nonSteam", "updatePending"].includes(type) && already > 0}
-              style={{ marginBottom: 4, textAlign: "left" }}
-              onClick={() => { closeModal?.(); onAdd(type); }}
-            >
-              {getTypeLabel(type)}
-            </DialogButton>
-          );
-        })}
+        <DialogButton
+          style={{
+            width: "100%",
+            padding: "6px 0",
+            margin: 0,
+            background: "transparent",
+            border: "none",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+          }}
+          onClick={(e: any) => { e?.stopPropagation?.(); setOpen((o) => !o); }}
+          onOKButton={(e: any) => { e?.stopPropagation?.(); setOpen((o) => !o); }}
+        >
+          {/* left line */}
+          <div style={{ width: 12, height: 1, background: "rgba(255,255,255,0.2)", flexShrink: 0 }} />
+          {/* label */}
+          <div style={{ display: "flex", alignItems: "center", flexShrink: 0, fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>
+            {valid ? <CheckIcon /> : <XIcon />}
+            {`Filter ${index + 1} - ${capitalizeFirst(getTypeLabel(item.type))}`}
+          </div>
+          {/* right line */}
+          <div style={{ flexGrow: 1, height: 1, background: "rgba(255,255,255,0.2)" }} />
+          <ChevronIcon open={open} />
+          <div style={{ width: 12, height: 1, background: "rgba(255,255,255,0.2)", flexShrink: 0 }} />
+        </DialogButton>
       </Focusable>
-    </ConfirmModal>
+      {open && children}
+    </Focusable>
   );
 }
 
-// --- Single filter item row ---
+// ---------- FilterEntry (per-filter row: type dropdown + invert dropdown + trash) ----------
 
-function FilterItemRow({
-  item,
+function FilterEntry({
   index,
-  total,
+  item,
+  allItems,
   onChange,
-  onRemove,
+  onDelete,
+  shouldFocus,
 }: {
-  item: FilterItem;
   index: number;
-  total: number;
+  item: FilterItem;
+  allItems: FilterItem[];
   onChange: (updated: FilterItem) => void;
-  onRemove: () => void;
+  onDelete: () => void;
+  shouldFocus: boolean;
 }) {
   const t = i18n.t.bind(i18n);
   const invertible = canBeInverted(item.type);
@@ -329,25 +367,19 @@ function FilterItemRow({
     label: getTypeLabel(type),
   }));
 
-  const onOpenMenu = () => {
-    showContextMenu(
-      <Menu label={getSummary(item)}>
-        {invertible && (
-          <MenuItem onSelected={() => onChange({ ...item, inverted: !item.inverted })}>
-            {item.inverted ? t("filter_not_inverted") : t("filter_invert")}
-          </MenuItem>
-        )}
-        <MenuItem onSelected={onRemove}>{t("filter_remove")}</MenuItem>
-      </Menu>
-    );
-  };
+  const invertOptions: SingleDropdownOption[] = [
+    { data: false, label: t("filter_invert_default") },
+    { data: true, label: t("filter_invert_label") },
+  ];
+
+  // width mirrors TabMaster: full - 55px (trash) - 120px (invert) - 10px gap - 10px gap
+  const typeWidth = invertible ? "calc(100% - 185px)" : "calc(100% - 55px)";
 
   return (
-    <div style={{ marginBottom: 4, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "6px 8px 4px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-        <div style={{ flex: 1 }}>
-          <DropdownItem
-            label=""
+    <div>
+      <Focusable style={{ width: "100%", display: "flex", flexDirection: "row", alignItems: "center" }}>
+        <Focusable style={{ width: typeWidth }}>
+          <Dropdown
             rgOptions={typeOptions}
             selectedOption={item.type}
             onChange={(opt: any) => {
@@ -356,35 +388,35 @@ function FilterItemRow({
                 onChange({ type: newType, inverted: false, params: defaultParams(newType) });
               }
             }}
-            bottomSeparator="none"
+            focusable
           />
-        </div>
+        </Focusable>
         {invertible && (
-          <ToggleField
-            label={t("filter_invert")}
-            checked={!!item.inverted}
-            onChange={(val: boolean) => onChange({ ...item, inverted: val })}
-            bottomSeparator="none"
-          />
+          <Focusable style={{ marginLeft: 10, width: 120 }}>
+            <Dropdown
+              rgOptions={invertOptions}
+              selectedOption={item.inverted ?? false}
+              onChange={(opt: any) => onChange({ ...item, inverted: (opt?.data ?? opt) as boolean })}
+              focusable
+            />
+          </Focusable>
         )}
-        <DialogButton
-          style={{ height: 36, width: 36, minWidth: 0, padding: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-          onClick={onRemove}
-          onOKButton={onRemove}
-          onOKActionDescription={t("filter_remove")}
-        >
-          {trashIcon}
-        </DialogButton>
-      </div>
-      <FilterItemOptions
-        item={item}
-        onChange={(patch) => onChange({ ...item, ...patch })}
-      />
+        <Focusable style={{ marginLeft: 10, width: 45 }}>
+          <DialogButton
+            style={{ width: "100%", height: 36, minWidth: 0, padding: 8, display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={onDelete}
+            onOKButton={onDelete}
+            onOKActionDescription={t("filter_remove")}
+          >
+            <TrashIcon />
+          </DialogButton>
+        </Focusable>
+      </Focusable>
     </div>
   );
 }
 
-// --- Main FilterPanel ---
+// ---------- Main FilterPanel (matches TabMaster's FiltersPanel) ----------
 
 export type FilterPanelProps = {
   group: FilterGroup;
@@ -396,6 +428,15 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
   const items = group.items ?? [];
   const mode = group.mode ?? "and";
 
+  // Track newly added index so accordion auto-opens it
+  const newFilterIdx = useRef(-1);
+  const deletedFilterIdx = useRef(-1);
+
+  const modeOptions: SingleDropdownOption[] = [
+    { data: "and", label: t("filter_group_mode_and") },
+    { data: "or", label: t("filter_group_mode_or") },
+  ];
+
   const updateItem = useCallback((index: number, updated: FilterItem) => {
     const next = items.slice();
     next[index] = updated;
@@ -403,75 +444,106 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
   }, [group, items, onChange]);
 
   const removeItem = useCallback((index: number) => {
+    deletedFilterIdx.current = index;
     const next = items.filter((_, i) => i !== index);
     onChange({ ...group, items: next });
   }, [group, items, onChange]);
 
-  const addItem = useCallback((type: FilterItemType) => {
-    const newItem: FilterItem = { type, inverted: false, params: defaultParams(type) };
+  const addItem = useCallback(() => {
+    newFilterIdx.current = items.length;
+    const newItem: FilterItem = { type: "installed", inverted: false, params: {} };
     onChange({ ...group, items: [...items, newItem] });
   }, [group, items, onChange]);
 
-  const openAddModal = () => {
-    let handle: any = null;
-    const close = () => {
-      try {
-        if (typeof handle === "function") handle();
-        else if (handle?.Close) handle.Close();
-        else if (handle?.closeModal) handle.closeModal();
-      } catch {}
-    };
-    handle = showModal(
-      <AddFilterModal
-        closeModal={close}
-        onAdd={addItem}
-        existing={items.map((i) => i.type)}
-      />
-    );
-  };
+  // canAddFilter: all existing items must have valid params
+  const canAddFilter = items.every(isValidParams);
 
-  const MODE_OPTIONS: SingleDropdownOption[] = [
-    { data: "and", label: t("filter_group_mode_and") },
-    { data: "or", label: t("filter_group_mode_or") },
-  ];
+  // after each render, reset the tracking refs
+  useEffect(() => {
+    newFilterIdx.current = -1;
+    deletedFilterIdx.current = -1;
+  });
 
   return (
-    <div>
-      {items.length > 1 && (
-        <DropdownItem
-          label={t("filter_group_mode_label")}
-          rgOptions={MODE_OPTIONS}
-          selectedOption={mode}
-          onChange={(opt: any) => onChange({ ...group, mode: (opt?.data ?? opt) as "and" | "or" })}
-          bottomSeparator="thick"
-        />
-      )}
-      {items.length === 0 && (
-        <div style={{ padding: "8px 0", fontSize: 12, color: "rgba(255,255,255,0.4)", textAlign: "center" }}>
-          {t("filter_no_items")}
-        </div>
-      )}
-      {items.map((item, index) => (
-        <FilterItemRow
-          key={index}
-          item={item}
-          index={index}
-          total={items.length}
-          onChange={(updated) => updateItem(index, updated)}
-          onRemove={() => removeItem(index)}
-        />
-      ))}
-      <Focusable style={{ marginTop: 8 }}>
-        <DialogButton
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px" }}
-          onClick={openAddModal}
-          onOKButton={openAddModal}
-          onOKActionDescription={t("filter_add")}
-        >
-          {addIcon}
-          <span>{t("filter_add")}</span>
-        </DialogButton>
-      </Focusable>
-    </div>
+    <Focusable style={{ marginTop: 8 }}>
+      <PanelSection title={t("filter_section_title")}>
+        {/* Group Combination Logic — always visible */}
+        <PanelSectionRow>
+          <Field
+            label={t("filter_group_mode_label")}
+            childrenLayout="inline"
+            childrenContainerWidth="min"
+            inlineWrap="keep-inline"
+          >
+            <div style={{ width: 100 }}>
+              <Dropdown
+                rgOptions={modeOptions}
+                selectedOption={mode}
+                onChange={(opt: any) => onChange({ ...group, mode: (opt?.data ?? opt) as "and" | "or" })}
+                focusable
+              />
+            </div>
+          </Field>
+        </PanelSectionRow>
+
+        {/* Filter list */}
+        <PanelSectionRow>
+          {items.map((item, index) => {
+            const isNewlyAdded = newFilterIdx.current === index;
+            const isRestoredFocus =
+              deletedFilterIdx.current !== -1 &&
+              (deletedFilterIdx.current !== items.length
+                ? index === deletedFilterIdx.current
+                : index === items.length - 1);
+            const isOpen = isNewlyAdded || isRestoredFocus || !items.length;
+
+            return (
+              <React.Fragment key={index}>
+                <FilterSectionAccordion index={index} item={item} isOpen={isOpen}>
+                  <div>
+                    <Field
+                      label={t("filter_type_label")}
+                      description={
+                        <FilterEntry
+                          index={index}
+                          item={item}
+                          allItems={items}
+                          onChange={(updated) => updateItem(index, updated)}
+                          onDelete={() => removeItem(index)}
+                          shouldFocus={isNewlyAdded || isRestoredFocus}
+                        />
+                      }
+                    />
+                    <FilterItemOptions
+                      item={item}
+                      onChange={(patch) => updateItem(index, { ...item, ...patch })}
+                    />
+                  </div>
+                </FilterSectionAccordion>
+                {index === items.length - 1 && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.1)" }} />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </PanelSectionRow>
+
+        {/* Add filter */}
+        <PanelSectionRow>
+          <div>
+            {!canAddFilter && (
+              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                {t("filter_finish_before_adding")}
+              </div>
+            )}
+            <ButtonItem onClick={addItem} disabled={!canAddFilter}>
+              {t("filter_add")}
+            </ButtonItem>
+          </div>
+        </PanelSectionRow>
+      </PanelSection>
+    </Focusable>
   );
 }

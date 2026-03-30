@@ -111,7 +111,7 @@
   "filter_group_mode_label": "Combina filtri con",
   "filter_group_mode_and": "Tutti devono corrispondere (E)",
   "filter_group_mode_or": "Uno qualsiasi deve corrispondere (O)",
-  "filter_add": "Aggiungi filtro",
+  "filter_add": "Aggiungi Filtro",
   "filter_invert": "Inverti",
   "filter_not_inverted": "Rimuovi inversione",
   "filter_inverted": "invertito",
@@ -119,5 +119,10 @@
   "filter_no_items": "Nessun filtro — vengono mostrati tutti i giochi",
   "filter_playtime_min": "Tempo minimo",
   "filter_playtime_max": "Tempo massimo",
-  "filter_playtime_any": "illimitato"
+  "filter_playtime_any": "illimitato",
+  "filter_invert_default": "Predefinito",
+  "filter_invert_label": "Invertire",
+  "filter_section_title": "Filtri",
+  "filter_type_label": "Tipo di Filtro",
+  "filter_finish_before_adding": "Completa il filtro attuale prima di aggiungerne un altro"
 }

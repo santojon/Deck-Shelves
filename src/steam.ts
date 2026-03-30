@@ -229,10 +229,17 @@ function collectDynamicTabStores(): any[] {
 function extractTabArrayFromStore(candidate: any): PlatformTab[] {
   const out: PlatformTab[] = [];
   const seen = new Set<any>();
+  const TAB_ARRAY_KEYS = new Set(["tabs", "m_rgTabs", "m_tabs", "m_mapTabs", "m_mapTabData", "allTabs", "visibleTabs",
+    "visibleTabsList", "hiddenTabsList", "tabsMap", "collections", "items", "children", "entries", "routes", "sections"]);
   const visit = (node: any) => {
     if (!node || seen.has(node)) return;
     if (typeof node !== "object") return;
     seen.add(node);
+    // Handle ES6 Map (e.g. TabMaster's tabsMap: Map<string, TabContainer>)
+    if (node instanceof Map) {
+      node.forEach((v) => visit(v));
+      return;
+    }
     const maybeId = String(node?.id ?? node?.key ?? node?.route ?? node?.path ?? node?.url ?? node?.tabid ?? node?.internal_name ?? node?.strInternalName ?? node?.name ?? "").trim();
     const maybeName = String(node?.title ?? node?.label ?? node?.displayName ?? node?.name ?? node?.strName ?? node?.localizedName ?? node?.tab_name ?? "").trim();
     if (maybeId && maybeName) out.push({ id: normalizeTabId(maybeId), name: maybeName });
@@ -241,7 +248,7 @@ function extractTabArrayFromStore(candidate: any): PlatformTab[] {
       return;
     }
     for (const [key, value] of Object.entries(node)) {
-      if (["tabs", "m_rgTabs", "m_tabs", "m_mapTabs", "m_mapTabData", "allTabs", "visibleTabs", "collections", "items", "children", "entries", "routes", "sections"].includes(key)) {
+      if (TAB_ARRAY_KEYS.has(key)) {
         visit(value);
       } else if (value && typeof value === "object") {
         const hasTabMarkers = ["tab", "title", "label", "displayName", "strName", "internal_name", "route"].some((k) => Object.prototype.hasOwnProperty.call(value, k));
@@ -292,10 +299,26 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
   ];
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
+
+  // Probe TabMaster's context directly: it exposes visibleTabsList (TabContainer[]) and tabsMap (Map<string,TabContainer>)
+  // TabContainer has { id, title, position, ... } — title maps to our name field
+  const tabMasterDirectCandidates = hostWindows.flatMap((win: any) => [
+    win?.TabMasterStore?.visibleTabsList,
+    win?.TabMasterStore?.hiddenTabsList,
+    win?.TabMasterStore?.tabsMap,
+    win?.TabMaster?.visibleTabsList,
+    win?.TabMaster?.hiddenTabsList,
+    win?.TabMaster?.tabsMap,
+    win?.TabMasterContext?.visibleTabsList,
+    win?.TabMasterContext?.hiddenTabsList,
+    win?.TabMasterContext?.tabsMap,
+  ]).filter(Boolean);
+
   const globalCandidates = [
+    ...tabMasterDirectCandidates,
     ...collectDynamicTabStores(),
-    ...clients.map((sc) => sc?.Apps),
-    ...hostWindows.flatMap((hostWindow) => [hostWindow?.LibraryStore, hostWindow?.AppStore, hostWindow?.g_LibraryTabs, hostWindow?.g_rgTabs, hostWindow?.appStore]),
+    ...clients.map((sc: any) => sc?.Apps),
+    ...hostWindows.flatMap((hostWindow: any) => [hostWindow?.LibraryStore, hostWindow?.AppStore, hostWindow?.g_LibraryTabs, hostWindow?.g_rgTabs, hostWindow?.appStore]),
   ];
 
   let found: PlatformTab[] = [];
