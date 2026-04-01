@@ -190,21 +190,19 @@ function hasAnyMethod(target: any, methodNames: string[]): boolean {
   return methodNames.some((name) => typeof target?.[name] === "function");
 }
 
-// ─── React fiber traversal for CustomTabs-like context ────────────────────
+// ─── React fiber traversal for plugin context discovery ──────────────────
 
-let customFiltersContextCache: { ts: number; value: any | null } | null = null;
-const CUSTOM_FILTERS_CACHE_TTL = 8000;
+let pluginContextCache: { ts: number; value: any | null } | null = null;
+const PLUGIN_CONTEXT_CACHE_TTL = 8000;
 
 /**
  * Walks the React fiber tree from `startFiber` looking for a Context.Provider
- * whose `memoizedProps.value` has the shape of an external tabs plugin context.
- * Many plugins expose: { tabMasterManager: { visibleTabsList, tabsMap, ... } }
- * Returns the inner manager object (or the value itself if it directly
- * has visibleTabsList/tabsMap).
+ * whose `memoizedProps.value` matches TabMaster's PublicTabMasterContext shape:
+ *   { visibleTabsList: TabContainer[], tabsMap: Map<string, TabContainer>, ... }
  *
- * Uses an iterative DFS to avoid stack overflow on deep trees.
+ * Uses iterative DFS to avoid stack overflow.
  */
-function walkFiberForCustomFiltersValue(startFiber: any): any | null {
+function walkFiberForTabMasterContext(startFiber: any): any | null {
   if (!startFiber) return null;
   const stack: any[] = [startFiber];
   const visited = new WeakSet();
@@ -215,18 +213,18 @@ function walkFiberForCustomFiltersValue(startFiber: any): any | null {
     visited.add(fiber);
 
     const val = fiber.memoizedProps?.value;
-    if (val && typeof val === "object" && !Array.isArray(val)) {
-      // TabMaster wraps in { tabMasterManager: instance }
-      const tm = (val as any).tabMasterManager;
-      if (tm && typeof tm === "object") {
-        const hasList = Array.isArray(tm.visibleTabsList) && tm.visibleTabsList.length > 0;
-        const hasMap = tm.tabsMap instanceof Map && tm.tabsMap.size > 0;
-        if (hasList || hasMap) return tm;
-      }
-      // Fallback: value directly has visibleTabsList/tabsMap
-      const hasList = Array.isArray(val.visibleTabsList) && val.visibleTabsList.length > 0;
-      const hasMap = val.tabsMap instanceof Map && val.tabsMap.size > 0;
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      // TabMaster's PublicTabMasterContext has visibleTabsList at the top level
+      const hasList = Array.isArray(val.visibleTabsList);
+      const hasMap = val.tabsMap instanceof Map;
       if (hasList || hasMap) return val;
+      // Also check val.tabMasterManager for alternative shapes
+      const tm = val.tabMasterManager;
+      if (tm && typeof tm === 'object') {
+        const tmHasList = Array.isArray(tm.visibleTabsList);
+        const tmHasMap = tm.tabsMap instanceof Map;
+        if (tmHasList || tmHasMap) return tm;
+      }
     }
 
     if (fiber.child) stack.push(fiber.child);
@@ -236,61 +234,63 @@ function walkFiberForCustomFiltersValue(startFiber: any): any | null {
 }
 
 /**
- * Finds and caches TabMaster's React Context value by traversing the SP window
- * fiber tree. Returns null if not found or if TabMaster is not installed.
- * Exported so the settings UI can reuse the same fiber lookup.
+ * Finds TabMaster's React Context value by traversing all React roots in all
+ * Steam window documents. Caches results for PLUGIN_CONTEXT_CACHE_TTL ms.
+ *
+ * Decky mounts each plugin in a separate React root (separate ReactDOM.render
+ * call). We must search ALL roots, not just the first one found.
  */
-export function findCustomFiltersContextValue(): any | null {
+export function findTabMasterContextValue(): any | null {
   const now = Date.now();
-  if (customFiltersContextCache && now - customFiltersContextCache.ts < CUSTOM_FILTERS_CACHE_TTL) {
-    return customFiltersContextCache.value;
+  if (pluginContextCache && now - pluginContextCache.ts < PLUGIN_CONTEXT_CACHE_TTL) {
+    return pluginContextCache.value;
   }
 
   let value: any | null = null;
   try {
     const hostWindows = getSteamWindows();
     const docs = Array.from(
-      new Set([getPreferredSteamDocument(), ...hostWindows.map((win: any) => win?.document)].filter(Boolean))
+      new Set([getPreferredSteamDocument(), ...hostWindows.map((w: any) => w?.document)].filter(Boolean))
     ) as Document[];
 
     outer:
     for (const doc of docs) {
       try {
-        // Find any DOM element that has a React fiber key, then walk UP to the root fiber.
-        // This ensures the DFS walker covers the entire React tree, not just a subtree.
-        const allEls = [
-          doc.getElementById("root"),
-          doc.body,
-          ...Array.from(doc.querySelectorAll("*")).slice(0, 300),
-        ].filter(Boolean) as Element[];
-
+        const visitedRoots = new WeakSet<object>();
+        const allEls = Array.from(doc.querySelectorAll('*')).slice(0, 500);
         for (const el of allEls) {
           const fiberKey = Object.keys(el).find(
-            (k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"),
+            (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
           );
           if (!fiberKey) continue;
-          // Walk to the root fiber so our DFS covers the full tree
           let fiber = (el as any)[fiberKey];
           if (!fiber) continue;
+          // Walk to the root of this React tree
           while (fiber.return) fiber = fiber.return;
           const rootFiber = fiber.stateNode?.current ?? fiber;
-          value = walkFiberForCustomFiltersValue(rootFiber);
+          if (visitedRoots.has(rootFiber)) continue;
+          visitedRoots.add(rootFiber);
+          // Search this entire React tree
+          value = walkFiberForTabMasterContext(rootFiber);
           if (value) break outer;
-          break; // one root per document is enough
         }
       } catch {}
     }
   } catch {}
-  customFiltersContextCache = { ts: now, value };
+
+  pluginContextCache = { ts: now, value };
   return value;
 }
+
+// Keep the old name as an alias for the component that still uses it
+export const findCustomFiltersContextValue = findTabMasterContextValue;
 
 /**
  * Extracts the list of visible library tabs from TabMaster's React context.
  * Returns an empty array if TabMaster is not installed or has no tabs.
  */
 function getCustomFiltersList(): PlatformTab[] {
-  const ctx = findCustomFiltersContextValue();
+  const ctx = findTabMasterContextValue();
   if (!ctx) return [];
   const out: PlatformTab[] = [];
   const seen = new Set<string>();
@@ -325,7 +325,7 @@ function getCustomFiltersList(): PlatformTab[] {
  * Returns an empty array if the tab is not found in TabMaster's context.
  */
 function getCustomFiltersAppsForContainer(tabId: string): number[] {
-  const ctx = findCustomFiltersContextValue();
+  const ctx = findTabMasterContextValue();
   if (!ctx?.tabsMap) return [];
 
   const needle = normalizeText(tabId);
@@ -464,14 +464,25 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
     { id: "nonsteam", name: "Non-Steam" },
   ];
 
-  // React fiber traversal — finds TabMaster's context even though it doesn't expose globals
-  const customFiltersFiberTabs = getCustomFiltersList();
-  if (customFiltersFiberTabs.length > 0) {
+  // 1. Try fiber traversal (TabMaster context in React tree)
+  const fiberTabs = getCustomFiltersList();
+  if (fiberTabs.length > 0) {
     try {
-      logInfo("STEAM", "listLibraryTabs: CustomFilters fiber", { count: customFiltersFiberTabs.length, sample: customFiltersFiberTabs.slice(0, 6) });
+      logInfo("STEAM", "listLibraryTabs: fiber context found", { count: fiberTabs.length, sample: fiberTabs.slice(0, 6) });
     } catch {}
-    return customFiltersFiberTabs;
+    return fiberTabs;
   }
+
+  // 2. Try DOM-based tab reading (works with TabMaster, UnifiDeck, or any plugin
+  //    that renders library tabs with data-tab-id attributes)
+  try {
+    const { getTabsFromDOM } = await import('./integrations/unifideck');
+    const domTabs = getTabsFromDOM();
+    if (domTabs.length > 0) {
+      try { logInfo("STEAM", "listLibraryTabs: DOM tabs found", { count: domTabs.length }); } catch {}
+      return domTabs;
+    }
+  } catch {}
 
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
@@ -636,6 +647,7 @@ export type AppOverview = {
   last_played?: number;
   playtime_forever?: number;
   is_steam?: boolean;
+  is_non_steam?: boolean;
   is_favorite?: boolean;
   is_hidden?: boolean;
   installed?: boolean;
@@ -660,6 +672,7 @@ function normalizeAppOverview(node: any): AppOverview | null {
     last_played: Number(node?.last_played ?? node?.rt_last_time_played ?? node?.m_ulLastPlayed ?? 0),
     playtime_forever: Number(node?.playtime_forever ?? node?.minutes_playtime_forever ?? node?.minutes_played_forever ?? 0),
     is_steam: node?.is_steam ?? !isNonSteamOf(node),
+    is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
     is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     installed: readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]),
@@ -1087,17 +1100,27 @@ async function getAllAppOverviews(): Promise<AppOverview[]> {
       try {
         const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
         if (!cs) continue;
-        const gamesColl = cs.allGamesCollection ?? cs.localGamesCollection ?? cs.allAppsCollection;
-        if (gamesColl) {
-          const apps = gamesColl.allApps ?? gamesColl.visibleApps ?? gamesColl.apps;
+        // allAppsCollection includes shortcuts; fallback to allGamesCollection
+        const appsColl = cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection;
+        if (appsColl) {
+          const apps = appsColl.allApps ?? appsColl.visibleApps ?? appsColl.apps;
+          if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+        }
+        // Also collect shortcuts specifically
+        const shortcutsColl = cs.allShortcutsCollection ?? cs.shortcutsCollection ?? cs.nonSteamCollection;
+        if (shortcutsColl) {
+          const apps = shortcutsColl.allApps ?? shortcutsColl.visibleApps ?? shortcutsColl.apps;
           if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
         }
         const typeMap = cs.appTypeCollectionMap;
         if (isMapLike(typeMap)) {
-          const gColl = typeMap.get('type-games') ?? typeMap.get('gamesCollection');
-          if (gColl) {
-            const apps = gColl.allApps ?? gColl.visibleApps ?? gColl.apps;
-            if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+          // Include both games and shortcuts from type map
+          for (const key of ['type-games', 'gamesCollection', 'type-shortcuts', 'shortcutsCollection']) {
+            const coll = typeMap.get(key);
+            if (coll) {
+              const apps = coll.allApps ?? coll.visibleApps ?? coll.apps;
+              if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+            }
           }
         }
       } catch {}

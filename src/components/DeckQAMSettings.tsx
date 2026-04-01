@@ -26,8 +26,8 @@ import { importSettingsFromFile, exportSettingsToFile } from '../settingsStore'
 import { DeckModalStyles } from './styles/DeckModalStyles'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
-import { resolveShelfAppIds, findCustomFiltersContextValue } from '../steam'
-import { extractFiltersFromCustomFiltersManager, containerToShelfSource } from '../integrations/customfilters'
+import { resolveShelfAppIds, findTabMasterContextValue } from '../steam'
+import { extractTabMasterTabsForImport, tabContainerToShelfSource, isTabMasterInstalled } from '../integrations'
 
 function icon(paths: React.ReactNode, size = 18, fill = 'none') {
   return (
@@ -268,7 +268,7 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
 
     // 1. React fiber traversal — works even when external tab plugin exposes no globals
     try {
-      const ctx = findCustomFiltersContextValue()
+      const ctx = findTabMasterContextValue()
       if (ctx && (Array.isArray(ctx.visibleTabsList) || ctx.tabsMap instanceof Map)) {
         manager = ctx
       }
@@ -309,7 +309,7 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
 
     if (!manager) return
     try {
-      const extracted = extractFiltersFromCustomFiltersManager(manager)
+      const extracted = extractTabMasterTabsForImport(manager)
       setTabs(extracted.map((t: any) => ({ id: t.id, title: t.title, source: t.source })))
     } catch {
       setTabs([])
@@ -319,7 +319,7 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
   const doImport = async (entry: { id: string; title: string; source?: any }) => {
     try {
       const src = entry.source ?? { type: 'tab', tab: entry.id }
-      const shelfSource = (src.type === 'tab' || src.type === 'collection' || src.type === 'filter') ? src : containerToShelfSource(src)
+      const shelfSource = (src.type === 'tab' || src.type === 'collection' || src.type === 'filter') ? src : tabContainerToShelfSource(src)
       await actions.addShelfWith(entry.title, shelfSource)
       toaster.toast({ title: t('pluginName'), body: `${t('toast_imported')}: ${entry.title}` })
       closeModal?.()
@@ -624,31 +624,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const handleAdd = () => actions.addShelf()
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
-  const [hasCustomFilters, setHasCustomFilters] = useState(false)
-  useEffect(() => {
-    let found = false
-    try {
-      const ctx = findCustomFiltersContextValue()
-      if (ctx && (Array.isArray((ctx as any).visibleTabsList) || (ctx as any).tabsMap instanceof Map)) found = true
-    } catch {}
-    if (!found) {
-      try {
-        const gm = (globalThis as any)
-        const candidates = [
-          gm.TabMasterManager,
-          gm.TabMaster?.tabMasterManager,
-          gm.TabMasterStore?.tabMasterManager,
-          gm.TabMasterContext?.tabMasterManager,
-          (window as any).TabMaster?.tabMasterManager,
-          (window as any).TabMasterManager,
-        ]
-        for (const c of candidates) {
-          if (c && (typeof c.getTabs === 'function' || Array.isArray(c.visibleTabsList) || c?.tabsMap instanceof Map)) { found = true; break }
-        }
-      } catch {}
-    }
-    setHasCustomFilters(found)
-  }, [])
+  const [hasCustomFilters] = useState(() => isTabMasterInstalled())
   const handleImportFromCustomFilters = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
   return (
