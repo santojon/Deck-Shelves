@@ -1,19 +1,21 @@
 /**
- * TabMaster integration.
+ * TabMaster integration (github.com/Tormak9970/TabMaster).
  *
- * TabMaster (github.com/Tormak9970/TabMaster) exposes its state through a
- * React context whose Provider value has the shape:
- *   { visibleTabsList: TabContainer[], hiddenTabsList: TabContainer[],
- *     tabsMap: Map<string, TabContainer>, tabMasterManager, ... }
+ * TabMaster exposes no React context and no inter-plugin IPC. The only
+ * reliable source of tab data is its settings file on disk, read by our
+ * Python backend at:
+ *   $DECKY_HOME/settings/TabMaster/settings.json
  *
- * It also has a Decky backend that exposes `get_tabs()` returning
- *   { [tabId]: { id, title, position, filters?, filtersMode?, ... } }
+ * Format: { usersDict: { userId: { tabs: { tabId: { id, title, position,
+ *   filters?, filtersMode? } } } } }
+ *
+ * React fiber traversal helpers below are kept as a forward-compat fallback
+ * in case a future TabMaster version re-exposes a context.
  */
 import { call } from '@decky/api';
+import type { PlatformTab } from '../runtime/platform';
 import { containerToShelfSource } from '../domain/customfilters';
 import { isTabMasterInstalled } from './registry';
-
-export type PlatformTab = { id: string; name: string };
 
 // ─── Context shape detection ──────────────────────────────────────────────
 
@@ -111,13 +113,18 @@ export async function getTabsFromSettingsFile(): Promise<TabMasterTabEntry[]> {
   }
 }
 
-/** Returns only the visible tabs (position >= 0), sorted ascending. */
+/** Returns only the visible tabs (position >= 0), sorted ascending, with pre-resolved source. */
 export async function getVisibleTabsFromSettingsFile(): Promise<PlatformTab[]> {
   const all = await getTabsFromSettingsFile();
   return all
     .filter((t) => t.position >= 0)
     .sort((a, b) => a.position - b.position)
-    .map((t) => ({ id: t.id, name: t.title }));
+    .map((t) => {
+      const source = t.filters && t.filters.length > 0
+        ? containerToShelfSource({ id: t.id, title: t.title, filters: t.filters })
+        : { type: 'tab' as const, tab: t.id };
+      return { id: t.id, name: t.title, source };
+    });
 }
 
 // Keep old names for call sites that haven't been updated yet — these now

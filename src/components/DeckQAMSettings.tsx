@@ -504,7 +504,10 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
       const title = state.title.trim() || t('newShelf');
       const patch: Partial<Shelf> = { title, limit: state.limit };
       if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
-      else if (state.sourceType === 'tab') patch.source = { type: 'tab', tab: state.tab };
+      else if (state.sourceType === 'tab') {
+        const selectedTab = tabs.find((t) => t.id === state.tab)
+        patch.source = selectedTab?.source ?? { type: 'tab', tab: state.tab }
+      }
       else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
       const ok = await actions.patchShelf(shelf.id, patch);
       logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });

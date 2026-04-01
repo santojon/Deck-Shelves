@@ -1,7 +1,7 @@
 import type { ShelfSource } from "../types";
 
 export type PlatformCollection = { id: string; name: string };
-export type PlatformTab = { id: string; name: string };
+export type PlatformTab = { id: string; name: string; source?: ShelfSource };
 
 export type PlatformAppMeta = {
   appid: number;

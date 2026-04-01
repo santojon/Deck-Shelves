@@ -67,16 +67,6 @@ function normalizeCollectionToken(value: string): string {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
 }
 
-function uniqTabs(list: PlatformTab[]): PlatformTab[] {
-  const map = new Map<string, PlatformTab>();
-  for (const item of list) {
-    const id = String(item.id || "").trim();
-    const name = String(item.name || "").trim();
-    if (!id || !name) continue;
-    if (!map.has(id)) map.set(id, { id, name });
-  }
-  return [...map.values()];
-}
 
 function cacheCollectionRaw(id: string, name: string, raw: any) {
   const exactId = String(id ?? "").trim();
@@ -394,39 +384,6 @@ function collectDynamicTabStores(): any[] {
   return Array.from(new Set([...base, ...dynamic]));
 }
 
-function extractTabArrayFromStore(candidate: any): PlatformTab[] {
-  const out: PlatformTab[] = [];
-  const seen = new Set<any>();
-  const TAB_ARRAY_KEYS = new Set(["tabs", "m_rgTabs", "m_tabs", "m_mapTabs", "m_mapTabData", "allTabs", "visibleTabs",
-    "visibleTabsList", "hiddenTabsList", "tabsMap", "collections", "items", "children", "entries", "routes", "sections"]);
-  const visit = (node: any) => {
-    if (!node || seen.has(node)) return;
-    if (typeof node !== "object") return;
-    seen.add(node);
-    // Handle ES6 Map (e.g. TabMaster's tabsMap: Map<string, TabContainer>)
-    if (node instanceof Map) {
-      node.forEach((v) => visit(v));
-      return;
-    }
-    const maybeId = String(node?.id ?? node?.key ?? node?.route ?? node?.path ?? node?.url ?? node?.tabid ?? node?.internal_name ?? node?.strInternalName ?? node?.name ?? "").trim();
-    const maybeName = String(node?.title ?? node?.label ?? node?.displayName ?? node?.name ?? node?.strName ?? node?.localizedName ?? node?.tab_name ?? "").trim();
-    if (maybeId && maybeName) out.push({ id: normalizeTabId(maybeId), name: maybeName });
-    if (Array.isArray(node)) {
-      node.forEach(visit);
-      return;
-    }
-    for (const [key, value] of Object.entries(node)) {
-      if (TAB_ARRAY_KEYS.has(key)) {
-        visit(value);
-      } else if (value && typeof value === "object") {
-        const hasTabMarkers = ["tab", "title", "label", "displayName", "strName", "internal_name", "route"].some((k) => Object.prototype.hasOwnProperty.call(value, k));
-        if (hasTabMarkers) visit(value);
-      }
-    }
-  };
-  visit(candidate);
-  return out;
-}
 
 async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
   const raw = String(tab ?? "").trim();
@@ -466,100 +423,28 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
     { id: "nonsteam", name: "Non-Steam" },
   ];
 
-  // 1. Try fiber traversal (TabMaster context in React tree)
-  const fiberTabs = getCustomFiltersList();
-  if (fiberTabs.length > 0) {
-    try {
-      logInfo("STEAM", "listLibraryTabs: fiber context found", { count: fiberTabs.length, sample: fiberTabs.slice(0, 6) });
-    } catch {}
-    return fiberTabs;
-  }
-
-  // 2. Settings file — read TabMaster's settings.json via our own backend.
-  //    TabMaster exposes no React context and no inter-plugin IPC; the settings
-  //    file is the only reliable source of tab data.
+  // 1. Settings file — primary source for TabMaster tabs
   try {
     const { getVisibleTabsFromSettingsFile } = await import('./integrations/tabmaster');
     const { isTabMasterInstalled } = await import('./integrations/registry');
     if (isTabMasterInstalled()) {
       const settingsTabs = await getVisibleTabsFromSettingsFile();
-      if (settingsTabs.length > 0) {
-        try { logInfo("STEAM", "listLibraryTabs: settings-file tabs found", { count: settingsTabs.length }); } catch {}
-        return settingsTabs;
-      }
+      if (settingsTabs.length > 0) return settingsTabs;
     }
   } catch {}
 
-  // 3. Try DOM-based tab reading (works with any plugin that renders [data-tab-id] attributes)
+  // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
+  const fiberTabs = getCustomFiltersList();
+  if (fiberTabs.length > 0) return fiberTabs;
+
+  // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
   try {
     const { getTabsFromDOM } = await import('./integrations/unifideck');
     const domTabs = getTabsFromDOM();
-    if (domTabs.length > 0) {
-      try { logInfo("STEAM", "listLibraryTabs: DOM tabs found", { count: domTabs.length }); } catch {}
-      return domTabs;
-    }
+    if (domTabs.length > 0) return domTabs;
   } catch {}
 
-  const clients = getSteamClients();
-  const hostWindows = getSteamWindows();
-
-  // Probe CustomTabs/TabMaster-like contexts directly: they may expose visibleTabsList and tabsMap
-  const customFiltersDirectCandidates = hostWindows.flatMap((win: any) => [
-    win?.TabMasterStore?.visibleTabsList,
-    win?.TabMasterStore?.hiddenTabsList,
-    win?.TabMasterStore?.tabsMap,
-    win?.TabMaster?.visibleTabsList,
-    win?.TabMaster?.hiddenTabsList,
-    win?.TabMaster?.tabsMap,
-    win?.TabMasterContext?.visibleTabsList,
-    win?.TabMasterContext?.hiddenTabsList,
-    win?.TabMasterContext?.tabsMap,
-  ]).filter(Boolean);
-
-  const globalCandidates = [
-    ...customFiltersDirectCandidates,
-    ...collectDynamicTabStores(),
-    ...clients.map((sc: any) => sc?.Apps),
-    ...hostWindows.flatMap((hostWindow: any) => [hostWindow?.LibraryStore, hostWindow?.AppStore, hostWindow?.g_LibraryTabs, hostWindow?.g_rgTabs, hostWindow?.appStore]),
-  ];
-
-  let found: PlatformTab[] = [];
-  for (const candidate of globalCandidates) {
-    try {
-      found = found.concat(extractTabArrayFromStore(candidate));
-    } catch {}
-  }
-
-  try {
-    const getterNames = ["GetTabs", "GetLibraryTabs", "GetVisibleTabs", "GetAllTabs", "GetSidebarTabs", "GetPrimaryTabs"];
-    for (const store of collectDynamicTabStores()) {
-      for (const name of getterNames) {
-        const result = await store?.[name]?.();
-        found = found.concat(extractTabArrayFromStore(result));
-      }
-    }
-  } catch {}
-
-  const unique = uniqTabs(found.length ? found : defaults);
-  const builtin = new Set(["all", "favorites", "installed", "hidden", "nonsteam", "recent", "/library/home", "/library/collections"]);
-  const filteredCandidates = await Promise.all(unique.slice(0, 32).map(async (tab) => {
-    if (builtin.has(normalizeTabId(tab.id))) return tab;
-    if (!tab.name || tab.name.length > 40) return null;
-    const byId = await getTabAppIdsFromStore(tab.id);
-    if (byId.length) return tab;
-    const byName = await getTabAppIdsFromStore(tab.name);
-    if (byName.length) return tab;
-    return null;
-  }));
-  const finalTabs = uniqTabs((filteredCandidates.filter(Boolean) as PlatformTab[]).length ? filteredCandidates.filter(Boolean) as PlatformTab[] : unique);
-  try {
-    logInfo("STEAM", "listLibraryTabs", {
-      found: found.length,
-      unique: finalTabs.length,
-      sample: finalTabs.slice(0, 10).map((t) => ({ id: t.id, name: t.name })),
-    });
-  } catch {}
-  return finalTabs;
+  return defaults;
 }
 
 export async function listCollections(): Promise<SteamCollection[]> {
@@ -1555,14 +1440,9 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
   if (source.type === "tab") {
     const rawTab = String(source.tab ?? "").trim();
 
-    // Try CustomTabs fiber traversal first (works even when external plugin exposes no globals)
-      const customFiltersIds = getCustomFiltersAppsForContainer(rawTab);
-      if (customFiltersIds.length) {
-        try {
-          logInfo("STEAM", "resolveShelfAppIds(tab): CustomFilters fiber", { tab: rawTab, count: customFiltersIds.length });
-        } catch {}
-        return customFiltersIds.slice(0, limit);
-      }
+    // Forward-compat: fiber traversal in case TabMaster exposes a React context
+    const customFiltersIds = getCustomFiltersAppsForContainer(rawTab);
+    if (customFiltersIds.length) return customFiltersIds.slice(0, limit);
 
     let fromTabStore = await getTabAppIdsFromStore(rawTab);
     if (!fromTabStore.length && rawTab) {
@@ -1600,9 +1480,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     const ids = sorted.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
 
-    // Fallback for TabMaster UUID tabs: standard resolution couldn't find apps (no fiber
-    // context, UUID not in any Steam store). Read TabMaster's settings file to get the
-    // tab's filter definition and resolve via filter source.
+    // Migration fallback: existing shelves saved as UUID tab sources resolve via TabMaster's filters
     if (!ids.length && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTab)) {
       try {
         const { getTabsFromSettingsFile } = await import('./integrations/tabmaster');
@@ -1626,10 +1504,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
   if (source.type === "filter") {
     const f: CustomFilter = (source.filter ?? {}) as CustomFilter;
 
-    // New TabMaster-style filter group — takes priority over legacy flat fields
     const filterGroup = (source.filter as any)?.filterGroup as FilterGroup | undefined;
     if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
-      // Pre-fetch collection app IDs so the synchronous evaluator can match them
       const ctx: FilterEvalContext = { collectionAppIds: new Map() };
       const colIds = collectCollectionIdsFromGroup(filterGroup);
       await Promise.all(colIds.map(async (colId) => {

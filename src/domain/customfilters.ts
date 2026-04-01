@@ -5,7 +5,7 @@
  * are mapped to Deck Shelves' internal FilterItem / FilterGroup structures.
  * It has no dependency on any specific integration.
  */
-import type { FilterGroup, FilterItem, FilterItemType } from '../types'
+import type { FilterGroup, FilterItem, FilterItemType, ShelfSource } from '../types'
 
 export const KNOWN_FILTER_TYPES = [
   'last played',
@@ -82,7 +82,7 @@ export function convertFiltersToGroup(filters: any[]): FilterGroup {
  * to a ShelfSource. If the container has filters, produces a filter-based source;
  * otherwise produces a tab-id-based source.
  */
-export function containerToShelfSource(container: any): { type: string; tab?: string; filter?: any } {
+export function containerToShelfSource(container: any): ShelfSource {
   if (!container) return { type: 'tab', tab: '' }
   if (!container.filters || container.filters.length === 0) {
     return { type: 'tab', tab: String(container.id ?? container.title ?? '') }

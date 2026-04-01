@@ -24,6 +24,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 - Inject custom shelves into `library/home`
 - Shelves backed by **collections**, **library tabs**, or **custom filters**
+- **Advanced filter groups** with AND/OR logic for complex game queries
 - Filter games by:
   - Favorites, installed, hidden, non-Steam
   - Name (substring or regex)
@@ -31,11 +32,32 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
   - Playtime range (min / max minutes)
   - Played within N days
   - Update pending
-- Sort shelves alphabetically, by recent play, or by total playtime
+  - Store tags, achievement count, friends who own
+- Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, or review score
+- **Import shelves from TabMaster** — one-click import of your TabMaster tabs when TabMaster is installed
+- **UnifiDeck support** — non-Steam apps (Epic, GOG, Amazon, etc.) appear in filter and tab shelves
+- Library tab selection shows your actual runtime tabs, including those created by other plugins
 - Reorder and toggle shelf visibility from the QAM
 - Import / export all shelves as JSON
 - Persistent settings across plugin reinstalls
 - Multi-language support (en, pt-BR, de, es, fr, it)
+
+## Plugin Integrations
+
+Deck Shelves detects other Decky plugins at runtime and enhances its functionality when they are present. No configuration is required.
+
+### TabMaster
+
+When [TabMaster](https://github.com/Tormak9970/TabMaster) is installed, a new **Import from TabMaster** button appears in the QAM editor. Pressing it opens a modal that lists all your TabMaster tabs:
+
+- Tabs that use filters are imported as **filter shelves**, preserving their filter logic.
+- Built-in and collection-based tabs are imported as **tab shelves** or **collection shelves** respectively.
+
+This lets you migrate your TabMaster setup to Deck Shelves with one tap, or simply mirror tabs as shelves on the Home screen.
+
+### UnifiDeck
+
+When [UnifiDeck](https://github.com/jurassicplayer/decky-unifideck) is installed, Deck Shelves automatically includes non-Steam shortcuts managed by UnifiDeck (Epic Games, GOG, Amazon Games, etc.) in filter and tab shelf results. No extra steps needed — apps from other launchers appear alongside your Steam library.
 
 ### Screenshots
 #### Home
@@ -84,6 +106,16 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 <p align="center">
   <img src="assets/screenshots/shelf-export.png" alt="Deck Shelves — Export Shelves" width="768">
+</p>
+
+#### Integrations & Filters
+
+<p align="center">
+  <img src="assets/screenshots/tabmaster-import.png" alt="Import from TabMaster" width="768">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/filter-group.png" alt="Filter Group Editor" width="768">
 </p>
 
 ## Installation
@@ -166,6 +198,25 @@ pnpm run package
 # Upload zip to Deck Downloads folder
 pnpm run upload:deckzip steamdeck
 ```
+
+### Capturing Screenshots
+
+To capture screenshots for documentation:
+
+1. Deploy the plugin to your Steam Deck (requires at least 2 shelves configured):
+   ```bash
+   npm run deploy
+   ```
+2. Run the screenshot automation script from your machine:
+   ```bash
+   python3 scripts/devtools/deck/screenshot.py
+   ```
+3. Screenshots are saved to `assets/screenshots/`.
+
+The following screenshots still need to be captured on a device and committed:
+
+- `assets/screenshots/tabmaster-import.png` — TabMaster import modal (requires TabMaster installed on device)
+- `assets/screenshots/filter-group.png` — Filter group editor with AND/OR groups configured
 
 ## Architecture
 
