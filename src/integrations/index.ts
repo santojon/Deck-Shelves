@@ -8,6 +8,8 @@ export {
   getTabAppsFromContext as getTabMasterAppsFromContext,
   getTabsFromBackend as getTabMasterTabsFromBackend,
   getTabDetailsFromBackend as getTabMasterDetailsFromBackend,
+  getTabsFromSettingsFile as getTabMasterTabsFromSettingsFile,
+  getVisibleTabsFromSettingsFile as getTabMasterVisibleTabs,
   tabContainerToShelfSource,
   extractTabsForImport as extractTabMasterTabsForImport,
 } from './tabmaster';

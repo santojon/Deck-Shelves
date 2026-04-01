@@ -257,7 +257,9 @@ export function findTabMasterContextValue(): any | null {
     for (const doc of docs) {
       try {
         const visitedRoots = new WeakSet<object>();
-        const allEls = Array.from(doc.querySelectorAll('*')).slice(0, 500);
+        // No element limit — TabMaster's Decky React root container may be
+        // arbitrarily deep in the document, well beyond any fixed slice.
+        const allEls = Array.from(doc.querySelectorAll('*'));
         for (const el of allEls) {
           const fiberKey = Object.keys(el).find(
             (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
@@ -473,8 +475,22 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
     return fiberTabs;
   }
 
-  // 2. Try DOM-based tab reading (works with TabMaster, UnifiDeck, or any plugin
-  //    that renders library tabs with data-tab-id attributes)
+  // 2. Settings file — read TabMaster's settings.json via our own backend.
+  //    TabMaster exposes no React context and no inter-plugin IPC; the settings
+  //    file is the only reliable source of tab data.
+  try {
+    const { getVisibleTabsFromSettingsFile } = await import('./integrations/tabmaster');
+    const { isTabMasterInstalled } = await import('./integrations/registry');
+    if (isTabMasterInstalled()) {
+      const settingsTabs = await getVisibleTabsFromSettingsFile();
+      if (settingsTabs.length > 0) {
+        try { logInfo("STEAM", "listLibraryTabs: settings-file tabs found", { count: settingsTabs.length }); } catch {}
+        return settingsTabs;
+      }
+    }
+  } catch {}
+
+  // 3. Try DOM-based tab reading (works with any plugin that renders [data-tab-id] attributes)
   try {
     const { getTabsFromDOM } = await import('./integrations/unifideck');
     const domTabs = getTabsFromDOM();

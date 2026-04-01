@@ -82,48 +82,59 @@ export function getTabAppsFromContext(ctx: any, tabId: string): number[] {
   return [];
 }
 
-// ─── Backend API (Decky `call`) ───────────────────────────────────────────
+// ─── Backend API — reads TabMaster's settings file via our own backend ───
+
+export interface TabMasterTabEntry {
+  id: string;
+  title: string;
+  position: number;
+  filters: any[];
+  filtersMode: string;
+}
 
 /**
- * Fetches tab data from TabMaster's Python backend.
- * Returns PlatformTab[] or empty array if not available.
+ * Reads TabMaster's tab list from its settings.json via Deck Shelves' Python backend.
+ *
+ * TabMaster does NOT expose tabs via React context, globals, or inter-plugin IPC.
+ * The only reliable source is its settings file on disk, which our backend reads
+ * at /home/deck/homebrew/settings/TabMaster/settings.json.
+ *
+ * Tabs are sorted by position: visible (position >= 0) first, then hidden (-1).
  */
-export async function getTabsFromBackend(): Promise<PlatformTab[]> {
+export async function getTabsFromSettingsFile(): Promise<TabMasterTabEntry[]> {
   if (!isTabMasterInstalled()) return [];
   try {
-    const result = await call<[], Record<string, any>>('get_tabs' as any);
-    if (!result || typeof result !== 'object') return [];
-    return Object.entries(result)
-      .map(([id, tab]) => ({
-        id: String(tab?.id ?? id),
-        name: String(tab?.title ?? tab?.name ?? id),
-      }))
-      .filter((t) => t.id && t.name && t.name !== t.id);
+    const result = await call<[], { tabs: TabMasterTabEntry[]; error?: string }>('get_tabmaster_tabs');
+    return result?.tabs ?? [];
   } catch {
     return [];
   }
 }
 
-/**
- * Fetches individual tab's app IDs from TabMaster backend.
- * TabMaster stores tab settings; apps are computed client-side from filters.
- * This returns the tab's filter definition for import purposes.
- */
+/** Returns only the visible tabs (position >= 0), sorted ascending. */
+export async function getVisibleTabsFromSettingsFile(): Promise<PlatformTab[]> {
+  const all = await getTabsFromSettingsFile();
+  return all
+    .filter((t) => t.position >= 0)
+    .sort((a, b) => a.position - b.position)
+    .map((t) => ({ id: t.id, name: t.title }));
+}
+
+// Keep old names for call sites that haven't been updated yet — these now
+// delegate to the settings-file approach since TabMaster's Python IPC is
+// not accessible from other plugins.
+export async function getTabsFromBackend(): Promise<PlatformTab[]> {
+  return getVisibleTabsFromSettingsFile();
+}
+
 export async function getTabDetailsFromBackend(): Promise<Array<{ id: string; title: string; filters?: any[]; filtersMode?: string }>> {
-  if (!isTabMasterInstalled()) return [];
-  try {
-    const result = await call<[], Record<string, any>>('get_tabs' as any);
-    if (!result || typeof result !== 'object') return [];
-    return Object.entries(result).map(([id, tab]) => ({
-      id: String(tab?.id ?? id),
-      title: String(tab?.title ?? tab?.name ?? id),
-      filters: tab?.filters ?? [],
-      filtersMode: tab?.filtersMode ?? tab?.filterMode ?? 'and',
-      sortByOverride: tab?.sortByOverride,
-    }));
-  } catch {
-    return [];
-  }
+  const all = await getTabsFromSettingsFile();
+  return all.map((t) => ({
+    id: t.id,
+    title: t.title,
+    filters: t.filters,
+    filtersMode: t.filtersMode,
+  }));
 }
 
 // ─── Tab container → shelf source ────────────────────────────────────────

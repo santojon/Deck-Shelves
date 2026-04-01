@@ -27,7 +27,7 @@ import { DeckModalStyles } from './styles/DeckModalStyles'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
 import { resolveShelfAppIds, findTabMasterContextValue } from '../steam'
-import { extractTabMasterTabsForImport, tabContainerToShelfSource, isTabMasterInstalled } from '../integrations'
+import { extractTabMasterTabsForImport, tabContainerToShelfSource, isTabMasterInstalled, getTabMasterTabsFromSettingsFile } from '../integrations'
 
 function icon(paths: React.ReactNode, size = 18, fill = 'none') {
   return (
@@ -264,56 +264,50 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
     const [tabs, setTabs] = React.useState<{ id: string; title: string; source?: any }[]>([])
 
   useEffect(() => {
-    let manager: any = null
-
-    // 1. React fiber traversal — works even when external tab plugin exposes no globals
-    try {
-      const ctx = findTabMasterContextValue()
-      if (ctx && (Array.isArray(ctx.visibleTabsList) || ctx.tabsMap instanceof Map)) {
-        manager = ctx
-      }
-    } catch {}
-
-    // 2. Fallback: probe common global locations (external plugin may expose these)
-    if (!manager) {
-      const gm = (globalThis as any)
-      const candidates = [
-        gm.TabMasterManager,
-        gm.TabMaster?.tabMasterManager,
-        gm.TabMasterStore?.tabMasterManager,
-        gm.TabMasterContext?.tabMasterManager,
-        (window as any).TabMaster?.tabMasterManager,
-        (window as any).TabMasterManager,
-      ]
-      for (const c of candidates) {
-        if (c && (typeof c.getTabs === 'function' || Array.isArray(c.visibleTabsList) || c.tabsMap instanceof Map)) {
-          manager = c
-          break
-        }
-      }
-    }
-
-    // 3. Last resort: scan all global properties for a manager-like object
-    if (!manager) {
+    const loadTabs = async () => {
+      // Primary: read TabMaster's settings.json via our own backend.
+      // TabMaster exposes NO React context and NO inter-plugin IPC — the settings
+      // file is the only reliable source of tab data.
       try {
-        const gm = (globalThis as any)
-        for (const k of Object.keys(gm)) {
-          const v = gm[k]
-          if (v && (typeof v.getTabs === 'function' || Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)) {
-            manager = v
-            break
-          }
+        const entries = await getTabMasterTabsFromSettingsFile()
+        if (entries.length > 0) {
+          setTabs(entries.map((t) => ({
+            id: t.id,
+            title: t.title,
+            source: t.filters && t.filters.length > 0
+              ? tabContainerToShelfSource({ id: t.id, title: t.title, filters: t.filters })
+              : { type: 'tab', tab: t.id },
+          })))
+          return
         }
       } catch {}
-    }
 
-    if (!manager) return
-    try {
-      const extracted = extractTabMasterTabsForImport(manager)
-      setTabs(extracted.map((t: any) => ({ id: t.id, title: t.title, source: t.source })))
-    } catch {
-      setTabs([])
+      // Fallback: React fiber traversal + globals (kept for forward-compatibility
+      // in case a future TabMaster version exposes a React context).
+      let manager: any = null
+      try {
+        const ctx = findTabMasterContextValue()
+        if (ctx && (Array.isArray(ctx.visibleTabsList) || ctx.tabsMap instanceof Map)) manager = ctx
+      } catch {}
+      if (!manager) {
+        try {
+          const gm = (globalThis as any)
+          for (const k of Object.keys(gm)) {
+            const v = gm[k]
+            if (v && (Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)) { manager = v; break }
+          }
+        } catch {}
+      }
+      if (manager) {
+        try {
+          const extracted = extractTabMasterTabsForImport(manager)
+          if (extracted.length > 0) {
+            setTabs(extracted.map((t: any) => ({ id: t.id, title: t.title, source: t.source })))
+          }
+        } catch {}
+      }
     }
+    loadTabs()
   }, [])
 
   const doImport = async (entry: { id: string; title: string; source?: any }) => {
@@ -332,14 +326,14 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
     <div className='deck-shelves-modal-scope'>
       <DeckModalStyles />
       <ConfirmModal
-        strTitle={t('import_from_customfilters')}
-        strDescription={t('import_from_customfilters_desc')}
+        strTitle={t('import_from_tabmaster')}
+        strDescription={t('import_from_tabmaster_desc')}
         strOKButtonText={t('close')}
         onOK={() => closeModal?.()}
         onCancel={() => closeModal?.()}
       >
         <div style={{ padding: 8 }}>
-          {tabs.length === 0 ? <div>{t('no_customfilters_tabs')}</div> : (
+          {tabs.length === 0 ? <div>{t('no_tabmaster_tabs')}</div> : (
             <div>
               {tabs.map((tab) => (
                 <Field key={tab.id} label={tab.title}>
@@ -635,7 +629,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         <Focusable style={{ width: '100%', display: 'flex' }}>
           <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
           <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
-          {hasCustomFilters ? <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.customFilters} onClick={handleImportFromCustomFilters} okDescription={t('import_from_customfilters')} /></div> : null}
+          {hasCustomFilters ? <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.customFilters} onClick={handleImportFromCustomFilters} okDescription={t('import_from_tabmaster')} /></div> : null}
           <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
         </Focusable>
       </Field>
