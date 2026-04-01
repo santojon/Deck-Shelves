@@ -1,5 +1,5 @@
 // Plugin registry
-export { isPluginInstalled, isTabMasterInstalled, isUnifiDeckInstalled } from './registry';
+export { isPluginInstalled, isTabMasterInstalled, isExternalTabsProviderInstalled } from './registry';
 
 // TabMaster integration
 export {
@@ -14,9 +14,8 @@ export {
   extractTabsForImport as extractTabMasterTabsForImport,
 } from './tabmaster';
 
-// UnifiDeck integration
+// DOM-based tab integration (UnifiDeck + other DOM-rendering plugins)
 export {
   getUnifiDeckTabs,
   getTabsFromDOM,
-  UNIFIDECK_TAB_IDS,
-} from './unifideck';
+} from './domtabs';

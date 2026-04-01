@@ -8,7 +8,7 @@
  * UnifiDeck shortcuts have app_type = EAppType_GameShortcut (0x40000000).
  * They are detectable as non-steam apps through normal Steam app overview flags.
  */
-import { isUnifiDeckInstalled } from './registry';
+import { isExternalTabsProviderInstalled } from './registry';
 import { getPreferredSteamDocument } from '../runtime/steamHost';
 
 export type PlatformTab = { id: string; name: string };
@@ -33,7 +33,7 @@ export const UNIFIDECK_TAB_IDS = [
  * We read them from the DOM's [data-tab-id] attributes if available.
  */
 export function getUnifiDeckTabs(): PlatformTab[] {
-  if (!isUnifiDeckInstalled()) return [];
+  if (!isExternalTabsProviderInstalled()) return [];
   try {
     const doc = getPreferredSteamDocument();
     const tabEls = doc.querySelectorAll('[data-tab-id^="unifideck-"]');

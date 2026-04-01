@@ -1,5 +1,5 @@
 check_name="SteamOS 3.7"
-check_version="Preview"
+check_version="Stable"
 
 run_checks() {
   local root="$1"

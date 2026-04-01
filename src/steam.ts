@@ -439,7 +439,7 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
 
   // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
   try {
-    const { getTabsFromDOM } = await import('./integrations/unifideck');
+    const { getTabsFromDOM } = await import('./integrations/domtabs');
     const domTabs = getTabsFromDOM();
     if (domTabs.length > 0) return domTabs;
   } catch {}

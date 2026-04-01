@@ -15,7 +15,23 @@ export function isPluginInstalled(name: string): boolean {
 
 export const isTabMasterInstalled = (): boolean => isPluginInstalled('TabMaster');
 
-export const isUnifiDeckInstalled = (): boolean =>
-  isPluginInstalled('Unifideck') ||
-  isPluginInstalled('UnifiDeck') ||
-  !!(document.getElementById?.('unifideck-tab-hider'));
+export const isUnifiDeckInstalled = (): boolean => {
+  try {
+    if (isPluginInstalled('Unifideck') || isPluginInstalled('UnifiDeck') || isPluginInstalled('UnifyDeck')) return true;
+
+    if (typeof document !== 'undefined') {
+      if (document.getElementById?.('unifideck-tab-hider')) return true;
+      if (document.querySelector?.('#unifideck-tab-hider')) return true;
+      if (document.querySelector?.('[data-tab-id^="unifideck-"]')) return true;
+    }
+
+    const g: any = globalThis as any;
+    if (g?.UnifiDeck || g?.UnifyDeck || g?.Unifideck) return true;
+    if ((window as any)?.UnifiDeck || (window as any)?.UnifyDeck || (window as any)?.Unifideck) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+};
+export const isExternalTabsProviderInstalled = isUnifiDeckInstalled;

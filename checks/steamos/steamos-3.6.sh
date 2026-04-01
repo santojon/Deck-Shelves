@@ -1,5 +1,5 @@
 check_name="SteamOS 3.6"
-check_version="Beta"
+check_version="Stable"
 
 run_checks() {
   local root="$1"
