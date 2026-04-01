@@ -65,7 +65,8 @@ export function convertFilterToItem(filter: any): FilterItem {
   if (type === 'friends' && Array.isArray(params?.friends)) normalizedParams.friends = params.friends
   if (type === 'storeTag' && (params?.tag || params?.tags)) normalizedParams.tags = params.tag ? [params.tag] : params.tags
   if (type === 'achievements') normalizedParams.achievementFilter = params
-  if (type === 'collection' && params?.collectionId) normalizedParams.collectionId = params.collectionId
+  // TabMaster stores the collection ID as params.id; our internal format uses params.collectionId
+  if (type === 'collection') normalizedParams.collectionId = params?.collectionId ?? params?.id ?? ''
   if (type === 'deckCompatibility' && params?.compat !== undefined) normalizedParams.levels = [params.compat]
   return { type, inverted, params: normalizedParams }
 }

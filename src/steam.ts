@@ -1599,6 +1599,24 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       ? filtered
       : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     const ids = sorted.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
+
+    // Fallback for TabMaster UUID tabs: standard resolution couldn't find apps (no fiber
+    // context, UUID not in any Steam store). Read TabMaster's settings file to get the
+    // tab's filter definition and resolve via filter source.
+    if (!ids.length && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTab)) {
+      try {
+        const { getTabsFromSettingsFile } = await import('./integrations/tabmaster');
+        const { convertFiltersToGroup } = await import('./domain/customfilters');
+        const tmTabs = await getTabsFromSettingsFile();
+        const tmTab = tmTabs.find((t) => t.id === rawTab);
+        if (tmTab && tmTab.filters && tmTab.filters.length > 0) {
+          const filterGroup = convertFiltersToGroup(tmTab.filters);
+          try { logInfo("STEAM", "resolveShelfAppIds(tab): UUID fallback via TabMaster filters", { tab: rawTab, title: tmTab.title }); } catch {}
+          return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as any, limit);
+        }
+      } catch {}
+    }
+
     if (!ids.length) {
       logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
     }
