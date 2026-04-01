@@ -144,5 +144,9 @@
   "filter_tags_hint": "Kommagetrennte Tag-Namen",
   "filter_friends_info": "Zeigt Spiele, die von deinen Freunden gespielt werden (erfordert kompatibles Plugin)",
   "filter_achievements_info": "Filtert nach Errungenschaften (erfordert kompatibles Plugin)",
-  "filter_merge_info": "Zusammengeführter Unterfilter ({{count}} Einträge, {{mode}}-Modus)"
+  "filter_merge_info": "Zusammengeführter Unterfilter ({{count}} Einträge, {{mode}}-Modus)",
+  "about_feature_advanced_groups": "Erstelle erweiterte Filtergruppen mit UND/ODER und verschachtelten Regeln",
+  "about_feature_new_filters": "Neue Filteroptionen: Spielzeitbereiche, Regex-Suche im Namen, Store-Tags, Errungenschaften",
+  "about_feature_new_sorts": "Zusätzliche Sortieroptionen: Spielzeit, Erscheinungsdatum, Größe, Bewertungswerte",
+  "about_feature_external_imports": "Importiere Bibliotheks-Tabs aus TabMaster oder anderen Plugins und konvertiere sie in Regale"
 }

@@ -144,5 +144,9 @@
   "filter_tags_hint": "Noms de balises séparés par des virgules",
   "filter_friends_info": "Affiche les jeux joués par vos amis (nécessite un plugin compatible)",
   "filter_achievements_info": "Filtre par succès (nécessite un plugin compatible)",
-  "filter_merge_info": "Sous-filtre combiné ({{count}} éléments, mode {{mode}})"
+  "filter_merge_info": "Sous-filtre combiné ({{count}} éléments, mode {{mode}})",
+  "about_feature_advanced_groups": "Créez des groupes de filtres avancés avec AND/OR et des règles imbriquées",
+  "about_feature_new_filters": "Nouvelles options de filtre : plages de temps de jeu, correspondance de nom par regex, balises du magasin, succès",
+  "about_feature_new_sorts": "Options de tri supplémentaires : temps de jeu, date de sortie, taille, scores d'avis",
+  "about_feature_external_imports": "Importez les onglets de la bibliothèque depuis TabMaster ou d'autres plugins fournisseurs et convertissez-les en étagères"
 }

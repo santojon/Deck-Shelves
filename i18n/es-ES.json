@@ -144,5 +144,9 @@
   "filter_tags_hint": "Nombres de etiquetas separados por comas",
   "filter_friends_info": "Muestra juegos jugados por tus amigos (requiere plugin compatible)",
   "filter_achievements_info": "Filtra por logros (requiere plugin compatible)",
-  "filter_merge_info": "Sub-filtro combinado ({{count}} elementos, modo {{mode}})"
+  "filter_merge_info": "Sub-filtro combinado ({{count}} elementos, modo {{mode}})",
+  "about_feature_advanced_groups": "Crea grupos de filtros avanzados con AND/OR y reglas anidadas",
+  "about_feature_new_filters": "Nuevas opciones de filtro: rangos de tiempo de juego, coincidencia por regex en nombres, etiquetas de tienda, logros",
+  "about_feature_new_sorts": "Opciones de orden adicionales: tiempo de juego, fecha de lanzamiento, tamaño, puntuaciones de reseñas",
+  "about_feature_external_imports": "Importa pestañas de biblioteca desde TabMaster u otros plugins proveedores y conviértelas en estanterías"
 }

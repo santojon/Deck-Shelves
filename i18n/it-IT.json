@@ -144,5 +144,9 @@
   "filter_tags_hint": "Nomi tag separati da virgola",
   "filter_friends_info": "Mostra i giochi giocati dai tuoi amici (richiede un plugin compatibile)",
   "filter_achievements_info": "Filtra per obiettivi (richiede un plugin compatibile)",
-  "filter_merge_info": "Sotto-filtro combinato ({{count}} elementi, modalità {{mode}})"
+  "filter_merge_info": "Sotto-filtro combinato ({{count}} elementi, modalità {{mode}})",
+  "about_feature_advanced_groups": "Crea gruppi di filtri avanzati con AND/OR e regole annidate",
+  "about_feature_new_filters": "Nuove opzioni di filtro: intervalli di tempo di gioco, corrispondenza regex dei nomi, tag dello store, obiettivi",
+  "about_feature_new_sorts": "Opzioni di ordinamento aggiuntive: tempo di gioco, data di uscita, dimensione, punteggi delle recensioni",
+  "about_feature_external_imports": "Importa le schede della libreria da TabMaster o altri plugin provider e convertili in scaffali"
 }
