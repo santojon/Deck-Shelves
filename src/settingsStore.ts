@@ -147,6 +147,10 @@ export async function importSettingsFromFile(srcPath: string): Promise<Settings>
   }
 }
 
+export function getCurrentSettings(): Settings | null {
+  return current;
+}
+
 export function subscribeSettings(listener: (s: Settings) => void): () => void {
   listeners.add(listener);
   if (current) listener(current);

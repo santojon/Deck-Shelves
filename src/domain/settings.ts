@@ -62,7 +62,7 @@ export function hiddenValueFromMode(mode: string): ShelfFilter["hidden"] {
 }
 
 /**
- * Converts a legacy flat ShelfFilter into the new TabMaster-style FilterGroup.
+ * Converts a legacy flat ShelfFilter into the new CustomTabs-style FilterGroup.
  * Used when opening an old shelf for editing in the new filter UI.
  */
 export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {

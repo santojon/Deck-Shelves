@@ -26,7 +26,8 @@ import { importSettingsFromFile, exportSettingsToFile } from '../settingsStore'
 import { DeckModalStyles } from './styles/DeckModalStyles'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
-import { resolveShelfAppIds } from '../steam'
+import { resolveShelfAppIds, findCustomFiltersContextValue } from '../steam'
+import { extractFiltersFromCustomFiltersManager, containerToShelfSource } from '../integrations/customfilters'
 
 function icon(paths: React.ReactNode, size = 18, fill = 'none') {
   return (
@@ -48,6 +49,7 @@ const icons = {
   down: icon(<path d='m6 10 6 6 6-6' />),
   trash: icon(<><path d='M3 6h18' /><path d='M8 6V4h8v2' /><path d='M10 10v6' /><path d='M14 10v6' /><path d='M6 6l1 14h10l1-14' /></>),
   ellipsis: icon(<><circle cx='6' cy='12' r='1.4' fill='currentColor' stroke='none' /><circle cx='12' cy='12' r='1.4' fill='currentColor' stroke='none' /><circle cx='18' cy='12' r='1.4' fill='currentColor' stroke='none' /></>, 16),
+  customFilters: icon(<><rect x='2' y='8' width='20' height='13' rx='2' /><path d='M2 12h20' /><rect x='6' y='5' width='6' height='3' rx='1' /></>),
 }
 
 type EntryData = { id: string }
@@ -57,6 +59,10 @@ const SORT_OPTIONS = [
   { value: 'alphabetical', labelKey: 'sort_alpha' },
   { value: 'recent', labelKey: 'sort_recent' },
   { value: 'playtime', labelKey: 'sort_playtime' },
+  { value: 'release_date', labelKey: 'sort_release_date' },
+  { value: 'size_on_disk', labelKey: 'sort_size_on_disk' },
+  { value: 'metacritic', labelKey: 'sort_metacritic' },
+  { value: 'review_score', labelKey: 'sort_review_score' },
 ] as const
 
 function textFromDeckyChange(value: unknown): string {
@@ -160,12 +166,18 @@ function ShelfListLabel({ shelf }: { shelf: Shelf }) {
 
 function DeleteConfirmModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, actions } = controller
+
+  // Inject a scoped style to make the OK button red only while this modal is mounted.
+  // We avoid bDestructiveWarning because it leaks a global CSS state into Steam's UI.
+  // Use ConfirmModal's destructive flag to style the OK button red
+
   return (
     <ConfirmModal
       strTitle={t('deleteShelf')}
       strDescription={shelf.title}
       strOKButtonText={t('deleteShelf')}
       strCancelButtonText={t('cancel')}
+      bDestructiveWarning
       onCancel={closeModal}
       onEscKeypress={closeModal}
       onOK={() => {
@@ -242,6 +254,103 @@ function ExportModal({ closeModal, controller, folderPath }: ExportModalProps) {
             </div>
           </div>
         </Focusable>
+      </ConfirmModal>
+    </div>
+  )
+}
+
+function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
+    const { t, actions } = controller
+    const [tabs, setTabs] = React.useState<{ id: string; title: string; source?: any }[]>([])
+
+  useEffect(() => {
+    let manager: any = null
+
+    // 1. React fiber traversal — works even when external tab plugin exposes no globals
+    try {
+      const ctx = findCustomFiltersContextValue()
+      if (ctx && (Array.isArray(ctx.visibleTabsList) || ctx.tabsMap instanceof Map)) {
+        manager = ctx
+      }
+    } catch {}
+
+    // 2. Fallback: probe common global locations (external plugin may expose these)
+    if (!manager) {
+      const gm = (globalThis as any)
+      const candidates = [
+        gm.TabMasterManager,
+        gm.TabMaster?.tabMasterManager,
+        gm.TabMasterStore?.tabMasterManager,
+        gm.TabMasterContext?.tabMasterManager,
+        (window as any).TabMaster?.tabMasterManager,
+        (window as any).TabMasterManager,
+      ]
+      for (const c of candidates) {
+        if (c && (typeof c.getTabs === 'function' || Array.isArray(c.visibleTabsList) || c.tabsMap instanceof Map)) {
+          manager = c
+          break
+        }
+      }
+    }
+
+    // 3. Last resort: scan all global properties for a manager-like object
+    if (!manager) {
+      try {
+        const gm = (globalThis as any)
+        for (const k of Object.keys(gm)) {
+          const v = gm[k]
+          if (v && (typeof v.getTabs === 'function' || Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)) {
+            manager = v
+            break
+          }
+        }
+      } catch {}
+    }
+
+    if (!manager) return
+    try {
+      const extracted = extractFiltersFromCustomFiltersManager(manager)
+      setTabs(extracted.map((t: any) => ({ id: t.id, title: t.title, source: t.source })))
+    } catch {
+      setTabs([])
+    }
+  }, [])
+
+  const doImport = async (entry: { id: string; title: string; source?: any }) => {
+    try {
+      const src = entry.source ?? { type: 'tab', tab: entry.id }
+      const shelfSource = (src.type === 'tab' || src.type === 'collection' || src.type === 'filter') ? src : containerToShelfSource(src)
+      await actions.addShelfWith(entry.title, shelfSource)
+      toaster.toast({ title: t('pluginName'), body: `${t('toast_imported')}: ${entry.title}` })
+      closeModal?.()
+    } catch (e) {
+      toaster.toast({ title: t('pluginName'), body: String(e) })
+    }
+  }
+
+  return (
+    <div className='deck-shelves-modal-scope'>
+      <DeckModalStyles />
+      <ConfirmModal
+        strTitle={t('import_from_customfilters')}
+        strDescription={t('import_from_customfilters_desc')}
+        strOKButtonText={t('close')}
+        onOK={() => closeModal?.()}
+        onCancel={() => closeModal?.()}
+      >
+        <div style={{ padding: 8 }}>
+          {tabs.length === 0 ? <div>{t('no_customfilters_tabs')}</div> : (
+            <div>
+              {tabs.map((tab) => (
+                <Field key={tab.id} label={tab.title}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <DialogButton onClick={() => doImport(tab)} onOKButton={() => doImport(tab)} onOKActionDescription={t('import')}>{t('import')}</DialogButton>
+                  </div>
+                </Field>
+              ))}
+            </div>
+          )}
+        </div>
       </ConfirmModal>
     </div>
   )
@@ -515,6 +624,32 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const handleAdd = () => actions.addShelf()
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
+  const [hasCustomFilters, setHasCustomFilters] = useState(false)
+  useEffect(() => {
+    let found = false
+    try {
+      const ctx = findCustomFiltersContextValue()
+      if (ctx && (Array.isArray((ctx as any).visibleTabsList) || (ctx as any).tabsMap instanceof Map)) found = true
+    } catch {}
+    if (!found) {
+      try {
+        const gm = (globalThis as any)
+        const candidates = [
+          gm.TabMasterManager,
+          gm.TabMaster?.tabMasterManager,
+          gm.TabMasterStore?.tabMasterManager,
+          gm.TabMasterContext?.tabMasterManager,
+          (window as any).TabMaster?.tabMasterManager,
+          (window as any).TabMasterManager,
+        ]
+        for (const c of candidates) {
+          if (c && (typeof c.getTabs === 'function' || Array.isArray(c.visibleTabsList) || c?.tabsMap instanceof Map)) { found = true; break }
+        }
+      } catch {}
+    }
+    setHasCustomFilters(found)
+  }, [])
+  const handleImportFromCustomFilters = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
   return (
     <div className='deck-shelves-qam-scope'>
@@ -524,6 +659,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         <Focusable style={{ width: '100%', display: 'flex' }}>
           <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
           <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
+          {hasCustomFilters ? <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.customFilters} onClick={handleImportFromCustomFilters} okDescription={t('import_from_customfilters')} /></div> : null}
           <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
         </Focusable>
       </Field>

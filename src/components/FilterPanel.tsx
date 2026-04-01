@@ -29,11 +29,16 @@ const ALL_FILTER_TYPES: FilterItemType[] = [
   "playtimeRange",
   "nameIncludes",
   "nameRegex",
+  "friends",
+  "storeTag",
+  "achievements",
+  "collection",
+  "merge",
 ];
 
 const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
 
-// Types that support the "Invert" dropdown (mirrors TabMaster)
+// Types that support the "Invert" dropdown (mirrors CustomTabs)
 const INVERTIBLE_SET = new Set<FilterItemType>([
   "favorites",
   "deckCompatibility",
@@ -55,6 +60,11 @@ function defaultParams(type: FilterItemType): Record<string, any> {
     case "playtimeRange": return { minHours: undefined, maxHours: undefined };
     case "nameIncludes": return { text: "" };
     case "nameRegex": return { pattern: "" };
+    case "friends": return { friends: [] };
+    case "storeTag": return { tags: [] };
+    case "achievements": return {};
+    case "collection": return { collectionId: "" };
+    case "merge": return { mode: "and", items: [] };
     default: return {};
   }
 }
@@ -82,6 +92,16 @@ function isValidParams(item: FilterItem): boolean {
       if (!pat) return false;
       try { new RegExp(pat); return true; } catch { return false; }
     }
+    case "friends":
+      return Array.isArray(p.friends) && p.friends.length > 0;
+    case "storeTag":
+      return Array.isArray(p.tags) && p.tags.length > 0;
+    case "achievements":
+      return true;
+    case "collection":
+      return Boolean(p.collectionId);
+    case "merge":
+      return Array.isArray(p.items) && p.items.length > 0;
     default:
       return true;
   }
@@ -100,6 +120,11 @@ function getTypeLabel(type: FilterItemType): string {
     playtimeRange: t("filter_type_playtimeRange"),
     nameIncludes: t("filter_type_nameIncludes"),
     nameRegex: t("filter_type_nameRegex"),
+    friends: t("filter_type_friends"),
+    storeTag: t("filter_type_storeTag"),
+    achievements: t("filter_type_achievements"),
+    collection: t("filter_type_collection"),
+    merge: t("filter_type_merge"),
   };
   return map[type] ?? type;
 }
@@ -280,6 +305,60 @@ function FilterItemOptions({
         </PanelSectionRow>
       );
 
+    case "collection":
+      return (
+        <PanelSectionRow>
+          <Field label={t("filter_collection_label")} bottomSeparator="none">
+            <TextField
+              value={String(p.collectionId ?? "")}
+              onChange={(val: any) => {
+                const collectionId = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
+                patchParams({ collectionId });
+              }}
+            />
+          </Field>
+        </PanelSectionRow>
+      );
+
+    case "storeTag": {
+      const tags: string[] = Array.isArray(p.tags) ? p.tags : [];
+      return (
+        <PanelSectionRow>
+          <Field label={t("filter_type_storeTag")} description={t("filter_tags_hint")} bottomSeparator="none">
+            <TextField
+              value={tags.join(", ")}
+              onChange={(val: any) => {
+                const raw = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
+                patchParams({ tags: raw.split(",").map((s: string) => s.trim()).filter(Boolean) });
+              }}
+            />
+          </Field>
+        </PanelSectionRow>
+      );
+    }
+
+    case "friends":
+    case "achievements":
+      return (
+        <PanelSectionRow>
+          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+            {t(item.type === "friends" ? "filter_friends_info" : "filter_achievements_info")}
+          </div>
+        </PanelSectionRow>
+      );
+
+    case "merge": {
+      const subItems: FilterItem[] = Array.isArray(p.items) ? (p.items as FilterItem[]) : [];
+      const subMode: string = p.mode ?? "and";
+      return (
+        <PanelSectionRow>
+          <div style={{ padding: "4px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+            {t("filter_merge_info", { count: subItems.length, mode: subMode.toUpperCase() })}
+          </div>
+        </PanelSectionRow>
+      );
+    }
+
     default:
       return null;
   }
@@ -372,7 +451,7 @@ function FilterEntry({
     { data: true, label: t("filter_invert_label") },
   ];
 
-  // width mirrors TabMaster: full - 55px (trash) - 120px (invert) - 10px gap - 10px gap
+  // width mirrors CustomTabs: full - 55px (trash) - 120px (invert) - 10px gap - 10px gap
   const typeWidth = invertible ? "calc(100% - 185px)" : "calc(100% - 55px)";
 
   return (
@@ -416,7 +495,7 @@ function FilterEntry({
   );
 }
 
-// ---------- Main FilterPanel (matches TabMaster's FiltersPanel) ----------
+// ---------- Main FilterPanel (matches CustomTabs' FiltersPanel) ----------
 
 export type FilterPanelProps = {
   group: FilterGroup;

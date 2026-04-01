@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// --- TabMaster-style filter item types ---
+// --- CustomTabs-style filter item types ---
 
 export const FilterItemTypeSchema = z.enum([
   "installed",
@@ -13,6 +13,11 @@ export const FilterItemTypeSchema = z.enum([
   "playtimeRange",
   "nameIncludes",
   "nameRegex",
+  "friends",
+  "storeTag",
+  "achievements",
+  "collection",
+  "merge",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
@@ -41,11 +46,15 @@ export const FilterSchema = z.object({
   nameIncludes: z.string().optional(),
   nameRegex: z.string().optional(),
   deckCompatibility: z.array(z.enum(["verified", "playable", "unsupported", "unknown"])).optional(),
-  sort: z.enum(["alphabetical", "recent", "playtime"]).optional(),
+  // Allow known sort enums but accept unknown strings for forward compatibility
+  sort: z.union([
+    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score"]),
+    z.string(),
+  ]).optional(),
   minPlaytimeMinutes: z.number().int().min(0).optional(),
   maxPlaytimeMinutes: z.number().int().min(0).optional(),
   updatePending: z.boolean().optional(),
-  // New TabMaster-style filter group (takes priority over legacy fields when present)
+  // New CustomTabs-style filter group (takes priority over legacy fields when present)
   filterGroup: FilterGroupSchema.optional(),
 }).passthrough();
 
