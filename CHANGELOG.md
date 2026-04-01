@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Delete shelf button no longer leaks destructive styling into Steam's system shutdown menu.
-- Existing shelves backed by UUID tabs (custom TabMaster tabs) are automatically migrated to the correct filter-based source on load.
+- Existing shelves backed by UUID tabs are automatically migrated to the correct filter-based source on load.
 
 ## [0.1.0] - 2026-03-25
 
