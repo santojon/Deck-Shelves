@@ -21,11 +21,13 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           COMMIT=$(git rev-parse HEAD)
           PLUGIN_SLUG=$(echo "$PLUGIN_NAME" | tr ' ' '-')
-          echo "plugin_name=$PLUGIN_NAME" >> "$GITHUB_OUTPUT"
-          echo "plugin_author=$PLUGIN_AUTHOR" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
-          echo "plugin_slug=$PLUGIN_SLUG" >> "$GITHUB_OUTPUT"
+          cat >> "$GITHUB_OUTPUT" <<GITHUB_EOF
+          plugin_name=$PLUGIN_NAME
+          plugin_author=$PLUGIN_AUTHOR
+          version=$VERSION
+          commit=$COMMIT
+          plugin_slug=$PLUGIN_SLUG
+          GITHUB_EOF
 
       - name: Set up git user
         run: |

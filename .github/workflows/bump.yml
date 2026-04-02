@@ -48,11 +48,13 @@ jobs:
 
       - name: Determine bump type
         id: bump_type
+        env:
+          PR_TITLE: "${{ github.event.pull_request.title }}"
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "bump=${{ inputs.bump }}" >> "$GITHUB_OUTPUT"
           else
-            TITLE="${{ github.event.pull_request.title }}"
+            TITLE="$PR_TITLE"
             if [[ "$TITLE" == \[FEATURE\]* ]]; then
               echo "bump=major" >> "$GITHUB_OUTPUT"
             elif [[ "$TITLE" == \[REFACTOR\]* ]]; then
