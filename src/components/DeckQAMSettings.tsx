@@ -262,9 +262,13 @@ function ExportModal({ closeModal, controller, folderPath }: ExportModalProps) {
 function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
     const { t, actions } = controller
     const [tabs, setTabs] = React.useState<{ id: string; title: string; source?: any }[]>([])
+    const [loading, setLoading] = React.useState(true)
+    const [error, setError] = React.useState<string | null>(null)
 
   useEffect(() => {
     const loadTabs = async () => {
+      setLoading(true)
+      setError(null)
       // Primary: read TabMaster's settings.json via our own backend.
       // TabMaster exposes NO React context and NO inter-plugin IPC — the settings
       // file is the only reliable source of tab data.
@@ -278,9 +282,12 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
               ? tabContainerToShelfSource({ id: t.id, title: t.title, filters: t.filters })
               : { type: 'tab', tab: t.id },
           })))
+          setLoading(false)
           return
         }
-      } catch {}
+      } catch (e) {
+        logInfo("SETTINGS", "TabMaster settings file read failed, trying fiber fallback", String(e))
+      }
 
       // Fallback: React fiber traversal + globals (kept for forward-compatibility
       // in case a future TabMaster version exposes a React context).
@@ -303,9 +310,15 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
           const extracted = extractTabMasterTabsForImport(manager)
           if (extracted.length > 0) {
             setTabs(extracted.map((t: any) => ({ id: t.id, title: t.title, source: t.source })))
+            setLoading(false)
+            return
           }
         } catch {}
       }
+
+      // All sources failed
+      setLoading(false)
+      setError(t('toast_failed_import'))
     }
     loadTabs()
   }, [])
@@ -333,7 +346,13 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
         onCancel={() => closeModal?.()}
       >
         <div style={{ padding: 8 }}>
-          {tabs.length === 0 ? <div>{t('no_tabmaster_tabs')}</div> : (
+          {loading ? (
+            <div>{t('loading')}</div>
+          ) : error && tabs.length === 0 ? (
+            <div style={{ color: '#f59e0b' }}>{error}</div>
+          ) : tabs.length === 0 ? (
+            <div>{t('no_tabmaster_tabs')}</div>
+          ) : (
             <div>
               {tabs.map((tab) => (
                 <Field key={tab.id} label={tab.title}>

@@ -424,6 +424,7 @@ async function buildShelfNode(shelf: Shelf): Promise<HTMLElement | null> {
   const ids = await platform.resolveShelfAppIds(shelf.source, shelf.limit);
   if (!ids.length) {
     logWarn("HOME", "shelf resolved zero apps", { shelfId: shelf.id, title: shelf.title, source: shelf.source });
+    logDiagnostic("warn", "Shelf resolved zero apps", JSON.stringify({ shelfId: shelf.id, title: shelf.title }));
     return null;
   }
 
@@ -826,7 +827,7 @@ export function installHomePatch(_routerHook?: any) {
   observer.observe(hostDoc.body, { childList: true, subtree: true });
 
   if (timer) window.clearInterval(timer);
-  timer = window.setInterval(tryFallbackRender, 2000);
+  timer = window.setInterval(tryFallbackRender, 10000);
 
   const onRouteSignal = () => tryFallbackRender();
   hostWin.addEventListener("hashchange", onRouteSignal);
