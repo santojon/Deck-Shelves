@@ -6,6 +6,7 @@ import { refreshSettings, subscribeSettings } from "../settingsStore";
 import { PlatformProvider } from "../runtime/platformContext";
 import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
+import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook, extractAppContextMenu, showGameMenu } from "../core/steamGameMenu";
@@ -231,10 +232,31 @@ function isHomeRoute(): boolean {
 function hasHomeDomSignals(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
-  if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X')) return true;
-  if (doc.querySelector('[class*="ReactVirtualized__Grid"][aria-label], [aria-label="Jogos recentes"], [aria-label="Recent Games"]')) return true;
+  // Stable selectors first — semantic substrings and aria-labels survive Steam updates
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
+  if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
+  // Obfuscated class name — last resort
+  try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X')) return true; } catch {}
   return false;
+}
+
+/** One-time feature detection for the gamepad nav tree internal API. */
+function detectNavTreeApi(): { available: boolean; detail: string } {
+  try {
+    const ctrl = (globalThis as any).FocusNavController
+      ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;
+    if (!ctrl) return { available: false, detail: 'no FocusNavController' };
+    const ctx = ctrl.m_ActiveContext || ctrl.m_LastActiveContext;
+    const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
+    const main = trees.find((t: any) => t.m_ID === "GamepadUI_Full_Root");
+    if (!main) return { available: false, detail: 'no GamepadUI_Full_Root tree' };
+    const root = main.Root || main.m_Root;
+    if (!root) return { available: false, detail: 'no Root on main tree' };
+    if (!Array.isArray(root.m_rgChildren)) return { available: false, detail: 'm_rgChildren unavailable' };
+    return { available: true, detail: `${root.m_rgChildren.length} root children` };
+  } catch (e) {
+    return { available: false, detail: String(e) };
+  }
 }
 
 function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | null {
@@ -374,6 +396,14 @@ export function HomeShelves() {
 
 function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves: any[] }) {
   useEffect(() => {
+    // One-time nav tree API detection — result surfaced in About > Diagnostics
+    const navApi = detectNavTreeApi();
+    logDiagnostic(
+      navApi.available ? 'info' : 'warn',
+      navApi.available ? 'Gamepad nav tree API available' : 'Gamepad nav tree API unavailable',
+      navApi.detail,
+    );
+
     const interval = setInterval(() => {
       try {
         reparentNavTreeNodes(mountEl);

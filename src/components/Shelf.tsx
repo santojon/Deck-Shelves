@@ -1,5 +1,5 @@
 
-import { Spinner } from "@decky/ui";
+import { Menu, MenuItem, Spinner, showContextMenu } from "@decky/ui";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
@@ -9,6 +9,7 @@ import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { showGameMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
+import { removeAppFromCollection } from "../steam";
 
 export function ShelfView({ shelf }: { shelf: Shelf }) {
   const { t } = useTranslation();
@@ -80,9 +81,24 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
   if (!appIds.length) return null;
 
+  const isCollection = shelf.source.type === 'collection';
+  const collectionId = shelf.source.type === 'collection' ? shelf.source.collectionId : '';
+
   const rowItems: DeckRowItem[] = appIds.flatMap((appid): DeckRowItem[] => {
     const item = items.get(appid) ?? { appid, name: `App ${appid}` };
     if (/^App \d+$/.test(item.name)) return [];
+    const onMenuButton = isCollection
+      ? () => {
+          showContextMenu(
+            <Menu label={item.name}>
+              <MenuItem onSelected={() => showGameMenu(appid)}>{t('game_options')}</MenuItem>
+              <MenuItem onSelected={() => { removeAppFromCollection(collectionId, appid); }}>
+                {t('remove_from_shelf')}
+              </MenuItem>
+            </Menu>
+          );
+        }
+      : () => showGameMenu(appid);
     return [{
       id: appid,
       appid,
@@ -90,7 +106,7 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
       portraitUrl: item.portraitUrl,
       heroUrl: item.heroUrl,
       onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
-      onMenuButton: () => showGameMenu(appid),
+      onMenuButton,
       deckCompatCategory: item.deckCompatCategory,
       playtimeMinutes: item.playtimeMinutes,
       isInstalled: item.installed,
@@ -113,5 +129,5 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
     onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
   });
 
-  return <DeckRow title={shelf.title} items={rowItems} />;
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} />;
 }

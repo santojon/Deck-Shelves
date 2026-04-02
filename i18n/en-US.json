@@ -148,5 +148,20 @@
   "about_feature_advanced_groups": "Create advanced filter groups with AND/OR and nested rules",
   "about_feature_new_filters": "New filter options: playtime ranges, regex name matching, store tags, achievements",
   "about_feature_new_sorts": "Additional sort options: playtime, release date, size, review scores",
-  "about_feature_external_imports": "Import library tabs from TabMaster or other provider plugins to convert them into shelves"
+  "about_feature_external_imports": "Import library tabs from TabMaster or other provider plugins to convert them into shelves",
+  "template_favorites": "Favorites",
+  "template_recent": "Recently Played",
+  "template_installed": "Installed Games",
+  "template_most_played": "Most Played",
+  "template_recently_added": "Recently Added",
+  "template_awaiting_update": "Awaiting Update",
+  "template_picker_title": "Choose a template",
+  "template_picker_desc": "Select a preset or start from scratch.",
+  "template_blank": "Start blank",
+  "first_run_title": "Welcome to Deck Shelves!",
+  "first_run_desc": "Create custom game shelves on your Home screen. Start with defaults or add shelves manually.",
+  "first_run_create_defaults": "Create default shelves",
+  "remove_from_shelf": "Remove from shelf",
+  "source_external": "External source",
+  "game_options": "Game options"
 }

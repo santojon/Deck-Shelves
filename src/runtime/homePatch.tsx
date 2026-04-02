@@ -78,9 +78,12 @@ function scoreWindow(win: Window): number {
     const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
     let score = 0;
     if (href.includes("/routes/library/home") || href.includes("library/home")) score += 4;
-    if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) score += 8;
-    if (doc.querySelector('[class*="ReactVirtualized__Grid"][aria-label], [aria-label="Jogos recentes"], [aria-label="Recent Games"]')) score += 6;
-    if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) score += 5;
+    // Stable selectors score highest: aria-labels and semantic class substrings
+    // survive Steam client updates far better than obfuscated class names
+    if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) score += 8;
+    if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) score += 6;
+    // Obfuscated class — bonus only; may not survive Steam updates
+    try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) score += 2; } catch {}
     if (doc.body?.childElementCount) score += 1;
     return score;
   } catch {
@@ -111,12 +114,14 @@ function getHostContext() {
 function getContextSnapshot() {
   const { win, doc, source } = getHostContext();
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`;
+  let hasObfuscatedAnchor = false;
+  try { hasObfuscatedAnchor = !!doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]'); } catch {}
   return {
     source,
     href,
     readyState: doc.readyState,
-    hasKnownAnchor: !!doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]'),
-    hasHomeGrid: !!doc.querySelector('[class*="ReactVirtualized__Grid"][aria-label], [aria-label="Jogos recentes"], [aria-label="Recent Games"]'),
+    hasObfuscatedAnchor,
+    hasHomeGrid: !!doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]'),
     hasLibraryContainers: !!doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]'),
     bodyChildren: doc.body?.childElementCount ?? 0,
   };
@@ -127,9 +132,11 @@ function isHomeVisible(): boolean {
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
   if (href.includes("library/home") || href.includes("#library/home")) return true;
   if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
-  if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) return true;
-  if (doc.querySelector('[class*="ReactVirtualized__Grid"][aria-label], [aria-label="Jogos recentes"], [aria-label="Recent Games"]')) return true;
+  // Stable selectors first
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
+  if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
+  // Obfuscated class name — last resort, may not survive Steam updates
+  try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) return true; } catch {}
   return false;
 }
 

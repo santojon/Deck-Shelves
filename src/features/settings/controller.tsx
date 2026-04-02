@@ -8,6 +8,7 @@ import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
 import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter, patchShelfInSettings } from "../../domain/settings";
 import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../domain/defaults";
+import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 
 export function useSettingsController() {
   const { t } = useTranslation();
@@ -89,6 +90,17 @@ export function useSettingsController() {
       const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+    },
+    async createDefaultShelves() {
+      const s = liveSettings();
+      if (!s) return;
+      let next: Settings = { ...s, enabled: true };
+      for (const tpl of DEFAULT_SHELF_TEMPLATES) {
+        const shelf: Shelf = { ...createDefaultShelf(), title: t(tpl.titleKey), source: tpl.source };
+        next = addShelfToSettings(next, shelf);
+      }
+      await persist(next);
+      setSelectedId(next.shelves[0]?.id ?? null);
     },
     async addShelfWith(title: string, source: ShelfSource) {
       const s = liveSettings();
