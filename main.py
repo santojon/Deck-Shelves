@@ -104,13 +104,32 @@ class Plugin:
         clean = _sanitize_settings(state)
         wrapped = {"state": clean}
         path = _primary_file()
+        tmp_path = path + ".tmp"
+        bak_path = path + ".bak"
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
+            # Atomic write: write to .tmp first, then rename over the real file.
+            # This guarantees settings.json is never left in a half-written state.
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(wrapped, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            # Keep a backup of the previous good write before replacing it.
+            if os.path.exists(path):
+                try:
+                    os.replace(path, bak_path)
+                except Exception:
+                    pass
+            os.replace(tmp_path, path)
         except Exception as e:
             try:
                 decky.logger.error(f"Failed writing settings to {path}: {e}")
+            except Exception:
+                pass
+            # Clean up orphaned .tmp on failure
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
             except Exception:
                 pass
             raise
