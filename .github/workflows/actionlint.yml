@@ -1,0 +1,18 @@
+name: Lint GitHub Actions
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened, ready_for_review]
+  workflow_dispatch:
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actionlint
+        uses: rhysd/actionlint@v1
+      - name: Upload actionlint report
+        if: failure()
+        run: |
+          echo "actionlint failed — check logs above"
