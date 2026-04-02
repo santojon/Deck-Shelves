@@ -8,6 +8,7 @@ import type { PlatformAppMeta } from "../runtime/platform";
 import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { showGameMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
+import { subscribeShelfRefresh } from "../core/shelfRefresh";
 
 export function ShelfView({ shelf }: { shelf: Shelf }) {
   const { t } = useTranslation();
@@ -23,10 +24,8 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
     let cancelled = false;
     if (!shelf.enabled) return;
 
-    let attempts = 0;
-    let timerId = 0;
-
     const resolve = () => {
+      if (cancelled) return;
       platform.resolveShelfAppIds(shelf.source, shelf.limit)
         .then((ids) => {
           if (!cancelled) {
@@ -37,22 +36,24 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
         })
         .catch(() => {
           if (!cancelled && firstLoad.current) setAppIds([]);
-        })
-        .finally(() => {
-          attempts += 1;
-          if (!cancelled) scheduleNext();
         });
     };
 
-    const scheduleNext = () => {
-      if (timerId) window.clearTimeout(timerId);
-      timerId = window.setTimeout(resolve, attempts < 10 ? 3000 : 15000);
-    };
-
+    // Initial load
     resolve();
+
+    // Subscribe to global refresh emitter (replaces per-shelf polling timer)
+    const unsubRefresh = subscribeShelfRefresh(resolve);
+
+    // Immediate re-resolve on settings change (source or limit changed)
     const onSettings = () => { if (!cancelled) resolve(); };
     globalThis.addEventListener("deck-shelves-settings-changed", onSettings);
-    return () => { cancelled = true; if (timerId) window.clearTimeout(timerId); globalThis.removeEventListener("deck-shelves-settings-changed", onSettings); };
+
+    return () => {
+      cancelled = true;
+      unsubRefresh();
+      globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
+    };
   }, [platform, shelf.enabled, shelf.limit, sourceKey]);
 
   useEffect(() => {

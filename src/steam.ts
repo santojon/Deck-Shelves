@@ -49,6 +49,10 @@ function uniqApps(list: AppOverview[]): AppOverview[] {
 let lastNoAppsWarnAt = 0;
 let appOverviewCache: { ts: number; items: AppOverview[] } | null = null;
 
+export function invalidateAppOverviewCache(): void {
+  appOverviewCache = null;
+}
+
 function candidateCollectionIds(raw: string): string[] {
   const base = String(raw ?? "").trim();
   if (!base) return [];

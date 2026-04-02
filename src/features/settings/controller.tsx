@@ -44,7 +44,7 @@ export function useSettingsController() {
       logDiagnostic("error", "Failed to load collections", String(error));
     });
     refreshTabs();
-    const tabTimer = window.setInterval(refreshTabs, 5000);
+    const tabTimer = window.setInterval(refreshTabs, 30000);
     return () => {
       window.clearInterval(tabTimer);
       unsub();

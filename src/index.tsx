@@ -6,6 +6,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { createDeckyPlatform } from "./runtime/deckyPlatform";
 import { PlatformProvider, setPlatform } from "./runtime/platformContext";
 import { installHomePatch } from "./runtime/homePatch";
+import { installShelfRefreshEmitter } from "./core/shelfRefresh";
+import { installSystemEvents } from "./runtime/systemEvents";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
@@ -65,6 +67,8 @@ export default definePlugin((serverAPI?: any) => {
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
   const patch = enableHomePatch ? installHomePatch(routerHook) : null;
+  const uninstallRefresh = installShelfRefreshEmitter();
+  const uninstallSystemEvents = installSystemEvents();
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
     <AboutPage />
@@ -89,6 +93,8 @@ export default definePlugin((serverAPI?: any) => {
         logInfo("RUNTIME", "plugin dismount");
         patch?.uninstall?.();
         routerHook?.removeRoute?.(ABOUT_ROUTE);
+        uninstallRefresh();
+        uninstallSystemEvents();
       } catch (error) {
         logError("RUNTIME", "failed to remove patch", String(error));
       }
