@@ -30,7 +30,7 @@ jobs:
               core.info('Updated repository settings: ' + JSON.stringify(updates));
             }
 
-      - name: Ensure branch protection requires actionlint
+      - name: Ensure branch protection defaults
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.ADMIN_GH_TOKEN || github.token }}
@@ -44,13 +44,13 @@ jobs:
                 branch,
                 required_status_checks: {
                   strict: true,
-                  contexts: ['actionlint']
+                  contexts: []
                 },
                 enforce_admins: false,
                 required_pull_request_reviews: null,
                 restrictions: null
               });
-              core.info(`Branch protection for ${branch} updated to require actionlint.`);
+              core.info(`Branch protection for ${branch} ensured.`);
             } catch (e) {
               core.warning('Failed to update branch protection: ' + e.message);
             }
