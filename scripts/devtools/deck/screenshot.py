@@ -200,6 +200,51 @@ def eval_target(host: str, port: int, ws_path: str, expression: str, msg_id: int
         sock.close()
 
 
+def apply_english_locale(host: str, port: int, shared_ws: str) -> bool:
+        """Try to switch UI to English and replace common Portuguese UI texts with English equivalents."""
+        JS = r"""
+(function(){
+    try{
+        if (typeof i18next !== 'undefined' && i18next.changeLanguage) { try { i18next.changeLanguage('en-US'); } catch(e){} }
+        document.documentElement.lang = 'en-US';
+        const map = {
+            'Ativar prateleiras na Home':'Enable shelves on Home',
+            'Adicionar prateleira':'Add shelf',
+            'Editar':'Edit',
+            'Apagar':'Delete',
+            'Prateleira':'Shelf',
+            'Importar':'Import',
+            'Exportar':'Export'
+        };
+        function walk(node){
+            if(!node) return;
+            if(node.nodeType === 3){
+                var s = node.nodeValue || '';
+                if(s && s.trim()){
+                    for(var k in map){ if(s.indexOf(k)!==-1) s = s.split(k).join(map[k]); }
+                    if(s !== node.nodeValue) node.nodeValue = s;
+                }
+            } else {
+                var children = node.childNodes || [];
+                for(var i=0;i<children.length;i++) walk(children[i]);
+            }
+        }
+        walk(document.body);
+        var titles = document.querySelectorAll('[class*=ShelfTitle], .shelf-title, .ds-shelf-title, h3');
+        for(var t of titles){ if(!t.dataset.__renamed){ t.textContent = (t.textContent||'').replace(/Prateleira/gi,'Shelf'); t.dataset.__renamed='1'; } }
+        return 'ok';
+    }catch(e){ return 'err:'+ (e && e.message ? e.message : String(e)); }
+})()
+"""
+        try:
+                res = eval_target(host, port, shared_ws, JS)
+                print(f"  apply_english_locale -> {res}")
+                return isinstance(res, str) and (res == 'ok' or res.startswith('err:') == False)
+        except Exception as e:
+                print(f"  [WARN] apply_english_locale failed: {e}")
+                return False
+
+
 def open_qam(host: str, port: int, shared_ws: str) -> None:
     eval_target(host, port, shared_ws, OPEN_QAM_EXPR)
 
@@ -792,6 +837,14 @@ def main() -> int:
     bp = find_target(targets, "Big Picture")
     shared = find_target(targets, "SharedJSContext")
     qam = find_target(targets, "QuickAccess")
+
+    # Attempt to switch UI to English and rename shelf titles before capturing
+    if shared:
+        try:
+            shared_ws_try = ws_path_for(shared, args.port)
+            apply_english_locale(args.host, args.port, shared_ws_try)
+        except Exception as e:
+            print(f"  [WARN] apply_english_locale exception: {e}")
 
     if not bp:
         print("ERROR: No 'Big Picture' target — is the Deck in GamepadUI mode?")
