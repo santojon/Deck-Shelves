@@ -291,18 +291,11 @@ jobs:
 
               echo "✅ PR #${PR_NUMBER} branch updated successfully!"
               # Also update title/body to latest
-              gh pr edit "${PR_NUMBER}" \
-                --repo SteamDeckHomebrew/decky-plugin-database \
-                --title "${PR_TITLE}" \
-                --body-file ../pr_body.md || true
+              echo "Preserving PR title/body; not editing PR metadata."
             else
               echo "⚠️ Existing PR #${PR_NUMBER} is from ${PR_HEAD_OWNER}; cannot push to that fork. Updating PR title/body instead."
-              gh pr edit "${PR_NUMBER}" \
-                --repo SteamDeckHomebrew/decky-plugin-database \
-                --title "${PR_TITLE}" \
-                --body-file ../pr_body.md || true
               gh pr comment "${PR_NUMBER}" --repo SteamDeckHomebrew/decky-plugin-database --body "A new submission is available from ${FORK}. If you want this PR updated with the latest version, please grant push access to the ${FORK%%/*} fork or close this PR so we can open an updated one." || true
-              echo "✅ PR #${PR_NUMBER} updated (title/body/comment)."
+              echo "✅ PR #${PR_NUMBER} commented; PR metadata preserved."
             fi
           else
             echo "🔗 No existing PR found; creating new PR..."
