@@ -1,0 +1,56 @@
+name: Enforce Repo Merge Settings
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [closed]
+  push:
+    branches: [main]
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request && github.event.pull_request.merged == true
+    steps:
+      - name: Ensure squash merge and delete-branch-on-merge
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.ADMIN_GH_TOKEN || github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const repoResp = await github.rest.repos.get({ owner, repo });
+            const current = repoResp.data;
+            const updates = {};
+            if (!current.allow_squash_merge) updates.allow_squash_merge = true;
+            if (!current.delete_branch_on_merge) updates.delete_branch_on_merge = true;
+            if (Object.keys(updates).length === 0) {
+              core.info('Repository merge settings already configured.');
+            } else {
+              await github.rest.repos.update({ owner, repo, ...updates });
+              core.info('Updated repository settings: ' + JSON.stringify(updates));
+            }
+
+      - name: Ensure branch protection defaults
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.ADMIN_GH_TOKEN || github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = (context.payload.repository && context.payload.repository.default_branch) || 'main';
+            try {
+              await github.rest.repos.updateBranchProtection({
+                owner,
+                repo,
+                branch,
+                required_status_checks: {
+                  strict: true,
+                  contexts: []
+                },
+                enforce_admins: false,
+                required_pull_request_reviews: null,
+                restrictions: null
+              });
+              core.info(`Branch protection for ${branch} ensured.`);
+            } catch (e) {
+              core.warning('Failed to update branch protection: ' + e.message);
+            }

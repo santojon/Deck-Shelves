@@ -1,3 +1,4 @@
+import type { FilterGroup, FilterItem } from "./types";
 import type { PlatformAppMeta, PlatformTab } from "./runtime/platform";
 import { logInfo, logWarn } from "./runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "./runtime/steamHost";
@@ -66,16 +67,6 @@ function normalizeCollectionToken(value: string): string {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
 }
 
-function uniqTabs(list: PlatformTab[]): PlatformTab[] {
-  const map = new Map<string, PlatformTab>();
-  for (const item of list) {
-    const id = String(item.id || "").trim();
-    const name = String(item.name || "").trim();
-    if (!id || !name) continue;
-    if (!map.has(id)) map.set(id, { id, name });
-  }
-  return [...map.values()];
-}
 
 function cacheCollectionRaw(id: string, name: string, raw: any) {
   const exactId = String(id ?? "").trim();
@@ -189,6 +180,174 @@ function hasAnyMethod(target: any, methodNames: string[]): boolean {
   return methodNames.some((name) => typeof target?.[name] === "function");
 }
 
+// ─── React fiber traversal for plugin context discovery ──────────────────
+
+let pluginContextCache: { ts: number; value: any | null } | null = null;
+const PLUGIN_CONTEXT_CACHE_TTL = 8000;
+
+/**
+ * Walks the React fiber tree from `startFiber` looking for a Context.Provider
+ * whose `memoizedProps.value` matches TabMaster's PublicTabMasterContext shape:
+ *   { visibleTabsList: TabContainer[], tabsMap: Map<string, TabContainer>, ... }
+ *
+ * Uses iterative DFS to avoid stack overflow.
+ */
+function walkFiberForTabMasterContext(startFiber: any): any | null {
+  if (!startFiber) return null;
+  const stack: any[] = [startFiber];
+  const visited = new WeakSet();
+
+  while (stack.length > 0) {
+    const fiber = stack.pop();
+    if (!fiber || visited.has(fiber)) continue;
+    visited.add(fiber);
+
+    const val = fiber.memoizedProps?.value;
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      // TabMaster's PublicTabMasterContext has visibleTabsList at the top level
+      const hasList = Array.isArray(val.visibleTabsList);
+      const hasMap = val.tabsMap instanceof Map;
+      if (hasList || hasMap) return val;
+      // Also check val.tabMasterManager for alternative shapes
+      const tm = val.tabMasterManager;
+      if (tm && typeof tm === 'object') {
+        const tmHasList = Array.isArray(tm.visibleTabsList);
+        const tmHasMap = tm.tabsMap instanceof Map;
+        if (tmHasList || tmHasMap) return tm;
+      }
+    }
+
+    if (fiber.child) stack.push(fiber.child);
+    if (fiber.sibling) stack.push(fiber.sibling);
+  }
+  return null;
+}
+
+/**
+ * Finds TabMaster's React Context value by traversing all React roots in all
+ * Steam window documents. Caches results for PLUGIN_CONTEXT_CACHE_TTL ms.
+ *
+ * Decky mounts each plugin in a separate React root (separate ReactDOM.render
+ * call). We must search ALL roots, not just the first one found.
+ */
+export function findTabMasterContextValue(): any | null {
+  const now = Date.now();
+  if (pluginContextCache && now - pluginContextCache.ts < PLUGIN_CONTEXT_CACHE_TTL) {
+    return pluginContextCache.value;
+  }
+
+  let value: any | null = null;
+  try {
+    const hostWindows = getSteamWindows();
+    const docs = Array.from(
+      new Set([getPreferredSteamDocument(), ...hostWindows.map((w: any) => w?.document)].filter(Boolean))
+    ) as Document[];
+
+    outer:
+    for (const doc of docs) {
+      try {
+        const visitedRoots = new WeakSet<object>();
+        // No element limit — TabMaster's Decky React root container may be
+        // arbitrarily deep in the document, well beyond any fixed slice.
+        const allEls = Array.from(doc.querySelectorAll('*'));
+        for (const el of allEls) {
+          const fiberKey = Object.keys(el).find(
+            (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
+          );
+          if (!fiberKey) continue;
+          let fiber = (el as any)[fiberKey];
+          if (!fiber) continue;
+          // Walk to the root of this React tree
+          while (fiber.return) fiber = fiber.return;
+          const rootFiber = fiber.stateNode?.current ?? fiber;
+          if (visitedRoots.has(rootFiber)) continue;
+          visitedRoots.add(rootFiber);
+          // Search this entire React tree
+          value = walkFiberForTabMasterContext(rootFiber);
+          if (value) break outer;
+        }
+      } catch {}
+    }
+  } catch {}
+
+  pluginContextCache = { ts: now, value };
+  return value;
+}
+
+// Keep the old name as an alias for the component that still uses it
+export const findCustomFiltersContextValue = findTabMasterContextValue;
+
+/**
+ * Extracts the list of visible library tabs from TabMaster's React context.
+ * Returns an empty array if TabMaster is not installed or has no tabs.
+ */
+function getCustomFiltersList(): PlatformTab[] {
+  const ctx = findTabMasterContextValue();
+  if (!ctx) return [];
+  const out: PlatformTab[] = [];
+  const seen = new Set<string>();
+
+  if (Array.isArray(ctx.visibleTabsList)) {
+    for (const container of ctx.visibleTabsList) {
+      const id = String(container?.id ?? "").trim();
+      const name = String(container?.title ?? container?.name ?? "").trim();
+      if (id && name && !seen.has(id)) {
+        seen.add(id);
+        out.push({ id, name });
+      }
+    }
+  }
+
+  if (ctx.tabsMap instanceof Map) {
+    ctx.tabsMap.forEach((container: any, key: string) => {
+      const id = String(container?.id ?? key ?? "").trim();
+      const name = String(container?.title ?? container?.name ?? "").trim();
+      if (id && name && !seen.has(id)) {
+        seen.add(id);
+        out.push({ id, name });
+      }
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Resolves app IDs for a tab using TabMaster's collection.allApps Set.
+ * Returns an empty array if the tab is not found in TabMaster's context.
+ */
+function getCustomFiltersAppsForContainer(tabId: string): number[] {
+  const ctx = findTabMasterContextValue();
+  if (!ctx?.tabsMap) return [];
+
+  const needle = normalizeText(tabId);
+  let tabContainer: any = null;
+
+  const matchScore = (container: any, key: string): number => {
+    const id = normalizeText(String(container?.id ?? key ?? ""));
+    const name = normalizeText(String(container?.title ?? container?.name ?? ""));
+    if (id === needle || name === needle) return 2;
+    if (id.includes(needle) || needle.includes(id) || name.includes(needle) || needle.includes(name)) return 1;
+    return 0;
+  };
+
+  let bestScore = 0;
+  if (ctx.tabsMap instanceof Map) {
+    ctx.tabsMap.forEach((container: any, key: string) => {
+      const score = matchScore(container, key);
+      if (score > bestScore) { bestScore = score; tabContainer = container; }
+    });
+  }
+
+  if (!tabContainer) return [];
+
+  const allApps = tabContainer?.collection?.allApps ?? tabContainer?.allApps;
+  if (allApps instanceof Set) {
+    return uniqNumbers(Array.from(allApps.values()).map(Number).filter(Number.isFinite));
+  }
+  return extractAppIdsDeep(allApps ?? tabContainer?.collection, 3);
+}
+
 function collectDynamicTabStores(): any[] {
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
@@ -225,32 +384,6 @@ function collectDynamicTabStores(): any[] {
   return Array.from(new Set([...base, ...dynamic]));
 }
 
-function extractTabArrayFromStore(candidate: any): PlatformTab[] {
-  const out: PlatformTab[] = [];
-  const seen = new Set<any>();
-  const visit = (node: any) => {
-    if (!node || seen.has(node)) return;
-    if (typeof node !== "object") return;
-    seen.add(node);
-    const maybeId = String(node?.id ?? node?.key ?? node?.route ?? node?.path ?? node?.url ?? node?.tabid ?? node?.internal_name ?? node?.strInternalName ?? node?.name ?? "").trim();
-    const maybeName = String(node?.title ?? node?.label ?? node?.displayName ?? node?.name ?? node?.strName ?? node?.localizedName ?? node?.tab_name ?? "").trim();
-    if (maybeId && maybeName) out.push({ id: normalizeTabId(maybeId), name: maybeName });
-    if (Array.isArray(node)) {
-      node.forEach(visit);
-      return;
-    }
-    for (const [key, value] of Object.entries(node)) {
-      if (["tabs", "m_rgTabs", "m_tabs", "m_mapTabs", "m_mapTabData", "allTabs", "visibleTabs", "collections", "items", "children", "entries", "routes", "sections"].includes(key)) {
-        visit(value);
-      } else if (value && typeof value === "object") {
-        const hasTabMarkers = ["tab", "title", "label", "displayName", "strName", "internal_name", "route"].some((k) => Object.prototype.hasOwnProperty.call(value, k));
-        if (hasTabMarkers) visit(value);
-      }
-    }
-  };
-  visit(candidate);
-  return out;
-}
 
 async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
   const raw = String(tab ?? "").trim();
@@ -289,51 +422,29 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
     { id: "hidden", name: "Hidden" },
     { id: "nonsteam", name: "Non-Steam" },
   ];
-  const clients = getSteamClients();
-  const hostWindows = getSteamWindows();
-  const globalCandidates = [
-    ...collectDynamicTabStores(),
-    ...clients.map((sc) => sc?.Apps),
-    ...hostWindows.flatMap((hostWindow) => [hostWindow?.LibraryStore, hostWindow?.AppStore, hostWindow?.g_LibraryTabs, hostWindow?.g_rgTabs, hostWindow?.appStore]),
-  ];
 
-  let found: PlatformTab[] = [];
-  for (const candidate of globalCandidates) {
-    try {
-      found = found.concat(extractTabArrayFromStore(candidate));
-    } catch {}
-  }
-
+  // 1. Settings file — primary source for TabMaster tabs
   try {
-    const getterNames = ["GetTabs", "GetLibraryTabs", "GetVisibleTabs", "GetAllTabs", "GetSidebarTabs", "GetPrimaryTabs"];
-    for (const store of collectDynamicTabStores()) {
-      for (const name of getterNames) {
-        const result = await store?.[name]?.();
-        found = found.concat(extractTabArrayFromStore(result));
-      }
+    const { getVisibleTabsFromSettingsFile } = await import('./integrations/tabmaster');
+    const { isTabMasterInstalled } = await import('./integrations/registry');
+    if (isTabMasterInstalled()) {
+      const settingsTabs = await getVisibleTabsFromSettingsFile();
+      if (settingsTabs.length > 0) return settingsTabs;
     }
   } catch {}
 
-  const unique = uniqTabs(found.length ? found : defaults);
-  const builtin = new Set(["all", "favorites", "installed", "hidden", "nonsteam", "recent", "/library/home", "/library/collections"]);
-  const filteredCandidates = await Promise.all(unique.slice(0, 32).map(async (tab) => {
-    if (builtin.has(normalizeTabId(tab.id))) return tab;
-    if (!tab.name || tab.name.length > 40) return null;
-    const byId = await getTabAppIdsFromStore(tab.id);
-    if (byId.length) return tab;
-    const byName = await getTabAppIdsFromStore(tab.name);
-    if (byName.length) return tab;
-    return null;
-  }));
-  const finalTabs = uniqTabs((filteredCandidates.filter(Boolean) as PlatformTab[]).length ? filteredCandidates.filter(Boolean) as PlatformTab[] : unique);
+  // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
+  const fiberTabs = getCustomFiltersList();
+  if (fiberTabs.length > 0) return fiberTabs;
+
+  // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
   try {
-    logInfo("STEAM", "listLibraryTabs", {
-      found: found.length,
-      unique: finalTabs.length,
-      sample: finalTabs.slice(0, 10).map((t) => ({ id: t.id, name: t.name })),
-    });
+    const { getTabsFromDOM } = await import('./integrations/domtabs');
+    const domTabs = getTabsFromDOM();
+    if (domTabs.length > 0) return domTabs;
   } catch {}
-  return finalTabs;
+
+  return defaults;
 }
 
 export async function listCollections(): Promise<SteamCollection[]> {
@@ -382,17 +493,21 @@ export async function listCollections(): Promise<SteamCollection[]> {
       if (norm.length) return norm;
     } catch {}
   }
+
   for (const doc of docs) {
-    const nodes = Array.from(doc.querySelectorAll('[data-collection-id], [class*="collection"]'));
-    const dom = nodes.map((node) => {
-      const el = node as HTMLElement;
-      return {
-        id: String(el.dataset?.collectionId || el.getAttribute('data-collection-id') || (el.textContent || '').trim()),
-        name: String((el.textContent || '').trim()),
-      };
-    }).filter((c) => c.id && c.name && c.name.length < 80);
-    if (dom.length) return normalize(dom as any[]);
+    try {
+      const nodes = Array.from(doc.querySelectorAll('[data-collection-id], [class*="collection"]'));
+      const dom = nodes.map((node) => {
+        const el = node as HTMLElement;
+        return {
+          id: String(el.dataset?.collectionId || el.getAttribute('data-collection-id') || (el.textContent || '').trim()),
+          name: String((el.textContent || '').trim()),
+        };
+      }).filter((c) => c.id && c.name && c.name.length < 80);
+      if (dom.length) return normalize(dom as any[]);
+    } catch {}
   }
+
   return [];
 }
 
@@ -433,6 +548,7 @@ export type AppOverview = {
   last_played?: number;
   playtime_forever?: number;
   is_steam?: boolean;
+  is_non_steam?: boolean;
   is_favorite?: boolean;
   is_hidden?: boolean;
   installed?: boolean;
@@ -457,6 +573,7 @@ function normalizeAppOverview(node: any): AppOverview | null {
     last_played: Number(node?.last_played ?? node?.rt_last_time_played ?? node?.m_ulLastPlayed ?? 0),
     playtime_forever: Number(node?.playtime_forever ?? node?.minutes_playtime_forever ?? node?.minutes_played_forever ?? 0),
     is_steam: node?.is_steam ?? !isNonSteamOf(node),
+    is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
     is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     installed: readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]),
@@ -884,17 +1001,27 @@ async function getAllAppOverviews(): Promise<AppOverview[]> {
       try {
         const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
         if (!cs) continue;
-        const gamesColl = cs.allGamesCollection ?? cs.localGamesCollection ?? cs.allAppsCollection;
-        if (gamesColl) {
-          const apps = gamesColl.allApps ?? gamesColl.visibleApps ?? gamesColl.apps;
+        // allAppsCollection includes shortcuts; fallback to allGamesCollection
+        const appsColl = cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection;
+        if (appsColl) {
+          const apps = appsColl.allApps ?? appsColl.visibleApps ?? appsColl.apps;
+          if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+        }
+        // Also collect shortcuts specifically
+        const shortcutsColl = cs.allShortcutsCollection ?? cs.shortcutsCollection ?? cs.nonSteamCollection;
+        if (shortcutsColl) {
+          const apps = shortcutsColl.allApps ?? shortcutsColl.visibleApps ?? shortcutsColl.apps;
           if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
         }
         const typeMap = cs.appTypeCollectionMap;
         if (isMapLike(typeMap)) {
-          const gColl = typeMap.get('type-games') ?? typeMap.get('gamesCollection');
-          if (gColl) {
-            const apps = gColl.allApps ?? gColl.visibleApps ?? gColl.apps;
-            if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+          // Include both games and shortcuts from type map
+          for (const key of ['type-games', 'gamesCollection', 'type-shortcuts', 'shortcutsCollection']) {
+            const coll = typeMap.get(key);
+            if (coll) {
+              const apps = coll.allApps ?? coll.visibleApps ?? coll.apps;
+              if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+            }
           }
         }
       } catch {}
@@ -1118,7 +1245,7 @@ export type CustomFilter = {
   nameIncludes?: string;
   nameRegex?: string;
   deckCompatibility?: Array<"verified" | "playable" | "unsupported" | "unknown">;
-  sort?: "alphabetical" | "recent" | "playtime";
+  sort?: "alphabetical" | "recent" | "playtime" | "release_date" | "size_on_disk" | "metacritic" | "review_score";
   minPlaytimeMinutes?: number;
   maxPlaytimeMinutes?: number;
   updatePending?: boolean;
@@ -1139,6 +1266,111 @@ function resolveDynamicTab(tab: string, all: AppOverview[]): AppOverview[] {
     return tags.includes(id);
   });
   return byTab;
+}
+
+// Pre-fetched data passed into the synchronous filter evaluator so async
+// collection lookups can happen before evaluation begins.
+type FilterEvalContext = {
+  collectionAppIds: Map<string, Set<number>>;
+};
+
+function collectCollectionIdsFromGroup(group: FilterGroup): string[] {
+  const ids: string[] = [];
+  for (const item of group.items ?? []) {
+    if (item.type === "collection") {
+      const id = String(item.params?.collectionId ?? "").trim();
+      if (id) ids.push(id);
+    }
+    if (item.type === "merge" && Array.isArray(item.params?.items)) {
+      ids.push(...collectCollectionIdsFromGroup({ mode: item.params.mode ?? "and", items: item.params.items as FilterItem[] }));
+    }
+  }
+  return ids;
+}
+
+function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  let result: boolean;
+  switch (item.type) {
+    case "installed":
+      result = isInstalledOf(app);
+      break;
+    case "favorites":
+      result = isFavoriteOf(app);
+      break;
+    case "nonSteam":
+      result = isNonSteamOf(app);
+      break;
+    case "hidden": {
+      const mode = item.params?.mode ?? "exclude";
+      if (mode === "only") result = isHiddenOf(app);
+      else if (mode === "exclude") result = !isHiddenOf(app);
+      else result = true;
+      break;
+    }
+    case "updatePending":
+      result = app.update_pending === true;
+      break;
+    case "deckCompatibility": {
+      const levels = item.params?.levels ?? [];
+      result = isDeckCompatMatch(app.deck_compatibility_category, levels);
+      break;
+    }
+    case "playedWithinDays": {
+      const days = Number(item.params?.days ?? 7);
+      const now = Math.floor(Date.now() / 1000);
+      const min = now - Math.floor(days * 86400);
+      result = lastPlayedOf(app) >= min;
+      break;
+    }
+    case "playtimeRange": {
+      const minHours: number | undefined = item.params?.minHours;
+      const maxHours: number | undefined = item.params?.maxHours;
+      const playtimeMinutes = app.playtime_forever ?? 0;
+      result = true;
+      if (typeof minHours === "number") result = playtimeMinutes >= minHours * 60;
+      if (result && typeof maxHours === "number") result = playtimeMinutes <= maxHours * 60;
+      break;
+    }
+    case "nameIncludes": {
+      const text = String(item.params?.text ?? "").toLowerCase();
+      result = !text || appNameOf(app).toLowerCase().includes(text);
+      break;
+    }
+    case "nameRegex": {
+      const pattern = String(item.params?.pattern ?? "");
+      if (!pattern) { result = true; break; }
+      try { result = new RegExp(pattern, "i").test(appNameOf(app)); }
+      catch { result = true; }
+      break;
+    }
+    case "collection": {
+      const colId = String(item.params?.collectionId ?? "").trim();
+      const appSet = ctx?.collectionAppIds.get(colId);
+      // If not pre-fetched, pass-through so we don't incorrectly exclude everything
+      result = appSet ? appSet.has(app.appid) : true;
+      break;
+    }
+    case "merge": {
+      // Recursively evaluate as a nested group
+      const subItems: FilterItem[] = Array.isArray(item.params?.items) ? (item.params.items as FilterItem[]) : [];
+      const subMode = ((item.params?.mode ?? "and") as "and" | "or");
+      result = evaluateFilterGroup({ mode: subMode, items: subItems }, [app], ctx).length > 0;
+      break;
+    }
+    // storeTag, friends, achievements: require data not in AppOverview — pass-through
+    default:
+      result = true;
+  }
+  return item.inverted ? !result : result;
+}
+
+function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx?: FilterEvalContext): AppOverview[] {
+  if (!group.items || group.items.length === 0) return apps;
+  const mode = group.mode ?? "and";
+  if (mode === "or") {
+    return apps.filter((app) => group.items.some((item) => evaluateFilterItem(item, app, ctx)));
+  }
+  return apps.filter((app) => group.items.every((item) => evaluateFilterItem(item, app, ctx)));
 }
 
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number): Promise<number[]> {
@@ -1207,6 +1439,11 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
 
   if (source.type === "tab") {
     const rawTab = String(source.tab ?? "").trim();
+
+    // Forward-compat: fiber traversal in case TabMaster exposes a React context
+    const customFiltersIds = getCustomFiltersAppsForContainer(rawTab);
+    if (customFiltersIds.length) return customFiltersIds.slice(0, limit);
+
     let fromTabStore = await getTabAppIdsFromStore(rawTab);
     if (!fromTabStore.length && rawTab) {
       try {
@@ -1242,6 +1479,22 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       ? filtered
       : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     const ids = sorted.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
+
+    // Migration fallback: existing shelves saved as UUID tab sources resolve via TabMaster's filters
+    if (!ids.length && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTab)) {
+      try {
+        const { getTabsFromSettingsFile } = await import('./integrations/tabmaster');
+        const { convertFiltersToGroup } = await import('./domain/customfilters');
+        const tmTabs = await getTabsFromSettingsFile();
+        const tmTab = tmTabs.find((t) => t.id === rawTab);
+        if (tmTab && tmTab.filters && tmTab.filters.length > 0) {
+          const filterGroup = convertFiltersToGroup(tmTab.filters);
+          try { logInfo("STEAM", "resolveShelfAppIds(tab): UUID fallback via TabMaster filters", { tab: rawTab, title: tmTab.title }); } catch {}
+          return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as any, limit);
+        }
+      } catch {}
+    }
+
     if (!ids.length) {
       logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
     }
@@ -1250,6 +1503,44 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
 
   if (source.type === "filter") {
     const f: CustomFilter = (source.filter ?? {}) as CustomFilter;
+
+    const filterGroup = (source.filter as any)?.filterGroup as FilterGroup | undefined;
+    if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
+      const ctx: FilterEvalContext = { collectionAppIds: new Map() };
+      const colIds = collectCollectionIdsFromGroup(filterGroup);
+      await Promise.all(colIds.map(async (colId) => {
+        try {
+          const ids = await getCollectionApps(colId);
+          if (ids.length) ctx.collectionAppIds.set(colId, new Set(ids));
+        } catch {}
+      }));
+      let filtered = evaluateFilterGroup(filterGroup, all, ctx);
+      const fSort = (source.filter as any)?.sort as string | undefined;
+      if (fSort === "recent") {
+        filtered = filtered.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
+      } else if (fSort === "playtime") {
+        filtered = filtered.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
+      } else if (fSort === "release_date") {
+        filtered = filtered.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
+      } else if (fSort === "size_on_disk") {
+        filtered = filtered.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
+      } else if (fSort === "metacritic") {
+        filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
+      } else if (fSort === "review_score") {
+        filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
+      } else {
+        filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+      }
+      const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
+      if (!ids.length) {
+        logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
+      } else {
+        logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
+      }
+      return ids;
+    }
+
+    // Legacy flat filter fields
     let filtered = all;
     if (f.favorites) filtered = filtered.filter((a) => isFavoriteOf(a));
     if (f.hidden === "only" || f.hidden === true) filtered = filtered.filter((a) => isHiddenOf(a));
@@ -1299,6 +1590,14 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       filtered = filtered.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
     } else if (f.sort === "playtime") {
       filtered = filtered.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
+    } else if (f.sort === "release_date") {
+      filtered = filtered.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
+    } else if (f.sort === "size_on_disk") {
+      filtered = filtered.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
+    } else if (f.sort === "metacritic") {
+      filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
+    } else if (f.sort === "review_score") {
+      filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
     } else {
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }

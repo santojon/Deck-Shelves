@@ -19,13 +19,15 @@ import {
 } from '@decky/ui'
 import { openFilePicker, toaster } from '@decky/api'
 import type { SettingsController } from '../features/settings/controller'
-import type { Shelf, ShelfFilter } from '../types'
-import { hiddenModeToValue, hiddenValueFromMode, normalizeFilter } from '../domain/settings'
+import type { FilterGroup, Shelf, ShelfFilter } from '../types'
+import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '../domain/settings'
+import { FilterPanel } from './FilterPanel'
 import { importSettingsFromFile, exportSettingsToFile } from '../settingsStore'
 import { DeckModalStyles } from './styles/DeckModalStyles'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
-import { resolveShelfAppIds } from '../steam'
+import { resolveShelfAppIds, findTabMasterContextValue } from '../steam'
+import { extractTabMasterTabsForImport, tabContainerToShelfSource, isTabMasterInstalled, getTabMasterTabsFromSettingsFile } from '../integrations'
 
 function icon(paths: React.ReactNode, size = 18, fill = 'none') {
   return (
@@ -47,21 +49,20 @@ const icons = {
   down: icon(<path d='m6 10 6 6 6-6' />),
   trash: icon(<><path d='M3 6h18' /><path d='M8 6V4h8v2' /><path d='M10 10v6' /><path d='M14 10v6' /><path d='M6 6l1 14h10l1-14' /></>),
   ellipsis: icon(<><circle cx='6' cy='12' r='1.4' fill='currentColor' stroke='none' /><circle cx='12' cy='12' r='1.4' fill='currentColor' stroke='none' /><circle cx='18' cy='12' r='1.4' fill='currentColor' stroke='none' /></>, 16),
+  customFilters: icon(<><rect x='2' y='8' width='20' height='13' rx='2' /><path d='M2 12h20' /><rect x='6' y='5' width='6' height='3' rx='1' /></>),
 }
 
 type EntryData = { id: string }
 type SourceType = 'collection' | 'tab' | 'filter'
 const SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']
-const COMPAT_OPTIONS = ['verified', 'playable', 'unsupported', 'unknown'] as const
-const HIDDEN_MODE_OPTIONS = [
-  { value: 'any', labelKey: 'filter_hidden_any' },
-  { value: 'only', labelKey: 'filter_hidden_only' },
-  { value: 'exclude', labelKey: 'filter_hidden_exclude' },
-] as const
 const SORT_OPTIONS = [
   { value: 'alphabetical', labelKey: 'sort_alpha' },
   { value: 'recent', labelKey: 'sort_recent' },
   { value: 'playtime', labelKey: 'sort_playtime' },
+  { value: 'release_date', labelKey: 'sort_release_date' },
+  { value: 'size_on_disk', labelKey: 'sort_size_on_disk' },
+  { value: 'metacritic', labelKey: 'sort_metacritic' },
+  { value: 'review_score', labelKey: 'sort_review_score' },
 ] as const
 
 function textFromDeckyChange(value: unknown): string {
@@ -165,12 +166,18 @@ function ShelfListLabel({ shelf }: { shelf: Shelf }) {
 
 function DeleteConfirmModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, actions } = controller
+
+  // Inject a scoped style to make the OK button red only while this modal is mounted.
+  // We avoid bDestructiveWarning because it leaks a global CSS state into Steam's UI.
+  // Use ConfirmModal's destructive flag to style the OK button red
+
   return (
     <ConfirmModal
       strTitle={t('deleteShelf')}
       strDescription={shelf.title}
       strOKButtonText={t('deleteShelf')}
       strCancelButtonText={t('cancel')}
+      bDestructiveWarning
       onCancel={closeModal}
       onEscKeypress={closeModal}
       onOK={() => {
@@ -252,6 +259,97 @@ function ExportModal({ closeModal, controller, folderPath }: ExportModalProps) {
   )
 }
 
+function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
+    const { t, actions } = controller
+    const [tabs, setTabs] = React.useState<{ id: string; title: string; source?: any }[]>([])
+
+  useEffect(() => {
+    const loadTabs = async () => {
+      // Primary: read TabMaster's settings.json via our own backend.
+      // TabMaster exposes NO React context and NO inter-plugin IPC — the settings
+      // file is the only reliable source of tab data.
+      try {
+        const entries = await getTabMasterTabsFromSettingsFile()
+        if (entries.length > 0) {
+          setTabs(entries.map((t) => ({
+            id: t.id,
+            title: t.title,
+            source: t.filters && t.filters.length > 0
+              ? tabContainerToShelfSource({ id: t.id, title: t.title, filters: t.filters })
+              : { type: 'tab', tab: t.id },
+          })))
+          return
+        }
+      } catch {}
+
+      // Fallback: React fiber traversal + globals (kept for forward-compatibility
+      // in case a future TabMaster version exposes a React context).
+      let manager: any = null
+      try {
+        const ctx = findTabMasterContextValue()
+        if (ctx && (Array.isArray(ctx.visibleTabsList) || ctx.tabsMap instanceof Map)) manager = ctx
+      } catch {}
+      if (!manager) {
+        try {
+          const gm = (globalThis as any)
+          for (const k of Object.keys(gm)) {
+            const v = gm[k]
+            if (v && (Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)) { manager = v; break }
+          }
+        } catch {}
+      }
+      if (manager) {
+        try {
+          const extracted = extractTabMasterTabsForImport(manager)
+          if (extracted.length > 0) {
+            setTabs(extracted.map((t: any) => ({ id: t.id, title: t.title, source: t.source })))
+          }
+        } catch {}
+      }
+    }
+    loadTabs()
+  }, [])
+
+  const doImport = async (entry: { id: string; title: string; source?: any }) => {
+    try {
+      const src = entry.source ?? { type: 'tab', tab: entry.id }
+      const shelfSource = (src.type === 'tab' || src.type === 'collection' || src.type === 'filter') ? src : tabContainerToShelfSource(src)
+      await actions.addShelfWith(entry.title, shelfSource)
+      toaster.toast({ title: t('pluginName'), body: `${t('toast_imported')}: ${entry.title}` })
+      closeModal?.()
+    } catch (e) {
+      toaster.toast({ title: t('pluginName'), body: String(e) })
+    }
+  }
+
+  return (
+    <div className='deck-shelves-modal-scope'>
+      <DeckModalStyles />
+      <ConfirmModal
+        strTitle={t('import_from_tabmaster')}
+        strDescription={t('import_from_tabmaster_desc')}
+        strOKButtonText={t('close')}
+        onOK={() => closeModal?.()}
+        onCancel={() => closeModal?.()}
+      >
+        <div style={{ padding: 8 }}>
+          {tabs.length === 0 ? <div>{t('no_tabmaster_tabs')}</div> : (
+            <div>
+              {tabs.map((tab) => (
+                <Field key={tab.id} label={tab.title}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <DialogButton onClick={() => doImport(tab)} onOKButton={() => doImport(tab)} onOKActionDescription={t('import')}>{t('import')}</DialogButton>
+                  </div>
+                </Field>
+              ))}
+            </div>
+          )}
+        </div>
+      </ConfirmModal>
+    </div>
+  )
+}
+
 type ImportModalProps = {
   closeModal?: () => void
   controller: SettingsController
@@ -320,6 +418,7 @@ type EditableShelfState = {
   collectionId: string
   tab: string
   filter: ShelfFilter
+  filterGroup: FilterGroup
   limit: number
 }
 
@@ -333,12 +432,14 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
   const { t, tabs, collections, actions } = controller
   const initialSourceType = shelf.source.type as SourceType
   const initialFilter = normalizeFilter(shelf.source)
+  const initialFilterGroup = getEffectiveFilterGroup(initialFilter)
   const [state, setState] = useState<EditableShelfState>({
     title: shelf.title,
     sourceType: initialSourceType,
     collectionId: shelf.source.type === 'collection' ? shelf.source.collectionId : String(collections[0]?.id ?? ''),
     tab: shelf.source.type === 'tab' ? shelf.source.tab : String(tabs[0]?.id ?? 'all'),
     filter: initialFilter,
+    filterGroup: initialFilterGroup,
     limit: shelf.limit,
   })
   const [previewCount, setPreviewCount] = useState<number | null>(null)
@@ -346,8 +447,9 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
   const previewSource = useMemo(() => {
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId }
     if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab }
-    return { type: 'filter' as const, filter: state.filter }
-  }, [state.sourceType, state.collectionId, state.tab, state.filter])
+    const effectiveFilter = filterGroupToFilter(state.filterGroup, state.filter.sort)
+    return { type: 'filter' as const, filter: effectiveFilter }
+  }, [state.sourceType, state.collectionId, state.tab, state.filterGroup, state.filter.sort])
 
   useEffect(() => {
     let cancelled = false
@@ -366,9 +468,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
   }))
   const tabOptions: SingleDropdownOption[] = tabs.map((item) => ({ data: item.id, label: item.name }))
   const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
-  const hiddenOptions: SingleDropdownOption[] = HIDDEN_MODE_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) }))
   const sortOptions: SingleDropdownOption[] = SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) }))
-  const compatSet: Set<string> = new Set(Array.isArray(state.filter.deckCompatibility) ? state.filter.deckCompatibility.map(String) : [])
 
   const changeSourceType = (type: SourceType) => {
     setState((prev) => {
@@ -386,6 +486,10 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     })
   }
 
+  const changeFilterGroup = (group: FilterGroup) => {
+    setState((prev) => ({ ...prev, filterGroup: group }))
+  }
+
   const setCollection = (value: string) => {
     const selected = collectionOptions.find((item) => String(item.data) === value)
     setState((prev) => ({ ...prev, collectionId: value, title: String(selected?.label ?? prev.title) }))
@@ -394,27 +498,17 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     const selected = tabOptions.find((item) => String(item.data) === value)
     setState((prev) => ({ ...prev, tab: value, title: String(selected?.label ?? prev.title) }))
   }
-  const patchFilter = (patch: Partial<ShelfFilter>) => {
-    setState((prev) => ({ ...prev, filter: { ...prev.filter, ...patch } }))
-  }
-  const toggleCompat = (key: typeof COMPAT_OPTIONS[number], value: boolean) => {
-    const current = Array.isArray(state.filter.deckCompatibility)
-      ? state.filter.deckCompatibility.filter((v) => COMPAT_OPTIONS.includes(v as typeof COMPAT_OPTIONS[number]))
-      : [];
-    const next = new Set(current);
-    if (value) next.add(key);
-    else next.delete(key);
-    patchFilter({ deckCompatibility: next.size ? Array.from(next) as ShelfFilter['deckCompatibility'] : undefined });
-  }
-
   const handleSave = () => {
     closeModal?.();
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const patch: Partial<Shelf> = { title, limit: state.limit };
       if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
-      else if (state.sourceType === 'tab') patch.source = { type: 'tab', tab: state.tab };
-      else patch.source = { type: 'filter', filter: state.filter };
+      else if (state.sourceType === 'tab') {
+        const selectedTab = tabs.find((t) => t.id === state.tab)
+        patch.source = selectedTab?.source ?? { type: 'tab', tab: state.tab }
+      }
+      else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
       const ok = await actions.patchShelf(shelf.id, patch);
       logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
     })();
@@ -456,27 +550,10 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
             ) : null}
             {state.sourceType === 'filter' ? (
               <>
-                <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => patchFilter({ sort: String(optionData(opt)) as ShelfFilter['sort'] })} bottomSeparator='thick' />
-                <Field description={<><div style={{ paddingBottom: '6px' }}>{t('filter_name')}</div><div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><TextField value={state.filter.nameIncludes ?? ''} onChange={(value: unknown) => patchFilter({ nameIncludes: textFromDeckyChange(value) || undefined })} /></div></>} />
-                <Field description={<><div style={{ paddingBottom: '6px' }}>{t('filter_days')}</div><div className='deck-shelves-wide-field deck-shelves-filter-text-field'><TextField value={state.filter.playedWithinDays == null ? '' : String(state.filter.playedWithinDays)} inputMode='numeric' onChange={(value: unknown) => {
-                  const parsed = Number(textFromDeckyChange(value))
-                  patchFilter({ playedWithinDays: Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined })
-                }} /></div></>} />
-                <ToggleField label={t('filter_favorites')} checked={!!state.filter.favorites} onChange={(value: boolean) => patchFilter({ favorites: value || undefined })} bottomSeparator='thick' />
-                <ToggleField label={t('filter_installed')} checked={!!state.filter.installed} onChange={(value: boolean) => patchFilter({ installed: value || undefined })} bottomSeparator='thick' />
-                <ToggleField label={t('filter_nonsteam')} checked={!!state.filter.nonSteam} onChange={(value: boolean) => patchFilter({ nonSteam: value || undefined })} bottomSeparator='thick' />
-                <ToggleField label={t('filter_update_pending')} checked={!!state.filter.updatePending} onChange={(value: boolean) => patchFilter({ updatePending: value || undefined })} bottomSeparator='thick' />
-                <DropdownItem label={t('visibility')} rgOptions={hiddenOptions} selectedOption={hiddenModeToValue(state.filter.hidden)} onChange={(opt: unknown) => patchFilter({ hidden: hiddenValueFromMode(String(optionData(opt))) })} bottomSeparator='thick' />
-                {COMPAT_OPTIONS.map((key) => <ToggleField key={key} label={t(`compat_${key}`)} checked={compatSet.has(key)} onChange={(value: boolean) => toggleCompat(key, value)} bottomSeparator='thick' />)}
-                <Field description={<><div style={{ paddingBottom: '6px' }}>{t('filter_regex')}</div><div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><TextField value={state.filter.nameRegex ?? ''} onChange={(value: unknown) => patchFilter({ nameRegex: textFromDeckyChange(value) || undefined })} /></div></>} />
-                <Field description={<><div style={{ paddingBottom: '6px' }}>{t('filter_min_playtime')}</div><div className='deck-shelves-wide-field deck-shelves-filter-text-field'><TextField value={state.filter.minPlaytimeMinutes == null ? '' : String(state.filter.minPlaytimeMinutes)} inputMode='numeric' onChange={(value: unknown) => {
-                  const parsed = Number(textFromDeckyChange(value))
-                  patchFilter({ minPlaytimeMinutes: Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : undefined })
-                }} /></div></>} />
-                <Field description={<><div style={{ paddingBottom: '6px' }}>{t('filter_max_playtime')}</div><div className='deck-shelves-wide-field deck-shelves-filter-text-field'><TextField value={state.filter.maxPlaytimeMinutes == null ? '' : String(state.filter.maxPlaytimeMinutes)} inputMode='numeric' onChange={(value: unknown) => {
-                  const parsed = Number(textFromDeckyChange(value))
-                  patchFilter({ maxPlaytimeMinutes: Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : undefined })
-                }} /></div></>} />
+                <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
+                <div style={{ padding: '4px 0' }}>
+                  <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} />
+                </div>
               </>
             ) : null}
             <Field label={`${t('limit')} (${state.limit})`}>
@@ -544,6 +621,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const handleAdd = () => actions.addShelf()
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
+  const [hasCustomFilters] = useState(() => isTabMasterInstalled())
+  const handleImportFromCustomFilters = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
   return (
     <div className='deck-shelves-qam-scope'>
@@ -553,6 +632,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         <Focusable style={{ width: '100%', display: 'flex' }}>
           <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
           <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
+          {hasCustomFilters ? <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.customFilters} onClick={handleImportFromCustomFilters} okDescription={t('import_from_tabmaster')} /></div> : null}
           <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
         </Focusable>
       </Field>

@@ -1,8 +1,0 @@
-{
-  "files.exclude": {
-    "**/__MACOSX": true,
-    "**/.deploy": true
-  },
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "remote.SSH.useLocalServer": true
-}

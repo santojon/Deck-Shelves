@@ -33,6 +33,7 @@ while IFS= read -r check_file; do
 
   if [[ $fail_count -eq 0 ]]; then
     results+=("✅ $check_name ($check_version)")
+    ((total_pass += 1))
   else
     results+=("❌ $check_name ($check_version) — $fail_count issue(s)")
     ((total_fail += fail_count))
@@ -54,9 +55,9 @@ done
 
 echo ""
 if [[ $total_fail -eq 0 ]]; then
-  echo "  🎉 All compatibility checks passed!"
+  echo "  🎉 All $total_pass compatibility checks passed!"
   exit 0
 else
-  echo "  ⚠️  $total_fail total issue(s) found"
+  echo "  ✅ $total_pass passed, ⚠️  $total_fail total issue(s) found"
   exit 1
 fi

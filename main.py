@@ -168,6 +168,44 @@ class Plugin:
         self._write_state(DEFAULT_SETTINGS)
         return dict(DEFAULT_SETTINGS)
 
+    async def get_tabmaster_tabs(self) -> Dict[str, Any]:
+        """
+        Reads TabMaster's settings.json and returns its tab list.
+        TabMaster does not expose tabs via React context or IPC — the only
+        reliable source is its settings file on disk.
+        Returns { tabs: [{ id, title, position, filters, filtersMode }] }
+        """
+        decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
+        settings_path = os.path.join(decky_home, "settings", "TabMaster", "settings.json")
+        try:
+            data = _safe_read_json(settings_path)
+            users_dict = data.get("usersDict", {})
+            if not users_dict:
+                return {"tabs": [], "error": "no_users"}
+            # Use the first (and usually only) user entry
+            user_data = next(iter(users_dict.values()))
+            raw_tabs = user_data.get("tabs", {})
+            tabs = []
+            for tab_id, tab in raw_tabs.items():
+                if not isinstance(tab, dict):
+                    continue
+                tabs.append({
+                    "id": str(tab.get("id", tab_id)),
+                    "title": str(tab.get("title", tab_id)),
+                    "position": int(tab.get("position", -1)),
+                    "filters": tab.get("filters", []),
+                    "filtersMode": str(tab.get("filtersMode", "and")),
+                })
+            # Sort by position: visible (>= 0) first ascending, then hidden (-1)
+            tabs.sort(key=lambda t: (t["position"] < 0, t["position"]))
+            return {"tabs": tabs}
+        except Exception as e:
+            try:
+                decky.logger.error(f"get_tabmaster_tabs failed: {e}")
+            except Exception:
+                pass
+            return {"tabs": [], "error": str(e)}
+
     async def get_user_home(self) -> str:
         return os.path.expanduser("~")
 

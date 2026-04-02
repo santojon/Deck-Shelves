@@ -41,12 +41,14 @@ jobs:
           PLUGIN_NAME=$(node -p "require('./plugin.json').name")
           PLUGIN_AUTHOR=$(node -p "require('./plugin.json').author")
           PLUGIN_DESC=$(node -p "require('./plugin.json').publish.description")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "plugin_name=$PLUGIN_NAME" >> "$GITHUB_OUTPUT"
-          echo "plugin_author=$PLUGIN_AUTHOR" >> "$GITHUB_OUTPUT"
-          echo "plugin_description=$PLUGIN_DESC" >> "$GITHUB_OUTPUT"
           COMMIT=$(git rev-parse HEAD)
-          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          cat >> "$GITHUB_OUTPUT" <<GITHUB_EOF
+          version=$VERSION
+          plugin_name=$PLUGIN_NAME
+          plugin_author=$PLUGIN_AUTHOR
+          plugin_description=$PLUGIN_DESC
+          commit=$COMMIT
+          GITHUB_EOF
           echo "Plugin: $PLUGIN_NAME v$VERSION ($COMMIT)"
 
           # Extract changelog for this version
@@ -57,11 +59,11 @@ jobs:
           if [[ -z "$CHANGELOG" ]]; then
             CHANGELOG="Version ${VERSION} release."
           fi
-          {
-            echo "changelog<<CHANGELOG_EOF"
-            echo "$CHANGELOG"
-            echo "CHANGELOG_EOF"
-          } >> "$GITHUB_OUTPUT"
+          cat >> "$GITHUB_OUTPUT" <<GITHUB_EOF
+          changelog<<CHANGELOG_EOF
+          $CHANGELOG
+          CHANGELOG_EOF
+          GITHUB_EOF
 
       - uses: pnpm/action-setup@v4
 
@@ -123,7 +125,8 @@ jobs:
           ${{ steps.meta.outputs.changelog }}
           CHANGELOG_EOF
           )
-          CHANGELOG=$(echo "$CHANGELOG" | sed 's/^          //')
+          CHANGELOG="${CHANGELOG/#          /}"
+          CHANGELOG="${CHANGELOG//\n          /\n}"
           REPO_URL="https://github.com/${{ github.repository }}"
 
           git config --global user.name "${AUTHOR}"
@@ -169,7 +172,8 @@ jobs:
           - [ ] Tested by a third party on SteamOS Stable or Beta update channel.
           CHECKLIST_EOF
           )
-          CHECKLIST=$(echo "$CHECKLIST" | sed 's/^          //')
+          CHECKLIST="${CHECKLIST/#          /}"
+          CHECKLIST="${CHECKLIST//\n          /\n}"
 
           if [[ "$IS_UPDATE" == "true" ]]; then
             if [[ -d "plugins/${PLUGIN}" ]]; then
@@ -217,13 +221,69 @@ jobs:
           git commit -m "${COMMIT_MSG}"
           git push -u origin "${BRANCH}" --force
 
-          echo "🔗 Creating PR..."
-          gh pr create \
+          # Check if any open PR exists that references this plugin (any head branch)
+          # If one exists and the head owner matches our fork, push updates to that branch
+          # Otherwise, update the PR title/body to reflect the new version and comment.
+          EXISTING_PR=""
+          EXISTING_PR=$(gh pr list \
             --repo SteamDeckHomebrew/decky-plugin-database \
-            --head "${FORK%%/*}:${BRANCH}" \
-            --base main \
-            --title "${PR_TITLE}" \
-            --body-file ../pr_body.md
+            --state open \
+            --json number,title,headRefName,headRepositoryOwner,body \
+            --jq ".[] | select(((.body // \"\") | contains(\"plugins/${PLUGIN}\")) or (.title | contains(\"${PLUGIN}\"))) | {number,headRefName,headRepositoryOwner,title} | @base64" 2>/dev/null || true)
 
-          echo ""
-          echo "✅ Submission PR created successfully!"
+          if [[ -n "$EXISTING_PR" ]]; then
+            # pick the first matching PR
+            PR_ENTRY=$(echo "$EXISTING_PR" | head -n1)
+            PR_NUMBER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.number')
+            PR_HEAD_BRANCH=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRefName')
+            PR_HEAD_OWNER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRepositoryOwner')
+
+            echo "Found existing PR #${PR_NUMBER} (head: ${PR_HEAD_OWNER}:${PR_HEAD_BRANCH}) referencing ${PLUGIN}"
+
+            if [[ "${PR_HEAD_OWNER,,}" == "${FORK%%/*,,}" ]]; then
+              echo "🔄 Updating existing PR branch ${PR_HEAD_BRANCH} on ${PR_HEAD_OWNER}..."
+              # Push the prepared changes into the existing PR branch to update it
+              git remote remove target 2>/dev/null || true
+              git remote add target "https://x-access-token:${GH_TOKEN}@github.com/${PR_HEAD_OWNER}/decky-plugin-database.git"
+              git fetch target main --depth=1
+              git checkout -B "${PR_HEAD_BRANCH}" target/main
+
+              # Recreate plugin folder and commit same as earlier
+              rm -rf "plugins/${PLUGIN}"
+              REPO_URL="https://github.com/${{ github.repository }}"
+              git submodule add "$REPO_URL" "plugins/${PLUGIN}" 2>/dev/null || true
+              cd "plugins/${PLUGIN}"
+              git fetch origin main
+              git checkout "${COMMIT}"
+              cd ../..
+
+              git add .
+              git commit -m "Update ${PLUGIN} to v${VERSION} (commit $COMMIT)" || echo "No changes to commit"
+              git push "https://x-access-token:${GH_TOKEN}@github.com/${PR_HEAD_OWNER}/decky-plugin-database.git" "${PR_HEAD_BRANCH}" --force
+
+              echo "✅ PR #${PR_NUMBER} branch updated successfully!"
+              # Also update title/body to latest
+              gh pr edit "${PR_NUMBER}" \
+                --repo SteamDeckHomebrew/decky-plugin-database \
+                --title "${PR_TITLE}" \
+                --body-file ../pr_body.md || true
+            else
+              echo "⚠️ Existing PR #${PR_NUMBER} is from ${PR_HEAD_OWNER}; cannot push to that fork. Updating PR title/body instead."
+              gh pr edit "${PR_NUMBER}" \
+                --repo SteamDeckHomebrew/decky-plugin-database \
+                --title "${PR_TITLE}" \
+                --body-file ../pr_body.md || true
+              gh pr comment "${PR_NUMBER}" --repo SteamDeckHomebrew/decky-plugin-database --body "A new submission is available from ${FORK}. If you want this PR updated with the latest version, please grant push access to the ${FORK%%/*} fork or close this PR so we can open an updated one." || true
+              echo "✅ PR #${PR_NUMBER} updated (title/body/comment)."
+            fi
+          else
+            echo "🔗 No existing PR found; creating new PR..."
+            gh pr create \
+              --repo SteamDeckHomebrew/decky-plugin-database \
+              --head "${FORK%%/*}:${BRANCH}" \
+              --base main \
+              --title "${PR_TITLE}" \
+              --body-file ../pr_body.md
+            echo ""
+            echo "✅ Submission PR created successfully!"
+          fi

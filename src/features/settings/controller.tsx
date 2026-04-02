@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
-import type { Settings, Shelf, ShelfFilter } from "../../types";
+import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
+import type { Settings, Shelf, ShelfFilter, ShelfSource } from "../../types";
 import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
@@ -53,6 +53,9 @@ export function useSettingsController() {
 
   const shelves = settings?.shelves ?? [];
 
+  // Always read the most recent settings, even if this closure is stale.
+  const liveSettings = () => getCurrentSettings() ?? settings;
+
   const persist = async (next: Settings) => {
     if (settings && JSON.stringify(settings) === JSON.stringify(next)) {
       logInfo("SETTINGS", "persist skipped (unchanged)");
@@ -76,49 +79,63 @@ export function useSettingsController() {
       setSelectedId(id);
     },
     async setEnabled(enabled: boolean) {
-      if (!settings || settings.enabled === enabled) return;
-      await persist({ ...settings, enabled });
+      const s = liveSettings();
+      if (!s || s.enabled === enabled) return;
+      await persist({ ...s, enabled });
     },
     async addShelf() {
-      if (!settings) return;
+      const s = liveSettings();
+      if (!s) return;
       const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
-      await persist(addShelfToSettings(settings, shelf));
+      await persist(addShelfToSettings(s, shelf));
+      setSelectedId(shelf.id);
+    },
+    async addShelfWith(title: string, source: ShelfSource) {
+      const s = liveSettings();
+      if (!s) return;
+      const shelf: Shelf = { ...createDefaultShelf(), title, source };
+      await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
     },
     async patchShelf(id: string, patch: Partial<Shelf>) {
-      if (!settings) return;
-      const shelf = settings.shelves.find((s) => s.id === id);
+      const s = liveSettings();
+      if (!s) return;
+      const shelf = s.shelves.find((sh) => sh.id === id);
       if (!shelf) return;
       const patched = { ...shelf, ...patch };
       if (JSON.stringify(shelf) === JSON.stringify(patched)) return;
-      await persist(patchShelfInSettings(settings, id, patch));
+      await persist(patchShelfInSettings(s, id, patch));
     },
     async duplicateShelf(id: string) {
-      if (!settings) return;
-      const sourceShelf = shelves.find((item) => item.id === id);
+      const s = liveSettings();
+      if (!s) return;
+      const sourceShelf = s.shelves.find((item) => item.id === id);
       if (!sourceShelf) return;
       const duplicate: Shelf = JSON.parse(JSON.stringify(sourceShelf));
       duplicate.id = randomShelfId();
       duplicate.title = `${sourceShelf.title} ${t("copySuffix")}`.trim();
-      await persist(addShelfToSettings(settings, duplicate));
+      await persist(addShelfToSettings(s, duplicate));
       setSelectedId(duplicate.id);
     },
     async removeShelf(id: string) {
-      if (!settings) return;
-      const next = deleteShelfFromSettings(settings, id);
+      const s = liveSettings();
+      if (!s) return;
+      const next = deleteShelfFromSettings(s, id);
       await persist(next);
       if (selectedId === id) setSelectedId(next.shelves[0]?.id ?? null);
     },
     async moveShelf(id: string, dir: -1 | 1) {
-      if (!settings) return;
-      await persist(moveShelf(settings, id, dir));
+      const s = liveSettings();
+      if (!s) return;
+      await persist(moveShelf(s, id, dir));
     },
     async reorderShelfIds(ids: string[]) {
-      if (!settings) return;
-      const byId = new Map(settings.shelves.map((s) => [s.id, s] as const));
+      const s = liveSettings();
+      if (!s) return;
+      const byId = new Map(s.shelves.map((sh) => [sh.id, sh] as const));
       const reordered = ids.map((id) => byId.get(id)).filter(Boolean) as Shelf[];
-      if (reordered.length !== settings.shelves.length) return;
-      await persist({ ...settings, shelves: reordered });
+      if (reordered.length !== s.shelves.length) return;
+      await persist({ ...s, shelves: reordered });
     },
     async toggleShelfHidden(id: string) {
       const shelf = shelves.find((item) => item.id === id);

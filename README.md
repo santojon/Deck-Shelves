@@ -6,15 +6,13 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Compatibility](https://img.shields.io/badge/checks-20%2F20-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
-
-[![License](https://img.shields.io/github/license/santojon/Deck-Shelves)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-Steam%20OS-orange.svg)
-![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=brightgreen)
-
+[![Compatibility](https://img.shields.io/badge/checks-21%2F21-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
+[![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
+[![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Steam%20OS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
+[![Plugin](https://img.shields.io/badge/plugin%20for-Decky-purple.svg)](https://decky.xyz)
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/santojon)
-[![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest)](https://github.com/santojon/Deck-Shelves/releases/latest)
 
 A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable shelves into the Home screen with a built-in Quick Access Menu editor.
 
@@ -26,6 +24,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 - Inject custom shelves into `library/home`
 - Shelves backed by **collections**, **library tabs**, or **custom filters**
+- **Advanced filter groups** with AND/OR logic for complex game queries
 - Filter games by:
   - Favorites, installed, hidden, non-Steam
   - Name (substring or regex)
@@ -33,7 +32,9 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
   - Playtime range (min / max minutes)
   - Played within N days
   - Update pending
-- Sort shelves alphabetically, by recent play, or by total playtime
+  - Store tags, achievement count, friends who own
+- Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, or review score
+- Library tab selection shows your actual runtime tabs, including those created by other plugins
 - Reorder and toggle shelf visibility from the QAM
 - Import / export all shelves as JSON
 - Persistent settings across plugin reinstalls
@@ -168,6 +169,21 @@ pnpm run package
 # Upload zip to Deck Downloads folder
 pnpm run upload:deckzip steamdeck
 ```
+
+### Capturing Screenshots
+
+To capture screenshots for documentation:
+
+1. Deploy the plugin to your Steam Deck (requires at least 2 shelves configured):
+   ```bash
+   npm run deploy
+   ```
+2. Run the screenshot automation script from your machine:
+   ```bash
+   python3 scripts/devtools/deck/screenshot.py
+   ```
+3. Screenshots are saved to `assets/screenshots/`.
+
 
 ## Architecture
 

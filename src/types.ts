@@ -1,6 +1,43 @@
 import { z } from "zod";
 
+// --- CustomTabs-style filter item types ---
+
+export const FilterItemTypeSchema = z.enum([
+  "installed",
+  "favorites",
+  "nonSteam",
+  "hidden",
+  "updatePending",
+  "deckCompatibility",
+  "playedWithinDays",
+  "playtimeRange",
+  "nameIncludes",
+  "nameRegex",
+  "friends",
+  "storeTag",
+  "achievements",
+  "collection",
+  "merge",
+]);
+export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
+
+export const FilterItemSchema = z.object({
+  type: FilterItemTypeSchema,
+  inverted: z.boolean().optional(),
+  params: z.record(z.string(), z.any()).optional(),
+});
+export type FilterItem = z.infer<typeof FilterItemSchema>;
+
+export const FilterGroupSchema = z.object({
+  mode: z.enum(["and", "or"]).default("and"),
+  items: z.array(FilterItemSchema).default([]),
+});
+export type FilterGroup = z.infer<typeof FilterGroupSchema>;
+
+// --- Legacy flat filter schema (kept for backwards compatibility) ---
+
 export const FilterSchema = z.object({
+  // Legacy fields
   favorites: z.boolean().optional(),
   hidden: z.union([z.boolean(), z.literal("only")]).optional(),
   nonSteam: z.boolean().optional(),
@@ -9,10 +46,16 @@ export const FilterSchema = z.object({
   nameIncludes: z.string().optional(),
   nameRegex: z.string().optional(),
   deckCompatibility: z.array(z.enum(["verified", "playable", "unsupported", "unknown"])).optional(),
-  sort: z.enum(["alphabetical", "recent", "playtime"]).optional(),
+  // Allow known sort enums but accept unknown strings for forward compatibility
+  sort: z.union([
+    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score"]),
+    z.string(),
+  ]).optional(),
   minPlaytimeMinutes: z.number().int().min(0).optional(),
   maxPlaytimeMinutes: z.number().int().min(0).optional(),
   updatePending: z.boolean().optional(),
+  // New CustomTabs-style filter group (takes priority over legacy fields when present)
+  filterGroup: FilterGroupSchema.optional(),
 }).passthrough();
 
 export const ShelfSourceSchema = z.union([
