@@ -111,7 +111,7 @@ export async function saveSettings(next: Settings): Promise<boolean> {
 
 export async function resetSettings(): Promise<Settings> {
   try {
-    const next = normalize(await call<[], unknown>("reset_settings"));
+    const next = normalize(await withTimeout(call<[], unknown>("reset_settings"), 8000));
     notify(next);
     return next;
   } catch {

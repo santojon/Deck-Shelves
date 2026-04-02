@@ -119,13 +119,18 @@ export function tryRestoreFocus(): boolean {
 }
 
 let focusObserver: MutationObserver | null = null;
+let focusPollId: ReturnType<typeof setInterval> | null = null;
 
 export function beginFocusRestoreLoop(): void {
   if (!pendingAppid) return;
 
-  // Cancel any previous observer
+  // Cancel any previous observer and poll interval
   focusObserver?.disconnect();
   focusObserver = null;
+  if (focusPollId !== null) {
+    clearInterval(focusPollId);
+    focusPollId = null;
+  }
 
   const targetAppid = pendingAppid;
   const targetShelfId = pendingShelfId;
@@ -194,19 +199,23 @@ export function beginFocusRestoreLoop(): void {
   focusObserver.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 
   attempt();
-  const pollId = setInterval(() => {
+  focusPollId = setInterval(() => {
     if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
-      clearInterval(pollId);
+      clearInterval(focusPollId!);
+      focusPollId = null;
       return;
     }
     attempt();
   }, 200);
 
-  // Hard deadline cleanup
+  // Hard deadline cleanup (use duration, not timestamp, to avoid integer overflow in CEF)
   setTimeout(() => {
     focusObserver?.disconnect();
     focusObserver = null;
-    clearInterval(pollId);
+    if (focusPollId !== null) {
+      clearInterval(focusPollId);
+      focusPollId = null;
+    }
     pendingAppid = null;
-  }, deadline);
+  }, 300000);
 }
