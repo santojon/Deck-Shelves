@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.SUBMIT_TOKEN }}
+          token: ${{ secrets.SUBMIT_TOKEN || github.token }}
 
       - uses: pnpm/action-setup@v4
 
@@ -131,4 +131,6 @@ jobs:
           git add package.json pnpm-lock.yaml CHANGELOG.md
           git commit -m "chore: bump version to v${VERSION}"
           git tag "v${VERSION}"
-          git push origin main --follow-tags
+          # push branch and ensure tag is explicitly pushed
+          git push origin main
+          git push origin "v${VERSION}" || git push origin --tags

@@ -21,8 +21,11 @@ jobs:
             const repoResp = await github.rest.repos.get({ owner, repo });
             const current = repoResp.data;
             const updates = {};
-            if (!current.allow_squash_merge) updates.allow_squash_merge = true;
-            if (!current.delete_branch_on_merge) updates.delete_branch_on_merge = true;
+            // Enforce squash-only merges and enable delete-on-merge
+            if (current.allow_squash_merge !== true) updates.allow_squash_merge = true;
+            if (current.allow_merge_commit !== false) updates.allow_merge_commit = false;
+            if (current.allow_rebase_merge !== false) updates.allow_rebase_merge = false;
+            if (current.delete_branch_on_merge !== true) updates.delete_branch_on_merge = true;
             if (Object.keys(updates).length === 0) {
               core.info('Repository merge settings already configured.');
             } else {

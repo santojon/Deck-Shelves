@@ -219,7 +219,35 @@ jobs:
 
           git add .
           git commit -m "${COMMIT_MSG}"
-          git push -u origin "${BRANCH}" --force
+
+          # If an open PR already exists in the upstream database for this plugin,
+          # and the PR head belongs to our configured fork, don't create/push a
+          # new branch on the fork — we'll update the existing PR branch below.
+          EXISTING_PR=$(gh pr list \
+            --repo SteamDeckHomebrew/decky-plugin-database \
+            --state open \
+            --json number,headRefName,headRepositoryOwner,body,title \
+            --jq ".[] | select(((.body // \"\") | contains(\"plugins/${PLUGIN}\")) or (.title | contains(\"${PLUGIN}\"))) | {number,headRefName,headRepositoryOwner,title} | @base64" 2>/dev/null || true)
+
+          if [[ -n "$EXISTING_PR" ]]; then
+            PR_ENTRY=$(echo "$EXISTING_PR" | head -n1)
+            PR_HEAD_OWNER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRepositoryOwner')
+            PR_HEAD_BRANCH=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRefName')
+            if [[ "${PR_HEAD_OWNER,,}" == "${FORK%%/*,,}" ]]; then
+              echo "Found existing PR from our fork (${PR_HEAD_OWNER}:${PR_HEAD_BRANCH}); skipping push to origin and will update that branch."
+              SKIP_PUSH_ORIGIN=true
+            else
+              SKIP_PUSH_ORIGIN=false
+            fi
+          else
+            SKIP_PUSH_ORIGIN=false
+          fi
+
+          if [[ "$SKIP_PUSH_ORIGIN" != "true" ]]; then
+            git push -u origin "${BRANCH}" --force
+          else
+            echo "Not pushing new branch to fork (existing PR will be updated)."
+          fi
 
           # Check if any open PR exists that references this plugin (any head branch)
           # If one exists and the head owner matches our fork, push updates to that branch
