@@ -28,6 +28,8 @@ import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
 import { resolveShelfAppIds, findTabMasterContextValue } from '../steam'
 import { extractTabMasterTabsForImport, tabContainerToShelfSource, isTabMasterInstalled, getTabMasterTabsFromSettingsFile } from '../integrations'
+import { SHELF_TEMPLATES } from '../domain/templates'
+import { getExternalSources } from '../core/pluginApi'
 
 function icon(paths: React.ReactNode, size = 18, fill = 'none') {
   return (
@@ -53,8 +55,7 @@ const icons = {
 }
 
 type EntryData = { id: string }
-type SourceType = 'collection' | 'tab' | 'filter'
-const SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']
+type SourceType = 'collection' | 'tab' | 'filter' | 'external'
 const SORT_OPTIONS = [
   { value: 'alphabetical', labelKey: 'sort_alpha' },
   { value: 'recent', labelKey: 'sort_recent' },
@@ -262,9 +263,13 @@ function ExportModal({ closeModal, controller, folderPath }: ExportModalProps) {
 function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
     const { t, actions } = controller
     const [tabs, setTabs] = React.useState<{ id: string; title: string; source?: any }[]>([])
+    const [loading, setLoading] = React.useState(true)
+    const [error, setError] = React.useState<string | null>(null)
 
   useEffect(() => {
     const loadTabs = async () => {
+      setLoading(true)
+      setError(null)
       // Primary: read TabMaster's settings.json via our own backend.
       // TabMaster exposes NO React context and NO inter-plugin IPC — the settings
       // file is the only reliable source of tab data.
@@ -278,9 +283,12 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
               ? tabContainerToShelfSource({ id: t.id, title: t.title, filters: t.filters })
               : { type: 'tab', tab: t.id },
           })))
+          setLoading(false)
           return
         }
-      } catch {}
+      } catch (e) {
+        logInfo("SETTINGS", "TabMaster settings file read failed, trying fiber fallback", String(e))
+      }
 
       // Fallback: React fiber traversal + globals (kept for forward-compatibility
       // in case a future TabMaster version exposes a React context).
@@ -303,9 +311,15 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
           const extracted = extractTabMasterTabsForImport(manager)
           if (extracted.length > 0) {
             setTabs(extracted.map((t: any) => ({ id: t.id, title: t.title, source: t.source })))
+            setLoading(false)
+            return
           }
         } catch {}
       }
+
+      // All sources failed
+      setLoading(false)
+      setError(t('toast_failed_import'))
     }
     loadTabs()
   }, [])
@@ -333,7 +347,13 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
         onCancel={() => closeModal?.()}
       >
         <div style={{ padding: 8 }}>
-          {tabs.length === 0 ? <div>{t('no_tabmaster_tabs')}</div> : (
+          {loading ? (
+            <div>{t('loading')}</div>
+          ) : error && tabs.length === 0 ? (
+            <div style={{ color: '#f59e0b' }}>{error}</div>
+          ) : tabs.length === 0 ? (
+            <div>{t('no_tabmaster_tabs')}</div>
+          ) : (
             <div>
               {tabs.map((tab) => (
                 <Field key={tab.id} label={tab.title}>
@@ -417,6 +437,7 @@ type EditableShelfState = {
   sourceType: SourceType
   collectionId: string
   tab: string
+  externalSourceId: string
   filter: ShelfFilter
   filterGroup: FilterGroup
   limit: number
@@ -430,6 +451,7 @@ type EditShelfModalProps = {
 
 function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) {
   const { t, tabs, collections, actions } = controller
+  const externalSources = useMemo(() => getExternalSources(), [])
   const initialSourceType = shelf.source.type as SourceType
   const initialFilter = normalizeFilter(shelf.source)
   const initialFilterGroup = getEffectiveFilterGroup(initialFilter)
@@ -438,6 +460,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     sourceType: initialSourceType,
     collectionId: shelf.source.type === 'collection' ? shelf.source.collectionId : String(collections[0]?.id ?? ''),
     tab: shelf.source.type === 'tab' ? shelf.source.tab : String(tabs[0]?.id ?? 'all'),
+    externalSourceId: shelf.source.type === 'external' ? shelf.source.sourceId : (externalSources[0]?.id ?? ''),
     filter: initialFilter,
     filterGroup: initialFilterGroup,
     limit: shelf.limit,
@@ -447,9 +470,10 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
   const previewSource = useMemo(() => {
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId }
     if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab }
+    if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
     const effectiveFilter = filterGroupToFilter(state.filterGroup, state.filter.sort)
     return { type: 'filter' as const, filter: effectiveFilter }
-  }, [state.sourceType, state.collectionId, state.tab, state.filterGroup, state.filter.sort])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort])
 
   useEffect(() => {
     let cancelled = false
@@ -462,12 +486,15 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     return () => { cancelled = true; clearTimeout(timer) }
   }, [previewSource, state.limit])
 
-  const sourceTypeOptions: SingleDropdownOption[] = SOURCE_TYPES.map((value) => ({
+  const baseSourceTypes: SourceType[] = ['collection', 'tab', 'filter']
+  const allSourceTypes: SourceType[] = externalSources.length > 0 ? [...baseSourceTypes, 'external'] : baseSourceTypes
+  const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
     data: value,
-    label: value === 'collection' ? t('source_collection') : value === 'tab' ? t('source_tab') : t('source_filter'),
+    label: value === 'collection' ? t('source_collection') : value === 'tab' ? t('source_tab') : value === 'external' ? t('source_external') : t('source_filter'),
   }))
   const tabOptions: SingleDropdownOption[] = tabs.map((item) => ({ data: item.id, label: item.name }))
   const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
+  const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName }))
   const sortOptions: SingleDropdownOption[] = SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) }))
 
   const changeSourceType = (type: SourceType) => {
@@ -481,6 +508,11 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
         const first = tabOptions[0]
         const nextTitle = String(first?.label ?? t('newShelf'))
         return { ...prev, sourceType: type, title: nextTitle, tab: String(first?.data ?? 'all') }
+      }
+      if (type === 'external') {
+        const first = externalOptions[0]
+        const nextTitle = String(first?.label ?? t('newShelf'))
+        return { ...prev, sourceType: type, title: nextTitle, externalSourceId: String(first?.data ?? '') }
       }
       return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }) }
     })
@@ -508,6 +540,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
         const selectedTab = tabs.find((t) => t.id === state.tab)
         patch.source = selectedTab?.source ?? { type: 'tab', tab: state.tab }
       }
+      else if (state.sourceType === 'external') patch.source = { type: 'external', sourceId: state.externalSourceId };
       else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
       const ok = await actions.patchShelf(shelf.id, patch);
       logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
@@ -548,6 +581,9 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
             {state.sourceType === 'tab' ? (
               <DropdownItem label={t('source_tab')} rgOptions={tabOptions} selectedOption={state.tab} onChange={(opt: unknown) => setTab(String(optionData(opt)))} bottomSeparator='thick' />
             ) : null}
+            {state.sourceType === 'external' && externalOptions.length > 0 ? (
+              <DropdownItem label={t('source_external')} rgOptions={externalOptions} selectedOption={state.externalSourceId} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
+            ) : null}
             {state.sourceType === 'filter' ? (
               <>
                 <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
@@ -571,6 +607,67 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
 
 function showEditShelfModal(controller: SettingsController, shelf: Shelf) {
   openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={shelf} />)
+}
+
+function TemplatePickerModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
+  const { t, actions } = controller
+  const handleTemplate = async (tpl: typeof SHELF_TEMPLATES[0]) => {
+    closeModal?.()
+    await actions.addShelfWith(t(tpl.titleKey as any), tpl.source)
+  }
+  const handleBlank = async () => {
+    closeModal?.()
+    await actions.addShelf()
+  }
+  return (
+    <div className='deck-shelves-modal-scope'>
+      <DeckModalStyles />
+      <ConfirmModal
+        strTitle={t('template_picker_title')}
+        strDescription={t('template_picker_desc')}
+        strOKButtonText={t('close')}
+        onOK={() => closeModal?.()}
+        onCancel={() => closeModal?.()}
+      >
+        <div style={{ padding: 8 }}>
+          {SHELF_TEMPLATES.map((tpl) => (
+            <Field key={tpl.id} label={t(tpl.titleKey as any)}>
+              <DialogButton
+                onClick={() => handleTemplate(tpl)}
+                onOKButton={() => handleTemplate(tpl)}
+                onOKActionDescription={t('addShelf')}
+              >{t('addShelf')}</DialogButton>
+            </Field>
+          ))}
+          <Field label={t('template_blank')}>
+            <DialogButton
+              onClick={handleBlank}
+              onOKButton={handleBlank}
+              onOKActionDescription={t('addShelf')}
+            >{t('addShelf')}</DialogButton>
+          </Field>
+        </div>
+      </ConfirmModal>
+    </div>
+  )
+}
+
+function FirstRunBanner({ controller }: { controller: SettingsController }) {
+  const { t, actions } = controller
+  return (
+    <div style={{ margin: '12px 0', padding: '12px 16px', background: 'rgba(255,255,255,0.06)', borderRadius: 6 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{t('first_run_title')}</div>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 12 }}>{t('first_run_desc')}</div>
+      <Focusable style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <DialogButton
+          onClick={() => actions.createDefaultShelves()}
+          onOKButton={() => actions.createDefaultShelves()}
+          onOKActionDescription={t('first_run_create_defaults')}
+          style={{ flex: 1, minWidth: 0 }}
+        >{t('first_run_create_defaults')}</DialogButton>
+      </Focusable>
+    </div>
+  )
 }
 
 function ShelfActionsContextMenu({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
@@ -617,9 +714,10 @@ function ShelvesPanelSection({ controller }: { controller: SettingsController })
 }
 
 export function DeckQAMSettings({ controller }: { controller: SettingsController }) {
-  const { t, settings, actions } = controller
+  const { t, settings, shelves, actions } = controller
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
-  const handleAdd = () => actions.addShelf()
+  const isFirstRun = shelves.length === 0 && !settings.enabled
+  const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
   const [hasCustomFilters] = useState(() => isTabMasterInstalled())
   const handleImportFromCustomFilters = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
@@ -628,6 +726,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     <div className='deck-shelves-qam-scope'>
       <DeckQAMStyles />
       <ToggleField label={t('enabled')} checked={settings.enabled} onChange={(value: boolean) => actions.setEnabled(value)} bottomSeparator='thick' />
+      {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', display: 'flex' }}>
           <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { getPortraitFallbacks } from "../core/steamAssets";
@@ -430,9 +430,21 @@ function MoreCard({ item }: { item: DeckRowItem }) {
   );
 }
 
-export function DeckRow({ title, items }: { title?: string; items: DeckRowItem[] }) {
+function readCollapsed(shelfId: string): boolean {
+  try { return localStorage.getItem(`ds-collapsed-${shelfId}`) === '1'; } catch { return false; }
+}
+
+function writeCollapsed(shelfId: string, collapsed: boolean): void {
+  try {
+    if (collapsed) localStorage.setItem(`ds-collapsed-${shelfId}`, '1');
+    else localStorage.removeItem(`ds-collapsed-${shelfId}`);
+  } catch {}
+}
+
+export function DeckRow({ title, items, shelfId }: { title?: string; items: DeckRowItem[]; shelfId?: string }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
   useEffect(() => { ensureStyles(); }, []);
 
   useEffect(() => {
@@ -457,6 +469,12 @@ export function DeckRow({ title, items }: { title?: string; items: DeckRowItem[]
     };
   }, []);
 
+  const toggleCollapse = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    if (shelfId) writeCollapsed(shelfId, next);
+  };
+
   if (!items.length) return null;
   return (
     <div
@@ -465,52 +483,63 @@ export function DeckRow({ title, items }: { title?: string; items: DeckRowItem[]
       style={{ marginBottom: 12, scrollMarginTop: 40, scrollMarginBottom: 40 }}
     >
       {title ? (
-        <div style={{
-          color: "#dcdedf",
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: 0.5,
-          marginBottom: 8,
-          paddingLeft: "2.8vw",
-        }}>
-          {title}
+        <div
+          onClick={toggleCollapse}
+          style={{
+            color: "#dcdedf",
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            marginBottom: 8,
+            paddingLeft: "2.8vw",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: "pointer",
+            userSelect: "none",
+          }}
+        >
+          <span style={{ flex: 1 }}>{title}</span>
+          <span style={{ fontSize: 14, opacity: 0.5, paddingRight: "2.8vw", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
         </div>
       ) : null}
-      <Focusable
-        ref={rowRef}
-        className="ds-row-scroll"
-        role="list"
-        aria-label={title}
-        onFocus={(e: any) => {
-          if (e.target === e.currentTarget) {
-            requestAnimationFrame(() => {
-              const first = rowRef.current?.querySelector('.ds-card') as HTMLElement;
-              if (first) first.focus();
-            });
-          }
-        }}
-        style={{
-          display: "flex",
-          flexWrap: "nowrap",
-          gap: CARD_GAP,
-          overflowX: "auto",
-          overflowY: "visible",
-          scrollbarWidth: "none",
-          scrollBehavior: "smooth",
-          scrollSnapType: "x proximity",
-          padding: "6px 0 46px 2.8vw",  /* bottom: label/scale room; left: aligns first card with shelf title */
-          scrollPaddingInlineStart: "2.8vw",
-          scrollPaddingInlineEnd: "2.8vw",
-        }}
-        flow-children="horizontal"
-      >
-        {items.map((item) =>
-          item.isMoreLink
-            ? <MoreCard key={item.id} item={item} />
-            : <GameCard key={item.id} item={item} />
-        )}
-        <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
-      </Focusable>
+      {!collapsed && (
+        <Focusable
+          ref={rowRef}
+          className="ds-row-scroll"
+          role="list"
+          aria-label={title}
+          onFocus={(e: any) => {
+            if (e.target === e.currentTarget) {
+              requestAnimationFrame(() => {
+                const first = rowRef.current?.querySelector('.ds-card') as HTMLElement;
+                if (first) first.focus();
+              });
+            }
+          }}
+          style={{
+            display: "flex",
+            flexWrap: "nowrap",
+            gap: CARD_GAP,
+            overflowX: "auto",
+            overflowY: "visible",
+            scrollbarWidth: "none",
+            scrollBehavior: "smooth",
+            scrollSnapType: "x proximity",
+            padding: "6px 0 46px 2.8vw",  /* bottom: label/scale room; left: aligns first card with shelf title */
+            scrollPaddingInlineStart: "2.8vw",
+            scrollPaddingInlineEnd: "2.8vw",
+          }}
+          flow-children="horizontal"
+        >
+          {items.map((item) =>
+            item.isMoreLink
+              ? <MoreCard key={item.id} item={item} />
+              : <GameCard key={item.id} item={item} />
+          )}
+          <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
+        </Focusable>
+      )}
     </div>
   );
 }

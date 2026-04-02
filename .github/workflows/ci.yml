@@ -30,6 +30,15 @@ jobs:
       - name: Static validation
         run: node scripts/build/validate.mjs
 
+      - name: Run unit tests (TypeScript)
+        run: pnpm run test
+
+      - name: Set up Python and run Python tests
+        run: |
+          python3 -m pip install -U pip setuptools
+          python3 -m pip install pytest
+          python3 -m pytest tests/ -v
+
       - name: Build plugin (release mode)
         run: pnpm run build:release
 

@@ -51,7 +51,7 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -rn '\.Apps\.' "$src" 2>/dev/null | grep -v '//' | grep -qv '?\.' ; then
+  if grep -rn '\.Apps\.' "$src" 2>/dev/null | grep -v '[[:space:]]*\*[[:space:]]' | grep -v '//.*\.Apps\.' | grep -qv '?\.' ; then
     echo "  ⚠️  Apps API accessed without optional chaining"
     ((fail++))
   else

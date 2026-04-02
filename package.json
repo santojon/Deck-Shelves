@@ -4,6 +4,7 @@
   "description": "Decky Loader plugin that injects configurable shelves into Steam Deck Home and provides a Steam Deck focused QAM editor.",
   "type": "module",
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build/build-decky.mjs --mode development",
     "build:plugin": "pnpm run build",
@@ -25,7 +26,8 @@
     "check": "pnpm run typecheck && node scripts/build/validate.mjs",
     "validate:compat": "bash scripts/build/validate-compat.sh",
     "screenshots": "python3 scripts/devtools/deck/screenshot.py",
-    "screenshots:validate": "node scripts/build/validate-screenshots.mjs"
+    "screenshots:validate": "node scripts/build/validate-screenshots.mjs",
+    "test:all": "pnpm run test && python3 -m pip install -U pip setuptools && python3 -m pip install pytest && python3 -m pytest tests/ -v"
   },
   "repository": {
     "type": "git",
@@ -45,6 +47,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "vitest": "^3.0.0",
     "esbuild": "^0.27.4",
     "typescript": "^5.9.3",
     "vite": "^8.0.0",

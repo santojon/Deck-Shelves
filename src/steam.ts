@@ -49,6 +49,10 @@ function uniqApps(list: AppOverview[]): AppOverview[] {
 let lastNoAppsWarnAt = 0;
 let appOverviewCache: { ts: number; items: AppOverview[] } | null = null;
 
+export function invalidateAppOverviewCache(): void {
+  appOverviewCache = null;
+}
+
 function candidateCollectionIds(raw: string): string[] {
   const base = String(raw ?? "").trim();
   if (!base) return [];
@@ -445,6 +449,43 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
   } catch {}
 
   return defaults;
+}
+
+/**
+ * Remove an app from a Steam collection.
+ * Tries multiple API shapes across SteamOS versions.
+ */
+export function removeAppFromCollection(collectionId: string, appid: number): void {
+  try {
+    for (const win of getSteamWindows()) {
+      const store = win?.collectionStore ?? (globalThis as any).collectionStore;
+      if (!store) continue;
+      // Attempt 1: GetCollection by id
+      const coll = store.GetCollection?.(collectionId);
+      if (coll) {
+        if (typeof coll.RemoveApps === 'function') { coll.RemoveApps([appid]); store.userCollectionStore?.CommitCollection?.(coll); return; }
+        if (typeof coll.RemoveApp === 'function') { coll.RemoveApp(appid); return; }
+        if (coll.apps instanceof Map && coll.apps.has(appid)) {
+          coll.apps.delete(appid);
+          store.userCollectionStore?.CommitCollection?.(coll);
+          return;
+        }
+      }
+      // Attempt 2: iterate userCollections
+      const userColls: any[] = store.userCollections ?? [];
+      for (const c of userColls) {
+        const id = String(c?.id ?? c?.collectionid ?? '');
+        if (id !== collectionId) continue;
+        if (typeof c.RemoveApps === 'function') { c.RemoveApps([appid]); store.userCollectionStore?.CommitCollection?.(c); return; }
+        if (typeof c.RemoveApp === 'function') { c.RemoveApp(appid); return; }
+        if (c.apps instanceof Map && c.apps.has(appid)) {
+          c.apps.delete(appid);
+          store.userCollectionStore?.CommitCollection?.(c);
+          return;
+        }
+      }
+    }
+  } catch {}
 }
 
 export async function listCollections(): Promise<SteamCollection[]> {
@@ -1615,6 +1656,17 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
     }
     return ids;
+  }
+
+  if (source.type === "external") {
+    try {
+      const { resolveExternalSource } = await import("./core/pluginApi");
+      const ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
+      logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
+      return ids.slice(0, limit);
+    } catch {
+      return [];
+    }
   }
 
   return [];

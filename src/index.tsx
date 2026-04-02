@@ -6,6 +6,9 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { createDeckyPlatform } from "./runtime/deckyPlatform";
 import { PlatformProvider, setPlatform } from "./runtime/platformContext";
 import { installHomePatch } from "./runtime/homePatch";
+import { installShelfRefreshEmitter } from "./core/shelfRefresh";
+import { installSystemEvents } from "./runtime/systemEvents";
+import { installPluginApi } from "./core/pluginApi";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
@@ -65,12 +68,29 @@ export default definePlugin((serverAPI?: any) => {
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
   const patch = enableHomePatch ? installHomePatch(routerHook) : null;
+  const uninstallRefresh = installShelfRefreshEmitter();
+  const uninstallSystemEvents = installSystemEvents();
+  const uninstallPluginApi = installPluginApi();
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
     <AboutPage />
   )); } catch {}
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
+
+  // Log system environment for easier support debugging
+  try {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "unavailable";
+    const client = (globalThis as any).SteamClient ?? (window as any)?.SteamClient;
+    // GetOSType is async in some versions; fire-and-forget with fallback to UA
+    Promise.resolve(client?.System?.GetOSType?.()).then((osType: any) => {
+      logDiagnostic("info", "System environment", JSON.stringify({ ua, osType: osType ?? "unavailable" }));
+    }).catch(() => {
+      logDiagnostic("info", "System environment", ua);
+    });
+  } catch {
+    try { logDiagnostic("info", "System environment", navigator?.userAgent ?? "unavailable"); } catch {}
+  }
 
   return {
     name: "Deck Shelves",
@@ -89,6 +109,9 @@ export default definePlugin((serverAPI?: any) => {
         logInfo("RUNTIME", "plugin dismount");
         patch?.uninstall?.();
         routerHook?.removeRoute?.(ABOUT_ROUTE);
+        uninstallRefresh();
+        uninstallSystemEvents();
+        uninstallPluginApi();
       } catch (error) {
         logError("RUNTIME", "failed to remove patch", String(error));
       }

@@ -61,7 +61,8 @@ export const FilterSchema = z.object({
 export const ShelfSourceSchema = z.union([
   z.object({ type: z.literal("collection"), collectionId: z.string() }),
   z.object({ type: z.literal("tab"), tab: z.string().min(1) }),
-  z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) })
+  z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
+  z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
 ]);
 
 export type ShelfSource = z.infer<typeof ShelfSourceSchema>;

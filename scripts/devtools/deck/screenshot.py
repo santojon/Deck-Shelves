@@ -72,7 +72,19 @@ OPEN_QAM_EXPR = """
 
 
 def ws_path_for(target: dict, port: int) -> str:
-    return target["webSocketDebuggerUrl"].split(f"{port}", 1)[1]
+    wsurl = target.get("webSocketDebuggerUrl", "") or ""
+    wsurl = wsurl.replace("wss://", "ws://")
+    return wsurl.split(f"{port}", 1)[1]
+
+
+def _normalize_host(host: str) -> str:
+    """Strip any leading scheme (http://, https://, ws://, wss://) from host."""
+    if not host:
+        return host
+    for prefix in ("http://", "https://", "ws://", "wss://"):
+        if host.startswith(prefix):
+            return host[len(prefix):]
+    return host
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent
@@ -84,6 +96,7 @@ OUTPUT_DIR = PROJECT_ROOT / "assets" / "screenshots"
 # ---------------------------------------------------------------------------
 
 def ws_connect(host: str, port: int, path: str) -> socket.socket:
+    host = _normalize_host(host)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(20)
     sock.connect((host, port))
@@ -198,6 +211,60 @@ def eval_target(host: str, port: int, ws_path: str, expression: str, msg_id: int
         return cdp_eval(sock, expression, msg_id)
     finally:
         sock.close()
+
+
+def apply_english_locale(host: str, port: int, shared_ws: str) -> bool:
+        """Try to switch the UI language to English using i18next."""
+        JS = r"""
+(function(){
+    try{
+        if (typeof i18next !== 'undefined' && i18next.changeLanguage) {
+            try { i18next.changeLanguage('en-US'); } catch(e){}
+        }
+        // Also set lang attribute as a best-effort fallback
+        try { document.documentElement.lang = 'en-US'; } catch(e){}
+        return 'requested';
+    }catch(e){ return 'err:'+ (e && e.message ? e.message : String(e)); }
+})()
+"""
+        try:
+            res = eval_target(host, port, shared_ws, JS)
+            print(f"  apply_english_locale -> {res}")
+        except Exception as e:
+            print(f"  [WARN] apply_english_locale request failed: {e}")
+            return False
+
+        # Poll for the language to be reported as en-US (give it a few seconds)
+        deadline = time.time() + 15.0
+        while time.time() < deadline:
+            try:
+                cur = eval_target(host, port, shared_ws, "(function(){ return (typeof i18next !== 'undefined' && i18next.language) ? i18next.language : document.documentElement.lang; })()")
+                if isinstance(cur, str) and cur.lower().startswith('en'):
+                    try:
+                        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+                        marker = OUTPUT_DIR / '.lang-applied'
+                        marker.write_text('en-US')
+                    except Exception:
+                        pass
+                    print(f"  Language confirmed: {cur}")
+                    return True
+            except Exception:
+                pass
+            time.sleep(0.5)
+        print("  [WARN] Language change to en-US not confirmed within timeout")
+        return False
+
+def check_cdp_reachable(host: str, port: int) -> bool:
+    """Quick check that the CDP HTTP endpoint responds and returns targets."""
+    try:
+        targets = get_targets(host, port)
+        if not targets:
+            print(f"  [WARN] No CDP targets returned from {host}:{port}")
+            return False
+        return True
+    except Exception as e:
+        print(f"  [WARN] check_cdp_reachable exception: {e}")
+        return False
 
 
 def open_qam(host: str, port: int, shared_ws: str) -> None:
@@ -756,17 +823,7 @@ def screenshot_shelf_export(host: str, port: int, bp: Dict, shared_ws: str, qam_
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    # Limpar todos os arquivos da pasta de screenshots antes de gerar novos
-    screenshots_dir = PROJECT_ROOT / "assets" / "screenshots"
     explicacoes = []
-    if screenshots_dir.exists() and screenshots_dir.is_dir():
-        for f in screenshots_dir.iterdir():
-            if f.is_file():
-                try:
-                    f.unlink()
-                    print(f"[screenshot] Deleted old screenshot: {f.name}")
-                except Exception as e:
-                    print(f"[screenshot] Failed to delete {f.name}: {e}")
     parser = argparse.ArgumentParser(
         description="Take Steam Deck GamepadUI screenshots via CDP",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -793,12 +850,34 @@ def main() -> int:
     shared = find_target(targets, "SharedJSContext")
     qam = find_target(targets, "QuickAccess")
 
+    # Attempt to switch UI to English and rename shelf titles before capturing
+    if shared:
+        try:
+            shared_ws_try = ws_path_for(shared, args.port)
+            apply_english_locale(args.host, args.port, shared_ws_try)
+        except Exception as e:
+            print(f"  [WARN] apply_english_locale exception: {e}")
+
     if not bp:
         print("ERROR: No 'Big Picture' target — is the Deck in GamepadUI mode?")
         return 1
     if not shared:
         print("ERROR: No 'SharedJSContext' target")
         return 1
+
+    # Only delete existing screenshots after we've successfully verified CDP/SSH targets
+    try:
+        screenshots_dir = PROJECT_ROOT / "assets" / "screenshots"
+        if screenshots_dir.exists() and screenshots_dir.is_dir():
+            for f in screenshots_dir.iterdir():
+                if f.is_file():
+                    try:
+                        f.unlink()
+                        print(f"[screenshot] Deleted old screenshot: {f.name}")
+                    except Exception as e:
+                        print(f"[screenshot] Failed to delete {f.name}: {e}")
+    except Exception as e:
+        print(f"[WARN] Could not clear screenshots directory: {e}")
 
     # --- Early validation: require at least 2 shelves and 1 game card ---
     print("\n[screenshot] Validating UI state (at least 2 shelves and 1 game card)...")
