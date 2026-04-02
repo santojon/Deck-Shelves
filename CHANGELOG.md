@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-02
+
 ### Added
 
 - CI: full GitHub Actions CI pipeline (typecheck, build:release, compatibility validations and decky submission checks)
