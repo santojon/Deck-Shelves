@@ -1,20 +1,17 @@
 {
   "name": "deck-shelves",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Decky Loader plugin that injects configurable shelves into Steam Deck Home and provides a Steam Deck focused QAM editor.",
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-
     "build": "node scripts/build/build-decky.mjs --mode development",
     "build:plugin": "pnpm run build",
     "build:release": "node scripts/build/build-decky.mjs --mode production",
     "watch": "node scripts/build/build-decky.mjs --watch --mode development",
-
     "package": "bash scripts/build/package.sh",
     "dist": "pnpm run package",
     "verify:package": "bash scripts/build/verify-package.sh",
-
     "deploy:deck": "bash scripts/deploy/deploy-deck.sh",
     "deploy:deck:hard": "bash scripts/deploy/deploy-deck.sh --hard",
     "upload:deckzip": "bash scripts/deploy/upload-deck-zip.sh",
@@ -25,7 +22,6 @@
     "fix:deck:perms": "bash scripts/deck/fix-deck-perms.sh",
     "deck:check": "bash scripts/deck/deck-check.sh",
     "logs:decky": "bash scripts/deck/logs-decky.sh",
-
     "check": "pnpm run typecheck && node scripts/build/validate.mjs",
     "validate:compat": "bash scripts/build/validate-compat.sh",
     "screenshots": "python3 scripts/devtools/deck/screenshot.py",
