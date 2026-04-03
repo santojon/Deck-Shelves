@@ -474,7 +474,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
       if (from && el.contains(from)) return; // focus moved within shelf — skip
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
         });
       });
     };
@@ -486,13 +486,21 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
   useEffect(() => {
     const rowEl = rowRef.current;
     if (!rowEl) return;
+    // debounce scroll to avoid extremely fast repeated scroll events when holding arrow
+    let scrollTimer: any = null;
     const onCardFocus = (e: FocusEvent) => {
       const card = (e.target as HTMLElement)?.closest?.(".ds-card") as HTMLElement | null;
       if (!card || !rowEl.contains(card)) return;
-      const rowRect = rowEl.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      const offset = cardRect.left - rowRect.left - (rowRect.width / 2) + (cardRect.width / 2);
-      rowEl.scrollBy({ left: offset, behavior: "smooth" });
+      if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
+      scrollTimer = setTimeout(() => {
+        // Compute target using element offsets (more robust than viewport rects)
+        const cardEl = card as HTMLElement;
+        const target = cardEl.offsetLeft - (rowEl.clientWidth / 2) + (cardEl.offsetWidth / 2);
+        // Clamp to scrollable bounds
+        const max = Math.max(0, rowEl.scrollWidth - rowEl.clientWidth);
+        const final = Math.max(0, Math.min(target, max));
+        rowEl.scrollTo({ left: final, behavior: "smooth" });
+      }, 60);
     };
     rowEl.addEventListener("focusin", onCardFocus);
     return () => { rowEl.removeEventListener("focusin", onCardFocus); };
