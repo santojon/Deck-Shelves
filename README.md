@@ -38,7 +38,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - Reorder and toggle shelf visibility from the QAM
 - Import / export all shelves as JSON
 - Persistent settings across plugin reinstalls
-- Multi-language support (en, pt-BR, de, es, fr, it)
+- Multi-language support (EN, PT-BR, PT-PT, FR, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN)
 
 ### Screenshots
 #### Home
@@ -196,7 +196,7 @@ src/domain/              Settings schema, defaults
 src/core/                Steam asset helpers
 src/shims/               React/Decky runtime shims for GamepadUI
 src/features/settings/   Settings controller
-i18n/                    Locale files (6 languages)
+i18n/                    Locale files (16 languages)
 checks/                  Compatibility validation scripts
 scripts/                 Build, deploy, watch, package helpers
 ```
@@ -249,6 +249,10 @@ The project includes CDP-based diagnostics and screenshot automation for Steam D
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, code style, and how to submit changes.
+
+## License
+
+This project is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE) for details.
 
 ## About
 

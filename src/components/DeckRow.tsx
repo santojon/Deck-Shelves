@@ -25,8 +25,31 @@ export type DeckRowItem = {
 const CARD_W      = 133;       // native Focusable width
 const CARD_ART_H  = 200;       // native ~199.5, rounded to clean integer
 const CARD_GAP    = 12;        // native gap between portrait cards
-const CARD_RADIUS = 0;         // native has no border radius
 const STYLE_ID      = "deck-shelves-row-style";
+
+/** Detect border-radius from native Steam game cards so we match CSS Loader themes. */
+function detectNativeCardRadius(): string {
+  try {
+    const doc = getPreferredSteamDocument();
+    if (!doc) return "0px";
+    const selectors = [
+      '[class*="appportrait"] img',
+      '[class*="GameCard"] img',
+      '[class*="libraryhome"] img',
+      '[class*="appportraitlaunchable"] img',
+    ];
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel) as HTMLElement | null;
+      if (el) {
+        const r = getComputedStyle(el).borderRadius;
+        if (r && r !== "0px") return r;
+      }
+    }
+  } catch {}
+  return "0px";
+}
+
+let cachedCardRadius = "0px";
 
 function formatPlaytime(minutes: number | undefined): string | null {
   if (!minutes || minutes <= 0) return null;
@@ -37,6 +60,7 @@ function formatPlaytime(minutes: number | undefined): string | null {
 
 function ensureStyles() {
   try {
+    cachedCardRadius = detectNativeCardRadius();
     const docs = [document, getPreferredSteamDocument()];
     for (const doc of docs) {
       if (!doc || doc.getElementById(STYLE_ID)) continue;
@@ -47,13 +71,9 @@ function ensureStyles() {
         .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
         .ds-card {
           outline: none !important;
-          box-shadow: none !important;
-          border: none !important;
         }
         .ds-card.gpfocus, .ds-card:focus {
           outline: none !important;
-          box-shadow: none !important;
-          border: none !important;
         }
         .ds-card-art {
           transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
@@ -61,6 +81,7 @@ function ensureStyles() {
                       transform 0.4s cubic-bezier(0, 0.73, 0.48, 1);
           transform-origin: center center;
           box-shadow: rgba(0, 0, 0, 0.25) 0px 4px 10px 0px;
+          border-radius: var(--ds-card-radius, ${cachedCardRadius});
         }
         .ds-card.gpfocus .ds-card-art,
         .ds-card:focus .ds-card-art {
@@ -81,7 +102,6 @@ function ensureStyles() {
         .ds-card {
           scroll-margin-top: 90px;
           scroll-margin-bottom: 52px;
-          scroll-snap-align: start;
         }
         .ds-compat {
           position: absolute; bottom: 4px; right: 4px;
@@ -271,7 +291,6 @@ function GameCard({ item }: { item: DeckRowItem }) {
         style={{
           position: "absolute",
           inset: 0,
-          borderRadius: CARD_RADIUS,
           overflow: "hidden",
           background: "rgba(3, 10, 30, 0.92)",
         }}
@@ -407,7 +426,6 @@ function MoreCard({ item }: { item: DeckRowItem }) {
           inset: 0,
           width: CARD_W,
           height: CARD_ART_H,
-          borderRadius: CARD_RADIUS,
           overflow: "hidden",
           background: "rgba(255,255,255,0.04)",
           display: "flex",
@@ -447,26 +465,37 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
   const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
   useEffect(() => { ensureStyles(); }, []);
 
+  // Vertical centering: scroll shelf into view when focus enters from outside
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
-    const doScroll = () => el.scrollIntoView({ block: "center", behavior: "smooth" });
-    let timers: number[] = [];
     const onFocusIn = (e: FocusEvent) => {
-      timers.forEach(clearTimeout);
-      timers = [];
       const from = e.relatedTarget as HTMLElement | null;
-      const fromInside = from && el.contains(from);
-      requestAnimationFrame(doScroll);
-      if (!fromInside) {
-        timers.push(window.setTimeout(doScroll, 300));
-      }
+      if (from && el.contains(from)) return; // focus moved within shelf — skip
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      });
     };
     el.addEventListener("focusin", onFocusIn);
-    return () => {
-      el.removeEventListener("focusin", onFocusIn);
-      timers.forEach(clearTimeout);
+    return () => { el.removeEventListener("focusin", onFocusIn); };
+  }, []);
+
+  // Horizontal centering: scroll focused card to center of the row
+  useEffect(() => {
+    const rowEl = rowRef.current;
+    if (!rowEl) return;
+    const onCardFocus = (e: FocusEvent) => {
+      const card = (e.target as HTMLElement)?.closest?.(".ds-card") as HTMLElement | null;
+      if (!card || !rowEl.contains(card)) return;
+      const rowRect = rowEl.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const offset = cardRect.left - rowRect.left - (rowRect.width / 2) + (cardRect.width / 2);
+      rowEl.scrollBy({ left: offset, behavior: "smooth" });
     };
+    rowEl.addEventListener("focusin", onCardFocus);
+    return () => { rowEl.removeEventListener("focusin", onCardFocus); };
   }, []);
 
   const toggleCollapse = () => {
@@ -480,7 +509,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     <div
       ref={outerRef}
       className="Panel"
-      style={{ marginBottom: 12, scrollMarginTop: 40, scrollMarginBottom: 40 }}
+      style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52 }}
     >
       {title ? (
         <div
@@ -525,10 +554,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
             overflowY: "visible",
             scrollbarWidth: "none",
             scrollBehavior: "smooth",
-            scrollSnapType: "x proximity",
             padding: "6px 0 46px 2.8vw",  /* bottom: label/scale room; left: aligns first card with shelf title */
-            scrollPaddingInlineStart: "2.8vw",
-            scrollPaddingInlineEnd: "2.8vw",
           }}
           flow-children="horizontal"
         >

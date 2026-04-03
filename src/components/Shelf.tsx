@@ -14,7 +14,16 @@ import { removeAppFromCollection } from "../steam";
 export function ShelfView({ shelf }: { shelf: Shelf }) {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [appIds, setAppIds] = useState<number[] | null>(null);
+  const [appIds, setAppIds] = useState<number[] | null>(() => {
+    try {
+      const raw = localStorage.getItem(`ds-shelf-cache-${shelf.id}`);
+      if (raw) {
+        const { ts, ids } = JSON.parse(raw);
+        if (Date.now() - ts < 86400000) return ids; // 24h expiry
+      }
+    } catch {}
+    return null;
+  });
   const [items, setItems] = useState<Map<number, PlatformAppMeta>>(new Map());
   const firstLoad = useRef(true);
   const [metaVersion, setMetaVersion] = useState(0);
@@ -33,6 +42,7 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
             setAppIds(ids);
             setMetaVersion((v) => v + 1);
             firstLoad.current = false;
+            try { localStorage.setItem(`ds-shelf-cache-${shelf.id}`, JSON.stringify({ ts: Date.now(), ids })); } catch {}
           }
         })
         .catch(() => {

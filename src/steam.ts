@@ -704,6 +704,18 @@ async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]>
     }
   }
 
+  // Try collectionStore for favorites (covers localized collection names)
+  for (const win of getSteamWindows()) {
+    try {
+      const cs = (win as any)?.collectionStore;
+      if (!cs) continue;
+      const favColl = cs.favoriteCollection ?? cs.GetCollection?.("favorite");
+      if (favColl) {
+        applyFlag(extractCollectionAppIds(favColl), "is_favorite");
+      }
+    } catch {}
+  }
+
   return [...byId.values()];
 }
 
@@ -1286,16 +1298,81 @@ export type CustomFilter = {
   nameIncludes?: string;
   nameRegex?: string;
   deckCompatibility?: Array<"verified" | "playable" | "unsupported" | "unknown">;
-  sort?: "alphabetical" | "recent" | "playtime" | "release_date" | "size_on_disk" | "metacritic" | "review_score";
+  sort?: "alphabetical" | "recent" | "playtime" | "release_date" | "size_on_disk" | "metacritic" | "review_score" | "added";
   minPlaytimeMinutes?: number;
   maxPlaytimeMinutes?: number;
   updatePending?: boolean;
 };
 
-function resolveDynamicTab(tab: string, all: AppOverview[]): AppOverview[] {
+/**
+ * Resolve app IDs for the Steam "Favorites" collection.
+ * Tries collectionStore APIs and well-known localized collection names
+ * so the resolution works regardless of the console language.
+ */
+async function getFavoritesCollectionAppIds(): Promise<number[]> {
+  const localizedNames = [
+    "Favorites", "Favoris", "Favoriten", "Favoritos", "Preferiti",
+    "Избранное", "Ulubione", "Favorieten", "Favoriler", "Обране",
+    "お気に入り", "즐겨찾기", "收藏夹",
+  ];
+  const internalIds = ["favorite", "favorites", "user-collections-favorite"];
+
+  // Try collectionStore.favoriteCollection or GetCollection("favorite")
+  for (const win of getSteamWindows()) {
+    try {
+      const cs = (win as any)?.collectionStore;
+      if (!cs) continue;
+      const favColl = cs.favoriteCollection ?? cs.GetCollection?.("favorite");
+      if (favColl) {
+        const ids = extractCollectionAppIds(favColl);
+        if (ids.length) return ids;
+      }
+    } catch {}
+  }
+
+  // Try SteamClient.Collections API
+  for (const sc of getSteamClients()) {
+    for (const method of ["GetFavoriteCollectionApps", "GetFavoriteApps", "GetFavoriteAppIDs"]) {
+      try {
+        const fn = (sc?.Collections as any)?.[method];
+        if (typeof fn !== "function") continue;
+        const res = await fn.call(sc.Collections);
+        if (Array.isArray(res) && res.length) return res.map((x: any) => Number(x?.appid ?? x)).filter(Number.isFinite);
+      } catch {}
+    }
+  }
+
+  // Fallback: search all collections for known favorites names/IDs
+  try {
+    const collections = await listCollections();
+    const allNames = new Set([...localizedNames.map((n) => normalizeText(n)), ...internalIds]);
+    for (const coll of collections) {
+      const normId = normalizeText(coll.id);
+      const normName = normalizeText(coll.name);
+      if (allNames.has(normId) || allNames.has(normName)) {
+        const ids = await getCollectionApps(coll.id, coll.name);
+        if (ids.length) return ids;
+      }
+    }
+  } catch {}
+
+  return [];
+}
+
+async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOverview[]> {
   const id = slugifyTab(tab.startsWith("/") ? tab.split("/").pop() || tab : tab);
   if (id === "all" || id === "all_games" || id === "allgames") return all;
-  if (id === "favorites") return all.filter((a) => isFavoriteOf(a));
+  if (id === "favorites") {
+    const byFlag = all.filter((a) => isFavoriteOf(a));
+    if (byFlag.length > 0) return byFlag;
+    // Fallback: resolve via localized Favorites collection
+    const favIds = await getFavoritesCollectionAppIds();
+    if (favIds.length) {
+      const favSet = new Set(favIds);
+      return all.filter((a) => favSet.has(appIdOf(a)));
+    }
+    return byFlag;
+  }
   if (id === "hidden") return all.filter((a) => isHiddenOf(a));
   if (id === "nonsteam" || id === "epic" || id === "gog") return all.filter((a) => isNonSteamOf(a));
   if (id === "installed" || id === "great_on_deck") return all.filter((a) => isInstalledOf(a));
@@ -1415,7 +1492,12 @@ function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx?: Filt
 }
 
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number): Promise<number[]> {
-  const all = await getAllAppOverviews();
+  let all = await getAllAppOverviews();
+  // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
+  if (!all.length) {
+    await new Promise((r) => setTimeout(r, 2000));
+    all = await getAllAppOverviews();
+  }
 
   if (source.type === "collection") {
     const rawCollectionId = String(source.collectionId ?? "").trim();
@@ -1515,7 +1597,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       } catch {}
       return fromTabStore.slice(0, limit);
     }
-    const filtered = resolveDynamicTab(rawTab, all);
+    const filtered = await resolveDynamicTab(rawTab, all);
     const sorted = slugifyTab(rawTab) === "recent"
       ? filtered
       : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
@@ -1569,6 +1651,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
       } else if (fSort === "review_score") {
         filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
+      } else if (fSort === "added") {
+        filtered = filtered.slice().sort((a, b) => (b.rt_store_asset_mtime ?? 0) - (a.rt_store_asset_mtime ?? 0));
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
@@ -1639,6 +1723,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
     } else if (f.sort === "review_score") {
       filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
+    } else if (f.sort === "added") {
+      filtered = filtered.slice().sort((a, b) => (b.rt_store_asset_mtime ?? 0) - (a.rt_store_asset_mtime ?? 0));
     } else {
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }

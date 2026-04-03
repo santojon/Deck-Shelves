@@ -30,7 +30,7 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
   {
     id: "recently_added",
     titleKey: "template_recently_added",
-    source: { type: "filter", filter: { sort: "recent" } },
+    source: { type: "filter", filter: { sort: "added" } },
   },
   {
     id: "awaiting_update",

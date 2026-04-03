@@ -3,21 +3,41 @@ import { initReactI18next } from "react-i18next";
 
 import enUS from "../i18n/en-US.json";
 import ptBR from "../i18n/pt-BR.json";
+import ptPT from "../i18n/pt-PT.json";
 import esES from "../i18n/es-ES.json";
+import es419 from "../i18n/es-419.json";
 import itIT from "../i18n/it-IT.json";
 import frFR from "../i18n/fr-FR.json";
 import deDE from "../i18n/de-DE.json";
+import ruRU from "../i18n/ru-RU.json";
+import plPL from "../i18n/pl-PL.json";
+import nlNL from "../i18n/nl-NL.json";
+import trTR from "../i18n/tr-TR.json";
+import ukUA from "../i18n/uk-UA.json";
+import jaJP from "../i18n/ja-JP.json";
+import koKR from "../i18n/ko-KR.json";
+import zhCN from "../i18n/zh-CN.json";
 
 export function initI18n() {
   if (i18n.isInitialized) return i18n;
 
   const lang = ((typeof navigator !== "undefined" && (navigator as any)?.language) ? (navigator as any).language : "en-US").toLowerCase();
   const pick = (l: string) => {
+    if (l.startsWith("pt-pt")) return "pt-PT";
     if (l.startsWith("pt")) return "pt-BR";
-    if (l.startsWith("es")) return "es-ES";
+    if (l === "es-es" || l.startsWith("es-es")) return "es-ES";
+    if (l.startsWith("es")) return "es-419";
     if (l.startsWith("it")) return "it-IT";
     if (l.startsWith("fr")) return "fr-FR";
     if (l.startsWith("de")) return "de-DE";
+    if (l.startsWith("ru")) return "ru-RU";
+    if (l.startsWith("pl")) return "pl-PL";
+    if (l.startsWith("nl")) return "nl-NL";
+    if (l.startsWith("tr")) return "tr-TR";
+    if (l.startsWith("uk")) return "uk-UA";
+    if (l.startsWith("ja")) return "ja-JP";
+    if (l.startsWith("ko")) return "ko-KR";
+    if (l.startsWith("zh")) return "zh-CN";
     return "en-US";
   };
 
@@ -25,10 +45,20 @@ export function initI18n() {
     resources: {
       "en-US": { translation: enUS },
       "pt-BR": { translation: ptBR },
+      "pt-PT": { translation: ptPT },
       "es-ES": { translation: esES },
+      "es-419": { translation: es419 },
       "it-IT": { translation: itIT },
       "fr-FR": { translation: frFR },
-      "de-DE": { translation: deDE }
+      "de-DE": { translation: deDE },
+      "ru-RU": { translation: ruRU },
+      "pl-PL": { translation: plPL },
+      "nl-NL": { translation: nlNL },
+      "tr-TR": { translation: trTR },
+      "uk-UA": { translation: ukUA },
+      "ja-JP": { translation: jaJP },
+      "ko-KR": { translation: koKR },
+      "zh-CN": { translation: zhCN },
     },
     lng: pick(lang),
     fallbackLng: "en-US",
