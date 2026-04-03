@@ -61,6 +61,12 @@ export function tryRestoreFocus(): boolean {
     return false;
   }
 
+  // If another component is programmatically centering a card, skip restore
+  // to avoid fighting for focus while smooth scrolls are happening.
+  try {
+    if ((globalThis as any).__ds_centering) return false;
+  } catch {}
+
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
 

@@ -603,7 +603,7 @@ export type AppOverview = {
   update_pending?: boolean;
 };
 
-function normalizeAppOverview(node: any): AppOverview | null {
+export function normalizeAppOverview(node: any): AppOverview | null {
   const appid = appIdOf(node);
   if (!Number.isFinite(appid) || appid <= 0) return null;
   const name = appNameOf(node);
@@ -617,7 +617,28 @@ function normalizeAppOverview(node: any): AppOverview | null {
     is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
     is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
-    installed: readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]),
+    // installed flag: prefer explicit store flag, then per_client_data, then size_on_disk.
+    // NOTE: exe_path is NOT checked — every non-Steam shortcut has one regardless of install state.
+    installed: (() => {
+      const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
+      if (explicit !== undefined) return explicit;
+      // per_client_data.display_status > 0 means some installed/downloading/updating state
+      try {
+        const pcd = node?.per_client_data;
+        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
+        if (clientData) {
+          const ds = Number(clientData?.display_status ?? 0);
+          if (ds > 0) return true;
+          return false;
+        }
+      } catch {}
+      // size_on_disk is a reliable indicator (but NOT exe_path which is always set for shortcuts)
+      try {
+        const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
+        if (Number.isFinite(size) && size > 0) return true;
+      } catch {}
+      return undefined;
+    })(),
     update_pending: (() => {
       const pcd = node?.per_client_data;
       const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
@@ -659,7 +680,7 @@ function extractStatefulAppIds(value: any): number[] {
   return [];
 }
 
-async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]> {
+export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]> {
   const byId = new Map(items.map((item) => [item.appid, { ...item }] as const));
   const sources = [
     ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
@@ -715,6 +736,29 @@ async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]>
       }
     } catch {}
   }
+
+  // Detect installed state for non-Steam shortcuts (UnifiDeck etc.) via per_client_data
+  try {
+    for (const win of getSteamWindows()) {
+      const appStore = (win as any)?.appStore ?? (win as any)?.AppStore;
+      if (!appStore?.GetAppOverviewByAppID) continue;
+      for (const [appid, item] of byId) {
+        if (!item.is_non_steam || item.installed === true) continue;
+        try {
+          const raw = appStore.GetAppOverviewByAppID(appid);
+          if (!raw) continue;
+          const pcd = raw?.per_client_data;
+          const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
+          if (clientData) {
+            const ds = Number(clientData?.display_status ?? 0);
+            if (ds > 0) item.installed = true;
+            else item.installed = false;
+          }
+        } catch {}
+      }
+      break; // Only need the first working appStore
+    }
+  } catch {}
 
   return [...byId.values()];
 }
@@ -1672,14 +1716,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     if (f.hidden === false) filtered = filtered.filter((a) => !isHiddenOf(a));
     if (f.nonSteam) filtered = filtered.filter((a) => isNonSteamOf(a));
     if (f.installed) {
-      // Try strict first, fall back to lenient (installed !== false) if strict yields nothing
-      const strict = filtered.filter((a) => isInstalledOf(a));
-      if (strict.length > 0) {
-        filtered = strict;
-      } else {
-        // Many app overviews lack an explicit installed flag — treat undefined as installed
-        filtered = filtered.filter((a) => (a as any).installed !== false);
-      }
+      filtered = filtered.filter((a) => isInstalledOf(a));
     }
     if (typeof f.playedWithinDays === "number") {
       const now = Math.floor(Date.now() / 1000);

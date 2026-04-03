@@ -89,6 +89,12 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
   <img src="assets/screenshots/shelf-export.png" alt="Deck Shelves — Export Shelves" width="768">
 </p>
 
+#### About / Filter Documentation
+
+<p align="center">
+  <img src="assets/screenshots/about-page.png" alt="Deck Shelves — About Page with Filter Documentation" width="768">
+</p>
+
 ## Installation
 
 ### From Decky Store

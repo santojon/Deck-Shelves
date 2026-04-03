@@ -469,41 +469,66 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
+    const doScroll = () => el.scrollIntoView({ block: "center", behavior: "smooth" });
+    let timers: number[] = [];
     const onFocusIn = (e: FocusEvent) => {
+      timers.forEach(clearTimeout);
+      timers = [];
       const from = e.relatedTarget as HTMLElement | null;
-      if (from && el.contains(from)) return; // focus moved within shelf — skip
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          el.scrollIntoView({ block: "center", behavior: "smooth" });
-        });
-      });
+      const fromInside = from && el.contains(from);
+      requestAnimationFrame(doScroll);
+      if (!fromInside) {
+        timers.push(window.setTimeout(doScroll, 300));
+      }
     };
     el.addEventListener("focusin", onFocusIn);
-    return () => { el.removeEventListener("focusin", onFocusIn); };
+    return () => {
+      el.removeEventListener("focusin", onFocusIn);
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
   // Horizontal centering: scroll focused card to center of the row
   useEffect(() => {
     const rowEl = rowRef.current;
     if (!rowEl) return;
-    // debounce scroll to avoid extremely fast repeated scroll events when holding arrow
     let scrollTimer: any = null;
+    let centeringClearTimer: any = null;
+    const SCROLL_DELAY = 120;
     const onCardFocus = (e: FocusEvent) => {
-      const card = (e.target as HTMLElement)?.closest?.(".ds-card") as HTMLElement | null;
+      const card = (e.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
       if (!card || !rowEl.contains(card)) return;
+      try {
+        for (const it of Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'))) {
+          it.classList.toggle('is-selected', it === card);
+        }
+      } catch {}
       if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
       scrollTimer = setTimeout(() => {
-        // Compute target using element offsets (more robust than viewport rects)
         const cardEl = card as HTMLElement;
         const target = cardEl.offsetLeft - (rowEl.clientWidth / 2) + (cardEl.offsetWidth / 2);
-        // Clamp to scrollable bounds
         const max = Math.max(0, rowEl.scrollWidth - rowEl.clientWidth);
         const final = Math.max(0, Math.min(target, max));
-        rowEl.scrollTo({ left: final, behavior: "smooth" });
-      }, 60);
+        try {
+          (globalThis as any).__ds_centering = true;
+          if (centeringClearTimer) { clearTimeout(centeringClearTimer); centeringClearTimer = null; }
+          rowEl.scrollTo({ left: final, behavior: 'smooth' });
+        } finally {
+          centeringClearTimer = setTimeout(() => {
+            try { (globalThis as any).__ds_centering = false; } catch {};
+            centeringClearTimer = null;
+          }, 300);
+        }
+      }, SCROLL_DELAY);
     };
+
     rowEl.addEventListener("focusin", onCardFocus);
-    return () => { rowEl.removeEventListener("focusin", onCardFocus); };
+    return () => {
+      rowEl.removeEventListener("focusin", onCardFocus);
+      if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
+      if (centeringClearTimer) { clearTimeout(centeringClearTimer); centeringClearTimer = null; }
+      try { (globalThis as any).__ds_centering = false; } catch {}
+    };
   }, []);
 
   const toggleCollapse = () => {

@@ -414,7 +414,7 @@ function createShelfCard(
       if (!next || next === card) return;
       event.preventDefault();
       next.focus();
-      next.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      next.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     }
   });
   card.addEventListener("focus", () => {

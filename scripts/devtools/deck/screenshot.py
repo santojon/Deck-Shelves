@@ -392,6 +392,7 @@ ALL_TARGETS = [
     "game-detail", "game-menu",
     "shelf-actions", "shelf-edit", "shelf-hidden",
     "shelf-delete", "shelf-import", "shelf-export",
+    "about-page",
 ]
 
 
@@ -818,6 +819,28 @@ def screenshot_shelf_export(host: str, port: int, bp: Dict, shared_ws: str, qam_
     return result
 
 
+def screenshot_about_page(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
+    """Capture the About / Filter Documentation page."""
+    bp_ws = ws_path_for(bp, port)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    # Click the book icon button (About) in the QAM title bar
+    clicked = click_qam_button(host, port, qam_ws, "M4 19.5A2.5", 0)
+    if not clicked:
+        clicked = click_qam_button(host, port, qam_ws, "M4 4.5v15", 0)
+    if clicked:
+        time.sleep(2.5)
+        result = capture_bigpicture(host, port, bp, "about-page.png")
+        # Press Escape to close the about page
+        dismiss_bp_escape(host, port, bp)
+        time.sleep(1.0)
+    else:
+        print("  [WARN] Could not find About button")
+        result = None
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1055,6 +1078,14 @@ def main() -> int:
         if p:
             captured.append(p)
             explicacoes.append(("shelf-export.png", "Modal de exportação de prateleiras."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] about-page ...")
+    if qam_ws:
+        p = screenshot_about_page(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("about-page.png", "Página About com documentação de filtros."))
         time.sleep(1.5)
 
     if captured:

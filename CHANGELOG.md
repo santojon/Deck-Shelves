@@ -22,13 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Shelf cards now inherit border-radius from native Steam cards and CSS Loader themes via `--ds-card-radius` custom property
 - Horizontal shelf navigation now centers the focused game card instead of pinning to the left edge
-- Vertical shelf centering uses `block: "nearest"` with double-rAF instead of 300ms delayed scroll, removing perceived latency
+- Vertical shelf centering scrolls the full shelf row to viewport center with 300ms retry fallback
+- Screenshot automation now captures the About / Filter Documentation page
 
 ### Fixed
 
 - Favorites shelf not displaying on non-English systems — added collectionStore fallback for locale-independent resolution
 - "Recently Added" template now correctly sorts by acquisition date instead of last played time
 - Game covers now match the visual style of native Steam cards when CSS Loader themes are active
+- Non-Steam shortcuts (UnifiDeck) no longer incorrectly marked as installed based on exe_path — now uses `per_client_data.display_status` for reliable install detection
+- Removed lenient installed filter fallback that treated unknown install state as installed
+- Removed manual keydown handler for horizontal navigation — gamepad focus is now managed entirely by Steam's FocusNavController for consistent pacing
 
 ## [1.0.0] - 2026-04-02
 
