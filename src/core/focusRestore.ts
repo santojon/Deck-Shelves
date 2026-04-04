@@ -1,11 +1,3 @@
-/**
- * Saves and restores gamepad focus to shelf cards after navigation.
- *
- * When the user presses A on a shelf card, we record the appid.
- * When they return to the home page, we find the matching card's nav tree
- * node and set it as the active focus target.
- */
-
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 
 let pendingAppid: number | null = null;
@@ -49,7 +41,6 @@ function findNavNodeForElement(el: HTMLElement): any {
   return found;
 }
 
-/** Returns true if there is a pending focus restoration target. */
 export function hasPendingFocus(): boolean {
   return !!pendingAppid;
 }
@@ -64,7 +55,6 @@ export function tryRestoreFocus(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
 
-  // Prefer the card scoped to the shelf; fall back to any card with this appid
   let card: HTMLElement | null = null;
   if (pendingShelfId) {
     card = doc.querySelector(`.ds-card[data-appid="${pendingAppid}"][data-shelfid="${pendingShelfId}"]`) as HTMLElement | null;
@@ -74,7 +64,6 @@ export function tryRestoreFocus(): boolean {
   }
   if (!card) return false;
 
-  // Already has gamepad focus — we're done
   if (card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement) {
     pendingAppid = null;
     pendingShelfId = null;
@@ -85,22 +74,19 @@ export function tryRestoreFocus(): boolean {
 
   if (navNode) {
     try {
-      // BTakeFocus: direct focus request on the nav node (most reliable)
       if (typeof navNode.BTakeFocus === "function") {
-        navNode.BTakeFocus(2 /* GAMEPAD */);
+        navNode.BTakeFocus(2);
         pendingAppid = null;
         pendingShelfId = null;
         return true;
       }
-      // TakeFocus on the nav tree
       const tree = navNode.m_Tree;
       if (tree?.TakeFocus) {
-        tree.TakeFocus(2 /* GAMEPAD */, navNode);
+        tree.TakeFocus(2, navNode);
         pendingAppid = null;
         pendingShelfId = null;
         return true;
       }
-      // Fallback: OnGamepadNavigationTreeFocused on the controller
       const ctrl = getFocusNavController();
       if (ctrl?.OnGamepadNavigationTreeFocused && tree) {
         ctrl.OnGamepadNavigationTreeFocused(tree, navNode);
@@ -108,15 +94,13 @@ export function tryRestoreFocus(): boolean {
         pendingShelfId = null;
         return true;
       }
-    } catch { /* ignore */ }
+    } catch {}
   }
 
-  // Last resort: direct DOM focus + scroll
   try {
     card.focus?.();
-    // Trigger vertical centering since focusin may fire from this
     card.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  } catch { /* ignore */ }
+  } catch {}
 
   return false;
 }
@@ -127,7 +111,6 @@ let focusPollId: ReturnType<typeof setInterval> | null = null;
 export function beginFocusRestoreLoop(): void {
   if (!pendingAppid) return;
 
-  // Cancel any previous observer and poll interval
   focusObserver?.disconnect();
   focusObserver = null;
   if (focusPollId !== null) {
@@ -160,7 +143,6 @@ export function beginFocusRestoreLoop(): void {
     if (!pendingAppid || pendingAppid !== targetAppid) return;
     if (Date.now() > deadline) { pendingAppid = null; pendingShelfId = null; focusObserver?.disconnect(); focusObserver = null; return; }
 
-    // If our card already has gpfocus, great
     const card = findCard();
     if (card?.classList.contains("gpfocus")) {
       pendingAppid = null;
@@ -183,7 +165,6 @@ export function beginFocusRestoreLoop(): void {
     for (const m of mutations) {
       if (m.type !== "attributes" || m.attributeName !== "class") continue;
       const el = m.target as HTMLElement;
-      // Our card got gpfocus — done
       if (cardMatches(el) && el.classList.contains("gpfocus")) {
         pendingAppid = null;
         pendingShelfId = null;
@@ -191,7 +172,6 @@ export function beginFocusRestoreLoop(): void {
         focusObserver = null;
         return;
       }
-      // Something else got gpfocus — re-steal
       if (el.classList.contains("gpfocus") && !cardMatches(el)) {
         attempt();
         return;
@@ -201,10 +181,8 @@ export function beginFocusRestoreLoop(): void {
 
   focusObserver.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 
-  // Immediate attempt
   attempt();
 
-  // Fast initial polling (100ms) to catch the card appearing quickly
   let pollCount = 0;
   focusPollId = setInterval(() => {
     if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
@@ -214,7 +192,6 @@ export function beginFocusRestoreLoop(): void {
     }
     pollCount++;
     attempt();
-    // After 20 fast polls (2s), slow down to 500ms
     if (pollCount === 20 && focusPollId !== null) {
       clearInterval(focusPollId);
       focusPollId = setInterval(() => {
@@ -228,7 +205,6 @@ export function beginFocusRestoreLoop(): void {
     }
   }, 100);
 
-  // Hard deadline cleanup (use duration, not timestamp, to avoid integer overflow in CEF)
   setTimeout(() => {
     focusObserver?.disconnect();
     focusObserver = null;

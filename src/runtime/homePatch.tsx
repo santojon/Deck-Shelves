@@ -78,11 +78,8 @@ function scoreWindow(win: Window): number {
     const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
     let score = 0;
     if (href.includes("/routes/library/home") || href.includes("library/home")) score += 4;
-    // Stable selectors score highest: aria-labels and semantic class substrings
-    // survive Steam client updates far better than obfuscated class names
     if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) score += 8;
     if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) score += 6;
-    // Obfuscated class — bonus only; may not survive Steam updates
     try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) score += 2; } catch {}
     if (doc.body?.childElementCount) score += 1;
     return score;
@@ -132,10 +129,8 @@ function isHomeVisible(): boolean {
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
   if (href.includes("library/home") || href.includes("#library/home")) return true;
   if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
-  // Stable selectors first
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
   if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  // Obfuscated class name — last resort, may not survive Steam updates
   try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) return true; } catch {}
   return false;
 }
@@ -206,39 +201,6 @@ function ensureMount(): HTMLElement | null {
     mount.style.zIndex = "0";
     mount.style.margin = "0";
     mount.style.padding = "0";
-    // Inject background blur style for the shelf area
-    const bgStyleId = "deck-shelves-bg-style";
-    if (!doc.getElementById(bgStyleId)) {
-      const bgStyle = doc.createElement("style");
-      bgStyle.id = bgStyleId;
-      bgStyle.textContent = `
-        #${ROOT_ID} {
-          background: rgba(0,0,0,0.75);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          position: relative;
-        }
-        #${ROOT_ID}::before {
-          content: '';
-          position: absolute;
-          top: -24px; left: 0; right: 0;
-          height: 48px;
-          background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
-          pointer-events: none;
-          z-index: 0;
-        }
-        #${ROOT_ID}::after {
-          content: '';
-          position: absolute;
-          bottom: 0; left: 0; right: 0;
-          height: 48px;
-          background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%);
-          pointer-events: none;
-          z-index: 0;
-        }
-      `;
-      doc.head.appendChild(bgStyle);
-    }
     logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
   }
 
@@ -281,32 +243,6 @@ function injectHomeStyles(doc: Document) {
   style.textContent = `
     #${ROOT_ID} {
       overflow: visible;
-      background: rgba(0,0,0,0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      position: relative;
-    }
-    #${ROOT_ID}::before {
-      content: '';
-      position: absolute;
-      top: -24px;
-      left: 0;
-      right: 0;
-      height: 48px;
-      background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
-      pointer-events: none;
-      z-index: 0;
-    }
-    #${ROOT_ID}::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 48px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%);
-      pointer-events: none;
-      z-index: 0;
     }
     #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
     #${ROOT_ID} .deck-shelves-header {

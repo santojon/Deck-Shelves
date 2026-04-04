@@ -617,12 +617,9 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
     is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
-    // installed flag: prefer explicit store flag, then per_client_data, then size_on_disk.
-    // NOTE: exe_path is NOT checked — every non-Steam shortcut has one regardless of install state.
     installed: (() => {
       const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
       if (explicit !== undefined) return explicit;
-      // per_client_data or local_per_client_data display_status > 0 means installed/downloading/updating
       try {
         const pcd = node?.per_client_data ?? node?.local_per_client_data;
         const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
@@ -632,12 +629,10 @@ export function normalizeAppOverview(node: any): AppOverview | null {
           return false;
         }
       } catch {}
-      // size_on_disk is a reliable indicator (but NOT exe_path which is always set for shortcuts)
       try {
         const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
         if (Number.isFinite(size) && size > 0) return true;
       } catch {}
-      // For non-Steam shortcuts with no install evidence, default to not installed
       if (isNonSteamOf(node)) return false;
       return undefined;
     })(),
@@ -739,9 +734,6 @@ export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOver
     } catch {}
   }
 
-  // Detect installed state for non-Steam shortcuts (UnifiDeck etc.)
-  // Strategy: check multiple raw AppOverview fields from appStore since shortcuts
-  // may lack per_client_data entirely.
   try {
     for (const win of getSteamWindows()) {
       const appStore = (win as any)?.appStore ?? (win as any)?.AppStore;
@@ -752,33 +744,25 @@ export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOver
           const raw = appStore.GetAppOverviewByAppID(appid);
           if (!raw) continue;
 
-          // 1. Direct boolean flags on the raw overview
           const directInstalled = raw?.installed ?? raw?.is_installed ?? raw?.m_bInstalled ?? raw?.bInstalled;
           if (directInstalled === true) { item.installed = true; continue; }
           if (directInstalled === false) { item.installed = false; continue; }
 
-          // 2. per_client_data.display_status
           const pcd = raw?.per_client_data ?? raw?.local_per_client_data;
           const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
           if (clientData) {
             const ds = Number(clientData?.display_status ?? 0);
             if (ds > 0) { item.installed = true; continue; }
-            // ds === 0 with per_client_data present means not installed
             item.installed = false;
             continue;
           }
 
-          // 3. size_on_disk from raw overview (reliable — only set when data is on disk)
           const sod = Number(raw?.size_on_disk ?? raw?.m_nSizeOnDisk ?? 0);
           if (Number.isFinite(sod) && sod > 0) { item.installed = true; continue; }
 
-          // 4. rt_last_time_locally_played > 0 means it has run on this machine
           const lastLocal = Number(raw?.rt_last_time_locally_played ?? raw?.m_rtLastTimePlayed ?? 0);
           if (Number.isFinite(lastLocal) && lastLocal > 0) { item.installed = true; continue; }
 
-          // 5. No evidence of installation — mark as not installed.
-          // This is the safe default for shortcuts: if Steam doesn't know it's installed,
-          // it shouldn't appear in the "Installed" shelf.
           item.installed = false;
         } catch {}
       }

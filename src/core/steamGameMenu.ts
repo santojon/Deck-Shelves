@@ -23,11 +23,6 @@ function getSPDocument(): Document {
   return getPreferredSteamDocument();
 }
 
-/**
- * Install a passive SP_REACT.createElement hook that captures the AppContextMenu
- * component the first time any native game context menu is opened.
- * Safe to call multiple times — installs only once.
- */
 export function installPassiveMenuHook(): void {
   if (passiveHookInstalled || cachedMenuComponent) return;
   const React = getSteamReact();
@@ -43,7 +38,6 @@ export function installPassiveMenuHook(): void {
       delete tProps.hasCustomArtwork;
       delete tProps.onChangeArtwork;
       cachedMenuTemplateProps = tProps;
-      // Uninstall — captured
       React.createElement = origCreateElement;
       passiveHookInstalled = false;
     }
@@ -52,10 +46,6 @@ export function installPassiveMenuHook(): void {
   passiveHookInstalled = true;
 }
 
-/**
- * Extract the AppContextMenu component by intercepting SP_REACT.createElement
- * while firing a native game card's onMenuButton handler.
- */
 export function extractAppContextMenu(): boolean {
   if (cachedMenuComponent) return true;
   const now = Date.now();
@@ -66,7 +56,6 @@ export function extractAppContextMenu(): boolean {
   const React = getSteamReact();
   if (!doc || !React?.createElement) return false;
 
-  // Find a native game tile with onMenuButton in its React fiber
   const panels = doc.querySelectorAll(".Panel.Focusable");
   let menuFn: ((e: any) => void) | null = null;
 
@@ -93,9 +82,6 @@ export function extractAppContextMenu(): boolean {
 
   if (!menuFn) return false;
 
-  // Intercept SP_REACT.createElement to capture the AppContextMenu creation.
-  // The native handler calls y.createElement(AppContextMenu, {overview, client, ...}).
-  // We detect it by checking for 'overview' + 'client' in the props.
   const origCreateElement = React.createElement;
   let capturedComponent: any = null;
   let capturedTemplateProps: Record<string, any> = {};
@@ -118,7 +104,7 @@ export function extractAppContextMenu(): boolean {
     (fakeEvt as any).stopPropagation = () => {};
     (fakeEvt as any).preventDefault = () => {};
     menuFn(fakeEvt);
-  } catch { /* ignore */ }
+  } catch {}
 
   React.createElement = origCreateElement;
 
@@ -132,12 +118,7 @@ export function extractAppContextMenu(): boolean {
   return false;
 }
 
-/**
- * Show the game context menu for an appid — identical to the native Recent Games menu,
- * including plugin-added items (HLTB, SteamGridDB, CheatDeck, etc.).
- */
 export function showGameMenu(appid: number): void {
-  // Ensure passive hook is installed — captures component on first natural menu open
   installPassiveMenuHook();
 
   if (!cachedMenuComponent) extractAppContextMenu();
@@ -159,8 +140,6 @@ export function showGameMenu(appid: number): void {
           ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
           ?? window;
 
-        // Build props: spread captured template props (client, launchSource, bInGamepadUI,
-        // strCollectionId) and override game-specific + window-specific ones.
         const menuElement = React.createElement(cachedMenuComponent, {
           ...cachedMenuTemplateProps,
           overview,
@@ -169,7 +148,6 @@ export function showGameMenu(appid: number): void {
           bInGamepadUI: cachedMenuTemplateProps.bInGamepadUI ?? true,
           strCollectionId: cachedMenuTemplateProps.strCollectionId ?? "",
           ownerWindow: ownerWindow ?? cachedMenuTemplateProps.ownerWindow,
-          // artwork props are game-specific — do not carry over
           hasCustomArtwork: undefined,
           onChangeArtwork: undefined,
         });
@@ -188,7 +166,6 @@ export function showGameMenu(appid: number): void {
     }
   }
 
-  // Fallback: retry extraction once (reset cooldown for immediate retry)
   if (!cachedMenuComponent) {
     lastExtractionAttempt = 0;
     extractAppContextMenu();
@@ -198,7 +175,6 @@ export function showGameMenu(appid: number): void {
     }
   }
 
-  // Last resort: minimal context menu via DFL
   try {
     const dfl = getDFL();
     const R = getSteamReact();
@@ -217,5 +193,5 @@ export function showGameMenu(appid: number): void {
       );
       dfl.showContextMenu(menu, cardEl);
     }
-  } catch { /* ignore */ }
+  } catch {}
 }

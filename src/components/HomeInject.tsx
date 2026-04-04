@@ -197,7 +197,6 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
-      // Gate: block horizontal navigation during centering animation
       if ((direction === DIR_LEFT || direction === DIR_RIGHT) && (globalThis as any).__ds_centering) {
         const el = this.Element || this.m_element || this.m_Element;
         if (el && typeof el.className === "string" && el.className.includes("ds-row-scroll")) {
@@ -239,10 +238,8 @@ function isHomeRoute(): boolean {
 function hasHomeDomSignals(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
-  // Stable selectors first — semantic substrings and aria-labels survive Steam updates
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
   if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  // Obfuscated class name — last resort
   try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X')) return true; } catch {}
   return false;
 }
@@ -319,43 +316,6 @@ function findOrCreateMount(): HTMLElement | null {
   mount.style.cssText = "width:100%;display:block;position:relative;z-index:0;margin:0;padding:0;";
   anchor.parent.insertBefore(mount, anchor.before);
 
-  // Inject background/blur styles for the shelf area
-  const bgStyleId = "deck-shelves-bg-style";
-  if (!doc.getElementById(bgStyleId)) {
-    const bgStyle = doc.createElement("style");
-    bgStyle.id = bgStyleId;
-    bgStyle.textContent = `
-      #${ROOT_ID} {
-        background: rgba(0,0,0,0.75);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        position: relative;
-      }
-      #${ROOT_ID}::before {
-        content: '';
-        position: absolute;
-        top: -24px;
-        left: 0;
-        right: 0;
-        height: 48px;
-        background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
-        pointer-events: none;
-        z-index: 0;
-      }
-      #${ROOT_ID}::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 48px;
-        background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%);
-        pointer-events: none;
-        z-index: 0;
-      }
-    `;
-    doc.head.appendChild(bgStyle);
-  }
   logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
   return mount;
 }
