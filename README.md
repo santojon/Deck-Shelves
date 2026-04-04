@@ -6,7 +6,8 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Compatibility](https://img.shields.io/badge/checks-21%2F21-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
+[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Compatibility](https://img.shields.io/badge/checks-23%2F23-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Steam%20OS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -38,7 +39,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - Reorder and toggle shelf visibility from the QAM
 - Import / export all shelves as JSON
 - Persistent settings across plugin reinstalls
-- Multi-language support (en, pt-BR, de, es, fr, it)
+- Multi-language support (EN, PT-BR, PT-PT, FR, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN)
 
 ### Screenshots
 #### Home
@@ -136,6 +137,12 @@ DECK_SUDO_PASS=your-password
 
 # Steam Deck CEF remote-debug port (default: 8081)
 DECK_CDP_PORT=8081
+
+# Optional: address used to reach the Deck CEF remote-debug endpoint.
+# If unset, the CLI will use `DECK_HOST` as the CDP host. You can set
+# this to `127.0.0.1` when using an SSH tunnel, or to your Deck's IP
+# when connecting directly.
+DECK_CDP_HOST=127.0.0.1
 ```
 
 All variables are optional — each script also accepts command-line arguments (e.g. `pnpm run deploy:deck steamdeck`). When both are provided, the CLI argument takes precedence.
@@ -178,11 +185,58 @@ To capture screenshots for documentation:
    ```bash
    npm run deploy
    ```
-2. Run the screenshot automation script from your machine:
-   ```bash
-   python3 scripts/devtools/deck/screenshot.py
-   ```
+2. Use the consolidated devtools CLI or run the screenshot script directly.
+
+  - Via CLI:
+    ```bash
+    python3 scripts/devtools/deck/cli.py screenshot --locale en-US
+    ```
+
+  - Directly:
+    ```bash
+    python3 scripts/devtools/deck/screenshot.py
+    ```
 3. Screenshots are saved to `assets/screenshots/`.
+
+### Devtools diagnostics
+
+Developer tools for inspecting the Steam/Deck runtime are available under `scripts/devtools/deck`.
+
+- List available diagnostics:
+
+```bash
+python3 scripts/devtools/deck/cli.py diag list
+# or via node helper
+node scripts/devtools/deck/diag/index.js list
+```
+
+- Run a diagnostic by name (matches `diag_*` filenames):
+
+```bash
+python3 scripts/devtools/deck/cli.py diag run trynav
+# or
+node scripts/devtools/deck/diag/index.js run trynav
+```
+
+- Probe CDP / plugin mount:
+
+```bash
+python3 scripts/devtools/deck/cli.py probe --mode smoke
+```
+
+- Capture screenshots and validate them:
+
+```bash
+python3 scripts/devtools/deck/cli.py screenshot --locale en-US
+node scripts/build/validate-screenshots.mjs
+```
+
+The `cli.py` wrapper finds scripts in the reorganized folders (`diag/`, `tools/`, `screenshots/`) and delegates execution. Use `devtools:cli` npm script for convenience:
+
+```bash
+pnpm run devtools:cli -- diag list
+pnpm run devtools:screenshots
+```
 
 
 ## Architecture
@@ -196,7 +250,7 @@ src/domain/              Settings schema, defaults
 src/core/                Steam asset helpers
 src/shims/               React/Decky runtime shims for GamepadUI
 src/features/settings/   Settings controller
-i18n/                    Locale files (6 languages)
+i18n/                    Locale files (16 languages)
 checks/                  Compatibility validation scripts
 scripts/                 Build, deploy, watch, package helpers
 ```
@@ -249,6 +303,10 @@ The project includes CDP-based diagnostics and screenshot automation for Steam D
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, code style, and how to submit changes.
+
+## License
+
+This project is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE) for details.
 
 ## About
 

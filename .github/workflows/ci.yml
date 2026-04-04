@@ -37,7 +37,7 @@ jobs:
         run: |
           python3 -m pip install -U pip setuptools
           python3 -m pip install pytest
-          python3 -m pytest tests/ -v
+          python3 -m pytest src/test/ -v
 
       - name: Build plugin (release mode)
         run: pnpm run build:release

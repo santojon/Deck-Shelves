@@ -29,31 +29,85 @@ jobs:
           plugin_slug=$PLUGIN_SLUG
           GITHUB_EOF
 
-      - name: Set up git user
-        run: |
-          git config --global user.name "${{ steps.meta.outputs.plugin_author }}"
-          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
-
-      - name: Clone database fork & update PR branch
+      - name: Detect existing open PR
+        id: pr
         env:
           GH_TOKEN: ${{ secrets.SUBMIT_TOKEN }}
         run: |
           set -euo pipefail
           PLUGIN="${{ steps.meta.outputs.plugin_name }}"
-          PLUGIN_SLUG="${{ steps.meta.outputs.plugin_slug }}"
+          FORK="${{ vars.DECKY_DATABASE_FORK }}"
+
+          if [[ -z "${GH_TOKEN:-}" || -z "${FORK:-}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ SUBMIT_TOKEN or DECKY_DATABASE_FORK not set; skipping."
+            exit 0
+          fi
+
+          EXISTING_PR=$(gh pr list \
+            --repo SteamDeckHomebrew/decky-plugin-database \
+            --state open \
+            --json number,headRefName,headRepositoryOwner,body,title \
+            --jq ".[] | select(((.body // \"\") | contains(\"plugins/${PLUGIN}\")) or (.title | contains(\"${PLUGIN}\"))) | {number,headRefName,headRepositoryOwner} | @base64" 2>/dev/null || true)
+
+          if [[ -z "$EXISTING_PR" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ No open PR found for ${PLUGIN}; nothing to update."
+            exit 0
+          fi
+
+          PR_ENTRY=$(echo "$EXISTING_PR" | head -n1)
+          PR_NUMBER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.number')
+          PR_HEAD_BRANCH=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRefName')
+          PR_HEAD_OWNER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRepositoryOwner')
+
+          FORK_OWNER="${FORK%%/*}"
+          if [[ "${PR_HEAD_OWNER,,}" != "${FORK_OWNER,,}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ PR #${PR_NUMBER} head is from ${PR_HEAD_OWNER}, not our fork (${FORK_OWNER}); skipping."
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "pr_branch=$PR_HEAD_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "🔍 Found PR #${PR_NUMBER} (branch: ${PR_HEAD_BRANCH})"
+
+      - uses: pnpm/action-setup@v4
+        if: steps.pr.outputs.skip != 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.pr.outputs.skip != 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies & validate build
+        if: steps.pr.outputs.skip != 'true'
+        run: |
+          pnpm install --frozen-lockfile=false
+          pnpm run build:release
+          pnpm run dist
+          echo "✅ Build and dist validated successfully"
+
+      - name: Set up git user
+        if: steps.pr.outputs.skip != 'true'
+        run: |
+          git config --global user.name "${{ steps.meta.outputs.plugin_author }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Update existing PR branch
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SUBMIT_TOKEN }}
+        run: |
+          set -euo pipefail
+          PLUGIN="${{ steps.meta.outputs.plugin_name }}"
           FORK="${{ vars.DECKY_DATABASE_FORK }}"
           COMMIT="${{ steps.meta.outputs.commit }}"
           VERSION="${{ steps.meta.outputs.version }}"
-          BRANCH="submit-${PLUGIN_SLUG}-v${VERSION}"
-
-          if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo "❌ SUBMIT_TOKEN secret is not set."
-            exit 1
-          fi
-          if [[ -z "${FORK:-}" ]]; then
-            echo "❌ DECKY_DATABASE_FORK variable is not set."
-            exit 1
-          fi
+          BRANCH="${{ steps.pr.outputs.pr_branch }}"
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
 
           echo "📦 Cloning fork: ${FORK}"
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" db-fork
@@ -62,13 +116,13 @@ jobs:
           git remote add upstream https://github.com/SteamDeckHomebrew/decky-plugin-database.git 2>/dev/null || true
           git fetch upstream main --depth=1
 
-          # Create or reset PR branch to upstream/main
+          # Reset PR branch to upstream/main
           git checkout -B "${BRANCH}" upstream/main
 
-          # Remove old submodule and add new one at latest commit
+          # Add/update submodule at latest commit
           rm -rf "plugins/${PLUGIN}"
           REPO_URL="https://github.com/${{ github.repository }}.git"
-          git submodule add "$REPO_URL" "plugins/${PLUGIN}"
+          git submodule add "$REPO_URL" "plugins/${PLUGIN}" 2>/dev/null || true
           cd "plugins/${PLUGIN}"
           git fetch origin main
           git checkout "$COMMIT"
@@ -76,4 +130,7 @@ jobs:
 
           git add .
           git commit -m "Update ${PLUGIN} to v${VERSION} (commit $COMMIT)" || echo "No changes to commit"
+
+          echo "🔄 Updating PR #${PR_NUMBER} branch ${BRANCH}..."
           git push -u origin "${BRANCH}" --force
+          echo "✅ PR #${PR_NUMBER} branch updated successfully!"

@@ -27,7 +27,11 @@
     "validate:compat": "bash scripts/build/validate-compat.sh",
     "screenshots": "python3 scripts/devtools/deck/screenshot.py",
     "screenshots:validate": "node scripts/build/validate-screenshots.mjs",
-    "test:all": "pnpm run test && python3 -m pip install -U pip setuptools && python3 -m pip install pytest && python3 -m pytest tests/ -v"
+    "devtools:cli": "python3 scripts/devtools/deck/cli.py",
+    "devtools:screenshots": "python3 scripts/devtools/deck/cli.py screenshot",
+    "devtools:diag": "python3 scripts/devtools/deck/cli.py diag list",
+    "test:all": "pnpm run test && python3 -m pip install -U pip setuptools && python3 -m pip install pytest && python3 -m pytest src/test/ -v",
+    "clean": "rm -rf build dist .deploy build/package *.zip"
   },
   "repository": {
     "type": "git",

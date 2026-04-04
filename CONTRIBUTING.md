@@ -94,39 +94,9 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 ## Screenshots (optional)
 
 
-**Important:** The screenshot automation requires that you have at least **2 shelves** created in Deck Shelves before running the screenshot script. This ensures the screenshots (especially `home-shelves.png`) are aligned and representative. If fewer than 2 shelves are present, the script will error and not capture all screenshots.
+> Screenshot capture and Devtools usage are documented in the main README and the Devtools readme under `scripts/devtools/README.md`.
 
-If you change UI components or want to update the README screenshots, you can re-capture them using the automated CDP screenshot script. Recent changes make the script switch only the UI language (i18n) to English before capturing rather than performing DOM string replacements. The script also verifies the CEF/CDP endpoint is reachable and will defer deletion of existing screenshots until connectivity is confirmed.
-
-This requires a Steam Deck connected via SSH with CEF remote debugging enabled.
-
-### Prerequisites
-
-1. Enable CEF Remote Debugging on the Deck: **Settings → Developer → Enable CEF Remote Debugging** → restart Steam
-2. Open an SSH tunnel from your machine:
-
-```bash
-ssh -f -N -L 8081:localhost:8081 deck@steamdeck
-```
-
-
-### Capture
-
-Before running the screenshot script, make sure you have at least **2 shelves** created in Deck Shelves. The script will not proceed if this requirement is not met.
-
-```bash
-python3 scripts/devtools/deck/screenshot.py              # all screenshots
-python3 scripts/devtools/deck/screenshot.py --target home # Home only
-python3 scripts/devtools/deck/screenshot.py --target qam  # QAM only
-```
-
-Screenshots are saved to `assets/screenshots/`. You can validate that all expected screenshots exist and are valid with:
-
-```bash
-node scripts/build/validate-screenshots.mjs
-```
-
-> **Note:** Screenshot capture is entirely optional. CI will only validate screenshots if files under `assets/screenshots/` are changed in the PR.
+See `README.md` for quick commands and `scripts/devtools/README.md` for detailed diagnostic and screenshot guidance.
 
 ## Submitting Changes
 

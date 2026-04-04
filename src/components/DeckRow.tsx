@@ -25,8 +25,38 @@ export type DeckRowItem = {
 const CARD_W      = 133;       // native Focusable width
 const CARD_ART_H  = 200;       // native ~199.5, rounded to clean integer
 const CARD_GAP    = 12;        // native gap between portrait cards
-const CARD_RADIUS = 0;         // native has no border radius
 const STYLE_ID      = "deck-shelves-row-style";
+
+function detectNativeCardRadius(): string {
+  try {
+    const doc = getPreferredSteamDocument();
+    if (!doc) return "0px";
+    const selectors = [
+      '[class*="appportrait"] img',
+      '[class*="GameCard"] img',
+      '[class*="libraryhome"] img',
+      '[class*="appportraitlaunchable"] img',
+    ];
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel) as HTMLElement | null;
+      if (el) {
+        const r = getComputedStyle(el).borderRadius;
+        if (r && r !== "0px") return r;
+      }
+    }
+    const grid = doc.querySelector('[class*="ReactVirtualized__Grid"]');
+    if (grid) {
+      const imgs = grid.querySelectorAll('img');
+      for (let i = 0; i < Math.min(imgs.length, 10); i++) {
+        const r = getComputedStyle(imgs[i]).borderRadius;
+        if (r && r !== "0px") return r;
+      }
+    }
+  } catch {}
+  return "0px";
+}
+
+let cachedCardRadius = "0px";
 
 function formatPlaytime(minutes: number | undefined): string | null {
   if (!minutes || minutes <= 0) return null;
@@ -37,36 +67,53 @@ function formatPlaytime(minutes: number | undefined): string | null {
 
 function ensureStyles() {
   try {
+    const newRadius = detectNativeCardRadius();
+    const radiusChanged = newRadius !== cachedCardRadius;
+    cachedCardRadius = newRadius;
     const docs = [document, getPreferredSteamDocument()];
     for (const doc of docs) {
-      if (!doc || doc.getElementById(STYLE_ID)) continue;
+      if (!doc) continue;
+      if (radiusChanged) {
+        const existing = doc.getElementById(STYLE_ID);
+        if (existing) existing.remove();
+      }
+      if (doc.getElementById(STYLE_ID)) continue;
       const style = doc.createElement("style");
       style.id = STYLE_ID;
       style.textContent = `
         .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
         .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
         .ds-card {
-          outline: none !important;
+          border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
+          outline: 2px solid transparent !important;
+          outline-offset: 2px !important;
           box-shadow: none !important;
           border: none !important;
+          filter: brightness(0.9);
+          transition: outline-color 0.4s cubic-bezier(0, 0.73, 0.48, 1),
+                      filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
+                      box-shadow 0.4s cubic-bezier(0, 0.73, 0.48, 1);
+          scroll-margin-top: 90px;
+          scroll-margin-bottom: 52px;
+          scroll-margin-inline-end: 2.8vw;
         }
         .ds-card.gpfocus, .ds-card:focus {
-          outline: none !important;
-          box-shadow: none !important;
+          outline: 2px solid rgba(255,255,255,0.6) !important;
+          outline-offset: 2px !important;
+          box-shadow: 0 16px 24px rgba(0,0,0,0.5) !important;
           border: none !important;
+          filter: brightness(1);
+          z-index: 12;
         }
         .ds-card-art {
-          transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
-                      box-shadow 0.4s cubic-bezier(0, 0.73, 0.48, 1),
-                      transform 0.4s cubic-bezier(0, 0.73, 0.48, 1);
-          transform-origin: center center;
-          box-shadow: rgba(0, 0, 0, 0.25) 0px 4px 10px 0px;
+          border-radius: var(--ds-card-radius, ${cachedCardRadius});
+        }
+        .ds-card-art img {
+          border-radius: var(--ds-card-radius, ${cachedCardRadius});
         }
         .ds-card.gpfocus .ds-card-art,
         .ds-card:focus .ds-card-art {
-          transform: scale(1.04);
           z-index: 2;
-          box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 6px 24px rgba(0,0,0,0.5);
         }
         .ds-card .ds-card-label {
           opacity: 0;
@@ -78,11 +125,6 @@ function ensureStyles() {
           opacity: 1;
         }
         .ds-card img { transition: opacity .15s ease; }
-        .ds-card {
-          scroll-margin-top: 90px;
-          scroll-margin-bottom: 52px;
-          scroll-snap-align: start;
-        }
         .ds-compat {
           position: absolute; bottom: 4px; right: 4px;
           display: flex; align-items: center;
@@ -271,9 +313,8 @@ function GameCard({ item }: { item: DeckRowItem }) {
         style={{
           position: "absolute",
           inset: 0,
-          borderRadius: CARD_RADIUS,
-          overflow: "hidden",
           background: "rgba(3, 10, 30, 0.92)",
+          overflow: "hidden",
         }}
       >
         {firstUrl ? (
@@ -407,22 +448,22 @@ function MoreCard({ item }: { item: DeckRowItem }) {
           inset: 0,
           width: CARD_W,
           height: CARD_ART_H,
-          borderRadius: CARD_RADIUS,
           overflow: "hidden",
-          background: "rgba(255,255,255,0.04)",
+          background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
+          borderRadius: cachedCardRadius,
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          padding: 20,
+          boxSizing: "border-box",
         }}
       >
         <span style={{
-          fontSize: 15,
-          color: "rgba(255,255,255,0.5)",
-          fontWeight: 500,
+          fontSize: 16,
+          color: "rgb(220, 222, 223)",
+          fontWeight: 400,
           lineHeight: 1.35,
           textAlign: "center",
-          padding: "0 12px",
           fontFamily: '"Motiva Sans", Arial, Helvetica, sans-serif',
         }}>{item.name}</span>
       </div>
@@ -445,7 +486,11 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
-  useEffect(() => { ensureStyles(); }, []);
+  useEffect(() => {
+    ensureStyles();
+    const interval = setInterval(ensureStyles, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const el = outerRef.current;
@@ -458,14 +503,47 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
       const from = e.relatedTarget as HTMLElement | null;
       const fromInside = from && el.contains(from);
       requestAnimationFrame(doScroll);
+      timers.push(window.setTimeout(doScroll, 300));
       if (!fromInside) {
-        timers.push(window.setTimeout(doScroll, 300));
+        timers.push(window.setTimeout(doScroll, 600));
       }
     };
     el.addEventListener("focusin", onFocusIn);
     return () => {
       el.removeEventListener("focusin", onFocusIn);
       timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  useEffect(() => {
+    const rowEl = rowRef.current;
+    if (!rowEl) return;
+    let clearTimer: any = null;
+
+    const onCardFocus = (e: FocusEvent) => {
+      const card = (e.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
+      if (!card || !rowEl.contains(card)) return;
+      (globalThis as any).__ds_centering = true;
+      if (clearTimer) clearTimeout(clearTimer);
+      try {
+        for (const it of Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'))) {
+          it.classList.toggle('is-selected', it === card);
+        }
+      } catch {}
+      const target = card.offsetLeft - (rowEl.clientWidth / 2) + (card.offsetWidth / 2);
+      const maxScroll = Math.max(0, rowEl.scrollWidth - rowEl.clientWidth);
+      const final = Math.max(0, Math.min(target, maxScroll));
+      rowEl.scrollTo({ left: final, behavior: 'smooth' });
+      clearTimer = setTimeout(() => {
+        try { (globalThis as any).__ds_centering = false; } catch {}
+      }, 80);
+    };
+
+    rowEl.addEventListener("focusin", onCardFocus);
+    return () => {
+      rowEl.removeEventListener("focusin", onCardFocus);
+      if (clearTimer) clearTimeout(clearTimer);
+      try { (globalThis as any).__ds_centering = false; } catch {}
     };
   }, []);
 
@@ -480,7 +558,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     <div
       ref={outerRef}
       className="Panel"
-      style={{ marginBottom: 12, scrollMarginTop: 40, scrollMarginBottom: 40 }}
+      style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52 }}
     >
       {title ? (
         <div
@@ -525,10 +603,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
             overflowY: "visible",
             scrollbarWidth: "none",
             scrollBehavior: "smooth",
-            scrollSnapType: "x proximity",
             padding: "6px 0 46px 2.8vw",  /* bottom: label/scale room; left: aligns first card with shelf title */
-            scrollPaddingInlineStart: "2.8vw",
-            scrollPaddingInlineEnd: "2.8vw",
           }}
           flow-children="horizontal"
         >

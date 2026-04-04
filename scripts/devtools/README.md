@@ -44,5 +44,6 @@ pnpm run test:deck:smoke steamdeck
 
 ## Notes
 
-- These tools depend on Steam's DevTools endpoint on the Deck (`127.0.0.1:8081`).
-- They are runtime checks, complementary to `pnpm run typecheck`.
+ - These tools use the environment variable `DECK_CDP_HOST` and `DECK_CDP_PORT` to locate the Deck DevTools endpoint.
+ - The `scripts/devtools/deck/cli.py` automatically loads `.env` from the project root (if present) and will set `DECK_CDP_HOST` from `DECK_HOST` when `DECK_CDP_HOST` is not provided.
+ - They are runtime checks, complementary to `pnpm run typecheck`.

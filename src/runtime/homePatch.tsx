@@ -78,11 +78,8 @@ function scoreWindow(win: Window): number {
     const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
     let score = 0;
     if (href.includes("/routes/library/home") || href.includes("library/home")) score += 4;
-    // Stable selectors score highest: aria-labels and semantic class substrings
-    // survive Steam client updates far better than obfuscated class names
     if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) score += 8;
     if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) score += 6;
-    // Obfuscated class — bonus only; may not survive Steam updates
     try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) score += 2; } catch {}
     if (doc.body?.childElementCount) score += 1;
     return score;
@@ -132,10 +129,8 @@ function isHomeVisible(): boolean {
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
   if (href.includes("library/home") || href.includes("#library/home")) return true;
   if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
-  // Stable selectors first
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
   if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  // Obfuscated class name — last resort, may not survive Steam updates
   try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) return true; } catch {}
   return false;
 }
@@ -246,7 +241,9 @@ function injectHomeStyles(doc: Document) {
   const style = doc.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    #${ROOT_ID} { overflow: visible; }
+    #${ROOT_ID} {
+      overflow: visible;
+    }
     #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
     #${ROOT_ID} .deck-shelves-header {
       color: #ffffff;
@@ -414,7 +411,7 @@ function createShelfCard(
       if (!next || next === card) return;
       event.preventDefault();
       next.focus();
-      next.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      next.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
     }
   });
   card.addEventListener("focus", () => {

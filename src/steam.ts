@@ -603,7 +603,7 @@ export type AppOverview = {
   update_pending?: boolean;
 };
 
-function normalizeAppOverview(node: any): AppOverview | null {
+export function normalizeAppOverview(node: any): AppOverview | null {
   const appid = appIdOf(node);
   if (!Number.isFinite(appid) || appid <= 0) return null;
   const name = appNameOf(node);
@@ -617,7 +617,25 @@ function normalizeAppOverview(node: any): AppOverview | null {
     is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
     is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
-    installed: readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]),
+    installed: (() => {
+      const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
+      if (explicit !== undefined) return explicit;
+      try {
+        const pcd = node?.per_client_data ?? node?.local_per_client_data;
+        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
+        if (clientData) {
+          const ds = Number(clientData?.display_status ?? 0);
+          if (ds > 0) return true;
+          return false;
+        }
+      } catch {}
+      try {
+        const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
+        if (Number.isFinite(size) && size > 0) return true;
+      } catch {}
+      if (isNonSteamOf(node)) return false;
+      return undefined;
+    })(),
     update_pending: (() => {
       const pcd = node?.per_client_data;
       const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
@@ -659,8 +677,8 @@ function extractStatefulAppIds(value: any): number[] {
   return [];
 }
 
-async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]> {
-  const byId = new Map(items.map((item) => [item.appid, { ...item }] as const));
+export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]> {
+  const byId = new Map(items.map((item) => [item.appid, { ...item }]));
   const sources = [
     ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
     ...getSteamWindows().flatMap((win) => [win?.appStore, win?.AppStore, win?.LibraryStore, win?.appsStore]),
@@ -703,6 +721,54 @@ async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]>
       }
     }
   }
+
+  // Try collectionStore for favorites (covers localized collection names)
+  for (const win of getSteamWindows()) {
+    try {
+      const cs = (win as any)?.collectionStore;
+      if (!cs) continue;
+      const favColl = cs.favoriteCollection ?? cs.GetCollection?.("favorite");
+      if (favColl) {
+        applyFlag(extractCollectionAppIds(favColl), "is_favorite");
+      }
+    } catch {}
+  }
+
+  try {
+    for (const win of getSteamWindows()) {
+      const appStore = (win as any)?.appStore ?? (win as any)?.AppStore;
+      if (!appStore?.GetAppOverviewByAppID) continue;
+      for (const [appid, item] of byId) {
+        if (!item.is_non_steam || item.installed === true) continue;
+        try {
+          const raw = appStore.GetAppOverviewByAppID(appid);
+          if (!raw) continue;
+
+          const directInstalled = raw?.installed ?? raw?.is_installed ?? raw?.m_bInstalled ?? raw?.bInstalled;
+          if (directInstalled === true) { item.installed = true; continue; }
+          if (directInstalled === false) { item.installed = false; continue; }
+
+          const pcd = raw?.per_client_data ?? raw?.local_per_client_data;
+          const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
+          if (clientData) {
+            const ds = Number(clientData?.display_status ?? 0);
+            if (ds > 0) { item.installed = true; continue; }
+            item.installed = false;
+            continue;
+          }
+
+          const sod = Number(raw?.size_on_disk ?? raw?.m_nSizeOnDisk ?? 0);
+          if (Number.isFinite(sod) && sod > 0) { item.installed = true; continue; }
+
+          const lastLocal = Number(raw?.rt_last_time_locally_played ?? raw?.m_rtLastTimePlayed ?? 0);
+          if (Number.isFinite(lastLocal) && lastLocal > 0) { item.installed = true; continue; }
+
+          item.installed = false;
+        } catch {}
+      }
+      break; // Only need the first working appStore
+    }
+  } catch {}
 
   return [...byId.values()];
 }
@@ -1286,16 +1352,81 @@ export type CustomFilter = {
   nameIncludes?: string;
   nameRegex?: string;
   deckCompatibility?: Array<"verified" | "playable" | "unsupported" | "unknown">;
-  sort?: "alphabetical" | "recent" | "playtime" | "release_date" | "size_on_disk" | "metacritic" | "review_score";
+  sort?: "alphabetical" | "recent" | "playtime" | "release_date" | "size_on_disk" | "metacritic" | "review_score" | "added";
   minPlaytimeMinutes?: number;
   maxPlaytimeMinutes?: number;
   updatePending?: boolean;
 };
 
-function resolveDynamicTab(tab: string, all: AppOverview[]): AppOverview[] {
+/**
+ * Resolve app IDs for the Steam "Favorites" collection.
+ * Tries collectionStore APIs and well-known localized collection names
+ * so the resolution works regardless of the console language.
+ */
+async function getFavoritesCollectionAppIds(): Promise<number[]> {
+  const localizedNames = [
+    "Favorites", "Favoris", "Favoriten", "Favoritos", "Preferiti",
+    "Избранное", "Ulubione", "Favorieten", "Favoriler", "Обране",
+    "お気に入り", "즐겨찾기", "收藏夹",
+  ];
+  const internalIds = ["favorite", "favorites", "user-collections-favorite"];
+
+  // Try collectionStore.favoriteCollection or GetCollection("favorite")
+  for (const win of getSteamWindows()) {
+    try {
+      const cs = (win as any)?.collectionStore;
+      if (!cs) continue;
+      const favColl = cs.favoriteCollection ?? cs.GetCollection?.("favorite");
+      if (favColl) {
+        const ids = extractCollectionAppIds(favColl);
+        if (ids.length) return ids;
+      }
+    } catch {}
+  }
+
+  // Try SteamClient.Collections API
+  for (const sc of getSteamClients()) {
+    for (const method of ["GetFavoriteCollectionApps", "GetFavoriteApps", "GetFavoriteAppIDs"]) {
+      try {
+        const fn = (sc?.Collections as any)?.[method];
+        if (typeof fn !== "function") continue;
+        const res = await fn.call(sc.Collections);
+        if (Array.isArray(res) && res.length) return res.map((x: any) => Number(x?.appid ?? x)).filter(Number.isFinite);
+      } catch {}
+    }
+  }
+
+  // Fallback: search all collections for known favorites names/IDs
+  try {
+    const collections = await listCollections();
+    const allNames = new Set([...localizedNames.map((n) => normalizeText(n)), ...internalIds]);
+    for (const coll of collections) {
+      const normId = normalizeText(coll.id);
+      const normName = normalizeText(coll.name);
+      if (allNames.has(normId) || allNames.has(normName)) {
+        const ids = await getCollectionApps(coll.id, coll.name);
+        if (ids.length) return ids;
+      }
+    }
+  } catch {}
+
+  return [];
+}
+
+async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOverview[]> {
   const id = slugifyTab(tab.startsWith("/") ? tab.split("/").pop() || tab : tab);
   if (id === "all" || id === "all_games" || id === "allgames") return all;
-  if (id === "favorites") return all.filter((a) => isFavoriteOf(a));
+  if (id === "favorites") {
+    const byFlag = all.filter((a) => isFavoriteOf(a));
+    if (byFlag.length > 0) return byFlag;
+    // Fallback: resolve via localized Favorites collection
+    const favIds = await getFavoritesCollectionAppIds();
+    if (favIds.length) {
+      const favSet = new Set(favIds);
+      return all.filter((a) => favSet.has(appIdOf(a)));
+    }
+    return byFlag;
+  }
   if (id === "hidden") return all.filter((a) => isHiddenOf(a));
   if (id === "nonsteam" || id === "epic" || id === "gog") return all.filter((a) => isNonSteamOf(a));
   if (id === "installed" || id === "great_on_deck") return all.filter((a) => isInstalledOf(a));
@@ -1415,7 +1546,12 @@ function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx?: Filt
 }
 
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number): Promise<number[]> {
-  const all = await getAllAppOverviews();
+  let all = await getAllAppOverviews();
+  // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
+  if (!all.length) {
+    await new Promise((r) => setTimeout(r, 2000));
+    all = await getAllAppOverviews();
+  }
 
   if (source.type === "collection") {
     const rawCollectionId = String(source.collectionId ?? "").trim();
@@ -1515,7 +1651,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       } catch {}
       return fromTabStore.slice(0, limit);
     }
-    const filtered = resolveDynamicTab(rawTab, all);
+    const filtered = await resolveDynamicTab(rawTab, all);
     const sorted = slugifyTab(rawTab) === "recent"
       ? filtered
       : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
@@ -1569,6 +1705,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
       } else if (fSort === "review_score") {
         filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
+      } else if (fSort === "added") {
+        filtered = filtered.slice().sort((a, b) => (b.rt_store_asset_mtime ?? 0) - (a.rt_store_asset_mtime ?? 0));
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
@@ -1588,14 +1726,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     if (f.hidden === false) filtered = filtered.filter((a) => !isHiddenOf(a));
     if (f.nonSteam) filtered = filtered.filter((a) => isNonSteamOf(a));
     if (f.installed) {
-      // Try strict first, fall back to lenient (installed !== false) if strict yields nothing
-      const strict = filtered.filter((a) => isInstalledOf(a));
-      if (strict.length > 0) {
-        filtered = strict;
-      } else {
-        // Many app overviews lack an explicit installed flag — treat undefined as installed
-        filtered = filtered.filter((a) => (a as any).installed !== false);
-      }
+      filtered = filtered.filter((a) => isInstalledOf(a));
     }
     if (typeof f.playedWithinDays === "number") {
       const now = Math.floor(Date.now() / 1000);
@@ -1639,6 +1770,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
     } else if (f.sort === "review_score") {
       filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
+    } else if (f.sort === "added") {
+      filtered = filtered.slice().sort((a, b) => (b.rt_store_asset_mtime ?? 0) - (a.rt_store_asset_mtime ?? 0));
     } else {
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }

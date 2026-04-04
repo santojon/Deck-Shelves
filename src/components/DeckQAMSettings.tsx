@@ -64,6 +64,7 @@ const SORT_OPTIONS = [
   { value: 'size_on_disk', labelKey: 'sort_size_on_disk' },
   { value: 'metacritic', labelKey: 'sort_metacritic' },
   { value: 'review_score', labelKey: 'sort_review_score' },
+  { value: 'added', labelKey: 'sort_added' },
 ] as const
 
 function textFromDeckyChange(value: unknown): string {

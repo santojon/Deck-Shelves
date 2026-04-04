@@ -197,6 +197,12 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
+      if ((direction === DIR_LEFT || direction === DIR_RIGHT) && (globalThis as any).__ds_centering) {
+        const el = this.Element || this.m_element || this.m_Element;
+        if (el && typeof el.className === "string" && el.className.includes("ds-row-scroll")) {
+          return true;
+        }
+      }
       const result = orig.call(this, direction, flag);
       if (!result && (direction === DIR_LEFT || direction === DIR_RIGHT)) {
         const el = this.Element || this.m_element || this.m_Element;
@@ -232,10 +238,8 @@ function isHomeRoute(): boolean {
 function hasHomeDomSignals(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
-  // Stable selectors first — semantic substrings and aria-labels survive Steam updates
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
   if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  // Obfuscated class name — last resort
   try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X')) return true; } catch {}
   return false;
 }
@@ -311,6 +315,7 @@ function findOrCreateMount(): HTMLElement | null {
   mount.id = ROOT_ID;
   mount.style.cssText = "width:100%;display:block;position:relative;z-index:0;margin:0;padding:0;";
   anchor.parent.insertBefore(mount, anchor.before);
+
   logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
   return mount;
 }
