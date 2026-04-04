@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "출시일순으로 정렬합니다(최신이 먼저).",
   "docs_sort_size_desc": "디스크 설치 용량순으로 정렬합니다(가장 큰 것이 먼저).",
   "docs_sort_metacritic_desc": "Metacritic 점수순으로 정렬합니다(가장 높은 것이 먼저).",
-  "docs_sort_review_desc": "Steam 사용자 리뷰 점수순으로 정렬합니다(가장 높은 것이 먼저)."
+  "docs_sort_review_desc": "Steam 사용자 리뷰 점수순으로 정렬합니다(가장 높은 것이 먼저).",
+  "folder_label": "폴더",
+  "browse": "찾아보기"
 }

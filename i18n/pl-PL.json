@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "Sortuj według oryginalnej daty wydania (najnowsza na początku).",
   "docs_sort_size_desc": "Sortuj według rozmiaru na dysku (największa na początku).",
   "docs_sort_metacritic_desc": "Sortuj według oceny Metacritic (najwyższa na początku).",
-  "docs_sort_review_desc": "Sortuj według oceny użytkowników Steam (najwyższa na początku)."
+  "docs_sort_review_desc": "Sortuj według oceny użytkowników Steam (najwyższa na początku).",
+  "folder_label": "Folder",
+  "browse": "Przeglądaj"
 }

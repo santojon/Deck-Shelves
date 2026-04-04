@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "Ordenar por fecha de lanzamiento original (más reciente primero).",
   "docs_sort_size_desc": "Ordenar por tamaño de instalación en disco (más grande primero).",
   "docs_sort_metacritic_desc": "Ordenar por puntuación de Metacritic (más alta primero).",
-  "docs_sort_review_desc": "Ordenar por valoración de usuarios de Steam (más alta primero)."
+  "docs_sort_review_desc": "Ordenar por valoración de usuarios de Steam (más alta primero).",
+  "folder_label": "Carpeta",
+  "browse": "Explorar"
 }

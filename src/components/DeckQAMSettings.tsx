@@ -238,7 +238,7 @@ function ExportModal({ closeModal, controller, folderPath }: ExportModalProps) {
         <Focusable>
           <div style={{ padding: '4px 16px 1px' }} className='name-field'>
             <Field description={<><div style={{ paddingBottom: '6px' }}>{t('file_name')}</div><div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} /></div></>} />
-            <Field description={<><div style={{ paddingBottom: '6px' }}>Folder</div><div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><TextField value={folder} onChange={(value: unknown) => setFolder(textFromDeckyChange(value))} /></div></>} />
+            <Field description={<><div style={{ paddingBottom: '6px' }}>{t('folder_label')}</div><div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><TextField value={folder} onChange={(value: unknown) => setFolder(textFromDeckyChange(value))} /></div></>} />
             <div style={{ paddingTop: '10px' }}>
               <DialogButton
                 onClick={async () => {
@@ -252,7 +252,7 @@ function ExportModal({ closeModal, controller, folderPath }: ExportModalProps) {
                     setBrowseBusy(false)
                   }
                 }}
-              >{browseBusy ? t('loading') : 'Browse'}</DialogButton>
+              >{browseBusy ? t('loading') : t('browse')}</DialogButton>
             </div>
           </div>
         </Focusable>
@@ -424,7 +424,7 @@ function ImportModal({ closeModal, controller, initialPath }: ImportModalProps) 
                     setBrowseBusy(false)
                   }
                 }}
-              >{browseBusy ? t('loading') : 'Browse'}</DialogButton>
+              >{browseBusy ? t('loading') : t('browse')}</DialogButton>
             </div>
           </div>
         </Focusable>
