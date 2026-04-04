@@ -3,7 +3,7 @@ name: Decky Store Submission
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
     inputs:
       database_fork:
@@ -105,7 +105,7 @@ jobs:
           COMMIT="${{ steps.meta.outputs.commit }}"
           VERSION="${{ steps.meta.outputs.version }}"
           IS_UPDATE="${{ inputs.is_update || 'true' }}"
-          BRANCH="submit-${PLUGIN_SLUG}-v${VERSION}"
+          NEW_BRANCH="submit-${PLUGIN_SLUG}-v${VERSION}"
 
           if [[ -z "${GH_TOKEN:-}" ]]; then
             echo "❌ SUBMIT_TOKEN secret is not set."
@@ -132,6 +132,36 @@ jobs:
           git config --global user.name "${AUTHOR}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
+          # ── Detect existing open PR for this plugin ──
+          EXISTING_PR=$(gh pr list \
+            --repo SteamDeckHomebrew/decky-plugin-database \
+            --state open \
+            --json number,headRefName,headRepositoryOwner,body,title \
+            --jq ".[] | select(((.body // \"\") | contains(\"plugins/${PLUGIN}\")) or (.title | contains(\"${PLUGIN}\"))) | {number,headRefName,headRepositoryOwner,title} | @base64" 2>/dev/null || true)
+
+          PR_NUMBER=""
+          PR_HEAD_BRANCH=""
+          PR_HEAD_OWNER=""
+          HAS_EXISTING_PR=false
+
+          if [[ -n "$EXISTING_PR" ]]; then
+            PR_ENTRY=$(echo "$EXISTING_PR" | head -n1)
+            PR_NUMBER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.number')
+            PR_HEAD_BRANCH=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRefName')
+            PR_HEAD_OWNER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRepositoryOwner')
+            echo "🔍 Found existing PR #${PR_NUMBER} (head: ${PR_HEAD_OWNER}:${PR_HEAD_BRANCH})"
+            HAS_EXISTING_PR=true
+          fi
+
+          # Use existing PR branch if available (even if version differs), otherwise new branch
+          if [[ "$HAS_EXISTING_PR" == "true" && "${PR_HEAD_OWNER,,}" == "${FORK%%/*,,}" ]]; then
+            BRANCH="${PR_HEAD_BRANCH}"
+            echo "📌 Reusing existing PR branch: ${BRANCH}"
+          else
+            BRANCH="${NEW_BRANCH}"
+            echo "📌 Using new branch: ${BRANCH}"
+          fi
+
           echo "📦 Cloning fork: ${FORK}"
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" db-fork
           cd db-fork
@@ -139,7 +169,7 @@ jobs:
           git remote add upstream https://github.com/SteamDeckHomebrew/decky-plugin-database.git 2>/dev/null || true
           git fetch upstream main --depth=1
 
-          git checkout -b "${BRANCH}" upstream/main
+          git checkout -B "${BRANCH}" upstream/main
 
           PULLS_URL="https://github.com/steamdeckHomebrew/decky-plugin-database/pulls?q=is%3Apr+is%3Aopen+sort%3Acreated-desc+-status%3Afailure+-draft%3Atrue+-author%3A%40me"
 
@@ -175,19 +205,20 @@ jobs:
           CHECKLIST="${CHECKLIST/#          /}"
           CHECKLIST="${CHECKLIST//\n          /\n}"
 
+          # ── Prepare submodule at target commit ──
+          if [[ -d "plugins/${PLUGIN}" ]]; then
+            cd "plugins/${PLUGIN}"
+            git fetch origin
+            git checkout "${COMMIT}"
+            cd ../..
+          else
+            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
+            cd "plugins/${PLUGIN}"
+            git checkout "${COMMIT}"
+            cd ../..
+          fi
+
           if [[ "$IS_UPDATE" == "true" ]]; then
-            if [[ -d "plugins/${PLUGIN}" ]]; then
-              cd "plugins/${PLUGIN}"
-              git fetch origin
-              git checkout "${COMMIT}"
-              cd ../..
-            else
-              echo "⚠️ Plugin folder plugins/${PLUGIN} not found — adding as new submodule"
-              git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
-              cd "plugins/${PLUGIN}"
-              git checkout "${COMMIT}"
-              cd ../..
-            fi
             COMMIT_MSG="Updating ${PLUGIN} to v${VERSION}"
             PR_TITLE="Update ${PLUGIN} to v${VERSION}"
             {
@@ -200,10 +231,6 @@ jobs:
               echo "[pulls]: ${PULLS_URL}"
             } > ../pr_body.md
           else
-            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
-            cd "plugins/${PLUGIN}"
-            git checkout "${COMMIT}"
-            cd ../..
             COMMIT_MSG="Submitting New Plugin ${PLUGIN}"
             PR_TITLE="Add ${PLUGIN} to Plugin Store"
             {
@@ -218,87 +245,24 @@ jobs:
           fi
 
           git add .
-          git commit -m "${COMMIT_MSG}"
+          git commit -m "${COMMIT_MSG}" || echo "No changes to commit"
 
-          # If an open PR already exists in the upstream database for this plugin,
-          # and the PR head belongs to our configured fork, don't create/push a
-          # new branch on the fork — we'll update the existing PR branch below.
-          EXISTING_PR=$(gh pr list \
-            --repo SteamDeckHomebrew/decky-plugin-database \
-            --state open \
-            --json number,headRefName,headRepositoryOwner,body,title \
-            --jq ".[] | select(((.body // \"\") | contains(\"plugins/${PLUGIN}\")) or (.title | contains(\"${PLUGIN}\"))) | {number,headRefName,headRepositoryOwner,title} | @base64" 2>/dev/null || true)
-
-          if [[ -n "$EXISTING_PR" ]]; then
-            PR_ENTRY=$(echo "$EXISTING_PR" | head -n1)
-            PR_HEAD_OWNER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRepositoryOwner')
-            PR_HEAD_BRANCH=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRefName')
+          # ── Push and create/update PR ──
+          if [[ "$HAS_EXISTING_PR" == "true" ]]; then
             if [[ "${PR_HEAD_OWNER,,}" == "${FORK%%/*,,}" ]]; then
-              echo "Found existing PR from our fork (${PR_HEAD_OWNER}:${PR_HEAD_BRANCH}); skipping push to origin and will update that branch."
-              SKIP_PUSH_ORIGIN=true
-            else
-              SKIP_PUSH_ORIGIN=false
-            fi
-          else
-            SKIP_PUSH_ORIGIN=false
-          fi
-
-          if [[ "$SKIP_PUSH_ORIGIN" != "true" ]]; then
-            git push -u origin "${BRANCH}" --force
-          else
-            echo "Not pushing new branch to fork (existing PR will be updated)."
-          fi
-
-          # Check if any open PR exists that references this plugin (any head branch)
-          # If one exists and the head owner matches our fork, push updates to that branch
-          # Otherwise, update the PR title/body to reflect the new version and comment.
-          EXISTING_PR=""
-          EXISTING_PR=$(gh pr list \
-            --repo SteamDeckHomebrew/decky-plugin-database \
-            --state open \
-            --json number,title,headRefName,headRepositoryOwner,body \
-            --jq ".[] | select(((.body // \"\") | contains(\"plugins/${PLUGIN}\")) or (.title | contains(\"${PLUGIN}\"))) | {number,headRefName,headRepositoryOwner,title} | @base64" 2>/dev/null || true)
-
-          if [[ -n "$EXISTING_PR" ]]; then
-            # pick the first matching PR
-            PR_ENTRY=$(echo "$EXISTING_PR" | head -n1)
-            PR_NUMBER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.number')
-            PR_HEAD_BRANCH=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRefName')
-            PR_HEAD_OWNER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRepositoryOwner')
-
-            echo "Found existing PR #${PR_NUMBER} (head: ${PR_HEAD_OWNER}:${PR_HEAD_BRANCH}) referencing ${PLUGIN}"
-
-            if [[ "${PR_HEAD_OWNER,,}" == "${FORK%%/*,,}" ]]; then
-              echo "🔄 Updating existing PR branch ${PR_HEAD_BRANCH} on ${PR_HEAD_OWNER}..."
-              # Push the prepared changes into the existing PR branch to update it
-              git remote remove target 2>/dev/null || true
-              git remote add target "https://x-access-token:${GH_TOKEN}@github.com/${PR_HEAD_OWNER}/decky-plugin-database.git"
-              git fetch target main --depth=1
-              git checkout -B "${PR_HEAD_BRANCH}" target/main
-
-              # Recreate plugin folder and commit same as earlier
-              rm -rf "plugins/${PLUGIN}"
-              REPO_URL="https://github.com/${{ github.repository }}"
-              git submodule add "$REPO_URL" "plugins/${PLUGIN}" 2>/dev/null || true
-              cd "plugins/${PLUGIN}"
-              git fetch origin main
-              git checkout "${COMMIT}"
-              cd ../..
-
-              git add .
-              git commit -m "Update ${PLUGIN} to v${VERSION} (commit $COMMIT)" || echo "No changes to commit"
-              git push "https://x-access-token:${GH_TOKEN}@github.com/${PR_HEAD_OWNER}/decky-plugin-database.git" "${PR_HEAD_BRANCH}" --force
-
+              echo "🔄 Updating existing PR #${PR_NUMBER} branch ${BRANCH}..."
+              git push "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" "${BRANCH}" --force
               echo "✅ PR #${PR_NUMBER} branch updated successfully!"
-              # Also update title/body to latest
               echo "Preserving PR title/body; not editing PR metadata."
             else
-              echo "⚠️ Existing PR #${PR_NUMBER} is from ${PR_HEAD_OWNER}; cannot push to that fork. Updating PR title/body instead."
-              gh pr comment "${PR_NUMBER}" --repo SteamDeckHomebrew/decky-plugin-database --body "A new submission is available from ${FORK}. If you want this PR updated with the latest version, please grant push access to the ${FORK%%/*} fork or close this PR so we can open an updated one." || true
+              echo "⚠️ Existing PR #${PR_NUMBER} is from ${PR_HEAD_OWNER}; cannot push to that fork."
+              gh pr comment "${PR_NUMBER}" --repo SteamDeckHomebrew/decky-plugin-database \
+                --body "A new submission is available from ${FORK}. If you want this PR updated with the latest version, please grant push access to the ${FORK%%/*} fork or close this PR so we can open an updated one." || true
               echo "✅ PR #${PR_NUMBER} commented; PR metadata preserved."
             fi
           else
             echo "🔗 No existing PR found; creating new PR..."
+            git push -u origin "${BRANCH}" --force
             gh pr create \
               --repo SteamDeckHomebrew/decky-plugin-database \
               --head "${FORK%%/*}:${BRANCH}" \
