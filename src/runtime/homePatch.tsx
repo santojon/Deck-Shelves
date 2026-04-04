@@ -206,6 +206,34 @@ function ensureMount(): HTMLElement | null {
     mount.style.zIndex = "0";
     mount.style.margin = "0";
     mount.style.padding = "0";
+    // Inject background style to match the native news section (#000)
+    const bgStyleId = "deck-shelves-bg-style";
+    if (!doc.getElementById(bgStyleId)) {
+      const bgStyle = doc.createElement("style");
+      bgStyle.id = bgStyleId;
+      bgStyle.textContent = `
+        #${ROOT_ID} { background: #000; position: relative; }
+        #${ROOT_ID}::before {
+          content: '';
+          position: absolute;
+          top: -24px; left: 0; right: 0;
+          height: 48px;
+          background: linear-gradient(180deg, transparent 0%, #000 100%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        #${ROOT_ID}::after {
+          content: '';
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 48px;
+          background: linear-gradient(180deg, #000 0%, transparent 100%);
+          pointer-events: none;
+          z-index: 0;
+        }
+      `;
+      doc.head.appendChild(bgStyle);
+    }
     logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
   }
 
@@ -246,7 +274,33 @@ function injectHomeStyles(doc: Document) {
   const style = doc.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    #${ROOT_ID} { overflow: visible; }
+    #${ROOT_ID} {
+      overflow: visible;
+      background: #000;
+      position: relative;
+    }
+    #${ROOT_ID}::before {
+      content: '';
+      position: absolute;
+      top: -24px;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: linear-gradient(180deg, transparent 0%, #000 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    #${ROOT_ID}::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: linear-gradient(180deg, #000 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
     #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
     #${ROOT_ID} .deck-shelves-header {
       color: #ffffff;

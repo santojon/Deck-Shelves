@@ -61,12 +61,6 @@ export function tryRestoreFocus(): boolean {
     return false;
   }
 
-  // If another component is programmatically centering a card, skip restore
-  // to avoid fighting for focus while smooth scrolls are happening.
-  try {
-    if ((globalThis as any).__ds_centering) return false;
-  } catch {}
-
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
 
@@ -117,8 +111,11 @@ export function tryRestoreFocus(): boolean {
     } catch { /* ignore */ }
   }
 
+  // Last resort: direct DOM focus + scroll
   try {
     card.focus?.();
+    // Trigger vertical centering since focusin may fire from this
+    card.scrollIntoView?.({ block: "center", behavior: "smooth" });
   } catch { /* ignore */ }
 
   return false;
@@ -204,15 +201,32 @@ export function beginFocusRestoreLoop(): void {
 
   focusObserver.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 
+  // Immediate attempt
   attempt();
+
+  // Fast initial polling (100ms) to catch the card appearing quickly
+  let pollCount = 0;
   focusPollId = setInterval(() => {
     if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
       clearInterval(focusPollId!);
       focusPollId = null;
       return;
     }
+    pollCount++;
     attempt();
-  }, 200);
+    // After 20 fast polls (2s), slow down to 500ms
+    if (pollCount === 20 && focusPollId !== null) {
+      clearInterval(focusPollId);
+      focusPollId = setInterval(() => {
+        if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
+          clearInterval(focusPollId!);
+          focusPollId = null;
+          return;
+        }
+        attempt();
+      }, 500);
+    }
+  }, 100);
 
   // Hard deadline cleanup (use duration, not timestamp, to avoid integer overflow in CEF)
   setTimeout(() => {

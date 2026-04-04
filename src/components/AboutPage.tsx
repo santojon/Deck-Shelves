@@ -52,17 +52,53 @@ const bookPageIcon = (
 );
 
 function DocSection({ children }: { children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const [focused, setFocused] = React.useState(false);
+
+  // Poll gamepad axes when focused to allow right-stick vertical scrolling
+  React.useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const THRESH = 0.18;
+    const SPEED = 10; // pixels per frame multiplier
+    function loop() {
+      const now = performance.now();
+      const dt = Math.max(1, now - last);
+      last = now;
+      if (focused && ref.current) {
+        try {
+          const gps = (navigator as any).getGamepads?.() ?? [];
+          for (const gp of gps) {
+            if (!gp) continue;
+            // try common right-stick axes indices
+            const axes = gp.axes ?? [];
+            const candidates = [axes[3], axes[5], axes[1], axes[2]];
+            let v = 0;
+            for (const a of candidates) {
+              if (typeof a === 'number' && Math.abs(a) > THRESH) { v = a; break; }
+            }
+            if (Math.abs(v) > THRESH) {
+              // invert vertical axis if needed (positive = down)
+              ref.current.scrollTop += v * SPEED * (dt / 16);
+            }
+          }
+        } catch {}
+      }
+      raf = requestAnimationFrame(loop);
+    }
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [focused]);
+
   return (
     <Focusable
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        padding: "16px 20px",
-        overflowY: "auto",
-        maxHeight: "calc(100vh - 120px)",
-      }}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{ display: "flex", flexDirection: "column", padding: "16px 20px", maxHeight: "calc(100vh - 120px)" }}
     >
-      {children}
+      <div ref={ref} style={{ overflowY: "auto", maxHeight: "100%" }}>
+        {children}
+      </div>
     </Focusable>
   );
 }

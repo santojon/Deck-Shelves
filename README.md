@@ -142,6 +142,12 @@ DECK_SUDO_PASS=your-password
 
 # Steam Deck CEF remote-debug port (default: 8081)
 DECK_CDP_PORT=8081
+
+# Optional: address used to reach the Deck CEF remote-debug endpoint.
+# If unset, the CLI will use `DECK_HOST` as the CDP host. You can set
+# this to `127.0.0.1` when using an SSH tunnel, or to your Deck's IP
+# when connecting directly.
+DECK_CDP_HOST=127.0.0.1
 ```
 
 All variables are optional — each script also accepts command-line arguments (e.g. `pnpm run deploy:deck steamdeck`). When both are provided, the CLI argument takes precedence.
@@ -184,11 +190,58 @@ To capture screenshots for documentation:
    ```bash
    npm run deploy
    ```
-2. Run the screenshot automation script from your machine:
-   ```bash
-   python3 scripts/devtools/deck/screenshot.py
-   ```
+2. Use the consolidated devtools CLI or run the screenshot script directly.
+
+  - Via CLI:
+    ```bash
+    python3 scripts/devtools/deck/cli.py screenshot --locale en-US
+    ```
+
+  - Directly:
+    ```bash
+    python3 scripts/devtools/deck/screenshot.py
+    ```
 3. Screenshots are saved to `assets/screenshots/`.
+
+### Devtools diagnostics
+
+Developer tools for inspecting the Steam/Deck runtime are available under `scripts/devtools/deck`.
+
+- List available diagnostics:
+
+```bash
+python3 scripts/devtools/deck/cli.py diag list
+# or via node helper
+node scripts/devtools/deck/diag/index.js list
+```
+
+- Run a diagnostic by name (matches `diag_*` filenames):
+
+```bash
+python3 scripts/devtools/deck/cli.py diag run trynav
+# or
+node scripts/devtools/deck/diag/index.js run trynav
+```
+
+- Probe CDP / plugin mount:
+
+```bash
+python3 scripts/devtools/deck/cli.py probe --mode smoke
+```
+
+- Capture screenshots and validate them:
+
+```bash
+python3 scripts/devtools/deck/cli.py screenshot --locale en-US
+node scripts/build/validate-screenshots.mjs
+```
+
+The `cli.py` wrapper finds scripts in the reorganized folders (`diag/`, `tools/`, `screenshots/`) and delegates execution. Use `devtools:cli` npm script for convenience:
+
+```bash
+pnpm run devtools:cli -- diag list
+pnpm run devtools:screenshots
+```
 
 
 ## Architecture

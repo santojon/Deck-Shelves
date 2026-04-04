@@ -311,6 +311,42 @@ function findOrCreateMount(): HTMLElement | null {
   mount.id = ROOT_ID;
   mount.style.cssText = "width:100%;display:block;position:relative;z-index:0;margin:0;padding:0;";
   anchor.parent.insertBefore(mount, anchor.before);
+
+  // Inject background/blur styles for the shelf area
+  const bgStyleId = "deck-shelves-bg-style";
+  if (!doc.getElementById(bgStyleId)) {
+    const bgStyle = doc.createElement("style");
+    bgStyle.id = bgStyleId;
+    bgStyle.textContent = `
+      #${ROOT_ID} {
+        background: #000;
+        position: relative;
+      }
+      #${ROOT_ID}::before {
+        content: '';
+        position: absolute;
+        top: -24px;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: linear-gradient(180deg, transparent 0%, #000 100%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      #${ROOT_ID}::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: linear-gradient(180deg, #000 0%, transparent 100%);
+        pointer-events: none;
+        z-index: 0;
+      }
+    `;
+    doc.head.appendChild(bgStyle);
+  }
   logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
   return mount;
 }

@@ -32,6 +32,7 @@ function detectNativeCardRadius(): string {
   try {
     const doc = getPreferredSteamDocument();
     if (!doc) return "0px";
+    // Try named selectors first (library views)
     const selectors = [
       '[class*="appportrait"] img',
       '[class*="GameCard"] img',
@@ -42,6 +43,16 @@ function detectNativeCardRadius(): string {
       const el = doc.querySelector(sel) as HTMLElement | null;
       if (el) {
         const r = getComputedStyle(el).borderRadius;
+        if (r && r !== "0px") return r;
+      }
+    }
+    // Fallback: scan images inside the ReactVirtualized Recent Games grid.
+    // Native classes are obfuscated so we check any img with non-zero border-radius.
+    const grid = doc.querySelector('[class*="ReactVirtualized__Grid"]');
+    if (grid) {
+      const imgs = grid.querySelectorAll('img');
+      for (let i = 0; i < Math.min(imgs.length, 10); i++) {
+        const r = getComputedStyle(imgs[i]).borderRadius;
         if (r && r !== "0px") return r;
       }
     }
@@ -60,10 +71,18 @@ function formatPlaytime(minutes: number | undefined): string | null {
 
 function ensureStyles() {
   try {
-    cachedCardRadius = detectNativeCardRadius();
+    const newRadius = detectNativeCardRadius();
+    const radiusChanged = newRadius !== cachedCardRadius;
+    cachedCardRadius = newRadius;
     const docs = [document, getPreferredSteamDocument()];
     for (const doc of docs) {
-      if (!doc || doc.getElementById(STYLE_ID)) continue;
+      if (!doc) continue;
+      // Re-inject if radius changed (theme install/uninstall)
+      if (radiusChanged) {
+        const existing = doc.getElementById(STYLE_ID);
+        if (existing) existing.remove();
+      }
+      if (doc.getElementById(STYLE_ID)) continue;
       const style = doc.createElement("style");
       style.id = STYLE_ID;
       style.textContent = `
@@ -71,9 +90,17 @@ function ensureStyles() {
         .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
         .ds-card {
           outline: none !important;
+          box-shadow: none !important;
+          border: none !important;
+          background: transparent !important;
+          border-radius: var(--ds-card-radius, ${cachedCardRadius});
+          scroll-margin-top: 90px;
+          scroll-margin-bottom: 52px;
         }
         .ds-card.gpfocus, .ds-card:focus {
           outline: none !important;
+          box-shadow: none !important;
+          border: none !important;
         }
         .ds-card-art {
           transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
@@ -87,7 +114,8 @@ function ensureStyles() {
         .ds-card:focus .ds-card-art {
           transform: scale(1.04);
           z-index: 2;
-          box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 6px 24px rgba(0,0,0,0.5);
+          box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+          border-radius: var(--ds-card-radius, ${cachedCardRadius});
         }
         .ds-card .ds-card-label {
           opacity: 0;
@@ -98,10 +126,9 @@ function ensureStyles() {
         .ds-card:focus .ds-card-label {
           opacity: 1;
         }
-        .ds-card img { transition: opacity .15s ease; }
-        .ds-card {
-          scroll-margin-top: 90px;
-          scroll-margin-bottom: 52px;
+        .ds-card img {
+          transition: opacity .15s ease;
+          border-radius: var(--ds-card-radius, ${cachedCardRadius});
         }
         .ds-compat {
           position: absolute; bottom: 4px; right: 4px;
@@ -427,20 +454,21 @@ function MoreCard({ item }: { item: DeckRowItem }) {
           width: CARD_W,
           height: CARD_ART_H,
           overflow: "hidden",
-          background: "rgba(255,255,255,0.04)",
+          background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
+          borderRadius: `var(--ds-card-radius, ${cachedCardRadius})`,
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          padding: 20,
+          boxSizing: "border-box",
         }}
       >
         <span style={{
-          fontSize: 15,
-          color: "rgba(255,255,255,0.5)",
-          fontWeight: 500,
+          fontSize: 16,
+          color: "rgb(220, 222, 223)",
+          fontWeight: 400,
           lineHeight: 1.35,
           textAlign: "center",
-          padding: "0 12px",
           fontFamily: '"Motiva Sans", Arial, Helvetica, sans-serif',
         }}>{item.name}</span>
       </div>
@@ -477,8 +505,12 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
       const from = e.relatedTarget as HTMLElement | null;
       const fromInside = from && el.contains(from);
       requestAnimationFrame(doScroll);
+      // Always schedule a retry — covers focus restore from game detail page
+      // and cases where the first RAF scroll doesn't complete
+      timers.push(window.setTimeout(doScroll, 300));
       if (!fromInside) {
-        timers.push(window.setTimeout(doScroll, 300));
+        // Extra retry for external focus (e.g. navigating from another shelf)
+        timers.push(window.setTimeout(doScroll, 600));
       }
     };
     el.addEventListener("focusin", onFocusIn);
@@ -494,7 +526,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     if (!rowEl) return;
     let scrollTimer: any = null;
     let centeringClearTimer: any = null;
-    const SCROLL_DELAY = 120;
+    const SCROLL_DELAY = 200;
     const onCardFocus = (e: FocusEvent) => {
       const card = (e.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
       if (!card || !rowEl.contains(card)) return;

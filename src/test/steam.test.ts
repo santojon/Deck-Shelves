@@ -25,11 +25,42 @@ describe('steam helpers', () => {
     expect((norm as AppOverview).installed).toBe(false);
   });
 
-  it('normalizeAppOverview leaves installed undefined when no evidence', () => {
+  it('normalizeAppOverview leaves installed undefined for Steam apps with no evidence', () => {
     const raw = { appid: 9002, display_name: 'No Path App' };
     const norm = normalizeAppOverview(raw);
     expect(norm).not.toBeNull();
     expect((norm as AppOverview).installed).toBeUndefined();
+  });
+
+  it('normalizeAppOverview defaults non-Steam shortcuts to NOT installed when no evidence', () => {
+    const raw = { appid: 9005, display_name: 'UD Shortcut No Evidence', is_non_steam: true };
+    const norm = normalizeAppOverview(raw);
+    expect(norm).not.toBeNull();
+    expect((norm as AppOverview).installed).toBe(false);
+  });
+
+  it('enrichAppStateFlags defaults non-Steam to NOT installed when appStore has no data', async () => {
+    const items: AppOverview[] = [{ appid: 789, display_name: 'No Data Shortcut', is_non_steam: true }];
+    const mockWin: any = {
+      appStore: {
+        GetAppOverviewByAppID: (_id: number) => {
+          // Return raw overview with no install evidence
+          return { appid: 789 };
+        }
+      }
+    };
+    setPreferredSteamWindow(mockWin as any);
+    const realWindow = (globalThis as any).window;
+    (globalThis as any).window = mockWin;
+    try {
+      const enriched = await enrichAppStateFlags(items);
+      const found = enriched.find((a) => a.appid === 789);
+      expect(found).toBeDefined();
+      expect((found as any).installed).toBe(false);
+    } finally {
+      setPreferredSteamWindow(null as any);
+      if (realWindow === undefined) delete (globalThis as any).window; else (globalThis as any).window = realWindow;
+    }
   });
 
   it('enrichAppStateFlags marks installed via appStore per_client_data', async () => {
