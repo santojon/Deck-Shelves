@@ -94,6 +94,7 @@ function DocSection({ children }: { children: React.ReactNode }) {
     <Focusable
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
+      onActivate={() => {}}
       style={{ display: "flex", flexDirection: "column", padding: "16px 20px", maxHeight: "calc(100vh - 120px)" }}
     >
       <div ref={ref} style={{ overflowY: "auto", maxHeight: "100%" }}>

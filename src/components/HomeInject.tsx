@@ -197,6 +197,13 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
+      // Gate: block horizontal navigation during centering animation
+      if ((direction === DIR_LEFT || direction === DIR_RIGHT) && (globalThis as any).__ds_centering) {
+        const el = this.Element || this.m_element || this.m_Element;
+        if (el && typeof el.className === "string" && el.className.includes("ds-row-scroll")) {
+          return true;
+        }
+      }
       const result = orig.call(this, direction, flag);
       if (!result && (direction === DIR_LEFT || direction === DIR_RIGHT)) {
         const el = this.Element || this.m_element || this.m_Element;
@@ -319,7 +326,9 @@ function findOrCreateMount(): HTMLElement | null {
     bgStyle.id = bgStyleId;
     bgStyle.textContent = `
       #${ROOT_ID} {
-        background: #000;
+        background: rgba(0,0,0,0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         position: relative;
       }
       #${ROOT_ID}::before {
@@ -329,7 +338,7 @@ function findOrCreateMount(): HTMLElement | null {
         left: 0;
         right: 0;
         height: 48px;
-        background: linear-gradient(180deg, transparent 0%, #000 100%);
+        background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
         pointer-events: none;
         z-index: 0;
       }
@@ -340,7 +349,7 @@ function findOrCreateMount(): HTMLElement | null {
         left: 0;
         right: 0;
         height: 48px;
-        background: linear-gradient(180deg, #000 0%, transparent 100%);
+        background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%);
         pointer-events: none;
         z-index: 0;
       }

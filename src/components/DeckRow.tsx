@@ -526,10 +526,13 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     if (!rowEl) return;
     let scrollTimer: any = null;
     let centeringClearTimer: any = null;
-    const SCROLL_DELAY = 200;
+    const SCROLL_DELAY = 120;
     const onCardFocus = (e: FocusEvent) => {
       const card = (e.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
       if (!card || !rowEl.contains(card)) return;
+      // Block next focus movement IMMEDIATELY to gate rapid navigation
+      (globalThis as any).__ds_centering = true;
+      if (centeringClearTimer) { clearTimeout(centeringClearTimer); centeringClearTimer = null; }
       try {
         for (const it of Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'))) {
           it.classList.toggle('is-selected', it === card);
@@ -541,16 +544,11 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
         const target = cardEl.offsetLeft - (rowEl.clientWidth / 2) + (cardEl.offsetWidth / 2);
         const max = Math.max(0, rowEl.scrollWidth - rowEl.clientWidth);
         const final = Math.max(0, Math.min(target, max));
-        try {
-          (globalThis as any).__ds_centering = true;
-          if (centeringClearTimer) { clearTimeout(centeringClearTimer); centeringClearTimer = null; }
-          rowEl.scrollTo({ left: final, behavior: 'smooth' });
-        } finally {
-          centeringClearTimer = setTimeout(() => {
-            try { (globalThis as any).__ds_centering = false; } catch {};
-            centeringClearTimer = null;
-          }, 300);
-        }
+        rowEl.scrollTo({ left: final, behavior: 'smooth' });
+        centeringClearTimer = setTimeout(() => {
+          try { (globalThis as any).__ds_centering = false; } catch {};
+          centeringClearTimer = null;
+        }, 300);
       }, SCROLL_DELAY);
     };
 

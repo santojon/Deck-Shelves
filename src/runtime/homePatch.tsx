@@ -206,19 +206,24 @@ function ensureMount(): HTMLElement | null {
     mount.style.zIndex = "0";
     mount.style.margin = "0";
     mount.style.padding = "0";
-    // Inject background style to match the native news section (#000)
+    // Inject background blur style for the shelf area
     const bgStyleId = "deck-shelves-bg-style";
     if (!doc.getElementById(bgStyleId)) {
       const bgStyle = doc.createElement("style");
       bgStyle.id = bgStyleId;
       bgStyle.textContent = `
-        #${ROOT_ID} { background: #000; position: relative; }
+        #${ROOT_ID} {
+          background: rgba(0,0,0,0.75);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          position: relative;
+        }
         #${ROOT_ID}::before {
           content: '';
           position: absolute;
           top: -24px; left: 0; right: 0;
           height: 48px;
-          background: linear-gradient(180deg, transparent 0%, #000 100%);
+          background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
           pointer-events: none;
           z-index: 0;
         }
@@ -227,7 +232,7 @@ function ensureMount(): HTMLElement | null {
           position: absolute;
           bottom: 0; left: 0; right: 0;
           height: 48px;
-          background: linear-gradient(180deg, #000 0%, transparent 100%);
+          background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%);
           pointer-events: none;
           z-index: 0;
         }
@@ -276,7 +281,9 @@ function injectHomeStyles(doc: Document) {
   style.textContent = `
     #${ROOT_ID} {
       overflow: visible;
-      background: #000;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       position: relative;
     }
     #${ROOT_ID}::before {
@@ -286,7 +293,7 @@ function injectHomeStyles(doc: Document) {
       left: 0;
       right: 0;
       height: 48px;
-      background: linear-gradient(180deg, transparent 0%, #000 100%);
+      background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.75) 100%);
       pointer-events: none;
       z-index: 0;
     }
@@ -297,7 +304,7 @@ function injectHomeStyles(doc: Document) {
       left: 0;
       right: 0;
       height: 48px;
-      background: linear-gradient(180deg, #000 0%, transparent 100%);
+      background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%);
       pointer-events: none;
       z-index: 0;
     }
