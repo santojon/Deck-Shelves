@@ -404,12 +404,221 @@ FOCUS_EXPR = r"""
 """
 
 
+CENTER_EXPR = r"""
+(function() {
+  try {
+    var win = SteamUIStore.WindowStore.GamepadUIMainWindowInstance.BrowserWindow;
+    var doc = win.document;
+    var mount = doc.getElementById('deck-shelves-home-root');
+    if (!mount) return JSON.stringify({ error: 'no-mount' });
+
+    // prefer the first row wrapper if present
+    var el = mount.querySelector('.ds-row-scroll') || mount;
+
+    function getScrollableAncestor(node) {
+      var cur = node;
+      while (cur && cur !== doc.body) {
+        try {
+          var cs = getComputedStyle(cur);
+          if (cs && /(auto|scroll)/.test(cs.overflowY || '') && cur.scrollHeight > cur.clientHeight) return cur;
+        } catch (e) {}
+        cur = cur.parentElement;
+      }
+      return doc.scrollingElement || doc.documentElement;
+    }
+
+    var anc = getScrollableAncestor(el);
+    var before = {
+      ancTag: anc.tagName,
+      ancClass: anc.className,
+      ancScrollTop: anc.scrollTop,
+      ancScrollHeight: anc.scrollHeight,
+      ancClientHeight: anc.clientHeight,
+      elRect: el.getBoundingClientRect()
+    };
+
+    // perform immediate scrollIntoView to observe effect
+    try { el.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) {}
+
+    var after = {
+      ancScrollTop: anc.scrollTop,
+      elRect: el.getBoundingClientRect()
+    };
+
+    return JSON.stringify({ before: before, after: after });
+  } catch (e) {
+    return JSON.stringify({ error: e.message, stack: (e.stack || '').substring(0,400) });
+  }
+})()
+"""
+
+
+CENTER_WATCH_EXPR = r"""
+(function() {
+  try {
+    var win = SteamUIStore.WindowStore.GamepadUIMainWindowInstance.BrowserWindow;
+    var doc = win.document;
+    var mount = doc.getElementById('deck-shelves-home-root');
+    if (!mount) return JSON.stringify({ error: 'no-mount' });
+    var el = mount.querySelector('.ds-row-scroll') || mount;
+
+    function getScrollableAncestor(node) {
+      var cur = node;
+      while (cur && cur !== doc.body) {
+        try {
+          var cs = getComputedStyle(cur);
+          if (cs && /(auto|scroll)/.test(cs.overflowY || '') && cur.scrollHeight > cur.clientHeight) return cur;
+        } catch (e) {}
+        cur = cur.parentElement;
+      }
+      return doc.scrollingElement || doc.documentElement;
+    }
+
+    var anc = getScrollableAncestor(el);
+    var before = { ancScrollTop: anc.scrollTop, elTop: el.getBoundingClientRect().top };
+    try { el.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) {}
+    // busy-wait short delay to observe subsequent automated scrolls
+    var t0 = Date.now(); while (Date.now() - t0 < 300) {}
+    var mid = { ancScrollTop: anc.scrollTop, elTop: el.getBoundingClientRect().top };
+    // wait a bit more
+    var t1 = Date.now(); while (Date.now() - t1 < 300) {}
+    var after = { ancScrollTop: anc.scrollTop, elTop: el.getBoundingClientRect().top };
+    return JSON.stringify({ before: before, mid: mid, after: after });
+  } catch (e) { return JSON.stringify({ error: e.message, stack: (e.stack||'').substring(0,400) }); }
+})()
+"""
+
+
+ANCESTORS_EXPR = r"""
+(function() {
+  try {
+    var win = SteamUIStore.WindowStore.GamepadUIMainWindowInstance.BrowserWindow;
+    var doc = win.document;
+    var mount = doc.getElementById('deck-shelves-home-root');
+    if (!mount) return JSON.stringify({ error: 'no-mount' });
+
+    function describe(el) {
+      try {
+        var cs = getComputedStyle(el);
+        var rect = el.getBoundingClientRect();
+        return {
+          tag: el.tagName,
+          id: el.id || null,
+          cls: el.className || null,
+          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height, top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right },
+          transform: cs.transform || null,
+          position: cs.position || null,
+          overflowY: cs.overflowY || null,
+          overflowX: cs.overflowX || null,
+          willChange: cs.willChange || null,
+          contain: cs.contain || null,
+          scrollTop: el.scrollTop || 0,
+          scrollHeight: el.scrollHeight || 0,
+          clientHeight: el.clientHeight || 0
+        };
+      } catch (e) { return { error: String(e) }; }
+    }
+
+    var out = [];
+    var cur = mount;
+    var max = 0;
+    while (cur && cur !== doc && max++ < 20) {
+      out.push(describe(cur));
+      cur = cur.parentElement;
+    }
+    out.push({ docElement: describe(doc.documentElement) });
+    out.push({ body: describe(doc.body) });
+    return JSON.stringify(out);
+  } catch (e) { return JSON.stringify({ error: e.message || String(e), stack: (e.stack||'').substring(0,400) }); }
+})()
+"""
+
+
+DIFF_FOCUS_EXPR = r"""
+(function() {
+  try {
+    var win = SteamUIStore.WindowStore.GamepadUIMainWindowInstance.BrowserWindow;
+    var doc = win.document;
+    var mount = doc.getElementById('deck-shelves-home-root');
+    var viewport = doc.querySelector('._3PhGYbMWIcIaZCfllWN19N');
+    if (!mount) return JSON.stringify({ error: 'no-mount' });
+
+    function snap(el) {
+      try {
+        var r = el.getBoundingClientRect();
+        var cs = getComputedStyle(el);
+        return { tag: el.tagName, id: el.id||null, cls: el.className||null, rect: {top: r.top, left: r.left, width: r.width, height: r.height}, transform: cs.transform||null, overflowY: cs.overflowY||null, scrollTop: el.scrollTop||0 };
+      } catch (e) { return {error: String(e)}; }
+    }
+
+    var rows = Array.from(mount.querySelectorAll('.ds-row-scroll'));
+    var sample = [];
+    sample.push({name:'mount', v: snap(mount)});
+    if (viewport) sample.push({name:'viewport', v: snap(viewport)});
+    if (mount.parentElement) sample.push({name:'mountParent', v: snap(mount.parentElement)});
+
+    if (viewport) {
+      var vc = Array.from(viewport.children).slice(0,10);
+      sample.push({name:'viewportChildren', v: vc.map(function(c){ return snap(c); })});
+    }
+
+    if (rows.length) {
+      var first = rows[0];
+      sample.push({name:'firstRow', v: snap(first)});
+      var cards = Array.from(first.querySelectorAll('.ds-card')).slice(0,10);
+      sample.push({name:'firstRowCards', v: cards.map(function(c){ return snap(c); })});
+    }
+
+    var anc = [];
+    var cur = mount; var depth = 0;
+    while (cur && depth++ < 30) { anc.push(snap(cur)); cur = cur.parentElement; }
+    sample.push({name:'ancestors', v: anc});
+
+    var before = sample;
+
+    var firstCard = mount.querySelector('.ds-card');
+    if (firstCard) {
+      try { firstCard.focus(); } catch (e) {}
+      try { firstCard.classList.add('gpfocus'); } catch(e) {}
+    }
+
+    var t0 = Date.now(); while (Date.now() - t0 < 200) {}
+
+    var sample2 = [];
+    sample2.push({name:'mount', v: snap(mount)});
+    if (viewport) sample2.push({name:'viewport', v: snap(viewport)});
+    if (mount.parentElement) sample2.push({name:'mountParent', v: snap(mount.parentElement)});
+    if (viewport) {
+      var vc2 = Array.from(viewport.children).slice(0,10);
+      sample2.push({name:'viewportChildren', v: vc2.map(function(c){ return snap(c); })});
+    }
+    if (rows.length) {
+      var first2 = rows[0];
+      sample2.push({name:'firstRow', v: snap(first2)});
+      var cards2 = Array.from(first2.querySelectorAll('.ds-card')).slice(0,10);
+      sample2.push({name:'firstRowCards', v: cards2.map(function(c){ return snap(c); })});
+    }
+    var anc2 = [];
+    cur = mount; depth = 0;
+    while (cur && depth++ < 30) { anc2.push(snap(cur)); cur = cur.parentElement; }
+    sample2.push({name:'ancestors', v: anc2});
+
+    return JSON.stringify({ before: before, after: sample2 });
+  } catch (e) { return JSON.stringify({ error: e.message || String(e), stack: (e.stack||'').substring(0,400) }); }
+})()
+"""
+
+
 def run_mode(mode: str) -> int:
     expr = {
         "mount": MOUNT_EXPR,
         "rows": ROWS_EXPR,
         "smoke": SMOKE_EXPR,
-        "focus": FOCUS_EXPR,
+    "focus": FOCUS_EXPR,
+    "center": CENTER_EXPR,
+    "center-watch": CENTER_WATCH_EXPR,
+    "diff-focus": DIFF_FOCUS_EXPR,
+    "ancestors": ANCESTORS_EXPR,
     }[mode]
 
     raw = eval_in_shared(expr)
@@ -429,7 +638,7 @@ def run_mode(mode: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["mount", "rows", "smoke", "focus"], required=True)
+    parser.add_argument("--mode", choices=["mount", "rows", "smoke", "focus", "center", "center-watch", "diff-focus", "ancestors"], required=True)
     args = parser.parse_args()
 
     try:

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { getPortraitFallbacks } from "../core/steamAssets";
@@ -70,6 +71,10 @@ function ensureStyles() {
     const newRadius = detectNativeCardRadius();
     const radiusChanged = newRadius !== cachedCardRadius;
     cachedCardRadius = newRadius;
+    // compute a sensible outline offset for rounded cards (helps avoid clipping/duplicate visuals)
+    const parsedRadius = parseInt((cachedCardRadius || "0px").toString(), 10) || 0;
+    // For Round theme we want a single visible focus visual with 2px offset
+    const outlineOffset = 2;
     const docs = [document, getPreferredSteamDocument()];
     for (const doc of docs) {
       if (!doc) continue;
@@ -86,7 +91,7 @@ function ensureStyles() {
         .ds-card {
           border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
           outline: 2px solid transparent !important;
-          outline-offset: 2px !important;
+          outline-offset: ${outlineOffset}px !important;
           box-shadow: none !important;
           border: none !important;
           filter: brightness(0.9);
@@ -97,9 +102,13 @@ function ensureStyles() {
           scroll-margin-bottom: 52px;
           scroll-margin-inline-end: 2.8vw;
         }
+        /* Remove any inner/native focus visuals so only the card root shows the outline */
+        .ds-card *:focus { outline: none !important; box-shadow: none !important; }
+        /* Suppress any descendant elements that gain gpfocus to avoid duplicate outlines; keep it only on the card root */
+        .ds-card .gpfocus:not(.ds-card) { outline: none !important; box-shadow: none !important; }
         .ds-card.gpfocus, .ds-card:focus {
           outline: 2px solid rgba(255,255,255,0.6) !important;
-          outline-offset: 2px !important;
+          outline-offset: ${outlineOffset}px !important;
           box-shadow: 0 16px 24px rgba(0,0,0,0.5) !important;
           border: none !important;
           filter: brightness(1);
@@ -495,23 +504,16 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
+    let retryTimer: number | null = null;
     const doScroll = () => el.scrollIntoView({ block: "center", behavior: "smooth" });
-    let timers: number[] = [];
     const onFocusIn = (e: FocusEvent) => {
-      timers.forEach(clearTimeout);
-      timers = [];
-      const from = e.relatedTarget as HTMLElement | null;
-      const fromInside = from && el.contains(from);
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
       requestAnimationFrame(doScroll);
-      timers.push(window.setTimeout(doScroll, 300));
-      if (!fromInside) {
-        timers.push(window.setTimeout(doScroll, 600));
-      }
     };
     el.addEventListener("focusin", onFocusIn);
     return () => {
       el.removeEventListener("focusin", onFocusIn);
-      timers.forEach(clearTimeout);
+      if (retryTimer) clearTimeout(retryTimer as number);
     };
   }, []);
 
@@ -520,8 +522,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     if (!rowEl) return;
     let clearTimer: any = null;
 
-    const onCardFocus = (e: FocusEvent) => {
-      const card = (e.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
+    const handleFocusedCard = (card: HTMLElement | null) => {
       if (!card || !rowEl.contains(card)) return;
       (globalThis as any).__ds_centering = true;
       if (clearTimer) clearTimeout(clearTimer);
@@ -530,18 +531,141 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
           it.classList.toggle('is-selected', it === card);
         }
       } catch {}
-      const target = card.offsetLeft - (rowEl.clientWidth / 2) + (card.offsetWidth / 2);
-      const maxScroll = Math.max(0, rowEl.scrollWidth - rowEl.clientWidth);
-      const final = Math.max(0, Math.min(target, maxScroll));
+      // Normalize any 'gpfocus' that may be applied to nested elements by the runtime so
+      // only the card root retains the class — this avoids duplicate visual outlines.
+      try {
+        const nested = Array.from(rowEl.querySelectorAll<HTMLElement>('.gpfocus'));
+        for (const n of nested) {
+          if (n !== card && n.classList) n.classList.remove('gpfocus');
+        }
+      } catch {}
+      // Ensure the whole shelf panel is vertically centered in the viewport
+      try {
+        const outer = outerRef.current;
+        if (outer) requestAnimationFrame(() => outer.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+      } catch {}
+      // Fallback: ensure an enclosing scrollable ancestor is scrolled so the row is centered
+      try {
+        function getScrollableAncestor(node: HTMLElement | null) {
+          let cur: HTMLElement | null = node;
+          while (cur && cur !== document.body) {
+            try {
+              const cs = getComputedStyle(cur);
+              const oy = (cs.overflowY || '').toLowerCase();
+              if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && cur.scrollHeight > cur.clientHeight) return cur;
+            } catch {}
+            cur = cur.parentElement;
+          }
+          return (document.scrollingElement as HTMLElement) || document.documentElement as HTMLElement;
+        }
+
+        const anc = getScrollableAncestor(rowEl);
+        if (anc) {
+          const cardRect = card.getBoundingClientRect();
+          const ancRect = anc.getBoundingClientRect();
+          const delta = cardRect.top - ancRect.top;
+          const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (cardRect.height / 2);
+          const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
+          const finalTop = Math.max(0, Math.min(target, maxScroll));
+          try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
+        }
+      } catch {}
+      // Additional Steam viewport fallback: resilient viewport discovery + instrumentation
+      try {
+        const spDoc = getPreferredSteamDocument();
+        if (spDoc) {
+          function findSteamViewport(doc: Document): HTMLElement | null {
+            try {
+              // Known selector (from probes)
+              const known = doc.querySelector('._3PhGYbMWIcIaZCfllWN19N') as HTMLElement | null;
+              if (known) return known;
+            } catch {}
+            try {
+              // Prefer any element with overflowY auto/scroll/overlay and content taller than viewport
+              const candidates = Array.from(doc.querySelectorAll<HTMLElement>('[class]'));
+              for (const c of candidates) {
+                try {
+                  const cs = getComputedStyle(c);
+                  const oy = (cs.overflowY || '').toLowerCase();
+                  if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && c.scrollHeight > c.clientHeight && c.clientHeight > 80) return c;
+                } catch {}
+              }
+            } catch {}
+            try {
+              // Last-resort: doc scrolling element
+              return (doc.scrollingElement as HTMLElement) || (doc.documentElement as HTMLElement) || null;
+            } catch {}
+            return null;
+          }
+
+          function remoteLog(msg: string, obj?: any) {
+            try {
+              console.log('[ds]', msg, obj);
+            } catch {}
+            try {
+              const w = (spDoc as any).defaultView as Window | undefined;
+              if (w && w.console && w.console.log) w.console.log('[ds]', msg, obj);
+            } catch {}
+          }
+
+          const viewport = findSteamViewport(spDoc);
+          if (viewport) {
+            const vRect = viewport.getBoundingClientRect();
+            const rowRect = rowEl.getBoundingClientRect();
+            const delta = rowRect.top - vRect.top;
+            const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (rowRect.height / 2);
+            const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+            const final = Math.max(0, Math.min(target, max));
+            remoteLog('viewport-scroll-attempt-smooth', { target: final, before: viewport.scrollTop });
+            try { viewport.scrollTo({ top: final, behavior: 'smooth' }); } catch { try { viewport.scrollTop = final; } catch {} }
+            // After a short delay, check if smooth scroll reached near target; if not, fall back to instant correction
+            setTimeout(() => {
+              try {
+                const delta = Math.abs((viewport.scrollTop || 0) - final);
+                remoteLog('viewport-scroll-check', { after: viewport.scrollTop, delta });
+                if (delta > 8) {
+                  remoteLog('viewport-scroll-fallback-auto', { target: final });
+                  try { viewport.scrollTo({ top: final, behavior: 'auto' }); } catch { viewport.scrollTop = final; }
+                }
+              } catch (e) { remoteLog('viewport-scroll-check-error', { err: String(e) }); }
+            }, 220);
+          } else {
+            try { console.log('[ds] viewport not found'); } catch {}
+          }
+        }
+      } catch {}
+      const final = computeCenteredScrollLeft({ width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth }, { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight });
       rowEl.scrollTo({ left: final, behavior: 'smooth' });
       clearTimer = setTimeout(() => {
         try { (globalThis as any).__ds_centering = false; } catch {}
       }, 80);
     };
 
+    const onCardFocus = (e: FocusEvent) => {
+      const card = (e.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
+      handleFocusedCard(card);
+    };
+
+    // MutationObserver to detect class-based focus changes (e.g., 'gpfocus')
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        const target = m.target as HTMLElement | null;
+        if (!target) continue;
+        if (target.classList && target.classList.contains('gpfocus')) {
+          const card = target.closest('.ds-card') as HTMLElement | null;
+          handleFocusedCard(card);
+          break;
+        }
+      }
+    });
+
+    // Observe children for class attribute changes
+    observer.observe(rowEl, { subtree: true, attributes: true, attributeFilter: ['class'] });
+
     rowEl.addEventListener("focusin", onCardFocus);
     return () => {
       rowEl.removeEventListener("focusin", onCardFocus);
+      observer.disconnect();
       if (clearTimer) clearTimeout(clearTimer);
       try { (globalThis as any).__ds_centering = false; } catch {}
     };
