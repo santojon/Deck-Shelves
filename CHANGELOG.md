@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Workflow `enforce-repo-settings.yml`: trigger changed from `pull_request`/`push` to `workflow_dispatch` + weekly schedule; added `continue-on-error: true` to prevent blocking merges on 403 errors
+- Workflow `ci.yml`: skip redundant runs on version bump commits
+- Workflow `release.yml`: validation reduced to `build:release` + `dist` (no re-test)
+- Workflow `bump.yml`: added `[CLEANUP]` (minor) and `[ENHANCEMENT]` (patch) PR title tags
+- Replaced hardcoded "Folder" and "Browse" strings in QAM settings with i18n keys `folder_label` and `browse`
+
+### Added
+
+- i18n keys `folder_label` and `browse` translated across all 16 locales
+- "Pull Request Format" section in CONTRIBUTING.md documenting PR template fields
+- PR title tags `[CLEANUP]` (minor bump) and `[ENHANCEMENT]` (patch bump) for finer-grained version control
+
+### Fixed
+
+- Screenshot validation no longer requires `about-page.png` (removed from EXPECTED array)
+- Fixed untranslated compatibility status strings (`compat_verified`, `compat_playable`, `compat_unsupported`, `compat_unknown`) in French, German, and Italian locales
+
 ## [1.1.0] - 2026-04-04
 
 ### Added

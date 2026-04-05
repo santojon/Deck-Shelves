@@ -111,7 +111,9 @@ See `README.md` for quick commands and `scripts/devtools/README.md` for detailed
 | Tag | Bump | Example |
 |---|---|---|
 | `[FIX]` | patch (0.1.0 → 0.1.1) | `[FIX] Prevent shelf from disappearing on reboot` |
+| `[ENHANCEMENT]` | patch (0.1.0 → 0.1.1) | `[ENHANCEMENT] Add tooltip to shelf card on hover` |
 | `[REFACTOR]` | minor (0.1.0 → 0.2.0) | `[REFACTOR] Simplify settings persistence layer` |
+| `[CLEANUP]` | minor (0.1.0 → 0.2.0) | `[CLEANUP] Remove deprecated filter helpers` |
 | `[FEATURE]` | major (0.1.0 → 1.0.0) | `[FEATURE] Add drag-and-drop shelf reordering` |
 
 When a PR is merged to `main`, the version bump and tag creation happen automatically based on the title tag.
@@ -126,7 +128,7 @@ Your PR should follow the template provided. Each section:
 - **Changelog** — Add your changes under `## [Unreleased]` in `CHANGELOG.md`.
 - **Type of Change** — Check the box that matches your change type.
 - **Checklist** — Verify all items before requesting review:
-  - PR title starts with `[FIX]`, `[REFACTOR]`, or `[FEATURE]`
+  - PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`
   - Changes added to `CHANGELOG.md` under `## [Unreleased]`
   - Code follows project style (2 spaces, semicolons, double quotes)
   - `pnpm run build:plugin` passes with no errors
