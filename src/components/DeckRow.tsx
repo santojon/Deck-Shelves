@@ -87,6 +87,14 @@ function ensureStyles() {
       const style = doc.createElement("style");
       style.id = STYLE_ID;
       style.textContent = `
+        :root {
+          --ds-card-radius: ${cachedCardRadius};
+          --ds-focus-color: rgba(255, 255, 255, 0.6);
+          --ds-focus-shadow: 0 16px 24px rgba(0, 0, 0, 0.5);
+          --ds-card-dim: 0.9;
+          --ds-title-color: #dcdedf;
+          --ds-card-bg: rgba(3, 10, 30, 0.92);
+        }
         .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
         .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
         .ds-card {
@@ -95,7 +103,7 @@ function ensureStyles() {
           outline-offset: ${outlineOffset}px !important;
           box-shadow: none !important;
           border: none !important;
-          filter: brightness(0.9);
+          filter: brightness(var(--ds-card-dim, 0.9));
           transition: outline-color 0.4s cubic-bezier(0, 0.73, 0.48, 1),
                       filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
                       box-shadow 0.4s cubic-bezier(0, 0.73, 0.48, 1);
@@ -108,12 +116,14 @@ function ensureStyles() {
         /* Suppress any descendant elements that gain gpfocus to avoid duplicate outlines; keep it only on the card root */
         .ds-card .gpfocus:not(.ds-card) { outline: none !important; box-shadow: none !important; }
         .ds-card.gpfocus, .ds-card:focus {
-          outline: 2px solid rgba(255,255,255,0.6) !important;
+          outline: 2px solid var(--ds-focus-color, rgba(255,255,255,0.6));
           outline-offset: ${outlineOffset}px !important;
-          box-shadow: 0 16px 24px rgba(0,0,0,0.5) !important;
+          box-shadow: var(--ds-focus-shadow, 0 16px 24px rgba(0,0,0,0.5));
           border: none !important;
           filter: brightness(1);
           z-index: 12;
+          /* Prevent 3D pop from native card class when no perspective parent is present */
+          transform: none !important;
         }
         .ds-card-art {
           border-radius: var(--ds-card-radius, ${cachedCardRadius});
@@ -188,7 +198,25 @@ function GameCard({ item }: { item: DeckRowItem }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
+  const nativeInjected = useRef(false);
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
+
+  useEffect(() => {
+    function injectNativeClasses() {
+      if (nativeInjected.current || !cardRef.current) return;
+      const doc = getPreferredSteamDocument();
+      const map = doc ? getRuntimeClassMap(doc) : null;
+      if (!map?.nativeCard) return;
+      cardRef.current.classList.add(map.nativeCard);
+      const artEl = cardRef.current.querySelector('.ds-card-art');
+      if (artEl && map.nativeCardArt) artEl.classList.add(map.nativeCardArt);
+      if (imgRef.current && map.nativeCardImg) imgRef.current.classList.add(map.nativeCardImg);
+      nativeInjected.current = true;
+    }
+    injectNativeClasses();
+    const timer = setTimeout(injectNativeClasses, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const el = cardRef.current;
@@ -323,7 +351,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(3, 10, 30, 0.92)",
+          background: "var(--ds-card-bg, rgba(3, 10, 30, 0.92))",
           overflow: "hidden",
         }}
       >
@@ -432,8 +460,26 @@ function GameCard({ item }: { item: DeckRowItem }) {
 }
 
 function MoreCard({ item }: { item: DeckRowItem }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const nativeInjected = useRef(false);
+
+  useEffect(() => {
+    function injectNativeClasses() {
+      if (nativeInjected.current || !cardRef.current) return;
+      const doc = getPreferredSteamDocument();
+      const map = doc ? getRuntimeClassMap(doc) : null;
+      if (!map?.nativeCard) return;
+      cardRef.current.classList.add(map.nativeCard);
+      nativeInjected.current = true;
+    }
+    injectNativeClasses();
+    const timer = setTimeout(injectNativeClasses, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <Focusable
+      ref={cardRef}
       className="ds-card"
       focusClassName="gpfocus"
       onActivate={item.onActivate}
@@ -723,7 +769,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
         <div
           onClick={toggleCollapse}
           style={{
-            color: "#dcdedf",
+            color: "var(--ds-title-color, #dcdedf)",
             fontSize: 22,
             fontWeight: 700,
             letterSpacing: 0.5,

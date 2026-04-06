@@ -43,6 +43,48 @@ export function setRuntimeClassMap(doc: Document, map: Record<string, string>) {
   } catch {}
 }
 
+/** Traverse from an img element upward to find native card tokens.
+ *  Returns { nativeCard, nativeCardArt, nativeCardImg } if found, null otherwise.
+ */
+function _discoverNativeCardTokens(doc: Document): Record<string, string> | null {
+  try {
+    const imgs = Array.from(doc.querySelectorAll<HTMLImageElement>('img'));
+    for (const img of imgs) {
+      try {
+        // Skip our own cards' images
+        const closest = img.closest('.ds-card');
+        if (closest) continue;
+        // Direct parent = likely nativeCardArt (the background container)
+        const directParent = img.parentElement;
+        const directCls = directParent
+          ? Array.from(directParent.classList).find(c => c.startsWith('_') && c.length > 5)
+          : null;
+        // Traverse up to find an ancestor with obfuscated class + cursor:pointer = nativeCard
+        let el: Element | null = img.parentElement;
+        let depth = 0;
+        while (el && depth++ < 8) {
+          const obfCls = Array.from(el.classList).find(c => c.startsWith('_') && c.length > 5);
+          if (obfCls) {
+            const cs = getComputedStyle(el as HTMLElement);
+            if (cs.cursor === 'pointer') {
+              if (!el.classList.contains('ds-card')) {
+                const out: Record<string, string> = { nativeCard: obfCls };
+                if (directCls && directCls !== obfCls) out.nativeCardArt = directCls;
+                const imgCls = Array.from(img.classList).find(c => c.startsWith('_') && c.length > 5);
+                if (imgCls) out.nativeCardImg = imgCls;
+                return out;
+              }
+              break;
+            }
+          }
+          el = el.parentElement;
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
 export function discoverClassMap(doc: Document): Record<string, string> | null {
   try {
     // Prefer explicit scrollable candidates with obfuscated classes
@@ -55,7 +97,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight && el.clientHeight > 80) {
           for (const cls of Array.from(el.classList)) {
             if (cls && cls.startsWith('_') && cls.length > 4) {
-              return { viewport: cls };
+              const nativeCardTokens = _discoverNativeCardTokens(doc);
+              return { viewport: cls, ...(nativeCardTokens ?? {}) };
             }
           }
         }
@@ -113,7 +156,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
                         } catch {}
                         if (cardToken) break;
                       }
-                      const out: Record<string,string> = { viewport: viewportToken };
+                      const nativeCardTokens2 = _discoverNativeCardTokens(doc);
+                      const out: Record<string,string> = { viewport: viewportToken, ...(nativeCardTokens2 ?? {}) };
                       if (rowToken) out.row = rowToken;
                       if (cardToken) out.card = cardToken;
                       return out;
@@ -124,7 +168,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
             }
           }
         } catch {}
-        return { viewport: viewportToken };
+        const nativeCardTokens3 = _discoverNativeCardTokens(doc);
+        return { viewport: viewportToken, ...(nativeCardTokens3 ?? {}) };
       }
     } catch {}
 
@@ -148,11 +193,11 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         for (const [t, els] of Object.entries(tokenMap)) {
           for (const el of els) {
             try {
-              const ch = el.children.length;
               const sh = (el.scrollHeight || 0);
               const chh = (el.clientHeight || 0);
               if ((el.style && (el.style as any).overflowY === 'auto') || (sh > chh && chh > 80)) {
-                const out: Record<string,string> = { viewport: t };
+                const nativeCardTokens = _discoverNativeCardTokens(doc);
+                const out: Record<string,string> = { viewport: t, ...(nativeCardTokens ?? {}) };
                 try {
                   const viewportEl = el;
                   const childEls = Array.from(viewportEl.children).filter(c=> c instanceof HTMLElement) as HTMLElement[];
