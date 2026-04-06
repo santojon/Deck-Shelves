@@ -103,7 +103,7 @@ function ensureStyles() {
            Theme focus comes through via nativeCard class (.WYgDg9NyCcMIVuMyZ_NBC.gpfocus). */
         .ds-card.gpfocus, .ds-card:focus {
           outline: none !important;
-          /* Suppress 3D pop — no perspective parent causes visual artifacts */
+          box-shadow: none !important;
           transform: none !important;
         }
         .ds-card *:focus { outline: none !important; box-shadow: none !important; }
@@ -150,8 +150,9 @@ function ensureStyles() {
         .ds-compat svg { flex-shrink: 0; width: 20px; height: 20px; }
         .ds-compat-verified { color: rgb(89, 191, 64); }
         .ds-compat-playable { color: rgb(255, 200, 44); }
-        /* Shelf title — inherits color/font from parent (theme cascade) */
+        /* Shelf title — uses native heading color when available */
         .ds-shelf-title {
+          color: var(--ds-native-heading-color, inherit);
           font-size: 22px;
           font-weight: 700;
           letter-spacing: 0.5px;
@@ -162,8 +163,9 @@ function ensureStyles() {
           transition: transform 0.2s;
           display: inline-block;
         }
-        /* Card game title — inherits color/font from parent (theme cascade) */
+        /* Card game title — uses native heading color when available */
         .ds-card-label-name {
+          color: var(--ds-native-heading-color, inherit);
           font-size: 18px;
           line-height: 18px;
           font-weight: 800;
@@ -212,6 +214,22 @@ function ensureStyles() {
         }
       `;
       doc.head.appendChild(style);
+      // Detect native heading color and expose as CSS variable so our titles match
+      try {
+        if (!doc.documentElement.style.getPropertyValue('--ds-native-heading-color')) {
+          const headings = doc.querySelectorAll('h2[class], h3[class]');
+          for (const h of Array.from(headings)) {
+            const cls = (h as HTMLElement).className || '';
+            if (/_[A-Za-z0-9_-]{5,}/.test(cls)) {
+              const c = getComputedStyle(h as HTMLElement).color;
+              if (c && c !== 'rgb(0, 0, 0)' && c !== 'rgba(0, 0, 0, 0)') {
+                doc.documentElement.style.setProperty('--ds-native-heading-color', c);
+                break;
+              }
+            }
+          }
+        }
+      } catch {}
     }
   } catch {}
 }
