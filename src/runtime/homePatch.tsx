@@ -7,6 +7,7 @@ import { createDeckyPlatform } from "./deckyPlatform";
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow } from "./steamHost";
+import { discoverClassMap, setRuntimeClassMap, getRuntimeClassMap } from "../core/webpackCompat";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -538,6 +539,31 @@ async function renderHomeShelves() {
 
     const mount = ensureMount();
     if (!mount) return;
+
+    // Discover obfuscated/webpack-hashed class tokens and inject a runtime map so
+    // the rest of the plugin can rely on deterministic selectors. This mirrors
+    // the approach taken by CSS Loader: discover classes at runtime and make
+    // them available to injected code before mounting UI.
+    try {
+      const hostDoc = getHostContext().doc;
+      // Prefer a persisted runtime class map (window.__DS_CLASS_MAP or localStorage)
+      const existing = getRuntimeClassMap(hostDoc as Document);
+      if (existing) {
+        // ensure it's written back to window/localStorage so other code can rely on it
+        setRuntimeClassMap(hostDoc as Document, existing as Record<string, string>);
+        logInfo("HOME", "using persisted runtime class map", existing);
+      } else {
+        const discovered = discoverClassMap(hostDoc as Document);
+        if (discovered) {
+          setRuntimeClassMap(hostDoc as Document, discovered as Record<string, string>);
+          logInfo("HOME", "discovered and injected runtime class map", discovered);
+        } else {
+          logInfo("HOME", "no obfuscated class tokens discovered at runtime");
+        }
+      }
+    } catch (e) {
+      logWarn("HOME", "classmap discovery failed", String(e));
+    }
     if (mount.dataset.deckShelvesRenderer === "react") {
       return;
     }

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useMemo, useState } from "react"
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
+import { findWebpackHashedClass, buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { getPortraitFallbacks } from "../core/steamAssets";
 import i18n from "../i18n";
 
@@ -576,13 +577,47 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
         if (spDoc) {
           function findSteamViewport(doc: Document): HTMLElement | null {
             try {
-              // Known selector (from probes)
-              const known = doc.querySelector('._3PhGYbMWIcIaZCfllWN19N') as HTMLElement | null;
-              if (known) return known;
+                // Try runtime-provided mapping first (allows deterministic selectors)
+                try {
+                  const map = getRuntimeClassMap(doc);
+                  if (map && map.viewport) {
+                    const sel = map.viewport.startsWith('.') ? map.viewport : buildSelectorFromToken(map.viewport);
+                    if (sel) {
+                      try {
+                        const found = doc.querySelector(sel) as HTMLElement | null;
+                        if (found) return found;
+                      } catch {}
+                    }
+                  }
+                } catch {}
             } catch {}
             try {
-              // Prefer any element with overflowY auto/scroll/overlay and content taller than viewport
+              // Try to discover a webpack-hashed class token and query it
+              try {
+                const token = findWebpackHashedClass(doc);
+                const sel = buildSelectorFromToken(token);
+                if (sel) {
+                  try {
+                    const found = doc.querySelector(sel) as HTMLElement | null;
+                    if (found) return found;
+                  } catch {}
+                }
+              } catch {}
+              // Fallback: Prefer any element with overflowY auto/scroll/overlay and content taller than viewport.
+              // Bias candidates that match runtime-provided row/card tokens when available.
               const candidates = Array.from(doc.querySelectorAll<HTMLElement>('[class]'));
+              const map = (() => { try { return getRuntimeClassMap(doc); } catch { return null; } })();
+              // First pass: prefer elements that contain mapped tokens
+              if (map) {
+                for (const c of candidates) {
+                  try {
+                    const cls = (c.className || '').toString();
+                    if (map.row && cls.includes(map.row)) return c;
+                    if (map.card && cls.includes(map.card)) return c;
+                    if (map.viewport && cls.includes(map.viewport)) return c;
+                  } catch {}
+                }
+              }
               for (const c of candidates) {
                 try {
                   const cs = getComputedStyle(c);
