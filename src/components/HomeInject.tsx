@@ -45,22 +45,28 @@ function reparentNavTreeNodes(mountEl: HTMLElement): number {
   })(root);
   if (!ourNodes.length) return 0;
 
-  function findDeepestContainer(node: any): any | null {
+  function findDeepestContainer(node: any, refEl: HTMLElement): any | null {
     for (const child of (node.m_rgChildren || [])) {
       const childEl = child.Element || child.m_element || child.m_Element;
-      if (childEl && childEl.contains(mountEl)) {
-        return findDeepestContainer(child) || child;
+      if (childEl && childEl.contains(refEl)) {
+        return findDeepestContainer(child, refEl) || child;
       }
     }
     const el = node.Element || node.m_element || node.m_Element;
-    if (el && el.contains(mountEl)) return node;
+    if (el && el.contains(refEl)) return node;
     return null;
   }
 
-  const deepest = findDeepestContainer(root);
+  // Use the previous sibling (native shelf chain) as reference for nav tree placement.
+  // This places our nav node inside the native shelf's subtree so D-pad down from
+  // native games reaches our shelves, even though our DOM mount is at viewport level.
+  const nativeSibling = mountEl.previousElementSibling as HTMLElement | null;
+  const refEl = nativeSibling || mountEl;
+  const deepest = findDeepestContainer(root, refEl);
   if (!deepest) return -1;
 
   let target = deepest;
+  // Walk up to find a vertical layout (1) container — that's where D-pad down navigates
   let cursor: any = deepest.m_Parent;
   while (cursor) {
     try {
@@ -267,23 +273,40 @@ function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | nu
   const doc = getPreferredSteamDocument();
   if (!doc) return null;
 
+  // Strategy: find the "Recent Games" section, then walk UP to the scrollable
+  // viewport and insert as a direct child AFTER the Recent Games chain.
+  // This prevents our mount from expanding the native section and overlapping
+  // subsequent native content (e.g., "What's New" tabs).
   const recentLabels = ["jogos recentes", "recent games", "recently played", "jogados recentemente"];
   const candidates = Array.from(doc.querySelectorAll('[role="list"],[aria-label],[class*="ReactVirtualized__Grid"]'));
   for (const node of candidates) {
     const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
     if (!recentLabels.some((l) => txt.includes(l))) continue;
+    // Walk up to the scrollable viewport ancestor
     let container: HTMLElement | null = node as HTMLElement;
+    for (let i = 0; i < 12 && container; i++) {
+      const p: HTMLElement | null = container.parentElement;
+      if (!p || p === doc.body) break;
+      try {
+        const cs = getComputedStyle(p);
+        const oy = (cs.overflowY || '').toLowerCase();
+        if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) {
+          // Found the scrollable viewport — insert after the current container
+          return { parent: p, before: container.nextSibling };
+        }
+      } catch {}
+      container = p;
+    }
+    // Fallback: find first ancestor with multiple children
+    container = node as HTMLElement;
     for (let i = 0; i < 6 && container; i++) {
       const p: HTMLElement | null = container.parentElement;
       if (!p || p === doc.body) break;
-      if (p.childElementCount > 1 && p.children.length > 1) {
+      if (p.childElementCount > 1) {
         return { parent: p, before: container.nextSibling };
       }
       container = p;
     }
-    const grid = (node as HTMLElement).closest?.('[class*="ReactVirtualized__Grid"]') as HTMLElement | null;
-    const gridWrapper = grid?.parentElement as HTMLElement | null;
-    if (gridWrapper?.parentElement) return { parent: gridWrapper.parentElement, before: gridWrapper.nextSibling };
   }
 
   const chipLabels = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
@@ -435,7 +458,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
     <Focusable
       className="deck-shelves-root"
       flow-children="column"
-      style={{ width: "100%", display: "flex", flexDirection: "column", marginTop: -30, paddingBottom: 18 }}
+      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 18 }}
     >
       {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} />)}
     </Focusable>

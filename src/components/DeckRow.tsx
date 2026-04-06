@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
@@ -72,10 +72,6 @@ function ensureStyles() {
     const newRadius = detectNativeCardRadius();
     const radiusChanged = newRadius !== cachedCardRadius;
     cachedCardRadius = newRadius;
-    // compute a sensible outline offset for rounded cards (helps avoid clipping/duplicate visuals)
-    const parsedRadius = parseInt((cachedCardRadius || "0px").toString(), 10) || 0;
-    // For Round theme we want a single visible focus visual with 2px offset
-    const outlineOffset = 2;
     const docs = [document, getPreferredSteamDocument()];
     for (const doc of docs) {
       if (!doc) continue;
@@ -89,47 +85,41 @@ function ensureStyles() {
       style.textContent = `
         :root {
           --ds-card-radius: ${cachedCardRadius};
-          --ds-focus-color: rgba(255, 255, 255, 0.6);
-          --ds-focus-shadow: 0 16px 24px rgba(0, 0, 0, 0.5);
           --ds-card-dim: 0.9;
-          --ds-title-color: #dcdedf;
           --ds-card-bg: rgba(3, 10, 30, 0.92);
         }
         .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
         .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
         .ds-card {
           border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
-          outline: 2px solid transparent !important;
-          outline-offset: ${outlineOffset}px !important;
-          box-shadow: none !important;
-          border: none !important;
           filter: brightness(var(--ds-card-dim, 0.9));
-          transition: outline-color 0.4s cubic-bezier(0, 0.73, 0.48, 1),
-                      filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
+          transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
                       box-shadow 0.4s cubic-bezier(0, 0.73, 0.48, 1);
           scroll-margin-top: 90px;
           scroll-margin-bottom: 52px;
           scroll-margin-inline-end: 2.8vw;
         }
-        /* Remove any inner/native focus visuals so only the card root shows the outline */
-        .ds-card *:focus { outline: none !important; box-shadow: none !important; }
-        /* Suppress any descendant elements that gain gpfocus to avoid duplicate outlines; keep it only on the card root */
-        .ds-card .gpfocus:not(.ds-card) { outline: none !important; box-shadow: none !important; }
+        /* Suppress Steam/Decky default focus visuals (gray outline) on card root.
+           Theme focus comes through via nativeCard class (.WYgDg9NyCcMIVuMyZ_NBC.gpfocus). */
         .ds-card.gpfocus, .ds-card:focus {
-          outline: 2px solid var(--ds-focus-color, rgba(255,255,255,0.6));
-          outline-offset: ${outlineOffset}px !important;
-          box-shadow: var(--ds-focus-shadow, 0 16px 24px rgba(0,0,0,0.5));
-          border: none !important;
-          filter: brightness(1);
-          z-index: 12;
-          /* Prevent 3D pop from native card class when no perspective parent is present */
+          outline: none !important;
+          /* Suppress 3D pop — no perspective parent causes visual artifacts */
           transform: none !important;
         }
+        .ds-card *:focus { outline: none !important; box-shadow: none !important; }
+        .ds-card .gpfocus:not(.ds-card) { outline: none !important; box-shadow: none !important; }
         .ds-card-art {
+          /* Override native class layout rules that would break our fixed-size card.
+             position:absolute already forces block-level display, no need for display override. */
+          position: absolute !important;
+          inset: 0 !important;
+          padding-top: 0 !important;
           border-radius: var(--ds-card-radius, ${cachedCardRadius});
         }
         .ds-card-art img {
           border-radius: var(--ds-card-radius, ${cachedCardRadius});
+          /* Native CSS (._3Ehhd5MxErV_bXQE4qVhzB ._24_AuLm54JVe1Zc0AApCDR) will apply
+             position:absolute;inset:0;object-fit:cover — which is correct for our layout */
         }
         .ds-card.gpfocus .ds-card-art,
         .ds-card:focus .ds-card-art {
@@ -138,7 +128,6 @@ function ensureStyles() {
         .ds-card .ds-card-label {
           opacity: 0;
           transition: opacity .15s ease;
-          font-family: "Motiva Sans", Arial, Helvetica, sans-serif;
         }
         .ds-card.gpfocus .ds-card-label,
         .ds-card:focus .ds-card-label {
@@ -161,6 +150,66 @@ function ensureStyles() {
         .ds-compat svg { flex-shrink: 0; width: 20px; height: 20px; }
         .ds-compat-verified { color: rgb(89, 191, 64); }
         .ds-compat-playable { color: rgb(255, 200, 44); }
+        /* Shelf title — inherits color/font from parent (theme cascade) */
+        .ds-shelf-title {
+          font-size: 22px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+        }
+        .ds-shelf-collapse-icon {
+          font-size: 14px;
+          opacity: 0.5;
+          transition: transform 0.2s;
+          display: inline-block;
+        }
+        /* Card game title — inherits color/font from parent (theme cascade) */
+        .ds-card-label-name {
+          font-size: 18px;
+          line-height: 18px;
+          font-weight: 800;
+          white-space: nowrap;
+          overflow: visible;
+          display: flex;
+          align-items: center;
+        }
+        /* Card status text — inherits color, dimmed via opacity */
+        .ds-card-status {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          opacity: 0.5;
+          font-size: 12px;
+          line-height: 16px;
+          font-weight: 700;
+          text-transform: uppercase;
+          margin-top: 4px;
+          white-space: nowrap;
+          overflow: visible;
+        }
+        .ds-card-status-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 14px;
+          height: 14px;
+          flex-shrink: 0;
+          line-height: 0;
+        }
+        .ds-card-status-play { color: rgb(89, 191, 64); }
+        /* MoreCard text — inherits color/font from parent (theme cascade) */
+        .ds-more-card-text {
+          font-size: 16px;
+          font-weight: 400;
+          line-height: 1.35;
+          text-align: center;
+        }
+        /* Card art placeholder (no image) */
+        .ds-card-art-placeholder {
+          font-size: 11px;
+          opacity: 0.5;
+          text-align: center;
+          word-break: break-word;
+        }
       `;
       doc.head.appendChild(style);
     }
@@ -168,50 +217,35 @@ function ensureStyles() {
 }
 
 
-const statusStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  color: "rgba(255, 255, 255, 0.5)",
-  fontSize: 12,
-  lineHeight: "16px",
-  fontWeight: 700,
-  fontFamily: '"Motiva Sans", Helvetica, sans-serif',
-  textTransform: "uppercase",
-  marginTop: 4,
-  whiteSpace: "nowrap",
-  overflow: "visible",
-};
-
-const statusIconWrap: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 14,
-  height: 14,
-  flexShrink: 0,
-  lineHeight: 0,
-};
 
 function GameCard({ item }: { item: DeckRowItem }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
-  const nativeInjected = useRef(false);
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
+
+  // Use React state for Focusable root className (classList.add is wiped on re-render)
+  const [nativeCardClass, setNativeCardClass] = useState('');
 
   useEffect(() => {
     function injectNativeClasses() {
-      if (nativeInjected.current || !cardRef.current) return;
       const doc = getPreferredSteamDocument();
       const map = doc ? getRuntimeClassMap(doc) : null;
       if (!map?.nativeCard) return;
-      cardRef.current.classList.add(map.nativeCard);
-      const artEl = cardRef.current.querySelector('.ds-card-art');
-      if (artEl && map.nativeCardArt) artEl.classList.add(map.nativeCardArt);
-      if (imgRef.current && map.nativeCardImg) imgRef.current.classList.add(map.nativeCardImg);
-      nativeInjected.current = true;
+      // Card root via React state (survives re-renders)
+      setNativeCardClass(map.nativeCard);
+      // Art/img via classList.add (plain DOM elements, stable across re-renders)
+      const artEl = cardRef.current?.querySelector('.ds-card-art');
+      if (artEl) {
+        if (map.nativeCardArt && !artEl.classList.contains(map.nativeCardArt)) artEl.classList.add(map.nativeCardArt);
+        if (map.nativeCardArtOuter && !artEl.classList.contains(map.nativeCardArtOuter)) artEl.classList.add(map.nativeCardArtOuter);
+        if (map.nativeCardArtPortrait && !artEl.classList.contains(map.nativeCardArtPortrait)) artEl.classList.add(map.nativeCardArtPortrait);
+      }
+      if (imgRef.current) {
+        if (map.nativeCardImg && !imgRef.current.classList.contains(map.nativeCardImg)) imgRef.current.classList.add(map.nativeCardImg);
+        if (map.nativeCardImgFade && !imgRef.current.classList.contains(map.nativeCardImgFade)) imgRef.current.classList.add(map.nativeCardImgFade);
+      }
     }
     injectNativeClasses();
     const timer = setTimeout(injectNativeClasses, 500);
@@ -277,25 +311,24 @@ function GameCard({ item }: { item: DeckRowItem }) {
   const compat = item.deckCompatCategory ?? 0;
   const playtime = formatPlaytime(item.playtimeMinutes);
 
-  const iconSvgStyle: React.CSSProperties = { width: 14, height: 14, display: "block" };
   const downloadIcon = (
-    <span style={statusIconWrap}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" fill="none" style={iconSvgStyle}>
+    <span className="ds-card-status-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" fill="none" style={{ width: 14, height: 14, display: "block" }}>
         <path fillRule="evenodd" clipRule="evenodd" d="M29 23V27H7V23H2V32H34V23H29Z" fill="currentColor" />
         <path d="M20 14.1716L24.5858 9.58578L27.4142 12.4142L18 21.8284L8.58582 12.4142L11.4142 9.58578L16 14.1715V2H20V14.1716Z" fill="currentColor" />
       </svg>
     </span>
   );
   const playIcon = (
-    <span style={{ ...statusIconWrap, color: '#59bf40' }}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" fill="none" style={iconSvgStyle}>
+    <span className="ds-card-status-icon ds-card-status-play">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" fill="none" style={{ width: 14, height: 14, display: "block" }}>
         <path d="M7.5 32.135a1 1 0 0 1-1.5-.866V4.73a1 1 0 0 1 1.5-.866l22.999 13.269a1 1 0 0 1 0 1.732l-23 13.269Z" fill="currentColor" />
       </svg>
     </span>
   );
   const updateIcon = (
-    <span style={statusIconWrap}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={iconSvgStyle}>
+    <span className="ds-card-status-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14, display: "block" }}>
         <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
       </svg>
     </span>
@@ -324,7 +357,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
   return (
     <Focusable
       ref={cardRef}
-      className="ds-card"
+      className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
       focusClassName="gpfocus"
       role="listitem"
       onActivate={item.onActivate}
@@ -365,12 +398,10 @@ function GameCard({ item }: { item: DeckRowItem }) {
             loading="lazy"
           />
         ) : (
-          <div style={{
-            width: "100%", height: "100%",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, color: "#667", padding: 6, textAlign: "center",
-            wordBreak: "break-word",
-          }}>
+          <div
+            className="ds-card-art-placeholder"
+            style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}
+          >
             {item.name}
           </div>
         )}
@@ -394,17 +425,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
           flexDirection: "column",
         }}
       >
-        <div style={{
-          color: "#fff",
-          fontSize: 18,
-          lineHeight: "18px",
-          fontWeight: 800,
-          fontFamily: '"Motiva Sans", Helvetica, sans-serif',
-          whiteSpace: "nowrap",
-          overflow: "visible",
-          display: "flex",
-          alignItems: "center",
-        }}>
+        <div className="ds-card-label-name">
           {item.name}
         </div>
         {item.isSteam !== false && (() => {
@@ -414,7 +435,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
 
           if (!isInstalled && !hasPlaytime) {
             return (
-              <div style={statusStyle}>
+              <div className="ds-card-status">
                 {downloadIcon}
                 <span>{t('status_not_installed')}</span>
               </div>
@@ -422,7 +443,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
           }
           if (!isInstalled && hasPlaytime) {
             return (
-              <div style={statusStyle}>
+              <div className="ds-card-status">
                 {downloadIcon}
                 <span>{t('playtime_label', { time: playtime })}</span>
               </div>
@@ -430,7 +451,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
           }
           if (isInstalled && hasUpdate) {
             return (
-              <div style={statusStyle}>
+              <div className="ds-card-status">
                 {updateIcon}
                 <span>{hasPlaytime ? t('playtime_label', { time: playtime }) : t('status_no_playtime')}</span>
               </div>
@@ -438,7 +459,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
           }
           if (isInstalled && !hasPlaytime) {
             return (
-              <div style={statusStyle}>
+              <div className="ds-card-status">
                 {playIcon}
                 <span>{t('status_no_playtime')}</span>
               </div>
@@ -446,7 +467,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
           }
           if (isInstalled && hasPlaytime) {
             return (
-              <div style={statusStyle}>
+              <div className="ds-card-status">
                 {playIcon}
                 <span>{t('playtime_label', { time: playtime })}</span>
               </div>
@@ -461,16 +482,14 @@ function GameCard({ item }: { item: DeckRowItem }) {
 
 function MoreCard({ item }: { item: DeckRowItem }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const nativeInjected = useRef(false);
+  const [nativeCardClass, setNativeCardClass] = useState('');
 
   useEffect(() => {
     function injectNativeClasses() {
-      if (nativeInjected.current || !cardRef.current) return;
       const doc = getPreferredSteamDocument();
       const map = doc ? getRuntimeClassMap(doc) : null;
       if (!map?.nativeCard) return;
-      cardRef.current.classList.add(map.nativeCard);
-      nativeInjected.current = true;
+      setNativeCardClass(map.nativeCard);
     }
     injectNativeClasses();
     const timer = setTimeout(injectNativeClasses, 500);
@@ -480,7 +499,7 @@ function MoreCard({ item }: { item: DeckRowItem }) {
   return (
     <Focusable
       ref={cardRef}
-      className="ds-card"
+      className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
       focusClassName="gpfocus"
       onActivate={item.onActivate}
       onOKButton={item.onActivate}
@@ -514,14 +533,7 @@ function MoreCard({ item }: { item: DeckRowItem }) {
           boxSizing: "border-box",
         }}
       >
-        <span style={{
-          fontSize: 16,
-          color: "rgb(220, 222, 223)",
-          fontWeight: 400,
-          lineHeight: 1.35,
-          textAlign: "center",
-          fontFamily: '"Motiva Sans", Arial, Helvetica, sans-serif',
-        }}>{item.name}</span>
+        <span className="ds-more-card-text">{item.name}</span>
       </div>
     </Focusable>
   );
@@ -541,11 +553,34 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
 export function DeckRow({ title, items, shelfId }: { title?: string; items: DeckRowItem[]; shelfId?: string }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
+  const [nativeRowClass, setNativeRowClass] = useState('');
+
   useEffect(() => {
     ensureStyles();
     const interval = setInterval(ensureStyles, 3000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    function injectShelfNativeClasses() {
+      const doc = getPreferredSteamDocument();
+      const map = doc ? getRuntimeClassMap(doc) : null;
+      if (!map) return;
+      // Plain div elements — classList.add is safe (React doesn't manage their className)
+      if (map.nativeShelf && outerRef.current && !outerRef.current.classList.contains(map.nativeShelf)) {
+        outerRef.current.classList.add(map.nativeShelf);
+      }
+      if (map.nativeShelfTitle && titleRef.current && !titleRef.current.classList.contains(map.nativeShelfTitle)) {
+        titleRef.current.classList.add(map.nativeShelfTitle);
+      }
+      // Focusable row — use React state (classList.add is wiped on re-render)
+      if (map.nativeShelfRow) setNativeRowClass(map.nativeShelfRow);
+    }
+    injectShelfNativeClasses();
+    const t = setTimeout(injectShelfNativeClasses, 500);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -762,17 +797,15 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
   return (
     <div
       ref={outerRef}
-      className="Panel"
+      className="Panel ds-shelf"
       style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52 }}
     >
       {title ? (
         <div
+          ref={titleRef}
+          className="ds-shelf-title"
           onClick={toggleCollapse}
           style={{
-            color: "var(--ds-title-color, #dcdedf)",
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: 0.5,
             marginBottom: 8,
             paddingLeft: "2.8vw",
             display: "flex",
@@ -783,13 +816,16 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
           }}
         >
           <span style={{ flex: 1 }}>{title}</span>
-          <span style={{ fontSize: 14, opacity: 0.5, paddingRight: "2.8vw", transition: "transform 0.2s", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+          <span
+            className="ds-shelf-collapse-icon"
+            style={{ paddingRight: "2.8vw", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+          >▾</span>
         </div>
       ) : null}
       {!collapsed && (
         <Focusable
           ref={rowRef}
-          className="ds-row-scroll"
+          className={`ds-row-scroll${nativeRowClass ? ` ${nativeRowClass}` : ''}`}
           role="list"
           aria-label={title}
           onFocus={(e: any) => {

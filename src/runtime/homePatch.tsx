@@ -152,6 +152,21 @@ function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | nu
   for (const node of candidates) {
     const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
     if (!labels.some((label) => txt.includes(label))) continue;
+    // Walk up to the scrollable viewport to insert as a direct child
+    let container: HTMLElement | null = node as HTMLElement;
+    for (let i = 0; i < 12 && container; i++) {
+      const p: HTMLElement | null = container.parentElement;
+      if (!p || p === doc.body) break;
+      try {
+        const cs = getComputedStyle(p);
+        const oy = (cs.overflowY || '').toLowerCase();
+        if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) {
+          return { parent: p, before: container.nextSibling };
+        }
+      } catch {}
+      container = p;
+    }
+    // Fallback: grid wrapper parent
     const grid = (node as HTMLElement).closest?.('[class*="ReactVirtualized__Grid"]') as HTMLElement | null;
     const gridWrapper = grid?.parentElement as HTMLElement | null;
     if (gridWrapper?.parentElement) return { parent: gridWrapper.parentElement, before: gridWrapper.nextSibling };
@@ -546,21 +561,17 @@ async function renderHomeShelves() {
     // them available to injected code before mounting UI.
     try {
       const hostDoc = getHostContext().doc;
-      // Prefer a persisted runtime class map (window.__DS_CLASS_MAP or localStorage)
-      const existing = getRuntimeClassMap(hostDoc as Document);
-      if (existing) {
-        // ensure it's written back to window/localStorage so other code can rely on it
-        setRuntimeClassMap(hostDoc as Document, existing as Record<string, string>);
-        logInfo("HOME", "using persisted runtime class map", existing);
-      } else {
-        const discovered = discoverClassMap(hostDoc as Document);
-        if (discovered) {
-          setRuntimeClassMap(hostDoc as Document, discovered as Record<string, string>);
-          logInfo("HOME", "discovered and injected runtime class map", discovered);
-        } else {
-          logInfo("HOME", "no obfuscated class tokens discovered at runtime");
-        }
+      // Always run discovery so new keys (nativeShelf, nativeShelfRow, etc.) get populated
+      // even when a bootstrap classmap already exists in localStorage. Existing values win
+      // on conflicts (bootstrap tokens are more precise); discovered fills in missing keys.
+      const existing = getRuntimeClassMap(hostDoc as Document) ?? {};
+      const discovered = discoverClassMap(hostDoc as Document) ?? {};
+      const merged: Record<string, string> = { ...discovered };
+      for (const [k, v] of Object.entries(existing)) {
+        if (v) merged[k] = v;
       }
+      setRuntimeClassMap(hostDoc as Document, merged);
+      logInfo("HOME", "runtime class map merged", merged);
     } catch (e) {
       logWarn("HOME", "classmap discovery failed", String(e));
     }
