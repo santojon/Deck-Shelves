@@ -639,7 +639,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
             } catch {}
             try {
               const w = (spDoc as any).defaultView as Window | undefined;
-              if (w && w.console && w.console.log) w.console.log('[ds]', msg, obj);
+              if (w) (w as any).console?.log('[ds]', msg, obj);
             } catch {}
           }
 
