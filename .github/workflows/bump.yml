@@ -28,7 +28,9 @@ jobs:
       (github.event_name == 'workflow_dispatch') ||
       (github.event.pull_request.merged == true &&
        (startsWith(github.event.pull_request.title, '[FIX]') ||
+        startsWith(github.event.pull_request.title, '[ENHANCEMENT]') ||
         startsWith(github.event.pull_request.title, '[REFACTOR]') ||
+        startsWith(github.event.pull_request.title, '[CLEANUP]') ||
         startsWith(github.event.pull_request.title, '[FEATURE]')))
     steps:
       - uses: actions/checkout@v4
@@ -57,12 +59,12 @@ jobs:
             TITLE="$PR_TITLE"
             if [[ "$TITLE" == \[FEATURE\]* ]]; then
               echo "bump=major" >> "$GITHUB_OUTPUT"
-            elif [[ "$TITLE" == \[REFACTOR\]* ]]; then
+            elif [[ "$TITLE" == \[REFACTOR\]* || "$TITLE" == \[CLEANUP\]* ]]; then
               echo "bump=minor" >> "$GITHUB_OUTPUT"
-            elif [[ "$TITLE" == \[FIX\]* ]]; then
+            elif [[ "$TITLE" == \[FIX\]* || "$TITLE" == \[ENHANCEMENT\]* ]]; then
               echo "bump=patch" >> "$GITHUB_OUTPUT"
             else
-              echo "❌ PR title must start with [FIX], [REFACTOR], or [FEATURE]"
+              echo "❌ PR title must start with [FIX], [ENHANCEMENT], [REFACTOR], [CLEANUP], or [FEATURE]"
               exit 1
             fi
           fi

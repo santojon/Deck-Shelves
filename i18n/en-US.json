@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "Sort by original release date (newest first).",
   "docs_sort_size_desc": "Sort by install size on disk (largest first).",
   "docs_sort_metacritic_desc": "Sort by Metacritic score (highest first).",
-  "docs_sort_review_desc": "Sort by Steam user review score (highest first)."
+  "docs_sort_review_desc": "Sort by Steam user review score (highest first).",
+  "folder_label": "Folder",
+  "browse": "Browse"
 }

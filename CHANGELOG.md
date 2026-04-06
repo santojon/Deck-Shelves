@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- i18n keys `folder_label` and `browse` translated across all 16 locales
+- "Pull Request Format" section in CONTRIBUTING.md documenting PR template fields
+- PR title tags `[CLEANUP]` (minor bump) and `[ENHANCEMENT]` (patch bump) for finer-grained version control
+- Runtime webpack class discovery (`src/core/webpackCompat.ts`): discovers Steam's obfuscated viewport class at plugin mount via three-tier fallback (overflow scan → ancestor traversal → broad aggregation), enabling deterministic shelf selectors that survive Steam updates without hardcoded hashes
+- Static classmap seed (`src/runtime/classmap.json` + `src/runtime/embeddedClassMap.ts`): bootstraps `window.__DS_CLASS_MAP` and `localStorage['ds_class_map']` at plugin startup so viewport selectors are available immediately, before discovery runs
+- Dev tools: `scripts/devtools/deck/tools/cdp_eval.py` (generic CDP expression evaluator) and `inject_classmap.py` (injects a classmap into SharedJSContext via CDP for development/testing)
+- Unit tests for `webpackCompat` module (jsdom environment, Vitest): viewport token discovery, row/card token discovery, ancestor scanning fallback, and localStorage persistence roundtrip
+- `docs/webpack-classmap.md`: developer guide for webpack class discovery, runtime injection, and CDP verification workflow
+
+### Changed
+
+- Workflow `enforce-repo-settings.yml`: trigger changed from `pull_request`/`push` to `workflow_dispatch` + weekly schedule; added `continue-on-error: true` to prevent blocking merges on 403 errors
+- Workflow `ci.yml`: skip redundant runs on version bump commits
+- Workflow `release.yml`: validation reduced to `build:release` + `dist` (no re-test)
+- Workflow `bump.yml`: added `[CLEANUP]` (minor) and `[ENHANCEMENT]` (patch) PR title tags
+- Replaced hardcoded "Folder" and "Browse" strings in QAM settings with i18n keys `folder_label` and `browse`
+- Viewport discovery in `DeckRow.tsx` now uses the runtime classmap (`window.__DS_CLASS_MAP`) and `findWebpackHashedClass()` heuristic instead of a hardcoded webpack hash, making it resilient to Steam updates
+
+### Fixed
+
+- Screenshot validation no longer requires `about-page.png` (removed from EXPECTED array)
+- Fixed untranslated compatibility status strings (`compat_verified`, `compat_playable`, `compat_unsupported`, `compat_unknown`) in French, German, and Italian locales
+- Vertical shelf navigation no longer double-scrolls: replaced triple-timed `scrollIntoView()` calls (rAF + 300 ms + 600 ms) with a single `requestAnimationFrame`-based scroll, eliminating the visual "jump twice" when moving between shelves with the D-pad
+
 ## [1.1.0] - 2026-04-04
 
 ### Added

@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "Sorteer op oorspronkelijke releasedatum (nieuwste eerst).",
   "docs_sort_size_desc": "Sorteer op installatiegrootte op schijf (grootste eerst).",
   "docs_sort_metacritic_desc": "Sorteer op Metacritic-score (hoogste eerst).",
-  "docs_sort_review_desc": "Sorteer op Steam-gebruikersrecensiescore (hoogste eerst)."
+  "docs_sort_review_desc": "Sorteer op Steam-gebruikersrecensiescore (hoogste eerst).",
+  "folder_label": "Map",
+  "browse": "Bladeren"
 }

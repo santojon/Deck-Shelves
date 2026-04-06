@@ -5,6 +5,7 @@ import { SettingsView } from "./components/Settings";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { createDeckyPlatform } from "./runtime/deckyPlatform";
 import { PlatformProvider, setPlatform } from "./runtime/platformContext";
+import './runtime/embeddedClassMap';
 import { installHomePatch } from "./runtime/homePatch";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";

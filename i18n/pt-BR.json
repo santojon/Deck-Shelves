@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "Ordenar por data de lançamento original (mais recente primeiro).",
   "docs_sort_size_desc": "Ordenar por tamanho no disco (maior primeiro).",
   "docs_sort_metacritic_desc": "Ordenar por nota no Metacritic (maior primeiro).",
-  "docs_sort_review_desc": "Ordenar por avaliação dos usuários Steam (maior primeiro)."
+  "docs_sort_review_desc": "Ordenar por avaliação dos usuários Steam (maior primeiro).",
+  "folder_label": "Pasta",
+  "browse": "Procurar"
 }

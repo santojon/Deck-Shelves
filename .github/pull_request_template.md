@@ -1,8 +1,10 @@
 <!--
   PR title MUST start with one of these tags:
-    [FIX]     — Bug fix         → patch version bump (e.g. 0.1.0 → 0.1.1)
-    [REFACTOR] — Refactor/cleanup → minor version bump (e.g. 0.1.0 → 0.2.0)
-    [FEATURE] — New feature     → major version bump (e.g. 0.1.0 → 1.0.0)
+    [FIX]         — Bug fix              → patch version bump (e.g. 0.1.0 → 0.1.1)
+    [ENHANCEMENT] — Small improvement    → patch version bump (e.g. 0.1.0 → 0.1.1)
+    [REFACTOR]    — Refactor/restructure → minor version bump (e.g. 0.1.0 → 0.2.0)
+    [CLEANUP]     — Code cleanup         → minor version bump (e.g. 0.1.0 → 0.2.0)
+    [FEATURE]     — New feature          → major version bump (e.g. 0.1.0 → 1.0.0)
 
   Example: [FIX] Prevent shelf from disappearing on reboot
 -->
@@ -19,15 +21,17 @@
 ## Type of Change
 
 - [ ] Bug fix (`[FIX]`)
+- [ ] Enhancement (`[ENHANCEMENT]`)
 - [ ] New feature (`[FEATURE]`)
-- [ ] Refactor / code cleanup (`[REFACTOR]`)
+- [ ] Refactor / restructure (`[REFACTOR]`)
+- [ ] Code cleanup (`[CLEANUP]`)
 - [ ] Documentation update
 - [ ] i18n / localization
 - [ ] Build / CI change
 
 ## Checklist
 
-- [ ] My PR title starts with `[FIX]`, `[REFACTOR]`, or `[FEATURE]`.
+- [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`.
 - [ ] I added my changes to `CHANGELOG.md` under `## [Unreleased]`.
 - [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] My code follows the project's code style (2 spaces, semicolons, double quotes).

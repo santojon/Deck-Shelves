@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "按发行日期排序（最新的排在前面）。",
   "docs_sort_size_desc": "按磁盘安装大小排序（最大的排在前面）。",
   "docs_sort_metacritic_desc": "按Metacritic评分排序（最高的排在前面）。",
-  "docs_sort_review_desc": "按Steam用户评价分数排序（最高的排在前面）。"
+  "docs_sort_review_desc": "按Steam用户评价分数排序（最高的排在前面）。",
+  "folder_label": "文件夹",
+  "browse": "浏览"
 }

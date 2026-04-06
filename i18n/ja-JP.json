@@ -201,5 +201,7 @@
   "docs_sort_release_date_desc": "リリース日順で並び替えます（新しいものが先）。",
   "docs_sort_size_desc": "ディスク上のインストールサイズ順で並び替えます（大きいものが先）。",
   "docs_sort_metacritic_desc": "Metacriticスコア順で並び替えます（高いものが先）。",
-  "docs_sort_review_desc": "Steamユーザーレビュースコア順で並び替えます（高いものが先）。"
+  "docs_sort_review_desc": "Steamユーザーレビュースコア順で並び替えます（高いものが先）。",
+  "folder_label": "フォルダ",
+  "browse": "参照"
 }

@@ -1,9 +1,7 @@
 name: Update Decky Store PR with Main
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   update-decky-store-pr:
