@@ -240,27 +240,37 @@ jobs:
 
             if [[ "$IS_UPDATE" == "true" ]]; then
               PR_TITLE="Update ${PLUGIN} to v${VERSION}"
+              # Write PR body safely: include changelog (may contain backticks) literally
               {
                 echo "# Update ${PLUGIN} to v${VERSION}"
                 echo ""
-                echo "${CHANGELOG}"
+              } > ../pr_body.md
+              cat >> ../pr_body.md <<'CHANGELOG_EOF'
+${CHANGELOG}
+CHANGELOG_EOF
+              {
                 echo ""
                 echo "${CHECKLIST}"
                 echo ""
                 echo "[pulls]: ${PULLS_URL}"
-              } > ../pr_body.md
+              } >> ../pr_body.md
               COMMIT_MSG="Updating ${PLUGIN} to v${VERSION}"
             else
               PR_TITLE="Add ${PLUGIN} to Plugin Store"
+              # Write PR body safely: include description (may contain backticks) literally
               {
                 echo "# Add ${PLUGIN} to Plugin Store"
                 echo ""
-                echo "${DESCRIPTION}"
+              } > ../pr_body.md
+              cat >> ../pr_body.md <<'DESCRIPTION_EOF'
+${DESCRIPTION}
+DESCRIPTION_EOF
+              {
                 echo ""
                 echo "${CHECKLIST}"
                 echo ""
                 echo "[pulls]: ${PULLS_URL}"
-              } > ../pr_body.md
+              } >> ../pr_body.md
               COMMIT_MSG="Submitting New Plugin ${PLUGIN}"
             fi
 
