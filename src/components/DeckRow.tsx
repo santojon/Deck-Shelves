@@ -87,17 +87,19 @@ function ensureStyles() {
             --ds-card-radius: ${cachedCardRadius};
             --ds-card-dim: 0.9;
             --ds-card-bg: rgba(3, 10, 30, 0.92);
-            --ds-focus-color: var(--custom-sp-color-border, var(--ds-native-heading-color, rgba(255, 255, 255, 0.72)));
+            /* Fallback focus-ring color when no theme is active.
+               Themes set --custom-sp-color-border on body/.BasicUI, which cascades
+               to all descendants and takes precedence over these :root fallbacks. */
+            --custom-sp-color-border: rgba(255, 255, 255, 0.72);
+            --custom-sp-color-border-grow-0: rgba(255, 255, 255, 0);
+            --custom-sp-color-border-grow-01: rgba(255, 255, 255, 0.36);
+            --custom-sp-color-border-grow-100: rgba(255, 255, 255, 0.72);
+            --custom-sp-color-border-fade-0: rgba(255, 255, 255, 0);
+            --custom-sp-color-border-fade-100: rgba(255, 255, 255, 0.72);
           }
           .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
           .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
           .ds-card {
-            --custom-sp-color-border: var(--ds-focus-color);
-            --custom-sp-color-border-grow-0: color-mix(in srgb, var(--ds-focus-color) 0%, transparent);
-            --custom-sp-color-border-grow-01: color-mix(in srgb, var(--ds-focus-color) 50%, transparent);
-            --custom-sp-color-border-grow-100: var(--ds-focus-color);
-            --custom-sp-color-border-fade-0: color-mix(in srgb, var(--ds-focus-color) 0%, transparent);
-            --custom-sp-color-border-fade-100: var(--ds-focus-color);
             border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
             filter: brightness(var(--ds-card-dim, 0.9));
             transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1);
@@ -274,7 +276,7 @@ function ensureStyles() {
             display: flex;
             align-items: center;
             gap: 6px;
-            opacity: 0.5;
+            opacity: 0.7;
             font-size: 12px;
             line-height: 16px;
             font-weight: 700;
@@ -408,7 +410,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
       // If we didn't find a nativeSample earlier, try to read runtime map animation tokens
       try {
         if (!nativeSample && map.nativeCard) {
-          const maybe = doc.querySelector(buildSelectorFromToken(map.nativeCard));
+          const maybe = doc.querySelector(buildSelectorFromToken(map.nativeCard) ?? '');
           if (maybe) {
             const pa = getComputedStyle(maybe, '::after');
             const animName = (pa.animationName || '').split(',')[0] || '';
@@ -1029,10 +1031,6 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
           }}
         >
           <span style={{ flex: 1 }}>{title}</span>
-          <span
-            className="ds-shelf-collapse-icon"
-            style={{ paddingRight: "2.8vw", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
-          >▾</span>
         </div>
       ) : null}
       {!collapsed && (
@@ -1058,7 +1056,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
             overflowY: "visible",
             scrollbarWidth: "none",
             scrollBehavior: "smooth",
-            padding: "6px 0 46px 2.8vw",  /* bottom: label/scale room; left: aligns first card with shelf title */
+            padding: "6px 0 46px 2.8vw",
           }}
           flow-children="horizontal"
         >
