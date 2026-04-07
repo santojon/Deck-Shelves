@@ -12,6 +12,7 @@ export type PlatformAppMeta = {
   isSteam?: boolean;
   deckCompatCategory?: number;
   playtimeMinutes?: number;
+  addedTimestamp?: number;
   updatePending?: boolean;
 };
 

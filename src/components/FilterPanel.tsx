@@ -530,7 +530,7 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
 
   const addItem = useCallback(() => {
     newFilterIdx.current = items.length;
-    const newItem: FilterItem = { type: "installed", inverted: false, params: {} };
+    const newItem: FilterItem = { type: "nameIncludes", inverted: false, params: defaultParams("nameIncludes") };
     onChange({ ...group, items: [...items, newItem] });
   }, [group, items, onChange]);
 

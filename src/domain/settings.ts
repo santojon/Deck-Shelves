@@ -2,7 +2,7 @@ import type { FilterGroup, FilterItem, Settings, Shelf, ShelfFilter, ShelfSource
 import { createDefaultFilter } from "./defaults";
 
 export function normalizeFilter(source: ShelfSource): ShelfFilter {
-  if (source.type !== "filter") return createDefaultFilter();
+  if (source.type !== "filter") return { ...createDefaultFilter(), installed: true };
   return { ...createDefaultFilter(), ...(source.filter ?? {}) };
 }
 

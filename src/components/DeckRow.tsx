@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
-import { findWebpackHashedClass, buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
+import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { getPortraitFallbacks } from "../core/steamAssets";
 import i18n from "../i18n";
 
@@ -97,7 +97,7 @@ function ensureStyles() {
             --custom-sp-color-border-fade-0: rgba(255, 255, 255, 0);
             --custom-sp-color-border-fade-100: rgba(255, 255, 255, 0.72);
           }
-          .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
+          .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
           .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
           .ds-card {
             border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
@@ -810,10 +810,9 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     const el = outerRef.current;
     if (!el) return;
     let retryTimer: number | null = null;
-    const doScroll = () => el.scrollIntoView({ block: "center", behavior: "smooth" });
-    const onFocusIn = (e: FocusEvent) => {
+    const onFocusIn = () => {
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-      requestAnimationFrame(doScroll);
+      requestAnimationFrame(() => el.scrollIntoView({ block: "center", behavior: "smooth" }));
     };
     el.addEventListener("focusin", onFocusIn);
     return () => {
@@ -825,159 +824,122 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
   useEffect(() => {
     const rowEl = rowRef.current;
     if (!rowEl) return;
-    let clearTimer: any = null;
+    // rAF debounce coalesces the focusin + MutationObserver gpfocus double-trigger
+    // that fires for the same D-pad event.
+    // throttleTimer creates the per-card micro-pause when holding D-pad:
+    // while the throttle is active, the latest focused card is captured in
+    // lastFocusedCard and scroll catches up when the timer expires.
+    // __ds_scroll_throttle_rows: Set shared with BTryInternalNavigation in HomeInject.
+    // While a row is in this Set, Gate 1 blocks D-pad so focus cannot move until
+    // the throttle expires — creating the per-card micro-pause when holding D-pad.
+    const throttleRows: Set<HTMLElement> = ((globalThis as any).__ds_scroll_throttle_rows ??= new Set());
+
+    let rafPending: number | null = null;
+    let throttleTimer: any = null;
+
+    const doHorizontalScroll = (card: HTMLElement) => {
+      const final = computeCenteredScrollLeft(
+        { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
+        { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight }
+      );
+      rowEl.scrollTo({ left: final, behavior: 'instant' });
+      throttleRows.add(rowEl);
+      if (throttleTimer) clearTimeout(throttleTimer);
+      throttleTimer = setTimeout(() => {
+        throttleTimer = null;
+        throttleRows.delete(rowEl);
+      }, 200);
+    };
 
     const handleFocusedCard = (card: HTMLElement | null) => {
       if (!card || !rowEl.contains(card)) return;
-      (globalThis as any).__ds_centering = true;
-      if (clearTimer) clearTimeout(clearTimer);
-      try {
-        for (const it of Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'))) {
-          it.classList.toggle('is-selected', it === card);
-        }
-      } catch {}
-      // Normalize any 'gpfocus' that may be applied to nested elements by the runtime so
-      // only the card root retains the class — this avoids duplicate visual outlines.
-      try {
-        const nested = Array.from(rowEl.querySelectorAll<HTMLElement>('.gpfocus'));
-        for (const n of nested) {
-          if (n !== card && n.classList) n.classList.remove('gpfocus');
-        }
-      } catch {}
-      // Ensure the whole shelf panel is vertically centered in the viewport
-      try {
-        const outer = outerRef.current;
-        if (outer) requestAnimationFrame(() => outer.scrollIntoView({ block: 'center', behavior: 'smooth' }));
-      } catch {}
-      // Fallback: ensure an enclosing scrollable ancestor is scrolled so the row is centered
-      try {
-        function getScrollableAncestor(node: HTMLElement | null) {
-          let cur: HTMLElement | null = node;
-          while (cur && cur !== document.body) {
-            try {
-              const cs = getComputedStyle(cur);
-              const oy = (cs.overflowY || '').toLowerCase();
-              if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && cur.scrollHeight > cur.clientHeight) return cur;
-            } catch {}
-            cur = cur.parentElement;
+      if (rafPending !== null) return;
+      rafPending = requestAnimationFrame(() => {
+        rafPending = null;
+        const c = card;
+        if (!c || !rowEl.contains(c)) return;
+        try {
+          for (const it of Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'))) {
+            it.classList.toggle('is-selected', it === c);
           }
-          return (document.scrollingElement as HTMLElement) || document.documentElement as HTMLElement;
-        }
-
-        const anc = getScrollableAncestor(rowEl);
-        if (anc) {
-          const cardRect = card.getBoundingClientRect();
-          const ancRect = anc.getBoundingClientRect();
-          const delta = cardRect.top - ancRect.top;
-          const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (cardRect.height / 2);
-          const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
-          const finalTop = Math.max(0, Math.min(target, maxScroll));
-          try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
-        }
-      } catch {}
-      // Additional Steam viewport fallback: resilient viewport discovery + instrumentation
-      try {
-        const spDoc = getPreferredSteamDocument();
-        if (spDoc) {
-          function findSteamViewport(doc: Document): HTMLElement | null {
-            try {
-                // Try runtime-provided mapping first (allows deterministic selectors)
-                try {
-                  const map = getRuntimeClassMap(doc);
-                  if (map && map.viewport) {
-                    const sel = map.viewport.startsWith('.') ? map.viewport : buildSelectorFromToken(map.viewport);
-                    if (sel) {
-                      try {
-                        const found = doc.querySelector(sel) as HTMLElement | null;
-                        if (found) return found;
-                      } catch {}
-                    }
-                  }
-                } catch {}
-            } catch {}
-            try {
-              // Try to discover a webpack-hashed class token and query it
+        } catch {}
+        try {
+          const nested = Array.from(rowEl.querySelectorAll<HTMLElement>('.gpfocus'));
+          for (const n of nested) {
+            if (n !== c && n.classList) n.classList.remove('gpfocus');
+          }
+        } catch {}
+        // Vertical: scrollIntoView on the shelf element (works when Steam uses the default viewport)
+        try {
+          const outer = outerRef.current;
+          if (outer) requestAnimationFrame(() => outer.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+        } catch {}
+        // Vertical fallback A: walk DOM for scrollable ancestor and scroll manually.
+        // Catches cases where the shelf is inside a non-standard scroll container.
+        try {
+          function getScrollableAncestor(node: HTMLElement | null): HTMLElement | null {
+            let cur = node?.parentElement ?? null;
+            while (cur && cur !== document.body) {
               try {
-                const token = findWebpackHashedClass(doc);
-                const sel = buildSelectorFromToken(token);
-                if (sel) {
-                  try {
-                    const found = doc.querySelector(sel) as HTMLElement | null;
-                    if (found) return found;
-                  } catch {}
-                }
+                const cs = getComputedStyle(cur);
+                const oy = (cs.overflowY || '').toLowerCase();
+                if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && cur.scrollHeight > cur.clientHeight) return cur;
               } catch {}
-              // Fallback: Prefer any element with overflowY auto/scroll/overlay and content taller than viewport.
-              // Bias candidates that match runtime-provided row/card tokens when available.
-              const candidates = Array.from(doc.querySelectorAll<HTMLElement>('[class]'));
-              const map = (() => { try { return getRuntimeClassMap(doc); } catch { return null; } })();
-              // First pass: prefer elements that contain mapped tokens
-              if (map) {
-                for (const c of candidates) {
-                  try {
-                    const cls = (c.className || '').toString();
-                    if (map.row && cls.includes(map.row)) return c;
-                    if (map.card && cls.includes(map.card)) return c;
-                    if (map.viewport && cls.includes(map.viewport)) return c;
-                  } catch {}
-                }
-              }
-              for (const c of candidates) {
-                try {
-                  const cs = getComputedStyle(c);
-                  const oy = (cs.overflowY || '').toLowerCase();
-                  if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && c.scrollHeight > c.clientHeight && c.clientHeight > 80) return c;
-                } catch {}
-              }
-            } catch {}
-            try {
-              // Last-resort: doc scrolling element
-              return (doc.scrollingElement as HTMLElement) || (doc.documentElement as HTMLElement) || null;
-            } catch {}
+              cur = cur.parentElement;
+            }
             return null;
           }
-
-          function remoteLog(msg: string, obj?: any) {
-            try {
-              console.log('[ds]', msg, obj);
-            } catch {}
-            try {
-              const w = (spDoc as any).defaultView as Window | undefined;
-              if (w) (w as any).console?.log('[ds]', msg, obj);
-            } catch {}
+          const anc = getScrollableAncestor(rowEl);
+          if (anc) {
+            const outerEl = outerRef.current;
+            if (outerEl) {
+              const outerRect = outerEl.getBoundingClientRect();
+              const ancRect = anc.getBoundingClientRect();
+              const delta = outerRect.top - ancRect.top;
+              const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (outerRect.height / 2);
+              const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
+              const finalTop = Math.max(0, Math.min(target, maxScroll));
+              try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
+            }
           }
-
-          const viewport = findSteamViewport(spDoc);
-          if (viewport) {
-            const vRect = viewport.getBoundingClientRect();
-            const rowRect = rowEl.getBoundingClientRect();
-            const delta = rowRect.top - vRect.top;
-            const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (rowRect.height / 2);
-            const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-            const final = Math.max(0, Math.min(target, max));
-            remoteLog('viewport-scroll-attempt-smooth', { target: final, before: viewport.scrollTop });
-            try { viewport.scrollTo({ top: final, behavior: 'smooth' }); } catch { try { viewport.scrollTop = final; } catch {} }
-            // After a short delay, check if smooth scroll reached near target; if not, fall back to instant correction
-            setTimeout(() => {
-              try {
-                const delta = Math.abs((viewport.scrollTop || 0) - final);
-                remoteLog('viewport-scroll-check', { after: viewport.scrollTop, delta });
-                if (delta > 8) {
-                  remoteLog('viewport-scroll-fallback-auto', { target: final });
-                  try { viewport.scrollTo({ top: final, behavior: 'auto' }); } catch { viewport.scrollTop = final; }
-                }
-              } catch (e) { remoteLog('viewport-scroll-check-error', { err: String(e) }); }
-            }, 220);
-          } else {
-            try { console.log('[ds] viewport not found'); } catch {}
+        } catch {}
+        // Vertical fallback B: Steam's home uses a separate BrowserWindow document.
+        // getPreferredSteamDocument() reaches that document; scan for its scrollable viewport.
+        try {
+          const spDoc = getPreferredSteamDocument();
+          if (spDoc && spDoc !== document) {
+            const candidates = Array.from(spDoc.querySelectorAll<HTMLElement>('[class]'));
+            let viewport: HTMLElement | null = null;
+            const map = (() => { try { return getRuntimeClassMap(spDoc); } catch { return null; } })();
+            if (map?.viewport) {
+              const sel = buildSelectorFromToken(map.viewport);
+              if (sel) try { viewport = spDoc.querySelector(sel); } catch {}
+            }
+            if (!viewport) {
+              for (const el of candidates) {
+                try {
+                  const cs = getComputedStyle(el);
+                  const oy = (cs.overflowY || '').toLowerCase();
+                  if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight && el.clientHeight > 80) { viewport = el; break; }
+                } catch {}
+              }
+            }
+            if (viewport) {
+              const outerEl = outerRef.current;
+              if (outerEl) {
+                const outerRect = outerEl.getBoundingClientRect();
+                const vpRect = viewport.getBoundingClientRect();
+                const delta = outerRect.top - vpRect.top;
+                const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (outerRect.height / 2);
+                const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+                const finalTop = Math.max(0, Math.min(target, max));
+                try { viewport.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { viewport.scrollTop = finalTop; }
+              }
+            }
           }
-        }
-      } catch {}
-      const final = computeCenteredScrollLeft({ width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth }, { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight });
-      rowEl.scrollTo({ left: final, behavior: 'smooth' });
-      clearTimer = setTimeout(() => {
-        try { (globalThis as any).__ds_centering = false; } catch {}
-      }, 80);
+        } catch {}
+        doHorizontalScroll(c);
+      });
     };
 
     const onCardFocus = (e: FocusEvent) => {
@@ -1005,8 +967,9 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     return () => {
       rowEl.removeEventListener("focusin", onCardFocus);
       observer.disconnect();
-      if (clearTimer) clearTimeout(clearTimer);
-      try { (globalThis as any).__ds_centering = false; } catch {}
+      if (rafPending !== null) { cancelAnimationFrame(rafPending); rafPending = null; }
+      if (throttleTimer !== null) { clearTimeout(throttleTimer); throttleTimer = null; }
+      throttleRows.delete(rowEl);
     };
   }, []);
 

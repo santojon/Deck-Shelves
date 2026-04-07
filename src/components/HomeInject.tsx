@@ -19,7 +19,8 @@ const DIR_LEFT  = 11;
 const DIR_RIGHT = 12;
 const DS_EDGE_PATCHED   = "__ds_edge_patched__";
 const DS_EDGE_LISTENER  = "__ds_edge_listener__";
-const DS_MENU_PATCHED   = "__ds_menu_patched__";
+// WeakSet avoids polluting external Steam controller objects with string properties.
+const patchedMenuControllers = new WeakSet<object>();
 const OPTIONS_BUTTON    = 4;
 
 function reparentNavTreeNodes(mountEl: HTMLElement): number {
@@ -151,39 +152,39 @@ function patchMenuButton(): void {
     ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;
   if (!ctrl) return;
 
-  if (typeof ctrl.DispatchVirtualButtonClick === "function" && !(ctrl as any)[DS_MENU_PATCHED]) {
+  if (typeof ctrl.DispatchVirtualButtonClick === "function" && !patchedMenuControllers.has(ctrl)) {
     const orig = ctrl.DispatchVirtualButtonClick.bind(ctrl);
     ctrl.DispatchVirtualButtonClick = (button: number, ...args: any[]) => {
       if (interceptMenuBtn(button)) return;
       return orig(button, ...args);
     };
-    (ctrl as any)[DS_MENU_PATCHED] = true;
+    patchedMenuControllers.add(ctrl);
     return;
   }
 
-  if (!ctrl[DS_MENU_PATCHED]) {
+  if (!patchedMenuControllers.has(ctrl)) {
     const proto = Object.getPrototypeOf(ctrl);
-    if (proto && !(proto as any)[DS_MENU_PATCHED] && typeof proto.DispatchVirtualButtonClick === "function") {
+    if (proto && !patchedMenuControllers.has(proto) && typeof proto.DispatchVirtualButtonClick === "function") {
       const orig = proto.DispatchVirtualButtonClick;
       proto.DispatchVirtualButtonClick = function(button: number, ...args: any[]) {
         if (interceptMenuBtn(button)) return;
         return orig.apply(this, [button, ...args]);
       };
-      (proto as any)[DS_MENU_PATCHED] = true;
-      (ctrl as any)[DS_MENU_PATCHED] = true;
+      patchedMenuControllers.add(proto);
+      patchedMenuControllers.add(ctrl);
       return;
     }
   }
 
   const ctx = ctrl.m_ActiveContext || ctrl.m_LastActiveContext;
   const controller = ctx?.m_controller;
-  if (controller && !(controller as any)[DS_MENU_PATCHED] && typeof controller.DispatchVirtualButtonClick === "function") {
+  if (controller && !patchedMenuControllers.has(controller) && typeof controller.DispatchVirtualButtonClick === "function") {
     const origDispatch = controller.DispatchVirtualButtonClick;
     controller.DispatchVirtualButtonClick = function(button: number, ...args: any[]) {
       if (interceptMenuBtn(button)) return;
       return origDispatch.apply(this, [button, ...args]);
     };
-    (controller as any)[DS_MENU_PATCHED] = true;
+    patchedMenuControllers.add(controller);
   }
 }
 
@@ -200,13 +201,20 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   const root = mainTree.Root || mainTree.m_Root || mainTree;
   const proto = Object.getPrototypeOf(root);
 
+  // NOTE: proto-patching BTryInternalNavigation is a shared prototype mutation.
+  // Other plugins that also patch this method (e.g. TabMaster, GamepadNavTools) will
+  // chain correctly as long as they preserve the original via closure — the DS_EDGE_PATCHED
+  // guard prevents double-patching by this plugin but cannot prevent conflicts with plugins
+  // that overwrite the method entirely without chaining. If navigation breaks, check for
+  // conflicting plugins that patch BTryInternalNavigation without calling orig().
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
-      if ((direction === DIR_LEFT || direction === DIR_RIGHT) && (globalThis as any).__ds_centering) {
+      if (direction === DIR_LEFT || direction === DIR_RIGHT) {
         const el = this.Element || this.m_element || this.m_Element;
         if (el && typeof el.className === "string" && el.className.includes("ds-row-scroll")) {
-          return true;
+          const throttled: Set<HTMLElement> = (globalThis as any).__ds_scroll_throttle_rows;
+          if (throttled?.has(el)) return true;
         }
       }
       const result = orig.call(this, direction, flag);

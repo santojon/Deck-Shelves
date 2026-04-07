@@ -6,7 +6,7 @@ export function randomShelfId() {
 }
 
 export function createDefaultFilter(): ShelfFilter {
-  return { installed: true, sort: "alphabetical" };
+  return { sort: "alphabetical" };
 }
 
 export function createDefaultSource(kind: "collection" | "tab" | "filter", firstCollectionId = ""): ShelfSource {
