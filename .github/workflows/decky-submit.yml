@@ -38,9 +38,6 @@ jobs:
             printf 'version=%s\n' "$VERSION"
             printf 'plugin_name=%s\n' "$PLUGIN_NAME"
             printf 'plugin_author=%s\n' "$PLUGIN_AUTHOR"
-            printf 'plugin_description<<PLUGIN_DESC_EOF\n'
-            printf '%s\n' "$PLUGIN_DESC"
-            printf 'PLUGIN_DESC_EOF\n'
             printf 'commit=%s\n' "$COMMIT"
           } >> "$GITHUB_OUTPUT"
           echo "Plugin: $PLUGIN_NAME v$VERSION ($COMMIT)"
@@ -53,11 +50,12 @@ jobs:
           if [[ -z "$CHANGELOG" ]]; then
             CHANGELOG="Version ${VERSION} release."
           fi
-          {
-            printf 'changelog<<CHANGELOG_EOF\n'
-            printf '%s\n' "$CHANGELOG"
-            printf 'CHANGELOG_EOF\n'
-          } >> "$GITHUB_OUTPUT"
+
+          # Persist description & changelog to files to avoid embedding raw multi-line
+          # data into the job run script (prevents accidental shell evaluation).
+          mkdir -p .github/tmp
+          printf '%s\n' "$PLUGIN_DESC" > .github/tmp/plugin_description.txt
+          printf '%s\n' "$CHANGELOG" > .github/tmp/changelog.txt
 
       - uses: pnpm/action-setup@v4
 
@@ -98,8 +96,10 @@ jobs:
           COMMIT="${{ steps.meta.outputs.commit }}"
           VERSION="${{ steps.meta.outputs.version }}"
           AUTHOR="${{ steps.meta.outputs.plugin_author }}"
-          DESCRIPTION="${{ steps.meta.outputs.plugin_description }}"
-          CHANGELOG="${{ steps.meta.outputs.changelog }}"
+          # Read description & changelog from files created in the earlier step to
+          # avoid embedding raw multi-line content into the generated runner script.
+          DESCRIPTION_FILE="${{ github.workspace }}/.github/tmp/plugin_description.txt"
+          CHANGELOG_FILE="${{ github.workspace }}/.github/tmp/changelog.txt"
           REPO_URL="https://github.com/${{ github.repository }}"
 
           if [[ -z "${GH_TOKEN:-}" ]]; then
@@ -246,7 +246,9 @@ jobs:
                 echo ""
               } > ../pr_body.md
               # Append changelog indented by 4 spaces to preserve formatting in the PR body
-              printf '%s\n' "$CHANGELOG" | sed 's/^/    /' >> ../pr_body.md || true
+              if [[ -f "$CHANGELOG_FILE" ]]; then
+                sed 's/^/    /' "$CHANGELOG_FILE" >> ../pr_body.md || true
+              fi
               {
                 echo ""
                 echo "${CHECKLIST}"
@@ -262,7 +264,9 @@ jobs:
                 echo ""
               } > ../pr_body.md
               # Append description indented by 4 spaces to preserve formatting in the PR body
-              printf '%s\n' "$DESCRIPTION" | sed 's/^/    /' >> ../pr_body.md || true
+              if [[ -f "$DESCRIPTION_FILE" ]]; then
+                sed 's/^/    /' "$DESCRIPTION_FILE" >> ../pr_body.md || true
+              fi
               {
                 echo ""
                 echo "${CHECKLIST}"
