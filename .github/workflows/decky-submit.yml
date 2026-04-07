@@ -246,8 +246,7 @@ jobs:
                 echo ""
               } > ../pr_body.md
               # Append changelog indented by 4 spaces to preserve formatting in the PR body
-              printf '%s
-' "$CHANGELOG" | sed 's/^/    /' >> ../pr_body.md || true
+              printf '%s\n' "$CHANGELOG" | sed 's/^/    /' >> ../pr_body.md || true
               {
                 echo ""
                 echo "${CHECKLIST}"
@@ -263,8 +262,7 @@ jobs:
                 echo ""
               } > ../pr_body.md
               # Append description indented by 4 spaces to preserve formatting in the PR body
-              printf '%s
-' "$DESCRIPTION" | sed 's/^/    /' >> ../pr_body.md || true
+              printf '%s\n' "$DESCRIPTION" | sed 's/^/    /' >> ../pr_body.md || true
               {
                 echo ""
                 echo "${CHECKLIST}"
