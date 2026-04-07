@@ -79,154 +79,174 @@ function ensureStyles() {
         const existing = doc.getElementById(STYLE_ID);
         if (existing) existing.remove();
       }
-      if (doc.getElementById(STYLE_ID)) continue;
-      const style = doc.createElement("style");
-      style.id = STYLE_ID;
-      style.textContent = `
-        :root {
-          --ds-card-radius: ${cachedCardRadius};
-          --ds-card-dim: 0.9;
-          --ds-card-bg: rgba(3, 10, 30, 0.92);
-        }
-        .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
-        .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
-        .ds-card {
-          border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
-          filter: brightness(var(--ds-card-dim, 0.9));
-          transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
-                      box-shadow 0.4s cubic-bezier(0, 0.73, 0.48, 1);
-          scroll-margin-top: 90px;
-          scroll-margin-bottom: 52px;
-          scroll-margin-inline-end: 2.8vw;
-        }
-        /* Suppress Steam/Decky default focus visuals (gray outline) on card root.
-           Theme focus comes through via nativeCard class (.WYgDg9NyCcMIVuMyZ_NBC.gpfocus). */
-        .ds-card.gpfocus, .ds-card:focus {
-          outline: none !important;
-          box-shadow: none !important;
-          transform: none !important;
-        }
-        .ds-card *:focus { outline: none !important; box-shadow: none !important; }
-        .ds-card .gpfocus:not(.ds-card) { outline: none !important; box-shadow: none !important; }
-        .ds-card-art {
-          /* Override native class layout rules that would break our fixed-size card.
-             position:absolute already forces block-level display, no need for display override. */
-          position: absolute !important;
-          inset: 0 !important;
-          padding-top: 0 !important;
-          border-radius: var(--ds-card-radius, ${cachedCardRadius});
-        }
-        .ds-card-art img {
-          border-radius: var(--ds-card-radius, ${cachedCardRadius});
-          /* Native CSS (._3Ehhd5MxErV_bXQE4qVhzB ._24_AuLm54JVe1Zc0AApCDR) will apply
-             position:absolute;inset:0;object-fit:cover — which is correct for our layout */
-        }
-        .ds-card.gpfocus .ds-card-art,
-        .ds-card:focus .ds-card-art {
-          z-index: 2;
-        }
-        .ds-card .ds-card-label {
-          opacity: 0;
-          transition: opacity .15s ease;
-        }
-        .ds-card.gpfocus .ds-card-label,
-        .ds-card:focus .ds-card-label {
-          opacity: 1;
-        }
-        .ds-card img { transition: opacity .15s ease; }
-        .ds-compat {
-          position: absolute; bottom: 4px; right: 4px;
-          display: flex; align-items: center;
-          background: rgba(0,0,0,0.7);
-          border-radius: 20px;
-          padding: 2px;
-          z-index: 3; pointer-events: none;
-          width: 40px; height: 20px;
-          opacity: 0;
-          transition: opacity .15s ease;
-        }
-        .ds-card.gpfocus .ds-compat,
-        .ds-card:focus .ds-compat { opacity: 1; }
-        .ds-compat svg { flex-shrink: 0; width: 20px; height: 20px; }
-        .ds-compat-verified { color: rgb(89, 191, 64); }
-        .ds-compat-playable { color: rgb(255, 200, 44); }
-        /* Shelf title — uses native heading color when available */
-        .ds-shelf-title {
-          color: var(--ds-native-heading-color, inherit);
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: 0.5px;
-        }
-        .ds-shelf-collapse-icon {
-          font-size: 14px;
-          opacity: 0.5;
-          transition: transform 0.2s;
-          display: inline-block;
-        }
-        /* Card game title — uses native heading color when available */
-        .ds-card-label-name {
-          color: var(--ds-native-heading-color, inherit);
-          font-size: 18px;
-          line-height: 18px;
-          font-weight: 800;
-          white-space: nowrap;
-          overflow: visible;
-          display: flex;
-          align-items: center;
-        }
-        /* Card status text — inherits color, dimmed via opacity */
-        .ds-card-status {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          opacity: 0.5;
-          font-size: 12px;
-          line-height: 16px;
-          font-weight: 700;
-          text-transform: uppercase;
-          margin-top: 4px;
-          white-space: nowrap;
-          overflow: visible;
-        }
-        .ds-card-status-icon {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 14px;
-          height: 14px;
-          flex-shrink: 0;
-          line-height: 0;
-        }
-        .ds-card-status-play { color: rgb(89, 191, 64); }
-        /* MoreCard text — inherits color/font from parent (theme cascade) */
-        .ds-more-card-text {
-          font-size: 16px;
-          font-weight: 400;
-          line-height: 1.35;
-          text-align: center;
-        }
-        /* Card art placeholder (no image) */
-        .ds-card-art-placeholder {
-          font-size: 11px;
-          opacity: 0.5;
-          text-align: center;
-          word-break: break-word;
-        }
-      `;
-      doc.head.appendChild(style);
-      // Detect native heading color and expose as CSS variable so our titles match
+      if (!doc.getElementById(STYLE_ID)) {
+        const style = doc.createElement("style");
+        style.id = STYLE_ID;
+        style.textContent = `
+          :root {
+            --ds-card-radius: ${cachedCardRadius};
+            --ds-card-dim: 0.9;
+            --ds-card-bg: rgba(3, 10, 30, 0.92);
+          }
+          .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
+          .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
+          .ds-card {
+            border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
+            filter: brightness(var(--ds-card-dim, 0.9));
+            transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1);
+            scroll-margin-top: 90px;
+            scroll-margin-bottom: 52px;
+            scroll-margin-inline-end: 2.8vw;
+          }
+          /* Suppress all Steam/Decky default focus visuals within our container.
+             The problematic rule is:
+               .BasicUI .WYgDg9NyCcMIVuMyZ_NBC.Focusable:focus {
+                 border: 2px solid var(--custom-sp-color-border);
+                 animation: appportrait_growOutline, appportrait_fadeOutline, appportrait_pulseOutline...
+               }
+             And .BasicUI .WYgDg9NyCcMIVuMyZ_NBC.gpfocus::after { animation-name: _8N-VOkqAyoF13zvUSqq2- }
+             We must suppress both :focus and .gpfocus variants, for the element AND its pseudos.
+             Theme focus border comes through via this same rule (var(--custom-sp-color-border)).
+             ID prefix gives specificity (1,1,0+) — beats (0,3,0) of .BasicUI .WYgDg9.Focusable:focus */
+          #deck-shelves-home-root .ds-card:focus,
+          #deck-shelves-home-root .ds-card.gpfocus {
+            outline: none !important;
+            box-shadow: none !important;
+            transform: none !important;
+            animation: none !important;
+            border: none !important;
+          }
+          /* Suppress ::after shimmer/glow animations */
+          #deck-shelves-home-root .ds-card:focus::after,
+          #deck-shelves-home-root .ds-card:focus::before,
+          #deck-shelves-home-root .ds-card.gpfocus::after,
+          #deck-shelves-home-root .ds-card.gpfocus::before {
+            display: none !important;
+            content: none !important;
+            animation: none !important;
+          }
+          #deck-shelves-home-root .ds-card *:focus { outline: none !important; box-shadow: none !important; }
+          .ds-card-art {
+            position: absolute !important;
+            inset: 0 !important;
+            padding-top: 0 !important;
+            border-radius: var(--ds-card-radius, ${cachedCardRadius});
+          }
+          .ds-card-art img {
+            border-radius: var(--ds-card-radius, ${cachedCardRadius});
+          }
+          .ds-card.gpfocus .ds-card-art,
+          .ds-card:focus .ds-card-art {
+            z-index: 2;
+          }
+          .ds-card .ds-card-label {
+            opacity: 0;
+            transition: opacity .15s ease;
+          }
+          .ds-card.gpfocus .ds-card-label,
+          .ds-card:focus .ds-card-label {
+            opacity: 1;
+          }
+          .ds-card img { transition: opacity .15s ease; }
+          .ds-compat {
+            position: absolute; bottom: 4px; right: 4px;
+            display: flex; align-items: center;
+            background: rgba(0,0,0,0.7);
+            border-radius: 20px;
+            padding: 2px;
+            z-index: 3; pointer-events: none;
+            width: 40px; height: 20px;
+            opacity: 0;
+            transition: opacity .15s ease;
+          }
+          .ds-card.gpfocus .ds-compat,
+          .ds-card:focus .ds-compat { opacity: 1; }
+          .ds-compat svg { flex-shrink: 0; width: 20px; height: 20px; }
+          .ds-compat-verified { color: rgb(89, 191, 64); }
+          .ds-compat-playable { color: rgb(255, 200, 44); }
+          .ds-shelf-title {
+            color: var(--ds-native-heading-color, inherit);
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+          }
+          .ds-shelf-collapse-icon {
+            font-size: 14px;
+            opacity: 0.5;
+            transition: transform 0.2s;
+            display: inline-block;
+          }
+          .ds-card-label-name {
+            color: var(--ds-native-heading-color, inherit);
+            font-size: 18px;
+            line-height: 18px;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+          }
+          .ds-card-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.5;
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: visible;
+          }
+          .ds-card-status-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            line-height: 0;
+          }
+          /* Play icon: theme color when available, green as fallback */
+          .ds-card-status-play { color: var(--ds-native-heading-color, rgb(89, 191, 64)); }
+          .ds-more-card-text {
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.35;
+            text-align: center;
+          }
+          .ds-card-art-placeholder {
+            font-size: 11px;
+            opacity: 0.5;
+            text-align: center;
+            word-break: break-word;
+          }
+        `;
+        doc.head.appendChild(style);
+      }
+      // Always clear then re-detect native heading color so theme changes take effect live.
+      // Only set the variable when color is a saturated accent (theme-provided).
+      // Vanilla Steam headings are white/near-gray — skip those so the CSS fallback
+      // (green play icon, inherit for text) applies when no theme is active.
       try {
-        if (!doc.documentElement.style.getPropertyValue('--ds-native-heading-color')) {
-          const headings = doc.querySelectorAll('h2[class], h3[class]');
-          for (const h of Array.from(headings)) {
-            const cls = (h as HTMLElement).className || '';
-            if (/_[A-Za-z0-9_-]{5,}/.test(cls)) {
-              const c = getComputedStyle(h as HTMLElement).color;
-              if (c && c !== 'rgb(0, 0, 0)' && c !== 'rgba(0, 0, 0, 0)') {
-                doc.documentElement.style.setProperty('--ds-native-heading-color', c);
-                break;
-              }
+        doc.documentElement.style.removeProperty('--ds-native-heading-color');
+        const headings = doc.querySelectorAll('h2[class], h3[class]');
+        for (const h of Array.from(headings)) {
+          const cls = (h as HTMLElement).className || '';
+          if (/_[A-Za-z0-9_-]{5,}/.test(cls)) {
+            const c = getComputedStyle(h as HTMLElement).color;
+            if (!c || c === 'rgb(0, 0, 0)' || c === 'rgba(0, 0, 0, 0)') continue;
+            // Check saturation: skip gray/white (all channels similar and bright)
+            const m = c.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (m) {
+              const [r, g, b] = [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+              const max = Math.max(r, g, b);
+              const sat = max > 0 ? (max - Math.min(r, g, b)) / max : 0;
+              if (sat < 0.25) continue; // near-gray or white — skip
             }
+            doc.documentElement.style.setProperty('--ds-native-heading-color', c);
+            break;
           }
         }
       } catch {}
