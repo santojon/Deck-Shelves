@@ -10,14 +10,6 @@ on:
         description: 'Override database fork (default: vars.DECKY_DATABASE_FORK)'
         required: false
         type: string
-      is_update:
-        description: 'Is this an update to an existing plugin?'
-        required: false
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 permissions:
   contents: read
@@ -100,10 +92,13 @@ jobs:
           PLUGIN="${{ steps.meta.outputs.plugin_name }}"
           PLUGIN_SLUG="${PLUGIN// /-}"
           FORK="${{ inputs.database_fork || vars.DECKY_DATABASE_FORK }}"
+          FORK_OWNER="${FORK%%/*}"
           COMMIT="${{ steps.meta.outputs.commit }}"
           VERSION="${{ steps.meta.outputs.version }}"
-          IS_UPDATE="${{ inputs.is_update || 'true' }}"
-          NEW_BRANCH="submit-${PLUGIN_SLUG}-v${VERSION}"
+          AUTHOR="${{ steps.meta.outputs.plugin_author }}"
+          DESCRIPTION="${{ steps.meta.outputs.plugin_description }}"
+          CHANGELOG="${{ steps.meta.outputs.changelog }}"
+          REPO_URL="https://github.com/${{ github.repository }}"
 
           if [[ -z "${GH_TOKEN:-}" ]]; then
             echo "❌ SUBMIT_TOKEN secret is not set."
@@ -117,48 +112,15 @@ jobs:
             exit 1
           fi
 
-          AUTHOR="${{ steps.meta.outputs.plugin_author }}"
-          DESCRIPTION="${{ steps.meta.outputs.plugin_description }}"
-          CHANGELOG=$(cat <<'CHANGELOG_EOF'
-          ${{ steps.meta.outputs.changelog }}
-          CHANGELOG_EOF
-          )
-          CHANGELOG="${CHANGELOG/#          /}"
-          CHANGELOG="${CHANGELOG//\n          /\n}"
-          REPO_URL="https://github.com/${{ github.repository }}"
-
           git config --global user.name "${AUTHOR}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-          # ── Detect existing open PR for this plugin ──
+          # ── Detect existing open PR for this plugin (owned by our fork) ──
           EXISTING_PR=$(gh pr list \
             --repo SteamDeckHomebrew/decky-plugin-database \
             --state open \
-            --json number,headRefName,headRepositoryOwner,body,title \
-            --jq ".[] | select(((.body // \"\") | contains(\"plugins/${PLUGIN}\")) or (.title | contains(\"${PLUGIN}\"))) | {number,headRefName,headRepositoryOwner,title} | @base64" 2>/dev/null || true)
-
-          PR_NUMBER=""
-          PR_HEAD_BRANCH=""
-          PR_HEAD_OWNER=""
-          HAS_EXISTING_PR=false
-
-          if [[ -n "$EXISTING_PR" ]]; then
-            PR_ENTRY=$(echo "$EXISTING_PR" | head -n1)
-            PR_NUMBER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.number')
-            PR_HEAD_BRANCH=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRefName')
-            PR_HEAD_OWNER=$(echo "$PR_ENTRY" | base64 --decode | jq -r '.headRepositoryOwner')
-            echo "🔍 Found existing PR #${PR_NUMBER} (head: ${PR_HEAD_OWNER}:${PR_HEAD_BRANCH})"
-            HAS_EXISTING_PR=true
-          fi
-
-          # Use existing PR branch if available (even if version differs), otherwise new branch
-          if [[ "$HAS_EXISTING_PR" == "true" && "${PR_HEAD_OWNER,,}" == "${FORK%%/*,,}" ]]; then
-            BRANCH="${PR_HEAD_BRANCH}"
-            echo "📌 Reusing existing PR branch: ${BRANCH}"
-          else
-            BRANCH="${NEW_BRANCH}"
-            echo "📌 Using new branch: ${BRANCH}"
-          fi
+            --json number,headRefName,headRepositoryOwner \
+            --jq ".[] | select(.headRepositoryOwner.login | ascii_downcase == (\"${FORK_OWNER}\" | ascii_downcase)) | select(.headRefName | test(\"${PLUGIN_SLUG}\"; \"i\")) | {number, headRefName} | @base64" 2>/dev/null | head -n1 || true)
 
           echo "📦 Cloning fork: ${FORK}"
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" db-fork
@@ -167,100 +129,146 @@ jobs:
           git remote add upstream https://github.com/SteamDeckHomebrew/decky-plugin-database.git 2>/dev/null || true
           git fetch upstream main --depth=1
 
-          git checkout -B "${BRANCH}" upstream/main
+          if [[ -n "$EXISTING_PR" ]]; then
+            # ── Update path: reuse existing branch, merge upstream, update submodule ──
+            PR_NUMBER=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.number')
+            BRANCH=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.headRefName')
+            echo "🔍 Found existing PR #${PR_NUMBER} on branch: ${BRANCH}"
 
-          PULLS_URL="https://github.com/steamdeckHomebrew/decky-plugin-database/pulls?q=is%3Apr+is%3Aopen+sort%3Acreated-desc+-status%3Afailure+-draft%3Atrue+-author%3A%40me"
+            git fetch origin "${BRANCH}"
+            git checkout -B "${BRANCH}" "origin/${BRANCH}"
 
-          CHECKLIST=$(cat <<'CHECKLIST_EOF'
-          ## Task Checklist
+            echo "🔀 Merging upstream/main (keeping upstream, adding ours)..."
+            git merge upstream/main --no-edit -X theirs || {
+              echo "⚠️ Merge had conflicts; applying -X theirs resolution..."
+              git checkout --theirs -- . 2>/dev/null || true
+              git add . 2>/dev/null || true
+              git commit --no-edit -m "Merge upstream/main into ${BRANCH}" || true
+            }
 
-          ### Developer
-
-          - [x] I am the original author or an authorized maintainer of this plugin.
-          - [x] I have abided by the licenses of the libraries I am utilizing, including attaching license notices where appropriate.
-
-          ### Plugin
-
-          - [x] I have verified that my plugin works properly on the Stable and Beta update channels of SteamOS.
-          - [x] I have verified my plugin is unique or provides more/alternative functionality to a plugin already on the store.
-
-          ### Backend
-
-          - **No**: I am using a custom backend other than Python.
-          - **No**: I am using a tool or software from a 3rd party FOSS project that does not have it's dependencies [statically linked](https://en.wikipedia.org/wiki/Static_library).
-          - **No**: I am using a custom binary that has all of it's dependencies statically linked.
-
-          ### Community
-
-          - [ ] I have tested and left feedback on two other [pull requests][pulls] for new or updating plugins.
-          - [ ] I have commented links to my testing report in this PR.
-
-          ## Testing
-
-          - [ ] Tested by a third party on SteamOS Stable or Beta update channel.
-          CHECKLIST_EOF
-          )
-          CHECKLIST="${CHECKLIST/#          /}"
-          CHECKLIST="${CHECKLIST//\n          /\n}"
-
-          # ── Prepare submodule at target commit ──
-          if [[ -d "plugins/${PLUGIN}" ]]; then
-            cd "plugins/${PLUGIN}"
-            git fetch origin
-            git checkout "${COMMIT}"
-            cd ../..
-          else
-            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
-            cd "plugins/${PLUGIN}"
-            git checkout "${COMMIT}"
-            cd ../..
-          fi
-
-          if [[ "$IS_UPDATE" == "true" ]]; then
-            COMMIT_MSG="Updating ${PLUGIN} to v${VERSION}"
-            PR_TITLE="Update ${PLUGIN} to v${VERSION}"
-            {
-              echo "# Update ${PLUGIN} to v${VERSION}"
-              echo ""
-              echo "${CHANGELOG}"
-              echo ""
-              echo "${CHECKLIST}"
-              echo ""
-              echo "[pulls]: ${PULLS_URL}"
-            } > ../pr_body.md
-          else
-            COMMIT_MSG="Submitting New Plugin ${PLUGIN}"
-            PR_TITLE="Add ${PLUGIN} to Plugin Store"
-            {
-              echo "# Add ${PLUGIN} to Plugin Store"
-              echo ""
-              echo "${DESCRIPTION}"
-              echo ""
-              echo "${CHECKLIST}"
-              echo ""
-              echo "[pulls]: ${PULLS_URL}"
-            } > ../pr_body.md
-          fi
-
-          git add .
-          git commit -m "${COMMIT_MSG}" || echo "No changes to commit"
-
-          # ── Push and create/update PR ──
-          if [[ "$HAS_EXISTING_PR" == "true" ]]; then
-            if [[ "${PR_HEAD_OWNER,,}" == "${FORK%%/*,,}" ]]; then
-              echo "🔄 Updating existing PR #${PR_NUMBER} branch ${BRANCH}..."
-              git push "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" "${BRANCH}" --force
-              echo "✅ PR #${PR_NUMBER} branch updated successfully!"
-              echo "Preserving PR title/body; not editing PR metadata."
+            # Update submodule to new commit
+            if [[ -d "plugins/${PLUGIN}" ]]; then
+              cd "plugins/${PLUGIN}"
+              git fetch origin
+              git checkout "${COMMIT}"
+              cd ../..
             else
-              echo "⚠️ Existing PR #${PR_NUMBER} is from ${PR_HEAD_OWNER}; cannot push to that fork. Skipping."
+              git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
+              cd "plugins/${PLUGIN}"
+              git checkout "${COMMIT}"
+              cd ../..
             fi
+
+            git add .
+            git commit -m "Update ${PLUGIN} to v${VERSION}" || echo "No changes to commit"
+
+            echo "🚀 Pushing updated branch ${BRANCH}..."
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" "${BRANCH}" --force
+            echo "✅ PR #${PR_NUMBER} updated via branch push."
+
           else
-            echo "🔗 No existing PR found; creating new PR..."
-            git push -u origin "${BRANCH}" --force
+            # ── Create path: new branch + PR ──
+            NEW_BRANCH="submit-${PLUGIN_SLUG}-v${VERSION}"
+            echo "📌 No open PR found; creating new branch: ${NEW_BRANCH}"
+
+            git checkout -B "${NEW_BRANCH}" upstream/main
+
+            # Auto-detect: is this an update (plugin previously merged) or new addition?
+            MERGED_PR=$(gh pr list \
+              --repo SteamDeckHomebrew/decky-plugin-database \
+              --state merged \
+              --search "${PLUGIN}" \
+              --json number,title \
+              --jq ".[0].number" 2>/dev/null || true)
+
+            if [[ -n "$MERGED_PR" ]]; then
+              IS_UPDATE=true
+              echo "🔍 Found merged PR #${MERGED_PR} → this is an UPDATE submission"
+            else
+              IS_UPDATE=false
+              echo "🔍 No merged PR found → this is a NEW plugin submission"
+            fi
+
+            # Add submodule
+            if [[ -d "plugins/${PLUGIN}" ]]; then
+              cd "plugins/${PLUGIN}"
+              git fetch origin
+              git checkout "${COMMIT}"
+              cd ../..
+            else
+              git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
+              cd "plugins/${PLUGIN}"
+              git checkout "${COMMIT}"
+              cd ../..
+            fi
+
+            PULLS_URL="https://github.com/SteamDeckHomebrew/decky-plugin-database/pulls?q=is%3Apr+is%3Aopen+sort%3Acreated-desc+-status%3Afailure+-draft%3Atrue+-author%3A%40me"
+
+            CHECKLIST=$(cat <<'CHECKLIST_EOF'
+            ## Task Checklist
+
+            ### Developer
+
+            - [x] I am the original author or an authorized maintainer of this plugin.
+            - [x] I have abided by the licenses of the libraries I am utilizing, including attaching license notices where appropriate.
+
+            ### Plugin
+
+            - [x] I have verified that my plugin works properly on the Stable and Beta update channels of SteamOS.
+            - [x] I have verified my plugin is unique or provides more/alternative functionality to a plugin already on the store.
+
+            ### Backend
+
+            - **No**: I am using a custom backend other than Python.
+            - **No**: I am using a tool or software from a 3rd party FOSS project that does not have it's dependencies [statically linked](https://en.wikipedia.org/wiki/Static_library).
+            - **No**: I am using a custom binary that has all of it's dependencies statically linked.
+
+            ### Community
+
+            - [ ] I have tested and left feedback on two other [pull requests][pulls] for new or updating plugins.
+            - [ ] I have commented links to my testing report in this PR.
+
+            ## Testing
+
+            - [ ] Tested by a third party on SteamOS Stable or Beta update channel.
+            CHECKLIST_EOF
+            )
+            CHECKLIST="${CHECKLIST/#            /}"
+            CHECKLIST=$(echo "$CHECKLIST" | sed 's/^            //')
+
+            if [[ "$IS_UPDATE" == "true" ]]; then
+              PR_TITLE="Update ${PLUGIN} to v${VERSION}"
+              {
+                echo "# Update ${PLUGIN} to v${VERSION}"
+                echo ""
+                echo "${CHANGELOG}"
+                echo ""
+                echo "${CHECKLIST}"
+                echo ""
+                echo "[pulls]: ${PULLS_URL}"
+              } > ../pr_body.md
+              COMMIT_MSG="Updating ${PLUGIN} to v${VERSION}"
+            else
+              PR_TITLE="Add ${PLUGIN} to Plugin Store"
+              {
+                echo "# Add ${PLUGIN} to Plugin Store"
+                echo ""
+                echo "${DESCRIPTION}"
+                echo ""
+                echo "${CHECKLIST}"
+                echo ""
+                echo "[pulls]: ${PULLS_URL}"
+              } > ../pr_body.md
+              COMMIT_MSG="Submitting New Plugin ${PLUGIN}"
+            fi
+
+            git add .
+            git commit -m "${COMMIT_MSG}" || echo "No changes to commit"
+
+            git push -u "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" "${NEW_BRANCH}" --force
             gh pr create \
               --repo SteamDeckHomebrew/decky-plugin-database \
-              --head "${FORK%%/*}:${BRANCH}" \
+              --head "${FORK_OWNER}:${NEW_BRANCH}" \
               --base main \
               --title "${PR_TITLE}" \
               --body-file ../pr_body.md

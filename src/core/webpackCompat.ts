@@ -43,6 +43,120 @@ export function setRuntimeClassMap(doc: Document, map: Record<string, string>) {
   } catch {}
 }
 
+/** Traverse from an img element upward to find native card tokens.
+ *  Returns { nativeCard, nativeCardArt, nativeCardArtOuter, nativeCardArtPortrait, nativeCardImg, nativeCardImgFade }
+ */
+function _discoverNativeCardTokens(doc: Document): Record<string, string> | null {
+  try {
+    const imgs = Array.from(doc.querySelectorAll<HTMLImageElement>('img'));
+    for (const img of imgs) {
+      try {
+        // Skip our own cards' images
+        const closest = img.closest('.ds-card');
+        if (closest) continue;
+        // Only consider portrait-sized game card images (skip avatars, icons, etc.)
+        const r = img.getBoundingClientRect();
+        if (r.width < 90 || r.width > 220 || r.height < 120) continue;
+        // Collect all obfuscated classes on the img
+        const imgClasses = Array.from(img.classList).filter(c => c.startsWith('_') && c.length > 5);
+        // Direct parent = nativeCardArt background container
+        const directParent = img.parentElement;
+        const directClasses = directParent
+          ? Array.from(directParent.classList).filter(c => c.startsWith('_') && c.length > 5)
+          : [];
+        // Grandparent = outer art wrapper (with aspect-ratio padding)
+        const grandParent = directParent?.parentElement;
+        const grandClasses = grandParent && !grandParent.classList.contains('ds-card')
+          ? Array.from(grandParent.classList).filter(c => c.startsWith('_') && c.length > 5)
+          : [];
+
+        // Traverse up to find the actual focusable card root rather than the inner art wrapper.
+        let el: Element | null = img.parentElement;
+        let depth = 0;
+        let bestRootClasses: string[] | null = null;
+        while (el && depth++ < 10) {
+          const rootClasses = Array.from(el.classList).filter((c) => {
+            if (!c || c.length <= 5) return false;
+            if (c === 'Panel' || c === 'Focusable' || c === 'gpfocus' || c === 'gpfocuswithin') return false;
+            if (c.startsWith('ds-')) return false;
+            return /[_A-Z0-9-]/.test(c);
+          });
+          if (rootClasses.length) {
+            const cs = getComputedStyle(el as HTMLElement);
+            if (cs.cursor === 'pointer' && !el.classList.contains('ds-card')) {
+              bestRootClasses = rootClasses;
+              if (el.classList.contains('Focusable') || el.classList.contains('Panel')) {
+                break;
+              }
+            }
+          }
+          el = el.parentElement;
+        }
+        if (bestRootClasses?.length) {
+          const primaryCardClass = bestRootClasses.find((c) => !c.startsWith('_')) ?? bestRootClasses[0];
+          const cardMods = bestRootClasses.filter((c) => c !== primaryCardClass);
+          const out: Record<string, string> = { nativeCard: primaryCardClass };
+          if (cardMods.length) out.nativeCardMods = cardMods.join(' ');
+          // Art background container (direct parent of img)
+          if (directClasses[0]) out.nativeCardArt = directClasses[0];
+          // Outer wrapper (grandparent, has aspect-ratio padding-top)
+          if (grandClasses[0] && grandClasses[0] !== directClasses[0]) out.nativeCardArtOuter = grandClasses[0];
+          // Portrait aspect-ratio class (padding-top: 150%) — look for it on grandparent
+          const portraitCls = grandClasses.find(c => c !== grandClasses[0]);
+          if (portraitCls) out.nativeCardArtPortrait = portraitCls;
+          // Img primary class and fade class
+          if (imgClasses[0]) out.nativeCardImg = imgClasses[0];
+          if (imgClasses[1]) out.nativeCardImgFade = imgClasses[1];
+          return out;
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
+/** Traverse shelf-level elements to discover nativeShelf, nativeShelfTitle, nativeShelfRow tokens.
+ *  Looks for horizontal scroll containers (shelf rows) and their parent/sibling heading elements.
+ */
+function _discoverNativeShelfTokens(doc: Document): Record<string, string> | null {
+  try {
+    const els = Array.from(doc.querySelectorAll<HTMLElement>('[class]'));
+    for (const el of els) {
+      try {
+        const cs = getComputedStyle(el);
+        const ox = (cs.overflowX || '').toLowerCase();
+        if (!(ox === 'auto' || ox === 'scroll' || ox === 'overlay')) continue;
+        if (el.scrollWidth <= el.clientWidth + 10 || el.clientHeight < 100) continue;
+        // Skip containers inside our own plugin
+        if (el.closest('#deck-shelves-home-root')) continue;
+        const rowCls = Array.from(el.classList).find(c => c.startsWith('_') && c.length > 5);
+        if (!rowCls) continue;
+        const parent = el.parentElement;
+        if (!parent) continue;
+        const shelfCls = Array.from(parent.classList).find(c => c.startsWith('_') && c.length > 5);
+        // Find sibling heading element (font-size >= 16px) → nativeShelfTitle
+        let titleCls: string | undefined;
+        for (const sib of Array.from(parent.children)) {
+          if (sib === el) continue;
+          try {
+            const sibCS = getComputedStyle(sib as HTMLElement);
+            if (parseFloat(sibCS.fontSize) >= 16) {
+              titleCls = Array.from(sib.classList).find(c => c.startsWith('_') && c.length > 5);
+              if (titleCls) break;
+            }
+          } catch {}
+        }
+        const out: Record<string, string> = {};
+        if (rowCls) out.nativeShelfRow = rowCls;
+        if (shelfCls) out.nativeShelf = shelfCls;
+        if (titleCls) out.nativeShelfTitle = titleCls;
+        if (Object.keys(out).length) return out;
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
 export function discoverClassMap(doc: Document): Record<string, string> | null {
   try {
     // Prefer explicit scrollable candidates with obfuscated classes
@@ -55,7 +169,9 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight && el.clientHeight > 80) {
           for (const cls of Array.from(el.classList)) {
             if (cls && cls.startsWith('_') && cls.length > 4) {
-              return { viewport: cls };
+              const nativeCardTokens = _discoverNativeCardTokens(doc);
+              const nativeShelfTokens = _discoverNativeShelfTokens(doc);
+              return { viewport: cls, ...(nativeShelfTokens ?? {}), ...(nativeCardTokens ?? {}) };
             }
           }
         }
@@ -113,7 +229,9 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
                         } catch {}
                         if (cardToken) break;
                       }
-                      const out: Record<string,string> = { viewport: viewportToken };
+                      const nativeCardTokens2 = _discoverNativeCardTokens(doc);
+                      const nativeShelfTokens2 = _discoverNativeShelfTokens(doc);
+                      const out: Record<string,string> = { viewport: viewportToken, ...(nativeShelfTokens2 ?? {}), ...(nativeCardTokens2 ?? {}) };
                       if (rowToken) out.row = rowToken;
                       if (cardToken) out.card = cardToken;
                       return out;
@@ -124,7 +242,9 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
             }
           }
         } catch {}
-        return { viewport: viewportToken };
+        const nativeCardTokens3 = _discoverNativeCardTokens(doc);
+        const nativeShelfTokens3 = _discoverNativeShelfTokens(doc);
+        return { viewport: viewportToken, ...(nativeShelfTokens3 ?? {}), ...(nativeCardTokens3 ?? {}) };
       }
     } catch {}
 
@@ -148,11 +268,12 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         for (const [t, els] of Object.entries(tokenMap)) {
           for (const el of els) {
             try {
-              const ch = el.children.length;
               const sh = (el.scrollHeight || 0);
               const chh = (el.clientHeight || 0);
               if ((el.style && (el.style as any).overflowY === 'auto') || (sh > chh && chh > 80)) {
-                const out: Record<string,string> = { viewport: t };
+                const nativeCardTokens = _discoverNativeCardTokens(doc);
+                const nativeShelfTokens4 = _discoverNativeShelfTokens(doc);
+                const out: Record<string,string> = { viewport: t, ...(nativeShelfTokens4 ?? {}), ...(nativeCardTokens ?? {}) };
                 try {
                   const viewportEl = el;
                   const childEls = Array.from(viewportEl.children).filter(c=> c instanceof HTMLElement) as HTMLElement[];
@@ -183,7 +304,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         }
         // fallback: return most frequent token as viewport
         const sorted = Object.keys(tokenMap).sort((a,b)=> tokenMap[b].length - tokenMap[a].length);
-        return { viewport: sorted[0] };
+        const nativeShelfTokens5 = _discoverNativeShelfTokens(doc);
+        return { viewport: sorted[0], ...(nativeShelfTokens5 ?? {}) };
       }
     } catch {}
     return null;

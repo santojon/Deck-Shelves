@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Compatibility tier badge on shelf cards (Steam Deck Verified / Playable) with themed colors
+- CSS Loader / DeckThemes compatibility: shelf cards now receive native Steam card classes (`WYgDg9NyCcMIVuMyZ_NBC`, art, img classes) injected at runtime so much theme CSS rules apply to shelf cards the same way they apply to native Recent Games cards in most of cases
+- Native focus animation colors: `--custom-sp-color-border` and its grow/fade variants set as `:root` fallbacks so active themes cascade their accent color to the shelf focus ring without override conflicts
+- Runtime detection of native card art classes (`nativeCardArt`, `nativeCardArtOuter`, `nativeCardArtPortrait`, `nativeCardImg`, `nativeCardImgFade`) injected into shelf card DOM elements
+
+### Changed
+
+- Heading color detection (`--ds-native-heading-color`) now applies a saturation check: white/gray vanilla headings are skipped so the CSS fallback (green play icon, inherit for text) is used when no theme is active
+- `--ds-native-heading-color` is cleared and re-detected on every `ensureStyles()` call so theme changes take effect live without requiring a Steam reload
+- Focus suppression rules scoped to `#deck-shelves-home-root` with ID-prefix specificity to prevent Steam/Decky default focus visuals from overriding the themed focus ring
+- Ancestor elements (row scroll, shelf root) suppress their own focus visuals so only the card-level ring is visible
+
+### Fixed
+
+- Install detection no longer infers installed from `display_status > 0` alone; only explicit `installed: true` in `per_client_data` marks a game as installed — fixing false positives where games available on remote clients (ds=9) were shown with the play icon
+- Non-Steam shortcuts default to `installed: false` when no install evidence is present, rather than `true`
+- `enrichAppStateFlags` secondary check no longer skips Steam games — all items without confirmed `installed: false` are re-verified via `GetAppOverviewByAppID`
+- `--custom-sp-color-border` cascade: variables are now set on `:root` as plain fallbacks instead of via a `--ds-focus-color` indirection that could not resolve body-level theme values, so theme accent colors correctly reach the focus animation keyframes
+- Play icon color no longer persists as gray after a theme is removed (stale `--ds-native-heading-color` is now always cleared before re-detection)
+- Status text no longer inherits the wrong accent color in Outrun and similar themes (removed explicit `color` from `.ds-card-status`, allowing correct cascade from native card)
+
 ## [1.1.1] - 2026-04-06
 
 ### Added

@@ -11,18 +11,21 @@ describe('steam helpers', () => {
     expect((norm as AppOverview).installed).toBeUndefined();
   });
 
-  it('normalizeAppOverview marks installed when per_client_data.display_status > 0', () => {
-    const raw = { appid: 9003, display_name: 'Installed Game', per_client_data: [{ display_status: 2 }] };
+  it('normalizeAppOverview marks installed when per_client_data has explicit installed:true', () => {
+    // Real Steam data: ds=11 games have an explicit `installed` field in pcd
+    const raw = { appid: 9003, display_name: 'Installed Game', per_client_data: [{ display_status: 11, installed: true }] };
     const norm = normalizeAppOverview(raw);
     expect(norm).not.toBeNull();
     expect((norm as AppOverview).installed).toBe(true);
   });
 
-  it('normalizeAppOverview marks NOT installed when per_client_data.display_status === 0', () => {
-    const raw = { appid: 9004, display_name: 'Not Installed', per_client_data: [{ display_status: 0 }] };
+  it('normalizeAppOverview leaves installed undefined when per_client_data has no installed field (ds=9)', () => {
+    // Real Steam data: ds=9 = available on remote device, no explicit installed in pcd
+    const raw = { appid: 9004, display_name: 'Remote Game', per_client_data: [{ display_status: 9 }] };
     const norm = normalizeAppOverview(raw);
     expect(norm).not.toBeNull();
-    expect((norm as AppOverview).installed).toBe(false);
+    // undefined → DeckRow treats as not installed (conservative, shows download icon)
+    expect((norm as AppOverview).installed).toBeUndefined();
   });
 
   it('normalizeAppOverview leaves installed undefined for Steam apps with no evidence', () => {
@@ -63,12 +66,13 @@ describe('steam helpers', () => {
     }
   });
 
-  it('enrichAppStateFlags marks installed via appStore per_client_data', async () => {
+  it('enrichAppStateFlags marks installed via appStore per_client_data explicit installed field', async () => {
+    // Real Steam data: installed games have explicit installed:true in pcd
     const items: AppOverview[] = [{ appid: 123, display_name: 'Shortcut 123', is_non_steam: true }];
     const mockWin: any = {
       appStore: {
         GetAppOverviewByAppID: (id: number) => {
-          if (id === 123) return { per_client_data: [{ display_status: 2 }] };
+          if (id === 123) return { per_client_data: [{ display_status: 11, installed: true }] };
           return null;
         }
       }
@@ -87,12 +91,13 @@ describe('steam helpers', () => {
     }
   });
 
-  it('enrichAppStateFlags marks NOT installed when display_status is 0', async () => {
-    const items: AppOverview[] = [{ appid: 456, display_name: 'Not Installed Shortcut', is_non_steam: true }];
+  it('enrichAppStateFlags leaves installed undefined when per_client_data has no installed field (ds=9)', async () => {
+    // Real Steam data: ds=9 = available on remote, no explicit installed in pcd
+    const items: AppOverview[] = [{ appid: 456, display_name: 'Remote Game', is_non_steam: false }];
     const mockWin: any = {
       appStore: {
         GetAppOverviewByAppID: (id: number) => {
-          if (id === 456) return { per_client_data: [{ display_status: 0 }] };
+          if (id === 456) return { per_client_data: [{ display_status: 9 }] };
           return null;
         }
       }
@@ -104,7 +109,8 @@ describe('steam helpers', () => {
       const enriched = await enrichAppStateFlags(items);
       const found = enriched.find((a) => a.appid === 456);
       expect(found).toBeDefined();
-      expect((found as any).installed).toBe(false);
+      // No explicit installed field → undefined → DeckRow shows download icon (conservative)
+      expect((found as any).installed).toBeUndefined();
     } finally {
       setPreferredSteamWindow(null as any);
       if (realWindow === undefined) delete (globalThis as any).window; else (globalThis as any).window = realWindow;

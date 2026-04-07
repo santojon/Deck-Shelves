@@ -618,15 +618,18 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
     is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     installed: (() => {
+      // Check explicit field on the raw overview first
       const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
       if (explicit !== undefined) return explicit;
       try {
         const pcd = node?.per_client_data ?? node?.local_per_client_data;
         const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
         if (clientData) {
-          const ds = Number(clientData?.display_status ?? 0);
-          if (ds > 0) return true;
-          return false;
+          // Only check explicit installed field in pcd — do NOT infer from display_status.
+          // ds=9 means "available on remote client" (not locally installed);
+          // ds=11 has an explicit installed:true in pcd so the check above catches it.
+          const pcdExplicit = readOptionalBoolean(clientData, ["installed", "is_installed"]);
+          if (pcdExplicit !== undefined) return pcdExplicit;
         }
       } catch {}
       try {
@@ -739,7 +742,7 @@ export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOver
       const appStore = (win as any)?.appStore ?? (win as any)?.AppStore;
       if (!appStore?.GetAppOverviewByAppID) continue;
       for (const [appid, item] of byId) {
-        if (!item.is_non_steam || item.installed === true) continue;
+        if (item.installed === false) continue;  // skip already-confirmed not-installed
         try {
           const raw = appStore.GetAppOverviewByAppID(appid);
           if (!raw) continue;
@@ -751,9 +754,10 @@ export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOver
           const pcd = raw?.per_client_data ?? raw?.local_per_client_data;
           const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
           if (clientData) {
-            const ds = Number(clientData?.display_status ?? 0);
-            if (ds > 0) { item.installed = true; continue; }
-            item.installed = false;
+            // Only use explicit installed field in pcd — do NOT infer from display_status.
+            const pcdInstalled = readOptionalBoolean(clientData, ["installed", "is_installed"]);
+            if (pcdInstalled !== undefined) { item.installed = pcdInstalled; continue; }
+            // No explicit field in pcd — leave item.installed unchanged (don't assume)
             continue;
           }
 
