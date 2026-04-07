@@ -158,7 +158,7 @@ function ensureStyles() {
             background: none !important;
             background-image: none !important;
             animation: none !important;
-            display: block !important;
+            display: inline !important;
           }
 
           /* Show a 2px themed ring using box-shadow on focus, and pulse opacity. */
@@ -362,12 +362,19 @@ function GameCard({ item }: { item: DeckRowItem }) {
       const sampleSelector = buildSelectorFromToken(map.nativeCard);
       const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
       if (nativeSample) {
-        // Do not copy native hashed/root classes — they often include
-        // native ::after shimmer rules that tint artwork. Keep our own
-        // styling and focus ring instead.
-        setNativeCardClass('');
-        // Attempt to copy native ::after animation properties so our retinted ::after
-        // uses the exact same timing/keyframes as the native card.
+        try {
+          const rootClasses = Array.from(nativeSample.classList).filter((cls) => (
+            cls !== 'Panel'
+            && cls !== 'Focusable'
+            && cls !== 'gpfocus'
+            && !cls.startsWith('ds-')
+          ));
+          if (!rootClasses.includes('gpfocuswithin')) rootClasses.push('gpfocuswithin');
+          setNativeCardClass(rootClasses.join(' '));
+        } catch (e) {
+          setNativeCardClass('');
+        }
+        
         try {
           const pa = getComputedStyle(nativeSample, '::after');
           const animName = (pa.animationName || '').split(',')[0] || '';
@@ -683,6 +690,7 @@ function MoreCard({ item }: { item: DeckRowItem }) {
           && cls !== 'gpfocuswithin'
           && !cls.startsWith('ds-')
         ));
+        if (!rootClasses.includes('gpfocuswithin')) rootClasses.push('gpfocuswithin');
         setNativeCardClass(rootClasses.join(' '));
         // Also copy animation props from native ::after to the MoreCard root so
         // the fallback inherits native timing when possible.
