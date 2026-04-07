@@ -34,13 +34,15 @@ jobs:
           PLUGIN_AUTHOR=$(node -p "require('./plugin.json').author")
           PLUGIN_DESC=$(node -p "require('./plugin.json').publish.description")
           COMMIT=$(git rev-parse HEAD)
-          cat >> "$GITHUB_OUTPUT" <<GITHUB_EOF
-          version=$VERSION
-          plugin_name=$PLUGIN_NAME
-          plugin_author=$PLUGIN_AUTHOR
-          plugin_description=$PLUGIN_DESC
-          commit=$COMMIT
-          GITHUB_EOF
+          {
+            printf 'version=%s\n' "$VERSION"
+            printf 'plugin_name=%s\n' "$PLUGIN_NAME"
+            printf 'plugin_author=%s\n' "$PLUGIN_AUTHOR"
+            printf 'plugin_description<<PLUGIN_DESC_EOF\n'
+            printf '%s\n' "$PLUGIN_DESC"
+            printf 'PLUGIN_DESC_EOF\n'
+            printf 'commit=%s\n' "$COMMIT"
+          } >> "$GITHUB_OUTPUT"
           echo "Plugin: $PLUGIN_NAME v$VERSION ($COMMIT)"
 
           # Extract changelog for this version
@@ -51,11 +53,11 @@ jobs:
           if [[ -z "$CHANGELOG" ]]; then
             CHANGELOG="Version ${VERSION} release."
           fi
-          cat >> "$GITHUB_OUTPUT" <<GITHUB_EOF
-          changelog<<CHANGELOG_EOF
-          $CHANGELOG
-          CHANGELOG_EOF
-          GITHUB_EOF
+          {
+            printf 'changelog<<CHANGELOG_EOF\n'
+            printf '%s\n' "$CHANGELOG"
+            printf 'CHANGELOG_EOF\n'
+          } >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
 
