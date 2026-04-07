@@ -104,9 +104,10 @@ export function extractAppContextMenu(): boolean {
     (fakeEvt as any).stopPropagation = () => {};
     (fakeEvt as any).preventDefault = () => {};
     menuFn(fakeEvt);
-  } catch {}
-
-  React.createElement = origCreateElement;
+  } catch {
+  } finally {
+    React.createElement = origCreateElement;
+  }
 
   if (capturedComponent) {
     cachedMenuComponent = capturedComponent;

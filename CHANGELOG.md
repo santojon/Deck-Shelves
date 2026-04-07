@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Horizontal shelf navigation now matches native Recent Games pacing: each D-pad press advances exactly one card with a ~200ms per-card pause when holding, preventing focus from racing ahead of the scroll
+- `React.createElement` monkey-patch in `steamGameMenu.ts` is now restored via `try/finally`, preventing a stale override if menu extraction throws
+- `DS_MENU_PATCHED` string property replaced with a `WeakSet<object>` (`patchedMenuControllers`), avoiding pollution of external Steam controller objects with plugin-owned string keys
+- `BTryInternalNavigation` proto-patch now documents potential conflicts with other plugins that patch the same method; chaining via `orig()` closure is preserved
+
+### Changed
+
+- Horizontal scroll throttle implemented via `__ds_scroll_throttle_rows` Set shared between `DeckRow` and `BTryInternalNavigation`: while a row is throttling, D-pad input is blocked at the navigation layer so focus and scroll advance together card-by-card
+- `__ds_centering_rows` global Set removed; replaced by per-row `rafPending` + `throttleTimer` locals with no global state
+
 ## [1.1.2] - 2026-04-07
 
 ### Added
