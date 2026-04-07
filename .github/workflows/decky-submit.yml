@@ -20,7 +20,7 @@ env:
 jobs:
   prepare-submission:
     runs-on: ubuntu-latest
-    if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -245,9 +245,9 @@ jobs:
                 echo "# Update ${PLUGIN} to v${VERSION}"
                 echo ""
               } > ../pr_body.md
-              cat >> ../pr_body.md <<'CHANGELOG_EOF'
-${CHANGELOG}
-CHANGELOG_EOF
+              # Append changelog indented by 4 spaces to preserve formatting in the PR body
+              printf '%s
+' "$CHANGELOG" | sed 's/^/    /' >> ../pr_body.md || true
               {
                 echo ""
                 echo "${CHECKLIST}"
@@ -262,9 +262,9 @@ CHANGELOG_EOF
                 echo "# Add ${PLUGIN} to Plugin Store"
                 echo ""
               } > ../pr_body.md
-              cat >> ../pr_body.md <<'DESCRIPTION_EOF'
-${DESCRIPTION}
-DESCRIPTION_EOF
+              # Append description indented by 4 spaces to preserve formatting in the PR body
+              printf '%s
+' "$DESCRIPTION" | sed 's/^/    /' >> ../pr_body.md || true
               {
                 echo ""
                 echo "${CHECKLIST}"
