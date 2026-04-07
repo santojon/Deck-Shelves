@@ -829,32 +829,34 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     // throttleTimer creates the per-card micro-pause when holding D-pad:
     // while the throttle is active, the latest focused card is captured in
     // lastFocusedCard and scroll catches up when the timer expires.
+    // __ds_scroll_throttle_rows: Set shared with BTryInternalNavigation in HomeInject.
+    // While a row is in this Set, Gate 1 blocks D-pad so focus cannot move until
+    // the throttle expires — creating the per-card micro-pause when holding D-pad.
+    const throttleRows: Set<HTMLElement> = ((globalThis as any).__ds_scroll_throttle_rows ??= new Set());
+
     let rafPending: number | null = null;
-    let lastFocusedCard: HTMLElement | null = null;
     let throttleTimer: any = null;
 
-    const doHorizontalScroll = () => {
-      const card = lastFocusedCard;
-      if (!card || !rowEl.contains(card)) return;
+    const doHorizontalScroll = (card: HTMLElement) => {
       const final = computeCenteredScrollLeft(
         { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
         { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight }
       );
       rowEl.scrollTo({ left: final, behavior: 'instant' });
+      throttleRows.add(rowEl);
+      if (throttleTimer) clearTimeout(throttleTimer);
       throttleTimer = setTimeout(() => {
         throttleTimer = null;
-        doHorizontalScroll();
-      }, 120);
+        throttleRows.delete(rowEl);
+      }, 200);
     };
 
     const handleFocusedCard = (card: HTMLElement | null) => {
       if (!card || !rowEl.contains(card)) return;
-      lastFocusedCard = card;
       if (rafPending !== null) return;
-      if (throttleTimer !== null) return;
       rafPending = requestAnimationFrame(() => {
         rafPending = null;
-        const c = lastFocusedCard;
+        const c = card;
         if (!c || !rowEl.contains(c)) return;
         try {
           for (const it of Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'))) {
@@ -936,7 +938,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
             }
           }
         } catch {}
-        doHorizontalScroll();
+        doHorizontalScroll(c);
       });
     };
 
@@ -967,6 +969,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
       observer.disconnect();
       if (rafPending !== null) { cancelAnimationFrame(rafPending); rafPending = null; }
       if (throttleTimer !== null) { clearTimeout(throttleTimer); throttleTimer = null; }
+      throttleRows.delete(rowEl);
     };
   }, []);
 

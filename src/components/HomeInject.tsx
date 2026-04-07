@@ -203,6 +203,13 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
+      if (direction === DIR_LEFT || direction === DIR_RIGHT) {
+        const el = this.Element || this.m_element || this.m_Element;
+        if (el && typeof el.className === "string" && el.className.includes("ds-row-scroll")) {
+          const throttled: Set<HTMLElement> = (globalThis as any).__ds_scroll_throttle_rows;
+          if (throttled?.has(el)) return true;
+        }
+      }
       const result = orig.call(this, direction, flag);
       if (!result && (direction === DIR_LEFT || direction === DIR_RIGHT)) {
         const el = this.Element || this.m_element || this.m_Element;
