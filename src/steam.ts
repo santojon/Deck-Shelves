@@ -389,7 +389,7 @@ function collectDynamicTabStores(): any[] {
 }
 
 
-async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
+export async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
   const raw = String(tab ?? "").trim();
   const normalized = normalizeTabId(raw);
   const slug = slugifyTab(raw);
@@ -416,6 +416,39 @@ async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
     }
   }
   return [];
+}
+
+/**
+ * Resolve installation state for a single appid by querying Steam's AppStore
+ * objects (GetAppOverviewByAppID) and checking per-client data / explicit fields.
+ * Returns `true` = installed, `false` = not installed, `null` = unknown.
+ */
+export async function resolveAppInstalledState(appid: number): Promise<boolean | null> {
+  try {
+    for (const win of getSteamWindows()) {
+      const appStore = (win as any)?.appStore ?? win?.AppStore ?? (globalThis as any).AppStore;
+      if (!appStore || typeof appStore.GetAppOverviewByAppID !== 'function') continue;
+      try {
+        const raw = appStore.GetAppOverviewByAppID(appid);
+        if (!raw) continue;
+        const directInstalled = raw?.installed ?? raw?.is_installed ?? raw?.m_bInstalled ?? raw?.bInstalled;
+        if (directInstalled === true) return true;
+        if (directInstalled === false) return false;
+        const pcd = raw?.per_client_data ?? raw?.local_per_client_data;
+        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
+        if (clientData) {
+          const pcdInstalled = readOptionalBoolean(clientData, ["installed", "is_installed"]);
+          if (pcdInstalled !== undefined) return pcdInstalled;
+        }
+        const sod = Number(raw?.size_on_disk ?? raw?.m_nSizeOnDisk ?? 0);
+        if (Number.isFinite(sod) && sod > 0) return true;
+        const lastLocal = Number(raw?.rt_last_time_locally_played ?? raw?.m_rtLastTimePlayed ?? 0);
+        if (Number.isFinite(lastLocal) && lastLocal > 0) return true;
+        return false;
+      } catch {}
+    }
+  } catch {}
+  return null;
 }
 
 export async function listLibraryTabs(): Promise<PlatformTab[]> {
@@ -597,6 +630,7 @@ export type AppOverview = {
   library_capsule?: string;
   library_capsule_filename?: string;
   rt_store_asset_mtime?: number;
+  user_added_ts?: number;
   library_hero?: string;
   header?: string;
   icon_hash?: string;
@@ -661,6 +695,7 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     library_capsule: String(node?.library_capsule ?? node?.libraryCapsule ?? node?.vertical_capsule ?? ""),
     library_capsule_filename: String(node?.library_capsule_filename ?? node?.libraryCapsuleFilename ?? ""),
     rt_store_asset_mtime: Number(node?.rt_store_asset_mtime ?? node?.rtStoreAssetMtime ?? 0) || undefined,
+    user_added_ts: Number(node?.time_added ?? node?.m_time_added ?? node?.added ?? node?.rt_time_added_to_account ?? node?.m_rtTimeAdded ?? node?.timeAddedToAccount ?? node?.time_added_to_account ?? node?.m_time_added_to_account ?? 0) || undefined,
     library_hero: String(node?.library_hero ?? node?.hero ?? node?.libraryHero ?? ""),
     header: String(node?.header ?? node?.header_image ?? node?.capsule ?? ""),
     icon_hash: String(node?.icon_hash ?? node?.iconHash ?? ""),
@@ -898,6 +933,13 @@ function extractAppOverviewsFromStoreMethods(store: any): AppOverview[] {
   }
 
   return uniqApps(out);
+}
+
+// Comparator used to sort by "added" preference (user-added timestamp, then store asset mtime)
+export function compareByAdded(a: AppOverview, b: AppOverview): number {
+  const aVal = (a as any)?.user_added_ts ?? (a as any)?.rt_store_asset_mtime ?? 0;
+  const bVal = (b as any)?.user_added_ts ?? (b as any)?.rt_store_asset_mtime ?? 0;
+  return Number(bVal) - Number(aVal);
 }
 
 function extractAppIdsDeep(node: any, maxDepth = 6): number[] {
@@ -1710,7 +1752,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       } else if (fSort === "review_score") {
         filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
       } else if (fSort === "added") {
-        filtered = filtered.slice().sort((a, b) => (b.rt_store_asset_mtime ?? 0) - (a.rt_store_asset_mtime ?? 0));
+        filtered = filtered.slice().sort((a, b) => ((b.user_added_ts ?? b.rt_store_asset_mtime ?? 0) - (a.user_added_ts ?? a.rt_store_asset_mtime ?? 0)));
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
@@ -1775,7 +1817,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     } else if (f.sort === "review_score") {
       filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
     } else if (f.sort === "added") {
-      filtered = filtered.slice().sort((a, b) => (b.rt_store_asset_mtime ?? 0) - (a.rt_store_asset_mtime ?? 0));
+      filtered = filtered.slice().sort((a, b) => ((b.user_added_ts ?? b.rt_store_asset_mtime ?? 0) - (a.user_added_ts ?? a.rt_store_asset_mtime ?? 0)));
     } else {
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
@@ -1881,6 +1923,7 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
   // library_capsule_filename includes hash subdirs and localized filenames.
   const capsuleFile = overview?.library_capsule_filename || "library_600x900.jpg";
   const mtime = overview?.rt_store_asset_mtime;
+  const added = overview?.user_added_ts ?? overview?.rt_store_asset_mtime;
   const cacheBust = mtime ? `?c=${mtime}` : "";
   const portraitUrl = isSteam ? `/assets/${appid}/${capsuleFile}${cacheBust}` : undefined;
   const heroUrl = isSteam ? `/assets/${appid}/library_hero.jpg${cacheBust}` : undefined;
@@ -1899,6 +1942,7 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
     deckCompatCategory: overview?.deck_compatibility_category,
     playtimeMinutes: Number(overview?.playtime_forever ?? (overview as any)?.minutes_playtime_forever ?? (overview as any)?.minutes_played_forever ?? 0) || undefined,
     updatePending,
+    addedTimestamp: typeof added === 'number' && Number.isFinite(added) && added > 0 ? Number(added) : undefined,
   };
 }
 

@@ -20,7 +20,7 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
   {
     id: "installed",
     titleKey: "template_installed",
-    source: { type: "filter", filter: { installed: true, sort: "alphabetical" } },
+    source: { type: "tab", tab: "installed" },
   },
   {
     id: "most_played",
@@ -39,9 +39,8 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
   },
 ];
 
-/** Templates used for the first-run "Create default shelves" action */
 export const DEFAULT_SHELF_TEMPLATES: ShelfTemplate[] = [
-  SHELF_TEMPLATES[0], // favorites
-  SHELF_TEMPLATES[1], // recent
-  SHELF_TEMPLATES[2], // installed
+  SHELF_TEMPLATES[0],
+  SHELF_TEMPLATES[1],
+  SHELF_TEMPLATES[4],
 ];

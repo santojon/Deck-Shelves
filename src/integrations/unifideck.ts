@@ -10,6 +10,7 @@
  */
 import { isExternalTabsProviderInstalled } from './registry';
 import { getPreferredSteamDocument } from '../runtime/steamHost';
+import { getTabAppIdsFromStore, resolveAppInstalledState } from '../steam';
 
 export type PlatformTab = { id: string; name: string };
 
@@ -45,6 +46,49 @@ export function getUnifiDeckTabs(): PlatformTab[] {
       if (id && !seen.has(id)) { seen.add(id); tabs.push({ id, name }); }
     }
     return tabs;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Resolve installed app ids for a UnifiDeck tab.
+ * Uses Steam store APIs when available and falls back to DOM scanning.
+ */
+export async function getUnifiDeckInstalledAppIds(tabId: string): Promise<number[]> {
+  if (!isExternalTabsProviderInstalled()) return [];
+  try {
+    // 1) Try Steam store APIs (more reliable)
+    try {
+      const ids = await getTabAppIdsFromStore(tabId);
+      if (ids && ids.length) {
+        const out: number[] = [];
+        for (const id of ids) {
+          try {
+            const state = await resolveAppInstalledState(Number(id));
+            if (state === true) out.push(Number(id));
+          } catch {}
+        }
+        if (out.length) return out;
+      }
+    } catch {}
+
+    // 2) Fallback: DOM scan for data-appid attributes within the tab panel
+    const doc = getPreferredSteamDocument();
+    if (!doc) return [];
+    const sel = `[data-tab-id="${tabId}"], [data-tab-id^="${tabId}"]`;
+    const tabEl = doc.querySelector(sel) as HTMLElement | null;
+    const ids: number[] = [];
+    if (tabEl) {
+      const panel = tabEl.closest('.Panel') || tabEl;
+      const candidates = panel ? panel.querySelectorAll('[data-appid], [data-app-id]') : doc.querySelectorAll('[data-appid], [data-app-id]');
+      for (const c of Array.from(candidates)) {
+        const aid = c.getAttribute('data-appid') || c.getAttribute('data-app-id') || (c as any).dataset?.appid || (c as any).dataset?.appId;
+        const n = Number(aid);
+        if (Number.isFinite(n) && n > 0) ids.push(n);
+      }
+    }
+    return Array.from(new Set(ids));
   } catch {
     return [];
   }
