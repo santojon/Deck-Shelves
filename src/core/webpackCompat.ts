@@ -70,32 +70,44 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
           ? Array.from(grandParent.classList).filter(c => c.startsWith('_') && c.length > 5)
           : [];
 
-        // Traverse up to find an ancestor with obfuscated class + cursor:pointer = nativeCard
+        // Traverse up to find the actual focusable card root rather than the inner art wrapper.
         let el: Element | null = img.parentElement;
         let depth = 0;
+        let bestRootClasses: string[] | null = null;
         while (el && depth++ < 10) {
-          const obfCls = Array.from(el.classList).find(c => c.startsWith('_') && c.length > 5);
-          if (obfCls) {
+          const rootClasses = Array.from(el.classList).filter((c) => {
+            if (!c || c.length <= 5) return false;
+            if (c === 'Panel' || c === 'Focusable' || c === 'gpfocus' || c === 'gpfocuswithin') return false;
+            if (c.startsWith('ds-')) return false;
+            return /[_A-Z0-9-]/.test(c);
+          });
+          if (rootClasses.length) {
             const cs = getComputedStyle(el as HTMLElement);
-            if (cs.cursor === 'pointer') {
-              if (!el.classList.contains('ds-card')) {
-                const out: Record<string, string> = { nativeCard: obfCls };
-                // Art background container (direct parent of img)
-                if (directClasses[0]) out.nativeCardArt = directClasses[0];
-                // Outer wrapper (grandparent, has aspect-ratio padding-top)
-                if (grandClasses[0] && grandClasses[0] !== directClasses[0]) out.nativeCardArtOuter = grandClasses[0];
-                // Portrait aspect-ratio class (padding-top: 150%) — look for it on grandparent
-                const portraitCls = grandClasses.find(c => c !== grandClasses[0]);
-                if (portraitCls) out.nativeCardArtPortrait = portraitCls;
-                // Img primary class and fade class
-                if (imgClasses[0]) out.nativeCardImg = imgClasses[0];
-                if (imgClasses[1]) out.nativeCardImgFade = imgClasses[1];
-                return out;
+            if (cs.cursor === 'pointer' && !el.classList.contains('ds-card')) {
+              bestRootClasses = rootClasses;
+              if (el.classList.contains('Focusable') || el.classList.contains('Panel')) {
+                break;
               }
-              break;
             }
           }
           el = el.parentElement;
+        }
+        if (bestRootClasses?.length) {
+          const primaryCardClass = bestRootClasses.find((c) => !c.startsWith('_')) ?? bestRootClasses[0];
+          const cardMods = bestRootClasses.filter((c) => c !== primaryCardClass);
+          const out: Record<string, string> = { nativeCard: primaryCardClass };
+          if (cardMods.length) out.nativeCardMods = cardMods.join(' ');
+          // Art background container (direct parent of img)
+          if (directClasses[0]) out.nativeCardArt = directClasses[0];
+          // Outer wrapper (grandparent, has aspect-ratio padding-top)
+          if (grandClasses[0] && grandClasses[0] !== directClasses[0]) out.nativeCardArtOuter = grandClasses[0];
+          // Portrait aspect-ratio class (padding-top: 150%) — look for it on grandparent
+          const portraitCls = grandClasses.find(c => c !== grandClasses[0]);
+          if (portraitCls) out.nativeCardArtPortrait = portraitCls;
+          // Img primary class and fade class
+          if (imgClasses[0]) out.nativeCardImg = imgClasses[0];
+          if (imgClasses[1]) out.nativeCardImgFade = imgClasses[1];
+          return out;
         }
       } catch {}
     }

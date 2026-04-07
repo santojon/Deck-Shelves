@@ -87,10 +87,17 @@ function ensureStyles() {
             --ds-card-radius: ${cachedCardRadius};
             --ds-card-dim: 0.9;
             --ds-card-bg: rgba(3, 10, 30, 0.92);
+            --ds-focus-color: var(--custom-sp-color-border, var(--ds-native-heading-color, rgba(255, 255, 255, 0.72)));
           }
           .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
           .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
           .ds-card {
+            --custom-sp-color-border: var(--ds-focus-color);
+            --custom-sp-color-border-grow-0: color-mix(in srgb, var(--ds-focus-color) 0%, transparent);
+            --custom-sp-color-border-grow-01: color-mix(in srgb, var(--ds-focus-color) 50%, transparent);
+            --custom-sp-color-border-grow-100: var(--ds-focus-color);
+            --custom-sp-color-border-fade-0: color-mix(in srgb, var(--ds-focus-color) 0%, transparent);
+            --custom-sp-color-border-fade-100: var(--ds-focus-color);
             border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
             filter: brightness(var(--ds-card-dim, 0.9));
             transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1);
@@ -98,32 +105,109 @@ function ensureStyles() {
             scroll-margin-bottom: 52px;
             scroll-margin-inline-end: 2.8vw;
           }
-          /* Suppress all Steam/Decky default focus visuals within our container.
-             The problematic rule is:
-               .BasicUI .WYgDg9NyCcMIVuMyZ_NBC.Focusable:focus {
-                 border: 2px solid var(--custom-sp-color-border);
-                 animation: appportrait_growOutline, appportrait_fadeOutline, appportrait_pulseOutline...
-               }
-             And .BasicUI .WYgDg9NyCcMIVuMyZ_NBC.gpfocus::after { animation-name: _8N-VOkqAyoF13zvUSqq2- }
-             We must suppress both :focus and .gpfocus variants, for the element AND its pseudos.
-             Theme focus border comes through via this same rule (var(--custom-sp-color-border)).
-             ID prefix gives specificity (1,1,0+) — beats (0,3,0) of .BasicUI .WYgDg9.Focusable:focus */
+          /* Let the native card class draw the actual focus ring so the shelves match Steam.
+             Suppress ancestor focus visuals, enforce a single themed outline on the card root,
+             and retint the native shimmer (::after) to the theme color to avoid gray banding. */
+          #deck-shelves-home-root .deck-shelves-root:focus,
+          #deck-shelves-home-root .deck-shelves-root.gpfocus,
+          #deck-shelves-home-root .deck-shelves-root.gpfocuswithin,
+          #deck-shelves-home-root .ds-row-scroll:focus,
+          #deck-shelves-home-root .ds-row-scroll.gpfocus,
+          #deck-shelves-home-root .ds-row-scroll.gpfocuswithin,
+          #deck-shelves-home-root .Panel.gpfocus,
+          #deck-shelves-home-root .Focusable.gpfocus,
+          #deck-shelves-home-root [class*="row"].gpfocus {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            animation: none !important;
+          }
+
+          /* Match native visuals: no outline, no offset, no pseudo shimmer
+             applied directly to the card. This makes the shelf card behave
+             like the native Recent card so we can compare their behavior. */
           #deck-shelves-home-root .ds-card:focus,
           #deck-shelves-home-root .ds-card.gpfocus {
             outline: none !important;
-            box-shadow: none !important;
-            transform: none !important;
-            animation: none !important;
+            outline-offset: 0px !important;
             border: none !important;
+            box-shadow: none !important;
+            z-index: 5;
           }
-          /* Suppress ::after shimmer/glow animations */
+
+           /* Retint native ::after shimmer to theme color and avoid a visible gray band.
+             Use overlay blending and cap opacity so shimmer doesn't produce a thick double-ring.
+             Provide a fallback shimmer animation so the focus pulses even if Steam's native
+             animation does not apply to our injected element. */
+          /* The pseudo-element draws a thin themed ring (via box-shadow) when
+             the card is focused. This avoids painting over the artwork and
+             allows us to animate opacity for the pulsing effect. */
+          /* Ensure the ::after pseudo does not paint a gradient or shimmer
+             on the shelf card — match native which has no ::after background. */
+          #deck-shelves-home-root .ds-card::after {
+            content: '' !important;
+            position: absolute !important;
+            inset: 0 !important;
+            border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
+            pointer-events: none !important;
+            z-index: 4 !important;
+            opacity: 1 !important;
+            transition: none !important;
+            background: none !important;
+            background-image: none !important;
+            animation: none !important;
+            display: block !important;
+          }
+
+          /* Show a 2px themed ring using box-shadow on focus, and pulse opacity. */
           #deck-shelves-home-root .ds-card:focus::after,
+          #deck-shelves-home-root .ds-card.gpfocus::after {
+            /* keep empty: prefer ::before overlay for consistent stacking */
+            opacity: 0 !important;
+            animation: none !important;
+          }
+
+          /* Create a stacked overlay via ::before to ensure the ring sits above
+             any native ::after visuals and never tints the artwork. */
+          #deck-shelves-home-root .ds-card::before {
+            content: '' !important;
+            position: absolute !important;
+            inset: 0 !important;
+            border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
+            pointer-events: none !important;
+            z-index: 10 !important;
+            opacity: 0 !important;
+            transition: opacity 120ms linear !important;
+          }
+
+          /* Also ensure the ::before overlay is inert for parity with native: */
           #deck-shelves-home-root .ds-card:focus::before,
-          #deck-shelves-home-root .ds-card.gpfocus::after,
+          #deck-shelves-home-root .ds-card.gpfocus::before {
+            box-shadow: none !important;
+            opacity: 1 !important;
+            animation: none !important;
+          }
+
+          /* Disable the DOM overlay; it caused unwanted tinting over covers.
+             We rely on the ::after pseudo-element ring instead. */
+          #deck-shelves-home-root .ds-card .ds-card-shimmer { display: none !important; }
+          #deck-shelves-home-root .ds-card:focus::before,
           #deck-shelves-home-root .ds-card.gpfocus::before {
             display: none !important;
             content: none !important;
             animation: none !important;
+            box-shadow: none !important;
+          }
+
+          @keyframes ds-shelf-shimmer {
+            0% { background-position: 0% 0%; opacity: 0; }
+            40% { opacity: 1; }
+            100% { background-position: -200% 0%; opacity: 0; }
+          }
+          @keyframes ds-focus-pulse {
+            0% { opacity: 0; }
+            40% { opacity: 1; }
+            100% { opacity: 0; }
           }
           #deck-shelves-home-root .ds-card *:focus { outline: none !important; box-shadow: none !important; }
           .ds-card-art {
@@ -267,12 +351,49 @@ function GameCard({ item }: { item: DeckRowItem }) {
   const [nativeCardClass, setNativeCardClass] = useState('');
 
   useEffect(() => {
-    function injectNativeClasses() {
+    function injectNativeClasses(): boolean {
       const doc = getPreferredSteamDocument();
       const map = doc ? getRuntimeClassMap(doc) : null;
-      if (!map?.nativeCard) return;
-      // Card root via React state (survives re-renders)
-      setNativeCardClass(map.nativeCard);
+      if (!map?.nativeCard) return false;
+      // Card root via React state (survives re-renders). Prefer the full class list from
+      // a live native card so focus/glow modifiers match Steam's Recent Games cards.
+      const sampleSelector = buildSelectorFromToken(map.nativeCard);
+      const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
+      if (nativeSample) {
+        // Do not copy native hashed/root classes — they often include
+        // native ::after shimmer rules that tint artwork. Keep our own
+        // styling and focus ring instead.
+        setNativeCardClass('');
+        // Attempt to copy native ::after animation properties so our retinted ::after
+        // uses the exact same timing/keyframes as the native card.
+        try {
+          const pa = getComputedStyle(nativeSample, '::after');
+          const animName = (pa.animationName || '').split(',')[0] || '';
+          const animDur = pa.animationDuration || '';
+          const animTiming = pa.animationTimingFunction || '';
+          const animIter = pa.animationIterationCount || '';
+          if (cardRef.current) {
+            if (animName && animName !== 'none') cardRef.current.style.setProperty('--ds-native-after-animation', animName);
+            if (animDur) cardRef.current.style.setProperty('--ds-native-after-duration', animDur);
+            if (animTiming) cardRef.current.style.setProperty('--ds-native-after-timing', animTiming);
+            if (animIter) cardRef.current.style.setProperty('--ds-native-after-iteration', animIter);
+            // Also set inline styles on the shimmer overlay element so it's applied
+            // even if CSS rules are overridden by Steam's stylesheet ordering.
+            try {
+              const shimmer = cardRef.current.querySelector('.ds-card-shimmer') as HTMLElement | null;
+              if (shimmer) {
+                // Ensure the overlay is not used — hide it explicitly so it cannot
+                // tint artwork even if other styles are present or CSS ordering
+                // prevents our stylesheet from taking precedence.
+                shimmer.style.display = 'none';
+                shimmer.style.animation = 'none';
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
+      } else {
+        setNativeCardClass('');
+      }
       // Art/img via classList.add (plain DOM elements, stable across re-renders)
       const artEl = cardRef.current?.querySelector('.ds-card-art');
       if (artEl) {
@@ -284,10 +405,32 @@ function GameCard({ item }: { item: DeckRowItem }) {
         if (map.nativeCardImg && !imgRef.current.classList.contains(map.nativeCardImg)) imgRef.current.classList.add(map.nativeCardImg);
         if (map.nativeCardImgFade && !imgRef.current.classList.contains(map.nativeCardImgFade)) imgRef.current.classList.add(map.nativeCardImgFade);
       }
+      // If we didn't find a nativeSample earlier, try to read runtime map animation tokens
+      try {
+        if (!nativeSample && map.nativeCard) {
+          const maybe = doc.querySelector(buildSelectorFromToken(map.nativeCard));
+          if (maybe) {
+            const pa = getComputedStyle(maybe, '::after');
+            const animName = (pa.animationName || '').split(',')[0] || '';
+            if (animName && animName !== 'none' && cardRef.current) cardRef.current.style.setProperty('--ds-native-after-animation', animName);
+          }
+        }
+      } catch (e) {}
+      return true;
     }
-    injectNativeClasses();
-    const timer = setTimeout(injectNativeClasses, 500);
-    return () => clearTimeout(timer);
+
+    let attempts = 0;
+    const intervals = [250, 500, 800, 1200, 2000];
+    let timer: number | null = null;
+    const tryInject = () => {
+      attempts += 1;
+      const ok = injectNativeClasses();
+      if (!ok && attempts < intervals.length) {
+        timer = window.setTimeout(tryInject, intervals[attempts - 1]);
+      }
+    };
+    tryInject();
+    return () => { if (timer) clearTimeout(timer); };
   }, []);
 
   useEffect(() => {
@@ -443,6 +586,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
             {item.name}
           </div>
         )}
+        <div className="ds-card-shimmer" aria-hidden="true" />
         {compatClass && (
           <div className={compatClass}>
             {deckLogoSvg}
@@ -523,15 +667,46 @@ function MoreCard({ item }: { item: DeckRowItem }) {
   const [nativeCardClass, setNativeCardClass] = useState('');
 
   useEffect(() => {
-    function injectNativeClasses() {
+    function injectNativeClasses(): boolean {
       const doc = getPreferredSteamDocument();
       const map = doc ? getRuntimeClassMap(doc) : null;
-      if (!map?.nativeCard) return;
-      setNativeCardClass(map.nativeCard);
+      if (!map?.nativeCard) return false;
+      const sampleSelector = buildSelectorFromToken(map.nativeCard);
+      const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
+      if (nativeSample) {
+        const rootClasses = Array.from(nativeSample.classList).filter((cls) => (
+          cls !== 'Panel'
+          && cls !== 'Focusable'
+          && cls !== 'gpfocus'
+          && cls !== 'gpfocuswithin'
+          && !cls.startsWith('ds-')
+        ));
+        setNativeCardClass(rootClasses.join(' '));
+        // Also copy animation props from native ::after to the MoreCard root so
+        // the fallback inherits native timing when possible.
+        try {
+          const pa = getComputedStyle(nativeSample, '::after');
+          const animName = (pa.animationName || '').split(',')[0] || '';
+          if (animName && animName !== 'none' && cardRef.current) cardRef.current.style.setProperty('--ds-native-after-animation', animName);
+        } catch (e) {}
+      } else {
+        setNativeCardClass([map.nativeCard, map.nativeCardMods].filter(Boolean).join(' '));
+      }
+      return true;
     }
-    injectNativeClasses();
-    const timer = setTimeout(injectNativeClasses, 500);
-    return () => clearTimeout(timer);
+
+    let attempts = 0;
+    const intervals = [250, 500, 800, 1200];
+    let timer: number | null = null;
+    const tryInject = () => {
+      attempts += 1;
+      const ok = injectNativeClasses();
+      if (!ok && attempts < intervals.length) {
+        timer = window.setTimeout(tryInject, intervals[attempts - 1]);
+      }
+    };
+    tryInject();
+    return () => { if (timer) clearTimeout(timer); };
   }, []);
 
   return (
@@ -864,6 +1039,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
         <Focusable
           ref={rowRef}
           className={`ds-row-scroll${nativeRowClass ? ` ${nativeRowClass}` : ''}`}
+          noFocusRing
           role="list"
           aria-label={title}
           onFocus={(e: any) => {
