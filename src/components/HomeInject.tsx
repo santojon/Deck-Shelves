@@ -203,10 +203,12 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
-      if ((direction === DIR_LEFT || direction === DIR_RIGHT) && (globalThis as any).__ds_centering) {
+      if (direction === DIR_LEFT || direction === DIR_RIGHT) {
         const el = this.Element || this.m_element || this.m_Element;
         if (el && typeof el.className === "string" && el.className.includes("ds-row-scroll")) {
-          return true;
+          // Block D-pad while this row's horizontal scroll animation is still running.
+          const centering: Set<HTMLElement> = (globalThis as any).__ds_centering_rows;
+          if (centering?.has(el)) return true;
         }
       }
       const result = orig.call(this, direction, flag);

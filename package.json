@@ -22,6 +22,7 @@
     "deck:setup": "bash scripts/deploy/deck-setup.sh",
     "fix:deck:perms": "bash scripts/deck/fix-deck-perms.sh",
     "deck:check": "bash scripts/deck/deck-check.sh",
+    "deck:perf": "bash scripts/deck/perf-test.sh",
     "logs:decky": "bash scripts/deck/logs-decky.sh",
     "check": "pnpm run typecheck && node scripts/build/validate.mjs",
     "validate:compat": "bash scripts/build/validate-compat.sh",

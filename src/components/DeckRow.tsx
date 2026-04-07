@@ -827,9 +827,19 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     if (!rowEl) return;
     let clearTimer: any = null;
 
+    // Per-row centering lock: each row registers itself in this Set while its
+    // horizontal scroll animation is running. BTryInternalNavigation checks this
+    // Set to block D-pad input until the scroll settles (card-by-card pacing).
+    const centeringRows: Set<HTMLElement> = ((globalThis as any).__ds_centering_rows ??= new Set());
+
+    const releaseCenteringLock = () => {
+      centeringRows.delete(rowEl);
+      if (clearTimer) { clearTimeout(clearTimer); clearTimer = null; }
+    };
+
     const handleFocusedCard = (card: HTMLElement | null) => {
       if (!card || !rowEl.contains(card)) return;
-      (globalThis as any).__ds_centering = true;
+      centeringRows.add(rowEl);
       if (clearTimer) clearTimeout(clearTimer);
       try {
         for (const it of Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card'))) {
@@ -975,9 +985,10 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
       } catch {}
       const final = computeCenteredScrollLeft({ width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth }, { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight });
       rowEl.scrollTo({ left: final, behavior: 'smooth' });
-      clearTimer = setTimeout(() => {
-        try { (globalThis as any).__ds_centering = false; } catch {}
-      }, 80);
+      clearTimer = setTimeout(releaseCenteringLock, 400);
+      try {
+        rowEl.addEventListener('scrollend', releaseCenteringLock, { once: true });
+      } catch {}
     };
 
     const onCardFocus = (e: FocusEvent) => {
@@ -1005,8 +1016,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
     return () => {
       rowEl.removeEventListener("focusin", onCardFocus);
       observer.disconnect();
-      if (clearTimer) clearTimeout(clearTimer);
-      try { (globalThis as any).__ds_centering = false; } catch {}
+      releaseCenteringLock();
     };
   }, []);
 
