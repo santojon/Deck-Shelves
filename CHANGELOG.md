@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-04-07
+
 ### Fixed
 
 - Horizontal shelf navigation now matches native Recent Games pacing: each D-pad press advances exactly one card with a ~200ms per-card pause when holding, preventing focus from racing ahead of the scroll
