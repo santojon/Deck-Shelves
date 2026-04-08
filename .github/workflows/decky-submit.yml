@@ -148,16 +148,22 @@ jobs:
               git commit --no-edit -m "Merge upstream/main into ${BRANCH}" || true
             }
 
-            # Update submodule to new commit
+            # Update submodule to new commit. Recreate the submodule directory
+            # to ensure the desired commit is available to checkout.
+            if [[ -d "plugins/${PLUGIN}" ]]; then
+              rm -rf "plugins/${PLUGIN}"
+            fi
+            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}" || true
             if [[ -d "plugins/${PLUGIN}" ]]; then
               cd "plugins/${PLUGIN}"
-              git fetch origin
-              git checkout "${COMMIT}"
-              cd ../..
-            else
-              git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
-              cd "plugins/${PLUGIN}"
-              git checkout "${COMMIT}"
+              git remote set-url origin "${REPO_URL}.git" || true
+              git fetch origin --tags --prune --no-recurse-submodules || git fetch origin || true
+              if git rev-parse --verify "${COMMIT}" >/dev/null 2>&1; then
+                git checkout "${COMMIT}" || true
+              else
+                git fetch origin "${COMMIT}" || true
+                git checkout "${COMMIT}" || true
+              fi
               cd ../..
             fi
 
@@ -191,16 +197,19 @@ jobs:
               echo "🔍 No merged PR found → this is a NEW plugin submission"
             fi
 
-            # Add submodule
+            # Add or update submodule: clone fresh to ensure commit is present
+            if [[ -d "plugins/${PLUGIN}" ]]; then
+              rm -rf "plugins/${PLUGIN}"
+            fi
+            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}" || true
             if [[ -d "plugins/${PLUGIN}" ]]; then
               cd "plugins/${PLUGIN}"
-              git fetch origin
-              git checkout "${COMMIT}"
-              cd ../..
-            else
-              git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}"
-              cd "plugins/${PLUGIN}"
-              git checkout "${COMMIT}"
+              git remote set-url origin "${REPO_URL}.git" || true
+              git fetch origin --tags --prune --no-recurse-submodules || git fetch origin || true
+              git checkout "${COMMIT}" || {
+                git fetch origin "${COMMIT}" || true
+                git checkout "${COMMIT}" || true
+              }
               cd ../..
             fi
 
