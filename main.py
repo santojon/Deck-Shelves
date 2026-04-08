@@ -67,6 +67,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         limit = max(1, min(limit, 100))
         hidden = bool(s.get("hidden", False))
         enabled = bool(s.get("enabled", True))
+        match_native_size = bool(s.get("matchNativeSize", False))
         if not sid:
             continue
         sanitized.append({
@@ -76,6 +77,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "limit": limit,
             "hidden": hidden,
             "enabled": enabled,
+            "matchNativeSize": match_native_size,
         })
     return {"enabled": bool(settings.get("enabled", False)), "shelves": sanitized}
 

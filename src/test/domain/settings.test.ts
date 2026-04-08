@@ -19,7 +19,7 @@ function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
     enabled: true,
     hidden: false,
     limit: 15,
-    matchNativeSize: true,
+    matchNativeSize: false,
     source: { type: 'tab', tab: 'all' },
     ...overrides,
   }
@@ -257,13 +257,13 @@ describe('normalizeFilter', () => {
 })
 
 describe('ShelfSchema matchNativeSize', () => {
-  it('defaults to true when field is absent', () => {
+  it('defaults to false when field is absent', () => {
     const result = ShelfSchema.parse({
       id: 'test',
       title: 'Test',
       source: { type: 'tab', tab: 'all' },
     })
-    expect(result.matchNativeSize).toBe(true)
+    expect(result.matchNativeSize).toBe(false)
   })
 
   it('accepts explicit false', () => {

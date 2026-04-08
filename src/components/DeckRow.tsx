@@ -75,8 +75,13 @@ function ensureStyles() {
     cachedCardRadius = newRadius;
     const steamDoc = getPreferredSteamDocument();
     const newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
+    const dimsChanged = newDims !== null && (
+      !cachedNativeDims ||
+      newDims.width !== cachedNativeDims.width ||
+      newDims.height !== cachedNativeDims.height ||
+      newDims.gap !== cachedNativeDims.gap
+    );
     if (newDims) cachedNativeDims = newDims;
-    const dimsChanged = newDims !== null;
     const docs = [document, steamDoc];
     for (const doc of docs) {
       if (!doc) continue;
@@ -170,26 +175,6 @@ function ensureStyles() {
             display: inline !important;
           }
 
-          
-
-          #deck-shelves-home-root .ds-card::before {
-            content: '' !important;
-            position: absolute !important;
-            inset: 0 !important;
-            border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
-            pointer-events: none !important;
-            z-index: 10 !important;
-            opacity: 0 !important;
-            transition: opacity 120ms linear !important;
-          }
-
-          #deck-shelves-home-root .ds-card:focus::before,
-          #deck-shelves-home-root .ds-card.gpfocus::before {
-            box-shadow: none !important;
-            opacity: 1 !important;
-            animation: none !important;
-          }
-            
           #deck-shelves-home-root .ds-card .ds-card-shimmer { display: none !important; }
 
           @keyframes ds-shelf-shimmer {
@@ -205,7 +190,7 @@ function ensureStyles() {
           #deck-shelves-home-root .ds-card *:focus { outline: none !important; box-shadow: none !important; }
           .ds-card-art {
             position: absolute !important;
-            inset: 0 !important;
+            inset: 1px !important;
             padding-top: 0 !important;
             border-radius: var(--ds-card-radius, ${cachedCardRadius});
           }
@@ -748,7 +733,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   } catch {}
 }
 
-export function DeckRow({ title, items, shelfId, matchNativeSize = true }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean }) {
+export function DeckRow({ title, items, shelfId, matchNativeSize = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);

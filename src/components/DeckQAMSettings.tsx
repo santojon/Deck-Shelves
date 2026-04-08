@@ -466,7 +466,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     filter: initialFilter,
     filterGroup: initialFilterGroup,
     limit: shelf.limit,
-    matchNativeSize: shelf.matchNativeSize ?? true,
+    matchNativeSize: shelf.matchNativeSize ?? false,
   })
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
