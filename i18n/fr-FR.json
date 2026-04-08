@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Trier par score Metacritic (le plus élevé en premier).",
   "docs_sort_review_desc": "Trier par évaluation des utilisateurs Steam (la plus élevée en premier).",
   "folder_label": "Dossier",
-  "browse": "Parcourir"
+  "browse": "Parcourir",
+  "match_native_size": "Taille native des cartes"
 }

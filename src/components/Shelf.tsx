@@ -124,5 +124,5 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
     onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
   });
 
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} />;
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={shelf.matchNativeSize} />;
 }

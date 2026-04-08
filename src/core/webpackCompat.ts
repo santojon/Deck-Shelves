@@ -157,6 +157,48 @@ function _discoverNativeShelfTokens(doc: Document): Record<string, string> | nul
   return null;
 }
 
+/** Measure native Recent Games card dimensions by finding portrait card images
+ *  and measuring the focusable card root element.
+ *  Returns { width, height, gap } in CSS pixels, or null if cards are not found.
+ */
+export function discoverNativeCardDimensions(doc: Document): { width: number; height: number; gap: number } | null {
+  try {
+    const imgs = Array.from(doc.querySelectorAll<HTMLImageElement>('img'));
+    const cardRoots: HTMLElement[] = [];
+    for (const img of imgs) {
+      try {
+        if (img.closest('.ds-card') || img.closest('#deck-shelves-home-root')) continue;
+        const r = img.getBoundingClientRect();
+        if (r.width < 90 || r.width > 220 || r.height < 120) continue;
+        // Walk up to find the focusable card root (cursor: pointer)
+        let el: HTMLElement | null = img.parentElement;
+        let depth = 0;
+        while (el && depth++ < 10) {
+          try {
+            const cs = getComputedStyle(el);
+            if (cs.cursor === 'pointer' && !el.classList.contains('ds-card')) {
+              cardRoots.push(el);
+              break;
+            }
+          } catch {}
+          el = el.parentElement;
+        }
+      } catch {}
+    }
+    if (cardRoots.length < 2) return null;
+    // Measure dimensions from the first card
+    const firstRect = cardRoots[0].getBoundingClientRect();
+    const width = Math.round(firstRect.width);
+    const height = Math.round(firstRect.height);
+    // Measure gap between the first two adjacent cards
+    const secondRect = cardRoots[1].getBoundingClientRect();
+    const gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
+    if (width < 50 || height < 80) return null;
+    return { width, height, gap };
+  } catch {}
+  return null;
+}
+
 export function discoverClassMap(doc: Document): Record<string, string> | null {
   try {
     // Prefer explicit scrollable candidates with obfuscated classes

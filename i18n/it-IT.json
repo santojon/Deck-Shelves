@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Ordina per punteggio Metacritic (più alto prima).",
   "docs_sort_review_desc": "Ordina per valutazione utenti Steam (più alta prima).",
   "folder_label": "Cartella",
-  "browse": "Sfoglia"
+  "browse": "Sfoglia",
+  "match_native_size": "Adatta dimensione nativa delle schede"
 }

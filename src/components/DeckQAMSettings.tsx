@@ -442,6 +442,7 @@ type EditableShelfState = {
   filter: ShelfFilter
   filterGroup: FilterGroup
   limit: number
+  matchNativeSize: boolean
 }
 
 type EditShelfModalProps = {
@@ -465,6 +466,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     filter: initialFilter,
     filterGroup: initialFilterGroup,
     limit: shelf.limit,
+    matchNativeSize: shelf.matchNativeSize ?? true,
   })
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
@@ -535,7 +537,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     closeModal?.();
     (async () => {
       const title = state.title.trim() || t('newShelf');
-      const patch: Partial<Shelf> = { title, limit: state.limit };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize };
       if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
       else if (state.sourceType === 'tab') {
         const selectedTab = tabs.find((t) => t.id === state.tab)
@@ -596,6 +598,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
             <Field label={`${t('limit')} (${state.limit})`}>
               <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />
             </Field>
+            <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
             <div style={{ padding: '8px 16px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
               {previewCount === null ? t('preview_loading') : previewCount === 0 ? `⚠️ ${t('preview_empty')}` : t('preview_count', { count: previewCount })}
             </div>

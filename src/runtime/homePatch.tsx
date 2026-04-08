@@ -259,6 +259,7 @@ function injectHomeStyles(doc: Document) {
   style.textContent = `
     #${ROOT_ID} {
       overflow: visible;
+      margin-top: -12px;
     }
     #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
     #${ROOT_ID} .deck-shelves-header {
@@ -292,8 +293,8 @@ function injectHomeStyles(doc: Document) {
       position: relative;
     }
     #${ROOT_ID} .deck-shelves-item {
-      width: 145px;
-      min-width: 145px;
+      width: calc(var(--ds-native-card-w, 133px) + 12px);
+      min-width: calc(var(--ds-native-card-w, 133px) + 12px);
       position: relative;
       padding: 0;
       border: 0;
@@ -305,8 +306,8 @@ function injectHomeStyles(doc: Document) {
       outline: none;
     }
     #${ROOT_ID} .deck-shelves-card {
-      width: 133px;
-      height: 251.5px;
+      width: var(--ds-native-card-w, 133px);
+      height: calc(var(--ds-native-card-h, 200px) + 51.5px);
       border-radius: 2px;
       overflow: hidden;
       background: rgba(3, 10, 30, 0.92);
@@ -319,7 +320,7 @@ function injectHomeStyles(doc: Document) {
     }
     #${ROOT_ID} .deck-shelves-art {
       width: 100%;
-      height: 199.5px;
+      height: var(--ds-native-card-h, 200px);
       object-fit: cover;
       display: block;
       background: #111827;

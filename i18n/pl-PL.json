@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Sortuj według oceny Metacritic (najwyższa na początku).",
   "docs_sort_review_desc": "Sortuj według oceny użytkowników Steam (najwyższa na początku).",
   "folder_label": "Folder",
-  "browse": "Przeglądaj"
+  "browse": "Przeglądaj",
+  "match_native_size": "Dopasuj natywny rozmiar kart"
 }

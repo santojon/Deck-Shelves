@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Metacritic 점수순으로 정렬합니다(가장 높은 것이 먼저).",
   "docs_sort_review_desc": "Steam 사용자 리뷰 점수순으로 정렬합니다(가장 높은 것이 먼저).",
   "folder_label": "폴더",
-  "browse": "찾아보기"
+  "browse": "찾아보기",
+  "match_native_size": "기본 카드 크기 맞추기"
 }

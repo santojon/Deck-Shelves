@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
-import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
+import { buildSelectorFromToken, getRuntimeClassMap, discoverNativeCardDimensions } from "../core/webpackCompat";
 import { getPortraitFallbacks } from "../core/steamAssets";
 import i18n from "../i18n";
 
@@ -24,9 +24,9 @@ export type DeckRowItem = {
   isSteam?: boolean;
 };
 
-const CARD_W      = 133;       // native Focusable width
-const CARD_ART_H  = 200;       // native ~199.5, rounded to clean integer
-const CARD_GAP    = 12;        // native gap between portrait cards
+const CARD_W      = 133;       // Focusable width
+const CARD_ART_H  = 200;       // ~199.5, rounded to clean integer
+const CARD_GAP    = 12;        // gap between portrait cards
 const STYLE_ID      = "deck-shelves-row-style";
 
 function detectNativeCardRadius(): string {
@@ -59,6 +59,7 @@ function detectNativeCardRadius(): string {
 }
 
 let cachedCardRadius = "0px";
+let cachedNativeDims: { width: number; height: number; gap: number } | null = null;
 
 function formatPlaytime(minutes: number | undefined): string | null {
   if (!minutes || minutes <= 0) return null;
@@ -72,10 +73,14 @@ function ensureStyles() {
     const newRadius = detectNativeCardRadius();
     const radiusChanged = newRadius !== cachedCardRadius;
     cachedCardRadius = newRadius;
-    const docs = [document, getPreferredSteamDocument()];
+    const steamDoc = getPreferredSteamDocument();
+    const newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
+    if (newDims) cachedNativeDims = newDims;
+    const dimsChanged = newDims !== null;
+    const docs = [document, steamDoc];
     for (const doc of docs) {
       if (!doc) continue;
-      if (radiusChanged) {
+      if (radiusChanged || dimsChanged) {
         const existing = doc.getElementById(STYLE_ID);
         if (existing) existing.remove();
       }
@@ -87,6 +92,9 @@ function ensureStyles() {
             --ds-card-radius: ${cachedCardRadius};
             --ds-card-dim: 0.9;
             --ds-card-bg: rgba(3, 10, 30, 0.92);
+            --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
+            --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
+            --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
             /* Fallback focus-ring color when no theme is active.
                Themes set --custom-sp-color-border on body/.BasicUI, which cascades
                to all descendants and takes precedence over these :root fallbacks. */
@@ -97,6 +105,7 @@ function ensureStyles() {
             --custom-sp-color-border-fade-0: rgba(255, 255, 255, 0);
             --custom-sp-color-border-fade-100: rgba(255, 255, 255, 0.72);
           }
+          #deck-shelves-home-root { margin-top: -28px !important; }
           .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
           .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
           .ds-card {
@@ -161,16 +170,8 @@ function ensureStyles() {
             display: inline !important;
           }
 
-          /* Show a 2px themed ring using box-shadow on focus, and pulse opacity. */
-          #deck-shelves-home-root .ds-card:focus::after,
-          #deck-shelves-home-root .ds-card.gpfocus::after {
-            /* keep empty: prefer ::before overlay for consistent stacking */
-            opacity: 0 !important;
-            animation: none !important;
-          }
+          
 
-          /* Create a stacked overlay via ::before to ensure the ring sits above
-             any native ::after visuals and never tints the artwork. */
           #deck-shelves-home-root .ds-card::before {
             content: '' !important;
             position: absolute !important;
@@ -182,24 +183,14 @@ function ensureStyles() {
             transition: opacity 120ms linear !important;
           }
 
-          /* Also ensure the ::before overlay is inert for parity with native: */
           #deck-shelves-home-root .ds-card:focus::before,
           #deck-shelves-home-root .ds-card.gpfocus::before {
             box-shadow: none !important;
             opacity: 1 !important;
             animation: none !important;
           }
-
-          /* Disable the DOM overlay; it caused unwanted tinting over covers.
-             We rely on the ::after pseudo-element ring instead. */
+            
           #deck-shelves-home-root .ds-card .ds-card-shimmer { display: none !important; }
-          #deck-shelves-home-root .ds-card:focus::before,
-          #deck-shelves-home-root .ds-card.gpfocus::before {
-            display: none !important;
-            content: none !important;
-            animation: none !important;
-            box-shadow: none !important;
-          }
 
           @keyframes ds-shelf-shimmer {
             0% { background-position: 0% 0%; opacity: 0; }
@@ -311,10 +302,7 @@ function ensureStyles() {
         `;
         doc.head.appendChild(style);
       }
-      // Always clear then re-detect native heading color so theme changes take effect live.
-      // Only set the variable when color is a saturated accent (theme-provided).
-      // Vanilla Steam headings are white/near-gray — skip those so the CSS fallback
-      // (green play icon, inherit for text) applies when no theme is active.
+
       try {
         doc.documentElement.style.removeProperty('--ds-native-heading-color');
         const headings = doc.querySelectorAll('h2[class], h3[class]');
@@ -323,13 +311,12 @@ function ensureStyles() {
           if (/_[A-Za-z0-9_-]{5,}/.test(cls)) {
             const c = getComputedStyle(h as HTMLElement).color;
             if (!c || c === 'rgb(0, 0, 0)' || c === 'rgba(0, 0, 0, 0)') continue;
-            // Check saturation: skip gray/white (all channels similar and bright)
             const m = c.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
             if (m) {
               const [r, g, b] = [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
               const max = Math.max(r, g, b);
               const sat = max > 0 ? (max - Math.min(r, g, b)) / max : 0;
-              if (sat < 0.25) continue; // near-gray or white — skip
+              if (sat < 0.25) continue;
             }
             doc.documentElement.style.setProperty('--ds-native-heading-color', c);
             break;
@@ -342,14 +329,13 @@ function ensureStyles() {
 
 
 
-function GameCard({ item }: { item: DeckRowItem }) {
+function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowItem; cardW?: number; cardH?: number }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
 
-  // Use React state for Focusable root className (classList.add is wiped on re-render)
   const [nativeCardClass, setNativeCardClass] = useState('');
 
   useEffect(() => {
@@ -357,8 +343,6 @@ function GameCard({ item }: { item: DeckRowItem }) {
       const doc = getPreferredSteamDocument();
       const map = doc ? getRuntimeClassMap(doc) : null;
       if (!map?.nativeCard) return false;
-      // Card root via React state (survives re-renders). Prefer the full class list from
-      // a live native card so focus/glow modifiers match Steam's Recent Games cards.
       const sampleSelector = buildSelectorFromToken(map.nativeCard);
       const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
       if (nativeSample) {
@@ -386,14 +370,9 @@ function GameCard({ item }: { item: DeckRowItem }) {
             if (animDur) cardRef.current.style.setProperty('--ds-native-after-duration', animDur);
             if (animTiming) cardRef.current.style.setProperty('--ds-native-after-timing', animTiming);
             if (animIter) cardRef.current.style.setProperty('--ds-native-after-iteration', animIter);
-            // Also set inline styles on the shimmer overlay element so it's applied
-            // even if CSS rules are overridden by Steam's stylesheet ordering.
             try {
               const shimmer = cardRef.current.querySelector('.ds-card-shimmer') as HTMLElement | null;
               if (shimmer) {
-                // Ensure the overlay is not used — hide it explicitly so it cannot
-                // tint artwork even if other styles are present or CSS ordering
-                // prevents our stylesheet from taking precedence.
                 shimmer.style.display = 'none';
                 shimmer.style.animation = 'none';
               }
@@ -403,7 +382,6 @@ function GameCard({ item }: { item: DeckRowItem }) {
       } else {
         setNativeCardClass('');
       }
-      // Art/img via classList.add (plain DOM elements, stable across re-renders)
       const artEl = cardRef.current?.querySelector('.ds-card-art');
       if (artEl) {
         if (map.nativeCardArt && !artEl.classList.contains(map.nativeCardArt)) artEl.classList.add(map.nativeCardArt);
@@ -414,7 +392,6 @@ function GameCard({ item }: { item: DeckRowItem }) {
         if (map.nativeCardImg && !imgRef.current.classList.contains(map.nativeCardImg)) imgRef.current.classList.add(map.nativeCardImg);
         if (map.nativeCardImgFade && !imgRef.current.classList.contains(map.nativeCardImgFade)) imgRef.current.classList.add(map.nativeCardImgFade);
       }
-      // If we didn't find a nativeSample earlier, try to read runtime map animation tokens
       try {
         if (!nativeSample && map.nativeCard) {
           const maybe = doc.querySelector(buildSelectorFromToken(map.nativeCard) ?? '');
@@ -558,9 +535,9 @@ function GameCard({ item }: { item: DeckRowItem }) {
       data-shelfid={item.shelfId || undefined}
       style={{
         position: "relative",
-        width: CARD_W,
-        minWidth: CARD_W,
-        height: CARD_ART_H,
+        width: cardW,
+        minWidth: cardW,
+        height: cardH,
         flexShrink: 0,
         padding: 0,
         margin: 0,
@@ -609,7 +586,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
           position: "absolute",
           top: "100%",
           left: 0,
-          width: CARD_W + 20,
+          width: cardW + 20,
           paddingTop: 10,
           pointerEvents: "none",
           display: "flex",
@@ -671,7 +648,7 @@ function GameCard({ item }: { item: DeckRowItem }) {
   );
 }
 
-function MoreCard({ item }: { item: DeckRowItem }) {
+function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowItem; cardW?: number; cardH?: number }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
 
@@ -692,8 +669,6 @@ function MoreCard({ item }: { item: DeckRowItem }) {
         ));
         if (!rootClasses.includes('gpfocuswithin')) rootClasses.push('gpfocuswithin');
         setNativeCardClass(rootClasses.join(' '));
-        // Also copy animation props from native ::after to the MoreCard root so
-        // the fallback inherits native timing when possible.
         try {
           const pa = getComputedStyle(nativeSample, '::after');
           const animName = (pa.animationName || '').split(',')[0] || '';
@@ -728,9 +703,9 @@ function MoreCard({ item }: { item: DeckRowItem }) {
       onOKButton={item.onActivate}
       style={{
         position: "relative",
-        width: CARD_W,
-        minWidth: CARD_W,
-        height: CARD_ART_H,
+        width: cardW,
+        minWidth: cardW,
+        height: cardH,
         flexShrink: 0,
         padding: 0,
         margin: 0,
@@ -744,8 +719,8 @@ function MoreCard({ item }: { item: DeckRowItem }) {
         style={{
           position: "absolute",
           inset: 0,
-          width: CARD_W,
-          height: CARD_ART_H,
+          width: cardW,
+          height: cardH,
           overflow: "hidden",
           background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
           borderRadius: cachedCardRadius,
@@ -773,17 +748,23 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   } catch {}
 }
 
-export function DeckRow({ title, items, shelfId }: { title?: string; items: DeckRowItem[]; shelfId?: string }) {
+export function DeckRow({ title, items, shelfId, matchNativeSize = true }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
   const [nativeRowClass, setNativeRowClass] = useState('');
 
+  const effectiveW = matchNativeSize && cachedNativeDims ? cachedNativeDims.width : CARD_W;
+  const effectiveH = matchNativeSize && cachedNativeDims ? cachedNativeDims.height : CARD_ART_H;
+  const effectiveGap = matchNativeSize && cachedNativeDims ? cachedNativeDims.gap : CARD_GAP;
+
   useEffect(() => {
     ensureStyles();
     const interval = setInterval(ensureStyles, 3000);
-    return () => clearInterval(interval);
+    const onResize = () => ensureStyles();
+    window.addEventListener('resize', onResize);
+    return () => { clearInterval(interval); window.removeEventListener('resize', onResize); };
   }, []);
 
   useEffect(() => {
@@ -1022,7 +1003,7 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
           style={{
             display: "flex",
             flexWrap: "nowrap",
-            gap: CARD_GAP,
+            gap: effectiveGap,
             overflowX: "auto",
             overflowY: "visible",
             scrollbarWidth: "none",
@@ -1033,8 +1014,8 @@ export function DeckRow({ title, items, shelfId }: { title?: string; items: Deck
         >
           {items.map((item) =>
             item.isMoreLink
-              ? <MoreCard key={item.id} item={item} />
-              : <GameCard key={item.id} item={item} />
+              ? <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
+              : <GameCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
           )}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>

@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Ordenar por nota no Metacritic (maior primeiro).",
   "docs_sort_review_desc": "Ordenar por avaliação dos usuários Steam (maior primeiro).",
   "folder_label": "Pasta",
-  "browse": "Procurar"
+  "browse": "Procurar",
+  "match_native_size": "Igualar tamanho nativo nos cards"
 }

@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Metacriticスコア順で並び替えます（高いものが先）。",
   "docs_sort_review_desc": "Steamユーザーレビュースコア順で並び替えます（高いものが先）。",
   "folder_label": "フォルダ",
-  "browse": "参照"
+  "browse": "参照",
+  "match_native_size": "ネイティブカードサイズに合わせる"
 }

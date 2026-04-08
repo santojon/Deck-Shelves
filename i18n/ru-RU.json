@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Сортировать по оценке Metacritic (наивысшая первой).",
   "docs_sort_review_desc": "Сортировать по оценке пользователей Steam (наивысшая первой).",
   "folder_label": "Папка",
-  "browse": "Обзор"
+  "browse": "Обзор",
+  "match_native_size": "Размер как у нативных карточек"
 }

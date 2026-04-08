@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Ordenar por puntuación de Metacritic (más alta primero).",
   "docs_sort_review_desc": "Ordenar por valoración de usuarios de Steam (más alta primero).",
   "folder_label": "Carpeta",
-  "browse": "Explorar"
+  "browse": "Explorar",
+  "match_native_size": "Igualar tamaño nativo de las tarjetas"
 }

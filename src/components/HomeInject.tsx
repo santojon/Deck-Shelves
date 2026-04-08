@@ -466,7 +466,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
     <Focusable
       className="deck-shelves-root"
       flow-children="column"
-      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 18 }}
+      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8 }}
     >
       {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} />)}
     </Focusable>

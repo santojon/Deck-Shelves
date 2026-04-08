@@ -9,6 +9,7 @@ import {
   getEffectiveFilterGroup,
   normalizeFilter,
 } from '../../domain/settings'
+import { ShelfSchema } from '../../types'
 import type { Settings, Shelf } from '../../types'
 
 function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
@@ -18,6 +19,7 @@ function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
     enabled: true,
     hidden: false,
     limit: 15,
+    matchNativeSize: true,
     source: { type: 'tab', tab: 'all' },
     ...overrides,
   }
@@ -251,5 +253,36 @@ describe('normalizeFilter', () => {
   it('merges source filter with defaults', () => {
     const result = normalizeFilter({ type: 'filter', filter: { sort: 'recent' } })
     expect(result.sort).toBe('recent')
+  })
+})
+
+describe('ShelfSchema matchNativeSize', () => {
+  it('defaults to true when field is absent', () => {
+    const result = ShelfSchema.parse({
+      id: 'test',
+      title: 'Test',
+      source: { type: 'tab', tab: 'all' },
+    })
+    expect(result.matchNativeSize).toBe(true)
+  })
+
+  it('accepts explicit false', () => {
+    const result = ShelfSchema.parse({
+      id: 'test',
+      title: 'Test',
+      matchNativeSize: false,
+      source: { type: 'tab', tab: 'all' },
+    })
+    expect(result.matchNativeSize).toBe(false)
+  })
+
+  it('accepts explicit true', () => {
+    const result = ShelfSchema.parse({
+      id: 'test',
+      title: 'Test',
+      matchNativeSize: true,
+      source: { type: 'tab', tab: 'all' },
+    })
+    expect(result.matchNativeSize).toBe(true)
   })
 })

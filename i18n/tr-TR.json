@@ -203,5 +203,6 @@
   "docs_sort_metacritic_desc": "Metacritic puanına göre sıralayın (en yüksek önce).",
   "docs_sort_review_desc": "Steam kullanıcı inceleme puanına göre sıralayın (en yüksek önce).",
   "folder_label": "Klasör",
-  "browse": "Gözat"
+  "browse": "Gözat",
+  "match_native_size": "Yerel kart boyutunu eşleştir"
 }
