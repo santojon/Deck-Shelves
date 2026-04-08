@@ -14,10 +14,12 @@ import {
   SliderField,
   TextField,
   ToggleField,
+  gamepadDialogClasses,
   showContextMenu,
   showModal,
 } from '@decky/ui'
 import { openFilePicker, toaster } from '@decky/api'
+import { getMountFailed, getMountError, resetMountFailed } from '../runtime/homePatch'
 import type { SettingsController } from '../features/settings/controller'
 import type { FilterGroup, Shelf, ShelfFilter } from '../types'
 import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '../domain/settings'
@@ -169,9 +171,21 @@ function ShelfListLabel({ shelf }: { shelf: Shelf }) {
 function DeleteConfirmModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, actions } = controller
 
-  // Inject a scoped style to make the OK button red only while this modal is mounted.
-  // We avoid bDestructiveWarning because it leaks a global CSS state into Steam's UI.
-  // Use ConfirmModal's destructive flag to style the OK button red
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'ds-delete-btn-override';
+    // Target the last button (OK/confirm) in the modal footer
+    style.textContent = `
+      .${gamepadDialogClasses.BottomButtons} button:last-child,
+      .${gamepadDialogClasses.BottomButtons} > *:last-child button {
+        background: var(--custom-sp-color-destructive, rgb(198,40,40)) !important;
+        background-image: none !important;
+        color: #fff !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => { style.remove(); };
+  }, []);
 
   return (
     <ConfirmModal
@@ -578,6 +592,9 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
               }
             />
           </div>
+          <div style={{ padding: '0 16px 10px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
+            {previewCount === null ? t('preview_loading') : previewCount === 0 ? `⚠️ ${t('preview_empty')}` : t('preview_count', { count: previewCount })}
+          </div>
           <div className='field-item-container'>
             <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
             {state.sourceType === 'collection' ? (
@@ -602,9 +619,6 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
             </Field>
             <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
             <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
-            <div style={{ padding: '8px 16px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
-              {previewCount === null ? t('preview_loading') : previewCount === 0 ? `⚠️ ${t('preview_empty')}` : t('preview_count', { count: previewCount })}
-            </div>
           </div>
         </Focusable>
       </ConfirmModal>
@@ -729,10 +743,33 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const [hasCustomFilters] = useState(() => isTabMasterInstalled())
   const handleImportFromCustomFilters = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
+  const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
+  const crashError = getMountError()
+
   return (
     <div className='deck-shelves-qam-scope'>
       <DeckQAMStyles />
-      <ToggleField label={t('enabled')} checked={settings.enabled} onChange={(value: boolean) => actions.setEnabled(value)} bottomSeparator='thick' />
+      <ToggleField
+        label={t('enabled')}
+        checked={settings.enabled && !mountCrashed}
+        disabled={mountCrashed}
+        onChange={(value: boolean) => actions.setEnabled(value)}
+        bottomSeparator={mountCrashed ? 'none' : 'thick'}
+      />
+      {mountCrashed && (
+        <div style={{ padding: '6px 16px 10px', fontSize: 11, color: '#f87171', lineHeight: 1.4 }}>
+          {t('mount_crash_warning')}
+          {crashError ? <span style={{ opacity: 0.7, display: 'block', marginTop: 2 }}>{crashError.substring(0, 80)}</span> : null}
+          <DialogButton
+            style={{ marginTop: 6, padding: '4px 10px', fontSize: 11, height: 'auto', minWidth: 0 }}
+            onClick={() => { resetMountFailed(); setMountCrashed(false); }}
+            onOKButton={() => { resetMountFailed(); setMountCrashed(false); }}
+          >
+            {t('mount_crash_reset')}
+          </DialogButton>
+        </div>
+      )}
+      {!mountCrashed && <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(value: boolean) => actions.setHideRecents(value)} bottomSeparator='thick' />}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', display: 'flex' }}>

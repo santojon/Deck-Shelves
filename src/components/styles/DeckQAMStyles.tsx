@@ -53,19 +53,25 @@ export function DeckQAMStyles() {
         display: flex;
         align-items: center;
         width: 100%;
+        max-width: 100%;
         min-width: 0;
+        overflow: hidden;
       }
       .deck-shelves-qam-scope .deck-shelves-hidden-icon {
         margin-right: 8px;
+        flex-shrink: 0;
         display: inline-flex;
         align-items: center;
         opacity: 0.85;
       }
       .deck-shelves-qam-scope .deck-shelves-label-text {
+        display: block;
         min-width: 0;
+        max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        flex: 1 1 0;
       }
       .deck-shelves-qam-scope .deck-shelves-hidden {
         opacity: 0.56;

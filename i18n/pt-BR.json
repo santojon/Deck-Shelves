@@ -205,5 +205,11 @@
   "folder_label": "Pasta",
   "browse": "Procurar",
   "match_native_size": "Igualar tamanho nativo nos cards",
-  "highlight_first": "Destacar primeiro jogo"
+  "highlight_first": "Destacar primeiro jogo",
+  "hide_recents": "Ocultar jogos recentes",
+  "mount_crash_warning": "Prateleiras desativadas — um erro de montagem foi detectado.",
+  "mount_crash_reset": "Tentar novamente",
+  "filter_type_developer": "Desenvolvedor / Publicador",
+  "filter_developer_loading": "Verificando desenvolvedores…",
+  "filter_developer_empty": "Nenhum dado de desenvolvedor encontrado"
 }

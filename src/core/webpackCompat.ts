@@ -107,6 +107,22 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
           // Img primary class and fade class
           if (imgClasses[0]) out.nativeCardImg = imgClasses[0];
           if (imgClasses[1]) out.nativeCardImgFade = imgClasses[1];
+          // Label/title element: first child of card root that doesn't contain the art img
+          try {
+            const cardRoot = el as HTMLElement;
+            for (const child of Array.from(cardRoot.children)) {
+              if (!(child instanceof HTMLElement) || child.contains(img)) continue;
+              const labelClasses = Array.from(child.classList).filter(c => c.startsWith('_') && c.length > 5);
+              if (labelClasses[0]) { out.nativeCardLabel = labelClasses[0]; }
+              // First text-bearing descendant is the game name span
+              const textEl = child.querySelector<HTMLElement>('span, div');
+              if (textEl) {
+                const textCls = Array.from(textEl.classList).filter(c => c.startsWith('_') && c.length > 5);
+                if (textCls[0]) out.nativeCardLabelText = textCls[0];
+              }
+              break;
+            }
+          } catch {}
           return out;
         }
       } catch {}
@@ -157,44 +173,108 @@ function _discoverNativeShelfTokens(doc: Document): Record<string, string> | nul
   return null;
 }
 
+export type NativeCardDims = {
+  width: number;
+  height: number;
+  gap: number;
+  imgHeight?: number;
+  featuredWidth?: number;
+  featuredHeight?: number;
+  featuredImgHeight?: number;
+};
+
 /** Measure native Recent Games card dimensions by finding portrait card images
  *  and measuring the focusable card root element.
- *  Returns { width, height, gap } in CSS pixels, or null if cards are not found.
+ *  Also detects the wider "featured" first card if present (e.g. when a CSS Loader
+ *  theme shows a landscape highlight card before the portrait row).
+ *  Returns { width, height, gap, featuredWidth?, featuredHeight? } or null.
  */
-export function discoverNativeCardDimensions(doc: Document): { width: number; height: number; gap: number } | null {
+export function discoverNativeCardDimensions(doc: Document): NativeCardDims | null {
   try {
     const imgs = Array.from(doc.querySelectorAll<HTMLImageElement>('img'));
-    const cardRoots: HTMLElement[] = [];
+    const portraitRoots: HTMLElement[] = [];
+    const wideRoots: HTMLElement[] = [];
+
+    const visited = new Set<HTMLElement>();
     for (const img of imgs) {
       try {
         if (img.closest('.ds-card') || img.closest('#deck-shelves-home-root')) continue;
         const r = img.getBoundingClientRect();
-        if (r.width < 90 || r.width > 220 || r.height < 120) continue;
-        // Walk up to find the focusable card root (cursor: pointer)
+        if (r.height < 80) continue;
+        // Walk up to find the focusable card root. Prefer Focusable/Panel elements
+        // over bare cursor:pointer elements (which may be inner art containers that
+        // overflow their card and report wrong dimensions).
         let el: HTMLElement | null = img.parentElement;
         let depth = 0;
+        let fallbackRoot: HTMLElement | null = null;
         while (el && depth++ < 10) {
           try {
             const cs = getComputedStyle(el);
             if (cs.cursor === 'pointer' && !el.classList.contains('ds-card')) {
-              cardRoots.push(el);
-              break;
+              if (!fallbackRoot) fallbackRoot = el;
+              if (el.classList.contains('Focusable') || el.classList.contains('Panel')) {
+                fallbackRoot = el;
+                break;
+              }
             }
           } catch {}
           el = el.parentElement;
         }
+        if (fallbackRoot && !visited.has(fallbackRoot)) {
+          visited.add(fallbackRoot);
+          const cr = fallbackRoot.getBoundingClientRect();
+          if (cr.width > 220) {
+            wideRoots.push(fallbackRoot);
+          } else if (cr.width >= 90) {
+            portraitRoots.push(fallbackRoot);
+          }
+        }
       } catch {}
     }
-    if (cardRoots.length < 2) return null;
-    // Measure dimensions from the first card
-    const firstRect = cardRoots[0].getBoundingClientRect();
+
+    if (portraitRoots.length < 2) return null;
+
+    // Portrait card dimensions
+    const firstRect = portraitRoots[0].getBoundingClientRect();
     const width = Math.round(firstRect.width);
     const height = Math.round(firstRect.height);
-    // Measure gap between the first two adjacent cards
-    const secondRect = cardRoots[1].getBoundingClientRect();
+    const secondRect = portraitRoots[1].getBoundingClientRect();
     const gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
     if (width < 50 || height < 80) return null;
-    return { width, height, gap };
+
+    const result: NativeCardDims = { width, height, gap };
+
+    // Portrait image height (may be less than card height if theme reserves label space)
+    try {
+      const portImg = portraitRoots[0].querySelector('img');
+      if (portImg) {
+        const ir = portImg.getBoundingClientRect();
+        if (ir.height >= 40) result.imgHeight = Math.round(ir.height);
+      }
+    } catch {}
+
+    // Featured card: the widest card root found, if it's notably wider than portrait cards
+    if (wideRoots.length > 0) {
+      wideRoots.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+      const featCard = wideRoots[0];
+      const featRect = featCard.getBoundingClientRect();
+      const fw = Math.round(featRect.width);
+      const fh = Math.round(featRect.height);
+      if (fw > width * 1.5 && fh >= 80) {
+        result.featuredWidth = fw;
+        result.featuredHeight = fh;
+        // Featured image height
+        try {
+          const featImg = featCard.querySelector('img');
+          if (featImg) {
+            const fir = featImg.getBoundingClientRect();
+            if (fir.height >= 40) result.featuredImgHeight = Math.round(fir.height);
+          }
+        } catch {}
+      }
+    }
+
+    return result;
   } catch {}
   return null;
 }

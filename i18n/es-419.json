@@ -205,5 +205,11 @@
   "folder_label": "Carpeta",
   "browse": "Explorar",
   "match_native_size": "Igualar tamaño nativo de las tarjetas",
-  "highlight_first": "Destacar el primer juego"
+  "highlight_first": "Destacar el primer juego",
+  "hide_recents": "Ocultar juegos recientes",
+  "mount_crash_warning": "Las estanterías están desactivadas — se detectó un error de montaje.",
+  "mount_crash_reset": "Reintentar",
+  "filter_type_developer": "Desarrollador / Editor",
+  "filter_developer_loading": "Escaneando desarrolladores…",
+  "filter_developer_empty": "No se encontraron datos de desarrollador"
 }

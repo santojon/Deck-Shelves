@@ -22,6 +22,7 @@ export function createDefaultShelf(firstCollectionId = "", title = "New shelf"):
 export function defaultSettings(): Settings {
   return {
     enabled: false,
+    hideRecents: false,
     shelves: [],
   };
 }

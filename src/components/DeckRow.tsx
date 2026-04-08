@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
-import { buildSelectorFromToken, getRuntimeClassMap, discoverNativeCardDimensions } from "../core/webpackCompat";
+import { buildSelectorFromToken, getRuntimeClassMap, discoverNativeCardDimensions, type NativeCardDims } from "../core/webpackCompat";
 import { getPortraitFallbacks, getLandscapeUrls } from "../core/steamAssets";
 import i18n from "../i18n";
 
@@ -60,7 +60,8 @@ function detectNativeCardRadius(): string {
 }
 
 let cachedCardRadius = "0px";
-let cachedNativeDims: { width: number; height: number; gap: number } | null = null;
+let cachedNativeDims: NativeCardDims | null = null;
+const nativeDimsListeners = new Set<() => void>();
 
 function formatPlaytime(minutes: number | undefined): string | null {
   if (!minutes || minutes <= 0) return null;
@@ -80,9 +81,12 @@ function ensureStyles() {
       !cachedNativeDims ||
       newDims.width !== cachedNativeDims.width ||
       newDims.height !== cachedNativeDims.height ||
-      newDims.gap !== cachedNativeDims.gap
+      newDims.gap !== cachedNativeDims.gap ||
+      newDims.featuredWidth !== cachedNativeDims.featuredWidth ||
+      newDims.featuredHeight !== cachedNativeDims.featuredHeight
     );
     if (newDims) cachedNativeDims = newDims;
+    if (dimsChanged) nativeDimsListeners.forEach(cb => cb());
     const docs = [document, steamDoc];
     for (const doc of docs) {
       if (!doc) continue;
@@ -113,9 +117,6 @@ function ensureStyles() {
             scroll-margin-bottom: 52px;
             scroll-margin-inline-end: 2.8vw;
           }
-          /* Let the native card class draw the actual focus ring so the shelves match Steam.
-             Suppress ancestor focus visuals, enforce a single themed outline on the card root,
-             and retint the native shimmer (::after) to the theme color to avoid gray banding. */
           #deck-shelves-home-root .deck-shelves-root:focus,
           #deck-shelves-home-root .deck-shelves-root.gpfocus,
           #deck-shelves-home-root .deck-shelves-root.gpfocuswithin,
@@ -146,7 +147,11 @@ function ensureStyles() {
           #deck-shelves-home-root .ds-card::after {
             content: '' !important;
             position: absolute !important;
-            inset: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: auto !important;
+            height: var(--ds-card-art-h, 100%) !important;
             border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
             pointer-events: none !important;
             z-index: 4 !important;
@@ -156,6 +161,13 @@ function ensureStyles() {
             background-image: none !important;
             animation: none !important;
             display: inline !important;
+          }
+          
+          #deck-shelves-home-root .ds-card.gpfocus::after,
+          #deck-shelves-home-root .ds-card:focus::after {
+            height: var(--ds-card-art-h, 100%) !important;
+            bottom: auto !important;
+            border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
           }
 
           #deck-shelves-home-root .ds-card .ds-card-shimmer { display: none !important; }
@@ -174,6 +186,7 @@ function ensureStyles() {
           .ds-card-art {
             position: absolute !important;
             inset: 1px !important;
+            height: var(--ds-card-art-h, 100%) !important;
             padding-top: 0 !important;
             border-radius: var(--ds-card-radius, ${cachedCardRadius});
           }
@@ -228,22 +241,22 @@ function ensureStyles() {
           }
           .ds-card-label-name {
             color: var(--ds-native-heading-color, inherit);
-            font-size: 18px;
-            line-height: 18px;
-            font-weight: 800;
+            font-size: inherit;
+            line-height: 1.2;
+            font-weight: bold;
             white-space: nowrap;
             overflow: visible;
-            display: flex;
-            align-items: center;
+            text-align: center;
           }
           .ds-card-status {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
             opacity: 0.7;
-            font-size: 12px;
-            line-height: 16px;
-            font-weight: 700;
+            font-size: 0.75em;
+            line-height: 1.3;
+            font-weight: bold;
             text-transform: uppercase;
             margin-top: 4px;
             white-space: nowrap;
@@ -305,14 +318,15 @@ function ensureStyles() {
 
 
 
-function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; featured?: boolean }) {
+function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
-  // library_header.jpg (faixa) aspect ratio: 460/215 ≈ 2.14:1 (confirmed via CDP)
-  const featuredW = featured ? Math.round(cardH * (460 / 215)) : cardW;
+  // DeckRow passes the correct width for featured cards (native or ratio-derived); just use cardW.
+  const featuredW = cardW;
+  const artH = artHProp ?? cardH;
 
   const [nativeCardClass, setNativeCardClass] = useState('');
 
@@ -369,6 +383,13 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, featured = false }
       if (imgRef.current) {
         if (map.nativeCardImg && !imgRef.current.classList.contains(map.nativeCardImg)) imgRef.current.classList.add(map.nativeCardImg);
         if (map.nativeCardImgFade && !imgRef.current.classList.contains(map.nativeCardImgFade)) imgRef.current.classList.add(map.nativeCardImgFade);
+      }
+      // Apply native label text class so CSS Loader themes (e.g. "Centered Game Text") work on our cards
+      if (map.nativeCardLabelText) {
+        const labelNameEl = cardRef.current?.querySelector('.ds-card-label-name') as HTMLElement | null;
+        if (labelNameEl && !labelNameEl.classList.contains(map.nativeCardLabelText)) {
+          labelNameEl.classList.add(map.nativeCardLabelText);
+        }
       }
       try {
         if (!nativeSample && map.nativeCard) {
@@ -540,13 +561,12 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, featured = false }
         background: "transparent",
         cursor: "pointer",
         overflow: "visible",
+        ["--ds-card-art-h" as string]: artH < cardH ? `${artH}px` : "100%",
       }}
     >
       <div
         className="ds-card-art"
         style={{
-          position: "absolute",
-          inset: 0,
           background: "var(--ds-card-bg, rgba(3, 10, 30, 0.92))",
           overflow: "hidden",
         }}
@@ -580,7 +600,8 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, featured = false }
         className="ds-card-label"
         style={{
           position: "absolute",
-          top: "100%",
+          // When artH < cardH the label sits inside the card (native theme label area); otherwise below
+          top: artH < cardH ? artH : "100%",
           left: 0,
           width: featuredW + 20,
           paddingTop: 10,
@@ -750,17 +771,40 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
   const titleRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
   const [nativeRowClass, setNativeRowClass] = useState('');
+  const [, forceUpdate] = useState(0);
 
   const effectiveW = matchNativeSize && cachedNativeDims ? cachedNativeDims.width : CARD_W;
   const effectiveH = matchNativeSize && cachedNativeDims ? cachedNativeDims.height : CARD_ART_H;
   const effectiveGap = matchNativeSize && cachedNativeDims ? cachedNativeDims.gap : CARD_GAP;
+  // Featured card: use native featured dims when matchNativeSize; otherwise derive width from portrait height ratio
+  const effectiveFeaturedW = matchNativeSize && cachedNativeDims?.featuredWidth
+    ? cachedNativeDims.featuredWidth
+    : Math.round(effectiveH * (460 / 215));
+  // Featured card height: same as regular cards (landscape card is wider, not taller)
+  const effectiveFeaturedH = matchNativeSize && cachedNativeDims?.featuredHeight
+    ? cachedNativeDims.featuredHeight
+    : effectiveH;
+  // Art area height: native imgHeight if available (may be < cardH when theme reserves label space inside card)
+  const effectiveArtH = matchNativeSize && cachedNativeDims?.imgHeight
+    ? cachedNativeDims.imgHeight
+    : effectiveH;
+  const effectiveFeaturedArtH = matchNativeSize && cachedNativeDims?.featuredImgHeight
+    ? cachedNativeDims.featuredImgHeight
+    : effectiveFeaturedH;
 
   useEffect(() => {
     ensureStyles();
     const interval = setInterval(ensureStyles, 3000);
     const onResize = () => ensureStyles();
     window.addEventListener('resize', onResize);
-    return () => { clearInterval(interval); window.removeEventListener('resize', onResize); };
+    // Re-render when native dims change (e.g. theme applied/removed)
+    const onDimsChange = () => forceUpdate(n => n + 1);
+    nativeDimsListeners.add(onDimsChange);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('resize', onResize);
+      nativeDimsListeners.delete(onDimsChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -1011,7 +1055,11 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
           {items.map((item, idx) =>
             item.isMoreLink
               ? <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
-              : <GameCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} featured={highlightFirst && idx === 0} />
+              : <GameCard key={item.id} item={item}
+                  cardW={highlightFirst && idx === 0 ? effectiveFeaturedW : effectiveW}
+                  cardH={highlightFirst && idx === 0 ? effectiveFeaturedH : effectiveH}
+                  artH={highlightFirst && idx === 0 ? effectiveFeaturedArtH : effectiveArtH}
+                  featured={highlightFirst && idx === 0} />
           )}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>

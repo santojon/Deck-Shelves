@@ -205,5 +205,11 @@
   "folder_label": "폴더",
   "browse": "찾아보기",
   "match_native_size": "기본 카드 크기 맞추기",
-  "highlight_first": "첫 번째 게임 강조"
+  "highlight_first": "첫 번째 게임 강조",
+  "hide_recents": "최근 게임 숨기기",
+  "mount_crash_warning": "홈 선반이 비활성화되었습니다 — 마운트 오류가 감지되었습니다.",
+  "mount_crash_reset": "다시 시도",
+  "filter_type_developer": "개발사 / 퍼블리셔",
+  "filter_developer_loading": "개발사 검색 중…",
+  "filter_developer_empty": "개발사 데이터를 찾을 수 없습니다"
 }

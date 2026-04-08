@@ -15,6 +15,7 @@ import {
 } from "@decky/ui";
 import type { FilterGroup, FilterItem, FilterItemType } from "../types";
 import i18n from "../i18n";
+import { getUniqueDevelopers, preloadDeveloperData, getAllAppOverviews } from "../steam";
 
 // ---------- constants ----------
 
@@ -29,6 +30,7 @@ const ALL_FILTER_TYPES: FilterItemType[] = [
   "playtimeRange",
   "nameIncludes",
   "nameRegex",
+  "developer",
   "friends",
   "storeTag",
   "achievements",
@@ -45,6 +47,7 @@ const INVERTIBLE_SET = new Set<FilterItemType>([
   "playtimeRange",
   "nameIncludes",
   "nameRegex",
+  "developer",
 ]);
 
 function canBeInverted(type: FilterItemType): boolean {
@@ -63,6 +66,7 @@ function defaultParams(type: FilterItemType): Record<string, any> {
     case "storeTag": return { tags: [] };
     case "achievements": return {};
     case "collection": return { collectionId: "" };
+    case "developer": return { developers: [] };
     case "merge": return { mode: "and", items: [] };
     default: return {};
   }
@@ -99,6 +103,8 @@ function isValidParams(item: FilterItem): boolean {
       return true;
     case "collection":
       return Boolean(p.collectionId);
+    case "developer":
+      return Array.isArray(p.developers) && p.developers.length > 0;
     case "merge":
       return Array.isArray(p.items) && p.items.length > 0;
     default:
@@ -123,6 +129,7 @@ function getTypeLabel(type: FilterItemType): string {
     storeTag: t("filter_type_storeTag"),
     achievements: t("filter_type_achievements"),
     collection: t("filter_type_collection"),
+    developer: t("filter_type_developer"),
     merge: t("filter_type_merge"),
   };
   return map[type] ?? type;
@@ -160,6 +167,60 @@ const TrashIcon = () => (
     <path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M10 10v6" /><path d="M14 10v6" /><path d="M6 6l1 14h10l1-14" />
   </svg>
 );
+
+// ---------- Developer filter: async scan + multi-select ----------
+
+function DeveloperFilterOptions({ selected, onChange }: { selected: string[]; onChange: (devs: string[]) => void }) {
+  const t = i18n.t.bind(i18n);
+  const [allDevs, setAllDevs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [scanned, setScanned] = useState(false);
+
+  useEffect(() => {
+    if (scanned) return;
+    setLoading(true);
+    setScanned(true);
+    getAllAppOverviews().then((apps) => {
+      const ids = apps.map((a) => a.appid);
+      return preloadDeveloperData(ids).then(() => ids);
+    }).then((ids) => {
+      setAllDevs(getUniqueDevelopers(ids));
+    }).catch(() => {
+      setAllDevs([]);
+    }).finally(() => setLoading(false));
+  }, [scanned]);
+
+  const selectedSet = new Set(selected);
+
+  return (
+    <>
+      {loading && (
+        <PanelSectionRow>
+          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_developer_loading")}</div>
+        </PanelSectionRow>
+      )}
+      {!loading && allDevs.length === 0 && (
+        <PanelSectionRow>
+          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_developer_empty")}</div>
+        </PanelSectionRow>
+      )}
+      {allDevs.map((dev) => (
+        <PanelSectionRow key={dev}>
+          <ToggleField
+            label={dev}
+            checked={selectedSet.has(dev)}
+            onChange={(val: boolean) => {
+              const next = new Set(selectedSet);
+              if (val) next.add(dev); else next.delete(dev);
+              onChange(Array.from(next));
+            }}
+            bottomSeparator="none"
+          />
+        </PanelSectionRow>
+      ))}
+    </>
+  );
+}
 
 // ---------- FilterOptions: params UI per type ----------
 
@@ -334,6 +395,10 @@ function FilterItemOptions({
           </Field>
         </PanelSectionRow>
       );
+    }
+
+    case "developer": {
+      return <DeveloperFilterOptions selected={Array.isArray(p.developers) ? p.developers : []} onChange={(devs) => patchParams({ developers: devs })} />;
     }
 
     case "friends":

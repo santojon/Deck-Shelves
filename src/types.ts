@@ -17,6 +17,7 @@ export const FilterItemTypeSchema = z.enum([
   "storeTag",
   "achievements",
   "collection",
+  "developer",
   "merge",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
@@ -83,6 +84,7 @@ export type Shelf = z.infer<typeof ShelfSchema>;
 
 export const SettingsSchema = z.object({
   enabled: z.boolean().default(true),
+  hideRecents: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([])
 });
 

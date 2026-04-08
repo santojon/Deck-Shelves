@@ -205,5 +205,11 @@
   "folder_label": "Папка",
   "browse": "Огляд",
   "match_native_size": "Розмір як у нативних карток",
-  "highlight_first": "Виділити першу гру"
+  "highlight_first": "Виділити першу гру",
+  "hide_recents": "Сховати недавні ігри",
+  "mount_crash_warning": "Полиці на Головному екрані вимкнено — виявлено помилку монтування.",
+  "mount_crash_reset": "Повторити",
+  "filter_type_developer": "Розробник / Видавець",
+  "filter_developer_loading": "Сканування розробників…",
+  "filter_developer_empty": "Дані розробників не знайдено"
 }

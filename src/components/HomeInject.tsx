@@ -8,6 +8,7 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
+import { applyHideRecents, getMountFailed } from "../runtime/homePatch";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook, extractAppContextMenu, showGameMenu } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop } from "../core/focusRestore";
@@ -398,9 +399,19 @@ export function HomeShelves() {
     };
   }, [mountEl]);
 
-  if (!mountEl) return null;
+  // Apply hideRecents whenever the setting changes
+  useEffect(() => {
+    applyHideRecents(settings?.hideRecents === true);
+  }, [settings?.hideRecents]);
 
+  if (!mountEl) return null;
   if (!settings) return null;
+
+  // Crash protection: don't attempt to render if mounting has failed
+  if (getMountFailed()) {
+    logWarn("HOME", "mount failed — skipping render");
+    return null;
+  }
 
   if (!settings.enabled) {
     logWarn("HOME", "plugin disabled");

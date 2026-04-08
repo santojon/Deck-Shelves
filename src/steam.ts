@@ -1107,7 +1107,7 @@ function collectDynamicCollectionStores(): any[] {
   return Array.from(new Set([...base, ...dynamic]));
 }
 
-async function getAllAppOverviews(): Promise<AppOverview[]> {
+export async function getAllAppOverviews(): Promise<AppOverview[]> {
   const now = Date.now();
   if (appOverviewCache && now - appOverviewCache.ts < 10000) {
     return appOverviewCache.items;
@@ -1575,6 +1575,13 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       result = evaluateFilterGroup({ mode: subMode, items: subItems }, [app], ctx).length > 0;
       break;
     }
+    case "developer": {
+      const selected: string[] = Array.isArray(item.params?.developers) ? item.params.developers : [];
+      if (!selected.length) { result = true; break; }
+      const dev = getAppDeveloperCached(app.appid);
+      result = selected.some((d) => d.toLowerCase() === dev.toLowerCase());
+      break;
+    }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
     default:
       result = true;
@@ -1979,4 +1986,85 @@ export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
 export async function getAppName(appid: number): Promise<string> {
   const meta = await getAppMeta(appid);
   return meta.name;
+}
+
+// ---------------------------------------------------------------------------
+// Developer / Publisher data (from appDetailsStore)
+// ---------------------------------------------------------------------------
+
+/** Module-level cache so we don't re-read from the store on every filter pass */
+const developerCache = new Map<number, string>();
+
+function getAppDetailsStore(): any {
+  for (const win of getSteamWindows() as Window[]) {
+    const s = (win as any)?.appDetailsStore ?? (win as any)?.AppDetailsStore;
+    if (s?.m_mapAppData) return s;
+  }
+  return null;
+}
+
+/** Read developer from appDetailsStore without triggering a network load. */
+export function getAppDeveloperCached(appid: number): string {
+  if (developerCache.has(appid)) return developerCache.get(appid)!;
+  try {
+    const store = getAppDetailsStore();
+    const entry = store?.m_mapAppData?.get?.(appid);
+    const dev: string = entry?.details?.strDeveloperName ?? "";
+    if (dev) developerCache.set(appid, dev);
+    return dev;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Preload developer data for a list of appids via SteamClient.Apps.RegisterForAppDetails.
+ * Results are stored in the module-level developerCache.
+ * Returns a promise that resolves once all registrations have fired or timed out.
+ */
+export async function preloadDeveloperData(appids: number[]): Promise<void> {
+  const sc = (globalThis as any).SteamClient ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
+  if (!sc?.Apps?.RegisterForAppDetails) return;
+
+  const uncached = appids.filter((id) => !developerCache.has(id));
+  if (!uncached.length) return;
+
+  const BATCH = 30;
+  const TIMEOUT_MS = 5000;
+
+  for (let i = 0; i < uncached.length; i += BATCH) {
+    const batch = uncached.slice(i, i + BATCH);
+    await Promise.all(
+      batch.map(
+        (appid) =>
+          new Promise<void>((resolve) => {
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            try {
+              const handle = sc.Apps.RegisterForAppDetails(appid, (details: any) => {
+                try { handle?.unregister?.(); } catch {}
+                const dev: string = details?.strDeveloperName ?? "";
+                if (dev) developerCache.set(appid, dev);
+                else developerCache.set(appid, "");
+                finish();
+              });
+              setTimeout(() => { try { handle?.unregister?.(); } catch {} finish(); }, TIMEOUT_MS);
+            } catch { finish(); }
+          }),
+      ),
+    );
+  }
+}
+
+/**
+ * Get all unique developer names from a list of appids.
+ * Uses the cache; call preloadDeveloperData first for full coverage.
+ */
+export function getUniqueDevelopers(appids: number[]): string[] {
+  const set = new Set<string>();
+  for (const id of appids) {
+    const dev = getAppDeveloperCached(id);
+    if (dev) set.add(dev);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
