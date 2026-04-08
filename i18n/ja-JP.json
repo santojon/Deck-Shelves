@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Steamユーザーレビュースコア順で並び替えます（高いものが先）。",
   "folder_label": "フォルダ",
   "browse": "参照",
-  "match_native_size": "ネイティブカードサイズに合わせる"
+  "match_native_size": "ネイティブカードサイズに合わせる",
+  "highlight_first": "最初のゲームをハイライト"
 }

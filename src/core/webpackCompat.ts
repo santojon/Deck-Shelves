@@ -355,3 +355,48 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
     return null;
   }
 }
+
+/**
+ * Scan the document stylesheets for the native Deck compat icon color rules
+ * and return the obfuscated class name for each level.
+ *
+ * Steam's base stylesheet sets:
+ *   .kEODDe6M5cuHWuPlcQexX           { color: rgb(89, 191, 64);   }  ← Verified
+ *   .mPD42Bwx3VAs0qw9wubf2           { color: rgb(255, 200, 44);  }  ← Playable
+ *   ._2LAaxz6RtHXrJJj9NzCNL4, ...   { color: rgb(220, 222, 223); }  ← Unsupported/Unknown
+ *
+ * We find these rules by their exact color values (not by class name) so the
+ * detection survives Steam bundle renames.
+ */
+export function discoverCompatClasses(doc: Document): { verified?: string; playable?: string; unsupported?: string } {
+  const result: { verified?: string; playable?: string; unsupported?: string } = {};
+  try {
+    const sheets = Array.from(doc.styleSheets);
+    for (const sheet of sheets) {
+      try {
+        const rules = Array.from(sheet.cssRules || []) as CSSStyleRule[];
+        for (const rule of rules) {
+          if (!rule.selectorText || !rule.style) continue;
+          const color = rule.style.color;
+          if (!color) continue;
+          const sel = rule.selectorText;
+          // Only match simple single-class selectors (e.g. ".kEOD…")
+          const singleClassRe = /^\.[A-Za-z_][A-Za-z0-9_-]+$/;
+          // For verified and playable: expect a single class selector
+          if (color === 'rgb(89, 191, 64)' && singleClassRe.test(sel)) {
+            result.verified = sel.slice(1); // strip leading dot
+          } else if (color === 'rgb(255, 200, 44)' && singleClassRe.test(sel)) {
+            result.playable = sel.slice(1);
+          } else if (color === 'rgb(220, 222, 223)') {
+            // Unsupported rule may be a multi-selector: extract the first class
+            const firstPart = sel.split(',')[0].trim();
+            if (singleClassRe.test(firstPart)) {
+              result.unsupported = firstPart.slice(1);
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  return result;
+}

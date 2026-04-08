@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Sorteer op Steam-gebruikersrecensiescore (hoogste eerst).",
   "folder_label": "Map",
   "browse": "Bladeren",
-  "match_native_size": "Overeenkomende kaartgrootte"
+  "match_native_size": "Overeenkomende kaartgrootte",
+  "highlight_first": "Eerste spel markeren"
 }

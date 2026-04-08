@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Steam 사용자 리뷰 점수순으로 정렬합니다(가장 높은 것이 먼저).",
   "folder_label": "폴더",
   "browse": "찾아보기",
-  "match_native_size": "기본 카드 크기 맞추기"
+  "match_native_size": "기본 카드 크기 맞추기",
+  "highlight_first": "첫 번째 게임 강조"
 }

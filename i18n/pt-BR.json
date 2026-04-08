@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Ordenar por avaliação dos usuários Steam (maior primeiro).",
   "folder_label": "Pasta",
   "browse": "Procurar",
-  "match_native_size": "Igualar tamanho nativo nos cards"
+  "match_native_size": "Igualar tamanho nativo nos cards",
+  "highlight_first": "Destacar primeiro jogo"
 }

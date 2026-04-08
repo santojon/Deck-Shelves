@@ -16,7 +16,7 @@ export function createDefaultSource(kind: "collection" | "tab" | "filter", first
 }
 
 export function createDefaultShelf(firstCollectionId = "", title = "New shelf"): Shelf {
-  return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, source: createDefaultSource("tab", firstCollectionId) };
+  return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, source: createDefaultSource("tab", firstCollectionId) };
 }
 
 export function defaultSettings(): Settings {

@@ -3,7 +3,7 @@ import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap, discoverNativeCardDimensions } from "../core/webpackCompat";
-import { getPortraitFallbacks } from "../core/steamAssets";
+import { getPortraitFallbacks, getLandscapeUrls } from "../core/steamAssets";
 import i18n from "../i18n";
 
 export type DeckRowItem = {
@@ -28,6 +28,7 @@ const CARD_W      = 133;       // Focusable width
 const CARD_ART_H  = 200;       // ~199.5, rounded to clean integer
 const CARD_GAP    = 12;        // gap between portrait cards
 const STYLE_ID      = "deck-shelves-row-style";
+
 
 function detectNativeCardRadius(): string {
   try {
@@ -100,15 +101,6 @@ function ensureStyles() {
             --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
             --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
             --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
-            /* Fallback focus-ring color when no theme is active.
-               Themes set --custom-sp-color-border on body/.BasicUI, which cascades
-               to all descendants and takes precedence over these :root fallbacks. */
-            --custom-sp-color-border: rgba(255, 255, 255, 0.72);
-            --custom-sp-color-border-grow-0: rgba(255, 255, 255, 0);
-            --custom-sp-color-border-grow-01: rgba(255, 255, 255, 0.36);
-            --custom-sp-color-border-grow-100: rgba(255, 255, 255, 0.72);
-            --custom-sp-color-border-fade-0: rgba(255, 255, 255, 0);
-            --custom-sp-color-border-fade-100: rgba(255, 255, 255, 0.72);
           }
           #deck-shelves-home-root { margin-top: -28px !important; }
           .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
@@ -151,15 +143,6 @@ function ensureStyles() {
             z-index: 5;
           }
 
-           /* Retint native ::after shimmer to theme color and avoid a visible gray band.
-             Use overlay blending and cap opacity so shimmer doesn't produce a thick double-ring.
-             Provide a fallback shimmer animation so the focus pulses even if Steam's native
-             animation does not apply to our injected element. */
-          /* The pseudo-element draws a thin themed ring (via box-shadow) when
-             the card is focused. This avoids painting over the artwork and
-             allows us to animate opacity for the pulsing effect. */
-          /* Ensure the ::after pseudo does not paint a gradient or shimmer
-             on the shelf card — match native which has no ::after background. */
           #deck-shelves-home-root .ds-card::after {
             content: '' !important;
             position: absolute !important;
@@ -212,7 +195,7 @@ function ensureStyles() {
           .ds-card img { transition: opacity .15s ease; }
           .ds-compat {
             position: absolute; bottom: 4px; right: 4px;
-            display: flex; align-items: center;
+            display: var(--ds-compat-display, flex); align-items: center;
             background: rgba(0,0,0,0.7);
             border-radius: 20px;
             padding: 2px;
@@ -222,10 +205,15 @@ function ensureStyles() {
             transition: opacity .15s ease;
           }
           .ds-card.gpfocus .ds-compat,
-          .ds-card:focus .ds-compat { opacity: 1; }
+          .ds-card:focus .ds-compat { opacity: var(--ds-compat-opacity, 1); }
           .ds-compat svg { flex-shrink: 0; width: 20px; height: 20px; }
-          .ds-compat-verified { color: rgb(89, 191, 64); }
-          .ds-compat-playable { color: rgb(255, 200, 44); }
+          /* Deck logo icon: picks up --custom-compat-icons-deck from themed CSS Loader themes */
+          .ds-compat-deck-icon { color: var(--custom-compat-icons-deck, rgba(255,255,255,0.84)); }
+          /* Verdict icons: picks up CSS Loader "Colored Compatibility Icons" theme vars from :root */
+          .ds-compat-verified .ds-compat-verdict-icon { color: var(--custom-compat-icons-verified, rgb(89, 191, 64)); }
+          .ds-compat-playable .ds-compat-verdict-icon { color: var(--custom-compat-icons-playable, rgb(255, 200, 44)); }
+          .ds-compat-unsupported .ds-compat-verdict-icon { color: var(--custom-compat-icons-unsupported, rgb(220, 222, 223)); }
+          .ds-compat-unknown .ds-compat-verdict-icon { color: var(--custom-compat-icons-unknown, rgba(255,255,255,0.4)); }
           .ds-shelf-title {
             color: var(--ds-native-heading-color, inherit);
             font-size: 22px;
@@ -284,6 +272,9 @@ function ensureStyles() {
             text-align: center;
             word-break: break-word;
           }
+          /* Featured (highlight-first) card: label always visible */
+          .ds-card.ds-card--featured .ds-card-label { opacity: 1 !important; }
+          .ds-card.ds-card--featured .ds-card-art img { object-position: center top; }
         `;
         doc.head.appendChild(style);
       }
@@ -314,12 +305,14 @@ function ensureStyles() {
 
 
 
-function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowItem; cardW?: number; cardH?: number }) {
+function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; featured?: boolean }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
+  // library_header.jpg (faixa) aspect ratio: 460/215 ≈ 2.14:1 (confirmed via CDP)
+  const featuredW = featured ? Math.round(cardH * (460 / 215)) : cardW;
 
   const [nativeCardClass, setNativeCardClass] = useState('');
 
@@ -431,19 +424,25 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowI
 
   const allUrls = useMemo(() => {
     const urls: string[] = [];
-    if (appid > 0) {
-      urls.push(`/customimages/${appid}p.png`);
-      urls.push(`/customimages/${appid}p.jpg`);
-    }
-    if (item.portraitUrl && !urls.includes(item.portraitUrl)) urls.push(item.portraitUrl);
-    if (item.heroUrl && !urls.includes(item.heroUrl)) urls.push(item.heroUrl);
-    if (appid > 0) {
-      for (const u of getPortraitFallbacks(appid)) {
-        if (!urls.includes(u)) urls.push(u);
+    if (featured && appid > 0) {
+      // "Faixa" = landscape capsule 616×353. heroUrl (library_hero) as fallback.
+      for (const u of getLandscapeUrls(appid)) urls.push(u);
+      if (item.heroUrl && !urls.includes(item.heroUrl)) urls.push(item.heroUrl);
+    } else {
+      if (appid > 0) {
+        urls.push(`/customimages/${appid}p.png`);
+        urls.push(`/customimages/${appid}p.jpg`);
+      }
+      if (item.portraitUrl && !urls.includes(item.portraitUrl)) urls.push(item.portraitUrl);
+      if (item.heroUrl && !urls.includes(item.heroUrl)) urls.push(item.heroUrl);
+      if (appid > 0) {
+        for (const u of getPortraitFallbacks(appid)) {
+          if (!urls.includes(u)) urls.push(u);
+        }
       }
     }
     return urls;
-  }, [item.portraitUrl, item.heroUrl, appid]);
+  }, [item.portraitUrl, item.heroUrl, appid, featured]);
 
   useEffect(() => {
     fallbackIdx.current = 0;
@@ -486,30 +485,42 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowI
     </span>
   );
 
+  // Deck logo: uses --custom-compat-icons-deck CSS var if set by a theme (e.g. Colored Compatibility Icons)
   const deckLogoSvg = (
-    <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path opacity="0.84" fillRule="evenodd" clipRule="evenodd" d="M7.77715 4.30197C10.9241 4.30197 13.4752 6.85305 13.4752 9.99997C13.4752 13.1469 10.9241 15.698 7.77715 15.698V18.8889C12.6864 18.8889 16.666 14.9092 16.666 9.99997C16.666 5.09078 12.6864 1.11108 7.77715 1.11108V4.30197ZM7.77756 13.8889C9.92533 13.8889 11.6664 12.1477 11.6664 9.99997C11.6664 7.8522 9.92533 6.11108 7.77756 6.11108C5.62979 6.11108 3.88867 7.8522 3.88867 9.99997C3.88867 12.1477 5.62979 13.8889 7.77756 13.8889Z" fill="white" />
+    <svg className="ds-compat-deck-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path opacity="0.84" fillRule="evenodd" clipRule="evenodd" d="M7.77715 4.30197C10.9241 4.30197 13.4752 6.85305 13.4752 9.99997C13.4752 13.1469 10.9241 15.698 7.77715 15.698V18.8889C12.6864 18.8889 16.666 14.9092 16.666 9.99997C16.666 5.09078 12.6864 1.11108 7.77715 1.11108V4.30197ZM7.77756 13.8889C9.92533 13.8889 11.6664 12.1477 11.6664 9.99997C11.6664 7.8522 9.92533 6.11108 7.77756 6.11108C5.62979 6.11108 3.88867 7.8522 3.88867 9.99997C3.88867 12.1477 5.62979 13.8889 7.77756 13.8889Z" fill="currentColor" />
     </svg>
   );
+  // Verdict icons: color driven by our CSS rules (.ds-compat-verified/playable/unsupported .ds-compat-verdict-icon).
+  // CSS Loader "Colored Compatibility Icons" theme overrides via --custom-compat-icons-* vars on :root.
   const checkmarkSvg = (
-    <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className="ds-compat-verdict-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path fillRule="evenodd" clipRule="evenodd" d="M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19ZM8.33342 11.9222L14.4945 5.76667L16.4556 7.72779L8.33342 15.8556L3.26675 10.7833L5.22786 8.82223L8.33342 11.9222Z" fill="currentColor" />
     </svg>
   );
   const infoCircleSvg = (
-    <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path fillRule="evenodd" clipRule="evenodd" d="M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19ZM9 6H11V8H9V6ZM9 9H11V14H9V9Z" fill="currentColor" />
+    <svg className="ds-compat-verdict-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path fillRule="evenodd" clipRule="evenodd" d="M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19ZM8.61079 9.44444V15H11.3886V9.44444H8.61079ZM9.07372 8.05245C9.34781 8.23558 9.67004 8.33333 9.99967 8.33333C10.4417 8.33333 10.8656 8.15774 11.1782 7.84518C11.4907 7.53262 11.6663 7.10869 11.6663 6.66667C11.6663 6.33703 11.5686 6.0148 11.3855 5.74072C11.2023 5.46663 10.942 5.25301 10.6375 5.12687C10.3329 5.00072 9.99783 4.96771 9.67452 5.03202C9.35122 5.09633 9.05425 5.25507 8.82116 5.48815C8.58808 5.72124 8.42934 6.01821 8.36503 6.34152C8.30072 6.66482 8.33373 6.99993 8.45988 7.30447C8.58602 7.60902 8.79964 7.86931 9.07372 8.05245Z" fill="currentColor" />
+    </svg>
+  );
+  const xCircleSvg = (
+    <svg className="ds-compat-verdict-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path fillRule="evenodd" clipRule="evenodd" d="M14.1931 15.6064C13.0246 16.4816 11.5733 17 10.001 17C6.13498 17 3.00098 13.866 3.00098 10C3.00098 8.42766 3.51938 6.97641 4.39459 5.80783L14.1931 15.6064ZM15.6074 14.1922C16.4826 13.0236 17.001 11.5723 17.001 10C17.001 6.13401 13.867 3 10.001 3C8.42864 3 6.97739 3.5184 5.80881 4.39362L15.6074 14.1922ZM19.001 10C19.001 14.9706 14.9715 19 10.001 19C5.03041 19 1.00098 14.9706 1.00098 10C1.00098 5.02944 5.03041 1 10.001 1C14.9715 1 19.001 5.02944 19.001 10Z" fill="currentColor" />
     </svg>
   );
 
+
+  // Only show badge for explicit Steam compat ratings (1-3).
+  // Level 0 means "Unknown/Unrated" — includes non-Steam games and games with no data; don't show badge.
   const compatClass = compat === 3 ? "ds-compat ds-compat-verified"
     : compat === 2 ? "ds-compat ds-compat-playable"
+    : compat === 1 ? "ds-compat ds-compat-unsupported"
     : "";
 
   return (
     <Focusable
       ref={cardRef}
-      className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
+      className={`ds-card${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
       focusClassName="gpfocus"
       role="listitem"
       onActivate={item.onActivate}
@@ -520,8 +531,8 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowI
       data-shelfid={item.shelfId || undefined}
       style={{
         position: "relative",
-        width: cardW,
-        minWidth: cardW,
+        width: featuredW,
+        minWidth: featuredW,
         height: cardH,
         flexShrink: 0,
         padding: 0,
@@ -561,7 +572,7 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowI
         {compatClass && (
           <div className={compatClass}>
             {deckLogoSvg}
-            {compat === 3 ? checkmarkSvg : infoCircleSvg}
+            {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
           </div>
         )}
       </div>
@@ -571,7 +582,7 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowI
           position: "absolute",
           top: "100%",
           left: 0,
-          width: cardW + 20,
+          width: featuredW + 20,
           paddingTop: 10,
           pointerEvents: "none",
           display: "flex",
@@ -733,7 +744,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   } catch {}
 }
 
-export function DeckRow({ title, items, shelfId, matchNativeSize = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean }) {
+export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
@@ -997,10 +1008,10 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false }: { ti
           }}
           flow-children="horizontal"
         >
-          {items.map((item) =>
+          {items.map((item, idx) =>
             item.isMoreLink
               ? <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
-              : <GameCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
+              : <GameCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} featured={highlightFirst && idx === 0} />
           )}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>

@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Nach Steam-Benutzerbewertung sortieren (höchste zuerst).",
   "folder_label": "Ordner",
   "browse": "Durchsuchen",
-  "match_native_size": "Native Kartengröße anpassen"
+  "match_native_size": "Native Kartengröße anpassen",
+  "highlight_first": "Erstes Spiel hervorheben"
 }

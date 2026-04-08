@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "按Steam用户评价分数排序（最高的排在前面）。",
   "folder_label": "文件夹",
   "browse": "浏览",
-  "match_native_size": "匹配原生卡片大小"
+  "match_native_size": "匹配原生卡片大小",
+  "highlight_first": "突出显示第一个游戏"
 }

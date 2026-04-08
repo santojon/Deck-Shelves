@@ -19,7 +19,6 @@ const DIR_LEFT  = 11;
 const DIR_RIGHT = 12;
 const DS_EDGE_PATCHED   = "__ds_edge_patched__";
 const DS_EDGE_LISTENER  = "__ds_edge_listener__";
-// WeakSet avoids polluting external Steam controller objects with string properties.
 const patchedMenuControllers = new WeakSet<object>();
 const OPTIONS_BUTTON    = 4;
 
@@ -58,16 +57,12 @@ function reparentNavTreeNodes(mountEl: HTMLElement): number {
     return null;
   }
 
-  // Use the previous sibling (native shelf chain) as reference for nav tree placement.
-  // This places our nav node inside the native shelf's subtree so D-pad down from
-  // native games reaches our shelves, even though our DOM mount is at viewport level.
   const nativeSibling = mountEl.previousElementSibling as HTMLElement | null;
   const refEl = nativeSibling || mountEl;
   const deepest = findDeepestContainer(root, refEl);
   if (!deepest) return -1;
 
   let target = deepest;
-  // Walk up to find a vertical layout (1) container — that's where D-pad down navigates
   let cursor: any = deepest.m_Parent;
   while (cursor) {
     try {
@@ -201,12 +196,6 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   const root = mainTree.Root || mainTree.m_Root || mainTree;
   const proto = Object.getPrototypeOf(root);
 
-  // NOTE: proto-patching BTryInternalNavigation is a shared prototype mutation.
-  // Other plugins that also patch this method (e.g. TabMaster, GamepadNavTools) will
-  // chain correctly as long as they preserve the original via closure — the DS_EDGE_PATCHED
-  // guard prevents double-patching by this plugin but cannot prevent conflicts with plugins
-  // that overwrite the method entirely without chaining. If navigation breaks, check for
-  // conflicting plugins that patch BTryInternalNavigation without calling orig().
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
@@ -237,7 +226,7 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
       if (btn === DIR_LEFT || btn === DIR_RIGHT) {
         evt.stopPropagation();
       }
-    }); // bubble phase (default)
+    });
   }
 }
 
@@ -258,7 +247,6 @@ function hasHomeDomSignals(): boolean {
   return false;
 }
 
-/** One-time feature detection for the gamepad nav tree internal API. */
 function detectNavTreeApi(): { available: boolean; detail: string } {
   try {
     const ctrl = (globalThis as any).FocusNavController

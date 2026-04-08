@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Trier par évaluation des utilisateurs Steam (la plus élevée en premier).",
   "folder_label": "Dossier",
   "browse": "Parcourir",
-  "match_native_size": "Taille native des cartes"
+  "match_native_size": "Taille native des cartes",
+  "highlight_first": "Mettre le premier jeu en avant"
 }

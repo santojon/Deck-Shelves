@@ -75,6 +75,7 @@ export const ShelfSchema = z.object({
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).default(15),
   matchNativeSize: z.boolean().default(false),
+  highlightFirst: z.boolean().default(false),
   source: ShelfSourceSchema
 });
 

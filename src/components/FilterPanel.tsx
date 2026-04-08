@@ -37,7 +37,6 @@ const ALL_FILTER_TYPES: FilterItemType[] = [
 ];
 
 const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
-
 // Types that support the "Invert" dropdown (mirrors CustomTabs)
 const INVERTIBLE_SET = new Set<FilterItemType>([
   "favorites",

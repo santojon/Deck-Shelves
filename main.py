@@ -68,6 +68,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hidden = bool(s.get("hidden", False))
         enabled = bool(s.get("enabled", True))
         match_native_size = bool(s.get("matchNativeSize", False))
+        highlight_first = bool(s.get("highlightFirst", False))
         if not sid:
             continue
         sanitized.append({
@@ -78,6 +79,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "hidden": hidden,
             "enabled": enabled,
             "matchNativeSize": match_native_size,
+            "highlightFirst": highlight_first,
         })
     return {"enabled": bool(settings.get("enabled", False)), "shelves": sanitized}
 

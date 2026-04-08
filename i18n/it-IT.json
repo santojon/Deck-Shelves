@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Ordina per valutazione utenti Steam (più alta prima).",
   "folder_label": "Cartella",
   "browse": "Sfoglia",
-  "match_native_size": "Adatta dimensione nativa delle schede"
+  "match_native_size": "Adatta dimensione nativa delle schede",
+  "highlight_first": "Metti in evidenza il primo gioco"
 }

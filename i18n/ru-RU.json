@@ -204,5 +204,6 @@
   "docs_sort_review_desc": "Сортировать по оценке пользователей Steam (наивысшая первой).",
   "folder_label": "Папка",
   "browse": "Обзор",
-  "match_native_size": "Размер как у нативных карточек"
+  "match_native_size": "Размер как у нативных карточек",
+  "highlight_first": "Выделить первую игру"
 }

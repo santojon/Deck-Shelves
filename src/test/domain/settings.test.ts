@@ -20,6 +20,7 @@ function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
     hidden: false,
     limit: 15,
     matchNativeSize: false,
+    highlightFirst: false,
     source: { type: 'tab', tab: 'all' },
     ...overrides,
   }
