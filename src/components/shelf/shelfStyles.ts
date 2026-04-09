@@ -120,12 +120,14 @@ function buildStylesheet(): string {
       --ds-card-radius: ${cachedCardRadius};
       --ds-card-dim: 0.9;
       --ds-card-bg: rgba(3, 10, 30, 0.92);
+      --ds-shell-bg: transparent;
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
-    #deck-shelves-home-root { margin-top: -32px !important; }
-    .deck-shelves-root { background: transparent; }
+    #deck-shelves-home-root { margin-top: -32px !important; background: var(--ds-shell-bg, transparent) !important; }
+    .deck-shelves-root { background: transparent !important; }
+    .Panel.ds-shelf { background: transparent !important; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
     .ds-card {

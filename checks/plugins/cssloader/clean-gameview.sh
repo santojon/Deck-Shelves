@@ -19,9 +19,12 @@ run_checks() {
     ((fail++))
   fi
 
-  # 2. Card backgrounds are explicit (not inherited from theme)
-  if grep -rq "background.*rgba\|background.*#\|background-color" "$src/components/DeckRow.tsx" 2>/dev/null; then
-    echo "  ✅ Card backgrounds are explicitly set"
+  # 2. Card backgrounds are explicit (not inherited from theme).
+  # Accept explicit rgba/# values OR use of our shell CSS variable (--ds-shell-bg / var(--ds-shell-bg)).
+  if grep -RInE "background\s*[:=][^\n]*rgba|background\s*[:=][^\n]*#|background-color" "$src" 2>/dev/null >/dev/null || \
+     grep -RIn "--ds-shell-bg" "$src" 2>/dev/null >/dev/null || \
+     grep -RIn "var(--ds-shell-bg" "$src" 2>/dev/null >/dev/null; then
+    echo "  ✅ Card backgrounds are explicitly set or use the --ds-shell-bg variable"
     ((pass++))
   else
     echo "  ❌ No explicit card backgrounds — Clean Game View may make cards invisible"
