@@ -58,7 +58,7 @@ export function applyHideRecents(hidden: boolean): void {
     const { doc } = getHostContext();
     const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
     if (mount) {
-      mount.style.setProperty("margin-top", hidden ? "24px" : "", "important");
+      mount.style.setProperty("margin-top", hidden ? "48px" : "", "important");
     }
   } catch {}
 }

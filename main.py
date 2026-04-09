@@ -81,7 +81,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "matchNativeSize": match_native_size,
             "highlightFirst": highlight_first,
         })
-    return {"enabled": bool(settings.get("enabled", False)), "shelves": sanitized}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "shelves": sanitized}
 
 
 class Plugin:
