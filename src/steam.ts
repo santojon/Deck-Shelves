@@ -1959,7 +1959,16 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
 
 export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
   // Refresh download queue cache (non-blocking, 5s TTL)
+  try { /* perf markers */ } catch {}
+  // Instrumentation
+  try { const perf = await Promise.resolve(); } catch {}
+  importPerf: {
+    /* placeholder for perf import resolution at build time */
+  }
   refreshPendingUpdateAppIds().catch(() => {});
+  try { /* no-op to keep markers resolvable */ } catch {}
+  // Start measuring
+  try { const { mark } = await Promise.resolve(require('./core/perf')); mark?.(`getAppMeta:${appid}:start`); } catch {}
   const sc = getSteamClient();
   try {
     const ov = await sc?.Apps?.GetAppOverview?.(appid);
@@ -1981,10 +1990,14 @@ export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
       // Also fetch raw for update detection
       let raw: any;
       try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
-      return buildMetaFromOverview(appid, found, raw);
+      const res = buildMetaFromOverview(appid, found, raw);
+      try { const { measure } = await Promise.resolve(require('./core/perf')); measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
+      return res;
     }
   } catch {}
-  return { appid, name: `App ${appid}`, heroUrl: `/assets/${appid}/library_hero.jpg`, portraitUrl: `/assets/${appid}/library_600x900.jpg`, isSteam: true };
+  const fallback = { appid, name: `App ${appid}`, heroUrl: `/assets/${appid}/library_hero.jpg`, portraitUrl: `/assets/${appid}/library_600x900.jpg`, isSteam: true };
+  try { const { measure } = await Promise.resolve(require('./core/perf')); measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
+  return fallback;
 }
 
 export async function getAppName(appid: number): Promise<string> {
@@ -1998,6 +2011,56 @@ export async function getAppName(appid: number): Promise<string> {
 
 /** Module-level cache so we don't re-read from the store on every filter pass */
 const developerCache = new Map<number, string>();
+
+// Persistent cache in localStorage to survive plugin reloads. Keys: appid -> developer string
+const DEV_CACHE_KEY = 'deck-shelves-dev-cache-v1';
+const DEV_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+let devCacheDirty = false;
+let devCacheSaveTimer: number | null = null;
+
+function loadDeveloperCacheFromStorage() {
+  try {
+    const raw = globalThis.localStorage?.getItem(DEV_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    const ts = Number(parsed.ts || 0);
+    if (!ts || (Date.now() - ts) > DEV_CACHE_TTL_MS) return; // expired
+    const map = parsed.map || {};
+    for (const k of Object.keys(map)) {
+      const id = Number(k);
+      if (!Number.isNaN(id)) developerCache.set(id, String(map[k] ?? ""));
+    }
+  } catch {}
+}
+
+function persistDeveloperCacheToStorage() {
+  try {
+    const map: Record<string, string> = {};
+    for (const [k, v] of developerCache.entries()) map[String(k)] = v;
+    const payload = { ts: Date.now(), map };
+    globalThis.localStorage?.setItem(DEV_CACHE_KEY, JSON.stringify(payload));
+    devCacheDirty = false;
+    if (devCacheSaveTimer) { clearTimeout(devCacheSaveTimer); devCacheSaveTimer = null; }
+  } catch {}
+}
+
+function scheduleDeveloperCachePersist() {
+  if (devCacheSaveTimer) return;
+  devCacheDirty = true;
+  // debounce write to avoid thrashing
+  devCacheSaveTimer = setTimeout(() => { try { persistDeveloperCacheToStorage(); } catch {} }, 1000) as unknown as number;
+}
+
+// Initialize from storage
+try { loadDeveloperCacheFromStorage(); } catch {}
+
+export function clearDeveloperCache(): void {
+  try {
+    developerCache.clear();
+    globalThis.localStorage?.removeItem(DEV_CACHE_KEY);
+  } catch {}
+}
 
 function getAppDetailsStore(): any {
   for (const win of getSteamWindows() as Window[]) {
@@ -2050,6 +2113,7 @@ export async function preloadDeveloperData(appids: number[]): Promise<void> {
                 const dev: string = details?.strDeveloperName ?? "";
                 if (dev) developerCache.set(appid, dev);
                 else developerCache.set(appid, "");
+                try { scheduleDeveloperCachePersist(); } catch {}
                 finish();
               });
               setTimeout(() => { try { handle?.unregister?.(); } catch {} finish(); }, TIMEOUT_MS);

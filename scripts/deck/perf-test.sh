@@ -25,6 +25,12 @@ if [[ -f "${PROJECT_ROOT}/.env" ]]; then
   set -a; source "${PROJECT_ROOT}/.env"; set +a
 fi
 
+COMPARE_MODE=0
+if [[ "${1:-}" == "--compare" ]]; then
+  COMPARE_MODE=1
+  shift
+fi
+
 DURATION="${1:-${DURATION:-5}}"    # minutes
 INTERVAL=30                         # seconds between samples
 HOST="${DECK_HOST:-}"
@@ -98,6 +104,71 @@ echo "capacity=$capacity status=$status power_mw=$power_mw cpu_pct=$cpu_pct inhi
 EOF
 }
 
+# Run a full sampling pass and emit a concise summary line with drain_per_hr
+run_sampling() {
+  TOTAL_SAMPLES=$(( (DURATION * 60) / INTERVAL ))
+  DS_INHIBIT_DETECTED=0
+  declare -a BAT_SAMPLES=()
+  declare -a CPU_SAMPLES=()
+  declare -a POWER_SAMPLES=()
+  elapsed=0
+
+  for (( i=0; i<TOTAL_SAMPLES; i++ )); do
+    raw=$(collect_sample)
+
+    capacity=$(echo "$raw" | grep -oP 'capacity=\K[^ ]+')
+    status=$(echo "$raw"   | grep -oP 'status=\K[^ ]+')
+    power_mw=$(echo "$raw" | grep -oP 'power_mw=\K[^ ]+')
+    cpu_pct=$(echo "$raw"  | grep -oP 'cpu_pct=\K[^ ]+')
+    inhibs=$(echo "$raw"   | grep -oP 'inhibitor_count=\K[^ ]+')
+    ds_inh=$(echo "$raw"   | grep -oP 'ds_inhibit=\K[^ ]+')
+    dk_cpu=$(echo "$raw"   | grep -oP 'decky_cpu=\K[^ ]+')
+
+    [[ "$ds_inh" == "YES" ]] && DS_INHIBIT_DETECTED=1
+
+    printf "%-6s %-8s %-12s %-10s %-8s %-12s %-10s %-10s\n" \
+      "${elapsed}" "${capacity}%" "${status}" "${power_mw}" "${cpu_pct}%" "${dk_cpu}%" "${inhibs}" "${ds_inh}"
+
+    [[ "$capacity" != "N/A" ]] && BAT_SAMPLES+=("$capacity")
+    [[ "$cpu_pct"  != "N/A" ]] && CPU_SAMPLES+=("$cpu_pct")
+    [[ "$power_mw" != "N/A" ]] && POWER_SAMPLES+=("$power_mw")
+
+    elapsed=$(( elapsed + INTERVAL ))
+    [[ $i -lt $((TOTAL_SAMPLES - 1)) ]] && sleep "$INTERVAL"
+  done
+
+  # summary calculations (prints to stdout and sets globals)
+  if [[ ${#BAT_SAMPLES[@]} -ge 2 ]]; then
+    first_bat="${BAT_SAMPLES[0]}"
+    last_idx=$(( ${#BAT_SAMPLES[@]} - 1 ))
+    last_bat="${BAT_SAMPLES[$last_idx]}"
+    drain=$(( first_bat - last_bat ))
+    drain_per_hr=$(( drain * 60 / DURATION ))
+  else
+    drain_per_hr=0
+  fi
+
+  # avg cpu/power
+  if [[ ${#CPU_SAMPLES[@]} -gt 0 ]]; then
+    total_cpu=0
+    for v in "${CPU_SAMPLES[@]}"; do total_cpu=$(( total_cpu + v )); done
+    avg_cpu=$(( total_cpu / ${#CPU_SAMPLES[@]} ))
+  else
+    avg_cpu=0
+  fi
+
+  if [[ ${#POWER_SAMPLES[@]} -gt 0 ]]; then
+    total_pwr=0
+    for v in "${POWER_SAMPLES[@]}"; do total_pwr=$(( total_pwr + v )); done
+    avg_pwr=$(( total_pwr / ${#POWER_SAMPLES[@]} ))
+  else
+    avg_pwr=0
+  fi
+
+  # Emit a compact summary line for parsing/comparison
+  echo "__SUMMARY__ drain_per_hr=${drain_per_hr} ds_inhibit=${DS_INHIBIT_DETECTED} avg_cpu=${avg_cpu} avg_power_mw=${avg_pwr}"
+}
+
 # ─── pre-flight ───────────────────────────────────────────────────────────────
 
 echo ""
@@ -124,103 +195,61 @@ else
 fi
 echo ""
 
-# ─── sampling loop ────────────────────────────────────────────────────────────
+if [[ $COMPARE_MODE -eq 1 ]]; then
+  echo "COMPARE mode: two runs will be taken. First run = baseline (plugin disabled)."
+  read -p "Press Enter to start baseline run... " _
+  printf "%s\n" "T(s) Bat% Bat.Status Power(mW) CPU% Decky.CPU% Inhibitors DS.Inhibit"
+  summary1=$(run_sampling | tee /dev/stderr | grep '^__SUMMARY__' | tail -n1)
+  drain1=$(echo "$summary1" | grep -oP 'drain_per_hr=\K[0-9]+' || echo 0)
+  inhib1=$(echo "$summary1" | grep -oP 'ds_inhibit=\K[01]' || echo 0)
 
-printf "%-6s %-8s %-12s %-10s %-8s %-12s %-10s %-10s\n" \
-  "T(s)" "Bat%" "Bat.Status" "Power(mW)" "CPU%" "Decky.CPU%" "Inhibitors" "DS.Inhibit"
-printf "%-6s %-8s %-12s %-10s %-8s %-12s %-10s %-10s\n" \
-  "------" "--------" "------------" "----------" "--------" "------------" "----------" "----------"
+  echo "\nNow enable the plugin (or leave enabled) for the plugin run."
+  read -p "Press Enter to start plugin run... " _
+  printf "%s\n" "T(s) Bat% Bat.Status Power(mW) CPU% Decky.CPU% Inhibitors DS.Inhibit"
+  summary2=$(run_sampling | tee /dev/stderr | grep '^__SUMMARY__' | tail -n1)
+  drain2=$(echo "$summary2" | grep -oP 'drain_per_hr=\K[0-9]+' || echo 0)
+  inhib2=$(echo "$summary2" | grep -oP 'ds_inhibit=\K[01]' || echo 0)
 
-declare -a BAT_SAMPLES=()
-declare -a CPU_SAMPLES=()
-declare -a POWER_SAMPLES=()
-DS_INHIBIT_DETECTED=0
-elapsed=0
-
-for (( i=0; i<TOTAL_SAMPLES; i++ )); do
-  raw=$(collect_sample)
-
-  capacity=$(echo "$raw" | grep -oP 'capacity=\K[^ ]+')
-  status=$(echo "$raw"   | grep -oP 'status=\K[^ ]+')
-  power_mw=$(echo "$raw" | grep -oP 'power_mw=\K[^ ]+')
-  cpu_pct=$(echo "$raw"  | grep -oP 'cpu_pct=\K[^ ]+')
-  inhibs=$(echo "$raw"   | grep -oP 'inhibitor_count=\K[^ ]+')
-  ds_inh=$(echo "$raw"   | grep -oP 'ds_inhibit=\K[^ ]+')
-  dk_cpu=$(echo "$raw"   | grep -oP 'decky_cpu=\K[^ ]+')
-
-  [[ "$ds_inh" == "YES" ]] && DS_INHIBIT_DETECTED=1
-
-  printf "%-6s %-8s %-12s %-10s %-8s %-12s %-10s %-10s\n" \
-    "${elapsed}" "${capacity}%" "${status}" "${power_mw}" "${cpu_pct}%" "${dk_cpu}%" "${inhibs}" "${ds_inh}"
-
-  [[ "$capacity" != "N/A" ]] && BAT_SAMPLES+=("$capacity")
-  [[ "$cpu_pct"  != "N/A" ]] && CPU_SAMPLES+=("$cpu_pct")
-  [[ "$power_mw" != "N/A" ]] && POWER_SAMPLES+=("$power_mw")
-
-  elapsed=$(( elapsed + INTERVAL ))
-  [[ $i -lt $((TOTAL_SAMPLES - 1)) ]] && sleep "$INTERVAL"
-done
-
-# ─── summary ─────────────────────────────────────────────────────────────────
-
-echo ""
-echo "═══════════════════════════════════════════════════════════════════"
-echo "  SUMMARY"
-echo "═══════════════════════════════════════════════════════════════════"
-
-# Battery drain
-if [[ ${#BAT_SAMPLES[@]} -ge 2 ]]; then
-  first_bat="${BAT_SAMPLES[0]}"
-  last_bat="${BAT_SAMPLES[-1]}"
-  drain=$(( first_bat - last_bat ))
-  drain_per_hr=$(( drain * 60 / DURATION ))
-  echo "  Battery  : ${first_bat}% → ${last_bat}%  (drain: ${drain}% in ${DURATION}min ≈ ${drain_per_hr}%/hr)"
-else
-  echo "  Battery  : insufficient samples"
-fi
-
-# Avg CPU
-if [[ ${#CPU_SAMPLES[@]} -gt 0 ]]; then
-  total_cpu=0
-  for v in "${CPU_SAMPLES[@]}"; do total_cpu=$(( total_cpu + v )); done
-  avg_cpu=$(( total_cpu / ${#CPU_SAMPLES[@]} ))
-  echo "  Avg CPU  : ${avg_cpu}%"
-fi
-
-# Avg power
-if [[ ${#POWER_SAMPLES[@]} -gt 0 ]]; then
-  total_pwr=0
-  for v in "${POWER_SAMPLES[@]}"; do total_pwr=$(( total_pwr + v )); done
-  avg_pwr=$(( total_pwr / ${#POWER_SAMPLES[@]} ))
-  echo "  Avg Power: ${avg_pwr} mW"
-fi
-
-echo ""
-echo "─── Sleep / Auto-lock ────────────────────────────────────────────"
-if [[ $DS_INHIBIT_DETECTED -eq 1 ]]; then
-  echo "  ❌ FAIL  Plugin holds a sleep/idle inhibitor — screen may never auto-lock!"
-  RESULT=1
-else
-  echo "  ✔  PASS  No sleep inhibitor from Deck Shelves detected"
-  RESULT=0
-fi
-
-# Drain rate threshold: warn if > 25%/hr while idle on home screen
-if [[ ${#BAT_SAMPLES[@]} -ge 2 ]]; then
-  if [[ $drain_per_hr -gt 25 ]]; then
-    echo "  ⚠  WARN  Battery drain ${drain_per_hr}%/hr exceeds 25%/hr threshold for idle home screen"
-    RESULT=1
+  echo "\n══════════════════════════════════════════════════════════════════="
+  echo "COMPARE RESULTS"
+  echo "Baseline drain: ${drain1}%/hr  | Plugin run drain: ${drain2}%/hr  | Δ = $((drain2 - drain1))%/hr"
+  if [[ "$inhib1" == "1" || "$inhib2" == "1" ]]; then
+    echo "  ❌ FAIL  Sleep/idle inhibitor detected in one of the runs"
+    exit 1
+  fi
+  # Acceptance: plugin run drain <= 10%/hr
+  if [[ ${drain2:-0} -le 10 ]]; then
+    echo "  ✅ PASS  Plugin run drain ${drain2}%/hr <= 10%/hr"
+    exit 0
   else
-    echo "  ✔  PASS  Battery drain ${drain_per_hr}%/hr is within acceptable range"
+    echo "  ❌ FAIL  Plugin run drain ${drain2}%/hr > 10%/hr"
+    exit 1
+  fi
+else
+  # Single run mode
+  printf "%-6s %-8s %-12s %-10s %-8s %-12s %-10s %-10s\n" \
+    "T(s)" "Bat%" "Bat.Status" "Power(mW)" "CPU%" "Decky.CPU%" "Inhibitors" "DS.Inhibit"
+  run_summary=$(run_sampling)
+  echo ""
+  echo "══════════════════════════════════════════════════════════════════="
+  echo "  SUMMARY"
+  echo "══════════════════════════════════════════════════════════════════="
+  echo "$run_summary" | grep '^__SUMMARY__' || true
+
+  drain_per_hr=$(echo "$run_summary" | grep -oP 'drain_per_hr=\K[0-9]+' || echo 0)
+  ds_inhibit=$(echo "$run_summary" | grep -oP 'ds_inhibit=\K[01]' || echo 0)
+
+  if [[ "$ds_inhibit" == "1" ]]; then
+    echo "  ❌ FAIL  Plugin holds a sleep/idle inhibitor — screen may never auto-lock!"
+    exit 1
+  fi
+
+  # Acceptance threshold: drain_per_hr <= 10
+  if [[ ${drain_per_hr:-0} -le 10 ]]; then
+    echo "  ✅ PASS  Battery drain ${drain_per_hr}%/hr is within the 10%/hr threshold"
+    exit 0
+  else
+    echo "  ❌ FAIL  Battery drain ${drain_per_hr}%/hr exceeds 10%/hr threshold"
+    exit 1
   fi
 fi
-
-echo ""
-if [[ $RESULT -eq 0 ]]; then
-  echo "  ✅ All checks passed"
-else
-  echo "  ❌ One or more checks failed — see above"
-fi
-echo "═══════════════════════════════════════════════════════════════════"
-echo ""
-exit $RESULT

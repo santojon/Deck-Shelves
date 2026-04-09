@@ -9,6 +9,7 @@ import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { showGameMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
+import { mark, measure } from "../core/perf";
 
 export function ShelfView({ shelf }: { shelf: Shelf }) {
   const { t } = useTranslation();
@@ -35,18 +36,26 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
 
     const resolve = () => {
       if (cancelled) return;
-      platform.resolveShelfAppIds(shelf.source, shelf.limit)
-        .then((ids) => {
-          if (!cancelled) {
-            setAppIds(ids);
-            setMetaVersion((v) => v + 1);
-            firstLoad.current = false;
-            try { localStorage.setItem(`ds-shelf-cache-${shelf.id}`, JSON.stringify({ ts: Date.now(), ids })); } catch {}
-          }
-        })
-        .catch(() => {
-          if (!cancelled && firstLoad.current) setAppIds([]);
-        });
+      try {
+        mark(`shelf.resolve:${shelf.id}:start`);
+        platform.resolveShelfAppIds(shelf.source, shelf.limit)
+          .then((ids) => {
+            if (!cancelled) {
+              setAppIds(ids);
+              setMetaVersion((v) => v + 1);
+              firstLoad.current = false;
+              try { localStorage.setItem(`ds-shelf-cache-${shelf.id}`, JSON.stringify({ ts: Date.now(), ids })); } catch {}
+            }
+          })
+          .catch(() => {
+            if (!cancelled && firstLoad.current) setAppIds([]);
+          })
+          .finally(() => {
+            measure(`shelf.resolve:${shelf.id}`, `shelf.resolve:${shelf.id}:start`);
+          });
+      } catch {
+        if (!cancelled && firstLoad.current) setAppIds([]);
+      }
     };
 
     // Initial load

@@ -784,6 +784,11 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
 }
 
 export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean }) {
+  try { /* perf */ } catch {}
+  importPerfDeckRow: {
+    /* placeholder */
+  }
+  try { const { mark } = require('../core/perf'); mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch {}
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
@@ -812,6 +817,7 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
 
   useEffect(() => {
     globalStylesStart();
+    try { requestAnimationFrame(() => { try { const { measure } = require('../core/perf'); measure?.(`deckRow.render:${shelfId ?? 'unknown'}`,'deckRow.render:'+ (shelfId ?? 'unknown')+':start'); } catch {} }); } catch {}
     // Re-render when native dims change (e.g. theme applied/removed)
     const onDimsChange = () => forceUpdate(n => n + 1);
     nativeDimsListeners.add(onDimsChange);
