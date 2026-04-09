@@ -41,18 +41,29 @@ pnpm run watch:deck <deck-hostname>
 ## Project Structure
 
 ```
-main.py              Python backend plugin
-src/index.tsx        Frontend entry point
-src/runtime/         Platform integration, Home patching
-src/components/      React components (QAM settings, shelves)
-src/domain/          Settings schema and defaults
-src/core/            Steam asset utilities
-src/shims/           React/Decky GamepadUI shims
-src/features/        Feature-scoped controllers
-i18n/                Locale files
-checks/              Compatibility check scripts (steamos/, decky/, build/, project/)
-scripts/             Build, deploy, and utility scripts (build/, deploy/, deck/, devtools/)
+main.py                  Python backend (settings persistence)
+src/index.tsx            Frontend entry point (Decky lifecycle)
+src/types.ts             Zod schemas (Shelf, Settings, FilterGroup)
+src/steam/               Steam API access (collections, tabs, filters, apps)
+src/store/               Settings store (backend RPC + localStorage cache)
+src/components/          React components
+  shelf/                 Card components (GameCard, MoreCard, PlaceholderCard, HeroBackground)
+  home/                  Home screen nav patches
+  qam/                   QAM icons and helpers
+  styles/                Injected stylesheets
+src/core/                Utilities (focus, scroll, assets, webpack compat, plugin API)
+src/domain/              Pure domain logic (settings operations, defaults, templates)
+src/runtime/             Platform integration (home patching, Steam host, logger)
+src/features/            Feature controllers (settings)
+src/integrations/        Third-party plugin integration (TabMaster, UnifiDeck)
+src/shims/               React/Decky GamepadUI shims
+src/test/                Vitest test suites
+i18n/                    16 locale files
+docs/                    Architecture, API, filter, and development docs
+scripts/                 Build, deploy, devtools, and screenshot automation
 ```
+
+See [`docs/architecture.md`](docs/architecture.md) for a detailed breakdown.
 
 ## Code Style
 

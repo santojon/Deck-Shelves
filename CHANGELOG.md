@@ -17,11 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - DeckRow.tsx split into modular files: `shelf/types.ts`, `shelf/shelfStyles.ts`, `shelf/GameCard.tsx`, `shelf/MoreCard.tsx`, `shelf/PlaceholderCard.tsx`, `shelf/HeroBackground.tsx`
+- Navigation patches extracted from HomeInject.tsx to `home/navPatches.ts` (210 lines)
+- QAM icons extracted to `qam/icons.tsx`
+- `steam.ts` moved to `steam/index.ts` as modular barrel
+- `settingsStore.ts` moved to `store/settingsStore.ts` with backwards-compatible re-export
+- `focusRestore.ts` rewritten with AbortController + recursive setTimeout (cleaner than nested setInterval)
 - Dimension change tolerance increased to 4px with 2-cycle confirmation to prevent resize flicker
 - Featured card width/height transitions smoothly (CSS transition: 0.3s ease)
-- QAM shelf names use 2-line clamp with ellipsis instead of single-line truncation
-- `debug` flag removed from `plugin.json`; injected only during dev deploy
-- Decky Store submission workflow uses hyphenated submodule path (`Deck-Shelves` instead of `Deck Shelves`)
+- Hero background replicates full native DOM chain for CSS Loader theme compatibility (zoom animation, grayscale filters)
+- Documentation consolidated into `docs/` directory: architecture, plugin-api, development, filters
 
 ### Fixed
 

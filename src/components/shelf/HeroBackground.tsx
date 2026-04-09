@@ -37,10 +37,14 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       // The recents section is the sibling before our mount
       const prev = mountEl.previousElementSibling as HTMLElement | null;
       if (!prev) return;
+      // Find the hero image — check by class count (native hero imgs have 4+ classes)
+      // rather than dimensions, since recents may be hidden (height: 0)
       const imgs = Array.from(prev.querySelectorAll('img'));
       for (const img of imgs) {
+        const classes = Array.from(img.classList);
         const r = img.getBoundingClientRect();
-        if (r.width > 400 && r.height > 200) {
+        // Either the image is large enough (recents visible) or has enough native classes (recents hidden)
+        if ((r.width > 400 && r.height > 200) || classes.length >= 4) {
           const imgClass = Array.from(img.classList).join(' ');
           // Walk up: parent is the zoom container (25s animation), then intermediate wrappers
           const zoomContainer = img.parentElement;

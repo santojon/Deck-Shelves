@@ -103,6 +103,14 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
   <img src="assets/screenshots/about-page.png" alt="Deck Shelves — About & Filter Documentation" width="768">
 </p>
 
+## Documentation
+
+- [Architecture](docs/architecture.md) — project structure, data flow, key systems
+- [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
+- [Filter System](docs/filters.md) — filter types, groups, sort options
+- [Development Guide](docs/development.md) — setup, build commands, testing, conventions
+- [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
+
 ## Installation
 
 ### From Decky Store

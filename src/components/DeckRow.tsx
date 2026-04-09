@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
@@ -42,29 +42,27 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
   const titleRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
   const [nativeRowClass, setNativeRowClass] = useState('');
-  const [, forceUpdate] = useState(0);
 
-  const cachedNativeDims = getCachedNativeDims();
-  const effectiveW = matchNativeSize && cachedNativeDims ? cachedNativeDims.width : CARD_W;
-  const effectiveH = matchNativeSize && cachedNativeDims ? cachedNativeDims.height : CARD_ART_H;
-  const effectiveGap = matchNativeSize && cachedNativeDims ? cachedNativeDims.gap : CARD_GAP;
-  const effectiveFeaturedW = matchNativeSize && cachedNativeDims?.featuredWidth
-    ? cachedNativeDims.featuredWidth
-    : Math.round(effectiveH * (460 / 215));
-  const effectiveFeaturedH = matchNativeSize && cachedNativeDims?.featuredHeight
-    ? cachedNativeDims.featuredHeight
-    : effectiveH;
-  const effectiveArtH = matchNativeSize && cachedNativeDims?.imgHeight
-    ? cachedNativeDims.imgHeight
-    : effectiveH;
-  const effectiveFeaturedArtH = matchNativeSize && cachedNativeDims?.featuredImgHeight
-    ? cachedNativeDims.featuredImgHeight
-    : effectiveFeaturedH;
+  // Memoize effective dimensions — only recompute when the dims version changes,
+  // not on every render. This prevents intermediate states from causing layout jumps.
+  const [dimsVersion, setDimsVersion] = useState(0);
+  const dims = useMemo(() => {
+    const nd = getCachedNativeDims();
+    const w = matchNativeSize && nd ? nd.width : CARD_W;
+    const h = matchNativeSize && nd ? nd.height : CARD_ART_H;
+    const gap = matchNativeSize && nd ? nd.gap : CARD_GAP;
+    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(h * (460 / 215));
+    const featH = matchNativeSize && nd?.featuredHeight ? nd.featuredHeight : h;
+    const artH = matchNativeSize && nd?.imgHeight ? nd.imgHeight : h;
+    const featArtH = matchNativeSize && nd?.featuredImgHeight ? nd.featuredImgHeight : featH;
+    return { w, h, gap, featW, featH, artH, featArtH };
+  }, [matchNativeSize, dimsVersion]);
+  const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
 
   useEffect(() => {
     globalStylesStart();
     try { requestAnimationFrame(() => { try { measure?.(`deckRow.render:${shelfId ?? 'unknown'}`, `deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "measure failed", String(e)); } }); } catch (e) { logInfo("HOME", "rAF measure failed", String(e)); }
-    const unsub = onNativeDimsChange(() => forceUpdate(n => n + 1));
+    const unsub = onNativeDimsChange(() => setDimsVersion(n => n + 1));
     return () => {
       globalStylesStop();
       unsub();

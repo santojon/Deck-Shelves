@@ -105,23 +105,18 @@ export function tryRestoreFocus(): boolean {
   return false;
 }
 
-let focusObserver: MutationObserver | null = null;
-let focusPollId: ReturnType<typeof setInterval> | null = null;
+let activeAbort: AbortController | null = null;
 
 export function beginFocusRestoreLoop(): void {
   if (!pendingAppid) return;
 
-  focusObserver?.disconnect();
-  focusObserver = null;
-  if (focusPollId !== null) {
-    clearInterval(focusPollId);
-    focusPollId = null;
-  }
+  // Cancel any previous restore loop
+  activeAbort?.abort();
+  const abort = new AbortController();
+  activeAbort = abort;
 
   const targetAppid = pendingAppid;
   const targetShelfId = pendingShelfId;
-  const deadline = Date.now() + 30000;
-
   const doc = getPreferredSteamDocument();
   if (!doc?.body) return;
 
@@ -133,87 +128,60 @@ export function beginFocusRestoreLoop(): void {
     return doc.querySelector(`.ds-card[data-appid="${targetAppid}"]`) as HTMLElement | null;
   };
 
-  const cardMatches = (el: HTMLElement): boolean => {
-    if (!el.matches?.(`.ds-card[data-appid="${targetAppid}"]`)) return false;
-    if (targetShelfId && el.dataset?.shelfid && el.dataset.shelfid !== targetShelfId) return false;
-    return true;
+  const isDone = () => abort.signal.aborted || !pendingAppid || pendingAppid !== targetAppid;
+
+  const succeed = () => {
+    pendingAppid = null;
+    pendingShelfId = null;
+    abort.abort();
   };
 
   const attempt = () => {
-    if (!pendingAppid || pendingAppid !== targetAppid) return;
-    if (Date.now() > deadline) { pendingAppid = null; pendingShelfId = null; focusObserver?.disconnect(); focusObserver = null; return; }
-
+    if (isDone()) return;
     const card = findCard();
-    if (card?.classList.contains("gpfocus")) {
-      pendingAppid = null;
-      pendingShelfId = null;
-      focusObserver?.disconnect();
-      focusObserver = null;
-      return;
-    }
+    if (card?.classList.contains("gpfocus")) { succeed(); return; }
     tryRestoreFocus();
   };
 
-  focusObserver = new MutationObserver((mutations) => {
-    if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
-      focusObserver?.disconnect();
-      focusObserver = null;
-      pendingAppid = null;
-      pendingShelfId = null;
-      return;
-    }
+  // MutationObserver: fast path — react to class changes on cards
+  const observer = new MutationObserver((mutations) => {
+    if (isDone()) { observer.disconnect(); return; }
     for (const m of mutations) {
       if (m.type !== "attributes" || m.attributeName !== "class") continue;
       const el = m.target as HTMLElement;
-      if (cardMatches(el) && el.classList.contains("gpfocus")) {
-        pendingAppid = null;
-        pendingShelfId = null;
-        focusObserver?.disconnect();
-        focusObserver = null;
+      if (el.matches?.(`.ds-card[data-appid="${targetAppid}"]`) && el.classList.contains("gpfocus")) {
+        if (targetShelfId && el.dataset?.shelfid && el.dataset.shelfid !== targetShelfId) continue;
+        succeed();
+        observer.disconnect();
         return;
       }
-      if (el.classList.contains("gpfocus") && !cardMatches(el)) {
-        attempt();
-        return;
-      }
+      if (el.classList.contains("gpfocus")) { attempt(); return; }
     }
   });
+  observer.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 
-  focusObserver.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
-
+  // Polling fallback: 500ms × 10, then 2s until timeout
   attempt();
-
-  // Polling fallback: 500ms initial, escalates to 2s after 10 attempts.
-  // The MutationObserver handles the fast path; polling is only for edge cases.
   let pollCount = 0;
-  focusPollId = setInterval(() => {
-    if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
-      clearInterval(focusPollId!);
-      focusPollId = null;
-      return;
-    }
+  const poll = () => {
+    if (isDone()) return;
     pollCount++;
     attempt();
-    if (pollCount === 10 && focusPollId !== null) {
-      clearInterval(focusPollId);
-      focusPollId = setInterval(() => {
-        if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
-          clearInterval(focusPollId!);
-          focusPollId = null;
-          return;
-        }
-        attempt();
-      }, 2000);
+    if (!isDone()) {
+      setTimeout(poll, pollCount < 10 ? 500 : 2000);
     }
-  }, 500);
+  };
+  setTimeout(poll, 500);
 
+  // Hard timeout: 30s
   setTimeout(() => {
-    focusObserver?.disconnect();
-    focusObserver = null;
-    if (focusPollId !== null) {
-      clearInterval(focusPollId);
-      focusPollId = null;
+    if (!abort.signal.aborted) {
+      observer.disconnect();
+      pendingAppid = null;
+      abort.abort();
     }
-    pendingAppid = null;
   }, 30000);
+
+  // Cleanup on abort
+  abort.signal.addEventListener("abort", () => observer.disconnect(), { once: true });
 }

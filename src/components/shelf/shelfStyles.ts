@@ -10,25 +10,14 @@ let cachedNativeDims: NativeCardDims | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
 let dimsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingDims: NativeCardDims | null = null;
-function debouncedNotifyDims(dims: NativeCardDims) {
-  // Require dims to be confirmed on two consecutive cycles to avoid transient flicker
-  if (pendingDims && JSON.stringify(pendingDims) === JSON.stringify(dims)) {
-    // Confirmed — apply immediately
-    if (dimsDebounceTimer) clearTimeout(dimsDebounceTimer);
+function debouncedNotifyDims(_dims: NativeCardDims) {
+  // Debounce: wait 500ms after last change before notifying listeners.
+  // This prevents rapid re-renders when dims flicker during navigation.
+  if (dimsDebounceTimer) clearTimeout(dimsDebounceTimer);
+  dimsDebounceTimer = setTimeout(() => {
     dimsDebounceTimer = null;
-    pendingDims = null;
     nativeDimsListeners.forEach(cb => cb());
-  } else {
-    // First detection — queue for confirmation
-    pendingDims = dims;
-    if (dimsDebounceTimer) clearTimeout(dimsDebounceTimer);
-    dimsDebounceTimer = setTimeout(() => {
-      dimsDebounceTimer = null;
-      pendingDims = null;
-      nativeDimsListeners.forEach(cb => cb());
-    }, 800);
-  }
+  }, 500);
 }
 
 export function getCachedCardRadius(): string { return cachedCardRadius; }
@@ -68,6 +57,7 @@ function ensureStyles() {
     const newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
     // Only accept new dims when the change exceeds tolerance (avoids flicker
     // from focus-scale, rounding, or animation mid-frame measurements).
+    // When newDims is null (e.g. recents hidden), keep the cached dims.
     const tol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > 4;
     const dimsChanged = newDims !== null && (
       !cachedNativeDims ||
@@ -77,21 +67,23 @@ function ensureStyles() {
       tol(newDims.featuredWidth, cachedNativeDims.featuredWidth) ||
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
-    // Only update cached dims when the change is significant
     if (dimsChanged && newDims) { cachedNativeDims = newDims; debouncedNotifyDims(newDims); }
     else if (!cachedNativeDims && newDims) cachedNativeDims = newDims;
+    // Update CSS variables without removing/recreating the stylesheet to avoid style flicker
     const docs = [document, steamDoc];
     for (const doc of docs) {
       if (!doc) continue;
-      if (radiusChanged || dimsChanged) {
-        const existing = doc.getElementById(STYLE_ID);
-        if (existing) existing.remove();
-      }
       if (!doc.getElementById(STYLE_ID)) {
         const style = doc.createElement("style");
         style.id = STYLE_ID;
         style.textContent = buildStylesheet();
         doc.head.appendChild(style);
+      } else if (radiusChanged || dimsChanged) {
+        // Update CSS variables in-place instead of removing the stylesheet
+        doc.documentElement.style.setProperty('--ds-card-radius', cachedCardRadius);
+        doc.documentElement.style.setProperty('--ds-native-card-w', `${cachedNativeDims?.width ?? CARD_W}px`);
+        doc.documentElement.style.setProperty('--ds-native-card-h', `${cachedNativeDims?.height ?? CARD_ART_H}px`);
+        doc.documentElement.style.setProperty('--ds-native-card-gap', `${cachedNativeDims?.gap ?? CARD_GAP}px`);
       }
 
       try {
