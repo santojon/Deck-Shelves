@@ -115,7 +115,7 @@ function buildStylesheet(): string {
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
-    #deck-shelves-home-root { margin-top: -24px !important; }
+    #deck-shelves-home-root { margin-top: -40px !important; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
     .ds-card {

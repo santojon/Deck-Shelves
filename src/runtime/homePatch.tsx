@@ -58,7 +58,7 @@ export function applyHideRecents(hidden: boolean): void {
     const { doc } = getHostContext();
     const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
     if (mount) {
-      mount.style.setProperty("margin-top", hidden ? "48px" : "", "important");
+      mount.style.setProperty("margin-top", hidden ? "56px" : "", "important");
     }
   } catch (e) { logInfo("HOME", "applyHideRecents: margin-top failed", String(e)); }
 }
@@ -328,7 +328,7 @@ function ensureMount(): HTMLElement | null {
       logInfo("HOME", "recents element found", { cls: cachedRecentsEl.className.substring(0, 60) });
       // Apply pending hide state now that we have the element
       try { cachedRecentsEl.style.visibility = pendingHideRecents ? "hidden" : ""; cachedRecentsEl.style.height = pendingHideRecents ? "0px" : ""; cachedRecentsEl.style.overflow = pendingHideRecents ? "hidden" : ""; } catch (e) { logInfo("HOME", "ensureMount: recents hide failed", String(e)); }
-      try { mount.style.setProperty("margin-top", pendingHideRecents ? "48px" : "", "important"); } catch (e) { logInfo("HOME", "ensureMount: margin-top failed", String(e)); }
+      try { mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important"); } catch (e) { logInfo("HOME", "ensureMount: margin-top failed", String(e)); }
     }
   }
 
@@ -367,7 +367,7 @@ function injectHomeStyles(doc: Document) {
   style.textContent = `
     #${ROOT_ID} {
       overflow: visible;
-      margin-top: -12px;
+      margin-top: -40px;
     }
     #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
     #${ROOT_ID} .deck-shelves-header {
