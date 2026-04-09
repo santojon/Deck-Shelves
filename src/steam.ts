@@ -2109,7 +2109,7 @@ export async function preloadDeveloperData(appids: number[]): Promise<void> {
             let done = false;
             const finish = () => { if (!done) { done = true; resolve(); } };
             try {
-              const handle = sc.Apps.RegisterForAppDetails(appid, (details: any) => {
+              const handle = sc?.Apps?.RegisterForAppDetails?.(appid, (details: any) => {
                 try { handle?.unregister?.(); } catch {}
                 const dev: string = details?.strDeveloperName ?? "";
                 if (dev) developerCache.set(appid, dev);
