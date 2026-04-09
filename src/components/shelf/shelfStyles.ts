@@ -120,6 +120,7 @@ function buildStylesheet(): string {
       --ds-card-radius: ${cachedCardRadius};
       --ds-card-dim: 0.9;
       --ds-card-bg: rgba(3, 10, 30, 0.92);
+      --ds-shell-bg: transparent;
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
