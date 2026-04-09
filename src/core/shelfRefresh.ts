@@ -19,10 +19,17 @@ const listeners = new Set<RefreshListener>();
 let pollId: ReturnType<typeof setInterval> | null = null;
 let suspended = false;
 
+import { mark, measure } from './perf';
+
 function emit(): void {
   if (suspended) return;
-  for (const listener of listeners) {
-    try { listener(); } catch {}
+  try {
+    mark('shelfRefresh.emit:start');
+    for (const listener of listeners) {
+      try { listener(); } catch {}
+    }
+  } finally {
+    measure('shelfRefresh.emit', 'shelfRefresh.emit:start');
   }
 }
 

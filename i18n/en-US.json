@@ -203,5 +203,13 @@
   "docs_sort_metacritic_desc": "Sort by Metacritic score (highest first).",
   "docs_sort_review_desc": "Sort by Steam user review score (highest first).",
   "folder_label": "Folder",
-  "browse": "Browse"
+  "browse": "Browse",
+  "match_native_size": "Match native card size",
+  "highlight_first": "Highlight first game",
+  "hide_recents": "Hide recent games",
+  "mount_crash_warning": "Home shelves are disabled — a mounting error was detected.",
+  "mount_crash_reset": "Retry",
+  "filter_type_developer": "Developer / Publisher",
+  "filter_developer_loading": "Scanning developers…",
+  "filter_developer_empty": "No developer data found"
 }

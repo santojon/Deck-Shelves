@@ -87,7 +87,7 @@ def _normalize_host(host: str) -> str:
     return host
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "assets" / "screenshots"
 
 

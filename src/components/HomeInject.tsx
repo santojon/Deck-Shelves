@@ -8,6 +8,7 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
+import { applyHideRecents, getMountFailed } from "../runtime/homePatch";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook, extractAppContextMenu, showGameMenu } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop } from "../core/focusRestore";
@@ -19,7 +20,6 @@ const DIR_LEFT  = 11;
 const DIR_RIGHT = 12;
 const DS_EDGE_PATCHED   = "__ds_edge_patched__";
 const DS_EDGE_LISTENER  = "__ds_edge_listener__";
-// WeakSet avoids polluting external Steam controller objects with string properties.
 const patchedMenuControllers = new WeakSet<object>();
 const OPTIONS_BUTTON    = 4;
 
@@ -58,16 +58,12 @@ function reparentNavTreeNodes(mountEl: HTMLElement): number {
     return null;
   }
 
-  // Use the previous sibling (native shelf chain) as reference for nav tree placement.
-  // This places our nav node inside the native shelf's subtree so D-pad down from
-  // native games reaches our shelves, even though our DOM mount is at viewport level.
   const nativeSibling = mountEl.previousElementSibling as HTMLElement | null;
   const refEl = nativeSibling || mountEl;
   const deepest = findDeepestContainer(root, refEl);
   if (!deepest) return -1;
 
   let target = deepest;
-  // Walk up to find a vertical layout (1) container — that's where D-pad down navigates
   let cursor: any = deepest.m_Parent;
   while (cursor) {
     try {
@@ -201,12 +197,6 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   const root = mainTree.Root || mainTree.m_Root || mainTree;
   const proto = Object.getPrototypeOf(root);
 
-  // NOTE: proto-patching BTryInternalNavigation is a shared prototype mutation.
-  // Other plugins that also patch this method (e.g. TabMaster, GamepadNavTools) will
-  // chain correctly as long as they preserve the original via closure — the DS_EDGE_PATCHED
-  // guard prevents double-patching by this plugin but cannot prevent conflicts with plugins
-  // that overwrite the method entirely without chaining. If navigation breaks, check for
-  // conflicting plugins that patch BTryInternalNavigation without calling orig().
   if (proto && !((proto as any)[DS_EDGE_PATCHED]) && typeof proto.BTryInternalNavigation === "function") {
     const orig = proto.BTryInternalNavigation;
     proto.BTryInternalNavigation = function (direction: number, flag: any) {
@@ -237,7 +227,7 @@ function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
       if (btn === DIR_LEFT || btn === DIR_RIGHT) {
         evt.stopPropagation();
       }
-    }); // bubble phase (default)
+    });
   }
 }
 
@@ -258,7 +248,6 @@ function hasHomeDomSignals(): boolean {
   return false;
 }
 
-/** One-time feature detection for the gamepad nav tree internal API. */
 function detectNavTreeApi(): { available: boolean; detail: string } {
   try {
     const ctrl = (globalThis as any).FocusNavController
@@ -375,7 +364,8 @@ export function HomeShelves() {
     const win = getPreferredSteamWindow();
     const obs = new MutationObserver(updateMount);
     obs.observe(doc.body, { childList: true, subtree: true });
-    const timer = window.setInterval(updateMount, 1000);
+    // Long fallback for edge cases the observer misses (e.g. iframe navigation)
+    const timer = window.setInterval(updateMount, 10000);
     win.addEventListener("hashchange", updateMount);
     win.addEventListener("popstate", updateMount);
 
@@ -410,9 +400,19 @@ export function HomeShelves() {
     };
   }, [mountEl]);
 
-  if (!mountEl) return null;
+  // Apply hideRecents whenever the setting changes
+  useEffect(() => {
+    applyHideRecents(settings?.hideRecents === true);
+  }, [settings?.hideRecents]);
 
+  if (!mountEl) return null;
   if (!settings) return null;
+
+  // Crash protection: don't attempt to render if mounting has failed
+  if (getMountFailed()) {
+    logWarn("HOME", "mount failed — skipping render");
+    return null;
+  }
 
   if (!settings.enabled) {
     logWarn("HOME", "plugin disabled");
@@ -440,7 +440,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
       navApi.detail,
     );
 
-    const interval = setInterval(() => {
+    const applyPatches = () => {
       try {
         reparentNavTreeNodes(mountEl);
         patchShelfEdgeNavigation(mountEl);
@@ -448,15 +448,22 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
         installPassiveMenuHook();
         tryRestoreFocus();
       } catch {}
-    }, 1000);
+    };
+
+    // Run patches immediately, then on DOM mutations + long fallback
+    applyPatches();
+    const obs = new MutationObserver(applyPatches);
+    obs.observe(mountEl, { childList: true, subtree: true });
+    const fallback = setInterval(applyPatches, 10000);
 
     const win = getPreferredSteamWindow();
-    const onNavEvent = () => { if (hasPendingFocus()) beginFocusRestoreLoop(); };
+    const onNavEvent = () => { applyPatches(); if (hasPendingFocus()) beginFocusRestoreLoop(); };
     win.addEventListener("popstate", onNavEvent);
     win.addEventListener("hashchange", onNavEvent);
 
     return () => {
-      clearInterval(interval);
+      obs.disconnect();
+      clearInterval(fallback);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
     };
@@ -466,7 +473,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
     <Focusable
       className="deck-shelves-root"
       flow-children="column"
-      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 18 }}
+      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24 }}
     >
       {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} />)}
     </Focusable>

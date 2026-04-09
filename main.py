@@ -67,6 +67,8 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         limit = max(1, min(limit, 100))
         hidden = bool(s.get("hidden", False))
         enabled = bool(s.get("enabled", True))
+        match_native_size = bool(s.get("matchNativeSize", False))
+        highlight_first = bool(s.get("highlightFirst", False))
         if not sid:
             continue
         sanitized.append({
@@ -76,8 +78,10 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "limit": limit,
             "hidden": hidden,
             "enabled": enabled,
+            "matchNativeSize": match_native_size,
+            "highlightFirst": highlight_first,
         })
-    return {"enabled": bool(settings.get("enabled", False)), "shelves": sanitized}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "shelves": sanitized}
 
 
 class Plugin:

@@ -107,6 +107,10 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
           // Img primary class and fade class
           if (imgClasses[0]) out.nativeCardImg = imgClasses[0];
           if (imgClasses[1]) out.nativeCardImgFade = imgClasses[1];
+          // NOTE: native card label classes are discovered but NOT applied to our
+          // label elements — applying them causes Steam CSS side-effects that break
+          // card layout and context menus. They are kept in the class map for future
+          // reference only.
           return out;
         }
       } catch {}
@@ -153,6 +157,112 @@ function _discoverNativeShelfTokens(doc: Document): Record<string, string> | nul
         if (Object.keys(out).length) return out;
       } catch {}
     }
+  } catch {}
+  return null;
+}
+
+export type NativeCardDims = {
+  width: number;
+  height: number;
+  gap: number;
+  imgHeight?: number;
+  featuredWidth?: number;
+  featuredHeight?: number;
+  featuredImgHeight?: number;
+};
+
+/** Measure native Recent Games card dimensions by finding portrait card images
+ *  and measuring the focusable card root element.
+ *  Also detects the wider "featured" first card if present (e.g. when a CSS Loader
+ *  theme shows a landscape highlight card before the portrait row).
+ *  Returns { width, height, gap, featuredWidth?, featuredHeight? } or null.
+ */
+export function discoverNativeCardDimensions(doc: Document): NativeCardDims | null {
+  try {
+    const imgs = Array.from(doc.querySelectorAll<HTMLImageElement>('img'));
+    const portraitRoots: HTMLElement[] = [];
+    const wideRoots: HTMLElement[] = [];
+
+    const visited = new Set<HTMLElement>();
+    for (const img of imgs) {
+      try {
+        if (img.closest('.ds-card') || img.closest('#deck-shelves-home-root')) continue;
+        const r = img.getBoundingClientRect();
+        if (r.height < 80) continue;
+        // Walk up to find the focusable card root. Prefer Focusable/Panel elements
+        // over bare cursor:pointer elements (which may be inner art containers that
+        // overflow their card and report wrong dimensions).
+        let el: HTMLElement | null = img.parentElement;
+        let depth = 0;
+        let fallbackRoot: HTMLElement | null = null;
+        while (el && depth++ < 10) {
+          try {
+            const cs = getComputedStyle(el);
+            if (cs.cursor === 'pointer' && !el.classList.contains('ds-card')) {
+              if (!fallbackRoot) fallbackRoot = el;
+              if (el.classList.contains('Focusable') || el.classList.contains('Panel')) {
+                fallbackRoot = el;
+                break;
+              }
+            }
+          } catch {}
+          el = el.parentElement;
+        }
+        if (fallbackRoot && !visited.has(fallbackRoot)) {
+          visited.add(fallbackRoot);
+          const cr = fallbackRoot.getBoundingClientRect();
+          if (cr.width > 220) {
+            wideRoots.push(fallbackRoot);
+          } else if (cr.width >= 90) {
+            portraitRoots.push(fallbackRoot);
+          }
+        }
+      } catch {}
+    }
+
+    if (portraitRoots.length < 2) return null;
+
+    // Portrait card dimensions
+    const firstRect = portraitRoots[0].getBoundingClientRect();
+    const width = Math.round(firstRect.width);
+    const height = Math.round(firstRect.height);
+    const secondRect = portraitRoots[1].getBoundingClientRect();
+    const gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
+    if (width < 50 || height < 80) return null;
+
+    const result: NativeCardDims = { width, height, gap };
+
+    // Portrait image height (may be less than card height if theme reserves label space)
+    try {
+      const portImg = portraitRoots[0].querySelector('img');
+      if (portImg) {
+        const ir = portImg.getBoundingClientRect();
+        if (ir.height >= 40) result.imgHeight = Math.round(ir.height);
+      }
+    } catch {}
+
+    // Featured card: the widest card root found, if it's notably wider than portrait cards
+    if (wideRoots.length > 0) {
+      wideRoots.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+      const featCard = wideRoots[0];
+      const featRect = featCard.getBoundingClientRect();
+      const fw = Math.round(featRect.width);
+      const fh = Math.round(featRect.height);
+      if (fw > width * 1.5 && fh >= 80) {
+        result.featuredWidth = fw;
+        result.featuredHeight = fh;
+        // Featured image height
+        try {
+          const featImg = featCard.querySelector('img');
+          if (featImg) {
+            const fir = featImg.getBoundingClientRect();
+            if (fir.height >= 40) result.featuredImgHeight = Math.round(fir.height);
+          }
+        } catch {}
+      }
+    }
+
+    return result;
   } catch {}
   return null;
 }
@@ -312,4 +422,49 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Scan the document stylesheets for the native Deck compat icon color rules
+ * and return the obfuscated class name for each level.
+ *
+ * Steam's base stylesheet sets:
+ *   .kEODDe6M5cuHWuPlcQexX           { color: rgb(89, 191, 64);   }  ← Verified
+ *   .mPD42Bwx3VAs0qw9wubf2           { color: rgb(255, 200, 44);  }  ← Playable
+ *   ._2LAaxz6RtHXrJJj9NzCNL4, ...   { color: rgb(220, 222, 223); }  ← Unsupported/Unknown
+ *
+ * We find these rules by their exact color values (not by class name) so the
+ * detection survives Steam bundle renames.
+ */
+export function discoverCompatClasses(doc: Document): { verified?: string; playable?: string; unsupported?: string } {
+  const result: { verified?: string; playable?: string; unsupported?: string } = {};
+  try {
+    const sheets = Array.from(doc.styleSheets);
+    for (const sheet of sheets) {
+      try {
+        const rules = Array.from(sheet.cssRules || []) as CSSStyleRule[];
+        for (const rule of rules) {
+          if (!rule.selectorText || !rule.style) continue;
+          const color = rule.style.color;
+          if (!color) continue;
+          const sel = rule.selectorText;
+          // Only match simple single-class selectors (e.g. ".kEOD…")
+          const singleClassRe = /^\.[A-Za-z_][A-Za-z0-9_-]+$/;
+          // For verified and playable: expect a single class selector
+          if (color === 'rgb(89, 191, 64)' && singleClassRe.test(sel)) {
+            result.verified = sel.slice(1); // strip leading dot
+          } else if (color === 'rgb(255, 200, 44)' && singleClassRe.test(sel)) {
+            result.playable = sel.slice(1);
+          } else if (color === 'rgb(220, 222, 223)') {
+            // Unsupported rule may be a multi-selector: extract the first class
+            const firstPart = sel.split(',')[0].trim();
+            if (singleClassRe.test(firstPart)) {
+              result.unsupported = firstPart.slice(1);
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  return result;
 }

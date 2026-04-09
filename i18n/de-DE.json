@@ -203,5 +203,13 @@
   "docs_sort_metacritic_desc": "Nach Metacritic-Wertung sortieren (höchste zuerst).",
   "docs_sort_review_desc": "Nach Steam-Benutzerbewertung sortieren (höchste zuerst).",
   "folder_label": "Ordner",
-  "browse": "Durchsuchen"
+  "browse": "Durchsuchen",
+  "match_native_size": "Native Kartengröße anpassen",
+  "highlight_first": "Erstes Spiel hervorheben",
+  "hide_recents": "Zuletzt gespielte Spiele ausblenden",
+  "mount_crash_warning": "Home-Regale sind deaktiviert — ein Montagefehler wurde erkannt.",
+  "mount_crash_reset": "Erneut versuchen",
+  "filter_type_developer": "Entwickler / Publisher",
+  "filter_developer_loading": "Entwickler werden gescannt…",
+  "filter_developer_empty": "Keine Entwicklerdaten gefunden"
 }

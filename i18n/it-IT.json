@@ -203,5 +203,13 @@
   "docs_sort_metacritic_desc": "Ordina per punteggio Metacritic (più alto prima).",
   "docs_sort_review_desc": "Ordina per valutazione utenti Steam (più alta prima).",
   "folder_label": "Cartella",
-  "browse": "Sfoglia"
+  "browse": "Sfoglia",
+  "match_native_size": "Adatta dimensione nativa delle schede",
+  "highlight_first": "Metti in evidenza il primo gioco",
+  "hide_recents": "Nascondi giochi recenti",
+  "mount_crash_warning": "Gli scaffali sono disabilitati — è stato rilevato un errore di montaggio.",
+  "mount_crash_reset": "Riprova",
+  "filter_type_developer": "Sviluppatore / Publisher",
+  "filter_developer_loading": "Scansione degli sviluppatori…",
+  "filter_developer_empty": "Nessun dato sviluppatore trovato"
 }

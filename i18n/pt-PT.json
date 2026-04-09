@@ -203,5 +203,13 @@
   "docs_sort_metacritic_desc": "Ordenar por pontuação Metacritic (maior primeiro).",
   "docs_sort_review_desc": "Ordenar por avaliação dos utilizadores Steam (maior primeiro).",
   "folder_label": "Pasta",
-  "browse": "Procurar"
+  "browse": "Procurar",
+  "match_native_size": "Igualar tamanho nativo dos cards",
+  "highlight_first": "Destacar primeiro jogo",
+  "hide_recents": "Ocultar jogos recentes",
+  "mount_crash_warning": "As prateleiras estão desativadas — foi detetado um erro de montagem.",
+  "mount_crash_reset": "Tentar novamente",
+  "filter_type_developer": "Desenvolvedor / Publicador",
+  "filter_developer_loading": "A analisar desenvolvedores…",
+  "filter_developer_empty": "Nenhum dado de desenvolvedor encontrado"
 }

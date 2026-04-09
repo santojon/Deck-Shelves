@@ -98,15 +98,43 @@ export async function refreshSettings(): Promise<Settings> {
 export async function saveSettings(next: Settings): Promise<boolean> {
   logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
   notify(next);
-  try {
-    const ok = await withTimeout(call<[unknown], boolean>("set_settings", { settings: next }), 8000);
-    if (ok) logInfo("STORAGE", "saveSettings success");
-    else logWarn("STORAGE", "saveSettings backend returned false");
-    return !!ok;
-  } catch (error) {
-    logError("STORAGE", "saveSettings failed", String(error));
-    return false;
+  const payload = JSON.stringify(next);
+  const sizeKb = Math.round((new Blob([payload]).size || payload.length) / 1024);
+  logInfo("STORAGE", "saveSettings payload_size_kb", { sizeKb });
+
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const ok = await withTimeout(call<[unknown], boolean>("set_settings", { settings: next }), 8000);
+      if (!ok) {
+        logWarn("STORAGE", `saveSettings backend returned false (attempt ${attempt})`);
+        if (attempt < maxRetries) continue;
+        return false;
+      }
+
+      // Verify server-side state matches what we attempted to save.
+      try {
+        const serverRaw = await withTimeout(call<[], unknown>("get_settings"), 5000);
+        const serverNorm = normalize(serverRaw);
+        if (JSON.stringify(serverNorm) !== JSON.stringify(next)) {
+          logWarn("STORAGE", `post-save verification mismatch (attempt ${attempt})`, { serverShelves: serverNorm.shelves.length, localShelves: next.shelves.length });
+          if (attempt < maxRetries) continue;
+        }
+      } catch (verErr) {
+        logWarn("STORAGE", `post-save verification failed (attempt ${attempt})`, String(verErr));
+        // If verification fails, don't immediately treat as fatal; only retry a few times.
+        if (attempt < maxRetries) continue;
+      }
+
+      logInfo("STORAGE", "saveSettings success");
+      return true;
+    } catch (error) {
+      logError("STORAGE", `saveSettings failed (attempt ${attempt})`, String(error));
+      if (attempt < maxRetries) continue;
+      return false;
+    }
   }
+  return false;
 }
 
 export async function resetSettings(): Promise<Settings> {

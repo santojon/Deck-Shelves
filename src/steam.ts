@@ -1,11 +1,13 @@
 import type { FilterGroup, FilterItem } from "./types";
+import { mark, measure } from "./core/perf";
 import type { PlatformAppMeta, PlatformTab } from "./runtime/platform";
 import { logInfo, logWarn } from "./runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "./runtime/steamHost";
 
 export type SteamCollection = { id: string; name: string };
 
-const collectionRawCache = new Map<string, any>();
+const COLLECTION_CACHE_TTL = 60_000;
+const collectionRawCache = new Map<string, { data: any; ts: number }>();
 
 function getSteamClient(): any {
   const hostWindow = getPreferredSteamWindow() as any;
@@ -75,20 +77,22 @@ function normalizeCollectionToken(value: string): string {
 function cacheCollectionRaw(id: string, name: string, raw: any) {
   const exactId = String(id ?? "").trim();
   const exactName = String(name ?? "").trim();
-  if (exactId) collectionRawCache.set(`id:${exactId}`, raw);
-  if (exactName) collectionRawCache.set(`name:${exactName}`, raw);
+  const entry = { data: raw, ts: Date.now() };
+  if (exactId) collectionRawCache.set(`id:${exactId}`, entry);
+  if (exactName) collectionRawCache.set(`name:${exactName}`, entry);
 
   const normalizedId = normalizeText(exactId);
   const normalizedName = normalizeText(exactName);
   const tokenId = normalizeCollectionToken(exactId);
-  if (normalizedId) collectionRawCache.set(`nid:${normalizedId}`, raw);
-  if (normalizedName) collectionRawCache.set(`nname:${normalizedName}`, raw);
-  if (tokenId) collectionRawCache.set(`tid:${tokenId}`, raw);
+  if (normalizedId) collectionRawCache.set(`nid:${normalizedId}`, entry);
+  if (normalizedName) collectionRawCache.set(`nname:${normalizedName}`, entry);
+  if (tokenId) collectionRawCache.set(`tid:${tokenId}`, entry);
 }
 
 function getCachedCollectionRawCandidates(idCandidates: string[], nameCandidates: string[]): any[] {
   const out: any[] = [];
   const seen = new Set<any>();
+  const now = Date.now();
   const keys = [
     ...idCandidates.flatMap((value) => {
       const raw = String(value ?? "").trim();
@@ -104,10 +108,11 @@ function getCachedCollectionRawCandidates(idCandidates: string[], nameCandidates
   ];
 
   for (const key of keys) {
-    const candidate = collectionRawCache.get(key);
-    if (!candidate || seen.has(candidate)) continue;
-    seen.add(candidate);
-    out.push(candidate);
+    const entry = collectionRawCache.get(key);
+    if (!entry || seen.has(entry.data)) continue;
+    if (now - entry.ts > COLLECTION_CACHE_TTL) { collectionRawCache.delete(key); continue; }
+    seen.add(entry.data);
+    out.push(entry.data);
   }
   return out;
 }
@@ -1107,7 +1112,7 @@ function collectDynamicCollectionStores(): any[] {
   return Array.from(new Set([...base, ...dynamic]));
 }
 
-async function getAllAppOverviews(): Promise<AppOverview[]> {
+export async function getAllAppOverviews(): Promise<AppOverview[]> {
   const now = Date.now();
   if (appOverviewCache && now - appOverviewCache.ts < 10000) {
     return appOverviewCache.items;
@@ -1575,6 +1580,13 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       result = evaluateFilterGroup({ mode: subMode, items: subItems }, [app], ctx).length > 0;
       break;
     }
+    case "developer": {
+      const selected: string[] = Array.isArray(item.params?.developers) ? item.params.developers : [];
+      if (!selected.length) { result = true; break; }
+      const dev = getAppDeveloperCached(app.appid);
+      result = selected.some((d) => d.toLowerCase() === dev.toLowerCase());
+      break;
+    }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
     default:
       result = true;
@@ -1948,7 +1960,16 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
 
 export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
   // Refresh download queue cache (non-blocking, 5s TTL)
+  try { /* perf markers */ } catch {}
+  // Instrumentation
+  try { const perf = await Promise.resolve(); } catch {}
+  importPerf: {
+    /* placeholder for perf import resolution at build time */
+  }
   refreshPendingUpdateAppIds().catch(() => {});
+  try { /* no-op to keep markers resolvable */ } catch {}
+  // Start measuring
+  try { mark?.(`getAppMeta:${appid}:start`); } catch {}
   const sc = getSteamClient();
   try {
     const ov = await sc?.Apps?.GetAppOverview?.(appid);
@@ -1970,13 +1991,149 @@ export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
       // Also fetch raw for update detection
       let raw: any;
       try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
-      return buildMetaFromOverview(appid, found, raw);
+      const res = buildMetaFromOverview(appid, found, raw);
+      try { measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
+      return res;
     }
   } catch {}
-  return { appid, name: `App ${appid}`, heroUrl: `/assets/${appid}/library_hero.jpg`, portraitUrl: `/assets/${appid}/library_600x900.jpg`, isSteam: true };
+  const fallback = { appid, name: `App ${appid}`, heroUrl: `/assets/${appid}/library_hero.jpg`, portraitUrl: `/assets/${appid}/library_600x900.jpg`, isSteam: true };
+  try { measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
+  return fallback;
 }
 
 export async function getAppName(appid: number): Promise<string> {
   const meta = await getAppMeta(appid);
   return meta.name;
+}
+
+// ---------------------------------------------------------------------------
+// Developer / Publisher data (from appDetailsStore)
+// ---------------------------------------------------------------------------
+
+/** Module-level cache so we don't re-read from the store on every filter pass */
+const developerCache = new Map<number, string>();
+
+// Persistent cache in localStorage to survive plugin reloads. Keys: appid -> developer string
+const DEV_CACHE_KEY = 'deck-shelves-dev-cache-v1';
+const DEV_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+let devCacheDirty = false;
+let devCacheSaveTimer: number | null = null;
+
+function loadDeveloperCacheFromStorage() {
+  try {
+    const raw = globalThis.localStorage?.getItem(DEV_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    const ts = Number(parsed.ts || 0);
+    if (!ts || (Date.now() - ts) > DEV_CACHE_TTL_MS) return; // expired
+    const map = parsed.map || {};
+    for (const k of Object.keys(map)) {
+      const id = Number(k);
+      if (!Number.isNaN(id)) developerCache.set(id, String(map[k] ?? ""));
+    }
+  } catch {}
+}
+
+function persistDeveloperCacheToStorage() {
+  try {
+    const map: Record<string, string> = {};
+    for (const [k, v] of developerCache.entries()) map[String(k)] = v;
+    const payload = { ts: Date.now(), map };
+    globalThis.localStorage?.setItem(DEV_CACHE_KEY, JSON.stringify(payload));
+    devCacheDirty = false;
+    if (devCacheSaveTimer) { clearTimeout(devCacheSaveTimer); devCacheSaveTimer = null; }
+  } catch {}
+}
+
+function scheduleDeveloperCachePersist() {
+  if (devCacheSaveTimer) return;
+  devCacheDirty = true;
+  // debounce write to avoid thrashing
+  devCacheSaveTimer = setTimeout(() => { try { persistDeveloperCacheToStorage(); } catch {} }, 1000) as unknown as number;
+}
+
+// Initialize from storage
+try { loadDeveloperCacheFromStorage(); } catch {}
+
+export function clearDeveloperCache(): void {
+  try {
+    developerCache.clear();
+    globalThis.localStorage?.removeItem(DEV_CACHE_KEY);
+  } catch {}
+}
+
+function getAppDetailsStore(): any {
+  for (const win of getSteamWindows() as Window[]) {
+    const s = (win as any)?.appDetailsStore ?? (win as any)?.AppDetailsStore;
+    if (s?.m_mapAppData) return s;
+  }
+  return null;
+}
+
+/** Read developer from appDetailsStore without triggering a network load. */
+export function getAppDeveloperCached(appid: number): string {
+  if (developerCache.has(appid)) return developerCache.get(appid)!;
+  try {
+    const store = getAppDetailsStore();
+    const entry = store?.m_mapAppData?.get?.(appid);
+    const dev: string = entry?.details?.strDeveloperName ?? "";
+    if (dev) developerCache.set(appid, dev);
+    return dev;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Preload developer data for a list of appids via SteamClient.Apps.RegisterForAppDetails.
+ * Results are stored in the module-level developerCache.
+ * Returns a promise that resolves once all registrations have fired or timed out.
+ */
+export async function preloadDeveloperData(appids: number[]): Promise<void> {
+  const sc = (globalThis as any).SteamClient ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
+  if (!sc?.Apps?.RegisterForAppDetails) return;
+
+  const uncached = appids.filter((id) => !developerCache.has(id));
+  if (!uncached.length) return;
+
+  const BATCH = 30;
+  const TIMEOUT_MS = 5000;
+
+  for (let i = 0; i < uncached.length; i += BATCH) {
+    const batch = uncached.slice(i, i + BATCH);
+    await Promise.all(
+      batch.map(
+        (appid) =>
+          new Promise<void>((resolve) => {
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            try {
+              const handle = sc?.Apps?.RegisterForAppDetails?.(appid, (details: any) => {
+                try { handle?.unregister?.(); } catch {}
+                const dev: string = details?.strDeveloperName ?? "";
+                if (dev) developerCache.set(appid, dev);
+                else developerCache.set(appid, "");
+                try { scheduleDeveloperCachePersist(); } catch {}
+                finish();
+              });
+              setTimeout(() => { try { handle?.unregister?.(); } catch {} finish(); }, TIMEOUT_MS);
+            } catch { finish(); }
+          }),
+      ),
+    );
+  }
+}
+
+/**
+ * Get all unique developer names from a list of appids.
+ * Uses the cache; call preloadDeveloperData first for full coverage.
+ */
+export function getUniqueDevelopers(appids: number[]): string[] {
+  const set = new Set<string>();
+  for (const id of appids) {
+    const dev = getAppDeveloperCached(id);
+    if (dev) set.add(dev);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
 }

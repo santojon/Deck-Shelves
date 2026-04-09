@@ -203,5 +203,13 @@
   "docs_sort_metacritic_desc": "Trier par score Metacritic (le plus élevé en premier).",
   "docs_sort_review_desc": "Trier par évaluation des utilisateurs Steam (la plus élevée en premier).",
   "folder_label": "Dossier",
-  "browse": "Parcourir"
+  "browse": "Parcourir",
+  "match_native_size": "Taille native des cartes",
+  "highlight_first": "Mettre le premier jeu en avant",
+  "hide_recents": "Masquer les jeux récents",
+  "mount_crash_warning": "Les étagères sont désactivées — une erreur de montage a été détectée.",
+  "mount_crash_reset": "Réessayer",
+  "filter_type_developer": "Développeur / Éditeur",
+  "filter_developer_loading": "Analyse des développeurs…",
+  "filter_developer_empty": "Aucune donnée de développeur trouvée"
 }

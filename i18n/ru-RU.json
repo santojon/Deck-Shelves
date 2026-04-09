@@ -203,5 +203,13 @@
   "docs_sort_metacritic_desc": "Сортировать по оценке Metacritic (наивысшая первой).",
   "docs_sort_review_desc": "Сортировать по оценке пользователей Steam (наивысшая первой).",
   "folder_label": "Папка",
-  "browse": "Обзор"
+  "browse": "Обзор",
+  "match_native_size": "Размер как у нативных карточек",
+  "highlight_first": "Выделить первую игру",
+  "hide_recents": "Скрыть недавние игры",
+  "mount_crash_warning": "Полки на главном экране отключены — обнаружена ошибка монтирования.",
+  "mount_crash_reset": "Повторить",
+  "filter_type_developer": "Разработчик / Издатель",
+  "filter_developer_loading": "Сканирование разработчиков…",
+  "filter_developer_empty": "Данные о разработчиках не найдены"
 }

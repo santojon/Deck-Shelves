@@ -26,6 +26,78 @@ let lastContextLogAt = 0;
 let lastHostSource = "";
 const rowScrollState = new Map<string, number>();
 
+// --- Crash protection ---
+let mountFailed = false;
+let mountError: string | null = null;
+let mountSucceededOnce = false;
+
+export function getMountFailed(): boolean { return mountFailed; }
+export function getMountError(): string | null { return mountError; }
+export function resetMountFailed(): void { mountFailed = false; mountError = null; lastRenderKey = ""; }
+
+// --- Recents hiding ---
+let cachedRecentsEl: HTMLElement | null = null;
+let pendingHideRecents: boolean = false;
+
+export function applyHideRecents(hidden: boolean): void {
+  pendingHideRecents = hidden;
+  // If cache is stale, try to re-find the element via the host document
+  if (!cachedRecentsEl || !cachedRecentsEl.isConnected) {
+    try {
+      const { doc } = getHostContext();
+      const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+      if (mount) {
+        cachedRecentsEl = findRecentsEl(doc as Document, mount);
+      }
+    } catch {}
+  }
+  if (!cachedRecentsEl) return;
+  try { cachedRecentsEl.style.display = hidden ? "none" : ""; } catch {}
+  // Adjust mount margin-top: add breathing room at top when recents are hidden
+  try {
+    const { doc } = getHostContext();
+    const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+    if (mount) {
+      mount.style.setProperty("margin-top", hidden ? "48px" : "", "important");
+    }
+  } catch {}
+}
+
+function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
+  const labels = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
+  // Walk from aria-label nodes up to find the sibling of mountEl's parent
+  const mountParent = mountEl.parentElement;
+  if (!mountParent) return null;
+
+  // Check mountEl.previousElementSibling first (fastest path)
+  const prev = mountEl.previousElementSibling as HTMLElement | null;
+  if (prev) {
+    const txt = (prev.getAttribute?.("aria-label") || prev.innerText || "").toLowerCase().substring(0, 80);
+    if (labels.some((l) => txt.includes(l))) return prev;
+    // Check descendants
+    const inner = prev.querySelector("[aria-label]");
+    if (inner) {
+      const innerTxt = (inner.getAttribute("aria-label") || "").toLowerCase();
+      if (labels.some((l) => innerTxt.includes(l))) return prev;
+    }
+    // Heuristic: if it looks like a game grid section, assume it's recents
+    if (prev.querySelector("[class*='ReactVirtualized']")) return prev;
+  }
+
+  // Fallback: scan aria-label nodes and walk up to a sibling of mountParent
+  const candidates = Array.from(doc.querySelectorAll("[aria-label]"));
+  for (const node of candidates) {
+    const txt = (node.getAttribute("aria-label") || "").toLowerCase();
+    if (!labels.some((l) => txt.includes(l))) continue;
+    let el = node as HTMLElement;
+    while (el.parentElement && el.parentElement !== mountParent) {
+      el = el.parentElement;
+    }
+    if (el.parentElement === mountParent && el !== mountEl) return el;
+  }
+  return null;
+}
+
 function getFocusNavController(): any {
   return (globalThis as any).GamepadNavTree?.m_context?.m_controller || (globalThis as any).FocusNavController;
 }
@@ -197,7 +269,16 @@ function ensureMount(): HTMLElement | null {
   if (!isHomeVisible()) return null;
   const { doc } = getHostContext();
   let mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
-  const anchor = resolveAnchor();
+  let anchor: ReturnType<typeof resolveAnchor>;
+  try {
+    anchor = resolveAnchor();
+  } catch (err) {
+    const msg = String(err);
+    logError("HOME", "resolveAnchor threw — crash protection engaged", msg);
+    mountFailed = true;
+    mountError = msg;
+    return null;
+  }
   if (!anchor || anchor.parent === doc.body) {
     if (!noAnchorLogged) {
       noAnchorLogged = true;
@@ -220,8 +301,35 @@ function ensureMount(): HTMLElement | null {
     logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
   }
 
-  if (mount.parentElement !== anchor.parent || (anchor.before && mount.nextSibling !== anchor.before)) {
-    anchor.parent.insertBefore(mount, anchor.before);
+  try {
+    if (mount.parentElement !== anchor.parent || (anchor.before && mount.nextSibling !== anchor.before)) {
+      anchor.parent.insertBefore(mount, anchor.before);
+    }
+  } catch (err) {
+    const msg = String(err);
+    logError("HOME", "mount insertion threw — crash protection engaged", msg);
+    mountFailed = true;
+    mountError = msg;
+    return null;
+  }
+
+  // Success — clear any previous failure
+  if (mountFailed) {
+    mountFailed = false;
+    mountError = null;
+    logInfo("HOME", "mount recovered after previous failure");
+  }
+  mountSucceededOnce = true;
+
+  // Cache the recents element for hide/show; apply any pending state immediately
+  if (!cachedRecentsEl || !cachedRecentsEl.isConnected) {
+    cachedRecentsEl = findRecentsEl(doc, mount);
+    if (cachedRecentsEl) {
+      logInfo("HOME", "recents element found", { cls: cachedRecentsEl.className.substring(0, 60) });
+      // Apply pending hide state now that we have the element
+      try { cachedRecentsEl.style.display = pendingHideRecents ? "none" : ""; } catch {}
+      try { mount.style.setProperty("margin-top", pendingHideRecents ? "24px" : "", "important"); } catch {}
+    }
   }
 
   return mount;
@@ -259,6 +367,7 @@ function injectHomeStyles(doc: Document) {
   style.textContent = `
     #${ROOT_ID} {
       overflow: visible;
+      margin-top: -12px;
     }
     #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
     #${ROOT_ID} .deck-shelves-header {
@@ -292,8 +401,8 @@ function injectHomeStyles(doc: Document) {
       position: relative;
     }
     #${ROOT_ID} .deck-shelves-item {
-      width: 145px;
-      min-width: 145px;
+      width: calc(var(--ds-native-card-w, 133px) + 12px);
+      min-width: calc(var(--ds-native-card-w, 133px) + 12px);
       position: relative;
       padding: 0;
       border: 0;
@@ -305,8 +414,8 @@ function injectHomeStyles(doc: Document) {
       outline: none;
     }
     #${ROOT_ID} .deck-shelves-card {
-      width: 133px;
-      height: 251.5px;
+      width: var(--ds-native-card-w, 133px);
+      height: calc(var(--ds-native-card-h, 200px) + 51.5px);
       border-radius: 2px;
       overflow: hidden;
       background: rgba(3, 10, 30, 0.92);
@@ -319,7 +428,7 @@ function injectHomeStyles(doc: Document) {
     }
     #${ROOT_ID} .deck-shelves-art {
       width: 100%;
-      height: 199.5px;
+      height: var(--ds-native-card-h, 200px);
       object-fit: cover;
       display: block;
       background: #111827;
@@ -552,8 +661,17 @@ async function renderHomeShelves() {
       return;
     }
 
+    // Don't attempt mount if crash protection is engaged
+    if (mountFailed) return;
+
     const mount = ensureMount();
     if (!mount) return;
+
+    // Apply hideRecents setting immediately after a successful mount
+    try {
+      const settingsForHide = await refreshSettings();
+      applyHideRecents(settingsForHide.hideRecents === true);
+    } catch {}
 
     // Discover obfuscated/webpack-hashed class tokens and inject a runtime map so
     // the rest of the plugin can rely on deterministic selectors. This mirrors
@@ -806,6 +924,8 @@ export function installHomePatch(_routerHook?: any) {
 
   let fallbackRoot: { unmount(): void } | null = null;
   let fallbackMountId: string | null = null;
+  let fallbackRetries = 0;
+  const MAX_FALLBACK_RETRIES = 6;
 
   const tryFallbackRender = () => {
     try {
@@ -819,11 +939,20 @@ export function installHomePatch(_routerHook?: any) {
           fallbackRoot = null;
           fallbackMountId = null;
         }
+        fallbackRetries = 0; // Reset counter when home not visible
         return;
       }
 
       const mount = ensureMount();
-      if (!mount) return;
+      if (!mount) {
+        if (++fallbackRetries >= MAX_FALLBACK_RETRIES) {
+          logWarn("HOME", "fallback: giving up after max retries", { retries: fallbackRetries });
+          if (timer) { window.clearInterval(timer); timer = 0; }
+          observer?.disconnect();
+        }
+        return;
+      }
+      fallbackRetries = 0; // Reset on success
       if (mount.dataset.deckShelvesRenderer === "react") return;
 
       if (fallbackRoot && fallbackMountId === mount.id) return;

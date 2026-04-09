@@ -203,5 +203,13 @@
   "docs_sort_metacritic_desc": "按Metacritic评分排序（最高的排在前面）。",
   "docs_sort_review_desc": "按Steam用户评价分数排序（最高的排在前面）。",
   "folder_label": "文件夹",
-  "browse": "浏览"
+  "browse": "浏览",
+  "match_native_size": "匹配原生卡片大小",
+  "highlight_first": "突出显示第一个游戏",
+  "hide_recents": "隐藏最近游玩的游戏",
+  "mount_crash_warning": "主页书架已禁用 — 检测到挂载错误。",
+  "mount_crash_reset": "重试",
+  "filter_type_developer": "开发商 / 发行商",
+  "filter_developer_loading": "正在扫描开发商…",
+  "filter_developer_empty": "未找到开发商数据"
 }

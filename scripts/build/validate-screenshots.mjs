@@ -20,6 +20,7 @@ const root = join(__dirname, "..", "..");
 const screenshotsDir = join(root, "assets", "screenshots");
 
 const EXPECTED = [
+  "about-page.png",
   "home.png",
   "home-shelves.png",
   "qam.png",

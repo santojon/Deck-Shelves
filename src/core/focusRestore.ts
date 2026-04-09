@@ -120,7 +120,7 @@ export function beginFocusRestoreLoop(): void {
 
   const targetAppid = pendingAppid;
   const targetShelfId = pendingShelfId;
-  const deadline = Date.now() + 300000;
+  const deadline = Date.now() + 30000;
 
   const doc = getPreferredSteamDocument();
   if (!doc?.body) return;
@@ -183,6 +183,8 @@ export function beginFocusRestoreLoop(): void {
 
   attempt();
 
+  // Polling fallback: 500ms initial, escalates to 2s after 10 attempts.
+  // The MutationObserver handles the fast path; polling is only for edge cases.
   let pollCount = 0;
   focusPollId = setInterval(() => {
     if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
@@ -192,7 +194,7 @@ export function beginFocusRestoreLoop(): void {
     }
     pollCount++;
     attempt();
-    if (pollCount === 20 && focusPollId !== null) {
+    if (pollCount === 10 && focusPollId !== null) {
       clearInterval(focusPollId);
       focusPollId = setInterval(() => {
         if (!pendingAppid || pendingAppid !== targetAppid || Date.now() > deadline) {
@@ -201,9 +203,9 @@ export function beginFocusRestoreLoop(): void {
           return;
         }
         attempt();
-      }, 500);
+      }, 2000);
     }
-  }, 100);
+  }, 500);
 
   setTimeout(() => {
     focusObserver?.disconnect();
@@ -213,5 +215,5 @@ export function beginFocusRestoreLoop(): void {
       focusPollId = null;
     }
     pendingAppid = null;
-  }, 300000);
+  }, 30000);
 }

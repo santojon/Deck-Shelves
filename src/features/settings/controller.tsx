@@ -13,7 +13,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>({ enabled: false, shelves: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelves: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
   const [tabs, setTabs] = useState<PlatformTab[]>([]);
@@ -83,6 +83,11 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.enabled === enabled) return;
       await persist({ ...s, enabled });
+    },
+    async setHideRecents(hideRecents: boolean) {
+      const s = liveSettings();
+      if (!s || s.hideRecents === hideRecents) return;
+      await persist({ ...s, hideRecents });
     },
     async addShelf() {
       const s = liveSettings();
