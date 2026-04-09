@@ -7,6 +7,7 @@ import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius, formatPlaytime } from "./shelfStyles";
+import { PlaceholderCard } from "./PlaceholderCard";
 
 export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean }) {
   const t = i18n.t.bind(i18n);
@@ -172,6 +173,12 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   }, [allUrls]);
 
   const firstUrl = allUrls[0] ?? "";
+
+  // If all image URLs failed, render PlaceholderCard instead
+  if (imgFailed || !firstUrl) {
+    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} featured={featured} />;
+  }
+
   const compat = item.deckCompatCategory ?? 0;
   const playtime = formatPlaytime(item.playtimeMinutes);
   const cachedCardRadius = getCachedCardRadius();
@@ -258,37 +265,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           overflow: "hidden",
         }}
       >
-        {firstUrl && !imgFailed ? (
-          <img
-            ref={imgRef}
-            src={firstUrl}
-            alt={item.name}
-            onError={onImgError}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="ds-card-art-placeholder"
-            style={{
-              width: "100%", height: "100%",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexDirection: "column", gap: 6,
-              padding: featured ? 16 : 6,
-              background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
-              boxSizing: "border-box",
-            }}
-          >
-            <span style={{ fontSize: featured ? 14 : 11, opacity: 0.5, textAlign: "center", wordBreak: "break-word", lineHeight: 1.3 }}>
-              {item.name}
-            </span>
-            {imgFailed && (
-              <span style={{ fontSize: featured ? 11 : 9, opacity: 0.35, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                {t('image_not_found')}
-              </span>
-            )}
-          </div>
-        )}
+        <img
+          ref={imgRef}
+          src={firstUrl}
+          alt={item.name}
+          onError={onImgError}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          loading="lazy"
+        />
         <div className="ds-card-shimmer" aria-hidden="true" />
         {compatClass && (
           <div className={compatClass}>

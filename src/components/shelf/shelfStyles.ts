@@ -10,12 +10,25 @@ let cachedNativeDims: NativeCardDims | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
 let dimsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-function debouncedNotifyDims() {
-  if (dimsDebounceTimer) clearTimeout(dimsDebounceTimer);
-  dimsDebounceTimer = setTimeout(() => {
+let pendingDims: NativeCardDims | null = null;
+function debouncedNotifyDims(dims: NativeCardDims) {
+  // Require dims to be confirmed on two consecutive cycles to avoid transient flicker
+  if (pendingDims && JSON.stringify(pendingDims) === JSON.stringify(dims)) {
+    // Confirmed — apply immediately
+    if (dimsDebounceTimer) clearTimeout(dimsDebounceTimer);
     dimsDebounceTimer = null;
+    pendingDims = null;
     nativeDimsListeners.forEach(cb => cb());
-  }, 300);
+  } else {
+    // First detection — queue for confirmation
+    pendingDims = dims;
+    if (dimsDebounceTimer) clearTimeout(dimsDebounceTimer);
+    dimsDebounceTimer = setTimeout(() => {
+      dimsDebounceTimer = null;
+      pendingDims = null;
+      nativeDimsListeners.forEach(cb => cb());
+    }, 800);
+  }
 }
 
 export function getCachedCardRadius(): string { return cachedCardRadius; }
@@ -53,8 +66,9 @@ function ensureStyles() {
     cachedCardRadius = newRadius;
     const steamDoc = getPreferredSteamDocument();
     const newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
-    // Tolerance of 2px to avoid flicker from rounding or focus-scale changes
-    const tol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > 2;
+    // Only accept new dims when the change exceeds tolerance (avoids flicker
+    // from focus-scale, rounding, or animation mid-frame measurements).
+    const tol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > 4;
     const dimsChanged = newDims !== null && (
       !cachedNativeDims ||
       tol(newDims.width, cachedNativeDims.width) ||
@@ -63,8 +77,9 @@ function ensureStyles() {
       tol(newDims.featuredWidth, cachedNativeDims.featuredWidth) ||
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
-    if (newDims) cachedNativeDims = newDims;
-    if (dimsChanged) debouncedNotifyDims();
+    // Only update cached dims when the change is significant
+    if (dimsChanged && newDims) { cachedNativeDims = newDims; debouncedNotifyDims(newDims); }
+    else if (!cachedNativeDims && newDims) cachedNativeDims = newDims;
     const docs = [document, steamDoc];
     for (const doc of docs) {
       if (!doc) continue;
@@ -123,7 +138,7 @@ function buildStylesheet(): string {
     .ds-card {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1);
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.3s ease, height 0.3s ease, min-width 0.3s ease;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
@@ -143,12 +158,14 @@ function buildStylesheet(): string {
       animation: none !important;
     }
     #deck-shelves-home-root .ds-card:focus,
-    #deck-shelves-home-root .ds-card.gpfocus {
+    #deck-shelves-home-root .ds-card.gpfocus,
+    #deck-shelves-home-root .ds-card:hover {
       outline: none !important;
       outline-offset: 0px !important;
       border: none !important;
       box-shadow: none !important;
       z-index: 5;
+      filter: brightness(1);
     }
     #deck-shelves-home-root .ds-card::after {
       content: '' !important;
@@ -169,7 +186,8 @@ function buildStylesheet(): string {
       display: inline !important;
     }
     #deck-shelves-home-root .ds-card.gpfocus::after,
-    #deck-shelves-home-root .ds-card:focus::after {
+    #deck-shelves-home-root .ds-card:focus::after,
+    #deck-shelves-home-root .ds-card:hover::after {
       height: var(--ds-card-art-h, 100%) !important;
       bottom: auto !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
@@ -192,12 +210,14 @@ function buildStylesheet(): string {
       height: var(--ds-card-art-h, 100%) !important;
       padding-top: 0 !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius});
+      overflow: hidden;
     }
     .ds-card-art img {
       border-radius: var(--ds-card-radius, ${cachedCardRadius});
     }
     .ds-card.gpfocus .ds-card-art,
-    .ds-card:focus .ds-card-art {
+    .ds-card:focus .ds-card-art,
+    .ds-card:hover .ds-card-art {
       z-index: 2;
     }
     .ds-card .ds-card-label {
@@ -205,7 +225,8 @@ function buildStylesheet(): string {
       transition: opacity .15s ease;
     }
     .ds-card.gpfocus .ds-card-label,
-    .ds-card:focus .ds-card-label {
+    .ds-card:focus .ds-card-label,
+    .ds-card:hover .ds-card-label {
       opacity: 1;
     }
     .ds-card img { transition: opacity .15s ease; }
@@ -221,7 +242,8 @@ function buildStylesheet(): string {
       transition: opacity .15s ease;
     }
     .ds-card.gpfocus .ds-compat,
-    .ds-card:focus .ds-compat { opacity: var(--ds-compat-opacity, 1); }
+    .ds-card:focus .ds-compat,
+    .ds-card:hover .ds-compat { opacity: var(--ds-compat-opacity, 1); }
     .ds-compat svg { flex-shrink: 0; width: 20px; height: 20px; }
     .ds-compat-deck-icon { color: var(--custom-compat-icons-deck, rgba(255,255,255,0.84)); }
     .ds-compat-verified .ds-compat-verdict-icon { color: var(--custom-compat-icons-verified, rgb(89, 191, 64)); }

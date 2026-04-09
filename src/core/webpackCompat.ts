@@ -210,6 +210,8 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
         }
         if (fallbackRoot && !visited.has(fallbackRoot)) {
           visited.add(fallbackRoot);
+          // Skip focused/hovered cards — their getBoundingClientRect may include scale transforms
+          if (fallbackRoot.classList.contains('gpfocus') || fallbackRoot.matches(':focus') || fallbackRoot.matches(':hover')) continue;
           const cr = fallbackRoot.getBoundingClientRect();
           if (cr.width > 220) {
             wideRoots.push(fallbackRoot);

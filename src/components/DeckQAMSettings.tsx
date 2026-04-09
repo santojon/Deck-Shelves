@@ -754,6 +754,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         </div>
       )}
       {!mountCrashed && <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(value: boolean) => actions.setHideRecents(value)} />}
+      {!mountCrashed && settings.hideRecents && <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />}
       {!mountCrashed && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
       {!mountCrashed && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} bottomSeparator='thick' />}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}

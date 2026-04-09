@@ -212,5 +212,12 @@
   "filter_type_developer": "デベロッパー / パブリッシャー",
   "filter_developer_loading": "デベロッパーをスキャン中…",
   "filter_developer_empty": "デベロッパーデータが見つかりません",
-  "image_not_found": "画像が見つかりません"
+  "image_not_found": "画像が見つかりません",
+  "shelf_hero_background": "背景アートを表示",
+  "about_feature_hide_recents": "最近のゲームセクションを非表示（オプションの背景アート付き）",
+  "about_feature_dynamic_sizing": "CSS Loaderテーマのネイティブカードサイズに動的に合わせる",
+  "about_feature_highlight_first": "最初のゲームをランドスケープカードとしてハイライト",
+  "about_feature_developer_filter": "開発者/パブリッシャーフィルター（バッチ自動検出付き）",
+  "about_feature_mouse_hover": "マウスホバーサポート：ラベルと明るさがホバーで有効に",
+  "about_feature_global_toggles": "ネイティブサイズとハイライトのグローバルトグル（シェルフ個別設定優先）"
 }

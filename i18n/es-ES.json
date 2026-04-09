@@ -212,5 +212,12 @@
   "filter_type_developer": "Desarrollador / Editor",
   "filter_developer_loading": "Escaneando desarrolladores…",
   "filter_developer_empty": "No se encontraron datos de desarrollador",
-  "image_not_found": "Imagen no encontrada"
+  "image_not_found": "Imagen no encontrada",
+  "shelf_hero_background": "Mostrar arte de fondo",
+  "about_feature_hide_recents": "Ocultar sección de Juegos Recientes con arte de fondo opcional",
+  "about_feature_dynamic_sizing": "Tamaño dinámico de tarjetas que sigue las dimensiones nativas de temas CSS Loader",
+  "about_feature_highlight_first": "Destacar primer juego como tarjeta paisaje destacada",
+  "about_feature_developer_filter": "Filtro por Desarrollador / Editor con descubrimiento automático",
+  "about_feature_mouse_hover": "Soporte para ratón: etiquetas y brillo se activan al pasar el cursor",
+  "about_feature_global_toggles": "Toggles globales para tamaño nativo y destacado con configuración por estante"
 }

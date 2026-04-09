@@ -90,6 +90,12 @@ function OverviewPage() {
         t("about_feature_duplicate"),
         t("about_feature_compat"),
         t("about_feature_playtime"),
+        t("about_feature_hide_recents"),
+        t("about_feature_dynamic_sizing"),
+        t("about_feature_highlight_first"),
+        t("about_feature_developer_filter"),
+        t("about_feature_mouse_hover"),
+        t("about_feature_global_toggles"),
       ].map((f, i) => (
         <div key={i} style={listStyle}>• {f}</div>
       ))}

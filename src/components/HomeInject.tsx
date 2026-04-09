@@ -12,6 +12,7 @@ import { applyHideRecents, getMountFailed } from "../runtime/homePatch";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook, extractAppContextMenu, showGameMenu } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop } from "../core/focusRestore";
+import { HeroBackground } from "./shelf/HeroBackground";
 
 const ROOT_ID = "deck-shelves-home-root";
 const homePlatform = createDeckyPlatform();
@@ -424,13 +425,13 @@ export function HomeShelves() {
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} />
     </PlatformProvider>,
     mountEl,
   ) as any;
 }
 
-function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean }) {
+function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, shelfHeroBackground = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; shelfHeroBackground?: boolean }) {
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
     const navApi = detectNavTreeApi();
@@ -473,8 +474,9 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     <Focusable
       className="deck-shelves-root"
       flow-children="column"
-      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24 }}
+      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
+      {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}
       {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} />)}
     </Focusable>
   );

@@ -212,5 +212,12 @@
   "filter_type_developer": "Geliştirici / Yayıncı",
   "filter_developer_loading": "Geliştiriciler taranıyor…",
   "filter_developer_empty": "Geliştirici verisi bulunamadı",
-  "image_not_found": "Görsel bulunamadı"
+  "image_not_found": "Görsel bulunamadı",
+  "shelf_hero_background": "Arka plan görselini göster",
+  "about_feature_hide_recents": "Son Oynananlari gizle, istege bagli arka plan gorseli ile",
+  "about_feature_dynamic_sizing": "CSS Loader temalarına uygun dinamik kart boyutlandırma",
+  "about_feature_highlight_first": "İlk oyunu yatay öne çıkan kart olarak vurgula",
+  "about_feature_developer_filter": "Geliştirici / Yayıncı filtresi ile otomatik toplu keşif",
+  "about_feature_mouse_hover": "Fare üzerine gelme desteği: etiketler ve parlaklık üzerine gelindiğinde etkinleşir",
+  "about_feature_global_toggles": "Doğal boyut ve vurgulama için global geçiş düğmeleri (raf bazlı geçersiz kılma ile)"
 }

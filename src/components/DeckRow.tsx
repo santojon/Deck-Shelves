@@ -10,6 +10,7 @@ import { logInfo } from "../runtime/logger";
 export { type DeckRowItem } from "./shelf/types";
 export { GameCard } from "./shelf/GameCard";
 export { MoreCard } from "./shelf/MoreCard";
+export { PlaceholderCard } from "./shelf/PlaceholderCard";
 
 import { type DeckRowItem, CARD_W, CARD_ART_H, CARD_GAP } from "./shelf/types";
 import { GameCard } from "./shelf/GameCard";

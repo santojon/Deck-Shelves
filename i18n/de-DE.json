@@ -212,5 +212,12 @@
   "filter_type_developer": "Entwickler / Publisher",
   "filter_developer_loading": "Entwickler werden gescannt…",
   "filter_developer_empty": "Keine Entwicklerdaten gefunden",
-  "image_not_found": "Bild nicht gefunden"
+  "image_not_found": "Bild nicht gefunden",
+  "shelf_hero_background": "Hintergrundgrafik anzeigen",
+  "about_feature_hide_recents": "Native 'Zuletzt gespielt'-Sektion ausblenden mit optionaler Hero-Hintergrundgrafik",
+  "about_feature_dynamic_sizing": "Dynamische Kartengröße passend zu nativen Steam-Karten aus CSS Loader Themes",
+  "about_feature_highlight_first": "Erstes Spiel als Landscape-Featured-Karte hervorheben",
+  "about_feature_developer_filter": "Entwickler-/Publisher-Filter mit automatischer Batch-Erkennung",
+  "about_feature_mouse_hover": "Maus-Hover-Unterstützung: Labels und Helligkeit beim Überfahren",
+  "about_feature_global_toggles": "Globale Toggles für native Größe und Hervorhebung mit Überschreibung pro Regal"
 }

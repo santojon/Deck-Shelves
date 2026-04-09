@@ -81,7 +81,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "matchNativeSize": match_native_size,
             "highlightFirst": highlight_first,
         })
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "shelves": sanitized}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "shelves": sanitized}
 
 
 class Plugin:

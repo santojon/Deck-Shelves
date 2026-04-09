@@ -212,5 +212,12 @@
   "filter_type_developer": "Розробник / Видавець",
   "filter_developer_loading": "Сканування розробників…",
   "filter_developer_empty": "Дані розробників не знайдено",
-  "image_not_found": "Зображення не знайдено"
+  "image_not_found": "Зображення не знайдено",
+  "shelf_hero_background": "Показати фонове зображення",
+  "about_feature_hide_recents": "Сховати розділ Нещодавні ігри з фоновим зображенням за бажанням",
+  "about_feature_dynamic_sizing": "Динамічний розмір карток відповідно до тем CSS Loader",
+  "about_feature_highlight_first": "Виділити першу гру як ландшафтну картку",
+  "about_feature_developer_filter": "Фільтр за Розробником / Видавцем з автоматичним виявленням",
+  "about_feature_mouse_hover": "Підтримка наведення миші: мітки та яскравість активуються при наведенні",
+  "about_feature_global_toggles": "Глобальні перемикачі для нативного розміру та виділення з пріоритетом по полиці"
 }
