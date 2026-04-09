@@ -125,10 +125,12 @@ function buildStylesheet(): string {
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
     #deck-shelves-home-root { margin-top: -32px !important; }
+    .deck-shelves-root { background: transparent; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
     .ds-card {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
+      overflow: hidden;
       filter: brightness(var(--ds-card-dim, 0.9));
       transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.3s ease, height 0.3s ease, min-width 0.3s ease;
       scroll-margin-top: 90px;
@@ -221,7 +223,7 @@ function buildStylesheet(): string {
     .ds-card:hover .ds-card-label {
       opacity: 1;
     }
-    .ds-card img { transition: opacity .15s ease; }
+    .ds-card img { transition: opacity .15s ease; width: 100% !important; height: 100% !important; object-fit: cover !important; }
     .ds-compat {
       position: absolute; bottom: 4px; right: 4px;
       display: var(--ds-compat-display, flex); align-items: center;

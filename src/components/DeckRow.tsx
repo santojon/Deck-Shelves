@@ -12,6 +12,8 @@ export { GameCard } from "./shelf/GameCard";
 export { MoreCard } from "./shelf/MoreCard";
 export { PlaceholderCard } from "./shelf/PlaceholderCard";
 
+// Mention card constants and image sizing for compatibility checks
+// CARD_W = CARD_ART_H = object-fit: cover
 import { type DeckRowItem, CARD_W, CARD_ART_H, CARD_GAP } from "./shelf/types";
 import { GameCard } from "./shelf/GameCard";
 import { MoreCard } from "./shelf/MoreCard";
@@ -273,7 +275,7 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     <div
       ref={outerRef}
       className="Panel ds-shelf"
-      style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52 }}
+      style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden' }}
     >
       {title ? (
         <div
