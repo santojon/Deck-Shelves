@@ -10,8 +10,9 @@ import { showGameMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
+import { logInfo } from "../runtime/logger";
 
-export function ShelfView({ shelf }: { shelf: Shelf }) {
+export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const [appIds, setAppIds] = useState<number[] | null>(() => {
@@ -21,7 +22,7 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
         const { ts, ids } = JSON.parse(raw);
         if (Date.now() - ts < 86400000) return ids; // 24h expiry
       }
-    } catch {}
+    } catch (e) { logInfo("HOME", "shelf cache read failed", String(e)); }
     return null;
   });
   const [items, setItems] = useState<Map<number, PlatformAppMeta>>(new Map());
@@ -44,7 +45,7 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
               setAppIds(ids);
               setMetaVersion((v) => v + 1);
               firstLoad.current = false;
-              try { localStorage.setItem(`ds-shelf-cache-${shelf.id}`, JSON.stringify({ ts: Date.now(), ids })); } catch {}
+              try { localStorage.setItem(`ds-shelf-cache-${shelf.id}`, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
             }
           })
           .catch(() => {
@@ -133,5 +134,5 @@ export function ShelfView({ shelf }: { shelf: Shelf }) {
     onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
   });
 
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={shelf.matchNativeSize} highlightFirst={shelf.highlightFirst} />;
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} />;
 }

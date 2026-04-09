@@ -73,7 +73,7 @@ function reparentNavTreeNodes(mountEl: HTMLElement): number {
         target = cursor;
         break;
       }
-    } catch {}
+    } catch (e) { logInfo("HOME", "reparentNavTreeNodes: layout read failed", String(e)); }
     cursor = cursor.m_Parent;
   }
 
@@ -138,7 +138,7 @@ function patchMenuButton(): void {
             showGameMenu(appid);
           }
         }
-      } catch {}
+      } catch (e) { logInfo("HOME", "handleMenu failed", String(e)); }
     };
     doc.addEventListener("vgp_onmenubutton", handleMenu, true);
     doc.addEventListener("contextmenu", handleMenu, true);
@@ -244,7 +244,7 @@ function hasHomeDomSignals(): boolean {
   if (!doc) return false;
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
   if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X')) return true; } catch {}
+  try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X')) return true; } catch (e) { logInfo("HOME", "hasHomeDomSignals: class selector failed", String(e)); }
   return false;
 }
 
@@ -291,7 +291,7 @@ function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | nu
           // Found the scrollable viewport — insert after the current container
           return { parent: p, before: container.nextSibling };
         }
-      } catch {}
+      } catch (e) { logInfo("HOME", "resolveAnchor: getComputedStyle failed", String(e)); }
       container = p;
     }
     // Fallback: find first ancestor with multiple children
@@ -424,13 +424,13 @@ export function HomeShelves() {
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} />
     </PlatformProvider>,
     mountEl,
   ) as any;
 }
 
-function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves: any[] }) {
+function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean }) {
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
     const navApi = detectNavTreeApi();
@@ -447,7 +447,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
         patchMenuButton();
         installPassiveMenuHook();
         tryRestoreFocus();
-      } catch {}
+      } catch (e) { logInfo("HOME", "applyPatches failed", String(e)); }
     };
 
     // Run patches immediately, then on DOM mutations + long fallback
@@ -475,7 +475,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
       flow-children="column"
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24 }}
     >
-      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} />)}
+      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} />)}
     </Focusable>
   );
 }

@@ -183,10 +183,10 @@ function SupportPage() {
       <Focusable style={{ marginTop: 8, marginBottom: 16 }}>
         <DialogButton
           onClick={() => {
-            try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL); } catch {}
+            try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL); } catch (e) { console.warn("OpenInSystemBrowser failed", e); }
           }}
           onOKButton={() => {
-            try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL); } catch {}
+            try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL); } catch (e) { console.warn("OpenInSystemBrowser failed", e); }
           }}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "8px 16px", minWidth: 0 }}
         >

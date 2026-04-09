@@ -27,7 +27,7 @@ function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
 }
 
 function makeSettings(shelves: Shelf[] = []): Settings {
-  return { enabled: true, hideRecents: false, shelves }
+  return { enabled: true, hideRecents: false, globalMatchNativeSize: false, globalHighlightFirst: false, shelves }
 }
 
 describe('patchShelfInSettings', () => {

@@ -32,6 +32,8 @@ pnpm run build
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
 cp plugin.json package.json main.py "${STAGE_DIR}/"
+# Inject debug flag for dev deploy (not present in source plugin.json for store submission)
+node -e 'const fs=require("fs"),p=JSON.parse(fs.readFileSync(process.argv[1]));if(!p.flags.includes("debug"))p.flags.push("debug");fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+"\n")' "${STAGE_DIR}/plugin.json"
 rsync -a dist/ "${STAGE_DIR}/dist/"
 if [[ -d assets ]]; then mkdir -p "${STAGE_DIR}/assets" && rsync -a assets/ "${STAGE_DIR}/assets/"; fi
 if [[ -d i18n ]]; then mkdir -p "${STAGE_DIR}/i18n" && rsync -a i18n/ "${STAGE_DIR}/i18n/"; fi

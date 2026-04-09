@@ -129,7 +129,7 @@ function openManagedModal(render: (close: () => void) => React.ReactElement) {
       if (handle?.Close) return handle.Close()
       if (handle?.closeModal) return handle.closeModal()
       if (handle?.props?.closeModal) return handle.props.closeModal()
-    } catch {}
+    } catch (e) { logInfo("SETTINGS", "modal close failed", String(e)) }
   }
   handle = showModal(render(close))
   return close
@@ -295,7 +295,7 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
       try {
         const ctx = findTabMasterContextValue()
         if (ctx && (Array.isArray(ctx.visibleTabsList) || ctx.tabsMap instanceof Map)) manager = ctx
-      } catch {}
+      } catch (e) { logInfo("SETTINGS", "TabMaster context lookup failed", String(e)) }
       if (!manager) {
         try {
           const gm = (globalThis as any)
@@ -303,7 +303,7 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
             const v = gm[k]
             if (v && (Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)) { manager = v; break }
           }
-        } catch {}
+        } catch (e) { logInfo("SETTINGS", "TabMaster global scan failed", String(e)) }
       }
       if (manager) {
         try {
@@ -313,7 +313,7 @@ function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?:
             setLoading(false)
             return
           }
-        } catch {}
+        } catch (e) { logInfo("SETTINGS", "TabMaster extraction failed", String(e)) }
       }
 
       // All sources failed
@@ -753,7 +753,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           </DialogButton>
         </div>
       )}
-      {/* {!mountCrashed && <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(value: boolean) => actions.setHideRecents(value)} bottomSeparator='thick' />} */}
+      {!mountCrashed && <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(value: boolean) => actions.setHideRecents(value)} />}
+      {!mountCrashed && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
+      {!mountCrashed && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} bottomSeparator='thick' />}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', display: 'flex' }}>

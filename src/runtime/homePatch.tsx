@@ -49,10 +49,10 @@ export function applyHideRecents(hidden: boolean): void {
       if (mount) {
         cachedRecentsEl = findRecentsEl(doc as Document, mount);
       }
-    } catch {}
+    } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
   }
   if (!cachedRecentsEl) return;
-  try { cachedRecentsEl.style.display = hidden ? "none" : ""; } catch {}
+  try { cachedRecentsEl.style.visibility = hidden ? "hidden" : ""; cachedRecentsEl.style.height = hidden ? "0px" : ""; cachedRecentsEl.style.overflow = hidden ? "hidden" : ""; } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
   // Adjust mount margin-top: add breathing room at top when recents are hidden
   try {
     const { doc } = getHostContext();
@@ -60,7 +60,7 @@ export function applyHideRecents(hidden: boolean): void {
     if (mount) {
       mount.style.setProperty("margin-top", hidden ? "48px" : "", "important");
     }
-  } catch {}
+  } catch (e) { logInfo("HOME", "applyHideRecents: margin-top failed", String(e)); }
 }
 
 function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
@@ -327,8 +327,8 @@ function ensureMount(): HTMLElement | null {
     if (cachedRecentsEl) {
       logInfo("HOME", "recents element found", { cls: cachedRecentsEl.className.substring(0, 60) });
       // Apply pending hide state now that we have the element
-      try { cachedRecentsEl.style.display = pendingHideRecents ? "none" : ""; } catch {}
-      try { mount.style.setProperty("margin-top", pendingHideRecents ? "24px" : "", "important"); } catch {}
+      try { cachedRecentsEl.style.visibility = pendingHideRecents ? "hidden" : ""; cachedRecentsEl.style.height = pendingHideRecents ? "0px" : ""; cachedRecentsEl.style.overflow = pendingHideRecents ? "hidden" : ""; } catch (e) { logInfo("HOME", "ensureMount: recents hide failed", String(e)); }
+      try { mount.style.setProperty("margin-top", pendingHideRecents ? "48px" : "", "important"); } catch (e) { logInfo("HOME", "ensureMount: margin-top failed", String(e)); }
     }
   }
 

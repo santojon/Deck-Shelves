@@ -150,12 +150,12 @@ jobs:
 
             # Update submodule to new commit. Recreate the submodule directory
             # to ensure the desired commit is available to checkout.
-            if [[ -d "plugins/${PLUGIN}" ]]; then
-              rm -rf "plugins/${PLUGIN}"
+            if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
+              rm -rf "plugins/${PLUGIN_SLUG}"
             fi
-            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}" || true
-            if [[ -d "plugins/${PLUGIN}" ]]; then
-              cd "plugins/${PLUGIN}"
+            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || true
+            if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
+              cd "plugins/${PLUGIN_SLUG}"
               git remote set-url origin "${REPO_URL}.git" || true
               git fetch origin --tags --prune --no-recurse-submodules || git fetch origin || true
               if git rev-parse --verify "${COMMIT}" >/dev/null 2>&1; then
@@ -198,12 +198,12 @@ jobs:
             fi
 
             # Add or update submodule: clone fresh to ensure commit is present
-            if [[ -d "plugins/${PLUGIN}" ]]; then
-              rm -rf "plugins/${PLUGIN}"
+            if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
+              rm -rf "plugins/${PLUGIN_SLUG}"
             fi
-            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN}" || true
-            if [[ -d "plugins/${PLUGIN}" ]]; then
-              cd "plugins/${PLUGIN}"
+            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || true
+            if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
+              cd "plugins/${PLUGIN_SLUG}"
               git remote set-url origin "${REPO_URL}.git" || true
               git fetch origin --tags --prune --no-recurse-submodules || git fetch origin || true
               git checkout "${COMMIT}" || {

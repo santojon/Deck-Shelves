@@ -8,10 +8,15 @@ export type SteamArt = {
 export function getLandscapeUrls(appid: number, mtime?: number): string[] {
   const cacheBust = mtime ? `?c=${mtime}` : "";
   return [
+    `/customimages/${appid}_hero.png`,
+    `/customimages/${appid}_hero.jpg`,
+    `/assets/${appid}/header.jpg${cacheBust}`,
     `/assets/${appid}/library_header.jpg${cacheBust}`,
-    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_header.jpg`,
-    `https://steamcdn-a.akamaihd.net/steam/apps/${appid}/library_header.jpg`,
+    `/assets/${appid}/library_hero.jpg${cacheBust}`,
     `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/header.jpg`,
+    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_header.jpg`,
+    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
+    `https://steamcdn-a.akamaihd.net/steam/apps/${appid}/header.jpg`,
   ];
 }
 
