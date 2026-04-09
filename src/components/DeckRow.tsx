@@ -275,7 +275,7 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     <div
       ref={outerRef}
       className="Panel ds-shelf"
-      style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden' }}
+      style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'rgba(14,16,18,1)' }}
     >
       {title ? (
         <div
