@@ -171,22 +171,6 @@ function ShelfListLabel({ shelf }: { shelf: Shelf }) {
 function DeleteConfirmModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, actions } = controller
 
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.id = 'ds-delete-btn-override';
-    // Target the last button (OK/confirm) in the modal footer
-    style.textContent = `
-      .${gamepadDialogClasses.BottomButtons} button:last-child,
-      .${gamepadDialogClasses.BottomButtons} > *:last-child button {
-        background: var(--custom-sp-color-destructive, rgb(198,40,40)) !important;
-        background-image: none !important;
-        color: #fff !important;
-      }
-    `;
-    document.head.appendChild(style);
-    return () => { style.remove(); };
-  }, []);
-
   return (
     <ConfirmModal
       strTitle={t('deleteShelf')}
@@ -769,7 +753,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           </DialogButton>
         </div>
       )}
-      {!mountCrashed && <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(value: boolean) => actions.setHideRecents(value)} bottomSeparator='thick' />}
+      {/* {!mountCrashed && <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(value: boolean) => actions.setHideRecents(value)} bottomSeparator='thick' />} */}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', display: 'flex' }}>

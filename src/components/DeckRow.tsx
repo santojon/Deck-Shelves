@@ -383,19 +383,9 @@ function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, fe
         if (map.nativeCardImg && !imgRef.current.classList.contains(map.nativeCardImg)) imgRef.current.classList.add(map.nativeCardImg);
         if (map.nativeCardImgFade && !imgRef.current.classList.contains(map.nativeCardImgFade)) imgRef.current.classList.add(map.nativeCardImgFade);
       }
-      // Apply native label classes so CSS Loader themes (e.g. "Centered Game Text") work on our cards
-      if (map.nativeCardLabel) {
-        const labelEl = cardRef.current?.querySelector('.ds-card-label') as HTMLElement | null;
-        if (labelEl && !labelEl.classList.contains(map.nativeCardLabel)) {
-          labelEl.classList.add(map.nativeCardLabel);
-        }
-      }
-      if (map.nativeCardLabelText) {
-        const labelNameEl = cardRef.current?.querySelector('.ds-card-label-name') as HTMLElement | null;
-        if (labelNameEl && !labelNameEl.classList.contains(map.nativeCardLabelText)) {
-          labelNameEl.classList.add(map.nativeCardLabelText);
-        }
-      }
+      // NOTE: do NOT apply nativeCardLabel / nativeCardLabelText classes to our
+      // label elements — those native info bar classes carry Steam CSS side-effects
+      // (display, height, position) that break card layout and context menus.
       try {
         if (!nativeSample && map.nativeCard) {
           const maybe = doc.querySelector(buildSelectorFromToken(map.nativeCard) ?? '');

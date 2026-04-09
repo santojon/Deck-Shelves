@@ -107,37 +107,10 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
           // Img primary class and fade class
           if (imgClasses[0]) out.nativeCardImg = imgClasses[0];
           if (imgClasses[1]) out.nativeCardImgFade = imgClasses[1];
-          // Label/info bar: in the native recents layout, the game name info bar
-          // sits as a sibling of the card root in a parent wrapper. Walk up from
-          // the card root and look at sibling elements for the info bar classes
-          // that CSS Loader themes (e.g. "Centered Game Text") target.
-          try {
-            const cardRoot = el as HTMLElement;
-            // First try direct children (inner label inside card root)
-            for (const child of Array.from(cardRoot.children)) {
-              if (!(child instanceof HTMLElement) || child.contains(img)) continue;
-              const labelClasses = Array.from(child.classList).filter(c => c.startsWith('_') && c.length > 5);
-              if (labelClasses[0]) { out.nativeCardLabel = labelClasses[0]; break; }
-            }
-            // Then look at siblings of card root (info bar at parent level)
-            const cardParent = cardRoot.parentElement;
-            if (cardParent) {
-              for (const sib of Array.from(cardParent.children)) {
-                if (sib === cardRoot || !(sib instanceof HTMLElement) || sib.contains(img)) continue;
-                const txt = sib.textContent?.trim();
-                if (!txt || txt.length < 2) continue;
-                const sibClasses = Array.from(sib.classList).filter(c => c.startsWith('_') && c.length > 5);
-                if (sibClasses[0]) out.nativeCardLabel = sibClasses[0];
-                // Dig for innermost text element with classes
-                const inner = sib.querySelector<HTMLElement>('div[class], span[class]');
-                if (inner) {
-                  const textCls = Array.from(inner.classList).filter(c => c.startsWith('_') && c.length > 5);
-                  if (textCls[0]) out.nativeCardLabelText = textCls[0];
-                }
-                break;
-              }
-            }
-          } catch {}
+          // NOTE: native card label classes are discovered but NOT applied to our
+          // label elements — applying them causes Steam CSS side-effects that break
+          // card layout and context menus. They are kept in the class map for future
+          // reference only.
           return out;
         }
       } catch {}
