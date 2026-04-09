@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-04-09
+
 ### Added
 
 - "Show background art" sub-toggle: when recents are hidden, the first shelf shows hero background art on card focus, matching the native recents behavior with CSS Loader theme support (e.g. Obsidian grayscale filter)
