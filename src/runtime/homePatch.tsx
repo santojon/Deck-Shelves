@@ -924,6 +924,8 @@ export function installHomePatch(_routerHook?: any) {
 
   let fallbackRoot: { unmount(): void } | null = null;
   let fallbackMountId: string | null = null;
+  let fallbackRetries = 0;
+  const MAX_FALLBACK_RETRIES = 6;
 
   const tryFallbackRender = () => {
     try {
@@ -937,11 +939,20 @@ export function installHomePatch(_routerHook?: any) {
           fallbackRoot = null;
           fallbackMountId = null;
         }
+        fallbackRetries = 0; // Reset counter when home not visible
         return;
       }
 
       const mount = ensureMount();
-      if (!mount) return;
+      if (!mount) {
+        if (++fallbackRetries >= MAX_FALLBACK_RETRIES) {
+          logWarn("HOME", "fallback: giving up after max retries", { retries: fallbackRetries });
+          if (timer) { window.clearInterval(timer); timer = 0; }
+          observer?.disconnect();
+        }
+        return;
+      }
+      fallbackRetries = 0; // Reset on success
       if (mount.dataset.deckShelvesRenderer === "react") return;
 
       if (fallbackRoot && fallbackMountId === mount.id) return;

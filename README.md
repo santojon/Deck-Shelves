@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/tests-70%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![Compatibility](https://img.shields.io/badge/checks-23%2F23-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -36,9 +36,13 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
   - Store tags, achievement count, friends who own
 - Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, or review score
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
+- **Dynamic card sizing** — shelves match native card dimensions from CSS Loader themes
+- **Highlight first game** — first card renders as a landscape featured card
+- **Developer / Publisher filter** — filter games by developer with automatic batch discovery
 - Reorder and toggle shelf visibility from the QAM
 - Import / export all shelves as JSON
 - Persistent settings across plugin reinstalls
+- Crash protection with automatic retry
 - Multi-language support (EN, PT-BR, PT-PT, FR, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN)
 
 ### Screenshots
@@ -88,6 +92,12 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 <p align="center">
   <img src="assets/screenshots/shelf-export.png" alt="Deck Shelves — Export Shelves" width="768">
+</p>
+
+#### About & Filter Documentation
+
+<p align="center">
+  <img src="assets/screenshots/about-page.png" alt="Deck Shelves — About & Filter Documentation" width="768">
 </p>
 
 ## Installation

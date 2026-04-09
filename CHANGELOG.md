@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Dynamic card sizing: `discoverNativeCardDimensions()` detects native card dimensions at runtime; shelves match native card size when `matchNativeSize` is enabled per shelf
+- "Highlight first game" option renders the first card in a shelf as a landscape featured card
+- Crash protection: home mount errors automatically disable shelves with a retry button in the QAM
+- Developer / Publisher filter type with batch preloading via `RegisterForAppDetails`
+
+### Changed
+
+- HomeInject mount polling replaced with `MutationObserver`; 1-second fallback timer increased to 10 seconds (battery optimization)
+- ShelvesContainer nav-tree patching loop replaced with `MutationObserver` + 10-second fallback instead of 1-second polling
+- `ensureStyles()` consolidated to a single global timer shared by all DeckRow instances instead of one 3-second interval per shelf
+- Focus restore polling reduced from 100ms → 500ms initial with 2-second escalation; total timeout reduced from 5 minutes to 30 seconds
+- homePatch fallback renderer limited to 6 retry attempts (60 seconds) instead of indefinite polling
+- `logInfo()` already gated behind `__DEV__` flag — confirmed no-op in production builds
+- Collection raw cache now uses 60-second TTL; expired entries are evicted on next read
+- Native card dimension discovery prefers `Focusable`/`Panel` elements as card roots, avoiding measurement of overflowing art containers
+
+### Fixed
+
+- Focus ring respects art height on featured cards (no longer extends past the game image)
+- QAM toggle reads persisted value via `getCurrentSettings()` on mount instead of resetting to false
+- Featured card height matches native card height (discovery no longer picks up non-card wide elements)
+- Shelf vertical spacing restored: `-28px` margin-top aligns shelves
+
 ## [1.1.3] - 2026-04-07
 
 ### Fixed

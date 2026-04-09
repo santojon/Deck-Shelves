@@ -63,6 +63,29 @@ let cachedCardRadius = "0px";
 let cachedNativeDims: NativeCardDims | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
+// Single global timer for ensureStyles — shared by all DeckRow instances.
+// Starts on first mount, stops when last instance unmounts.
+let globalStyleRefCount = 0;
+let globalStyleTimer: ReturnType<typeof setInterval> | null = null;
+let globalResizeHandler: (() => void) | null = null;
+
+function globalStylesStart() {
+  if (++globalStyleRefCount === 1) {
+    ensureStyles();
+    globalStyleTimer = setInterval(ensureStyles, 3000);
+    globalResizeHandler = () => ensureStyles();
+    window.addEventListener('resize', globalResizeHandler);
+  }
+}
+
+function globalStylesStop() {
+  if (--globalStyleRefCount <= 0) {
+    globalStyleRefCount = 0;
+    if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
+    if (globalResizeHandler) { window.removeEventListener('resize', globalResizeHandler); globalResizeHandler = null; }
+  }
+}
+
 function formatPlaytime(minutes: number | undefined): string | null {
   if (!minutes || minutes <= 0) return null;
   if (minutes < 60) return `${Math.round(minutes)} min`;
@@ -788,16 +811,12 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     : effectiveFeaturedH;
 
   useEffect(() => {
-    ensureStyles();
-    const interval = setInterval(ensureStyles, 3000);
-    const onResize = () => ensureStyles();
-    window.addEventListener('resize', onResize);
+    globalStylesStart();
     // Re-render when native dims change (e.g. theme applied/removed)
     const onDimsChange = () => forceUpdate(n => n + 1);
     nativeDimsListeners.add(onDimsChange);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('resize', onResize);
+      globalStylesStop();
       nativeDimsListeners.delete(onDimsChange);
     };
   }, []);

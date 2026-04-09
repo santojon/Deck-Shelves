@@ -364,7 +364,8 @@ export function HomeShelves() {
     const win = getPreferredSteamWindow();
     const obs = new MutationObserver(updateMount);
     obs.observe(doc.body, { childList: true, subtree: true });
-    const timer = window.setInterval(updateMount, 1000);
+    // Long fallback for edge cases the observer misses (e.g. iframe navigation)
+    const timer = window.setInterval(updateMount, 10000);
     win.addEventListener("hashchange", updateMount);
     win.addEventListener("popstate", updateMount);
 
@@ -439,7 +440,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
       navApi.detail,
     );
 
-    const interval = setInterval(() => {
+    const applyPatches = () => {
       try {
         reparentNavTreeNodes(mountEl);
         patchShelfEdgeNavigation(mountEl);
@@ -447,15 +448,22 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
         installPassiveMenuHook();
         tryRestoreFocus();
       } catch {}
-    }, 1000);
+    };
+
+    // Run patches immediately, then on DOM mutations + long fallback
+    applyPatches();
+    const obs = new MutationObserver(applyPatches);
+    obs.observe(mountEl, { childList: true, subtree: true });
+    const fallback = setInterval(applyPatches, 10000);
 
     const win = getPreferredSteamWindow();
-    const onNavEvent = () => { if (hasPendingFocus()) beginFocusRestoreLoop(); };
+    const onNavEvent = () => { applyPatches(); if (hasPendingFocus()) beginFocusRestoreLoop(); };
     win.addEventListener("popstate", onNavEvent);
     win.addEventListener("hashchange", onNavEvent);
 
     return () => {
-      clearInterval(interval);
+      obs.disconnect();
+      clearInterval(fallback);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
     };
@@ -465,7 +473,7 @@ function ShelvesContainer({ mountEl, shelves }: { mountEl: HTMLElement; shelves:
     <Focusable
       className="deck-shelves-root"
       flow-children="column"
-      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8 }}
+      style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24 }}
     >
       {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} />)}
     </Focusable>

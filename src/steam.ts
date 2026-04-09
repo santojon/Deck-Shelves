@@ -5,7 +5,8 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "./runtime/st
 
 export type SteamCollection = { id: string; name: string };
 
-const collectionRawCache = new Map<string, any>();
+const COLLECTION_CACHE_TTL = 60_000;
+const collectionRawCache = new Map<string, { data: any; ts: number }>();
 
 function getSteamClient(): any {
   const hostWindow = getPreferredSteamWindow() as any;
@@ -75,20 +76,22 @@ function normalizeCollectionToken(value: string): string {
 function cacheCollectionRaw(id: string, name: string, raw: any) {
   const exactId = String(id ?? "").trim();
   const exactName = String(name ?? "").trim();
-  if (exactId) collectionRawCache.set(`id:${exactId}`, raw);
-  if (exactName) collectionRawCache.set(`name:${exactName}`, raw);
+  const entry = { data: raw, ts: Date.now() };
+  if (exactId) collectionRawCache.set(`id:${exactId}`, entry);
+  if (exactName) collectionRawCache.set(`name:${exactName}`, entry);
 
   const normalizedId = normalizeText(exactId);
   const normalizedName = normalizeText(exactName);
   const tokenId = normalizeCollectionToken(exactId);
-  if (normalizedId) collectionRawCache.set(`nid:${normalizedId}`, raw);
-  if (normalizedName) collectionRawCache.set(`nname:${normalizedName}`, raw);
-  if (tokenId) collectionRawCache.set(`tid:${tokenId}`, raw);
+  if (normalizedId) collectionRawCache.set(`nid:${normalizedId}`, entry);
+  if (normalizedName) collectionRawCache.set(`nname:${normalizedName}`, entry);
+  if (tokenId) collectionRawCache.set(`tid:${tokenId}`, entry);
 }
 
 function getCachedCollectionRawCandidates(idCandidates: string[], nameCandidates: string[]): any[] {
   const out: any[] = [];
   const seen = new Set<any>();
+  const now = Date.now();
   const keys = [
     ...idCandidates.flatMap((value) => {
       const raw = String(value ?? "").trim();
@@ -104,10 +107,11 @@ function getCachedCollectionRawCandidates(idCandidates: string[], nameCandidates
   ];
 
   for (const key of keys) {
-    const candidate = collectionRawCache.get(key);
-    if (!candidate || seen.has(candidate)) continue;
-    seen.add(candidate);
-    out.push(candidate);
+    const entry = collectionRawCache.get(key);
+    if (!entry || seen.has(entry.data)) continue;
+    if (now - entry.ts > COLLECTION_CACHE_TTL) { collectionRawCache.delete(key); continue; }
+    seen.add(entry.data);
+    out.push(entry.data);
   }
   return out;
 }
