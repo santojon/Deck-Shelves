@@ -211,5 +211,6 @@
   "mount_crash_reset": "Réessayer",
   "filter_type_developer": "Développeur / Éditeur",
   "filter_developer_loading": "Analyse des développeurs…",
-  "filter_developer_empty": "Aucune donnée de développeur trouvée"
+  "filter_developer_empty": "Aucune donnée de développeur trouvée",
+  "image_not_found": "Image introuvable"
 }

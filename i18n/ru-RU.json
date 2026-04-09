@@ -211,5 +211,6 @@
   "mount_crash_reset": "Повторить",
   "filter_type_developer": "Разработчик / Издатель",
   "filter_developer_loading": "Сканирование разработчиков…",
-  "filter_developer_empty": "Данные о разработчиках не найдены"
+  "filter_developer_empty": "Данные о разработчиках не найдены",
+  "image_not_found": "Изображение не найдено"
 }

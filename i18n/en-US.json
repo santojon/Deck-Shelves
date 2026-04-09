@@ -211,5 +211,6 @@
   "mount_crash_reset": "Retry",
   "filter_type_developer": "Developer / Publisher",
   "filter_developer_loading": "Scanning developers…",
-  "filter_developer_empty": "No developer data found"
+  "filter_developer_empty": "No developer data found",
+  "image_not_found": "Image not found"
 }

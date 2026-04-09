@@ -367,7 +367,7 @@ function injectHomeStyles(doc: Document) {
   style.textContent = `
     #${ROOT_ID} {
       overflow: visible;
-      margin-top: -40px;
+      margin-top: -32px;
     }
     #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
     #${ROOT_ID} .deck-shelves-header {

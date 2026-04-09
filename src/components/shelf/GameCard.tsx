@@ -18,6 +18,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const artH = artHProp ?? cardH;
 
   const [nativeCardClass, setNativeCardClass] = useState('');
+  const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
     function injectNativeClasses(): boolean {
@@ -155,6 +156,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   useEffect(() => {
     fallbackIdx.current = 0;
+    setImgFailed(false);
     if (imgRef.current && allUrls[0]) {
       imgRef.current.src = allUrls[0];
     }
@@ -164,6 +166,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     fallbackIdx.current += 1;
     if (imgRef.current && fallbackIdx.current < allUrls.length) {
       imgRef.current.src = allUrls[fallbackIdx.current];
+    } else {
+      setImgFailed(true);
     }
   }, [allUrls]);
 
@@ -254,7 +258,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           overflow: "hidden",
         }}
       >
-        {firstUrl ? (
+        {firstUrl && !imgFailed ? (
           <img
             ref={imgRef}
             src={firstUrl}
@@ -266,9 +270,23 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ) : (
           <div
             className="ds-card-art-placeholder"
-            style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}
+            style={{
+              width: "100%", height: "100%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexDirection: "column", gap: 6,
+              padding: featured ? 16 : 6,
+              background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
+              boxSizing: "border-box",
+            }}
           >
-            {item.name}
+            <span style={{ fontSize: featured ? 14 : 11, opacity: 0.5, textAlign: "center", wordBreak: "break-word", lineHeight: 1.3 }}>
+              {item.name}
+            </span>
+            {imgFailed && (
+              <span style={{ fontSize: featured ? 11 : 9, opacity: 0.35, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {t('image_not_found')}
+              </span>
+            )}
           </div>
         )}
         <div className="ds-card-shimmer" aria-hidden="true" />

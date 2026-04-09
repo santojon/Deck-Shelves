@@ -211,5 +211,6 @@
   "mount_crash_reset": "Erneut versuchen",
   "filter_type_developer": "Entwickler / Publisher",
   "filter_developer_loading": "Entwickler werden gescannt…",
-  "filter_developer_empty": "Keine Entwicklerdaten gefunden"
+  "filter_developer_empty": "Keine Entwicklerdaten gefunden",
+  "image_not_found": "Bild nicht gefunden"
 }

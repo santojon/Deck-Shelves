@@ -211,5 +211,6 @@
   "mount_crash_reset": "重试",
   "filter_type_developer": "开发商 / 发行商",
   "filter_developer_loading": "正在扫描开发商…",
-  "filter_developer_empty": "未找到开发商数据"
+  "filter_developer_empty": "未找到开发商数据",
+  "image_not_found": "未找到图片"
 }

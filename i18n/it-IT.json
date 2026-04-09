@@ -211,5 +211,6 @@
   "mount_crash_reset": "Riprova",
   "filter_type_developer": "Sviluppatore / Publisher",
   "filter_developer_loading": "Scansione degli sviluppatori…",
-  "filter_developer_empty": "Nessun dato sviluppatore trovato"
+  "filter_developer_empty": "Nessun dato sviluppatore trovato",
+  "image_not_found": "Immagine non trovata"
 }

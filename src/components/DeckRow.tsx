@@ -125,7 +125,7 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
         if (lastFocusedCard && lastFocusedCard !== card) {
           doHorizontalScroll(lastFocusedCard);
         }
-      }, 200);
+      }, 150);
     };
 
     let lastFocusedCard: HTMLElement | null = null;

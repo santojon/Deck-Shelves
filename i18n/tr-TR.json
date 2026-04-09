@@ -211,5 +211,6 @@
   "mount_crash_reset": "Yeniden dene",
   "filter_type_developer": "Geliştirici / Yayıncı",
   "filter_developer_loading": "Geliştiriciler taranıyor…",
-  "filter_developer_empty": "Geliştirici verisi bulunamadı"
+  "filter_developer_empty": "Geliştirici verisi bulunamadı",
+  "image_not_found": "Görsel bulunamadı"
 }

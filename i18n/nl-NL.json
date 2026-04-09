@@ -211,5 +211,6 @@
   "mount_crash_reset": "Opnieuw proberen",
   "filter_type_developer": "Ontwikkelaar / Uitgever",
   "filter_developer_loading": "Ontwikkelaars scannen…",
-  "filter_developer_empty": "Geen ontwikkelaarsgegevens gevonden"
+  "filter_developer_empty": "Geen ontwikkelaarsgegevens gevonden",
+  "image_not_found": "Afbeelding niet gevonden"
 }

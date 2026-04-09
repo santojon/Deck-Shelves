@@ -211,5 +211,6 @@
   "mount_crash_reset": "Spróbuj ponownie",
   "filter_type_developer": "Deweloper / Wydawca",
   "filter_developer_loading": "Skanowanie deweloperów…",
-  "filter_developer_empty": "Nie znaleziono danych deweloperów"
+  "filter_developer_empty": "Nie znaleziono danych deweloperów",
+  "image_not_found": "Nie znaleziono obrazu"
 }

@@ -211,5 +211,6 @@
   "mount_crash_reset": "再試行",
   "filter_type_developer": "デベロッパー / パブリッシャー",
   "filter_developer_loading": "デベロッパーをスキャン中…",
-  "filter_developer_empty": "デベロッパーデータが見つかりません"
+  "filter_developer_empty": "デベロッパーデータが見つかりません",
+  "image_not_found": "画像が見つかりません"
 }
