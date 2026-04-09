@@ -23,6 +23,9 @@ export function defaultSettings(): Settings {
   return {
     enabled: false,
     hideRecents: false,
+    shelfHeroBackground: false,
+    globalMatchNativeSize: false,
+    globalHighlightFirst: false,
     shelves: [],
   };
 }

@@ -211,5 +211,13 @@
   "mount_crash_reset": "Retry",
   "filter_type_developer": "Developer / Publisher",
   "filter_developer_loading": "Scanning developers…",
-  "filter_developer_empty": "No developer data found"
+  "filter_developer_empty": "No developer data found",
+  "image_not_found": "Image not found",
+  "shelf_hero_background": "Show background art",
+  "about_feature_hide_recents": "Hide native Recent Games section with optional hero background art",
+  "about_feature_dynamic_sizing": "Dynamic card sizing that matches native Steam card dimensions from CSS Loader themes",
+  "about_feature_highlight_first": "Highlight first game as a landscape featured card",
+  "about_feature_developer_filter": "Developer / Publisher filter with automatic batch discovery",
+  "about_feature_mouse_hover": "Mouse hover support: labels and brightness activate on hover",
+  "about_feature_global_toggles": "Global toggles for match native size and highlight first with per-shelf override"
 }

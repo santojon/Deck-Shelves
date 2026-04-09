@@ -211,5 +211,13 @@
   "mount_crash_reset": "Tentar novamente",
   "filter_type_developer": "Desenvolvedor / Publicador",
   "filter_developer_loading": "A analisar desenvolvedores…",
-  "filter_developer_empty": "Nenhum dado de desenvolvedor encontrado"
+  "filter_developer_empty": "Nenhum dado de desenvolvedor encontrado",
+  "image_not_found": "Imagem não encontrada",
+  "shelf_hero_background": "Mostrar arte de fundo",
+  "about_feature_hide_recents": "Ocultar secção de Jogos Recentes com arte de fundo opcional",
+  "about_feature_dynamic_sizing": "Redimensionamento dinâmico de cards seguindo temas CSS Loader",
+  "about_feature_highlight_first": "Destacar primeiro jogo como card paisagem em destaque",
+  "about_feature_developer_filter": "Filtro por Desenvolvedor / Publicador com descoberta automática",
+  "about_feature_mouse_hover": "Suporte a rato: rótulos e brilho ativam ao passar o cursor",
+  "about_feature_global_toggles": "Toggles globais para tamanho nativo e destaque com precedência por prateleira"
 }

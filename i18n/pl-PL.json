@@ -211,5 +211,13 @@
   "mount_crash_reset": "Spróbuj ponownie",
   "filter_type_developer": "Deweloper / Wydawca",
   "filter_developer_loading": "Skanowanie deweloperów…",
-  "filter_developer_empty": "Nie znaleziono danych deweloperów"
+  "filter_developer_empty": "Nie znaleziono danych deweloperów",
+  "image_not_found": "Nie znaleziono obrazu",
+  "shelf_hero_background": "Pokaż grafikę tła",
+  "about_feature_hide_recents": "Ukryj sekcję Ostatnio grane z opcjonalną grafiką tła",
+  "about_feature_dynamic_sizing": "Dynamiczny rozmiar kart dopasowany do motywów CSS Loader",
+  "about_feature_highlight_first": "Wyróżnij pierwszą grę jako kartę krajobrazową",
+  "about_feature_developer_filter": "Filtr Dewelopera / Wydawcy z automatycznym wykrywaniem",
+  "about_feature_mouse_hover": "Obsługa najechania myszą: etykiety i jasność aktywują się przy najechaniu",
+  "about_feature_global_toggles": "Globalne przełączniki dla natywnego rozmiaru i wyróżnienia z nadpisaniem na półkę"
 }

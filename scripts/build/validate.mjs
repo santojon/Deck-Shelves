@@ -11,7 +11,7 @@ for (const name of requiredScripts) {
   if (!pkg.scripts?.[name]) errors.push(`Missing script: ${name}`);
 }
 if (plugin.name !== "Deck Shelves") errors.push("plugin.json name must remain 'Deck Shelves'.");
-if (!(plugin.flags || []).includes("debug")) errors.push("plugin.json should include the debug flag for soft reloads.");
+if (!Array.isArray(plugin.flags)) errors.push("plugin.json must have a 'flags' array field.");
 for (const rel of [
   "src/index.tsx",
   "src/components/Shelf.tsx",

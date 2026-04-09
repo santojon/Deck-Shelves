@@ -211,5 +211,13 @@
   "mount_crash_reset": "다시 시도",
   "filter_type_developer": "개발사 / 퍼블리셔",
   "filter_developer_loading": "개발사 검색 중…",
-  "filter_developer_empty": "개발사 데이터를 찾을 수 없습니다"
+  "filter_developer_empty": "개발사 데이터를 찾을 수 없습니다",
+  "image_not_found": "이미지를 찾을 수 없음",
+  "shelf_hero_background": "배경 아트 표시",
+  "about_feature_hide_recents": "최근 게임 섹션 숨기기(배경 아트 옵션 포함)",
+  "about_feature_dynamic_sizing": "CSS Loader 테마의 네이티브 카드 크기에 동적으로 맞춤",
+  "about_feature_highlight_first": "첫 번째 게임을 가로 카드로 강조 표시",
+  "about_feature_developer_filter": "개발자/퍼블리셔 필터(자동 배치 검색 포함)",
+  "about_feature_mouse_hover": "마우스 호버 지원: 라벨과 밝기가 호버 시 활성화",
+  "about_feature_global_toggles": "네이티브 크기 및 하이라이트의 글로벌 토글(선반별 설정 우선)"
 }

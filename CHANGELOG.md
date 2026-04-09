@@ -7,14 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- "Show background art" sub-toggle: when recents are hidden, the first shelf shows hero background art on card focus, matching the native recents behavior with CSS Loader theme support (e.g. Obsidian grayscale filter)
+- Global "Match native card size" and "Highlight first game" toggles in QAM with precedence over per-shelf settings
+- PlaceholderCard component: games without art show a styled card with the game name instead of a broken image
+- Mouse hover support: card labels, brightness, and compat badges activate on hover (CSS-only, no interference with gamepad)
+
+### Changed
+
+- DeckRow.tsx split into modular files: `shelf/types.ts`, `shelf/shelfStyles.ts`, `shelf/GameCard.tsx`, `shelf/MoreCard.tsx`, `shelf/PlaceholderCard.tsx`, `shelf/HeroBackground.tsx`
+- Navigation patches extracted from HomeInject.tsx to `home/navPatches.ts` (210 lines)
+- QAM icons extracted to `qam/icons.tsx`
+- `steam.ts` moved to `steam/index.ts` as modular barrel
+- `settingsStore.ts` moved to `store/settingsStore.ts` with backwards-compatible re-export
+- `focusRestore.ts` rewritten with AbortController + recursive setTimeout (cleaner than nested setInterval)
+- Dimension change tolerance increased to 4px with 2-cycle confirmation to prevent resize flicker
+- Featured card width/height transitions smoothly (CSS transition: 0.3s ease)
+- Hero background replicates full native DOM chain for CSS Loader theme compatibility (zoom animation, grayscale filters)
+- Documentation consolidated into `docs/` directory: architecture, plugin-api, development, filters
+
+### Fixed
+
+- Vertical shelf centering restored: fallback scroll calculations use correct `scrollTop + delta` math
+- Card art overflow:hidden in stylesheet for Round theme compatibility
+
 ## [1.2.0] - 2026-04-09
 
 ### Added
 
 - Dynamic card sizing: `discoverNativeCardDimensions()` detects native card dimensions at runtime; shelves match native card size when `matchNativeSize` is enabled per shelf
-- "Highlight first game" option renders the first card in a shelf as a landscape featured card
+- "Highlight first game" option: first card in a shelf renders as a landscape featured card
+- "Hide recent games" toggle in QAM hides the native "Recently Played" section
 - Crash protection: home mount errors automatically disable shelves with a retry button in the QAM
 - Developer / Publisher filter type with batch preloading via `RegisterForAppDetails`
+- 8 new i18n keys translated across all 16 locales
 
 ### Changed
 
@@ -23,16 +50,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ensureStyles()` consolidated to a single global timer shared by all DeckRow instances instead of one 3-second interval per shelf
 - Focus restore polling reduced from 100ms → 500ms initial with 2-second escalation; total timeout reduced from 5 minutes to 30 seconds
 - homePatch fallback renderer limited to 6 retry attempts (60 seconds) instead of indefinite polling
-- `logInfo()` already gated behind `__DEV__` flag — confirmed no-op in production builds
 - Collection raw cache now uses 60-second TTL; expired entries are evicted on next read
-- Native card dimension discovery prefers `Focusable`/`Panel` elements as card roots, avoiding measurement of overflowing art containers
+- Native card dimension discovery prefers `Focusable`/`Panel` elements as card roots and skips focused/hovered cards to avoid scale-transform measurement
+- Horizontal navigation throttle reduced from 200ms to 150ms per card for faster lateral browsing
+- Hide recents uses `visibility:hidden` + `height:0` instead of `display:none` to preserve DOM structure for layout measurement
+- Landscape card image URLs prioritize custom hero images, then local `header.jpg` (faixa), then `library_hero.jpg`, then CDN fallbacks
+- Logging added to all previously-empty catch blocks across the codebase
 
 ### Fixed
 
 - Focus ring respects art height on featured cards (no longer extends past the game image)
+- Hide recents setting persists correctly across QAM reopens — Python backend preserves `hideRecents` field
 - QAM toggle reads persisted value via `getCurrentSettings()` on mount instead of resetting to false
 - Featured card height matches native card height (discovery no longer picks up non-card wide elements)
-- Shelf vertical spacing restored: `-28px` margin-top aligns shelves
 
 ## [1.1.3] - 2026-04-07
 

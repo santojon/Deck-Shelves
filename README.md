@@ -38,7 +38,10 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
 - **Dynamic card sizing** — shelves match native card dimensions from CSS Loader themes
 - **Highlight first game** — first card renders as a landscape featured card
+- **Hide recent games** — toggle to hide the native "Recently Played" section
+- **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
 - **Developer / Publisher filter** — filter games by developer with automatic batch discovery
+- **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
 - Reorder and toggle shelf visibility from the QAM
 - Import / export all shelves as JSON
 - Persistent settings across plugin reinstalls
@@ -99,6 +102,14 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 <p align="center">
   <img src="assets/screenshots/about-page.png" alt="Deck Shelves — About & Filter Documentation" width="768">
 </p>
+
+## Documentation
+
+- [Architecture](docs/architecture.md) — project structure, data flow, key systems
+- [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
+- [Filter System](docs/filters.md) — filter types, groups, sort options
+- [Development Guide](docs/development.md) — setup, build commands, testing, conventions
+- [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
 
 ## Installation
 

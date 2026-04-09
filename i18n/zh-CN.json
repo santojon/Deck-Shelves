@@ -211,5 +211,13 @@
   "mount_crash_reset": "重试",
   "filter_type_developer": "开发商 / 发行商",
   "filter_developer_loading": "正在扫描开发商…",
-  "filter_developer_empty": "未找到开发商数据"
+  "filter_developer_empty": "未找到开发商数据",
+  "image_not_found": "未找到图片",
+  "shelf_hero_background": "显示背景画作",
+  "about_feature_hide_recents": "隐藏最近游戏部分并可选显示背景画作",
+  "about_feature_dynamic_sizing": "动态卡片尺寸，匹配CSS Loader主题的原生卡片大小",
+  "about_feature_highlight_first": "将第一个游戏突出显示为横向卡片",
+  "about_feature_developer_filter": "开发者/发行商筛选器（自动批量发现）",
+  "about_feature_mouse_hover": "鼠标悬停支持：标签和亮度在悬停时激活",
+  "about_feature_global_toggles": "全局切换原生尺寸和突出显示，可按书架单独覆盖"
 }

@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-// --- CustomTabs-style filter item types ---
-
 export const FilterItemTypeSchema = z.enum([
   "installed",
   "favorites",
@@ -85,6 +83,9 @@ export type Shelf = z.infer<typeof ShelfSchema>;
 export const SettingsSchema = z.object({
   enabled: z.boolean().default(true),
   hideRecents: z.boolean().default(false),
+  shelfHeroBackground: z.boolean().default(false),
+  globalMatchNativeSize: z.boolean().default(false),
+  globalHighlightFirst: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([])
 });
 

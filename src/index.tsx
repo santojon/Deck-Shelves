@@ -35,7 +35,7 @@ function DeckShelvesIcon() {
 }
 
 function openAboutPage() {
-  try { (Navigation as any).CloseSideMenus?.(); } catch {}
+  try { (Navigation as any).CloseSideMenus?.(); } catch (e) { console.info("CloseSideMenus failed", e); }
   Navigation.Navigate(ABOUT_ROUTE);
 }
 
@@ -75,7 +75,7 @@ export default definePlugin((serverAPI?: any) => {
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
     <AboutPage />
-  )); } catch {}
+  )); } catch (e) { console.warn("addRoute failed", e); }
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
 

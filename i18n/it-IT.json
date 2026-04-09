@@ -211,5 +211,13 @@
   "mount_crash_reset": "Riprova",
   "filter_type_developer": "Sviluppatore / Publisher",
   "filter_developer_loading": "Scansione degli sviluppatori…",
-  "filter_developer_empty": "Nessun dato sviluppatore trovato"
+  "filter_developer_empty": "Nessun dato sviluppatore trovato",
+  "image_not_found": "Immagine non trovata",
+  "shelf_hero_background": "Mostra arte di sfondo",
+  "about_feature_hide_recents": "Nascondi sezione Giochi Recenti con arte di sfondo opzionale",
+  "about_feature_dynamic_sizing": "Dimensionamento dinamico delle schede in base ai temi CSS Loader",
+  "about_feature_highlight_first": "Evidenzia il primo gioco come scheda paesaggio in primo piano",
+  "about_feature_developer_filter": "Filtro Sviluppatore / Editore con scoperta automatica in batch",
+  "about_feature_mouse_hover": "Supporto hover del mouse: etichette e luminosità si attivano al passaggio",
+  "about_feature_global_toggles": "Toggle globali per dimensione nativa ed evidenziazione con override per scaffale"
 }

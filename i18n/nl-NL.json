@@ -211,5 +211,13 @@
   "mount_crash_reset": "Opnieuw proberen",
   "filter_type_developer": "Ontwikkelaar / Uitgever",
   "filter_developer_loading": "Ontwikkelaars scannen…",
-  "filter_developer_empty": "Geen ontwikkelaarsgegevens gevonden"
+  "filter_developer_empty": "Geen ontwikkelaarsgegevens gevonden",
+  "image_not_found": "Afbeelding niet gevonden",
+  "shelf_hero_background": "Achtergrondafbeelding tonen",
+  "about_feature_hide_recents": "Verberg de sectie Recente Games met optionele achtergrondafbeelding",
+  "about_feature_dynamic_sizing": "Dynamische kaartgrootte passend bij CSS Loader thema's",
+  "about_feature_highlight_first": "Eerste spel als landschaps-uitgelichte kaart tonen",
+  "about_feature_developer_filter": "Ontwikkelaar/Uitgever filter met automatische batchontdekking",
+  "about_feature_mouse_hover": "Muis-hover ondersteuning: labels en helderheid activeren bij hover",
+  "about_feature_global_toggles": "Globale toggles voor native grootte en uitlichting met per-plank override"
 }

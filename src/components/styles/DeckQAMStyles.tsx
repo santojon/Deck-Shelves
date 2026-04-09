@@ -65,12 +65,14 @@ export function DeckQAMStyles() {
         opacity: 0.85;
       }
       .deck-shelves-qam-scope .deck-shelves-label-text {
-        display: block;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
         min-width: 0;
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
+        line-height: 1.3;
         flex: 1 1 0;
       }
       .deck-shelves-qam-scope .deck-shelves-hidden {

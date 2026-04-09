@@ -211,5 +211,13 @@
   "mount_crash_reset": "Повторить",
   "filter_type_developer": "Разработчик / Издатель",
   "filter_developer_loading": "Сканирование разработчиков…",
-  "filter_developer_empty": "Данные о разработчиках не найдены"
+  "filter_developer_empty": "Данные о разработчиках не найдены",
+  "image_not_found": "Изображение не найдено",
+  "shelf_hero_background": "Показать фоновое изображение",
+  "about_feature_hide_recents": "Скрыть раздел Недавние игры с опциональным фоновым изображением",
+  "about_feature_dynamic_sizing": "Динамический размер карточек в соответствии с темами CSS Loader",
+  "about_feature_highlight_first": "Выделить первую игру как ландшафтную карточку",
+  "about_feature_developer_filter": "Фильтр по Разработчику / Издателю с автоматическим обнаружением",
+  "about_feature_mouse_hover": "Поддержка наведения мыши: метки и яркость активируются при наведении",
+  "about_feature_global_toggles": "Глобальные переключатели для нативного размера и выделения с приоритетом по полке"
 }

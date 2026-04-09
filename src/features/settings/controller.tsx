@@ -13,7 +13,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelves: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, shelves: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
   const [tabs, setTabs] = useState<PlatformTab[]>([]);
@@ -88,6 +88,21 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.hideRecents === hideRecents) return;
       await persist({ ...s, hideRecents });
+    },
+    async setShelfHeroBackground(shelfHeroBackground: boolean) {
+      const s = liveSettings();
+      if (!s || s.shelfHeroBackground === shelfHeroBackground) return;
+      await persist({ ...s, shelfHeroBackground });
+    },
+    async setGlobalMatchNativeSize(globalMatchNativeSize: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalMatchNativeSize === globalMatchNativeSize) return;
+      await persist({ ...s, globalMatchNativeSize });
+    },
+    async setGlobalHighlightFirst(globalHighlightFirst: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHighlightFirst === globalHighlightFirst) return;
+      await persist({ ...s, globalHighlightFirst });
     },
     async addShelf() {
       const s = liveSettings();

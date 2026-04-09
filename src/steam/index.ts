@@ -1,8 +1,8 @@
-import type { FilterGroup, FilterItem } from "./types";
-import { mark, measure } from "./core/perf";
-import type { PlatformAppMeta, PlatformTab } from "./runtime/platform";
-import { logInfo, logWarn } from "./runtime/logger";
-import { getPreferredSteamDocument, getPreferredSteamWindow } from "./runtime/steamHost";
+import type { FilterGroup, FilterItem } from "../types";
+import { mark, measure } from "../core/perf";
+import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
+import { logInfo, logWarn } from "../runtime/logger";
+import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
 
 export type SteamCollection = { id: string; name: string };
 
@@ -467,8 +467,8 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
 
   // 1. Settings file — primary source for TabMaster tabs
   try {
-    const { getVisibleTabsFromSettingsFile } = await import('./integrations/tabmaster');
-    const { isTabMasterInstalled } = await import('./integrations/registry');
+    const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
+    const { isTabMasterInstalled } = await import('../integrations/registry');
     if (isTabMasterInstalled()) {
       const settingsTabs = await getVisibleTabsFromSettingsFile();
       if (settingsTabs.length > 0) return settingsTabs;
@@ -481,7 +481,7 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
 
   // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
   try {
-    const { getTabsFromDOM } = await import('./integrations/domtabs');
+    const { getTabsFromDOM } = await import('../integrations/domtabs');
     const domTabs = getTabsFromDOM();
     if (domTabs.length > 0) return domTabs;
   } catch {}
@@ -1718,8 +1718,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     // Migration fallback: existing shelves saved as UUID tab sources resolve via TabMaster's filters
     if (!ids.length && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTab)) {
       try {
-        const { getTabsFromSettingsFile } = await import('./integrations/tabmaster');
-        const { convertFiltersToGroup } = await import('./domain/customfilters');
+        const { getTabsFromSettingsFile } = await import('../integrations/tabmaster');
+        const { convertFiltersToGroup } = await import('../domain/customfilters');
         const tmTabs = await getTabsFromSettingsFile();
         const tmTab = tmTabs.find((t) => t.id === rawTab);
         if (tmTab && tmTab.filters && tmTab.filters.length > 0) {
@@ -1851,7 +1851,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
 
   if (source.type === "external") {
     try {
-      const { resolveExternalSource } = await import("./core/pluginApi");
+      const { resolveExternalSource } = await import("../core/pluginApi");
       const ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
       return ids.slice(0, limit);
