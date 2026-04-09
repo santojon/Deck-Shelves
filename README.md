@@ -36,7 +36,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
   - Store tags, achievement count, friends who own
 - Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, or review score
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
-- **Dynamic card sizing** — shelves match native card dimensions from CSS Loader themes
+- **Dynamic card sizing** — shelves match native card dimensions and from themes
 - **Highlight first game** — first card renders as a landscape featured card
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
