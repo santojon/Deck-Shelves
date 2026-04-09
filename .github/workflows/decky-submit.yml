@@ -137,6 +137,12 @@ jobs:
             BRANCH=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.headRefName')
             echo "🔍 Found existing PR #${PR_NUMBER} on branch: ${BRANCH}"
 
+            # Safety: when updating an existing PR we MUST NOT alter the PR
+            # title or body and MUST NOT create comments. Ensure the rest of
+            # this path performs only branch commits/pushes and never calls
+            # the GH CLI to edit the PR or add comments.
+            SKIP_PR_EDIT=1
+
             git fetch origin "${BRANCH}"
             git checkout -B "${BRANCH}" "origin/${BRANCH}"
 
@@ -148,23 +154,38 @@ jobs:
               git commit --no-edit -m "Merge upstream/main into ${BRANCH}" || true
             }
 
-            # Update submodule to new commit. Recreate the submodule directory
-            # to ensure the desired commit is available to checkout.
+            # Ensure plugin folder is present and populated. Prefer a direct
+            # clone (reliable) rather than depending on submodule semantics.
             if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
               rm -rf "plugins/${PLUGIN_SLUG}"
             fi
-            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || true
+            git clone --depth 1 "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || git clone "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || true
             if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
               cd "plugins/${PLUGIN_SLUG}"
               git remote set-url origin "${REPO_URL}.git" || true
-              git fetch origin --tags --prune --no-recurse-submodules || git fetch origin || true
+              git fetch origin --tags --prune || true
               if git rev-parse --verify "${COMMIT}" >/dev/null 2>&1; then
-                git checkout "${COMMIT}" || true
+                git checkout --detach "${COMMIT}" || true
               else
-                git fetch origin "${COMMIT}" || true
-                git checkout "${COMMIT}" || true
+                git fetch origin "${COMMIT}" --depth=1 || git fetch origin || true
+                git checkout --detach "${COMMIT}" || true
               fi
               cd ../..
+              git add "plugins/${PLUGIN_SLUG}"
+
+              # Ensure .gitmodules contains a reference for this plugin path.
+              GITMODULES=".gitmodules"
+              SUBMODULE_PATH="plugins/${PLUGIN_SLUG}"
+              SUBMODULE_URL="${REPO_URL}.git"
+              if [[ ! -f "$GITMODULES" ]]; then
+                printf '[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" > "$GITMODULES"
+                git add "$GITMODULES"
+              else
+                if ! grep -q "path = ${SUBMODULE_PATH}" "$GITMODULES" 2>/dev/null; then
+                  printf '\n[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" >> "$GITMODULES"
+                  git add "$GITMODULES"
+                fi
+              fi
             fi
 
             git add .
@@ -197,20 +218,35 @@ jobs:
               echo "🔍 No merged PR found → this is a NEW plugin submission"
             fi
 
-            # Add or update submodule: clone fresh to ensure commit is present
+            # Add or update plugin: clone fresh to ensure commit is present
             if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
               rm -rf "plugins/${PLUGIN_SLUG}"
             fi
-            git submodule add "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || true
+            git clone --depth 1 "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || git clone "${REPO_URL}.git" "plugins/${PLUGIN_SLUG}" || true
             if [[ -d "plugins/${PLUGIN_SLUG}" ]]; then
               cd "plugins/${PLUGIN_SLUG}"
               git remote set-url origin "${REPO_URL}.git" || true
-              git fetch origin --tags --prune --no-recurse-submodules || git fetch origin || true
-              git checkout "${COMMIT}" || {
-                git fetch origin "${COMMIT}" || true
-                git checkout "${COMMIT}" || true
+              git fetch origin --tags --prune || true
+              git checkout --detach "${COMMIT}" || {
+                git fetch origin "${COMMIT}" --depth=1 || true
+                git checkout --detach "${COMMIT}" || true
               }
               cd ../..
+              git add "plugins/${PLUGIN_SLUG}"
+
+              # Ensure .gitmodules contains a reference for this plugin path.
+              GITMODULES=".gitmodules"
+              SUBMODULE_PATH="plugins/${PLUGIN_SLUG}"
+              SUBMODULE_URL="${REPO_URL}.git"
+              if [[ ! -f "$GITMODULES" ]]; then
+                printf '[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" > "$GITMODULES"
+                git add "$GITMODULES"
+              else
+                if ! grep -q "path = ${SUBMODULE_PATH}" "$GITMODULES" 2>/dev/null; then
+                  printf '\n[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" >> "$GITMODULES"
+                  git add "$GITMODULES"
+                fi
+              fi
             fi
 
             PULLS_URL="https://github.com/SteamDeckHomebrew/decky-plugin-database/pulls?q=is%3Apr+is%3Aopen+sort%3Acreated-desc+-status%3Afailure+-draft%3Atrue+-author%3A%40me"
