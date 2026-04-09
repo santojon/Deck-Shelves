@@ -1,4 +1,5 @@
 import type { FilterGroup, FilterItem } from "./types";
+import { mark, measure } from "./core/perf";
 import type { PlatformAppMeta, PlatformTab } from "./runtime/platform";
 import { logInfo, logWarn } from "./runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "./runtime/steamHost";
@@ -1968,7 +1969,7 @@ export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
   refreshPendingUpdateAppIds().catch(() => {});
   try { /* no-op to keep markers resolvable */ } catch {}
   // Start measuring
-  try { const { mark } = await Promise.resolve(require('./core/perf')); mark?.(`getAppMeta:${appid}:start`); } catch {}
+  try { mark?.(`getAppMeta:${appid}:start`); } catch {}
   const sc = getSteamClient();
   try {
     const ov = await sc?.Apps?.GetAppOverview?.(appid);
@@ -1991,12 +1992,12 @@ export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
       let raw: any;
       try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
       const res = buildMetaFromOverview(appid, found, raw);
-      try { const { measure } = await Promise.resolve(require('./core/perf')); measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
+      try { measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
       return res;
     }
   } catch {}
   const fallback = { appid, name: `App ${appid}`, heroUrl: `/assets/${appid}/library_hero.jpg`, portraitUrl: `/assets/${appid}/library_600x900.jpg`, isSteam: true };
-  try { const { measure } = await Promise.resolve(require('./core/perf')); measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
+  try { measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
   return fallback;
 }
 
