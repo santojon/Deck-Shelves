@@ -22,6 +22,7 @@ type NativeHeroClasses = {
 
 export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
+  const prevHero = useRef<string | null>(null);
   const [visible, setVisible] = useState(false);
   const [nativeClasses, setNativeClasses] = useState<NativeHeroClasses | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -72,12 +73,20 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   useEffect(() => {
     const updateHero = () => {
       const firstShelf = mountEl.querySelector('.ds-shelf');
-      if (!firstShelf) { setVisible(false); return; }
+      if (!firstShelf) { return; }
       const focused = firstShelf.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
-      if (!focused) { setVisible(false); return; }
+      if (!focused) {
+        // Keep previous hero when focus moves to non-card items (e.g., "view more").
+        return;
+      }
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
-      if (appid <= 0) { setVisible(false); return; }
+      if (appid <= 0) {
+        // Non-app items (more-link) — keep existing hero instead of clearing it
+        return;
+      }
       if (appid !== currentAppid.current) {
+        // Save previous hero so we can restore it if the new app has no hero
+        prevHero.current = heroUrl;
         currentAppid.current = appid;
         const urls = getHeroUrls(appid);
         allUrls.current = urls;
@@ -109,7 +118,13 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     if (fallbackIdx.current < allUrls.current.length) {
       setHeroUrl(allUrls.current[fallbackIdx.current]);
     } else {
-      setVisible(false);
+      // Restore previous hero if available instead of clearing the background.
+      if (prevHero.current) {
+        setHeroUrl(prevHero.current);
+        setVisible(true);
+      } else {
+        setVisible(false);
+      }
     }
   };
 
@@ -175,8 +190,8 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         bottom: 0,
         left: 0,
         right: 0,
-        height: "60%",
-        background: "linear-gradient(to top, rgba(14,16,18,1) 0%, rgba(14,16,18,0) 100%)",
+        height: "70%",
+        background: "linear-gradient(to top, rgba(14,16,18,0.98) 0%, rgba(14,16,18,0) 100%)",
         pointerEvents: "none",
         zIndex: 1,
       }} />

@@ -194,7 +194,17 @@ export function HomeShelves() {
   // Apply hideRecents whenever the setting changes
   useEffect(() => {
     applyHideRecents(settings?.hideRecents === true);
-  }, [settings?.hideRecents]);
+    // If recents are hidden, focus the first shelf so the user lands there.
+    if (settings?.hideRecents === true && mountEl) {
+      try {
+        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+        if (firstRow && typeof firstRow.focus === 'function') {
+          // Focus the row element — DeckRow's onFocus will move to first card
+          firstRow.focus();
+        }
+      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
+    }
+  }, [settings?.hideRecents, mountEl]);
 
   if (!mountEl) return null;
   if (!settings) return null;

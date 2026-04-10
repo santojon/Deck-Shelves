@@ -88,6 +88,26 @@ export function useSettingsController() {
     async setHideRecents(hideRecents: boolean) {
       const s = liveSettings();
       if (!s || s.hideRecents === hideRecents) return;
+      // Prevent enabling hideRecents when there are no visible shelves
+      // or when visible shelves resolve to zero items.
+      if (hideRecents) {
+        const visible = (s.shelves ?? []).filter((sh) => sh.enabled && !sh.hidden);
+        if (!visible.length) {
+          logInfo("SETTINGS", "setHideRecents blocked — no visible shelves");
+          return;
+        }
+        try {
+          const resolved = await Promise.all(visible.map((sh) => platform.resolveShelfAppIds(sh.source, sh.limit).catch(() => [])));
+          const anyHas = resolved.some((r) => Array.isArray(r) && r.length > 0);
+          if (!anyHas) {
+            logInfo("SETTINGS", "setHideRecents blocked — visible shelves have no items");
+            return;
+          }
+        } catch (e) {
+          // If platform fails, be conservative and allow the change to proceed.
+          logDiagnostic("warn", "setHideRecents: platform resolve failed", String(e));
+        }
+      }
       await persist({ ...s, hideRecents });
     },
     async setShelfHeroBackground(shelfHeroBackground: boolean) {
