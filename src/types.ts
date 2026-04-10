@@ -75,6 +75,7 @@ export const ShelfSchema = z.object({
   limit: z.number().int().min(1).max(100).default(20),
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
+  hideStatusLine: z.boolean().default(false),
   source: ShelfSourceSchema
 });
 
@@ -86,6 +87,7 @@ export const SettingsSchema = z.object({
   shelfHeroBackground: z.boolean().default(false),
   globalMatchNativeSize: z.boolean().default(false),
   globalHighlightFirst: z.boolean().default(false),
+  globalHideStatusLine: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([])
 });
 

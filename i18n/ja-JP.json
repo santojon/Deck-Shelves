@@ -206,6 +206,8 @@
   "browse": "参照",
   "match_native_size": "ネイティブカードサイズに合わせる",
   "highlight_first": "最初のゲームをハイライト",
+  "hide_status_line": "ステータス行を非表示",
+  "apply_globally": "全体に適用",
   "hide_recents": "最近プレイしたゲームを非表示",
   "mount_crash_warning": "ホームシェルフは無効です — マウントエラーが検出されました。",
   "mount_crash_reset": "再試行",

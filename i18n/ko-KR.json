@@ -206,6 +206,8 @@
   "browse": "찾아보기",
   "match_native_size": "기본 카드 크기 맞추기",
   "highlight_first": "첫 번째 게임 강조",
+  "hide_status_line": "상태 줄 숨기기",
+  "apply_globally": "전역 적용",
   "hide_recents": "최근 게임 숨기기",
   "mount_crash_warning": "홈 선반이 비활성화되었습니다 — 마운트 오류가 감지되었습니다.",
   "mount_crash_reset": "다시 시도",

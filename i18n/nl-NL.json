@@ -207,6 +207,8 @@
   "match_native_size": "Overeenkomende kaartgrootte",
   "highlight_first": "Eerste spel markeren",
   "hide_recents": "Recente spellen verbergen",
+  "hide_status_line": "Statusregel verbergen",
+  "apply_globally": "Globaal toepassen",
   "mount_crash_warning": "Startschermplanken zijn uitgeschakeld — een koppelfout is gedetecteerd.",
   "mount_crash_reset": "Opnieuw proberen",
   "filter_type_developer": "Ontwikkelaar / Uitgever",

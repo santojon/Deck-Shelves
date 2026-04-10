@@ -206,6 +206,8 @@
   "browse": "Parcourir",
   "match_native_size": "Taille native des cartes",
   "highlight_first": "Mettre le premier jeu en avant",
+  "hide_status_line": "Masquer la ligne d'état",
+  "apply_globally": "Appliquer globalement",
   "hide_recents": "Masquer les jeux récents",
   "mount_crash_warning": "Les étagères sont désactivées — une erreur de montage a été détectée.",
   "mount_crash_reset": "Réessayer",

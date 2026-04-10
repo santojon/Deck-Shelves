@@ -207,6 +207,8 @@
   "match_native_size": "Размер как у нативных карточек",
   "highlight_first": "Выделить первую игру",
   "hide_recents": "Скрыть недавние игры",
+  "hide_status_line": "Скрыть строку статуса",
+  "apply_globally": "Применить глобально",
   "mount_crash_warning": "Полки на главном экране отключены — обнаружена ошибка монтирования.",
   "mount_crash_reset": "Повторить",
   "filter_type_developer": "Разработчик / Издатель",

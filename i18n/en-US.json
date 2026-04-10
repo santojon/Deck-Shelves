@@ -206,6 +206,8 @@
   "browse": "Browse",
   "match_native_size": "Match native card size",
   "highlight_first": "Highlight first game",
+  "hide_status_line": "Hide playtime/status line",
+  "apply_globally": "Apply globally",
   "hide_recents": "Hide recent games",
   "mount_crash_warning": "Home shelves are disabled — a mounting error was detected.",
   "mount_crash_reset": "Retry",

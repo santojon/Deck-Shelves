@@ -206,6 +206,8 @@
   "browse": "Przeglądaj",
   "match_native_size": "Dopasuj natywny rozmiar kart",
   "highlight_first": "Wyróżnij pierwszą grę",
+  "hide_status_line": "Ukryj linię stanu",
+  "apply_globally": "Zastosuj globalnie",
   "hide_recents": "Ukryj ostatnie gry",
   "mount_crash_warning": "Półki na ekranie głównym są wyłączone — wykryto błąd montowania.",
   "mount_crash_reset": "Spróbuj ponownie",

@@ -206,6 +206,8 @@
   "browse": "Durchsuchen",
   "match_native_size": "Native Kartengröße anpassen",
   "highlight_first": "Erstes Spiel hervorheben",
+  "hide_status_line": "Statuszeile ausblenden",
+  "apply_globally": "Global anwenden",
   "hide_recents": "Zuletzt gespielte Spiele ausblenden",
   "mount_crash_warning": "Home-Regale sind deaktiviert — ein Montagefehler wurde erkannt.",
   "mount_crash_reset": "Erneut versuchen",

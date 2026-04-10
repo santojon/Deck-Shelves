@@ -206,6 +206,8 @@
   "browse": "Procurar",
   "match_native_size": "Igualar tamanho nativo dos cards",
   "highlight_first": "Destacar primeiro jogo",
+  "hide_status_line": "Ocultar linha de estado",
+  "apply_globally": "Aplicar globalmente",
   "hide_recents": "Ocultar jogos recentes",
   "mount_crash_warning": "As prateleiras estão desativadas — foi detetado um erro de montagem.",
   "mount_crash_reset": "Tentar novamente",

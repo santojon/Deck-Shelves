@@ -134,7 +134,8 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       overflow: hidden;
       filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.3s ease, height 0.3s ease, min-width 0.3s ease;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease;
+      will-change: width, height;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
@@ -220,6 +221,9 @@ function buildStylesheet(): string {
       opacity: 0;
       transition: opacity .15s ease;
     }
+
+    /* Compact label variant: hide the status line but keep title positioning */
+    .ds-card-label--compact .ds-card-status { display: none !important; }
     .ds-card.gpfocus .ds-card-label,
     .ds-card:focus .ds-card-label,
     .ds-card:hover .ds-card-label {

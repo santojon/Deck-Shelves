@@ -207,6 +207,8 @@
   "match_native_size": "Igualar tamanho nativo nos cards",
   "highlight_first": "Destacar primeiro jogo",
   "hide_recents": "Ocultar jogos recentes",
+  "hide_status_line": "Ocultar linha de status",
+  "apply_globally": "Aplicar globalmente",
   "mount_crash_warning": "Prateleiras desativadas — um erro de montagem foi detectado.",
   "mount_crash_reset": "Tentar novamente",
   "filter_type_developer": "Desenvolvedor / Publicador",

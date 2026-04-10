@@ -207,6 +207,8 @@
   "match_native_size": "Igualar tamaño nativo de las tarjetas",
   "highlight_first": "Destacar el primer juego",
   "hide_recents": "Ocultar juegos recientes",
+  "hide_status_line": "Ocultar línea de estado",
+  "apply_globally": "Aplicar globalmente",
   "mount_crash_warning": "Las estanterías están desactivadas — se detectó un error de montaje.",
   "mount_crash_reset": "Reintentar",
   "filter_type_developer": "Desarrollador / Editor",

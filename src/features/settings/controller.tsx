@@ -13,7 +13,8 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, shelves: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, shelves: [] });
+  
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
   const [tabs, setTabs] = useState<PlatformTab[]>([]);
@@ -98,6 +99,11 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.globalMatchNativeSize === globalMatchNativeSize) return;
       await persist({ ...s, globalMatchNativeSize });
+    },
+    async setGlobalHideStatusLine(globalHideStatusLine: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHideStatusLine === globalHideStatusLine) return;
+      await persist({ ...s, globalHideStatusLine });
     },
     async setGlobalHighlightFirst(globalHighlightFirst: boolean) {
       const s = liveSettings();

@@ -207,6 +207,8 @@
   "match_native_size": "Yerel kart boyutunu eşleştir",
   "highlight_first": "İlk oyunu öne çıkar",
   "hide_recents": "Son oynanan oyunları gizle",
+  "hide_status_line": "Durum satırını gizle",
+  "apply_globally": "Genel olarak uygula",
   "mount_crash_warning": "Ana sayfa rafları devre dışı — bir bağlama hatası tespit edildi.",
   "mount_crash_reset": "Yeniden dene",
   "filter_type_developer": "Geliştirici / Yayıncı",

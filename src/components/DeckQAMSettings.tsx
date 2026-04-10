@@ -421,6 +421,7 @@ type EditableShelfState = {
   limit: number
   matchNativeSize: boolean
   highlightFirst: boolean
+  hideStatusLine: boolean
 }
 
 type EditShelfModalProps = {
@@ -446,6 +447,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     limit: shelf.limit,
     matchNativeSize: shelf.matchNativeSize ?? false,
     highlightFirst: shelf.highlightFirst ?? false,
+    hideStatusLine: shelf.hideStatusLine ?? false,
   })
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
@@ -517,6 +519,7 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst };
+      if (typeof state.hideStatusLine === 'boolean') patch.hideStatusLine = state.hideStatusLine;
       if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
       else if (state.sourceType === 'tab') {
         const selectedTab = tabs.find((t) => t.id === state.tab)
@@ -580,8 +583,11 @@ function EditShelfModal({ closeModal, controller, shelf }: EditShelfModalProps) 
             <Field label={`${t('limit')} (${state.limit})`}>
               <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />
             </Field>
-            <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
-            <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
+            <div style={{ paddingLeft: 8, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
+              <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
+              <ToggleField label={t('hide_status_line')} checked={state.hideStatusLine} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideStatusLine: value }))} />
+            </div>
           </div>
         </Focusable>
       </ConfirmModal>
@@ -733,9 +739,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         </div>
       )}
       {!mountCrashed && <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(value: boolean) => actions.setHideRecents(value)} />}
-      {!mountCrashed && settings.hideRecents && <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />}
-      {!mountCrashed && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
-      {!mountCrashed && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} bottomSeparator='thick' />}
+      {!mountCrashed && settings.hideRecents && (
+        <div style={{ paddingLeft: 14, fontSize: 12, opacity: 0.95 }}>
+          <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
+        </div>
+      )}
+      
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', display: 'flex' }}>
@@ -746,6 +755,15 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         </Focusable>
       </Field>
       <ShelvesPanelSection controller={controller} />
+      <PanelSection>
+        <div className='deck-shelves-separator' />
+        <div style={{ padding: '8px 0' }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, paddingLeft: 0 }}>{t('apply_globally')}</div>
+          <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
+          <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
+          <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} bottomSeparator='thick' />
+        </div>
+      </PanelSection>
     </div>
   )
 }
