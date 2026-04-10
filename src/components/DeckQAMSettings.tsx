@@ -723,7 +723,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         checked={settings.enabled && !mountCrashed}
         disabled={mountCrashed}
         onChange={(value: boolean) => actions.setEnabled(value)}
-        bottomSeparator={mountCrashed ? 'none' : 'thick'}
       />
       {mountCrashed && (
         <div style={{ padding: '6px 16px 10px', fontSize: 11, color: '#f87171', lineHeight: 1.4 }}>
@@ -746,6 +745,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
       
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
+      <div className='deck-shelves-separator' />
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', display: 'flex' }}>
           <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
@@ -755,15 +755,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         </Focusable>
       </Field>
       <ShelvesPanelSection controller={controller} />
-      <PanelSection>
-        <div className='deck-shelves-separator' />
-        <div style={{ padding: '8px 0' }}>
-          <div style={{ fontWeight: 600, marginBottom: 8, paddingLeft: 0 }}>{t('apply_globally')}</div>
-          <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
-          <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
-          <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} bottomSeparator='thick' />
-        </div>
-      </PanelSection>
+      <div className='deck-shelves-separator' />
+      <div style={{ fontWeight: 600, marginBottom: 8, paddingLeft: 8, paddingTop: 8 }}>{t('apply_globally')}</div>
+      {!mountCrashed && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} /> }
+      {!mountCrashed && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} /> }
+      {!mountCrashed && <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} /> }
     </div>
   )
 }
