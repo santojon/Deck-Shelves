@@ -1,8 +1,8 @@
-import React, { useCallback, useRef, useEffect } from "react";
-import { ButtonItem, Field, PanelSection, PanelSectionRow, Focusable, Dropdown, ToggleField } from "@decky/ui";
+import { Fragment, useCallback, useRef, useEffect } from "react";
+import { ButtonItem, Field, PanelSection, PanelSectionRow, Focusable, Dropdown } from "@decky/ui";
+import type { SingleDropdownOption } from "@decky/ui";
 import type { FilterGroup, FilterItem } from "../types";
 import i18n from "../i18n";
-import DeveloperFilterOptions from "./filter/DeveloperFilterOptions";
 import FilterItemOptions from "./filter/FilterItemOptions";
 import FilterSectionAccordion from "./filter/FilterSectionAccordion";
 import FilterEntry from "./filter/FilterEntry";
@@ -111,7 +111,7 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
             const isOpen = isNewlyAdded || isRestoredFocus || !items.length;
 
             return (
-              <React.Fragment key={index}>
+              <Fragment key={index}>
                 <FilterSectionAccordion index={index} item={item} isOpen={isOpen}>
                   <div>
                     <Field
@@ -138,7 +138,7 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
                     <div style={{ height: 1, background: "rgba(255,255,255,0.1)" }} />
                   </div>
                 )}
-              </React.Fragment>
+              </Fragment>
             );
           })}
         </PanelSectionRow>

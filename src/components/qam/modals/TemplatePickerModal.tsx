@@ -1,4 +1,3 @@
-import React from 'react'
 import { ConfirmModal, Field, DialogButton } from '@decky/ui'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import type { SettingsController } from '../../features/settings/controller'

@@ -1,6 +1,4 @@
-import React from 'react'
 import { Focusable, DialogButton } from '@decky/ui'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import type { SettingsController } from '../../features/settings/controller'
 
 export function FirstRunBanner({ controller }: { controller: SettingsController }) {

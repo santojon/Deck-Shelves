@@ -1,6 +1,5 @@
 import i18n from "../../i18n";
 import type { FilterItemType, FilterItem } from "../../types";
-import React from "react";
 
 export const ALL_FILTER_TYPES: FilterItemType[] = [
   "installed",

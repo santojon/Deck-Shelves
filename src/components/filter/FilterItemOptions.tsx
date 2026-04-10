@@ -1,9 +1,8 @@
-import React from "react";
 import { PanelSectionRow, DropdownItem, Field, SliderField, TextField, ToggleField } from "@decky/ui";
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";
 import DeveloperFilterOptions from "./DeveloperFilterOptions";
-import { COMPAT_LEVELS, defaultParams } from "./utils";
+import { COMPAT_LEVELS } from "./utils";
 
 export default function FilterItemOptions({ item, onChange }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void }) {
   const t = i18n.t.bind(i18n);

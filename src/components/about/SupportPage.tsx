@@ -1,4 +1,3 @@
-import React from 'react'
 import { Focusable, DialogButton } from '@decky/ui'
 import { useTranslation } from 'react-i18next'
 import pkg from '../../../package.json'

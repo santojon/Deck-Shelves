@@ -6,7 +6,7 @@ import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
-import { getCachedCardRadius, formatPlaytime } from "./shelfStyles";
+import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 
 export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, hideStatusLine = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; hideStatusLine?: boolean }) {
@@ -181,7 +181,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   const compat = item.deckCompatCategory ?? 0;
   const playtime = formatPlaytime(item.playtimeMinutes);
-  const cachedCardRadius = getCachedCardRadius();
 
   const downloadIcon = (
     <span className="ds-card-status-icon">

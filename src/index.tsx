@@ -1,5 +1,4 @@
 import { definePlugin } from "@decky/api";
-import React from "react";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";
 import { ErrorBoundary } from "./components/ErrorBoundary";

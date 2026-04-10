@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'

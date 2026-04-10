@@ -1,4 +1,3 @@
-import React from 'react'
 import { icons } from '../icons'
 
 export function ShelfListLabel({ shelf }: { shelf: any }) {

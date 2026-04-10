@@ -1,4 +1,3 @@
-import React from 'react'
 import { DialogButton, PanelSection, PanelSectionRow, Field, TextField, ToggleField, Focusable } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Shelf } from '../../../types'

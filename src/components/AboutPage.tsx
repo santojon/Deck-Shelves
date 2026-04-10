@@ -1,5 +1,4 @@
-import React from 'react'
-import { Focusable, SidebarNavigation } from '@decky/ui'
+import { SidebarNavigation } from '@decky/ui'
 import { useTranslation } from 'react-i18next'
 import { OverviewPage } from './about/OverviewPage'
 import { HowToPage } from './about/HowToPage'

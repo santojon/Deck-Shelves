@@ -1,17 +1,16 @@
-import React from "react";
 import { Focusable, Dropdown, DialogButton } from "@decky/ui";
-import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel } from "./utils";
+import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams } from "./utils";
 import type { FilterItem, FilterItemType } from "../../types";
 import type { SingleDropdownOption } from "@decky/ui";
 import i18n from "../../i18n";
 
-export default function FilterEntry({ index, item, allItems, onChange, onDelete, shouldFocus }: {
-  index: number;
+export default function FilterEntry({ item, onChange, onDelete }: {
+  index?: number;
   item: FilterItem;
-  allItems: FilterItem[];
+  allItems?: FilterItem[];
   onChange: (updated: FilterItem) => void;
   onDelete: () => void;
-  shouldFocus: boolean;
+  shouldFocus?: boolean;
 }) {
   const invertible = canBeInverted(item.type);
 

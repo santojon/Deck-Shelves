@@ -1,4 +1,3 @@
-import React from 'react'
 import { PanelSection, ReorderableList, ReorderableEntry } from '@decky/ui'
 import type { SettingsController } from '../../features/settings/controller'
 import { ShelfListLabel } from '../common/ShelfListLabel'

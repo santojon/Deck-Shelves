@@ -1,5 +1,4 @@
-import { gamepadDialogClasses, quickAccessControlsClasses, scrollPanelClasses } from '@decky/ui'
-import React from 'react'
+import { gamepadDialogClasses, quickAccessControlsClasses } from '@decky/ui'
 
 export function DeckQAMStyles() {
   return (

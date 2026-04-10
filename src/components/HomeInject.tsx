@@ -191,20 +191,20 @@ export function HomeShelves() {
     };
   }, [mountEl]);
 
-  // Apply hideRecents whenever the setting changes
+  // Apply hideRecents — only actually hide when the plugin is enabled and has
+  // visible shelves.  Otherwise force recents visible regardless of the toggle
+  // (we never change the stored setting, only the DOM state).
   useEffect(() => {
-    applyHideRecents(settings?.hideRecents === true);
-    // If recents are hidden, focus the first shelf so the user lands there.
-    if (settings?.hideRecents === true && mountEl) {
+    const visibleShelves = (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden);
+    const canHide = settings?.enabled && settings?.hideRecents === true && visibleShelves.length > 0;
+    applyHideRecents(canHide === true);
+    if (canHide && mountEl) {
       try {
         const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-        if (firstRow && typeof firstRow.focus === 'function') {
-          // Focus the row element — DeckRow's onFocus will move to first card
-          firstRow.focus();
-        }
+        if (firstRow && typeof firstRow.focus === 'function') firstRow.focus();
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
     }
-  }, [settings?.hideRecents, mountEl]);
+  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, mountEl]);
 
   if (!mountEl) return null;
   if (!settings) return null;
@@ -215,23 +215,27 @@ export function HomeShelves() {
     return null;
   }
 
-  if (!settings.enabled) {
-    logWarn("HOME", "plugin disabled");
+  const shelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
+
+  // When the plugin is disabled, there are no visible shelves, or all shelves
+  // are hidden — always ensure recents are visible regardless of the toggle
+  // value (we never force-change the setting, just override the DOM state).
+  if (!settings.enabled || !shelves.length) {
+    applyHideRecents(false);
+    if (!settings.enabled) logWarn("HOME", "plugin disabled — recents forced visible");
     return null;
   }
-  const shelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
   logInfo("HOME", "rendering shelves via portal", { visible: shelves.length, mountConnected: mountEl.isConnected });
-  if (!shelves.length) return null;
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHideStatusLine={settings.globalHideStatusLine === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHideStatusLine={settings.globalHideStatusLine === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} hideRecentsSetting={settings.hideRecents === true} />
     </PlatformProvider>,
     mountEl,
   ) as any;
 }
 
-function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false, shelfHeroBackground = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean; shelfHeroBackground?: boolean }) {
+function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false, shelfHeroBackground = false, hideRecentsSetting = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean; shelfHeroBackground?: boolean; hideRecentsSetting?: boolean }) {
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
     const navApi = detectNavTreeApi();
@@ -269,6 +273,49 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       win.removeEventListener("hashchange", onNavEvent);
     };
   }, [mountEl]);
+
+  // Monitor shelves -> if hideRecentsSetting is true but there are no visible
+  // shelves or none resolve to items, force recents visible and emit disable event.
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const visible = (shelves ?? []).filter((s) => s.enabled && !s.hidden);
+        if (!hideRecentsSetting) {
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
+          return;
+        }
+        if (!visible.length) {
+          applyHideRecents(false); // show recents
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: true } }));
+          return;
+        }
+        const resolved = await Promise.all(visible.map((sh) => homePlatform.resolveShelfAppIds(sh.source, sh.limit).catch(() => [])));
+        const anyHas = resolved.some((r) => Array.isArray(r) && r.length > 0);
+        if (!anyHas) {
+          applyHideRecents(false);
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: true } }));
+        } else {
+          // If user setting is enabled, re-apply hide and focus the first shelf
+          if (hideRecentsSetting) {
+            applyHideRecents(true);
+            try {
+              const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+              if (firstRow && typeof firstRow.focus === 'function') {
+                firstRow.focus();
+              }
+            } catch (e) { logInfo("HOME", "focus first shelf after reapply failed", String(e)); }
+          }
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
+        }
+      } catch (e) {
+        if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
+      }
+    };
+    check();
+    const timer = setInterval(check, 5000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [shelves?.length, hideRecentsSetting, mountEl]);
 
   return (
     <Focusable

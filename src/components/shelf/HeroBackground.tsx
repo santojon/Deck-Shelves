@@ -13,12 +13,33 @@ function getHeroUrls(appid: number): string[] {
   ];
 }
 
-/** Classes discovered from the native recents hero art DOM chain. */
+/** Classes and computed styles discovered from the native recents hero art DOM chain. */
 type NativeHeroClasses = {
   imgClass: string;
-  zoomContainerClass: string;  // parent of img — carries the 25s zoom animation
-  wrapperClasses: string[];    // intermediate wrappers between outer container and zoom container
+  zoomContainerClass: string;
+  wrapperClasses: string[];
+  /** Native zoom animation (e.g. "25s ease-in-out 0s infinite alternate") */
+  zoomAnimation: string;
+  /** Native img filter (e.g. "brightness(0.7) saturate(1.2)") */
+  imgFilter: string;
+  /** Native img transition */
+  imgTransition: string;
 };
+
+/** Inject keyframes once for the native-matching slow zoom */
+const ZOOM_STYLE_ID = "ds-hero-zoom-keyframes";
+function ensureZoomKeyframes(doc: Document) {
+  if (doc.getElementById(ZOOM_STYLE_ID)) return;
+  const style = doc.createElement("style");
+  style.id = ZOOM_STYLE_ID;
+  style.textContent = `
+    @keyframes ds-hero-zoom {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.08); }
+    }
+  `;
+  doc.head.appendChild(style);
+}
 
 export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
@@ -30,28 +51,24 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const currentAppid = useRef(0);
   const allUrls = useRef<string[]>([]);
 
-  // Discover native hero classes from the recents section
+  // Discover native hero classes + computed styles from the recents section
   useEffect(() => {
+    const doc = getPreferredSteamDocument();
+    if (doc) ensureZoomKeyframes(doc);
+
     const discover = () => {
-      const doc = getPreferredSteamDocument();
       if (!doc) return;
-      // The recents section is the sibling before our mount
       const prev = mountEl.previousElementSibling as HTMLElement | null;
       if (!prev) return;
-      // Find the hero image — check by class count (native hero imgs have 4+ classes)
-      // rather than dimensions, since recents may be hidden (height: 0)
       const imgs = Array.from(prev.querySelectorAll('img'));
       for (const img of imgs) {
         const classes = Array.from(img.classList);
         const r = img.getBoundingClientRect();
-        // Either the image is large enough (recents visible) or has enough native classes (recents hidden)
         if ((r.width > 400 && r.height > 200) || classes.length >= 4) {
           const imgClass = Array.from(img.classList).join(' ');
-          // Walk up: parent is the zoom container (25s animation), then intermediate wrappers
           const zoomContainer = img.parentElement;
           if (!zoomContainer) continue;
           const zoomContainerClass = Array.from(zoomContainer.classList).join(' ');
-          // Collect intermediate wrappers up to the top-level Focusable
           const wrapperClasses: string[] = [];
           let el = zoomContainer.parentElement;
           for (let i = 0; i < 4 && el && el !== prev; i++) {
@@ -59,8 +76,24 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
             wrapperClasses.push(Array.from(el.classList).join(' '));
             el = el.parentElement;
           }
-          setNativeClasses({ imgClass, zoomContainerClass, wrapperClasses });
-          logInfo("HOME", "HeroBackground: native classes discovered", { imgClass: imgClass.substring(0, 40), zoomContainerClass: zoomContainerClass.substring(0, 40) });
+          // Capture native computed styles for faithful reproduction
+          let zoomAnimation = "";
+          let imgFilter = "";
+          let imgTransition = "";
+          try {
+            const csImg = getComputedStyle(img as Element);
+            const csZoom = getComputedStyle(zoomContainer as Element);
+            zoomAnimation = csZoom.animation || "";
+            imgFilter = csImg.filter || "";
+            imgTransition = csImg.transition || "";
+            logInfo("HOME", "HeroBackground: native styles captured", {
+              imgClass: imgClass.substring(0, 40),
+              zoomAnimation: zoomAnimation.substring(0, 60),
+              imgFilter,
+              imgTransition: imgTransition.substring(0, 60),
+            });
+          } catch (e) { logInfo("HOME", "HeroBackground: computedStyle capture failed", String(e)); }
+          setNativeClasses({ imgClass, zoomContainerClass, wrapperClasses, zoomAnimation, imgFilter, imgTransition });
           return;
         }
       }
@@ -73,19 +106,12 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   useEffect(() => {
     const updateHero = () => {
       const firstShelf = mountEl.querySelector('.ds-shelf');
-      if (!firstShelf) { return; }
+      if (!firstShelf) return;
       const focused = firstShelf.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
-      if (!focused) {
-        // Keep previous hero when focus moves to non-card items (e.g., "view more").
-        return;
-      }
+      if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
-      if (appid <= 0) {
-        // Non-app items (more-link) — keep existing hero instead of clearing it
-        return;
-      }
+      if (appid <= 0) return;
       if (appid !== currentAppid.current) {
-        // Save previous hero so we can restore it if the new app has no hero
         prevHero.current = heroUrl;
         currentAppid.current = appid;
         const urls = getHeroUrls(appid);
@@ -117,46 +143,51 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     fallbackIdx.current += 1;
     if (fallbackIdx.current < allUrls.current.length) {
       setHeroUrl(allUrls.current[fallbackIdx.current]);
+    } else if (prevHero.current) {
+      setHeroUrl(prevHero.current);
+      setVisible(true);
     } else {
-      // Restore previous hero if available instead of clearing the background.
-      if (prevHero.current) {
-        setHeroUrl(prevHero.current);
-        setVisible(true);
-      } else {
-        setVisible(false);
-      }
+      setVisible(false);
     }
   };
 
   if (!heroUrl) return null;
 
-  // Replicate the native DOM structure so theme CSS rules match:
-  // outer (clip) > wrappers > zoomContainer (25s zoom anim) > img (grayscale, fade-in anim)
   const wrappers = nativeClasses?.wrapperClasses ?? [];
 
+  // Zoom container: apply native animation if discovered, otherwise use our keyframe fallback
+  const zoomStyle: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    overflow: "visible",
+    animation: nativeClasses?.zoomAnimation || "ds-hero-zoom 25s ease-in-out infinite alternate",
+    transformOrigin: "center center",
+  };
+
+  // Image: apply native filter (brightness/saturate) if discovered, add blur-bottom via mask
+  const imgStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "50% 50%",
+    display: "block",
+    filter: nativeClasses?.imgFilter || "brightness(0.7) saturate(1.2)",
+    transition: nativeClasses?.imgTransition || "opacity 0.4s ease, filter 0.4s ease",
+  };
+
   let inner = (
-    <div
-      className={nativeClasses?.zoomContainerClass || undefined}
-      style={{ position: "absolute", inset: 0, overflow: "visible" }}
-    >
+    <div className={nativeClasses?.zoomContainerClass || undefined} style={zoomStyle}>
       <img
         ref={imgRef}
         className={nativeClasses?.imgClass || undefined}
         src={heroUrl}
         onError={onImgError}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "50% 50%",
-          display: "block",
-        }}
+        style={imgStyle}
         loading="eager"
       />
     </div>
   );
 
-  // Wrap in intermediate containers (native has 2-3 wrappers with absolute positioning)
   for (let i = wrappers.length - 1; i >= 0; i--) {
     inner = (
       <div
@@ -185,6 +216,20 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       }}
     >
       {inner}
+      {/* Bottom gradient + blur — matches native SteamOS recents hero fade-out */}
+      <div style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: "60%",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        maskImage: "linear-gradient(to top, black 0%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to top, black 0%, transparent 100%)",
+        pointerEvents: "none",
+        zIndex: 1,
+      }} />
       <div style={{
         position: "absolute",
         bottom: 0,
@@ -193,7 +238,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         height: "70%",
         background: "linear-gradient(to top, rgba(14,16,18,0.98) 0%, rgba(14,16,18,0) 100%)",
         pointerEvents: "none",
-        zIndex: 1,
+        zIndex: 2,
       }} />
     </div>
   );

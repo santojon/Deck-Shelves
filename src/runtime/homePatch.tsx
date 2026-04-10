@@ -15,7 +15,6 @@ const platform = createDeckyPlatform();
 
 let observer: MutationObserver | null = null;
 let timer = 0;
-let raf = 0;
 let rendering = false;
 let lastRenderKey = "";
 let homeHiddenLogged = false;
@@ -29,7 +28,6 @@ const rowScrollState = new Map<string, number>();
 // --- Crash protection ---
 let mountFailed = false;
 let mountError: string | null = null;
-let mountSucceededOnce = false;
 
 export function getMountFailed(): boolean { return mountFailed; }
 export function getMountError(): string | null { return mountError; }
@@ -51,14 +49,41 @@ export function applyHideRecents(hidden: boolean): void {
       }
     } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
   }
-  if (!cachedRecentsEl) return;
-  try { cachedRecentsEl.style.visibility = hidden ? "hidden" : ""; cachedRecentsEl.style.height = hidden ? "0px" : ""; cachedRecentsEl.style.overflow = hidden ? "hidden" : ""; } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
+
+  // If we couldn't find a specific recents element, but the caller requests
+  // that recents be shown (hidden === false), attempt a broader restore pass
+  // to undo any inline styles we may have applied earlier (or that other
+  // code applied) — this helps when DOM structure changes and our cached
+  // reference is stale but recents are still present under a different node.
+  if (!cachedRecentsEl && !hidden) {
+    try {
+      const { doc } = getHostContext();
+      const labels = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
+      const candidates = Array.from(doc.querySelectorAll<HTMLElement>('*'));
+      for (const el of candidates) {
+        try {
+          const aria = (el.getAttribute && el.getAttribute('aria-label'))?.toLowerCase() ?? '';
+          const txt = (aria || (el.innerText || '')).toLowerCase().substring(0, 80);
+          if (!labels.some((l) => txt.includes(l))) continue;
+          try { el.style.visibility = ''; el.style.height = ''; el.style.overflow = ''; } catch {}
+        } catch {}
+      }
+    } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
+  }
+
+  if (cachedRecentsEl) {
+    try { cachedRecentsEl.style.visibility = hidden ? "hidden" : ""; cachedRecentsEl.style.height = hidden ? "0px" : ""; cachedRecentsEl.style.overflow = hidden ? "hidden" : ""; } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
+  }
   // Adjust mount margin-top: add breathing room at top when recents are hidden
   try {
     const { doc } = getHostContext();
     const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
     if (mount) {
       mount.style.setProperty("margin-top", hidden ? "56px" : "", "important");
+      // If we're forcing recents visible, also remove any mount-level offset
+      if (!hidden) {
+        try { mount.style.removeProperty('margin-top'); } catch {}
+      }
     }
   } catch (e) { logInfo("HOME", "applyHideRecents: margin-top failed", String(e)); }
 }
@@ -319,8 +344,6 @@ function ensureMount(): HTMLElement | null {
     mountError = null;
     logInfo("HOME", "mount recovered after previous failure");
   }
-  mountSucceededOnce = true;
-
   // Cache the recents element for hide/show; apply any pending state immediately
   if (!cachedRecentsEl || !cachedRecentsEl.isConnected) {
     cachedRecentsEl = findRecentsEl(doc, mount);
@@ -734,14 +757,6 @@ async function renderHomeShelves() {
   } finally {
     rendering = false;
   }
-}
-
-function scheduleRun() {
-  if (raf) cancelAnimationFrame(raf);
-  raf = requestAnimationFrame(() => {
-    raf = 0;
-    void renderHomeShelves();
-  });
 }
 
 function HomeDomBridge() {

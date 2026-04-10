@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { PanelSectionRow, ToggleField } from "@decky/ui";
 import i18n from "../../i18n";
 import { getUniqueDevelopers, preloadDeveloperData, getAllAppOverviews } from "../../steam";
-import type { FilterItem } from "../../types";
 
 export default function DeveloperFilterOptions({ selected, onChange }: { selected: string[]; onChange: (devs: string[]) => void }) {
   const t = i18n.t.bind(i18n);
