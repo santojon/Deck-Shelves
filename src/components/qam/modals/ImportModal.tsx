@@ -3,7 +3,7 @@ import { ConfirmModal, Focusable, DialogButton } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import { importSettingsFromFile } from '../../../settingsStore'
-import type { SettingsController } from '../../features/settings/controller'
+import type { SettingsController } from '../../../features/settings/controller'
 
 function textFromDeckyChange(value: unknown): string {
   if (typeof value === 'string') return value

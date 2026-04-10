@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ConfirmModal, Field, DialogButton } from '@decky/ui'
 import { toaster } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
-import type { SettingsController } from '../../features/settings/controller'
+import type { SettingsController } from '../../../features/settings/controller'
 import { getTabMasterTabsFromSettingsFile, extractTabMasterTabsForImport, tabContainerToShelfSource } from '../../../integrations'
 import { findTabMasterContextValue } from '../../../steam'
 

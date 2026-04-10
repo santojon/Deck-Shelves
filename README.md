@@ -267,13 +267,21 @@ main.py                  Python backend (settings persistence, import/export)
 src/index.tsx            Plugin entry point
 src/runtime/             Steam/Decky integration, Home injection, platform layer
 src/components/          QAM settings UI and Home shelf rendering
-src/domain/              Settings schema, defaults
-src/core/                Steam asset helpers
+  ├── shelf/             Game cards, hero background (CDP-based native replication)
+  ├── qam/               QAM modals, shelf list, action buttons
+  ├── filter/            Filter type editors and utilities
+  ├── home/              Gamepad nav tree patches
+  ├── about/             Documentation tabs
+  └── styles/            Scoped CSS for modals and QAM
+src/steam/               Steam API access (collections, tabs, filters, sorting)
+src/domain/              Settings schema, defaults, templates
+src/core/                Focus, scroll, refresh, assets, webpack compat, plugin API
 src/shims/               React/Decky runtime shims for GamepadUI
 src/features/settings/   Settings controller
+src/integrations/        TabMaster, UnifiDeck, DOM tab discovery
 i18n/                    Locale files (16 languages)
-checks/                  Compatibility validation scripts
-scripts/                 Build, deploy, watch, package helpers
+checks/                  Compatibility validation scripts (35 checks)
+scripts/                 Build, deploy, watch, package, devtools helpers
 ```
 
 ## Compatibility

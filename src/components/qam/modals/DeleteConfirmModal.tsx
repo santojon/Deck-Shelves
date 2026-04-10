@@ -1,6 +1,6 @@
 import { ConfirmModal } from '@decky/ui'
-import type { SettingsController } from '../../features/settings/controller'
-import type { Shelf } from '../../types'
+import type { SettingsController } from '../../../features/settings/controller'
+import type { Shelf } from '../../../types'
 
 export function DeleteConfirmModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, actions } = controller

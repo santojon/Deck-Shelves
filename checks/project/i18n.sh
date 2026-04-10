@@ -48,7 +48,8 @@ run_checks() {
   local base_count
   base_count=$(echo "$base_keys" | wc -l | tr -d ' ')
 
-  echo "  ℹ️  Base locale has $base_count keys"
+  echo "  ✅ Base locale has $base_count keys"
+  ((pass++))
 
   local all_consistent=true
   for f in "$i18n_dir"/*.json; do

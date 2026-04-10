@@ -21,15 +21,42 @@ src/
 │   ├── ErrorBoundary.tsx       React error boundary
 │   ├── home/
 │   │   └── navPatches.ts       Gamepad nav tree reparenting + menu button patches
+│   ├── filter/
+│   │   ├── DeveloperFilterOptions.tsx  Developer/publisher filter UI
+│   │   ├── FilterEntry.tsx     Single filter row (type + invert + delete)
+│   │   ├── FilterItemOptions.tsx  Per-type parameter editors
+│   │   ├── FilterSectionAccordion.tsx  Collapsible filter section
+│   │   └── utils.tsx           Filter type labels, defaults, validation
 │   ├── qam/
-│   │   └── icons.tsx           Shared SVG icons for QAM
+│   │   ├── icons.tsx           Shared SVG icons for QAM
+│   │   ├── common/
+│   │   │   ├── ActionButton.tsx    Toolbar action button
+│   │   │   └── ShelfListLabel.tsx  Shelf list item label
+│   │   ├── list/
+│   │   │   ├── ShelfActions.tsx    Per-shelf action buttons (edit/delete/reorder)
+│   │   │   └── ShelvesPanelSection.tsx  Reorderable shelf list
+│   │   └── modals/
+│   │       ├── DeleteConfirmModal.tsx
+│   │       ├── EditShelfModal.tsx
+│   │       ├── ExportModal.tsx
+│   │       ├── FirstRunBanner.tsx
+│   │       ├── ImportFromCustomFiltersModal.tsx
+│   │       ├── ImportModal.tsx
+│   │       └── TemplatePickerModal.tsx
 │   ├── shelf/
 │   │   ├── types.ts            DeckRowItem type, card dimension constants
 │   │   ├── shelfStyles.ts      CSS injection, native dim discovery, global timer
 │   │   ├── GameCard.tsx         Game card with native class injection
 │   │   ├── MoreCard.tsx         "View more" link card
 │   │   ├── PlaceholderCard.tsx  Fallback card (no art available)
-│   │   └── HeroBackground.tsx   Hero background art (when recents hidden)
+│   │   └── HeroBackground.tsx   Hero background art (CDP-based native replication)
+│   ├── about/
+│   │   ├── DocSection.tsx       Reusable doc section wrapper
+│   │   ├── OverviewPage.tsx     Plugin overview tab
+│   │   ├── HowToPage.tsx        Usage guide tab
+│   │   ├── ShelvesPage.tsx      Shelves documentation tab
+│   │   ├── FiltersPage.tsx      Filters documentation tab
+│   │   └── SupportPage.tsx      Support/links tab
 │   └── styles/
 │       ├── DeckModalStyles.tsx  Modal dialog styles
 │       └── DeckQAMStyles.tsx    QAM panel styles
@@ -118,6 +145,20 @@ The plugin integrates with Steam's `FocusNavController` gamepad navigation syste
 - Reparents shelf nav tree nodes into the correct position
 - Patches `BTryInternalNavigation` to prevent horizontal focus escape
 - Intercepts the Options button to show the native game context menu
+
+### Hero Background (`shelf/HeroBackground.tsx`)
+The hero background replicates the exact native SteamOS "Recent Games" hero structure, discovered via Chrome DevTools Protocol (CDP) inspection on SteamOS 3.8:
+
+| Layer | Native Role | Implementation |
+|-------|-------------|----------------|
+| `IMG` | Hero art with `grayscale(1) contrast(1)`, 0.3s fade-in animation | Applies discovered or fallback filter + animation |
+| Zoom container | 25s slow zoom (`ease 0s 1 alternate`) | Discovered animation or `@keyframes ds-hero-zoom` fallback |
+| Mask wrapper 1 | `mask-image: radial-gradient(75% 83% at 50% 18%, ...)` | Applied via inline style with webkit prefix |
+| Mask wrapper 2 | Same radial-gradient mask (double masking for stronger fade) | Second nested div with identical mask |
+
+The native hero does **not** use linear gradients or pseudo-elements for the bottom fade. The vignette effect is entirely achieved via radial-gradient `mask-image` on two wrapper divs, creating a soft oval reveal centered at 50% 18% (upper center).
+
+At runtime, the component discovers native classes from the recents section's sibling element and applies them for CSS Loader theme compatibility.
 
 ### Performance Strategy
 - `MutationObserver` replaces polling where possible (HomeInject, ShelvesContainer)

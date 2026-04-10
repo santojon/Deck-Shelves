@@ -46,6 +46,20 @@ export function DeckQAMStyles() {
         width: 100%;
         height: 1px;
         background: #23262e;
+        margin: 0;
+      }
+
+      .deck-shelves-qam-scope .deck-shelves-section-header {
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #b8bcbf;
+        padding: 8px 16px 6px;
+      }
+
+      .deck-shelves-qam-scope .deck-shelves-shelf-list {
+        padding: 0;
       }
 
       .deck-shelves-qam-scope .deck-shelves-label-cont {
@@ -64,9 +78,7 @@ export function DeckQAMStyles() {
         opacity: 0.85;
       }
       .deck-shelves-qam-scope .deck-shelves-label-text {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
+        white-space: nowrap;
         min-width: 0;
         max-width: 100%;
         overflow: hidden;

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `pnpm run update` / `update:safe` / `update:check` scripts for dependency management
+- Hero background now replicates exact native SteamOS structure discovered via CDP inspection:
+  - `mask-image: radial-gradient(75% 83% at 50% 18%, ...)` vignette on two nested wrapper divs (matches native)
+  - `filter: grayscale(1) contrast(1)` on the image (matches native)
+  - `animation: 25s ease alternate` slow zoom on zoom container (matches native)
+  - `animation: 0.3s cubic-bezier fade-in` on image load (matches native)
+  - Height 396px with top offset -54px matching native hero dimensions (854x396 viewport)
+- When recents are hidden, focusable elements inside the recents section receive `tabindex="-1"` and `aria-hidden="true"` so gamepad navigation skips directly to shelves
+- Focus automatically moves to the first shelf card when recents are hidden, with retry at 300ms and 1000ms for async shelf loading
+
+### Changed
+
+- Home validation logic rewritten: recents are always forced visible when plugin is disabled, no visible shelves exist, all shelves are hidden, or no shelves resolve to results — toggle values are never force-changed, only DOM state is overridden
+- "Hide recents" toggle: hidden when plugin not enabled on home; disabled when no shelves have results
+- "Hero background" toggle: always visible when plugin enabled (no longer nested inside hide-recents condition); disabled when hide-recents is off or no shelves have results
+- `disableHideRecents` computation now runs independently of the current toggle value
+- Removed unused imports across 23+ files: React default imports (automatic JSX transform), orphan types, dead utility functions, unused Decky UI components
+- QAM modals import paths corrected: `../../features/` → `../../../features/` (7 files)
+- `ShelvesPanelSection` now uses explicit `Shelf` type annotations instead of implicit `any`
+- Dependency updates: TypeScript 5.9→6.0, i18next 25→26, react-i18next 16→17, vitest 3→4, jsdom 21→29, esbuild 0.27→0.28, react 19.2.4→19.2.5
+- Roadmap reorganized: completed sprints collapsed to version table; added Sprint 6 (Native Components Audit), Sprint 7 (Manual Sort), Sprint 9 expanded to v2.0.0 with cleanup/optimization
+
+### Fixed
+
+- TypeScript CI typecheck errors: 7 QAM component files had wrong relative import paths for `features/settings/controller` and `types`
+- Compatibility check: CSS Loader coexistence script now recognizes `ds-` as valid namespace prefix
+- Compatibility check: Obsidian theme font-size check now excludes files with scoped selectors (ROOT_ID, STYLE_ID)
+- Compatibility check: SteamOS 3.7 route detection regex fixed (BRE `\|` → ERE `|` with `-E` flag)
+- i18n check: key count line changed from info to positive check
+
 ## [1.2.2] - 2026-04-09
 
 ### Fixed

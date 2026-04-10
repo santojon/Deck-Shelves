@@ -1,6 +1,6 @@
 import { ConfirmModal, Field, DialogButton } from '@decky/ui'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
-import type { SettingsController } from '../../features/settings/controller'
+import type { SettingsController } from '../../../features/settings/controller'
 import { SHELF_TEMPLATES } from '../../../domain/templates'
 
 export function TemplatePickerModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {

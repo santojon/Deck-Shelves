@@ -1,5 +1,5 @@
 import { Focusable, DialogButton } from '@decky/ui'
-import type { SettingsController } from '../../features/settings/controller'
+import type { SettingsController } from '../../../features/settings/controller'
 
 export function FirstRunBanner({ controller }: { controller: SettingsController }) {
   const { t, actions } = controller

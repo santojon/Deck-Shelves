@@ -37,7 +37,7 @@ run_checks() {
     ((fail += hardcoded_classes))
   fi
 
-  if grep -rqE 'isHomeRoute\|library/home\|/library' "$root/src/" 2>/dev/null; then
+  if grep -rqE 'isHomeRoute|library/home|/library' "$root/src/" 2>/dev/null; then
     echo "  ✅ Home route detection present"
     ((pass++))
   else

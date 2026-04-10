@@ -198,11 +198,25 @@ export function HomeShelves() {
     const visibleShelves = (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden);
     const canHide = settings?.enabled && settings?.hideRecents === true && visibleShelves.length > 0;
     applyHideRecents(canHide === true);
-    if (canHide && mountEl) {
-      try {
-        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-        if (firstRow && typeof firstRow.focus === 'function') firstRow.focus();
-      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
+    // When recents are hidden, remove them from the gamepad navigation tree so
+    // the D-pad skips straight to our shelves.  We keep the DOM intact (visibility:
+    // hidden) so we can still read native classes, hero images, etc.
+    if (mountEl) {
+      const recentsEl = mountEl.previousElementSibling as HTMLElement | null;
+      if (recentsEl) {
+        const focusables = recentsEl.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"]');
+        for (const el of Array.from(focusables)) {
+          if (canHide) {
+            if (!el.dataset.dsPrevTabindex) el.dataset.dsPrevTabindex = el.getAttribute('tabindex') ?? '0';
+            el.setAttribute('tabindex', '-1');
+          } else if (el.dataset.dsPrevTabindex !== undefined) {
+            el.setAttribute('tabindex', el.dataset.dsPrevTabindex);
+            delete el.dataset.dsPrevTabindex;
+          }
+        }
+        if (canHide) recentsEl.setAttribute('aria-hidden', 'true');
+        else recentsEl.removeAttribute('aria-hidden');
+      }
     }
   }, [settings?.hideRecents, settings?.enabled, settings?.shelves, mountEl]);
 
@@ -286,7 +300,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
           return;
         }
         if (!visible.length) {
-          applyHideRecents(false); // show recents
+          applyHideRecents(false);
           if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: true } }));
           return;
         }
@@ -296,16 +310,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
           applyHideRecents(false);
           if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: true } }));
         } else {
-          // If user setting is enabled, re-apply hide and focus the first shelf
-          if (hideRecentsSetting) {
-            applyHideRecents(true);
-            try {
-              const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-              if (firstRow && typeof firstRow.focus === 'function') {
-                firstRow.focus();
-              }
-            } catch (e) { logInfo("HOME", "focus first shelf after reapply failed", String(e)); }
-          }
+          if (hideRecentsSetting) applyHideRecents(true);
           if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
         }
       } catch (e) {
@@ -316,6 +321,35 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     const timer = setInterval(check, 5000);
     return () => { alive = false; clearInterval(timer); };
   }, [shelves?.length, hideRecentsSetting, mountEl]);
+
+  // When recents are hidden, focus the first card in the first shelf.
+  // Uses a short delay to wait for shelf content to render.
+  useEffect(() => {
+    if (!hideRecentsSetting) return;
+    const tryFocus = () => {
+      try {
+        // Prefer focusing the first game card directly (Focusable) for gamepad nav
+        const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
+        if (firstCard && typeof firstCard.focus === 'function') {
+          firstCard.focus();
+          return true;
+        }
+        // Fallback: focus the row scroll container
+        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+        if (firstRow && typeof firstRow.focus === 'function') {
+          firstRow.focus();
+          return true;
+        }
+      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
+      return false;
+    };
+    // Try immediately, then retry after a short delay for async shelf loading
+    if (!tryFocus()) {
+      const t1 = setTimeout(tryFocus, 300);
+      const t2 = setTimeout(tryFocus, 1000);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [hideRecentsSetting, mountEl, shelves?.length]);
 
   return (
     <Focusable

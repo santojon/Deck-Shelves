@@ -106,6 +106,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
       
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
+      <div className='deck-shelves-section-header' style={{ marginTop: 12 }}>{t('shelves_section')}</div>
       <div className='deck-shelves-separator' />
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', display: 'flex' }}>
@@ -115,9 +116,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
         </Focusable>
       </Field>
-      <ShelvesPanelSection controller={controller} />
       <div className='deck-shelves-separator' />
-      <div style={{ fontWeight: 600, marginBottom: 8, paddingLeft: 8, paddingTop: 8 }}>{t('apply_globally')}</div>
+      <ShelvesPanelSection controller={controller} />
+      <div className='deck-shelves-section-header' style={{ marginTop: 8 }}>{t('apply_globally')}</div>
+      <div className='deck-shelves-separator' />
       {!mountCrashed && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} /> }
       {!mountCrashed && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} /> }
       {!mountCrashed && <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} /> }
