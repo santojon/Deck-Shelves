@@ -37,7 +37,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean }) {
+export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, hideStatusLine = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; hideStatusLine?: boolean }) {
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -60,6 +60,12 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     return { w, h, gap, featW, featH, artH, featArtH };
   }, [matchNativeSize, dimsVersion]);
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
+  // If highlightFirst is enabled but native sizing is disabled, prefer a slightly
+  // larger featured card size derived from our defaults rather than attempting
+  // to pull any native dims. This avoids using native dimensions when the
+  // matchNativeSize toggle is off.
+  const finalFeaturedW = (!matchNativeSize && highlightFirst) ? Math.round(effectiveFeaturedW * 1.15) : effectiveFeaturedW;
+  const finalFeaturedH = (!matchNativeSize && highlightFirst) ? Math.round(effectiveFeaturedH * 1.15) : effectiveFeaturedH;
 
   useEffect(() => {
     globalStylesStart();
@@ -275,7 +281,7 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     <div
       ref={outerRef}
       className="Panel ds-shelf"
-        style={{ marginBottom: 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'var(--ds-shell-bg)' }}
+        style={{ marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'var(--ds-shell-bg)' }}
     >
       {title ? (
         <div
@@ -325,11 +331,12 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
           {items.map((item, idx) =>
             item.isMoreLink
               ? <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
-              : <GameCard key={item.id} item={item}
-                  cardW={highlightFirst && idx === 0 ? effectiveFeaturedW : effectiveW}
-                  cardH={highlightFirst && idx === 0 ? effectiveFeaturedH : effectiveH}
+                : <GameCard key={item.id} item={item}
+                  cardW={highlightFirst && idx === 0 ? finalFeaturedW : effectiveW}
+                  cardH={highlightFirst && idx === 0 ? finalFeaturedH : effectiveH}
                   artH={highlightFirst && idx === 0 ? effectiveFeaturedArtH : effectiveArtH}
-                  featured={highlightFirst && idx === 0} />
+                  featured={highlightFirst && idx === 0}
+                  hideStatusLine={hideStatusLine} />
           )}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>

@@ -58,7 +58,7 @@ run_checks() {
   fi
 
   local generic_classes
-  generic_classes=$(grep -roE 'className\s*=\s*"[^"]*"' "$src" 2>/dev/null | grep -v 'deck-shelves\|Panel\|Focusable' | grep -v 'gamepadDialog\|DialogButton\|Field' | head -5)
+  generic_classes=$(grep -roE 'className\s*=\s*"[^"]*"' "$src" 2>/dev/null | grep -v 'deck-shelves\|ds-\|Panel\|Focusable' | grep -v 'gamepadDialog\|DialogButton\|Field' | head -5)
   if [[ -z "$generic_classes" ]]; then
     echo "  ✅ All className values are namespaced or from Decky UI"
     ((pass++))

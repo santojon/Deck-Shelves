@@ -49,7 +49,12 @@ src/store/               Settings store (backend RPC + localStorage cache)
 src/components/          React components
   shelf/                 Card components (GameCard, MoreCard, PlaceholderCard, HeroBackground)
   home/                  Home screen nav patches
-  qam/                   QAM icons and helpers
+  filter/                Filter type editors and utilities
+  qam/                   QAM modals, shelf list, action buttons, icons
+    common/              Shared QAM components (ActionButton, ShelfListLabel)
+    list/                Shelf list panel and actions
+    modals/              Delete, Edit, Export, Import, Template modals
+  about/                 Documentation tabs (Overview, HowTo, Shelves, Filters, Support)
   styles/                Injected stylesheets
 src/core/                Utilities (focus, scroll, assets, webpack compat, plugin API)
 src/domain/              Pure domain logic (settings operations, defaults, templates)

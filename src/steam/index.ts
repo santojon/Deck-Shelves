@@ -14,10 +14,6 @@ function getSteamClient(): any {
   return hostWindow?.SteamClient ?? (window as any).SteamClient;
 }
 
-function getSteamWindow(): any {
-  return getPreferredSteamWindow() as any;
-}
-
 function getSteamWindows(): any[] {
   const candidates = [
     getPreferredSteamWindow(),
@@ -1962,7 +1958,7 @@ export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
   // Refresh download queue cache (non-blocking, 5s TTL)
   try { /* perf markers */ } catch {}
   // Instrumentation
-  try { const perf = await Promise.resolve(); } catch {}
+  try { await Promise.resolve(); } catch {}
   importPerf: {
     /* placeholder for perf import resolution at build time */
   }

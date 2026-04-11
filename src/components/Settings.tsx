@@ -1,4 +1,3 @@
-import React from "react";
 import { useSettingsController } from "../features/settings/controller";
 import { DeckQAMSettings } from "./DeckQAMSettings";
 

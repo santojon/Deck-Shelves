@@ -1,7 +1,4 @@
 import { gamepadDialogClasses } from '@decky/ui'
-import React from 'react'
-
-const modalMargin = '16px + 2.8vw'
 
 export function DeckModalStyles() {
   return (

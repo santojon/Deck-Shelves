@@ -56,7 +56,7 @@ def run_probe(args):
     if not path:
         print('cdp_probe.py not found', file=sys.stderr); return 2
     cmd = [sys.executable, path, "--mode", mode]
-    return subprocess.run(cmd)
+    return subprocess.run(cmd).returncode
 
 def run_screenshot(args):
     # screenshot moved to screenshots/ after reorg
@@ -64,12 +64,15 @@ def run_screenshot(args):
     path = next((c for c in candidates if os.path.isfile(c)), None)
     if not path:
         print('screenshot.py not found', file=sys.stderr); return 2
-    cmd = [sys.executable, path]
+    # Resolve host: prefer DECK_CDP_HOST, then DECK_HOST from .env
+    host = os.environ.get('DECK_CDP_HOST') or os.environ.get('DECK_HOST') or 'localhost'
+    port = os.environ.get('DECK_CDP_PORT', '8081')
+    cmd = [sys.executable, path, "--host", host, "--port", port]
     if args.locale:
         cmd += ["--locale", args.locale]
     if args.keep_existing:
         cmd += ["--keep-existing"]
-    return subprocess.run(cmd)
+    return subprocess.run(cmd).returncode
 
 def list_diags(args):
     diag_dir = os.path.join(HERE, 'diag')

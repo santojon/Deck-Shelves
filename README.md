@@ -38,6 +38,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
 - **Dynamic card sizing** — shelves match native card dimensions and from themes
 - **Highlight first game** — first card renders as a landscape featured card
+- **Hide status line** — toggle to hide the the play/install status of a game
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
 - **Developer / Publisher filter** — filter games by developer with automatic batch discovery
@@ -74,6 +75,14 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 #### Shelf Management
 
 <p align="center">
+  <img src="assets/screenshots/shelf-create.png" alt="Deck Shelves — Create Shelf (Template Picker)" width="768">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/shelf-import.png" alt="Deck Shelves — Import Shelves" width="768">
+</p>
+
+<p align="center">
   <img src="assets/screenshots/shelf-actions.png" alt="Deck Shelves — Shelf Context Menu" width="768">
 </p>
 
@@ -87,10 +96,6 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 <p align="center">
   <img src="assets/screenshots/shelf-delete.png" alt="Deck Shelves — Delete Shelf Confirmation" width="768">
-</p>
-
-<p align="center">
-  <img src="assets/screenshots/shelf-import.png" alt="Deck Shelves — Import Shelves" width="768">
 </p>
 
 <p align="center">
@@ -267,13 +272,21 @@ main.py                  Python backend (settings persistence, import/export)
 src/index.tsx            Plugin entry point
 src/runtime/             Steam/Decky integration, Home injection, platform layer
 src/components/          QAM settings UI and Home shelf rendering
-src/domain/              Settings schema, defaults
-src/core/                Steam asset helpers
+  ├── shelf/             Game cards, hero background (CDP-based native replication)
+  ├── qam/               QAM modals, shelf list, action buttons
+  ├── filter/            Filter type editors and utilities
+  ├── home/              Gamepad nav tree patches
+  ├── about/             Documentation tabs
+  └── styles/            Scoped CSS for modals and QAM
+src/steam/               Steam API access (collections, tabs, filters, sorting)
+src/domain/              Settings schema, defaults, templates
+src/core/                Focus, scroll, refresh, assets, webpack compat, plugin API
 src/shims/               React/Decky runtime shims for GamepadUI
 src/features/settings/   Settings controller
+src/integrations/        TabMaster, UnifiDeck, DOM tab discovery
 i18n/                    Locale files (16 languages)
-checks/                  Compatibility validation scripts
-scripts/                 Build, deploy, watch, package helpers
+checks/                  Compatibility validation scripts (35 checks)
+scripts/                 Build, deploy, watch, package, devtools helpers
 ```
 
 ## Compatibility

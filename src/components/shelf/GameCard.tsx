@@ -6,10 +6,10 @@ import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
-import { getCachedCardRadius, formatPlaytime } from "./shelfStyles";
+import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, hideStatusLine = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; hideStatusLine?: boolean }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -181,7 +181,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   const compat = item.deckCompatCategory ?? 0;
   const playtime = formatPlaytime(item.playtimeMinutes);
-  const cachedCardRadius = getCachedCardRadius();
 
   const downloadIcon = (
     <span className="ds-card-status-icon">
@@ -282,7 +281,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         )}
       </div>
       <div
-        className="ds-card-label"
+        className={`ds-card-label${hideStatusLine ? ' ds-card-label--compact' : ''}`}
         style={{
           position: "absolute",
           top: artH < cardH ? artH : "100%",
@@ -297,7 +296,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         <div className="ds-card-label-name">
           {item.name}
         </div>
-        {item.isSteam !== false && (() => {
+        {item.isSteam !== false && !hideStatusLine && (() => {
           const hasUpdate = item.updatePending === true;
           const isInstalled = item.isInstalled === true;
           const hasPlaytime = !!playtime && item.playtimeMinutes && item.playtimeMinutes > 0;

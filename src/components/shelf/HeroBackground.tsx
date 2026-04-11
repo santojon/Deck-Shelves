@@ -13,15 +13,27 @@ function getHeroUrls(appid: number): string[] {
   ];
 }
 
-/** Classes discovered from the native recents hero art DOM chain. */
+// Native hero structure (CDP on SteamOS 3.8):
+//   IMG  — filter: grayscale(1) contrast(1), 0.3s fade-in, object-fit: cover
+//   DIV  — 25s ease alternate zoom animation
+//   DIV  — mask-image: radial-gradient(75% 83% at 50% 18%, black 0%, rgba(0,0,0,0.6) 76%, transparent 100%)
+//   DIV  — same mask-image (double masking)
+//   DIV  — padding-top: 54px, Panel Focusable
+//
+// The fade is via radial-gradient mask-image. The bottom fade comes from
+// the hero sitting inside a container with black background (rgb(0,0,0)).
+// Since our mount has transparent background, we use a linear-gradient
+// overlay at the bottom to replicate the same visual result.
+
 type NativeHeroClasses = {
   imgClass: string;
-  zoomContainerClass: string;  // parent of img — carries the 25s zoom animation
-  wrapperClasses: string[];    // intermediate wrappers between outer container and zoom container
+  zoomContainerClass: string;
+  wrapperClasses: string[];
 };
 
 export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
+  const prevHero = useRef<string | null>(null);
   const [visible, setVisible] = useState(false);
   const [nativeClasses, setNativeClasses] = useState<NativeHeroClasses | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -34,23 +46,17 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     const discover = () => {
       const doc = getPreferredSteamDocument();
       if (!doc) return;
-      // The recents section is the sibling before our mount
       const prev = mountEl.previousElementSibling as HTMLElement | null;
       if (!prev) return;
-      // Find the hero image — check by class count (native hero imgs have 4+ classes)
-      // rather than dimensions, since recents may be hidden (height: 0)
       const imgs = Array.from(prev.querySelectorAll('img'));
       for (const img of imgs) {
         const classes = Array.from(img.classList);
         const r = img.getBoundingClientRect();
-        // Either the image is large enough (recents visible) or has enough native classes (recents hidden)
         if ((r.width > 400 && r.height > 200) || classes.length >= 4) {
           const imgClass = Array.from(img.classList).join(' ');
-          // Walk up: parent is the zoom container (25s animation), then intermediate wrappers
           const zoomContainer = img.parentElement;
           if (!zoomContainer) continue;
           const zoomContainerClass = Array.from(zoomContainer.classList).join(' ');
-          // Collect intermediate wrappers up to the top-level Focusable
           const wrapperClasses: string[] = [];
           let el = zoomContainer.parentElement;
           for (let i = 0; i < 4 && el && el !== prev; i++) {
@@ -59,7 +65,11 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
             el = el.parentElement;
           }
           setNativeClasses({ imgClass, zoomContainerClass, wrapperClasses });
-          logInfo("HOME", "HeroBackground: native classes discovered", { imgClass: imgClass.substring(0, 40), zoomContainerClass: zoomContainerClass.substring(0, 40) });
+          logInfo("HOME", "HeroBackground: native classes discovered", {
+            imgClass: imgClass.substring(0, 40),
+            zoomContainerClass: zoomContainerClass.substring(0, 40),
+            wrappers: wrapperClasses.length,
+          });
           return;
         }
       }
@@ -72,12 +82,13 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   useEffect(() => {
     const updateHero = () => {
       const firstShelf = mountEl.querySelector('.ds-shelf');
-      if (!firstShelf) { setVisible(false); return; }
+      if (!firstShelf) return;
       const focused = firstShelf.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
-      if (!focused) { setVisible(false); return; }
+      if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
-      if (appid <= 0) { setVisible(false); return; }
+      if (appid <= 0) return;
       if (appid !== currentAppid.current) {
+        prevHero.current = heroUrl;
         currentAppid.current = appid;
         const urls = getHeroUrls(appid);
         allUrls.current = urls;
@@ -108,6 +119,9 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     fallbackIdx.current += 1;
     if (fallbackIdx.current < allUrls.current.length) {
       setHeroUrl(allUrls.current[fallbackIdx.current]);
+    } else if (prevHero.current) {
+      setHeroUrl(prevHero.current);
+      setVisible(true);
     } else {
       setVisible(false);
     }
@@ -115,8 +129,8 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
 
   if (!heroUrl) return null;
 
-  // Replicate the native DOM structure so theme CSS rules match:
-  // outer (clip) > wrappers > zoomContainer (25s zoom anim) > img (grayscale, fade-in anim)
+  // Build native-matching DOM structure:
+  // outer (clip) > wrappers (with native classes → bring native CSS including mask) > zoom > img
   const wrappers = nativeClasses?.wrapperClasses ?? [];
 
   let inner = (
@@ -141,7 +155,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     </div>
   );
 
-  // Wrap in intermediate containers (native has 2-3 wrappers with absolute positioning)
+  // Wrap in intermediate containers — native classes bring their own mask-image via CSS
   for (let i = wrappers.length - 1; i >= 0; i--) {
     inner = (
       <div
@@ -163,20 +177,32 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         right: 0,
         height: 420,
         overflow: "hidden",
-        zIndex: 0,
+        zIndex: -1,
         pointerEvents: "none",
         opacity: visible ? 1 : 0,
         transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
       }}
     >
+      {/* Solid background layer — fills behind the image so the native
+          radial mask-image fades to the page background color instead of
+          transparent. Only this div has the page bg, not the parent mount. */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        background: "var(--ds-page-bg, rgb(0,0,0))",
+        zIndex: -1,
+      }} />
       {inner}
+      {/* Bottom fade — gradient from page bg to transparent at the top,
+          ensuring a smooth transition at the bottom edge of the hero area.
+          Uses var(--ds-page-bg) to follow the active theme color. */}
       <div style={{
         position: "absolute",
         bottom: 0,
         left: 0,
         right: 0,
-        height: "60%",
-        background: "linear-gradient(to top, rgba(14,16,18,1) 0%, rgba(14,16,18,0) 100%)",
+        height: "100%",
+        background: "linear-gradient(to top, var(--ds-page-bg, rgb(0,0,0)) 0%, transparent 70%)",
         pointerEvents: "none",
         zIndex: 1,
       }} />

@@ -13,7 +13,8 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, shelves: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, shelves: [] });
+  
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
   const [tabs, setTabs] = useState<PlatformTab[]>([]);
@@ -87,6 +88,26 @@ export function useSettingsController() {
     async setHideRecents(hideRecents: boolean) {
       const s = liveSettings();
       if (!s || s.hideRecents === hideRecents) return;
+      // Prevent enabling hideRecents when there are no visible shelves
+      // or when visible shelves resolve to zero items.
+      if (hideRecents) {
+        const visible = (s.shelves ?? []).filter((sh) => sh.enabled && !sh.hidden);
+        if (!visible.length) {
+          logInfo("SETTINGS", "setHideRecents blocked — no visible shelves");
+          return;
+        }
+        try {
+          const resolved = await Promise.all(visible.map((sh) => platform.resolveShelfAppIds(sh.source, sh.limit).catch(() => [])));
+          const anyHas = resolved.some((r) => Array.isArray(r) && r.length > 0);
+          if (!anyHas) {
+            logInfo("SETTINGS", "setHideRecents blocked — visible shelves have no items");
+            return;
+          }
+        } catch (e) {
+          // If platform fails, be conservative and allow the change to proceed.
+          logDiagnostic("warn", "setHideRecents: platform resolve failed", String(e));
+        }
+      }
       await persist({ ...s, hideRecents });
     },
     async setShelfHeroBackground(shelfHeroBackground: boolean) {
@@ -99,17 +120,23 @@ export function useSettingsController() {
       if (!s || s.globalMatchNativeSize === globalMatchNativeSize) return;
       await persist({ ...s, globalMatchNativeSize });
     },
+    async setGlobalHideStatusLine(globalHideStatusLine: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHideStatusLine === globalHideStatusLine) return;
+      await persist({ ...s, globalHideStatusLine });
+    },
     async setGlobalHighlightFirst(globalHighlightFirst: boolean) {
       const s = liveSettings();
       if (!s || s.globalHighlightFirst === globalHighlightFirst) return;
       await persist({ ...s, globalHighlightFirst });
     },
-    async addShelf() {
+    async addShelf(): Promise<Shelf | undefined> {
       const s = liveSettings();
       if (!s) return;
       const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+      return shelf;
     },
     async createDefaultShelves() {
       const s = liveSettings();
@@ -122,12 +149,13 @@ export function useSettingsController() {
       await persist(next);
       setSelectedId(next.shelves[0]?.id ?? null);
     },
-    async addShelfWith(title: string, source: ShelfSource) {
+    async addShelfWith(title: string, source: ShelfSource): Promise<Shelf | undefined> {
       const s = liveSettings();
       if (!s) return;
       const shelf: Shelf = { ...createDefaultShelf(), title, source };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+      return shelf;
     },
     async patchShelf(id: string, patch: Partial<Shelf>) {
       const s = liveSettings();
@@ -146,7 +174,7 @@ export function useSettingsController() {
       const duplicate: Shelf = JSON.parse(JSON.stringify(sourceShelf));
       duplicate.id = randomShelfId();
       duplicate.title = `${sourceShelf.title} ${t("copySuffix")}`.trim();
-      await persist(addShelfToSettings(s, duplicate));
+      await persist(addShelfToSettings(s, duplicate, id));
       setSelectedId(duplicate.id);
     },
     async removeShelf(id: string) {

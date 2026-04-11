@@ -1,5 +1,4 @@
-import { gamepadDialogClasses, quickAccessControlsClasses, scrollPanelClasses } from '@decky/ui'
-import React from 'react'
+import { gamepadDialogClasses, quickAccessControlsClasses } from '@decky/ui'
 
 export function DeckQAMStyles() {
   return (
@@ -47,6 +46,38 @@ export function DeckQAMStyles() {
         width: 100%;
         height: 1px;
         background: #23262e;
+        margin: 0;
+      }
+
+      .deck-shelves-qam-scope .deck-shelves-section-header {
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #b8bcbf;
+        padding: 8px 16px 6px;
+      }
+
+      .deck-shelves-qam-scope .deck-shelves-shelf-list {
+        padding: 0;
+      }
+      /* Force ellipsis on shelf titles within ReorderableList entries */
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} {
+        overflow: hidden;
+      }
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} > div {
+        overflow: hidden;
+        min-width: 0;
+      }
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.FieldChildrenInner} {
+        overflow: hidden;
+        min-width: 0;
+        flex-wrap: nowrap !important;
+      }
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.FieldLabel} {
+        overflow: hidden;
+        min-width: 0;
+        flex: 1 1 0;
       }
 
       .deck-shelves-qam-scope .deck-shelves-label-cont {
@@ -65,9 +96,7 @@ export function DeckQAMStyles() {
         opacity: 0.85;
       }
       .deck-shelves-qam-scope .deck-shelves-label-text {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
+        white-space: nowrap;
         min-width: 0;
         max-width: 100%;
         overflow: hidden;

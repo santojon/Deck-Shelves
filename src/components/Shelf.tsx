@@ -12,7 +12,7 @@ import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 
-export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean }) {
+export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const [appIds, setAppIds] = useState<number[] | null>(() => {
@@ -134,5 +134,6 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
     onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
   });
 
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} />;
+  const effectiveHide = globalHideStatusLine === true ? true : (shelf.hideStatusLine === true);
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} hideStatusLine={effectiveHide} />;
 }

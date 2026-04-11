@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import decky
 
-DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "shelves": []}
+DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHideStatusLine": False, "shelves": []}
 
 
 def _settings_dir() -> str:
@@ -69,6 +69,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         enabled = bool(s.get("enabled", True))
         match_native_size = bool(s.get("matchNativeSize", False))
         highlight_first = bool(s.get("highlightFirst", False))
+        hide_status_line = bool(s.get("hideStatusLine", False))
         if not sid:
             continue
         sanitized.append({
@@ -80,8 +81,9 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "enabled": enabled,
             "matchNativeSize": match_native_size,
             "highlightFirst": highlight_first,
+            "hideStatusLine": hide_status_line,
         })
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "shelves": sanitized}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "shelves": sanitized}
 
 
 class Plugin:

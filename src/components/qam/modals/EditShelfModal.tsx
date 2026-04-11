@@ -1,0 +1,217 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ConfirmModal,
+  DropdownItem,
+  Field,
+  Focusable,
+  SliderField,
+  TextField,
+  ToggleField,
+} from '@decky/ui'
+import type { SingleDropdownOption } from '@decky/ui'
+import type { SettingsController } from '../../../features/settings/controller'
+import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
+import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '../../../domain/settings'
+import { FilterPanel } from '../../FilterPanel'
+import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { logInfo } from '../../../runtime/logger'
+import { resolveShelfAppIds } from '../../../steam'
+import { getExternalSources } from '../../../core/pluginApi'
+
+type SourceType = 'collection' | 'tab' | 'filter' | 'external'
+
+const SORT_OPTIONS = [
+  { value: 'alphabetical', labelKey: 'sort_alpha' },
+  { value: 'recent', labelKey: 'sort_recent' },
+  { value: 'playtime', labelKey: 'sort_playtime' },
+  { value: 'release_date', labelKey: 'sort_release_date' },
+  { value: 'size_on_disk', labelKey: 'sort_size_on_disk' },
+  { value: 'metacritic', labelKey: 'sort_metacritic' },
+  { value: 'review_score', labelKey: 'sort_review_score' },
+  { value: 'added', labelKey: 'sort_added' },
+] as const
+
+type EditableShelfState = {
+  title: string
+  sourceType: SourceType
+  collectionId: string
+  tab: string
+  externalSourceId: string
+  filter: ShelfFilter
+  filterGroup: FilterGroup
+  limit: number
+  matchNativeSize: boolean
+  highlightFirst: boolean
+  hideStatusLine: boolean
+}
+
+function textFromDeckyChange(value: unknown): string {
+  if (typeof value === 'string') return value
+  const maybe = (value as any)?.target?.value ?? (value as any)?.currentTarget?.value ?? (value as any)?.value ?? value
+  return typeof maybe === 'string' ? maybe : ''
+}
+
+function optionData(option: unknown) {
+  return (option as any)?.data ?? option
+}
+
+export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
+  const { t, tabs, collections, actions } = controller
+  const externalSources = useMemo(() => getExternalSources(), [])
+  const initialSourceType = shelf.source.type as SourceType
+  const initialFilter = normalizeFilter(shelf.source)
+  const initialFilterGroup = getEffectiveFilterGroup(initialFilter)
+  const [state, setState] = useState<EditableShelfState>({
+    title: shelf.title,
+    sourceType: initialSourceType,
+    collectionId: shelf.source.type === 'collection' ? shelf.source.collectionId : String(collections[0]?.id ?? ''),
+    tab: shelf.source.type === 'tab' ? shelf.source.tab : String(tabs[0]?.id ?? 'all'),
+    externalSourceId: shelf.source.type === 'external' ? shelf.source.sourceId : (externalSources[0]?.id ?? ''),
+    filter: initialFilter,
+    filterGroup: initialFilterGroup,
+    limit: shelf.limit,
+    matchNativeSize: shelf.matchNativeSize ?? false,
+    highlightFirst: shelf.highlightFirst ?? false,
+    hideStatusLine: shelf.hideStatusLine ?? false,
+  })
+  const [previewCount, setPreviewCount] = useState<number | null>(null)
+
+  const previewSource = useMemo(() => {
+    if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId }
+    if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab }
+    if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
+    const effectiveFilter = filterGroupToFilter(state.filterGroup, state.filter.sort)
+    return { type: 'filter' as const, filter: effectiveFilter }
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort])
+
+  useEffect(() => {
+    let cancelled = false
+    setPreviewCount(null)
+    const timer = setTimeout(() => {
+      resolveShelfAppIds(previewSource, state.limit)
+        .then((ids) => { if (!cancelled) setPreviewCount(ids.length) })
+        .catch(() => { if (!cancelled) setPreviewCount(0) })
+    }, 500)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [previewSource, state.limit])
+
+  const baseSourceTypes: SourceType[] = ['collection', 'tab', 'filter']
+  const allSourceTypes: SourceType[] = externalSources.length > 0 ? [...baseSourceTypes, 'external'] : baseSourceTypes
+  const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
+    data: value,
+    label: value === 'collection' ? t('source_collection') : value === 'tab' ? t('source_tab') : value === 'external' ? t('source_external') : t('source_filter'),
+  }))
+  const tabOptions: SingleDropdownOption[] = tabs.map((item) => ({ data: item.id, label: item.name }))
+  const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
+  const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName }))
+  const sortOptions: SingleDropdownOption[] = SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) }))
+
+  const changeSourceType = (type: SourceType) => {
+    setState((prev) => {
+      if (type === 'collection') {
+        const first = collectionOptions[0]
+        const nextTitle = String(first?.label ?? t('newShelf'))
+        return { ...prev, sourceType: type, title: nextTitle, collectionId: String(first?.data ?? ''), filter: normalizeFilter({ type: 'filter', filter: prev.filter }) }
+      }
+      if (type === 'tab') {
+        const first = tabOptions[0]
+        const nextTitle = String(first?.label ?? t('newShelf'))
+        return { ...prev, sourceType: type, title: nextTitle, tab: String(first?.data ?? 'all') }
+      }
+      if (type === 'external') {
+        const first = externalOptions[0]
+        const nextTitle = String(first?.label ?? t('newShelf'))
+        return { ...prev, sourceType: type, title: nextTitle, externalSourceId: String(first?.data ?? '') }
+      }
+      return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }) }
+    })
+  }
+
+  const changeFilterGroup = (group: FilterGroup) => {
+    setState((prev) => ({ ...prev, filterGroup: group }))
+  }
+
+  const setCollection = (value: string) => {
+    const selected = collectionOptions.find((item) => String(item.data) === value)
+    setState((prev) => ({ ...prev, collectionId: value, title: String(selected?.label ?? prev.title) }))
+  }
+  const setTab = (value: string) => {
+    const selected = tabOptions.find((item) => String(item.data) === value)
+    setState((prev) => ({ ...prev, tab: value, title: String(selected?.label ?? prev.title) }))
+  }
+  const handleSave = () => {
+    closeModal?.();
+    (async () => {
+      const title = state.title.trim() || t('newShelf');
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, hideStatusLine: state.hideStatusLine };
+      if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
+      else if (state.sourceType === 'tab') {
+        const selectedTab = tabs.find((t) => t.id === state.tab)
+        patch.source = selectedTab?.source ?? { type: 'tab', tab: state.tab }
+      }
+      else if (state.sourceType === 'external') patch.source = { type: 'external', sourceId: state.externalSourceId };
+      else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
+      const ok = await actions.patchShelf(shelf.id, patch);
+      logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
+    })();
+  }
+
+  return (
+    <div className='deck-shelves-modal-scope'>
+      <DeckModalStyles />
+      <ConfirmModal
+        bAllowFullSize
+        onCancel={closeModal}
+        onEscKeypress={closeModal}
+        strTitle={`${t('editing')}: ${shelf.title}`}
+        onOK={handleSave}
+        strOKButtonText={t('save')}
+      >
+        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')}>
+          <div style={{ padding: '4px 16px 1px' }} className='name-field'>
+            <Field
+              description={
+                <>
+                  <div style={{ paddingBottom: '6px' }}>{t('title')}</div>
+                  <TextField
+                    value={state.title}
+                    onChange={(value: unknown) => setState((prev) => ({ ...prev, title: textFromDeckyChange(value) }))}
+                  />
+                </>
+              }
+            />
+          </div>
+          <div style={{ padding: '0 16px 10px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
+            {previewCount === null ? t('preview_loading') : previewCount === 0 ? `⚠️ ${t('preview_empty')}` : t('preview_count', { count: previewCount })}
+          </div>
+          <div className='field-item-container'>
+            <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
+            {state.sourceType === 'collection' ? (
+              <DropdownItem label={t('source_collection')} rgOptions={collectionOptions} selectedOption={state.collectionId} onChange={(opt: unknown) => setCollection(String(optionData(opt)))} bottomSeparator='thick' />
+            ) : null}
+            {state.sourceType === 'tab' ? (
+              <DropdownItem label={t('source_tab')} rgOptions={tabOptions} selectedOption={state.tab} onChange={(opt: unknown) => setTab(String(optionData(opt)))} bottomSeparator='thick' />
+            ) : null}
+            {state.sourceType === 'external' && externalOptions.length > 0 ? (
+              <DropdownItem label={t('source_external')} rgOptions={externalOptions} selectedOption={state.externalSourceId} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
+            ) : null}
+            {state.sourceType === 'filter' ? (
+              <>
+                <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
+                <div style={{ padding: '4px 0' }}>
+                  <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} />
+                </div>
+              </>
+            ) : null}
+            <Field label={`${t('limit')} (${state.limit})`}>
+              <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />
+            </Field>
+            <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
+            <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
+            <ToggleField label={t('hide_status_line')} checked={state.hideStatusLine} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideStatusLine: value }))} />
+          </div>
+        </Focusable>
+      </ConfirmModal>
+    </div>
+  )
+}

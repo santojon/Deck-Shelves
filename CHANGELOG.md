@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `pnpm run update` / `update:safe` / `update:check` scripts for dependency management
+- `pnpm run precommit` script: runs typecheck, tests, production build, compat checks, and screenshot validation in sequence
+- `pnpm run deploy:verify` script: deploy hard + wait + CDP smoke probe to verify plugin loaded
+- Hero background replicates native SteamOS structure discovered via CDP:
+  - Native wrapper classes with `mask-image: radial-gradient(...)` vignette (applied via className)
+  - Solid background layer inside the hero div uses `var(--ds-page-bg)` so mask fades to theme color — parent containers remain transparent
+  - Bottom gradient from `var(--ds-page-bg)` to transparent for smooth transition at hero edge
+  - `--ds-page-bg` CSS variable detected at runtime from the scrollable viewport ancestor (follows active CSS Loader theme)
+- When recents are hidden, focusable elements inside the recents section receive `tabindex="-1"` and `aria-hidden="true"` so gamepad navigation skips directly to shelves
+- Focus moves to the first shelf card when recents are hidden via `FocusNavController.BTakeFocus()` API, with retries at 500ms/1500ms/3000ms
+- `focusElement()` utility in `focusRestore.ts` for programmatic gamepad focus via Steam nav tree API
+- `shelves_section` i18n key added across all 16 locales for QAM section header
+- About page content panels now scrollable with right joystick via `Focusable + scrollPanelClasses.ScrollPanel` with inner focusable content
+- New shelves are always inserted at the top of the list; duplicated shelves are inserted right below the original
+- Creating a blank shelf now opens the edit modal immediately after creation
+- Screenshot automation: new captures for "Create Shelf" (template picker modal) and "Import Shelves" modal
+- Screenshot QAM navigation rewritten: navigates to the last tab (Decky plugins), then finds and clicks "Deck Shelves" inside the plugin list — no longer relies on tab text matching
+
+### Changed
+
+- Home validation logic rewritten: recents are always forced visible when plugin is disabled, no visible shelves exist, all shelves are hidden, or no shelves resolve to results — toggle values are never force-changed, only DOM state is overridden
+- "Hide recents" toggle: hidden when plugin not enabled on home; disabled when no shelves have results
+- "Hero background" toggle: always visible when plugin enabled (no longer nested inside hide-recents condition); disabled when hide-recents is off or no shelves have results
+- `disableHideRecents` computation now runs independently of the current toggle value
+- Removed unused imports across 23+ files: React default imports (automatic JSX transform), orphan types, dead utility functions, unused Decky UI components
+- QAM modals import paths corrected: `../../features/` → `../../../features/` (7 files)
+- `ShelvesPanelSection` now uses explicit `Shelf` type annotations instead of implicit `any`; removed from `PanelSection` wrapper for more lateral space
+- QAM layout: added "Shelves" / "Apply globally" section headers with consistent padding; separator below action buttons; shelf list entries single-line with ellipsis
+- EditShelfModal fully restored: source type selection, filter panel, preview count, all toggles
+- Dependency updates: TypeScript 5.9→6.0, i18next 25→26, react-i18next 16→17, vitest 3→4, jsdom 21→29, esbuild 0.27→0.28, react 19.2.4→19.2.5
+- Roadmap reorganized: completed sprints collapsed to version table; added Sprint 6 (Native Components Audit), Sprint 7 (Manual Sort), Sprint 9 expanded to v2.0.0 with cleanup/optimization
+
+### Fixed
+
+- Second shelf title no longer hidden behind hero: hero uses `zIndex: -1` to stay behind shelf content in the stacking order, and background color is self-contained inside the hero div instead of coloring the mount/root containers
+- Hero fade uses `var(--ds-page-bg)` detected from theme viewport — follows CSS Loader themes automatically instead of forcing black
+- Featured card no longer flashes/resizes after initial render: native dimension discovery now requires 2 consecutive stable polls before accepting changes (confirmation cycle)
+- Shelf titles in QAM reorderable list now properly ellipsize in a single line next to the action button
+- TypeScript CI typecheck errors: 7 QAM component files had wrong relative import paths for `features/settings/controller` and `types`
+- Compatibility check: CSS Loader coexistence script now recognizes `ds-` as valid namespace prefix
+- Compatibility check: Obsidian theme font-size check now excludes files with scoped selectors (ROOT_ID, STYLE_ID)
+- Compatibility check: SteamOS 3.7 route detection regex fixed (BRE `\|` → ERE `|` with `-E` flag)
+- i18n check: key count line changed from info to positive check
+
 ## [1.2.2] - 2026-04-09
 
 ### Fixed

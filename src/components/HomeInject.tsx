@@ -11,7 +11,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { applyHideRecents, getMountFailed } from "../runtime/homePatch";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook } from "../core/steamGameMenu";
-import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop } from "../core/focusRestore";
+import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
 import { reparentNavTreeNodes, patchShelfEdgeNavigation, patchMenuButton } from "./home/navPatches";
 
@@ -191,10 +191,34 @@ export function HomeShelves() {
     };
   }, [mountEl]);
 
-  // Apply hideRecents whenever the setting changes
+  // Apply hideRecents — only actually hide when the plugin is enabled and has
+  // visible shelves.  Otherwise force recents visible regardless of the toggle
+  // (we never change the stored setting, only the DOM state).
   useEffect(() => {
-    applyHideRecents(settings?.hideRecents === true);
-  }, [settings?.hideRecents]);
+    const visibleShelves = (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden);
+    const canHide = settings?.enabled && settings?.hideRecents === true && visibleShelves.length > 0;
+    applyHideRecents(canHide === true);
+    // When recents are hidden, remove them from the gamepad navigation tree so
+    // the D-pad skips straight to our shelves.  We keep the DOM intact (visibility:
+    // hidden) so we can still read native classes, hero images, etc.
+    if (mountEl) {
+      const recentsEl = mountEl.previousElementSibling as HTMLElement | null;
+      if (recentsEl) {
+        const focusables = recentsEl.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"]');
+        for (const el of Array.from(focusables)) {
+          if (canHide) {
+            if (!el.dataset.dsPrevTabindex) el.dataset.dsPrevTabindex = el.getAttribute('tabindex') ?? '0';
+            el.setAttribute('tabindex', '-1');
+          } else if (el.dataset.dsPrevTabindex !== undefined) {
+            el.setAttribute('tabindex', el.dataset.dsPrevTabindex);
+            delete el.dataset.dsPrevTabindex;
+          }
+        }
+        if (canHide) recentsEl.setAttribute('aria-hidden', 'true');
+        else recentsEl.removeAttribute('aria-hidden');
+      }
+    }
+  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, mountEl]);
 
   if (!mountEl) return null;
   if (!settings) return null;
@@ -205,23 +229,27 @@ export function HomeShelves() {
     return null;
   }
 
-  if (!settings.enabled) {
-    logWarn("HOME", "plugin disabled");
+  const shelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
+
+  // When the plugin is disabled, there are no visible shelves, or all shelves
+  // are hidden — always ensure recents are visible regardless of the toggle
+  // value (we never force-change the setting, just override the DOM state).
+  if (!settings.enabled || !shelves.length) {
+    applyHideRecents(false);
+    if (!settings.enabled) logWarn("HOME", "plugin disabled — recents forced visible");
     return null;
   }
-  const shelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
   logInfo("HOME", "rendering shelves via portal", { visible: shelves.length, mountConnected: mountEl.isConnected });
-  if (!shelves.length) return null;
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHideStatusLine={settings.globalHideStatusLine === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} hideRecentsSetting={settings.hideRecents === true} />
     </PlatformProvider>,
     mountEl,
   ) as any;
 }
 
-function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, shelfHeroBackground = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; shelfHeroBackground?: boolean }) {
+function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false, shelfHeroBackground = false, hideRecentsSetting = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean; shelfHeroBackground?: boolean; hideRecentsSetting?: boolean }) {
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
     const navApi = detectNavTreeApi();
@@ -260,6 +288,65 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     };
   }, [mountEl]);
 
+  // Monitor shelves -> if hideRecentsSetting is true but there are no visible
+  // shelves or none resolve to items, force recents visible and emit disable event.
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const visible = (shelves ?? []).filter((s) => s.enabled && !s.hidden);
+        if (!hideRecentsSetting) {
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
+          return;
+        }
+        if (!visible.length) {
+          applyHideRecents(false);
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: true } }));
+          return;
+        }
+        const resolved = await Promise.all(visible.map((sh) => homePlatform.resolveShelfAppIds(sh.source, sh.limit).catch(() => [])));
+        const anyHas = resolved.some((r) => Array.isArray(r) && r.length > 0);
+        if (!anyHas) {
+          applyHideRecents(false);
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: true } }));
+        } else {
+          if (hideRecentsSetting) applyHideRecents(true);
+          if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
+        }
+      } catch (e) {
+        if (alive) globalThis.dispatchEvent(new CustomEvent('deck-shelves-hideRecents-disabled', { detail: { disabled: false } }));
+      }
+    };
+    check();
+    const timer = setInterval(check, 5000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [shelves?.length, hideRecentsSetting, mountEl]);
+
+  // When recents are hidden, move gamepad focus to the first shelf card
+  // using the Steam FocusNavController API (element.focus() alone does not
+  // update the gamepad nav tree).  Retries because shelf content loads async.
+  useEffect(() => {
+    if (!hideRecentsSetting) return;
+    let cancelled = false;
+    const tryFocus = () => {
+      if (cancelled) return true;
+      try {
+        const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
+        if (firstCard) return focusElement(firstCard);
+        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+        if (firstRow) return focusElement(firstRow);
+      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
+      return false;
+    };
+    if (!tryFocus()) {
+      const t1 = setTimeout(tryFocus, 500);
+      const t2 = setTimeout(tryFocus, 1500);
+      const t3 = setTimeout(tryFocus, 3000);
+      return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }
+    return () => { cancelled = true; };
+  }, [hideRecentsSetting, mountEl, shelves?.length]);
+
   return (
     <Focusable
       className="deck-shelves-root"
@@ -267,7 +354,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}
-      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} />)}
+      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHideStatusLine={globalHideStatusLine} />)}
     </Focusable>
   );
 }

@@ -9,6 +9,11 @@ let cachedCardRadius = "0px";
 let cachedNativeDims: NativeCardDims | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
+// Confirmation cycle: new dims must be stable for 2 consecutive polls before accepting.
+// This prevents flicker from transient measurements (focus scale, hover, animation frames).
+let pendingDims: NativeCardDims | null = null;
+let pendingDimsCount = 0;
+
 let dimsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedNotifyDims(_dims: NativeCardDims) {
   // Debounce: wait 500ms after last change before notifying listeners.
@@ -67,8 +72,30 @@ function ensureStyles() {
       tol(newDims.featuredWidth, cachedNativeDims.featuredWidth) ||
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
-    if (dimsChanged && newDims) { cachedNativeDims = newDims; debouncedNotifyDims(newDims); }
-    else if (!cachedNativeDims && newDims) cachedNativeDims = newDims;
+    if (dimsChanged && newDims) {
+      // Require 2 consecutive polls showing the same new values before accepting
+      const matchesPending = pendingDims &&
+        !tol(newDims.width, pendingDims.width) &&
+        !tol(newDims.height, pendingDims.height) &&
+        !tol(newDims.gap, pendingDims.gap);
+      if (matchesPending) {
+        pendingDimsCount++;
+        if (pendingDimsCount >= 2) {
+          cachedNativeDims = newDims;
+          pendingDims = null;
+          pendingDimsCount = 0;
+          debouncedNotifyDims(newDims);
+        }
+      } else {
+        pendingDims = newDims;
+        pendingDimsCount = 1;
+      }
+    } else if (!cachedNativeDims && newDims) {
+      cachedNativeDims = newDims;
+    } else {
+      pendingDims = null;
+      pendingDimsCount = 0;
+    }
     // Update CSS variables without removing/recreating the stylesheet to avoid style flicker
     const docs = [document, steamDoc];
     for (const doc of docs) {
@@ -85,6 +112,26 @@ function ensureStyles() {
         doc.documentElement.style.setProperty('--ds-native-card-h', `${cachedNativeDims?.height ?? CARD_ART_H}px`);
         doc.documentElement.style.setProperty('--ds-native-card-gap', `${cachedNativeDims?.gap ?? CARD_GAP}px`);
       }
+
+      // Detect page background color from the scrollable viewport or body
+      try {
+        const mount = doc.getElementById('deck-shelves-home-root');
+        let pageBg = '';
+        if (mount) {
+          let el: HTMLElement | null = mount.parentElement;
+          for (let i = 0; i < 6 && el && el !== doc.body; i++) {
+            const bg = getComputedStyle(el).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { pageBg = bg; break; }
+            el = el.parentElement;
+          }
+        }
+        if (!pageBg) {
+          const bodyBg = getComputedStyle(doc.body).backgroundColor;
+          if (bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent') pageBg = bodyBg;
+        }
+        if (pageBg) doc.documentElement.style.setProperty('--ds-page-bg', pageBg);
+        else doc.documentElement.style.setProperty('--ds-page-bg', 'rgb(0, 0, 0)');
+      } catch {}
 
       try {
         doc.documentElement.style.removeProperty('--ds-native-heading-color');
@@ -121,12 +168,13 @@ function buildStylesheet(): string {
       --ds-card-dim: 0.9;
       --ds-card-bg: rgba(3, 10, 30, 0.92);
       --ds-shell-bg: transparent;
+      --ds-page-bg: rgb(0, 0, 0);
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
-    #deck-shelves-home-root { margin-top: -32px !important; background: var(--ds-shell-bg, transparent) !important; }
-    .deck-shelves-root { background: transparent !important; }
+    #deck-shelves-home-root { margin-top: -32px !important; }
+    .deck-shelves-root { background: transparent; }
     .Panel.ds-shelf { background: transparent !important; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
@@ -134,7 +182,8 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       overflow: hidden;
       filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.3s ease, height 0.3s ease, min-width 0.3s ease;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease;
+      will-change: width, height;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
@@ -220,6 +269,9 @@ function buildStylesheet(): string {
       opacity: 0;
       transition: opacity .15s ease;
     }
+
+    /* Compact label variant: hide the status line but keep title positioning */
+    .ds-card-label--compact .ds-card-status { display: none !important; }
     .ds-card.gpfocus .ds-card-label,
     .ds-card:focus .ds-card-label,
     .ds-card:hover .ds-card-label {
