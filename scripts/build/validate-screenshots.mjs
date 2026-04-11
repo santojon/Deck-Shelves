@@ -25,11 +25,12 @@ const EXPECTED = [
   "home-shelves.png",
   "qam.png",
   "game-menu.png",
+  "shelf-create.png",
+  "shelf-import.png",
   "shelf-actions.png",
   "shelf-edit.png",
   "shelf-hidden.png",
   "shelf-delete.png",
-  "shelf-import.png",
   "shelf-export.png",
 ];
 

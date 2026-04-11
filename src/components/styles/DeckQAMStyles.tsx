@@ -61,6 +61,24 @@ export function DeckQAMStyles() {
       .deck-shelves-qam-scope .deck-shelves-shelf-list {
         padding: 0;
       }
+      /* Force ellipsis on shelf titles within ReorderableList entries */
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} {
+        overflow: hidden;
+      }
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.Field} > div {
+        overflow: hidden;
+        min-width: 0;
+      }
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.FieldChildrenInner} {
+        overflow: hidden;
+        min-width: 0;
+        flex-wrap: nowrap !important;
+      }
+      .deck-shelves-qam-scope .deck-shelves-shelf-list .${gamepadDialogClasses.FieldLabel} {
+        overflow: hidden;
+        min-width: 0;
+        flex: 1 1 0;
+      }
 
       .deck-shelves-qam-scope .deck-shelves-label-cont {
         display: flex;

@@ -11,7 +11,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { applyHideRecents, getMountFailed } from "../runtime/homePatch";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook } from "../core/steamGameMenu";
-import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop } from "../core/focusRestore";
+import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
 import { reparentNavTreeNodes, patchShelfEdgeNavigation, patchMenuButton } from "./home/navPatches";
 
@@ -322,33 +322,29 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     return () => { alive = false; clearInterval(timer); };
   }, [shelves?.length, hideRecentsSetting, mountEl]);
 
-  // When recents are hidden, focus the first card in the first shelf.
-  // Uses a short delay to wait for shelf content to render.
+  // When recents are hidden, move gamepad focus to the first shelf card
+  // using the Steam FocusNavController API (element.focus() alone does not
+  // update the gamepad nav tree).  Retries because shelf content loads async.
   useEffect(() => {
     if (!hideRecentsSetting) return;
+    let cancelled = false;
     const tryFocus = () => {
+      if (cancelled) return true;
       try {
-        // Prefer focusing the first game card directly (Focusable) for gamepad nav
         const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-        if (firstCard && typeof firstCard.focus === 'function') {
-          firstCard.focus();
-          return true;
-        }
-        // Fallback: focus the row scroll container
+        if (firstCard) return focusElement(firstCard);
         const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-        if (firstRow && typeof firstRow.focus === 'function') {
-          firstRow.focus();
-          return true;
-        }
+        if (firstRow) return focusElement(firstRow);
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
       return false;
     };
-    // Try immediately, then retry after a short delay for async shelf loading
     if (!tryFocus()) {
-      const t1 = setTimeout(tryFocus, 300);
-      const t2 = setTimeout(tryFocus, 1000);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      const t1 = setTimeout(tryFocus, 500);
+      const t2 = setTimeout(tryFocus, 1500);
+      const t3 = setTimeout(tryFocus, 3000);
+      return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
+    return () => { cancelled = true; };
   }, [hideRecentsSetting, mountEl, shelves?.length]);
 
   return (

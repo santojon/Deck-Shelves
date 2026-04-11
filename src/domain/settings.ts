@@ -20,10 +20,19 @@ export function deleteShelfFromSettings(settings: Settings, id: string): Setting
   };
 }
 
-export function addShelfToSettings(settings: Settings, shelf: Shelf): Settings {
+export function addShelfToSettings(settings: Settings, shelf: Shelf, afterId?: string): Settings {
+  if (afterId) {
+    const idx = settings.shelves.findIndex((s) => s.id === afterId);
+    if (idx >= 0) {
+      const shelves = settings.shelves.slice();
+      shelves.splice(idx + 1, 0, shelf);
+      return { ...settings, shelves };
+    }
+  }
+  // Default: insert at the top
   return {
     ...settings,
-    shelves: [...settings.shelves, shelf],
+    shelves: [shelf, ...settings.shelves],
   };
 }
 

@@ -271,40 +271,208 @@ def open_qam(host: str, port: int, shared_ws: str) -> None:
     eval_target(host, port, shared_ws, OPEN_QAM_EXPR)
 
 
-def close_qam(host: str, port: int, shared_ws: str) -> None:
-    open_qam(host, port, shared_ws)  # toggle
-    OPEN_QAM_EXPR = """
+def is_qam_open(host: str, port: int, bp_ws: str) -> bool:
+    """Check if the QAM panel is currently visible in Big Picture."""
+    try:
+        result = eval_target(host, port, bp_ws, """
         (function() {
-            if (typeof SteamUIStore !== 'undefined' &&
-                SteamUIStore.WindowStore &&
-                SteamUIStore.WindowStore.GamepadUIMainWindowInstance &&
-                SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed) {
-                SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed();
-                return 'ok';
+            var qam = document.querySelector('[class*="QuickAccessMenu"], [class*="quickaccessmenu"]');
+            if (qam) {
+                var cs = getComputedStyle(qam);
+                return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+            }
+            return false;
+        })()
+        """)
+        return result is True
+    except:
+        return False
+
+
+def close_qam(host: str, port: int, shared_ws: str) -> None:
+    """Close QAM by toggling it off."""
+    open_qam(host, port, shared_ws)  # toggle
+
+
+def navigate_to_deckshelves_qam(host: str, port: int, qam_ws: str) -> bool:
+    """Navigate to the Deck Shelves plugin inside the QAM.
+
+    Strategy:
+    1. Check if Deck Shelves QAM scope is already visible — if so, done
+    2. Click the Decky plugins tab (identified by the plug SVG icon containing 'M320')
+    3. Wait for the plugin list to render
+    4. Find a Focusable element with exact text "Deck Shelves" and click it
+    5. Verify our QAM scope rendered
+
+    Returns True on success, False if Deck Shelves could not be found.
+    """
+    # Step 0: Already open?
+    scope = eval_target(host, port, qam_ws, "!!document.querySelector('.deck-shelves-qam-scope')")
+    if scope:
+        print("    Deck Shelves QAM already active")
+        return True
+
+    # Step 1: Click the Decky plugins tab (plug icon with SVG path M320)
+    result = eval_target(host, port, qam_ws, """
+    (function() {
+        var tabs = Array.from(document.querySelectorAll('[role=tab]'));
+        if (!tabs.length) return 'no tabs';
+        // Find the Decky tab by its plug/socket SVG icon
+        for (var i = tabs.length - 1; i >= 0; i--) {
+            var svg = tabs[i].querySelector('svg');
+            if (svg && svg.innerHTML.indexOf('M320') !== -1) {
+                tabs[i].click();
+                return 'clicked decky tab (index ' + i + ')';
+            }
+        }
+        // Fallback: try the last tab
+        tabs[tabs.length - 1].click();
+        return 'clicked last tab (fallback)';
+    })()
+    """)
+    print(f"    Step 1 (Decky tab): {result}")
+    time.sleep(2.0)
+
+    # Step 1b: Check if clicking the Decky tab directly opened our plugin
+    scope = eval_target(host, port, qam_ws, "!!document.querySelector('.deck-shelves-qam-scope')")
+    if scope:
+        print("    Deck Shelves QAM active after Decky tab click")
+        return True
+
+    # Step 2: Find "Deck Shelves" in the plugin list
+    # The Decky QAM renders each plugin as: Focusable DIV > wrapper > BUTTON.DialogButton > DIV > "Plugin Name"
+    # We must click the BUTTON (not the outer Focusable wrapper).
+    for attempt in range(3):
+        result = eval_target(host, port, qam_ws, """
+        (function() {
+            // Strategy: find text node "Deck Shelves", walk up to the nearest BUTTON, click it
+            var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            var node;
+            while (node = walker.nextNode()) {
+                if (node.textContent.trim() === 'Deck Shelves') {
+                    var el = node.parentElement;
+                    // Walk up to find the nearest button
+                    for (var i = 0; i < 5 && el; i++) {
+                        if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') {
+                            el.click();
+                            return 'clicked BUTTON: ' + el.className.substring(0, 30);
+                        }
+                        el = el.parentElement;
+                    }
+                    // Fallback: click the closest Focusable
+                    el = node.parentElement;
+                    for (var i = 0; i < 8 && el; i++) {
+                        if (el.classList && el.classList.contains('Focusable')) {
+                            el.click();
+                            return 'clicked Focusable: ' + el.className.substring(0, 30);
+                        }
+                        el = el.parentElement;
+                    }
+                    return 'found text but no clickable parent';
+                }
             }
             return 'not found';
         })()
-    """
+        """)
+        print(f"    Step 2 (find plugin, attempt {attempt + 1}): {result}")
+
+        if 'not found' in str(result):
+            # Try scrolling the plugin list down
+            eval_target(host, port, qam_ws, """
+            (function() {
+                var panels = document.querySelectorAll('[class*=scroll], [style*=overflow]');
+                for (var p of panels) {
+                    if (p.scrollHeight > p.clientHeight) { p.scrollTop += 200; return; }
+                }
+            })()
+            """)
+            time.sleep(1.0)
+            continue
+
+        time.sleep(1.5)
+        scope = eval_target(host, port, qam_ws, "!!document.querySelector('.deck-shelves-qam-scope')")
+        if scope:
+            print("    Deck Shelves QAM scope confirmed")
+            return True
+        # Maybe the click opened something else — try again
+        time.sleep(0.5)
+
+    print("    [ERROR] Could not find or activate Deck Shelves in QAM after 3 attempts")
+    return False
 
 
+# Legacy alias
 def click_deckshelves_tab(host: str, port: int, qam_ws: str) -> bool:
-    result = eval_target(host, port, qam_ws, CLICK_TAB_EXPR)
-    return result == "ok"
+    return navigate_to_deckshelves_qam(host, port, qam_ws)
 
-# JavaScript expression to click the Deck Shelves tab in QAM
-CLICK_TAB_EXPR = """
-(function() {
-    var els = document.querySelectorAll('[role=tab], button');
-    for (var el of els) {
-        if (el.children.length === 0 && (el.textContent || '').trim() === 'Deck Shelves') {
-            var target = el.closest('button') || el.closest('[role=tab]') || el.parentElement || el;
-            target.click();
-            return 'ok';
-        }
-    }
-    return 'not found';
-})()
-"""
+
+def is_mainmenu_open(host: str, port: int) -> bool:
+    """Check if the Steam main menu (Steam button) is open by inspecting its CDP target."""
+    try:
+        targets = get_targets(host, port)
+        mm = find_target(targets, "MainMenu")
+        if not mm:
+            return False
+        mm_ws = ws_path_for(mm, port)
+        result = eval_target(host, port, mm_ws, """
+        (function() {
+            var el = document.querySelector('[class*="mainmenu"], [class*="MainMenu"], [class*="PowerMenu"]');
+            if (el) {
+                var r = el.getBoundingClientRect();
+                return r.height > 50;
+            }
+            // Check if body has visible content beyond the empty shell
+            return document.body.scrollHeight > 100 && document.querySelectorAll('button').length > 2;
+        })()
+        """)
+        return result is True
+    except:
+        return False
+
+
+def close_mainmenu(host: str, port: int, bp: Dict) -> None:
+    """Close the Steam main menu by sending Escape to Big Picture."""
+    for _ in range(3):
+        dismiss_bp_escape(host, port, bp)
+        time.sleep(0.3)
+
+
+def ensure_bp_clean(host: str, port: int, bp: Dict, shared_ws: str) -> None:
+    """Ensure Big Picture is clean: no QAM, no MainMenu, no overlays, on library/home."""
+    # Navigate to home first — this closes most overlays automatically
+    try:
+        eval_target(host, port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
+    except:
+        pass
+    time.sleep(2.0)
+
+    # Send a few Escapes to dismiss any remaining modals/menus
+    for _ in range(3):
+        dismiss_bp_escape(host, port, bp)
+        time.sleep(0.25)
+
+    # Check if MainMenu got opened by Escape and close it
+    if is_mainmenu_open(host, port):
+        print("    [clean] MainMenu open, dismissing...")
+        # One more Escape closes the MainMenu
+        dismiss_bp_escape(host, port, bp)
+        time.sleep(0.5)
+
+    # Verify we're on a clean home
+    bp_ws = ws_path_for(bp, port)
+    try:
+        on_home = eval_target(host, port, bp_ws, """
+        (function() {
+            return !!(document.querySelector('.ds-card') ||
+                      document.querySelector('[aria-label*="ecent"]') ||
+                      document.querySelector('[class*="libraryhome"]'));
+        })()
+        """)
+        if not on_home:
+            eval_target(host, port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
+            time.sleep(2.0)
+    except:
+        pass
 
 def click_qam_button(host: str, port: int, qam_ws: str, svg_hint: str, index: int = 0) -> bool:
     """Click a button in the QAM by matching SVG content hint."""
@@ -515,18 +683,15 @@ def capture_qam_target(host: str, port: int, qam_target: Dict, filename: str) ->
 
 
 def screenshot_qam(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: Optional[str], qam_target: Optional[Dict] = None) -> Optional[Path]:
-    print("  Opening QAM...")
-    open_qam(host, port, shared_ws)
-    time.sleep(2.0)
-
     if qam_ws:
-        print("  Navigating to Deck Shelves tab...")
-        ok = click_deckshelves_tab(host, port, qam_ws)
-        if ok:
-            print("  Deck Shelves tab activated")
-        else:
-            print("  [WARN] Could not find Deck Shelves tab — capturing default QAM")
-        time.sleep(1.5)
+        ok = _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+        if not ok:
+            print("  [ERROR] Could not open Deck Shelves QAM — skipping screenshot")
+            return None
+    else:
+        ensure_bp_clean(host, port, bp, shared_ws)
+        open_qam(host, port, shared_ws)
+        time.sleep(2.0)
 
     print("  Capturing QAM...")
     # Sempre sobrescrever qam.png
@@ -646,17 +811,64 @@ def screenshot_game_menu(host: str, port: int, bp: Dict, shared_ws: str) -> Opti
     return result
 
 
-def _open_qam_and_tab(host: str, port: int, shared_ws: str, qam_ws: str) -> None:
-    """Open QAM and navigate to Deck Shelves tab."""
+def _open_qam_and_tab(host: str, port: int, shared_ws: str, qam_ws: str, bp: Optional[Dict] = None) -> bool:
+    """Ensure we end up in the Deck Shelves QAM, regardless of current state.
+
+    Handles: overlays open, wrong page, QAM open on wrong tab, QAM closed, etc.
+    Returns True if Deck Shelves QAM is active, False if not found.
+    """
+    # Phase 1: Clean slate — dismiss all overlays and modals
+    if bp:
+        for _ in range(5):
+            dismiss_bp_escape(host, port, bp)
+            time.sleep(0.2)
+
+    # Phase 2: Close QAM if open (we'll reopen cleanly)
+    try:
+        bp_ws = ws_path_for(bp, port) if bp else None
+        if bp_ws and is_qam_open(host, port, bp_ws):
+            close_qam(host, port, shared_ws)
+            time.sleep(1.0)
+    except:
+        pass
+
+    # Phase 3: Navigate to library/home (in case we're on a game page or elsewhere)
+    try:
+        eval_target(host, port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
+    except:
+        pass
+    time.sleep(2.0)
+
+    # Phase 4: Dismiss any lingering overlays after navigation
+    if bp:
+        for _ in range(3):
+            dismiss_bp_escape(host, port, bp)
+            time.sleep(0.15)
+
+    # Phase 5: Open QAM fresh
     open_qam(host, port, shared_ws)
     time.sleep(2.0)
-    click_deckshelves_tab(host, port, qam_ws)
-    time.sleep(1.5)
+
+    # Phase 6: Navigate to Deck Shelves
+    ok = navigate_to_deckshelves_qam(host, port, qam_ws)
+    if not ok:
+        # Last resort: close QAM, reopen, try once more
+        print("  [WARN] First attempt failed, retrying...")
+        close_qam(host, port, shared_ws)
+        time.sleep(1.0)
+        open_qam(host, port, shared_ws)
+        time.sleep(2.0)
+        ok = navigate_to_deckshelves_qam(host, port, qam_ws)
+
+    if not ok:
+        print("  [ERROR] Could not navigate to Deck Shelves in QAM")
+        return False
+    return True
 
 
 def screenshot_shelf_actions(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture shelf context menu (ellipsis button)."""
-    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     if click_qam_button(host, port, qam_ws, "cx=", 0):
         time.sleep(1.0)
         result = capture_bigpicture(host, port, bp, "shelf-actions.png")
@@ -673,7 +885,7 @@ def screenshot_shelf_actions(host: str, port: int, bp: Dict, shared_ws: str, qam
 def screenshot_shelf_edit(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture Edit shelf modal."""
     bp_ws = ws_path_for(bp, port)
-    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     if click_qam_button(host, port, qam_ws, "cx=", 0):
         time.sleep(1.0)
         # Find and click the Edit menu item (matches Editar/Edit)
@@ -704,7 +916,7 @@ def screenshot_shelf_edit(host: str, port: int, bp: Dict, shared_ws: str, qam_ws
 def screenshot_shelf_hidden(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str, qam_target: Optional[Dict] = None) -> Optional[Path]:
     """Capture QAM showing a hidden shelf."""
     bp_ws = ws_path_for(bp, port)
-    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     if click_qam_button(host, port, qam_ws, "cx=", 0):
         time.sleep(1.0)
         # Click Hide/Ocultar
@@ -755,7 +967,7 @@ def screenshot_shelf_hidden(host: str, port: int, bp: Dict, shared_ws: str, qam_
 def screenshot_shelf_delete(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture delete shelf confirmation dialog."""
     bp_ws = ws_path_for(bp, port)
-    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     if click_qam_button(host, port, qam_ws, "cx=", 0):
         time.sleep(1.0)
         # Click Delete/Apagar (match exact text to avoid clicking wrong item)
@@ -779,10 +991,52 @@ def screenshot_shelf_delete(host: str, port: int, bp: Dict, shared_ws: str, qam_
     return result
 
 
+def screenshot_create_shelf(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
+    """Capture the template picker modal (create shelf)."""
+    bp_ws = ws_path_for(bp, port)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    # Click the "+" (add) button — SVG contains "M12 5v14" (vertical bar of plus)
+    clicked = click_qam_button(host, port, qam_ws, "M12 5v14", 0)
+    if not clicked:
+        clicked = click_qam_button(host, port, qam_ws, "M5 12h14", 0)
+    if clicked:
+        time.sleep(2.0)
+        result = capture_bigpicture(host, port, bp, "shelf-create.png")
+        cancel_bp_modal(host, port, bp_ws)
+        time.sleep(1.0)
+    else:
+        print("  [WARN] Could not find add/create button")
+        result = None
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
+def screenshot_import_shelf(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
+    """Capture the import modal."""
+    bp_ws = ws_path_for(bp, port)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    # Click the import button — SVG contains "M12 18v-6" (down arrow)
+    clicked = click_qam_button(host, port, qam_ws, "M12 18v-6", 0)
+    if not clicked:
+        clicked = click_qam_button(host, port, qam_ws, "m9 15", 0)
+    if clicked:
+        time.sleep(2.0)
+        result = capture_bigpicture(host, port, bp, "shelf-import.png")
+        cancel_bp_modal(host, port, bp_ws)
+        time.sleep(1.0)
+    else:
+        print("  [WARN] Could not find import button")
+        result = None
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
 def screenshot_shelf_import(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture import shelves modal."""
     bp_ws = ws_path_for(bp, port)
-    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     clicked = click_qam_button(host, port, qam_ws, "M12 18v-6", 0)
     if not clicked:
         clicked = click_qam_button(host, port, qam_ws, "m9 15", 0)
@@ -802,7 +1056,7 @@ def screenshot_shelf_import(host: str, port: int, bp: Dict, shared_ws: str, qam_
 def screenshot_shelf_export(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture export shelves modal."""
     bp_ws = ws_path_for(bp, port)
-    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     clicked = click_qam_button(host, port, qam_ws, "M12 12v6", 0)
     if not clicked:
         clicked = click_qam_button(host, port, qam_ws, "m15 15", 0)
@@ -822,7 +1076,7 @@ def screenshot_shelf_export(host: str, port: int, bp: Dict, shared_ws: str, qam_
 def screenshot_about_page(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture the About / Filter Documentation page."""
     bp_ws = ws_path_for(bp, port)
-    _open_qam_and_tab(host, port, shared_ws, qam_ws)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     # Click the book icon button (About) in the QAM title bar
     clicked = click_qam_button(host, port, qam_ws, "M4 19.5A2.5", 0)
     if not clicked:
@@ -946,16 +1200,13 @@ def main() -> int:
 
 
 
-    # HOME: Garante topo, overlays fechados, print
+    # HOME: Ensure clean state, navigate to home, scroll to top
     print("\n[screenshot] home ...")
-    eval_target(args.host, args.port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
-    time.sleep(3.0)
+    ensure_bp_clean(args.host, args.port, bp, shared_ws)
     for _ in range(6):
         scroll_bp(args.host, args.port, bp, -2000)
         time.sleep(0.15)
-    for _ in range(6):
-        dismiss_bp_escape(args.host, args.port, bp)
-        time.sleep(0.15)
+    time.sleep(1.0)
     p = capture_bigpicture(args.host, args.port, bp, "home.png")
     if p:
         captured.append(p)
@@ -1010,13 +1261,7 @@ def main() -> int:
     screenshot_game_detail(args.host, args.port, bp, shared_ws)
     time.sleep(2.0)
 
-    try:
-        eval_target(args.host, args.port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
-        time.sleep(2.0)
-        dismiss_bp_escape(args.host, args.port, bp)
-        time.sleep(0.5)
-    except Exception as e:
-        print(f"  [WARN] Falha ao voltar para Home: {e}")
+    ensure_bp_clean(args.host, args.port, bp, shared_ws)
 
     print("\n[screenshot] game-menu ... (segunda prateleira)")
     p = screenshot_game_menu(args.host, args.port, bp, shared_ws)
@@ -1031,6 +1276,22 @@ def main() -> int:
         captured.append(p)
         explicacoes.append(("qam.png", "Quick Access Menu aberto na aba do plugin Deck Shelves."))
     time.sleep(2.0)
+
+    print("\n[screenshot] shelf-create ... (template picker)")
+    if qam_ws:
+        p = screenshot_create_shelf(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-create.png", "Modal de criação de prateleira (seleção de template)."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] shelf-import-modal ... (import modal)")
+    if qam_ws:
+        p = screenshot_import_shelf(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-import.png", "Modal de importação de prateleiras."))
+        time.sleep(1.5)
 
     print("\n[screenshot] shelf-hidden ... (ocultando prateleira)")
     if qam_ws:
@@ -1062,14 +1323,6 @@ def main() -> int:
         if p:
             captured.append(p)
             explicacoes.append(("shelf-delete.png", "Confirmação de exclusão de prateleira."))
-        time.sleep(1.5)
-
-    print("\n[screenshot] shelf-import ...")
-    if qam_ws:
-        p = screenshot_shelf_import(args.host, args.port, bp, shared_ws, qam_ws)
-        if p:
-            captured.append(p)
-            explicacoes.append(("shelf-import.png", "Modal de importação de prateleiras."))
         time.sleep(1.5)
 
     print("\n[screenshot] shelf-export ...")

@@ -130,12 +130,13 @@ export function useSettingsController() {
       if (!s || s.globalHighlightFirst === globalHighlightFirst) return;
       await persist({ ...s, globalHighlightFirst });
     },
-    async addShelf() {
+    async addShelf(): Promise<Shelf | undefined> {
       const s = liveSettings();
       if (!s) return;
       const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+      return shelf;
     },
     async createDefaultShelves() {
       const s = liveSettings();
@@ -148,12 +149,13 @@ export function useSettingsController() {
       await persist(next);
       setSelectedId(next.shelves[0]?.id ?? null);
     },
-    async addShelfWith(title: string, source: ShelfSource) {
+    async addShelfWith(title: string, source: ShelfSource): Promise<Shelf | undefined> {
       const s = liveSettings();
       if (!s) return;
       const shelf: Shelf = { ...createDefaultShelf(), title, source };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+      return shelf;
     },
     async patchShelf(id: string, patch: Partial<Shelf>) {
       const s = liveSettings();
@@ -172,7 +174,7 @@ export function useSettingsController() {
       const duplicate: Shelf = JSON.parse(JSON.stringify(sourceShelf));
       duplicate.id = randomShelfId();
       duplicate.title = `${sourceShelf.title} ${t("copySuffix")}`.trim();
-      await persist(addShelfToSettings(s, duplicate));
+      await persist(addShelfToSettings(s, duplicate, id));
       setSelectedId(duplicate.id);
     },
     async removeShelf(id: string) {

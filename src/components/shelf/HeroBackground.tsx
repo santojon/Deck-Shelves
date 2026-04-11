@@ -13,57 +13,23 @@ function getHeroUrls(appid: number): string[] {
   ];
 }
 
-// ── Native hero structure (discovered via CDP on SteamOS 3.8) ──
+// Native hero structure (CDP on SteamOS 3.8):
+//   IMG  — filter: grayscale(1) contrast(1), 0.3s fade-in, object-fit: cover
+//   DIV  — 25s ease alternate zoom animation
+//   DIV  — mask-image: radial-gradient(75% 83% at 50% 18%, black 0%, rgba(0,0,0,0.6) 76%, transparent 100%)
+//   DIV  — same mask-image (double masking)
+//   DIV  — padding-top: 54px, Panel Focusable
 //
-// [0] IMG   — filter: grayscale(1) contrast(1), animation: 0.3s fade-in,
-//             object-fit: cover, transition: transform 0.5s / opacity 0.5s
-// [1] DIV   — position: absolute, animation: 25s ease alternate (slow zoom)
-// [2] DIV   — position: absolute, z-index: 0,
-//             mask-image: radial-gradient(75% 83% at 50% 18%, black 0%, rgba(0,0,0,0.6) 76%, transparent 100%)
-// [3] DIV   — position: absolute, z-index: 0, same mask-image (double mask)
-// [4] DIV   — position: relative, padding-top: 54px, Panel Focusable
-//
-// Key findings:
-// - NO linear-gradient overlays or ::after pseudo-elements for fade
-// - The fade is achieved via radial-gradient mask-image on TWO wrapper divs
-// - The image uses grayscale(1) + contrast(1) as default filter
-// - The zoom is a 25s single-alternate animation on the zoom container
-// - Viewport size: 854×396 (hero) inside 854×534 (screen)
+// The fade is via radial-gradient mask-image. The bottom fade comes from
+// the hero sitting inside a container with black background (rgb(0,0,0)).
+// Since our mount has transparent background, we use a linear-gradient
+// overlay at the bottom to replicate the same visual result.
 
-/** Classes and computed styles discovered from the native recents hero DOM. */
 type NativeHeroClasses = {
   imgClass: string;
   zoomContainerClass: string;
   wrapperClasses: string[];
-  zoomAnimation: string;
-  imgFilter: string;
-  imgTransition: string;
-  /** Native mask-image from wrapper divs */
-  maskImage: string;
 };
-
-/** Native radial-gradient mask that creates the vignette/fade effect */
-const NATIVE_MASK =
-  "radial-gradient(75% 83% at 50% 18%, rgb(0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 76%, rgba(0, 0, 0, 0) 100%)";
-
-/** Inject keyframes once for the native-matching slow zoom */
-const ZOOM_STYLE_ID = "ds-hero-zoom-keyframes";
-function ensureZoomKeyframes(doc: Document) {
-  if (doc.getElementById(ZOOM_STYLE_ID)) return;
-  const style = doc.createElement("style");
-  style.id = ZOOM_STYLE_ID;
-  style.textContent = `
-    @keyframes ds-hero-zoom {
-      0% { transform: scale(1); }
-      100% { transform: scale(1.08); }
-    }
-    @keyframes ds-hero-img-fadein {
-      from { opacity: 0; filter: grayscale(1) contrast(1); }
-      to   { opacity: 1; filter: grayscale(1) contrast(1); }
-    }
-  `;
-  doc.head.appendChild(style);
-}
 
 export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
@@ -75,12 +41,10 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const currentAppid = useRef(0);
   const allUrls = useRef<string[]>([]);
 
-  // Discover native hero classes + computed styles from the recents section
+  // Discover native hero classes from the recents section
   useEffect(() => {
-    const doc = getPreferredSteamDocument();
-    if (doc) ensureZoomKeyframes(doc);
-
     const discover = () => {
+      const doc = getPreferredSteamDocument();
       if (!doc) return;
       const prev = mountEl.previousElementSibling as HTMLElement | null;
       if (!prev) return;
@@ -94,38 +58,18 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
           if (!zoomContainer) continue;
           const zoomContainerClass = Array.from(zoomContainer.classList).join(' ');
           const wrapperClasses: string[] = [];
-          let maskImage = "";
           let el = zoomContainer.parentElement;
           for (let i = 0; i < 4 && el && el !== prev; i++) {
             if (el.classList.contains('Focusable') || el.classList.contains('Panel')) break;
             wrapperClasses.push(Array.from(el.classList).join(' '));
-            // Capture mask-image from wrappers (native uses radial-gradient)
-            if (!maskImage) {
-              try {
-                const cs = getComputedStyle(el);
-                const m = (cs as any).maskImage || (cs as any).webkitMaskImage || "";
-                if (m && m !== "none") maskImage = m;
-              } catch {}
-            }
             el = el.parentElement;
           }
-          let zoomAnimation = "";
-          let imgFilter = "";
-          let imgTransition = "";
-          try {
-            const csImg = getComputedStyle(img as Element);
-            const csZoom = getComputedStyle(zoomContainer as Element);
-            zoomAnimation = csZoom.animation || "";
-            imgFilter = csImg.filter || "";
-            imgTransition = csImg.transition || "";
-            logInfo("HOME", "HeroBackground: native styles captured", {
-              imgClass: imgClass.substring(0, 40),
-              zoomAnimation: zoomAnimation.substring(0, 60),
-              imgFilter,
-              maskImage: maskImage.substring(0, 80),
-            });
-          } catch (e) { logInfo("HOME", "HeroBackground: computedStyle capture failed", String(e)); }
-          setNativeClasses({ imgClass, zoomContainerClass, wrapperClasses, zoomAnimation, imgFilter, imgTransition, maskImage });
+          setNativeClasses({ imgClass, zoomContainerClass, wrapperClasses });
+          logInfo("HOME", "HeroBackground: native classes discovered", {
+            imgClass: imgClass.substring(0, 40),
+            zoomContainerClass: zoomContainerClass.substring(0, 40),
+            wrappers: wrapperClasses.length,
+          });
           return;
         }
       }
@@ -185,84 +129,40 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
 
   if (!heroUrl) return null;
 
-  const mask = nativeClasses?.maskImage || NATIVE_MASK;
+  // Build native-matching DOM structure:
+  // outer (clip) > wrappers (with native classes → bring native CSS including mask) > zoom > img
   const wrappers = nativeClasses?.wrapperClasses ?? [];
 
-  // ── Build native-matching DOM structure ──
-  //
-  // Native chain (inside → outside):
-  //   IMG (grayscale + fade-in anim)
-  //   → zoom container (25s slow zoom animation)
-  //   → mask wrapper 1 (radial-gradient mask-image)
-  //   → mask wrapper 2 (same radial-gradient mask-image, double masking)
-
-  // Zoom container: 25s slow zoom, single alternate
-  const zoomStyle: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    animation: nativeClasses?.zoomAnimation || "ds-hero-zoom 25s ease 0s 1 alternate none running",
-    transformOrigin: "center center",
-  };
-
-  // Image: native uses grayscale(1) contrast(1) with a 0.3s fade-in animation
-  const imgStyle: React.CSSProperties = {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    objectPosition: "50% 50%",
-    display: "block",
-    overflow: "clip" as any,
-    filter: nativeClasses?.imgFilter || "grayscale(1) contrast(1)",
-    animation: "ds-hero-img-fadein 0.3s cubic-bezier(0.17, 0.45, 0.14, 0.83) backwards",
-    transition: nativeClasses?.imgTransition || "transform 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
-  };
-
-  // Mask wrapper style — native uses the same radial-gradient on two nested divs
-  const maskStyle: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    zIndex: 0,
-    maskImage: mask,
-    WebkitMaskImage: mask,
-  };
-
   let inner = (
-    <div className={nativeClasses?.zoomContainerClass || undefined} style={zoomStyle}>
+    <div
+      className={nativeClasses?.zoomContainerClass || undefined}
+      style={{ position: "absolute", inset: 0, overflow: "visible" }}
+    >
       <img
         ref={imgRef}
         className={nativeClasses?.imgClass || undefined}
         src={heroUrl}
         onError={onImgError}
-        style={imgStyle}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "50% 50%",
+          display: "block",
+        }}
         loading="eager"
       />
     </div>
   );
 
-  // Apply native wrapper classes if discovered, otherwise use our mask structure
-  if (wrappers.length >= 2) {
-    // Native has 2+ wrappers with mask-image
-    for (let i = wrappers.length - 1; i >= 0; i--) {
-      inner = (
-        <div
-          className={wrappers[i] || undefined}
-          style={{ ...maskStyle }}
-        >
-          {inner}
-        </div>
-      );
-    }
-  } else {
-    // Fallback: replicate the native double-mask structure
+  // Wrap in intermediate containers — native classes bring their own mask-image via CSS
+  for (let i = wrappers.length - 1; i >= 0; i--) {
     inner = (
-      <div style={maskStyle}>
-        <div style={maskStyle}>
-          {inner}
-        </div>
+      <div
+        className={wrappers[i] || undefined}
+        style={{ position: "absolute", inset: 0, overflow: "visible" }}
+      >
+        {inner}
       </div>
     );
   }
@@ -272,10 +172,10 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       className="ds-hero-background"
       style={{
         position: "absolute",
-        top: -54,
+        top: -60,
         left: 0,
         right: 0,
-        height: 396,
+        height: 420,
         overflow: "hidden",
         zIndex: -1,
         pointerEvents: "none",
@@ -283,7 +183,29 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
       }}
     >
+      {/* Solid background layer — fills behind the image so the native
+          radial mask-image fades to the page background color instead of
+          transparent. Only this div has the page bg, not the parent mount. */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        background: "var(--ds-page-bg, rgb(0,0,0))",
+        zIndex: -1,
+      }} />
       {inner}
+      {/* Bottom fade — gradient from page bg to transparent at the top,
+          ensuring a smooth transition at the bottom edge of the hero area.
+          Uses var(--ds-page-bg) to follow the active theme color. */}
+      <div style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: "100%",
+        background: "linear-gradient(to top, var(--ds-page-bg, rgb(0,0,0)) 0%, transparent 70%)",
+        pointerEvents: "none",
+        zIndex: 1,
+      }} />
     </div>
   );
 }

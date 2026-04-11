@@ -82,11 +82,20 @@ describe('deleteShelfFromSettings', () => {
 })
 
 describe('addShelfToSettings', () => {
-  it('appends a new shelf to the end', () => {
+  it('prepends a new shelf to the top', () => {
     const settings = makeSettings([makeShelf('a')])
     const result = addShelfToSettings(settings, makeShelf('b'))
     expect(result.shelves).toHaveLength(2)
+    expect(result.shelves[0].id).toBe('b')
+  })
+
+  it('inserts after a specific shelf when afterId is given', () => {
+    const settings = makeSettings([makeShelf('a'), makeShelf('c')])
+    const result = addShelfToSettings(settings, makeShelf('b'), 'a')
+    expect(result.shelves).toHaveLength(3)
+    expect(result.shelves[0].id).toBe('a')
     expect(result.shelves[1].id).toBe('b')
+    expect(result.shelves[2].id).toBe('c')
   })
 
   it('does not mutate the original settings', () => {

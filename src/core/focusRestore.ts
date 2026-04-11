@@ -41,6 +41,24 @@ function findNavNodeForElement(el: HTMLElement): any {
   return found;
 }
 
+/** Move gamepad focus to a specific DOM element using the Steam nav tree API.
+ *  Returns true if BTakeFocus or equivalent succeeded, false if it had to
+ *  fall back to element.focus(). */
+export function focusElement(el: HTMLElement): boolean {
+  const navNode = findNavNodeForElement(el);
+  if (navNode) {
+    try {
+      if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); return true; }
+      const tree = navNode.m_Tree;
+      if (tree?.TakeFocus) { tree.TakeFocus(2, navNode); return true; }
+      const ctrl = getFocusNavController();
+      if (ctrl?.OnGamepadNavigationTreeFocused && tree) { ctrl.OnGamepadNavigationTreeFocused(tree, navNode); return true; }
+    } catch {}
+  }
+  try { el.focus?.(); } catch {}
+  return false;
+}
+
 export function hasPendingFocus(): boolean {
   return !!pendingAppid;
 }
