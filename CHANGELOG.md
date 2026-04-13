@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - QAM action buttons regrouped: Add / Import / Export on the left; Import from TabMaster on the right
 - QAM button row alignment fixed: buttons now flush with the 16 px QAM edge instead of over-indented
 - Shelf action button (⋯) right-aligned to match the TabMaster import button position
+- Card dimensions discovered from the native SteamOS shelf are now persisted to `localStorage` (`ds-cardsize`) per viewport/DPI, so cold boot reuses the last-session values instead of briefly rendering the hardcoded fallback before re-measuring — eliminates the initial card reflow. Cache is keyed by `innerWidth`/`innerHeight`/`devicePixelRatio` and re-measured whenever the viewport changes.
 
 ### Fixed
 

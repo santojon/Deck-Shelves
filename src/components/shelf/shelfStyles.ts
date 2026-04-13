@@ -5,24 +5,65 @@ import { CARD_W, CARD_ART_H, CARD_GAP } from "./types";
 
 const STYLE_ID = "deck-shelves-row-style";
 
+// Tuning for native-dim discovery cycle
+const DIMS_TOL_PX = 4;            // ignore jitter smaller than this
+const DIMS_STABLE_POLLS = 2;      // consecutive matches required before accepting
+const DIMS_DEBOUNCE_MS = 500;     // notify listeners after the churn settles
+const STYLES_POLL_MS = 3000;      // how often ensureStyles re-runs
+
+// Persisted cache (cold-start reflow avoidance)
+const DIMS_CACHE_KEY = "ds-cardsize";
+const DIMS_CACHE_VERSION = 1;
+type PersistedDims = { v: number; dims: NativeCardDims; vw: number; vh: number; dpr: number };
+
 let cachedCardRadius = "0px";
 let cachedNativeDims: NativeCardDims | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
-// Confirmation cycle: new dims must be stable for 2 consecutive polls before accepting.
+// Confirmation cycle: new dims must be stable for N consecutive polls before accepting.
 // This prevents flicker from transient measurements (focus scale, hover, animation frames).
 let pendingDims: NativeCardDims | null = null;
 let pendingDimsCount = 0;
 
+function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
+  const w: any = globalThis as any;
+  return {
+    vw: Math.round(Number(w?.innerWidth ?? 0)),
+    vh: Math.round(Number(w?.innerHeight ?? 0)),
+    dpr: Number(w?.devicePixelRatio ?? 1),
+  };
+}
+
+function loadPersistedDims(): NativeCardDims | null {
+  try {
+    const raw = (globalThis as any)?.localStorage?.getItem(DIMS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedDims;
+    if (!parsed || parsed.v !== DIMS_CACHE_VERSION || !parsed.dims) return null;
+    const cur = viewportFingerprint();
+    if (parsed.vw !== cur.vw || parsed.vh !== cur.vh || Math.abs(parsed.dpr - cur.dpr) > 0.01) return null;
+    return parsed.dims;
+  } catch { return null; }
+}
+
+function persistDims(dims: NativeCardDims) {
+  try {
+    const payload: PersistedDims = { v: DIMS_CACHE_VERSION, dims, ...viewportFingerprint() };
+    (globalThis as any)?.localStorage?.setItem(DIMS_CACHE_KEY, JSON.stringify(payload));
+  } catch {}
+}
+
+// Seed from last-session cache so cold boot skips the CARD_W/CARD_ART_H fallback
+// and avoids the reflow when native dims are discovered shortly after.
+cachedNativeDims = loadPersistedDims();
+
 let dimsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedNotifyDims(_dims: NativeCardDims) {
-  // Debounce: wait 500ms after last change before notifying listeners.
-  // This prevents rapid re-renders when dims flicker during navigation.
   if (dimsDebounceTimer) clearTimeout(dimsDebounceTimer);
   dimsDebounceTimer = setTimeout(() => {
     dimsDebounceTimer = null;
     nativeDimsListeners.forEach(cb => cb());
-  }, 500);
+  }, DIMS_DEBOUNCE_MS);
 }
 
 export function getCachedCardRadius(): string { return cachedCardRadius; }
@@ -63,7 +104,7 @@ function ensureStyles() {
     // Only accept new dims when the change exceeds tolerance (avoids flicker
     // from focus-scale, rounding, or animation mid-frame measurements).
     // When newDims is null (e.g. recents hidden), keep the cached dims.
-    const tol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > 4;
+    const tol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > DIMS_TOL_PX;
     const dimsChanged = newDims !== null && (
       !cachedNativeDims ||
       tol(newDims.width, cachedNativeDims.width) ||
@@ -80,8 +121,9 @@ function ensureStyles() {
         !tol(newDims.gap, pendingDims.gap);
       if (matchesPending) {
         pendingDimsCount++;
-        if (pendingDimsCount >= 2) {
+        if (pendingDimsCount >= DIMS_STABLE_POLLS) {
           cachedNativeDims = newDims;
+          persistDims(newDims);
           pendingDims = null;
           pendingDimsCount = 0;
           debouncedNotifyDims(newDims);
@@ -92,6 +134,7 @@ function ensureStyles() {
       }
     } else if (!cachedNativeDims && newDims) {
       cachedNativeDims = newDims;
+      persistDims(newDims);
     } else {
       pendingDims = null;
       pendingDimsCount = 0;
@@ -366,7 +409,7 @@ let globalResizeHandler: (() => void) | null = null;
 export function globalStylesStart() {
   if (++globalStyleRefCount === 1) {
     ensureStyles();
-    globalStyleTimer = setInterval(ensureStyles, 3000);
+    globalStyleTimer = setInterval(ensureStyles, STYLES_POLL_MS);
     globalResizeHandler = () => ensureStyles();
     window.addEventListener('resize', globalResizeHandler);
   }
