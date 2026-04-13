@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - QAM button row alignment fixed: buttons now flush with the 16 px QAM edge instead of over-indented
 - Shelf action button (⋯) right-aligned to match the TabMaster import button position
 
+### Fixed
+
+- "Installed" filter no longer includes every UnifiDeck shortcut as installed — UnifiDeck marks all its shortcuts `installed: true` in the app overview; the filter now cross-references the `[Unifideck] Installed` collection (the same source TabMaster-based tabs use) for non-Steam apps, falling back to `size_on_disk` / local playtime when the collection is absent. Also extended the non-Steam detector to handle UnifiDeck's numeric `app_type` value.
+
 ## [1.2.3] - 2026-04-11
 
 ### Added

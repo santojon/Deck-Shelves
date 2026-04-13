@@ -602,7 +602,42 @@ function appNameOf(a: any): string {
   return String(a?.display_name ?? a?.name ?? a?.strDisplayName ?? a?.m_strName ?? "");
 }
 function isNonSteamOf(a: any): boolean {
-  return !!(a?.is_non_steam) || a?.is_steam === false || a?.m_eAppType === 1073741824 || a?.app_type === "shortcut";
+  return !!(a?.is_non_steam) || a?.is_steam === false || a?.m_eAppType === 1073741824 || a?.app_type === 1073741824 || a?.app_type === "shortcut";
+}
+
+// Unifideck marks every shortcut it registers as `installed: true` on the app
+// overview regardless of real state. Ground truth lives in its "[Unifideck]
+// Installed" collection. Cache the membership briefly so filter passes over
+// ~2k apps stay O(1) per check.
+let _ufInstalledCache: { ids: Set<number>; ts: number } | null = null;
+const UF_INSTALLED_LABELS = new Set([
+  "installed", "instalados", "instalado", "installés", "installierte",
+  "installiert", "installati", "zainstalowane", "geïnstalleerd",
+  "installerade", "установленные", "установлено", "インストール済み",
+  "已安装", "已安裝", "설치됨", "ติดตั้งแล้ว",
+]);
+function getUnifideckInstalledSet(): Set<number> {
+  const now = Date.now();
+  if (_ufInstalledCache && now - _ufInstalledCache.ts < 5000) return _ufInstalledCache.ids;
+  const ids = new Set<number>();
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    const cols = cs?.userCollections;
+    const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
+    const match = list.find((c: any) => {
+      const name = String(c?.displayName ?? c?.m_strName ?? "");
+      if (!/^\[Unifideck\]/i.test(name)) return false;
+      const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
+      return UF_INSTALLED_LABELS.has(label);
+    });
+    const apps = match?.allApps ?? match?.m_rgApps ?? [];
+    for (const a of apps) {
+      const n = Number(a?.appid);
+      if (Number.isFinite(n)) ids.add(n);
+    }
+  } catch {}
+  _ufInstalledCache = { ids, ts: now };
+  return ids;
 }
 function isFavoriteOf(a: any): boolean {
   return !!(a?.is_favorite ?? a?.favorite ?? a?.m_bIsFavorite ?? a?.m_bFavorite ?? a?.bFavorite);
@@ -611,6 +646,14 @@ function isHiddenOf(a: any): boolean {
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }
 function isInstalledOf(a: any): boolean {
+  if (isNonSteamOf(a)) {
+    const uf = getUnifideckInstalledSet();
+    if (uf.size > 0) return uf.has(Number(a?.appid));
+    const sod = Number(a?.size_on_disk ?? 0);
+    if (Number.isFinite(sod) && sod > 0) return true;
+    const lp = Number(a?.rt_last_time_locally_played ?? 0);
+    return Number.isFinite(lp) && lp > 0;
+  }
   return !!(a?.installed ?? a?.is_installed ?? a?.m_bInstalled ?? a?.bInstalled);
 }
 function lastPlayedOf(a: any): number {
