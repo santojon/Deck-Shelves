@@ -44,8 +44,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const isFirstRun = shelves.length === 0 && !settings.enabled
   const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
-  const [hasCustomFilters] = useState(() => isTabMasterInstalled())
-  const handleImportFromCustomFilters = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
+  const [hasTabMaster] = useState(() => isTabMasterInstalled())
+  const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
   const crashError = getMountError()
@@ -99,9 +99,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {!mountCrashed && settings.enabled && (
         <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
       )}
-      {!mountCrashed && settings.enabled && (
-        <div style={{ paddingLeft: 14, fontSize: 12, opacity: disableHideRecents || !settings.hideRecents ? 0.5 : 0.95 }}>
-          <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={disableHideRecents || !settings.hideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
+      {!mountCrashed && settings.enabled && settings.hideRecents === true && (
+        <div style={{ paddingLeft: 14, fontSize: 12 }}>
+          <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
         </div>
       )}
       
@@ -109,11 +109,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       <div className='deck-shelves-section-header' style={{ marginTop: 12 }}>{t('shelves_section')}</div>
       <div className='deck-shelves-separator' />
       <Field className='no-sep'>
-        <Focusable style={{ width: '100%', display: 'flex' }}>
-          <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
-          <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
-          {hasCustomFilters ? <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.customFilters} onClick={handleImportFromCustomFilters} okDescription={t('import_from_tabmaster')} /></div> : null}
-          <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
+        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex' }}>
+            <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
+            <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
+            <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
+          </div>
+          {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
         </Focusable>
       </Field>
       <div className='deck-shelves-separator' />

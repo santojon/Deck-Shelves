@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- "Show background art" toggle is now hidden when "Hide recent games" is inactive (instead of disabled) — removes dead UI state
+- "Show background art" label updated across all 16 locales to clarify it applies to the first shelf
+- QAM action buttons regrouped: Add / Import / Export on the left; Import from TabMaster on the right
+- QAM button row alignment fixed: buttons now flush with the 16 px QAM edge instead of over-indented
+- Shelf action button (⋯) right-aligned to match the TabMaster import button position
+
 ## [1.2.3] - 2026-04-11
 
 ### Added

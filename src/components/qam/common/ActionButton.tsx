@@ -10,7 +10,6 @@ export function ActionButton({ iconNode, onClick, okDescription }: { iconNode: R
           width: '42px',
           minWidth: 0,
           padding: '10px 12px',
-          marginLeft: 'auto',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
