@@ -222,5 +222,12 @@
   "toast_failed_save": "Impossible d'enregistrer les paramètres",
   "toast_imported": "Paramètres importés",
   "view_more": "Voir plus\ndans votre\nbibliothèque",
-  "visibility": "Visibilité"
+  "visibility": "Visibilité",
+  "mount_crash_title": "Étagères désactivées sur l'Accueil",
+  "mount_crash_banner_desc": "Une erreur de rendu a été détectée. Vos étagères sont temporairement masquées de l'Accueil, mais vous pouvez toujours les créer et les modifier — elles réapparaîtront après une réinitialisation.",
+  "reset_all_button": "Tout réinitialiser",
+  "reset_all_confirm_title": "Tout réinitialiser ?",
+  "reset_all_confirm_desc": "Ceci supprime définitivement toutes les étagères, réglages et caches de Deck Shelves. Irréversible.",
+  "reset_all_confirm_ok": "Réinitialiser",
+  "mount_crash_export_and_reset": "Exporter les étagères et effacer les données"
 }

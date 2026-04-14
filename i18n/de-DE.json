@@ -222,5 +222,12 @@
   "toast_failed_save": "Einstellungen konnten nicht gespeichert werden",
   "toast_imported": "Einstellungen importiert",
   "view_more": "Mehr anzeigen\nin deiner\nBibliothek",
-  "visibility": "Sichtbarkeit"
+  "visibility": "Sichtbarkeit",
+  "mount_crash_title": "Regale auf Home deaktiviert",
+  "mount_crash_banner_desc": "Beim Rendern der Regale wurde ein Fehler festgestellt. Sie sind vorübergehend auf dem Home-Bildschirm ausgeblendet, aber du kannst sie weiterhin erstellen und bearbeiten — nach einem Reset erscheinen sie wieder.",
+  "reset_all_button": "Alles zurücksetzen",
+  "reset_all_confirm_title": "Alles zurücksetzen?",
+  "reset_all_confirm_desc": "Dies löscht alle Regale, Einstellungen und Caches von Deck Shelves dauerhaft. Kann nicht rückgängig gemacht werden.",
+  "reset_all_confirm_ok": "Zurücksetzen",
+  "mount_crash_export_and_reset": "Regale exportieren und Daten löschen"
 }

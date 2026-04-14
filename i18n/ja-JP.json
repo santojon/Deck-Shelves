@@ -222,5 +222,12 @@
   "toast_failed_save": "設定を保存できませんでした",
   "toast_imported": "設定をインポートしました",
   "view_more": "ライブラリで\nもっと見る",
-  "visibility": "表示設定"
+  "visibility": "表示設定",
+  "mount_crash_title": "ホームの棚を無効化中",
+  "mount_crash_banner_desc": "棚の描画エラーを検出しました。ホームでは一時的に非表示ですが、作成・編集は続けられます — リセット後に再表示されます。",
+  "reset_all_button": "すべてリセット",
+  "reset_all_confirm_title": "すべてリセットしますか？",
+  "reset_all_confirm_desc": "Deck Shelves のすべての棚、設定、キャッシュを完全に削除します。元に戻せません。",
+  "reset_all_confirm_ok": "リセット",
+  "mount_crash_export_and_reset": "シェルフをエクスポートしてデータを消去"
 }

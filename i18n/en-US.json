@@ -222,5 +222,12 @@
   "toast_failed_save": "Could not save settings",
   "toast_imported": "Settings imported",
   "view_more": "View more\nin your\nlibrary",
-  "visibility": "Visibility"
+  "visibility": "Visibility",
+  "mount_crash_title": "Home shelves disabled",
+  "mount_crash_banner_desc": "A shelf render error was detected. Your shelves are temporarily hidden from Home, but you can still create and edit them — they will appear again after you reset.",
+  "reset_all_button": "Reset everything",
+  "reset_all_confirm_title": "Reset everything?",
+  "reset_all_confirm_desc": "This permanently deletes all shelves, settings and cached data for Deck Shelves. This cannot be undone.",
+  "reset_all_confirm_ok": "Reset",
+  "mount_crash_export_and_reset": "Export shelves and clear data"
 }

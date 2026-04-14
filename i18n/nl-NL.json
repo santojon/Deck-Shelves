@@ -222,5 +222,12 @@
   "toast_failed_save": "Kan instellingen niet opslaan",
   "toast_imported": "Instellingen geïmporteerd",
   "view_more": "Meer bekijken\nin je\nbibliotheek",
-  "visibility": "Zichtbaarheid"
+  "visibility": "Zichtbaarheid",
+  "mount_crash_title": "Schappen uitgeschakeld op Home",
+  "mount_crash_banner_desc": "Er is een renderfout gedetecteerd. Je schappen zijn tijdelijk verborgen op Home, maar je kunt ze blijven maken en bewerken — ze verschijnen weer na een reset.",
+  "reset_all_button": "Alles resetten",
+  "reset_all_confirm_title": "Alles resetten?",
+  "reset_all_confirm_desc": "Dit verwijdert permanent alle schappen, instellingen en cache van Deck Shelves. Kan niet ongedaan worden gemaakt.",
+  "reset_all_confirm_ok": "Resetten",
+  "mount_crash_export_and_reset": "Planken exporteren en gegevens wissen"
 }

@@ -1,6 +1,8 @@
 import React from "react";
 import i18next from "i18next";
-import { HomeShelves } from "../components/HomeInject";
+import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";
+import { wrapHomeShelves } from "../qa/harness";
+const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { refreshSettings } from "../settingsStore";
 import type { Shelf } from "../types";
 import { createDeckyPlatform } from "./deckyPlatform";
@@ -29,9 +31,23 @@ const rowScrollState = new Map<string, number>();
 let mountFailed = false;
 let mountError: string | null = null;
 
+if (__DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__) {
+  mountFailed = true;
+  mountError = "QA: forced shelf render error";
+}
+
 export function getMountFailed(): boolean { return mountFailed; }
 export function getMountError(): string | null { return mountError; }
-export function resetMountFailed(): void { mountFailed = false; mountError = null; lastRenderKey = ""; }
+export function resetMountFailed(): void { mountFailed = false; mountError = null; lastRenderKey = ""; notifyMountFailedChange(); }
+
+const mountFailedListeners = new Set<() => void>();
+export function subscribeMountFailed(cb: () => void): () => void {
+  mountFailedListeners.add(cb);
+  return () => { mountFailedListeners.delete(cb); };
+}
+function notifyMountFailedChange(): void {
+  for (const cb of mountFailedListeners) { try { cb(); } catch {} }
+}
 
 // --- Recents hiding ---
 let cachedRecentsEl: HTMLElement | null = null;
@@ -339,7 +355,8 @@ function ensureMount(): HTMLElement | null {
   }
 
   // Success — clear any previous failure
-  if (mountFailed) {
+  const qaForceShelfError = __DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__;
+  if (mountFailed && !qaForceShelfError) {
     mountFailed = false;
     mountError = null;
     logInfo("HOME", "mount recovered after previous failure");
@@ -759,9 +776,28 @@ async function renderHomeShelves() {
   }
 }
 
+class HomeBoundary extends React.Component<{ children: React.ReactNode }, { crashed: boolean }> {
+  state = { crashed: false };
+  static getDerivedStateFromError(_err: unknown) { return { crashed: true }; }
+  componentDidCatch(err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logError("HOME", "shelf render crashed — crash protection engaged", msg);
+    logDiagnostic("error", "Home shelf render crashed", msg);
+    mountFailed = true;
+    mountError = msg;
+    try {
+      const { doc } = getHostContext();
+      const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+      if (mount) { mount.innerHTML = ""; mount.style.display = "none"; }
+    } catch {}
+    notifyMountFailedChange();
+  }
+  render() { return this.state.crashed ? null : this.props.children; }
+}
+
 function HomeDomBridge() {
   getHostContext();
-  return React.createElement(HomeShelves);
+  return React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
 }
 
 function registerBridgeViaStore(store: any): boolean {
@@ -987,14 +1023,14 @@ export function installHomePatch(_routerHook?: any) {
       if (typeof renderFn === "function") {
         const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
         root.render(
-          React.createElement(HomeShelves)
+          React.createElement(HomeBoundary, null, React.createElement(HomeShelves))
         );
         fallbackRoot = root;
         fallbackMountId = mount.id;
         logInfo("HOME", "fallback: rendered via createRoot");
       } else if (typeof ReactDOM.render === "function") {
         ReactDOM.render(
-          React.createElement(HomeShelves),
+          React.createElement(HomeBoundary, null, React.createElement(HomeShelves)),
           mount
         );
         fallbackRoot = { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(mount); } catch {} } };

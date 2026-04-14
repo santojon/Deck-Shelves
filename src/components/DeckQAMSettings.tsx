@@ -6,7 +6,7 @@ import {
   ToggleField,
   showModal,
 } from '@decky/ui'
-import { getMountFailed, getMountError, resetMountFailed } from '../runtime/homePatch'
+import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
@@ -20,6 +20,8 @@ import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFilte
 import { ImportModal } from './qam/modals/ImportModal'
 import { TemplatePickerModal } from './qam/modals/TemplatePickerModal'
 import { FirstRunBanner } from './qam/modals/FirstRunBanner'
+import { MountCrashBanner } from './qam/modals/MountCrashBanner'
+import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
@@ -48,7 +50,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
-  const crashError = getMountError()
+  const [crashError, setCrashError] = useState<string | null>(() => getMountError())
+  useEffect(() => {
+    const sync = () => { setMountCrashed(getMountFailed()); setCrashError(getMountError()) }
+    const unsub = subscribeMountFailed(sync)
+    sync()
+    return unsub
+  }, [])
+  const handleResetAll = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} />)
 
   // Compute whether the "hide recents" and "hero background" toggles should be
   // inactive.  They become disabled when there are no visible shelves or none of
@@ -84,24 +93,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         onChange={(value: boolean) => actions.setEnabled(value)}
       />
       {mountCrashed && (
-        <div style={{ padding: '6px 16px 10px', fontSize: 11, color: '#f87171', lineHeight: 1.4 }}>
-          {t('mount_crash_warning')}
-          {crashError ? <span style={{ opacity: 0.7, display: 'block', marginTop: 2 }}>{crashError.substring(0, 80)}</span> : null}
-          <DialogButton
-            style={{ marginTop: 6, padding: '4px 10px', fontSize: 11, height: 'auto', minWidth: 0 }}
-            onClick={() => { resetMountFailed(); setMountCrashed(false); }}
-            onOKButton={() => { resetMountFailed(); setMountCrashed(false); }}
-          >
-            {t('mount_crash_reset')}
-          </DialogButton>
-        </div>
+        <MountCrashBanner controller={controller} error={crashError} onDismiss={() => { setMountCrashed(false); setCrashError(null) }} />
       )}
-      {!mountCrashed && settings.enabled && (
-        <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
+      {settings.enabled && (
+        <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
       )}
-      {!mountCrashed && settings.enabled && settings.hideRecents === true && (
+      {settings.enabled && settings.hideRecents === true && (
         <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
+          <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
         </div>
       )}
       
@@ -122,9 +121,21 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       <ShelvesPanelSection controller={controller} />
       <div className='deck-shelves-section-header' style={{ marginTop: 8 }}>{t('apply_globally')}</div>
       <div className='deck-shelves-separator' />
-      {!mountCrashed && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} /> }
-      {!mountCrashed && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} /> }
-      {!mountCrashed && <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} /> }
+      <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
+      <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
+      <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />
+      <Field className='no-sep'>
+        <Focusable style={{ width: '100%', padding: '0 16px', boxSizing: 'border-box' }}>
+          <DialogButton
+            onClick={handleResetAll}
+            onOKButton={handleResetAll}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          >
+            {icons.reset}
+            <span>{t('reset_all_button')}</span>
+          </DialogButton>
+        </Focusable>
+      </Field>
     </div>
   )
 }

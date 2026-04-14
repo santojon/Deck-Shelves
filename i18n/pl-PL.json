@@ -222,5 +222,12 @@
   "toast_failed_save": "Nie udało się zapisać ustawień",
   "toast_imported": "Ustawienia zaimportowane",
   "view_more": "Zobacz więcej\nw swojej\nbibliotece",
-  "visibility": "Widoczność"
+  "visibility": "Widoczność",
+  "mount_crash_title": "Półki wyłączone na ekranie głównym",
+  "mount_crash_banner_desc": "Wykryto błąd renderowania półek. Są tymczasowo ukryte na ekranie głównym, ale nadal możesz je tworzyć i edytować — pojawią się ponownie po zresetowaniu.",
+  "reset_all_button": "Zresetuj wszystko",
+  "reset_all_confirm_title": "Zresetować wszystko?",
+  "reset_all_confirm_desc": "Spowoduje to trwałe usunięcie wszystkich półek, ustawień i pamięci podręcznej Deck Shelves. Operacja nieodwracalna.",
+  "reset_all_confirm_ok": "Resetuj",
+  "mount_crash_export_and_reset": "Eksportuj półki i wyczyść dane"
 }

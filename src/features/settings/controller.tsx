@@ -138,6 +138,22 @@ export function useSettingsController() {
       setSelectedId(shelf.id);
       return shelf;
     },
+    async resetAll() {
+      const empty: Settings = { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, shelves: [] };
+      try {
+        const ls = globalThis.localStorage;
+        if (ls) {
+          const drop: string[] = [];
+          for (let i = 0; i < ls.length; i++) {
+            const k = ls.key(i);
+            if (k && (k.startsWith('ds-') || k.startsWith('ds_') || k.startsWith('deck-shelves-'))) drop.push(k);
+          }
+          for (const k of drop) { try { ls.removeItem(k); } catch {} }
+        }
+      } catch {}
+      await persist(empty);
+      setSelectedId(null);
+    },
     async createDefaultShelves() {
       const s = liveSettings();
       if (!s) return;

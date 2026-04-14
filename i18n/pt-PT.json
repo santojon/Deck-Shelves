@@ -222,5 +222,12 @@
   "toast_failed_save": "Não foi possível guardar as definições",
   "toast_imported": "Definições importadas",
   "view_more": "Ver mais\nna sua\nbiblioteca",
-  "visibility": "Visibilidade"
+  "visibility": "Visibilidade",
+  "mount_crash_title": "Prateleiras desativadas no Início",
+  "mount_crash_banner_desc": "Foi detetado um erro ao mostrar as prateleiras. Estão temporariamente ocultas do Início, mas pode continuar a criar e editar — voltarão a aparecer após o reset.",
+  "reset_all_button": "Repor tudo",
+  "reset_all_confirm_title": "Repor tudo?",
+  "reset_all_confirm_desc": "Isto apaga permanentemente todas as prateleiras, definições e caches do Deck Shelves. Não pode ser anulado.",
+  "reset_all_confirm_ok": "Repor",
+  "mount_crash_export_and_reset": "Exportar prateleiras e limpar dados"
 }

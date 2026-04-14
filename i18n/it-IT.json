@@ -222,5 +222,12 @@
   "toast_failed_save": "Impossibile salvare le impostazioni",
   "toast_imported": "Impostazioni importate",
   "view_more": "Vedi altro\nnella tua\nlibreria",
-  "visibility": "Visibilità"
+  "visibility": "Visibilità",
+  "mount_crash_title": "Scaffali disattivati nella Home",
+  "mount_crash_banner_desc": "È stato rilevato un errore nel rendering degli scaffali. Sono temporaneamente nascosti dalla Home, ma puoi continuare a crearli e modificarli — ricompariranno dopo il reset.",
+  "reset_all_button": "Ripristina tutto",
+  "reset_all_confirm_title": "Ripristinare tutto?",
+  "reset_all_confirm_desc": "Questo eliminerà definitivamente tutti gli scaffali, le impostazioni e le cache di Deck Shelves. Operazione irreversibile.",
+  "reset_all_confirm_ok": "Ripristina",
+  "mount_crash_export_and_reset": "Esporta scaffali e cancella i dati"
 }

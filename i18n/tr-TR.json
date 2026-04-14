@@ -222,5 +222,12 @@
   "toast_failed_save": "Ayarlar kaydedilemedi",
   "toast_imported": "Ayarlar içe aktarıldı",
   "view_more": "Kütüphanenizde\ndaha fazlasını\ngörün",
-  "visibility": "Görünürlük"
+  "visibility": "Görünürlük",
+  "mount_crash_title": "Ana ekrandaki raflar devre dışı",
+  "mount_crash_banner_desc": "Raflar çizilirken bir hata algılandı. Ana ekranda geçici olarak gizlendiler, ancak oluşturmaya ve düzenlemeye devam edebilirsin — sıfırladıktan sonra tekrar görünecekler.",
+  "reset_all_button": "Tümünü sıfırla",
+  "reset_all_confirm_title": "Tümü sıfırlansın mı?",
+  "reset_all_confirm_desc": "Bu, Deck Shelves'e ait tüm rafları, ayarları ve önbelleği kalıcı olarak siler. Geri alınamaz.",
+  "reset_all_confirm_ok": "Sıfırla",
+  "mount_crash_export_and_reset": "Rafları dışa aktar ve verileri temizle"
 }

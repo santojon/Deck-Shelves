@@ -222,5 +222,12 @@
   "toast_failed_save": "설정을 저장할 수 없습니다",
   "toast_imported": "설정을 가져왔습니다",
   "view_more": "라이브러리에서\n더 보기",
-  "visibility": "표시 설정"
+  "visibility": "표시 설정",
+  "mount_crash_title": "홈 셸프 비활성화됨",
+  "mount_crash_banner_desc": "셸프 렌더링 오류가 감지되었습니다. 홈에서 일시적으로 숨겨졌지만 계속해서 만들고 편집할 수 있습니다 — 초기화 후 다시 표시됩니다.",
+  "reset_all_button": "모두 초기화",
+  "reset_all_confirm_title": "모두 초기화할까요?",
+  "reset_all_confirm_desc": "Deck Shelves의 모든 셸프, 설정, 캐시가 영구적으로 삭제됩니다. 되돌릴 수 없습니다.",
+  "reset_all_confirm_ok": "초기화",
+  "mount_crash_export_and_reset": "선반 내보내기 및 데이터 지우기"
 }

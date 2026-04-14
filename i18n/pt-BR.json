@@ -222,5 +222,12 @@
   "toast_failed_save": "Não foi possível salvar as configurações",
   "toast_imported": "Configurações importadas",
   "view_more": "Veja mais\nna sua\nbiblioteca",
-  "visibility": "Visibilidade"
+  "visibility": "Visibilidade",
+  "mount_crash_title": "Prateleiras desativadas na Home",
+  "mount_crash_banner_desc": "Um erro foi detectado ao exibir as prateleiras. Elas estão temporariamente ocultas da Home, mas você pode continuar criando e editando — reaparecerão após o reset.",
+  "reset_all_button": "Redefinir tudo",
+  "reset_all_confirm_title": "Redefinir tudo?",
+  "reset_all_confirm_desc": "Isso apaga permanentemente todas as prateleiras, configurações e caches do Deck Shelves. Não pode ser desfeito.",
+  "reset_all_confirm_ok": "Redefinir",
+  "mount_crash_export_and_reset": "Exportar prateleiras e limpar dados"
 }

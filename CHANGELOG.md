@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `[QA]` Dev-only QA harness with three `pnpm` scripts (`qa:first-run`, `qa:qam-error`, `qa:shelf-error`) that build the plugin with a single dev-gated flag each (`DS_QA_FORCE_FIRST_RUN` / `DS_QA_FORCE_QAM_ERROR` / `DS_QA_FORCE_SHELF_ERROR`). Flags are compiled to `false` in release builds, so the hooks can never leak to users. Used to validate the FirstRunBanner, the QAM `ErrorBoundary`, and the homePatch shelf-render fallback.
+- Shelf-render crash protection in `homePatch`: a React `ErrorBoundary` wraps `HomeShelves` across all mount paths (DOM bridge, `createRoot`, legacy `ReactDOM.render`). If any shelf throws during render, the home mount is cleared and hidden instead of bubbling up and breaking the SteamOS home. Crash state is broadcast via a pub/sub so the QAM reacts in real time.
+- QAM `MountCrashBanner` below the master toggle explaining why shelves are hidden, with a "reset crash state" button; banner appears only while a shelf-render crash is active.
+- Full-width "Reset all" button at the bottom of the QAM that opens a destructive `ConfirmModal`. On confirm, wipes all shelves + settings and clears plugin-owned `localStorage` keys (`ds-`, `ds_`, `deck-shelves-` prefixes), leaving the plugin in first-run state. Full i18n coverage across all 16 locales.
+
+### Changed
+
+- When a shelf-render crash is active, QAM toggles stay visible but become `disabled` (grayed, non-interactive) instead of being hidden — keeps the UI layout stable and signals the inactive state.
+
 ## [1.2.4] - 2026-04-14
 
 ### Changed

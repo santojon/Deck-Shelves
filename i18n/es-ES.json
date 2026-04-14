@@ -222,5 +222,12 @@
   "toast_failed_save": "No se pudieron guardar los ajustes",
   "toast_imported": "Ajustes importados",
   "view_more": "Ver más\nen tu\nbiblioteca",
-  "visibility": "Visibilidad"
+  "visibility": "Visibilidad",
+  "mount_crash_title": "Estanterías desactivadas en Inicio",
+  "mount_crash_banner_desc": "Se detectó un error al renderizar las estanterías. Están ocultas temporalmente en Inicio, pero puedes seguir creándolas y editándolas — reaparecerán tras restablecer.",
+  "reset_all_button": "Restablecer todo",
+  "reset_all_confirm_title": "¿Restablecer todo?",
+  "reset_all_confirm_desc": "Esto eliminará permanentemente todas las estanterías, ajustes y cachés de Deck Shelves. No se puede deshacer.",
+  "reset_all_confirm_ok": "Restablecer",
+  "mount_crash_export_and_reset": "Exportar estantes y borrar datos"
 }
