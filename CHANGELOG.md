@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-04-14
+
 ### Changed
 
 - `[PERF]` Focus restoration MutationObserver scoped from `document.body` to `.deck-shelves-root` — fewer mutation callbacks during idle and user navigation
