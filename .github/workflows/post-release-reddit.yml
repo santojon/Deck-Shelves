@@ -72,7 +72,7 @@ jobs:
 
           enc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"; }
           ENC_TITLE=$(enc "$TITLE")
-          ENC_TEXT=$(enc "$SELFTEXT")
+          ENC_IMG=$(enc "$IMG_URL")
 
           OUT=reddit_links.txt
           printf "# Reddit submission links for release: %s\n\n" "$TITLE" > "$OUT"
@@ -80,7 +80,7 @@ jobs:
             sub=$(echo "$sub" | xargs)
             sub=$(echo "$sub" | sed -E 's#^/?[rR]/##')
             if [ -n "$sub" ]; then
-              printf "r/%s\n  https://www.reddit.com/r/%s/submit?type=TEXT&title=%s&text=%s\n\n" "$sub" "$sub" "$ENC_TITLE" "$ENC_TEXT" >> "$OUT"
+              printf "r/%s\n  https://www.reddit.com/r/%s/submit?type=LINK&title=%s&url=%s\n\n" "$sub" "$sub" "$ENC_TITLE" "$ENC_IMG" >> "$OUT"
             fi
           done
 
