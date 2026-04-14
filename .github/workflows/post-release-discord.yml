@@ -53,13 +53,8 @@ jobs:
           # Use full release body as changelog, capped to ~3800 chars for Discord embed
           DESC=$(printf "%s" "$BODY" | tr -d '\r' | head -c 3800)
           DESC="$DESC\n\nReleases: https://github.com/$REPO/releases"
-          # build a pre-filled Reddit submission URL (link post)
-          ENC_URL=$(python -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$URL")
-          ENC_TITLE=$(python -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$TITLE")
-          REDDIT_URL="https://www.reddit.com/submit?url=${ENC_URL}&title=${ENC_TITLE}"
-          if [ -n "$REDDIT_SUBREDDIT" ]; then REDDIT_URL="${REDDIT_URL}&sr=${REDDIT_SUBREDDIT}"; fi
 
-          PAYLOAD=$(jq -n --arg t "$TITLE" --arg d "$DESC" --arg url "$URL" --arg tag "$TAG_NAME" --arg img "$RAW_URL" --arg reddit "$REDDIT_URL" '
+          PAYLOAD=$(jq -n --arg t "$TITLE" --arg d "$DESC" --arg url "$URL" --arg tag "$TAG_NAME" --arg img "$RAW_URL" '
           {
             username: "Release Bot",
             thread_name: $t,
@@ -69,8 +64,7 @@ jobs:
                 url: $url,
                 description: $d,
                 footer: { text: $tag },
-                image: { url: $img },
-                fields: [ { name: "Reddit", value: $reddit, inline: false } ]
+                image: { url: $img }
               }
             ]
           }')
