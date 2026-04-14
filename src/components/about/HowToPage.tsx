@@ -1,25 +1,22 @@
 import React from 'react'
+import { Field } from '@decky/ui'
 import { useTranslation } from 'react-i18next'
 import { DocSection } from './DocSection'
 
-const listStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px', marginBottom: 8, paddingLeft: 10 }
-const stepNum: React.CSSProperties = { display: 'inline-block', width: 20, fontWeight: 700, color: '#dcdedf' }
+const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
+const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
 
 export function HowToPage() {
   const { t } = useTranslation()
+  const steps = [
+    t('about_howto_step1'), t('about_howto_step2'), t('about_howto_step3'),
+    t('about_howto_step4'), t('about_howto_step5'),
+  ]
   return (
     <DocSection>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{t('about_howto_title')}</div>
-      {[
-        t('about_howto_step1'),
-        t('about_howto_step2'),
-        t('about_howto_step3'),
-        t('about_howto_step4'),
-        t('about_howto_step5'),
-      ].map((s, i) => (
-        <div key={i} style={listStyle}>
-          <span style={stepNum}>{i + 1}.</span>{s}
-        </div>
+      <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_howto_title')}</span>} />
+      {steps.map((s, i) => (
+        <Field key={i} focusable={true} bottomSeparator="none" label={<span style={labelStyle}><b>{i + 1}.</b> {s}</span>} />
       ))}
     </DocSection>
   )

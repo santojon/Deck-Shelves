@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - QAM button row alignment fixed: buttons now flush with the 16 px QAM edge instead of over-indented
 - Shelf action button (⋯) right-aligned to match the TabMaster import button position
 - Card dimensions discovered from the native SteamOS shelf are now persisted to `localStorage` (`ds-cardsize`) per viewport/DPI, so cold boot reuses the last-session values instead of briefly rendering the hardcoded fallback before re-measuring — eliminates the initial card reflow. Cache is keyed by `innerWidth`/`innerHeight`/`devicePixelRatio` and re-measured whenever the viewport changes.
+- About page doc sections now render inside the native SteamOS `DialogBody` + `DialogControlsSection`, matching the container decky-loader itself uses for its own settings pages. This restores right-stick / trigger scrolling on every About subpage (Overview / How to / Shelves / Filters / Support) without a custom bounded-height wrapper.
 
 ### Fixed
 

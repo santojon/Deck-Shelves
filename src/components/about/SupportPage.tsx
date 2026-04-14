@@ -1,20 +1,26 @@
-import { Focusable, DialogButton } from '@decky/ui'
+import React from 'react'
+import { Field, DialogButton } from '@decky/ui'
 import { useTranslation } from 'react-i18next'
 import pkg from '../../../package.json'
 import { DocSection } from './DocSection'
 
 const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
+const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
+const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
+const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: '#dcdedf' }
 
 export function SupportPage() {
   const { t } = useTranslation()
+  const openKofi = () => { try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL) } catch (e) { console.warn('OpenInSystemBrowser failed', e) } }
+  const limitations = [t('about_limitation_deck_only'), t('about_limitation_decky'), t('about_limitation_home')]
   return (
     <DocSection>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 12 }}>{t('about_support_title')}</div>
-      <div style={{ fontSize: 13, color: '#b8bcbf', lineHeight: '19px', marginBottom: 8 }}>{t('about_support_description')}</div>
-      <Focusable style={{ marginTop: 8, marginBottom: 16 }}>
+      <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_support_title')}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_support_description')}</span>} />
+      <Field bottomSeparator="none">
         <DialogButton
-            onClick={() => { try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL) } catch (e) { console.warn('OpenInSystemBrowser failed', e) } }}
-            onOKButton={() => { try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL) } catch (e) { console.warn('OpenInSystemBrowser failed', e) } }}
+          onClick={openKofi}
+          onOKButton={openKofi}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 16px', minWidth: 0 }}
         >
           <svg viewBox='0 0 24 24' fill='none' style={{ width: 18, height: 18, marginRight: 8, flexShrink: 0 }}>
@@ -22,18 +28,12 @@ export function SupportPage() {
           </svg>
           Ko-fi
         </DialogButton>
-      </Focusable>
-
-      <div style={{ fontSize: 15, fontWeight: 700, color: '#dcdedf', marginBottom: 8, marginTop: 18 }}>{t('about_limitations_title')}</div>
-      {[
-        t('about_limitation_deck_only'),
-        t('about_limitation_decky'),
-        t('about_limitation_home'),
-      ].map((l, i) => (
-        <div key={i} style={{ fontSize: 13, color: '#b8bcbf', lineHeight: '19px', marginBottom: 4, paddingLeft: 10 }}>• {l}</div>
+      </Field>
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('about_limitations_title')}</span>} />
+      {limitations.map((l, i) => (
+        <Field key={i} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• {l}</span>} />
       ))}
-
-      <div style={{ marginTop: 24, fontSize: 11, color: '#666', textAlign: 'center' }}>{t('about_version')}: {pkg.version}</div>
+      <Field focusable={true} bottomSeparator="none" description={<span style={{ ...labelStyle, textAlign: 'center', fontSize: 11, color: '#666' }}>{t('about_version')}: {pkg.version}</span>} />
     </DocSection>
   )
 }

@@ -18,6 +18,8 @@ const noop = () => {};
 
 export const ButtonItem = decky.ButtonItem ?? passthroughComponent;
 export const ConfirmModal = decky.ConfirmModal ?? passthroughComponent;
+export const DialogBody = decky.DialogBody ?? passthroughComponent;
+export const DialogControlsSection = decky.DialogControlsSection ?? passthroughComponent;
 export const DialogButton = decky.DialogButton ?? decky.ButtonItem ?? passthroughComponent;
 export const DialogCheckbox = decky.DialogCheckbox ?? passthroughComponent;
 export const Dropdown = decky.Dropdown ?? passthroughComponent;
@@ -31,6 +33,8 @@ export const Navigation = decky.Navigation ?? { Navigate: noop };
 export const PanelSection = decky.PanelSection ?? passthroughComponent;
 export const PanelSectionRow = decky.PanelSectionRow ?? passthroughComponent;
 export const ReorderableList = decky.ReorderableList ?? passthroughComponent;
+export const ScrollPanel = decky.ScrollPanel ?? passthroughComponent;
+export const ScrollPanelGroup = decky.ScrollPanelGroup ?? passthroughComponent;
 export const SidebarNavigation = decky.SidebarNavigation ?? passthroughComponent;
 export const SliderField = decky.SliderField ?? passthroughComponent;
 export const Spinner = decky.Spinner ?? passthroughComponent;
