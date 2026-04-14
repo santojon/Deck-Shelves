@@ -116,6 +116,7 @@ export function DeckQAMStyles() {
       .deck-shelves-qam-scope .no-sep .${gamepadDialogClasses.FieldChildrenInner},
       .deck-shelves-qam-scope .no-sep .${gamepadDialogClasses.FieldChildrenWithIcon} {
         width: 100%;
+        margin: 0;
       }
 
       .deck-shelves-qam-scope .deck-shelves-empty {

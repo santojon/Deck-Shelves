@@ -1,0 +1,56 @@
+name: Post Release (Discord)
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  post-discord:
+    name: Post to Discord
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get release info
+        run: |
+          echo "EVENT_PATH=$GITHUB_EVENT_PATH" >> $GITHUB_ENV
+
+      - name: Post to Discord webhook
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_EVENT_PATH: ${{ env.EVENT_PATH }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+          REDDIT_SUBREDDIT: ${{ secrets.REDDIT_SUBREDDIT }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set, skipping"; exit 0; fi
+          # compute image raw url using the tag if available else main
+          RAW_URL="https://raw.githubusercontent.com/$REPO/${TAG:-main}/assets/screenshots/home.png"
+          # extract release data
+          TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
+          NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
+          BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
+          URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+          TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
+          # Use full release body as changelog, capped to ~3800 chars for Discord embed
+          DESC=$(printf "%s" "$BODY" | tr -d '\r' | head -c 3800)
+          DESC="$DESC\n\nReleases: https://github.com/$REPO/releases"
+          # build a pre-filled Reddit submission URL (link post)
+          ENC_URL=$(python -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$URL")
+          ENC_TITLE=$(python -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$TITLE")
+          REDDIT_URL="https://www.reddit.com/submit?url=${ENC_URL}&title=${ENC_TITLE}"
+          if [ -n "$REDDIT_SUBREDDIT" ]; then REDDIT_URL="${REDDIT_URL}&sr=${REDDIT_SUBREDDIT}"; fi
+
+          PAYLOAD=$(jq -n --arg t "$TITLE" --arg d "$DESC" --arg url "$URL" --arg tag "$TAG_NAME" --arg img "$RAW_URL" --arg reddit "$REDDIT_URL" '
+          {
+            username: "Release Bot",
+            embeds: [
+              {
+                title: $t,
+                url: $url,
+                description: $d,
+                footer: { text: $tag },
+                image: { url: $img },
+                fields: [ { name: "Reddit", value: $reddit, inline: false } ]
+              }
+            ]
+          }')
+          curl -s -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL" || true

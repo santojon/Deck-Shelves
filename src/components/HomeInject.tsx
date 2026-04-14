@@ -269,11 +269,10 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       } catch (e) { logInfo("HOME", "applyPatches failed", String(e)); }
     };
 
-    // Run patches immediately, then on DOM mutations + long fallback
+    // Run patches immediately, then on DOM mutations + nav events
     applyPatches();
     const obs = new MutationObserver(applyPatches);
     obs.observe(mountEl, { childList: true, subtree: true });
-    const fallback = setInterval(applyPatches, 10000);
 
     const win = getPreferredSteamWindow();
     const onNavEvent = () => { applyPatches(); if (hasPendingFocus()) beginFocusRestoreLoop(); };
@@ -282,7 +281,6 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
     return () => {
       obs.disconnect();
-      clearInterval(fallback);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
     };
@@ -318,9 +316,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       }
     };
     check();
-    const timer = setInterval(check, 5000);
-    return () => { alive = false; clearInterval(timer); };
-  }, [shelves?.length, hideRecentsSetting, mountEl]);
+    return () => { alive = false; };
+  }, [shelves, hideRecentsSetting, mountEl]);
 
   // When recents are hidden, move gamepad focus to the first shelf card
   // using the Steam FocusNavController API (element.focus() alone does not
@@ -331,6 +328,9 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     const tryFocus = () => {
       if (cancelled) return true;
       try {
+        // Do not hijack focus if the user is already navigating inside the
+        // shelves — effect re-runs on shelves.length changes (5s interval).
+        if (mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus')) return true;
         const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
         if (firstCard) return focusElement(firstCard);
         const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;

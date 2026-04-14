@@ -9,6 +9,23 @@ export function saveFocusTarget(appid: number, shelfId?: string): void {
   pendingAppid = appid;
   pendingShelfId = shelfId ?? null;
   pendingTimestamp = Date.now();
+  // Sync Steam's nav tree m_lastFocusNode to the current card BEFORE
+  // navigation pushes history. Steam's native popstate restoration reads
+  // m_lastFocusNode, so landing becomes deterministic — no post-hoc race.
+  try {
+    const doc = getPreferredSteamDocument();
+    const sel = shelfId
+      ? `.ds-card[data-appid="${appid}"][data-shelfid="${shelfId}"]`
+      : `.ds-card[data-appid="${appid}"]`;
+    const card = doc?.querySelector(sel) as HTMLElement | null;
+    if (!card) return;
+    const navNode = findNavNodeForElement(card);
+    if (!navNode) return;
+    const tree = navNode.m_Tree || getMainNavTree();
+    if (tree) tree.m_lastFocusNode = navNode;
+    const ctx = getFocusNavController()?.m_ActiveContext;
+    if (ctx) ctx.m_lastFocusNode = navNode;
+  } catch {}
 }
 
 function getFocusNavController(): any {
@@ -154,51 +171,58 @@ export function beginFocusRestoreLoop(): void {
     abort.abort();
   };
 
-  const attempt = () => {
-    if (isDone()) return;
+  const attempt = (): boolean => {
+    if (isDone()) return true;
     const card = findCard();
-    if (card?.classList.contains("gpfocus")) { succeed(); return; }
+    if (!card) return false;
+    if (card.classList.contains("gpfocus")) { succeed(); return true; }
+    const navNode = findNavNodeForElement(card);
+    // Require nav node — otherwise el.focus() won't sync gamepad tree and
+    // Steam's first-shelf default wins. Wait for the rebuilt tree via rAF.
+    if (!navNode) return false;
     tryRestoreFocus();
+    return !!pendingAppid ? false : true;
   };
 
-  // MutationObserver: fast path — react to class changes on cards
+  // MutationObserver: succeed only when TARGET card is added/focused.
+  // Do NOT re-steal focus on arbitrary gpfocus changes — that hijacks the
+  // user's own navigation after the initial restore window.
   const observer = new MutationObserver((mutations) => {
     if (isDone()) { observer.disconnect(); return; }
     for (const m of mutations) {
-      if (m.type !== "attributes" || m.attributeName !== "class") continue;
       const el = m.target as HTMLElement;
-      if (el.matches?.(`.ds-card[data-appid="${targetAppid}"]`) && el.classList.contains("gpfocus")) {
-        if (targetShelfId && el.dataset?.shelfid && el.dataset.shelfid !== targetShelfId) continue;
-        succeed();
-        observer.disconnect();
-        return;
-      }
-      if (el.classList.contains("gpfocus")) { attempt(); return; }
+      if (!el.matches?.(`.ds-card[data-appid="${targetAppid}"]`)) continue;
+      if (targetShelfId && el.dataset?.shelfid && el.dataset.shelfid !== targetShelfId) continue;
+      if (el.classList.contains("gpfocus")) { succeed(); observer.disconnect(); return; }
+      attempt();
+      return;
     }
   });
-  observer.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
+  const observeRoot = (doc.querySelector(".deck-shelves-root") as HTMLElement | null) ?? doc.body;
+  observer.observe(observeRoot, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
 
-  // Polling fallback: 500ms × 10, then 2s until timeout
-  attempt();
-  let pollCount = 0;
-  const poll = () => {
+  // Defer initial attempt to next macrotask so Steam's synchronous popstate
+  // restoration runs first, then ours wins. Retry on rAF until the rebuilt
+  // nav tree registers our card's node (typically 1–3 frames after remount).
+  const DEADLINE = Date.now() + 800;
+  const tick = () => {
     if (isDone()) return;
-    pollCount++;
-    attempt();
-    if (!isDone()) {
-      setTimeout(poll, pollCount < 10 ? 500 : 2000);
-    }
+    if (attempt()) return;
+    if (Date.now() >= DEADLINE) return;
+    requestAnimationFrame(tick);
   };
-  setTimeout(poll, 500);
+  setTimeout(() => requestAnimationFrame(tick), 0);
 
-  // Hard timeout: 30s
+  // Short timeout: 2s. Home cards render fast; a longer window lets the
+  // observer interfere with subsequent user navigation.
   setTimeout(() => {
     if (!abort.signal.aborted) {
       observer.disconnect();
       pendingAppid = null;
+      pendingShelfId = null;
       abort.abort();
     }
-  }, 30000);
+  }, 2000);
 
   // Cleanup on abort
   abort.signal.addEventListener("abort", () => observer.disconnect(), { once: true });

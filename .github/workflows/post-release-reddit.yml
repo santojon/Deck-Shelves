@@ -1,0 +1,68 @@
+name: Post Release (Reddit)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      subreddits:
+        description: 'Comma-separated subreddits to post to (overrides secret)'
+        required: false
+
+jobs:
+  post-reddit:
+    name: Post to Reddit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get release info
+        run: |
+          echo "EVENT_PATH=$GITHUB_EVENT_PATH" >> $GITHUB_ENV
+
+      - name: Generate pre-filled Reddit submission URLs
+        env:
+          GITHUB_EVENT_PATH: ${{ env.EVENT_PATH }}
+          DEFAULT_REDDIT_SUBREDDITS: ${{ secrets.REDDIT_SUBREDDITS }}
+        run: |
+          # Prefer workflow_dispatch input if provided (manual runs)
+          SUBS_INPUT="${{ github.event.inputs.subreddits || '' }}"
+          if [ -n "$SUBS_INPUT" ]; then
+            SUBREDDITS="$SUBS_INPUT"
+          else
+            SUBREDDITS="${DEFAULT_REDDIT_SUBREDDITS:-}"
+          fi
+
+          if [ -z "$SUBREDDITS" ]; then
+            echo "No subreddits provided (set via secret REDDIT_SUBREDDITS or workflow input 'subreddits'), skipping"
+            exit 0
+          fi
+
+          TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
+          NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
+          BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
+          URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+          TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
+
+          # URL-encode
+          ENC_URL=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$URL")
+          ENC_TITLE=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$TITLE")
+
+          OUT=reddit_links.txt
+          printf "# Reddit submission links for release: %s\n\n" "$TITLE" > "$OUT"
+          IFS=','; for sub in $SUBREDDITS; do
+            sub=$(echo "$sub" | xargs)
+            # normalize: remove leading r/ or /r/ if present (accept r/gaming or /r/gaming)
+            sub=$(echo "$sub" | sed -E 's#^/?[rR]/##')
+            if [ -n "$sub" ]; then
+              echo "https://www.reddit.com/submit?sr=${sub}&url=${ENC_URL}&title=${ENC_TITLE}" >> "$OUT"
+              echo "" >> "$OUT"
+            fi
+          done
+
+          echo "Generated the following links:" 
+          cat "$OUT"
+
+      # Note: per user request, this workflow only generates and prints links.
+      # No artifacts, issues, PRs, or external deliveries are performed.

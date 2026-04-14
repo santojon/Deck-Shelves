@@ -47,7 +47,7 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
 export function ShelfActionsButton({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
   const onClick = () => showContextMenu(<ShelfActionsContextMenu controller={controller} shelf={shelf} />)
   return (
-    <DialogButton style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px', marginRight: '8px' }} onClick={onClick} onOKButton={onClick} onOKActionDescription='Open shelf options'>
+    <DialogButton style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }} onClick={onClick} onOKButton={onClick} onOKActionDescription='Open shelf options'>
       {icons.ellipsis}
     </DialogButton>
   )
