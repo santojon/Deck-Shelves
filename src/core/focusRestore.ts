@@ -198,7 +198,8 @@ export function beginFocusRestoreLoop(): void {
       return;
     }
   });
-  observer.observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
+  const observeRoot = (doc.querySelector(".deck-shelves-root") as HTMLElement | null) ?? doc.body;
+  observer.observe(observeRoot, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
 
   // Defer initial attempt to next macrotask so Steam's synchronous popstate
   // restoration runs first, then ours wins. Retry on rAF until the rebuilt

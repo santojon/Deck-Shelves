@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `[PERF]` Focus restoration MutationObserver scoped from `document.body` to `.deck-shelves-root` — fewer mutation callbacks during idle and user navigation
+- `[PERF]` Recents validation effect made reactive to `shelves` / `hideRecentsSetting` deps instead of polling every 5s — zero idle work when nothing changes
+- `[PERF]` Removed 10s fallback `setInterval(applyPatches)` in HomeInject — redundant with the MutationObserver + popstate/hashchange listeners already wired
 - "Show background art" toggle is now hidden when "Hide recent games" is inactive (instead of disabled) — removes dead UI state
 - "Show background art" label updated across all 16 locales to clarify it applies to the first shelf
 - QAM action buttons regrouped: Add / Import / Export on the left; Import from TabMaster on the right
