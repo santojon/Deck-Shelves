@@ -25,6 +25,7 @@ jobs:
         env:
           GITHUB_EVENT_PATH: ${{ env.EVENT_PATH }}
           DEFAULT_REDDIT_SUBREDDITS: ${{ secrets.REDDIT_SUBREDDITS }}
+          REPO: ${{ github.repository }}
         run: |
           # Prefer workflow_dispatch input if provided (manual runs)
           SUBS_INPUT="${{ github.event.inputs.subreddits || '' }}"
@@ -45,9 +46,17 @@ jobs:
           URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
           TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
 
+          IMG_URL="https://raw.githubusercontent.com/$REPO/${TAG_NAME:-main}/assets/screenshots/home.png"
+          DOWNLOAD_URL="https://github.com/$REPO/releases/download/${TAG_NAME}/deck-shelves-${TAG_NAME}.zip"
+
+          # Build selftext: image link + changelog (capped) + download link
+          CHANGELOG=$(printf "%s" "$BODY" | tr -d '\r' | head -c 7000)
+          SELFTEXT=$(printf "%s\n\n## Changelog\n\n%s\n\n---\n\n**Download:** [%s](%s)\n**Release page:** %s\n" \
+            "$IMG_URL" "$CHANGELOG" "deck-shelves-${TAG_NAME}.zip" "$DOWNLOAD_URL" "$URL")
+
           # URL-encode
-          ENC_URL=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$URL")
           ENC_TITLE=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$TITLE")
+          ENC_TEXT=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$SELFTEXT")
 
           OUT=reddit_links.txt
           printf "# Reddit submission links for release: %s\n\n" "$TITLE" > "$OUT"
@@ -56,7 +65,7 @@ jobs:
             # normalize: remove leading r/ or /r/ if present (accept r/gaming or /r/gaming)
             sub=$(echo "$sub" | sed -E 's#^/?[rR]/##')
             if [ -n "$sub" ]; then
-              echo "https://www.reddit.com/submit?sr=${sub}&url=${ENC_URL}&title=${ENC_TITLE}" >> "$OUT"
+              echo "https://www.reddit.com/r/${sub}/submit?selftext=true&title=${ENC_TITLE}&text=${ENC_TEXT}" >> "$OUT"
               echo "" >> "$OUT"
             fi
           done

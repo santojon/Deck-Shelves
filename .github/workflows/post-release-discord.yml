@@ -3,6 +3,11 @@ name: Post Release (Discord)
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to post (defaults to latest published release)'
+        required: false
 
 jobs:
   post-discord:
@@ -20,15 +25,30 @@ jobs:
           REPO: ${{ github.repository }}
           TAG: ${{ github.event.release.tag_name }}
           REDDIT_SUBREDDIT: ${{ secrets.REDDIT_SUBREDDIT }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then echo "DISCORD_WEBHOOK_URL not set, skipping"; exit 0; fi
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ -n "$INPUT_TAG" ]; then
+              REL_JSON=$(gh api "repos/$REPO/releases/tags/$INPUT_TAG")
+            else
+              REL_JSON=$(gh api "repos/$REPO/releases/latest")
+            fi
+            TAG_NAME=$(echo "$REL_JSON" | jq -r '.tag_name // empty')
+            NAME=$(echo "$REL_JSON" | jq -r '.name // empty')
+            BODY=$(echo "$REL_JSON" | jq -r '.body // empty')
+            URL=$(echo "$REL_JSON" | jq -r '.html_url // empty')
+            TAG="$TAG_NAME"
+          else
+            TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
+            NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
+            BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
+            URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+          fi
           # compute image raw url using the tag if available else main
           RAW_URL="https://raw.githubusercontent.com/$REPO/${TAG:-main}/assets/screenshots/home.png"
-          # extract release data
-          TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
-          NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
-          BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
-          URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
           TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
           # Use full release body as changelog, capped to ~3800 chars for Discord embed
           DESC=$(printf "%s" "$BODY" | tr -d '\r' | head -c 3800)
