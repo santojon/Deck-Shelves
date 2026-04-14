@@ -21,6 +21,19 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const [nativeCardClass, setNativeCardClass] = useState('');
   const [imgFailed, setImgFailed] = useState(false);
 
+  // Dedupe activation: Focusable fires onActivate + onOKButton + dispatches
+  // vgp_onok (listened below), so a single A-press can invoke item.onActivate
+  // up to 3× — pushing multiple history entries and requiring 2× B to exit.
+  const lastActivateRef = useRef(0);
+  const onActivateRef = useRef(item.onActivate);
+  onActivateRef.current = item.onActivate;
+  const activate = useCallback(() => {
+    const now = Date.now();
+    if (now - lastActivateRef.current < 400) return;
+    lastActivateRef.current = now;
+    onActivateRef.current?.();
+  }, []);
+
   useEffect(() => {
     function injectNativeClasses(): boolean {
       const doc = getPreferredSteamDocument();
@@ -122,7 +135,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       if (!item.onActivate) return;
       evt.stopPropagation();
       evt.preventDefault();
-      item.onActivate();
+      activate();
     };
     el.addEventListener("vgp_onmenubutton", menuHandler);
     el.addEventListener("contextmenu", menuHandler);
@@ -132,7 +145,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       el.removeEventListener("contextmenu", menuHandler);
       el.removeEventListener("vgp_onok", activateHandler);
     };
-  }, [item.onMenuButton, item.onActivate]);
+  }, [item.onMenuButton, activate]);
 
   const allUrls = useMemo(() => {
     const urls: string[] = [];
@@ -237,8 +250,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       className={`ds-card${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
       focusClassName="gpfocus"
       role="listitem"
-      onActivate={item.onActivate}
-      onOKButton={item.onActivate}
+      onActivate={activate}
+      onOKButton={activate}
       onMenuButton={item.onMenuButton}
       onContextMenu={item.onMenuButton}
       data-appid={appid || undefined}

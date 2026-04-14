@@ -331,6 +331,9 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     const tryFocus = () => {
       if (cancelled) return true;
       try {
+        // Do not hijack focus if the user is already navigating inside the
+        // shelves — effect re-runs on shelves.length changes (5s interval).
+        if (mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus')) return true;
         const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
         if (firstCard) return focusElement(firstCard);
         const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
