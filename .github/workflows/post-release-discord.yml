@@ -42,6 +42,7 @@ jobs:
           PAYLOAD=$(jq -n --arg t "$TITLE" --arg d "$DESC" --arg url "$URL" --arg tag "$TAG_NAME" --arg img "$RAW_URL" --arg reddit "$REDDIT_URL" '
           {
             username: "Release Bot",
+            thread_name: $t,
             embeds: [
               {
                 title: $t,
