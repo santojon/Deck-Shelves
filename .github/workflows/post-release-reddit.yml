@@ -65,9 +65,9 @@ jobs:
 
           IMG_URL="https://raw.githubusercontent.com/$REPO/${TAG_NAME:-main}/assets/screenshots/home.png"
 
-          CHANGELOG=$(printf "%s" "$BODY" | tr -d '\r' | head -c 7000)
-          SELFTEXT=$(printf "![screenshot](%s)\n\n## Changelog\n\n%s\n\nReleases: https://github.com/%s/releases\n" \
-            "$IMG_URL" "$CHANGELOG" "$REPO")
+          CHANGELOG=$(printf "%s" "$BODY" | tr -d '\r' | head -c 6000)
+          SELFTEXT=$(printf "Deck Shelves is an open-source Decky plugin that adds customizable game shelves to the Steam Deck home screen (filters, collections, Non-Steam games, hero background, etc.).\n\nThis release (**%s**) brings the changes below. Feedback, bug reports and ideas are welcome.\n\n![screenshot](%s)\n\n## Changelog\n\n%s\n\nReleases: https://github.com/%s/releases\n\n*Disclosure: I'm the developer. Not affiliated with Valve.*\n" \
+            "$TAG_NAME" "$IMG_URL" "$CHANGELOG" "$REPO")
 
           enc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"; }
           ENC_TITLE=$(enc "$TITLE")
@@ -75,6 +75,7 @@ jobs:
 
           OUT=reddit_links.txt
           printf "# Reddit submission links for release: %s\n\n" "$TITLE" > "$OUT"
+          printf "NOTE: r/SteamDeck requires modmail approval BEFORE posting any developer/promotional content.\nFlair must be selected manually on each subreddit after opening the link.\n\n" >> "$OUT"
           IFS=','; for sub in $SUBREDDITS; do
             sub=$(echo "$sub" | xargs)
             sub=$(echo "$sub" | sed -E 's#^/?[rR]/##')
