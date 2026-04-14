@@ -64,15 +64,14 @@ jobs:
           TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
 
           IMG_URL="https://raw.githubusercontent.com/$REPO/${TAG_NAME:-main}/assets/screenshots/home.png"
-          DOWNLOAD_URL="https://github.com/$REPO/releases/download/${TAG_NAME}/deck-shelves-${TAG_NAME}.zip"
 
           CHANGELOG=$(printf "%s" "$BODY" | tr -d '\r' | head -c 7000)
-          SELFTEXT=$(printf "![screenshot](%s)\n\n## Changelog\n\n%s\n\n---\n\n**Download:** [%s](%s)\n**Release page:** %s\n" \
-            "$IMG_URL" "$CHANGELOG" "deck-shelves-${TAG_NAME}.zip" "$DOWNLOAD_URL" "$URL")
+          SELFTEXT=$(printf "![screenshot](%s)\n\n## Changelog\n\n%s\n\nReleases: https://github.com/%s/releases\n" \
+            "$IMG_URL" "$CHANGELOG" "$REPO")
 
           enc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"; }
           ENC_TITLE=$(enc "$TITLE")
-          ENC_IMG=$(enc "$IMG_URL")
+          ENC_TEXT=$(enc "$SELFTEXT")
 
           OUT=reddit_links.txt
           printf "# Reddit submission links for release: %s\n\n" "$TITLE" > "$OUT"
@@ -80,7 +79,7 @@ jobs:
             sub=$(echo "$sub" | xargs)
             sub=$(echo "$sub" | sed -E 's#^/?[rR]/##')
             if [ -n "$sub" ]; then
-              printf "r/%s\n  https://www.reddit.com/r/%s/submit?type=LINK&title=%s&url=%s\n\n" "$sub" "$sub" "$ENC_TITLE" "$ENC_IMG" >> "$OUT"
+              printf "r/%s\n  https://www.reddit.com/r/%s/submit?type=TEXT&title=%s&text=%s\n\n" "$sub" "$sub" "$ENC_TITLE" "$ENC_TEXT" >> "$OUT"
             fi
           done
 
