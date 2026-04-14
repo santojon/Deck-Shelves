@@ -59,6 +59,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.SUBMIT_TOKEN || github.token }}
           tag_name: ${{ steps.meta.outputs.tag }}
           name: Deck Shelves ${{ steps.meta.outputs.tag }}
           body: ${{ steps.meta.outputs.body || '' }}
