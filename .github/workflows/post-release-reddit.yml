@@ -8,6 +8,9 @@ on:
       subreddits:
         description: 'Comma-separated subreddits to post to (overrides secret)'
         required: false
+      tag:
+        description: 'Release tag to post (defaults to latest published release)'
+        required: false
 
 jobs:
   post-reddit:
@@ -26,8 +29,10 @@ jobs:
           GITHUB_EVENT_PATH: ${{ env.EVENT_PATH }}
           DEFAULT_REDDIT_SUBREDDITS: ${{ secrets.REDDIT_SUBREDDITS }}
           REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Prefer workflow_dispatch input if provided (manual runs)
           SUBS_INPUT="${{ github.event.inputs.subreddits || '' }}"
           if [ -n "$SUBS_INPUT" ]; then
             SUBREDDITS="$SUBS_INPUT"
@@ -40,33 +45,42 @@ jobs:
             exit 0
           fi
 
-          TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
-          NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
-          BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
-          URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ -n "$INPUT_TAG" ]; then
+              REL_JSON=$(gh api "repos/$REPO/releases/tags/$INPUT_TAG")
+            else
+              REL_JSON=$(gh api "repos/$REPO/releases/latest")
+            fi
+            TAG_NAME=$(echo "$REL_JSON" | jq -r '.tag_name // empty')
+            NAME=$(echo "$REL_JSON" | jq -r '.name // empty')
+            BODY=$(echo "$REL_JSON" | jq -r '.body // empty')
+            URL=$(echo "$REL_JSON" | jq -r '.html_url // empty')
+          else
+            TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
+            NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
+            BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
+            URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+          fi
           TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
 
           IMG_URL="https://raw.githubusercontent.com/$REPO/${TAG_NAME:-main}/assets/screenshots/home.png"
           DOWNLOAD_URL="https://github.com/$REPO/releases/download/${TAG_NAME}/deck-shelves-${TAG_NAME}.zip"
 
-          # Build selftext: image link + changelog (capped) + download link
           CHANGELOG=$(printf "%s" "$BODY" | tr -d '\r' | head -c 7000)
-          SELFTEXT=$(printf "%s\n\n## Changelog\n\n%s\n\n---\n\n**Download:** [%s](%s)\n**Release page:** %s\n" \
+          SELFTEXT=$(printf "![screenshot](%s)\n\n## Changelog\n\n%s\n\n---\n\n**Download:** [%s](%s)\n**Release page:** %s\n" \
             "$IMG_URL" "$CHANGELOG" "deck-shelves-${TAG_NAME}.zip" "$DOWNLOAD_URL" "$URL")
 
-          # URL-encode
-          ENC_TITLE=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$TITLE")
-          ENC_TEXT=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$SELFTEXT")
+          enc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"; }
+          ENC_TITLE=$(enc "$TITLE")
+          ENC_TEXT=$(enc "$SELFTEXT")
 
           OUT=reddit_links.txt
           printf "# Reddit submission links for release: %s\n\n" "$TITLE" > "$OUT"
           IFS=','; for sub in $SUBREDDITS; do
             sub=$(echo "$sub" | xargs)
-            # normalize: remove leading r/ or /r/ if present (accept r/gaming or /r/gaming)
             sub=$(echo "$sub" | sed -E 's#^/?[rR]/##')
             if [ -n "$sub" ]; then
-              echo "https://www.reddit.com/r/${sub}/submit?selftext=true&title=${ENC_TITLE}&text=${ENC_TEXT}" >> "$OUT"
-              echo "" >> "$OUT"
+              printf "r/%s\n  https://www.reddit.com/r/%s/submit?type=TEXT&title=%s&text=%s\n\n" "$sub" "$sub" "$ENC_TITLE" "$ENC_TEXT" >> "$OUT"
             fi
           done
 
