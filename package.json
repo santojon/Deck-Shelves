@@ -13,6 +13,8 @@
     "qa:first-run": "DS_QA_FORCE_FIRST_RUN=1 pnpm run deploy:deck:hard",
     "qa:qam-error": "DS_QA_FORCE_QAM_ERROR=1 pnpm run deploy:deck:hard",
     "qa:shelf-error": "DS_QA_FORCE_SHELF_ERROR=1 pnpm run deploy:deck:hard",
+    "qa:all-shelves-hide-recents": "DS_QA_FORCE_ALL_SHELVES_HIDE_RECENTS=1 pnpm run deploy:deck:hard",
+    "qa:all-shelves-show-recents": "DS_QA_FORCE_ALL_SHELVES_SHOW_RECENTS=1 pnpm run deploy:deck:hard",
     "package": "bash scripts/build/package.sh",
     "dist": "pnpm run package",
     "verify:package": "bash scripts/build/verify-package.sh",

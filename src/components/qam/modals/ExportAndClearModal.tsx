@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton } from '@decky/ui'
+import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import type { SettingsController } from '../../../features/settings/controller'
@@ -76,7 +76,7 @@ export function ExportAndClearModal({ closeModal, controller, folderPath }: { cl
         <Focusable>
           <div style={{ padding: '4px 16px 1px' }} className='name-field'>
             <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-            <div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><input value={name} onChange={(e) => setName(textFromDeckyChange((e as any).target?.value))} /></div>
+            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
             <div style={{ paddingTop: '10px' }}>
               <DialogButton
                 onClick={async () => {

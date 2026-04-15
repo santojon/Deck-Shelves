@@ -29,6 +29,8 @@ jobs:
       (github.event.pull_request.merged == true &&
        (startsWith(github.event.pull_request.title, '[FIX]') ||
         startsWith(github.event.pull_request.title, '[ENHANCEMENT]') ||
+        startsWith(github.event.pull_request.title, '[PERF]') ||
+        startsWith(github.event.pull_request.title, '[QA]') ||
         startsWith(github.event.pull_request.title, '[REFACTOR]') ||
         startsWith(github.event.pull_request.title, '[CLEANUP]') ||
         startsWith(github.event.pull_request.title, '[FEATURE]')))
@@ -61,10 +63,10 @@ jobs:
               echo "bump=major" >> "$GITHUB_OUTPUT"
             elif [[ "$TITLE" == \[REFACTOR\]* || "$TITLE" == \[CLEANUP\]* ]]; then
               echo "bump=minor" >> "$GITHUB_OUTPUT"
-            elif [[ "$TITLE" == \[FIX\]* || "$TITLE" == \[ENHANCEMENT\]* ]]; then
+            elif [[ "$TITLE" == \[FIX\]* || "$TITLE" == \[ENHANCEMENT\]* || "$TITLE" == \[PERF\]* || "$TITLE" == \[QA\]* ]]; then
               echo "bump=patch" >> "$GITHUB_OUTPUT"
             else
-              echo "❌ PR title must start with [FIX], [ENHANCEMENT], [REFACTOR], [CLEANUP], or [FEATURE]"
+              echo "❌ PR title must start with [FIX], [ENHANCEMENT], [PERF], [QA], [REFACTOR], [CLEANUP], or [FEATURE]"
               exit 1
             fi
           fi

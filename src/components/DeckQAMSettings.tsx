@@ -11,7 +11,7 @@ import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
-import { isTabMasterInstalled } from '../integrations'
+import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations'
 
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
@@ -47,6 +47,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
+  const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
@@ -103,7 +104,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
         </div>
       )}
-      
+      {settings.enabled && (
+        <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
+      )}
+
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
       <div className='deck-shelves-section-header' style={{ marginTop: 12 }}>{t('shelves_section')}</div>
       <div className='deck-shelves-separator' />
@@ -124,6 +128,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
       <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
       <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />
+      <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNewBadge(value)} />
+      <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideCompatIcons(value)} />
+      {hasNonSteamBadges && (
+        <ToggleField label={t('hide_non_steam_badge')} checked={settings.globalHideNonSteamBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNonSteamBadge(value)} />
+      )}
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', padding: '0 16px', boxSizing: 'border-box' }}>
           <DialogButton

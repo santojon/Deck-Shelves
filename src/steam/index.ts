@@ -18,6 +18,7 @@ function getSteamWindows(): any[] {
   const candidates = [
     getPreferredSteamWindow(),
     window,
+    (window as any).opener,
     (window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow,
     (window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow,
     ...(((window as any).SteamUIStore?.WindowStore?.SteamUIWindows ?? []).map((entry: any) => entry?.BrowserWindow)),
@@ -675,6 +676,8 @@ export type AppOverview = {
   library_capsule_filename?: string;
   rt_store_asset_mtime?: number;
   user_added_ts?: number;
+  rt_purchased_time?: number;
+  rt_recent_activity_time?: number;
   library_hero?: string;
   header?: string;
   icon_hash?: string;
@@ -740,6 +743,8 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     library_capsule_filename: String(node?.library_capsule_filename ?? node?.libraryCapsuleFilename ?? ""),
     rt_store_asset_mtime: Number(node?.rt_store_asset_mtime ?? node?.rtStoreAssetMtime ?? 0) || undefined,
     user_added_ts: Number(node?.time_added ?? node?.m_time_added ?? node?.added ?? node?.rt_time_added_to_account ?? node?.m_rtTimeAdded ?? node?.timeAddedToAccount ?? node?.time_added_to_account ?? node?.m_time_added_to_account ?? 0) || undefined,
+    rt_purchased_time: Number(node?.rt_purchased_time ?? node?.rtPurchasedTime ?? 0) || undefined,
+    rt_recent_activity_time: Number(node?.rt_recent_activity_time ?? node?.rtRecentActivityTime ?? 0) || undefined,
     library_hero: String(node?.library_hero ?? node?.hero ?? node?.libraryHero ?? ""),
     header: String(node?.header ?? node?.header_image ?? node?.capsule ?? ""),
     icon_hash: String(node?.icon_hash ?? node?.iconHash ?? ""),
@@ -981,9 +986,11 @@ function extractAppOverviewsFromStoreMethods(store: any): AppOverview[] {
 
 // Comparator used to sort by "added" preference (user-added timestamp, then store asset mtime)
 export function compareByAdded(a: AppOverview, b: AppOverview): number {
-  const aVal = (a as any)?.user_added_ts ?? (a as any)?.rt_store_asset_mtime ?? 0;
-  const bVal = (b as any)?.user_added_ts ?? (b as any)?.rt_store_asset_mtime ?? 0;
-  return Number(bVal) - Number(aVal);
+  const aVal = (a as any)?.rt_purchased_time ?? (a as any)?.user_added_ts ?? (a as any)?.rt_store_asset_mtime ?? 0;
+  const bVal = (b as any)?.rt_purchased_time ?? (b as any)?.user_added_ts ?? (b as any)?.rt_store_asset_mtime ?? 0;
+  const d = Number(bVal) - Number(aVal);
+  if (d !== 0) return d;
+  return Number(appIdOf(b)) - Number(appIdOf(a));
 }
 
 function extractAppIdsDeep(node: any, maxDepth = 6): number[] {
@@ -1572,6 +1579,14 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
     case "updatePending":
       result = app.update_pending === true;
       break;
+    case "isNew": {
+      const a = app as any;
+      const added = Number(a.rt_purchased_time ?? a.rt_recent_activity_time ?? a.user_added_ts ?? a.rt_store_asset_mtime ?? 0);
+      if (!added || !Number.isFinite(added)) { result = false; break; }
+      const addedMs = added < 1e12 ? added * 1000 : added;
+      result = (Date.now() - addedMs) < 30 * 24 * 60 * 60 * 1000;
+      break;
+    }
     case "deckCompatibility": {
       const levels = item.params?.levels ?? [];
       result = isDeckCompatMatch(app.deck_compatibility_category, levels);
@@ -1803,7 +1818,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       } else if (fSort === "review_score") {
         filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
       } else if (fSort === "added") {
-        filtered = filtered.slice().sort((a, b) => ((b.user_added_ts ?? b.rt_store_asset_mtime ?? 0) - (a.user_added_ts ?? a.rt_store_asset_mtime ?? 0)));
+        filtered = filtered.slice().sort(compareByAdded);
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
@@ -1868,7 +1883,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     } else if (f.sort === "review_score") {
       filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
     } else if (f.sort === "added") {
-      filtered = filtered.slice().sort((a, b) => ((b.user_added_ts ?? b.rt_store_asset_mtime ?? 0) - (a.user_added_ts ?? a.rt_store_asset_mtime ?? 0)));
+      filtered = filtered.slice().sort(compareByAdded);
     } else {
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
@@ -1974,7 +1989,7 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
   // library_capsule_filename includes hash subdirs and localized filenames.
   const capsuleFile = overview?.library_capsule_filename || "library_600x900.jpg";
   const mtime = overview?.rt_store_asset_mtime;
-  const added = overview?.user_added_ts ?? overview?.rt_store_asset_mtime;
+  const added = overview?.rt_purchased_time ?? overview?.rt_recent_activity_time ?? overview?.user_added_ts ?? overview?.rt_store_asset_mtime;
   const cacheBust = mtime ? `?c=${mtime}` : "";
   const portraitUrl = isSteam ? `/assets/${appid}/${capsuleFile}${cacheBust}` : undefined;
   const heroUrl = isSteam ? `/assets/${appid}/library_hero.jpg${cacheBust}` : undefined;

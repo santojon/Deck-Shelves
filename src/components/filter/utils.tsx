@@ -61,6 +61,7 @@ export function isValidParams(item: FilterItem): boolean {
     case "favorites":
     case "nonSteam":
     case "updatePending":
+    case "isNew":
       return true;
     case "hidden":
       return !!p.mode;
@@ -102,6 +103,7 @@ export function getTypeLabel(type: FilterItemType): string {
     nonSteam: t("filter_type_nonSteam"),
     hidden: t("filter_type_hidden"),
     updatePending: t("filter_type_updatePending"),
+    isNew: t("filter_type_isNew"),
     deckCompatibility: t("filter_type_deckCompatibility"),
     playedWithinDays: t("filter_type_playedWithinDays"),
     playtimeRange: t("filter_type_playtimeRange"),

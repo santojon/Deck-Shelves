@@ -15,6 +15,7 @@ export function FiltersPage() {
     ['filter_type_nonSteam', 'docs_filter_nonsteam_desc'],
     ['filter_type_hidden', 'docs_filter_hidden_desc'],
     ['filter_type_updatePending', 'docs_filter_update_pending_desc'],
+    ['filter_type_isNew', 'docs_filter_isNew_desc'],
     ['filter_type_deckCompatibility', 'docs_filter_compat_desc'],
     ['filter_type_nameIncludes', 'docs_filter_name_includes_desc'],
     ['filter_type_nameRegex', 'docs_filter_name_regex_desc'],

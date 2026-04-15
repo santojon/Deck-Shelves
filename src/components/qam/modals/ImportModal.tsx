@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton } from '@decky/ui'
+import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import { importSettingsFromFile } from '../../../settingsStore'
@@ -11,12 +11,18 @@ function textFromDeckyChange(value: unknown): string {
   return typeof maybe === 'string' ? maybe : ''
 }
 
+function pickerPath(result: unknown): string {
+  if (typeof result === 'string') return result
+  if (Array.isArray(result)) return pickerPath(result[0])
+  const maybe = result as any
+  return String(maybe?.realpath ?? maybe?.path ?? maybe?.strPath ?? maybe?.filepath ?? maybe?.file_path ?? maybe?.selectedPath ?? '')
+}
+
 async function tryPickerCalls(calls: Array<() => Promise<unknown>>): Promise<string> {
   for (const fn of calls) {
     try {
-      const maybe = await fn()
-      if (typeof maybe === 'string') return maybe
-      if (Array.isArray(maybe)) return maybe[0]
+      const value = pickerPath(await fn())
+      if (value) return value
     } catch {}
   }
   return ''
@@ -63,7 +69,7 @@ export function ImportModal({ closeModal, controller, initialPath }: { closeModa
         <Focusable>
           <div style={{ padding: '4px 16px 1px' }} className='name-field'>
             <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-            <div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><input value={path} onChange={(e) => setPath(textFromDeckyChange((e as any).target?.value))} /></div>
+            <TextField value={path} onChange={(value: unknown) => setPath(textFromDeckyChange(value))} />
             <div style={{ paddingTop: '10px' }}>
               <DialogButton
                 onClick={async () => {

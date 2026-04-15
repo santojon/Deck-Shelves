@@ -12,13 +12,18 @@
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { showGameMenu } from "../../core/steamGameMenu";
 import { logInfo } from "../../runtime/logger";
+import { focusElement } from "../../core/focusRestore";
 
+const DIR_DOWN  = 10;
+const DIR_UP    = 9;
 const DIR_LEFT  = 11;
 const DIR_RIGHT = 12;
 const DS_EDGE_PATCHED   = "__ds_edge_patched__";
 const DS_EDGE_LISTENER  = "__ds_edge_listener__";
 const patchedMenuControllers = new WeakSet<object>();
 const OPTIONS_BUTTON    = 4;
+
+let lastReparentTarget: any = null;
 
 export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   const ctrl = (globalThis as any).FocusNavController
@@ -41,7 +46,29 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
     }
     for (const child of (node.m_rgChildren || [])) findWrapper(child);
   })(root);
-  if (!ourNodes.length) return 0;
+  if (!ourNodes.length) {
+    const domPresent = !!mountEl.querySelector(".deck-shelves-root");
+    if (domPresent) logInfo("HOME", "reparentNavTreeNodes: DS nav node absent from tree while DOM present — focus loss imminent");
+    return 0;
+  }
+
+  // Stability guard: if our node is already under the last known-good target
+  // AND the target still has multiple vertical children, it's already correct.
+  // Skip the recompute to avoid churn during collapse/expand mutations.
+  if (lastReparentTarget && ourNodes.every((n) => n.m_Parent === lastReparentTarget)) {
+    const stillValid = (lastReparentTarget.m_rgChildren?.length ?? 0) >= 2
+      && lastReparentTarget.GetLayout?.() === 1;
+    if (stillValid) return 0;
+  }
+
+  // Do not perturb the tree while focus is inside our subtree — that
+  // can orphan the currently-focused node if splicing happens mid-navigation.
+  const activeEl = ctrl.m_ActiveContext?.ActiveElementNavNode?.m_element
+    ?? context?.ActiveElementNavNode?.m_element;
+  if (activeEl && ourNodes.some((n) => {
+    const el = n.Element || n.m_element || n.m_Element;
+    return el?.contains?.(activeEl);
+  })) return 0;
 
   function findDeepestContainer(node: any, refEl: HTMLElement): any | null {
     for (const child of (node.m_rgChildren || [])) {
@@ -102,6 +129,7 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
     moved++;
   }
 
+  lastReparentTarget = target;
   return moved;
 }
 
@@ -226,4 +254,97 @@ export function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
       }
     });
   }
+}
+
+/**
+ * D-pad DOWN bridge: when focus is in a sibling of our mount (native top
+ * section: recents/friends/novidades) and Steam's native nav doesn't move
+ * focus into our shelves on DOWN, take focus on our first card. This runs
+ * as a post-nav fallback (rAF after the event) so legitimate native moves
+ * still win. Mirrors upward bridge on UP when focus is in the first shelf.
+ *
+ * We never manipulate the nav tree — purely event-level focus redirection.
+ */
+const DS_BRIDGE_ATTACHED = "__ds_bridge_attached__";
+
+export function installVerticalFocusBridge(mountEl: HTMLElement): void {
+  const doc = getPreferredSteamDocument();
+  if (!doc || (doc as any)[DS_BRIDGE_ATTACHED]) return;
+  (doc as any)[DS_BRIDGE_ATTACHED] = true;
+
+  const handler = (evt: Event) => {
+    try {
+      const btn = (evt as CustomEvent<any>).detail?.button;
+      if (btn !== DIR_DOWN && btn !== DIR_UP) return;
+      const mount = doc.getElementById("deck-shelves-home-root") as HTMLElement | null;
+      if (!mount || !mount.isConnected) return;
+      const parent = mount.parentElement;
+      if (!parent) return;
+      const before = doc.querySelector<HTMLElement>(".gpfocus");
+      if (!before) return;
+      const beforeRect = before.getBoundingClientRect();
+      const mountRect = mount.getBoundingClientRect();
+
+      let redirectTarget: HTMLElement | null = null;
+
+      if (btn === DIR_DOWN) {
+        // Focus must be in a non-mount sibling (native top section area)
+        if (mount.contains(before)) return;
+        const sibling = Array.from(parent.children).find(
+          (c) => c !== mount && (c as Element).contains(before),
+        ) as HTMLElement | undefined;
+        if (!sibling) return;
+        // Only bridge when focus is in the lower portion of its sibling
+        // (likely the last row). Prevents hijacking mid-section DOWN moves.
+        const sibRect = sibling.getBoundingClientRect();
+        if (beforeRect.top < sibRect.top + sibRect.height * 0.55) return;
+        redirectTarget = mount.querySelector<HTMLElement>(".ds-card");
+      } else if (btn === DIR_UP) {
+        if (!mount.contains(before)) return;
+        // Only bridge when focus is in the first row of our shelves
+        if (beforeRect.top > mountRect.top + 120) return;
+        // Aim at the last focusable in the nearest sibling above our mount
+        let sib = mount.previousElementSibling as HTMLElement | null;
+        while (sib) {
+          const cls = (sib.className || "").toString();
+          const hasHashed = cls.split(/\s+/).some((t) => t.startsWith("_") && t.length > 5);
+          if (hasHashed && sib.offsetHeight > 0) break;
+          sib = sib.previousElementSibling as HTMLElement | null;
+        }
+        if (!sib) return;
+        const candidates = Array.from(
+          sib.querySelectorAll<HTMLElement>('[role="button"], button, a, [tabindex]:not([tabindex="-1"]), .Focusable'),
+        ).filter((el) => el.offsetParent !== null);
+        redirectTarget = candidates[candidates.length - 1] ?? null;
+      }
+
+      if (!redirectTarget) return;
+
+      // Post-nav check: run on next frame. If native nav already moved focus
+      // somewhere reasonable, don't interfere.
+      requestAnimationFrame(() => {
+        try {
+          const after = doc.querySelector<HTMLElement>(".gpfocus");
+          if (!after) return;
+          if (after === before) {
+            // Focus didn't move — bridge
+            focusElement(redirectTarget!);
+            return;
+          }
+          // For DOWN: if focus didn't enter our mount, bridge
+          if (btn === DIR_DOWN && !mount.contains(after)) {
+            const afterRect = after.getBoundingClientRect();
+            if (afterRect.top <= beforeRect.top + 10) {
+              focusElement(redirectTarget!);
+            }
+          }
+          // For UP: if focus is still in our mount, bridge
+          if (btn === DIR_UP && mount.contains(after)) {
+            focusElement(redirectTarget!);
+          }
+        } catch (e) { logInfo("HOME", "vertical bridge rAF failed", String(e)); }
+      });
+    } catch (e) { logInfo("HOME", "vertical bridge failed", String(e)); }
+  };
+  doc.addEventListener("vgp_ondirection", handler, true);
 }

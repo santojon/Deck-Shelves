@@ -13,7 +13,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, shelves: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [] });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -110,6 +110,11 @@ export function useSettingsController() {
       }
       await persist({ ...s, hideRecents });
     },
+    async setHideHomeTabs(hideHomeTabs: boolean) {
+      const s = liveSettings();
+      if (!s || s.hideHomeTabs === hideHomeTabs) return;
+      await persist({ ...s, hideHomeTabs });
+    },
     async setShelfHeroBackground(shelfHeroBackground: boolean) {
       const s = liveSettings();
       if (!s || s.shelfHeroBackground === shelfHeroBackground) return;
@@ -130,6 +135,21 @@ export function useSettingsController() {
       if (!s || s.globalHighlightFirst === globalHighlightFirst) return;
       await persist({ ...s, globalHighlightFirst });
     },
+    async setGlobalHideNewBadge(globalHideNewBadge: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHideNewBadge === globalHideNewBadge) return;
+      await persist({ ...s, globalHideNewBadge });
+    },
+    async setGlobalHideCompatIcons(globalHideCompatIcons: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHideCompatIcons === globalHideCompatIcons) return;
+      await persist({ ...s, globalHideCompatIcons });
+    },
+    async setGlobalHideNonSteamBadge(globalHideNonSteamBadge: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHideNonSteamBadge === globalHideNonSteamBadge) return;
+      await persist({ ...s, globalHideNonSteamBadge });
+    },
     async addShelf(): Promise<Shelf | undefined> {
       const s = liveSettings();
       if (!s) return;
@@ -139,7 +159,7 @@ export function useSettingsController() {
       return shelf;
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, shelves: [] };
+      const empty: Settings = { enabled: false, hideRecents: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [] };
       try {
         const ls = globalThis.localStorage;
         if (ls) {
