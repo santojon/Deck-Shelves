@@ -17,6 +17,7 @@ import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import { logInfo } from '../../../runtime/logger'
 import { resolveShelfAppIds } from '../../../steam'
 import { getExternalSources } from '../../../core/pluginApi'
+import { isNonSteamBadgesAvailable } from '../../../integrations'
 
 type SourceType = 'collection' | 'tab' | 'filter' | 'external'
 
@@ -43,6 +44,9 @@ type EditableShelfState = {
   matchNativeSize: boolean
   highlightFirst: boolean
   hideStatusLine: boolean
+  hideNewBadge: boolean
+  hideCompatIcons: boolean
+  hideNonSteamBadge: boolean
 }
 
 function textFromDeckyChange(value: unknown): string {
@@ -73,7 +77,11 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     matchNativeSize: shelf.matchNativeSize ?? false,
     highlightFirst: shelf.highlightFirst ?? false,
     hideStatusLine: shelf.hideStatusLine ?? false,
+    hideNewBadge: shelf.hideNewBadge ?? false,
+    hideCompatIcons: shelf.hideCompatIcons ?? false,
+    hideNonSteamBadge: shelf.hideNonSteamBadge ?? false,
   })
+  const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [previewCount, setPreviewCount] = useState<number | null>(null)
 
   const previewSource = useMemo(() => {
@@ -143,7 +151,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     closeModal?.();
     (async () => {
       const title = state.title.trim() || t('newShelf');
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, hideStatusLine: state.hideStatusLine };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
       if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
       else if (state.sourceType === 'tab') {
         const selectedTab = tabs.find((t) => t.id === state.tab)
@@ -209,6 +217,11 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
             <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
             <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
             <ToggleField label={t('hide_status_line')} checked={state.hideStatusLine} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideStatusLine: value }))} />
+            <ToggleField label={t('hide_new_badge')} checked={state.hideNewBadge} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideNewBadge: value }))} />
+            <ToggleField label={t('hide_compat_icons')} checked={state.hideCompatIcons} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideCompatIcons: value }))} />
+            {hasNonSteamBadges ? (
+              <ToggleField label={t('hide_non_steam_badge')} checked={state.hideNonSteamBadge} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideNonSteamBadge: value }))} />
+            ) : null}
           </div>
         </Focusable>
       </ConfirmModal>

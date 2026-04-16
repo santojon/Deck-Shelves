@@ -16,12 +16,19 @@ run_checks() {
     ((pass++))
   fi
 
-  # 2) Ensure no hard import/require on a hypothetical nonsteam module
-  if grep -rqi "from.*nonsteam\|require.*nonsteam\|import.*nonsteam" "$src" 2>/dev/null; then
-    echo "  ❌ Hard dependency on nonsteam module (import/require)"
+  # 2) Ensure no hard import/require on an external nonsteam module. Imports
+  # that originate in (or resolve to) our own integrations/ directory are
+  # intentional (registry/nonsteambadges modules live there, mirroring the
+  # TabMaster integration), so exclude lines coming from those files AND
+  # lines whose import target is '.../integrations'.
+  if grep -rni "from.*nonsteam\|require.*nonsteam\|import.*nonsteam" "$src" 2>/dev/null \
+      | grep -v "integrations/" \
+      | grep -vE "from ['\"][^'\"]*integrations['\"]" \
+      | grep -q .; then
+    echo "  ❌ Hard dependency on nonsteam module (import/require outside integrations/)"
     ((fail++))
   else
-    echo "  ✅ No hard dependency on nonsteam module"
+    echo "  ✅ No hard dependency on nonsteam module outside integrations/"
     ((pass++))
   fi
 

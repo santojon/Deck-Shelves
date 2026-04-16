@@ -20,6 +20,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
     case "favorites":
     case "nonSteam":
     case "updatePending":
+    case "isNew":
       return null;
 
     case "hidden":

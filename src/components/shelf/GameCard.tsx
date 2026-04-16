@@ -9,7 +9,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, hideStatusLine = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; hideStatusLine?: boolean }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -239,15 +239,19 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     </svg>
   );
 
-  const compatClass = compat === 3 ? "ds-compat ds-compat-verified"
+  const isNonSteam = item.isSteam === false;
+  const suppressCompat = hideCompatIcons || (hideNonSteamBadge && isNonSteam);
+  const compatClass = suppressCompat ? "" :
+    compat === 3 ? "ds-compat ds-compat-verified"
     : compat === 2 ? "ds-compat ds-compat-playable"
     : compat === 1 ? "ds-compat ds-compat-unsupported"
     : "";
+  const showNewBadge = !hideNewBadge && item.isNew === true;
 
   return (
     <Focusable
       ref={cardRef}
-      className={`ds-card${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
+      className={`ds-card${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}${hideCompatIcons ? ' ds-card--hide-compat' : ''}${hideNonSteamBadge ? ' ds-card--hide-non-steam-badge' : ''}`}
       focusClassName="gpfocus"
       role="listitem"
       onActivate={activate}
@@ -290,6 +294,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           <div className={compatClass}>
             {deckLogoSvg}
             {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
+          </div>
+        )}
+        {showNewBadge && (
+          <div className="ds-new-badge-band">
+            <div className="ds-new-badge">{t('badge_new')}</div>
           </div>
         )}
       </div>

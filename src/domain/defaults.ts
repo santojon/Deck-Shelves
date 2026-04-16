@@ -16,17 +16,21 @@ export function createDefaultSource(kind: "collection" | "tab" | "filter", first
 }
 
 export function createDefaultShelf(firstCollectionId = "", title = "New shelf"): Shelf {
-  return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, hideStatusLine: false, source: createDefaultSource("tab", firstCollectionId) };
+  return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, source: createDefaultSource("tab", firstCollectionId) };
 }
 
 export function defaultSettings(): Settings {
   return {
     enabled: false,
     hideRecents: false,
+    hideHomeTabs: false,
     shelfHeroBackground: false,
     globalMatchNativeSize: false,
     globalHighlightFirst: false,
     globalHideStatusLine: false,
+    globalHideNewBadge: false,
+    globalHideCompatIcons: false,
+    globalHideNonSteamBadge: false,
     shelves: [],
   };
 }

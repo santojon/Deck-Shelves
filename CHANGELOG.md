@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Hide "new" badge` toggle (per-shelf + global) suppresses the green "NEW" badge rendered on cards for recently added games (within the last 14 days, derived from the app's `user_added_ts`).
+- `Hide compatibility icons` toggle (per-shelf + global) suppresses the Deck-compat overlay (verified / playable / unsupported) on cards.
+- Toggle `Hide non-Steam launcher badge` (only shown when *Hide compatibility icons* is on **and** the NonSteamBadges plugin is installed) extends suppression to non-Steam apps.
+- "New game" detection: cards display a `NEW` badge for games added to the library within the last 14 days. Honors the per-shelf and global *Hide "new" badge* toggles.
+- New `isNew` filter item type — matches games added within the last 14 days (same window as the badge). Available as a standalone filter entry in shelf builders, independent from UI toggles. Docs page updated; i18n keys added across all 16 locales.
+- `[QA]` Dev-only QA harness with three `pnpm` scripts (`qa:first-run`, `qa:qam-error`, `qa:shelf-error`) that build the plugin with a single dev-gated flag each (`DS_QA_FORCE_FIRST_RUN` / `DS_QA_FORCE_QAM_ERROR` / `DS_QA_FORCE_SHELF_ERROR`). Flags are compiled to `false` in release builds, so the hooks can never leak to users. Used to validate the FirstRunBanner, the QAM `ErrorBoundary`, and the homePatch shelf-render fallback.
+- `[QA]` Two additional QA scripts that inject a fixed 6-shelf fixture covering every shelf source type — `filter updatePending`, `filter sort: recent`, `tab: installed`, `collection: favorite`, `filter installed + sort: metacritic`, and `filter group (developer: FromSoftware) + sort: release_date`: `qa:all-shelves-hide-recents` (forces `hideRecents = true`) and `qa:all-shelves-show-recents` (forces `hideRecents = false`). Implemented via `applyQASettingsOverride` in the settings store; `saveSettings` is a no-op while the flag is active, so edits during QA cannot contaminate persisted state. Same dev-only gating as the other QA flags.
+- `[PERF]` and `[QA]` PR title tags now trigger an automatic patch version bump in the release workflow (same behaviour as `[FIX]` / `[ENHANCEMENT]`). Surfaced in the PR template, `CONTRIBUTING.md` tag table, and `.github/workflows/bump.yml`.
+- PR template reorganized: label checkboxes grouped so each group contains tags with the same bump effect (without naming the scope in the UI).
+- Shelf-render crash protection in `homePatch`: a React `ErrorBoundary` wraps `HomeShelves` across all mount paths (DOM bridge, `createRoot`, legacy `ReactDOM.render`). If any shelf throws during render, the home mount is cleared and hidden instead of bubbling up and breaking the SteamOS home. Crash state is broadcast via a pub/sub so the QAM reacts in real time.
+- QAM `MountCrashBanner` below the master toggle explaining why shelves are hidden, with a "reset crash state" button; banner appears only while a shelf-render crash is active.
+- Full-width "Reset all" button at the bottom of the QAM that opens a destructive `ConfirmModal`. On confirm, wipes all shelves + settings and clears plugin-owned `localStorage` keys (`ds-`, `ds_`, `deck-shelves-` prefixes), leaving the plugin in first-run state. Full i18n coverage across all 16 locales.
+
+### Changed
+
+- When a shelf-render crash is active, QAM toggles stay visible but become `disabled` (grayed, non-interactive) instead of being hidden — keeps the UI layout stable and signals the inactive state.
+- `[PERF]` Home mount-detection fallback intervals reduced from 10s → 2s in [HomeInject.tsx](src/components/HomeInject.tsx) and [homePatch.tsx](src/runtime/homePatch.tsx). Covers SteamOS SPA navigation (e.g. library → home) that does not fire `popstate`/`hashchange` — shelves now appear within ~2s instead of up to ~10s when the MutationObserver misses the route change.
+- When "Hide recents" is active, the first visible shelf is forced expanded (localStorage state is preserved) and its title-click collapse is disabled — ensures a focusable first row is always present since recents is hidden.
+
+### Fixed
+
+- `sort: added` no longer mirrors native recents — reverted to `rt_purchased_time` / `user_added_ts` / `rt_store_asset_mtime` precedence so "adicionados recentemente" reflects acquisition order, not play activity.
+- Shelf focus lost after collapse/expand — `toggleCollapse` now uses the Steam nav tree via `focusElement` (with rAF retry) so the gamepad focus node is updated, surviving route transitions to recents/novidades and back.
+- D-pad UP/DOWN skipping shelves (landing on recents/novidades instead) — root cause was a `deck-shelves-layout-changed` dispatch storm on every collapse/expand retry causing repeated `reparentNavTreeNodes` churn. Removed the dispatch; the existing MutationObserver on the mount already covers layout changes.
+- Focus hijacked on unrelated shelves when collapsing — `toggleCollapse` now only restores focus if `.gpfocus`/`:focus` is inside the shelf being toggled. Clicking a distant title no longer steals focus from the currently-focused shelf.
+- Featured card not picking native size on cold boot — `loadPersistedDims` now ignores viewport fingerprint (card dims are intrinsic to Steam's design, viewport-invariant). CDP showed the cache was written with `vw:1,vh:1` during an early pre-layout tick and rejected every boot. Also guard `persistDims` so it no longer writes when vw/vh < 100.
+- Focus completely lost from shelves after multiple collapses — `reparentNavTreeNodes` was re-running on every MutationObserver callback and repeatedly splicing nav nodes across parents, which could orphan the currently-focused node during concurrent Steam remounts. Added a stability guard (`lastReparentTarget`): when our nodes are already parented under the last known-good vertical container and the container still has ≥2 children, the splice is skipped. Also skip when focus is currently inside our subtree, to avoid perturbing the tree mid-navigation.
+
 ## [1.2.4] - 2026-04-14
 
 ### Changed

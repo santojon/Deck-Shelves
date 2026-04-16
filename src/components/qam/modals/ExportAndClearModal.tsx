@@ -2,13 +2,19 @@ import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
-import { importSettingsFromFile } from '../../../settingsStore'
 import type { SettingsController } from '../../../features/settings/controller'
+import { exportSettingsToFile } from '../../../settingsStore'
+import { resetMountFailed } from '../../../runtime/homePatch'
 
 function textFromDeckyChange(value: unknown): string {
   if (typeof value === 'string') return value
   const maybe = (value as any)?.target?.value ?? (value as any)?.currentTarget?.value ?? (value as any)?.value ?? value
   return typeof maybe === 'string' ? maybe : ''
+}
+
+function filenameWithJson(name: string) {
+  const base = name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '').replace(/-+/g, '-') || 'deck-shelves'
+  return base.toLowerCase().endsWith('.json') ? base : `${base}.json`
 }
 
 function pickerPath(result: unknown): string {
@@ -18,50 +24,51 @@ function pickerPath(result: unknown): string {
   return String(maybe?.realpath ?? maybe?.path ?? maybe?.strPath ?? maybe?.filepath ?? maybe?.file_path ?? maybe?.selectedPath ?? '')
 }
 
-async function tryPickerCalls(calls: Array<() => Promise<unknown>>): Promise<string> {
-  for (const fn of calls) {
-    try {
-      const value = pickerPath(await fn())
-      if (value) return value
-    } catch {}
+async function pickFolder(startPath: string) {
+  for (const fn of [
+    async () => openFilePicker(1, startPath, false, true, undefined, undefined, false, false),
+    async () => openFilePicker(1, startPath),
+  ]) {
+    try { const v = pickerPath(await fn()); if (v) return v } catch {}
   }
   return ''
 }
 
-async function pickJsonFile(startPath: string) {
-  return await tryPickerCalls([
-    async () => openFilePicker(0, startPath, true, true, undefined, ['json'], false, false),
-    async () => openFilePicker(0, startPath),
-  ])
-}
-
-export function ImportModal({ closeModal, controller, initialPath }: { closeModal?: () => void; controller: SettingsController; initialPath: string }) {
-  const { t } = controller
-  const [path, setPath] = useState(initialPath)
+export function ExportAndClearModal({ closeModal, controller, folderPath }: { closeModal?: () => void; controller: SettingsController; folderPath: string }) {
+  const { t, actions } = controller
+  const [name, setName] = useState('deck-shelves-backup')
+  const [folder, setFolder] = useState(folderPath)
   const [browseBusy, setBrowseBusy] = useState(false)
-  const [importBusy, setImportBusy] = useState(false)
+  const [saveBusy, setSaveBusy] = useState(false)
   return (
     <div className='deck-shelves-modal-scope'>
       <DeckModalStyles />
       <ConfirmModal
-        strTitle={t('import_settings')}
-        strDescription={path}
-        strOKButtonText={importBusy ? t('loading') : t('import_settings')}
+        strTitle={t('mount_crash_export_and_reset')}
+        strDescription={folder}
+        strOKButtonText={saveBusy ? t('loading') : t('save')}
         strCancelButtonText={t('cancel')}
+        bDestructiveWarning
         onCancel={closeModal}
         onEscKeypress={closeModal}
         onOK={() => {
-          closeModal?.();
-          setImportBusy(true);
+          setSaveBusy(true);
           (async () => {
+            const target = `${folder}/${filenameWithJson(name)}`;
             try {
-              const next = await importSettingsFromFile(path);
-              if (next.shelves[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
-              toaster.toast({ title: t('pluginName'), body: next ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
+              const ok = await exportSettingsToFile(target);
+              if (!ok) {
+                toaster.toast({ title: t('pluginName'), body: t('toast_failed_export') });
+                setSaveBusy(false);
+                return;
+              }
+              toaster.toast({ title: t('pluginName'), body: t('toast_exported_file') });
+              await actions.resetAll();
+              resetMountFailed();
+              closeModal?.();
             } catch (error) {
               toaster.toast({ title: t('pluginName'), body: String(error) });
-            } finally {
-              setImportBusy(false);
+              setSaveBusy(false);
             }
           })();
         }}
@@ -69,14 +76,14 @@ export function ImportModal({ closeModal, controller, initialPath }: { closeModa
         <Focusable>
           <div style={{ padding: '4px 16px 1px' }} className='name-field'>
             <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-            <TextField value={path} onChange={(value: unknown) => setPath(textFromDeckyChange(value))} />
+            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
             <div style={{ paddingTop: '10px' }}>
               <DialogButton
                 onClick={async () => {
                   setBrowseBusy(true)
                   try {
-                    const picked = await pickJsonFile(initialPath)
-                    if (picked) setPath(picked)
+                    const picked = await pickFolder(folder)
+                    if (picked) setFolder(picked)
                   } catch (error) {
                     toaster.toast({ title: t('pluginName'), body: String(error) })
                   } finally {

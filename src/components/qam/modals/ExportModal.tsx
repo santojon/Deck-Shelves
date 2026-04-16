@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton } from '@decky/ui'
+import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { exportSettingsToFile } from '../../../settingsStore'
 import type { SettingsController } from '../../../features/settings/controller'
 
 function textFromDeckyChange(value: unknown): string {
@@ -58,13 +59,17 @@ export function ExportModal({ closeModal, controller, folderPath }: { closeModal
         onCancel={closeModal}
         onEscKeypress={closeModal}
         onOK={() => {
-          closeModal?.();
           setSaveBusy(true);
           (async () => {
+            const target = `${folder}/${filenameWithJson(name)}`;
             try {
-              const target = `${folder}/${filenameWithJson(name)}`;
-              // exportSettingsToFile is provided by parent via controller/actions; use toaster only here
-              // parent caller will perform actual export after modal returns in original codepath
+              const ok = await exportSettingsToFile(target);
+              if (!ok) {
+                toaster.toast({ title: t('pluginName'), body: t('toast_failed_export') });
+                return;
+              }
+              toaster.toast({ title: t('pluginName'), body: t('toast_exported_file') });
+              closeModal?.();
             } catch (error) {
               toaster.toast({ title: t('pluginName'), body: String(error) });
             } finally {
@@ -76,7 +81,7 @@ export function ExportModal({ closeModal, controller, folderPath }: { closeModal
         <Focusable>
           <div style={{ padding: '4px 16px 1px' }} className='name-field'>
             <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-            <div className='deck-shelves-extra-wide-field deck-shelves-filter-text-field'><input value={name} onChange={(e) => setName(textFromDeckyChange((e as any).target?.value))} /></div>
+            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
             <div style={{ paddingTop: '10px' }}>
               <DialogButton
                 onClick={async () => {

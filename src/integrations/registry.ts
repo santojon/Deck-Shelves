@@ -13,9 +13,26 @@ export function isPluginInstalled(name: string): boolean {
   }
 }
 
-export const isTabMasterInstalled = (): boolean => isPluginInstalled('TabMaster');
+function qaForce(flag: string): "present" | "absent" | "" {
+  if (flag === "present" || flag === "absent") return flag;
+  return "";
+}
+const qaTabMaster = __DEV__ && typeof __QA_FORCE_TABMASTER__ !== "undefined" ? qaForce(__QA_FORCE_TABMASTER__) : "";
+const qaUnifiDeck = __DEV__ && typeof __QA_FORCE_UNIFIDECK__ !== "undefined" ? qaForce(__QA_FORCE_UNIFIDECK__) : "";
+const qaNonSteamBadges = __DEV__ && typeof __QA_FORCE_NONSTEAMBADGES__ !== "undefined" ? qaForce(__QA_FORCE_NONSTEAMBADGES__) : "";
+
+export const isTabMasterInstalled = (): boolean => {
+  if (qaTabMaster) return qaTabMaster === "present";
+  return isPluginInstalled('TabMaster');
+};
+
+export const isNonSteamBadgesInstalled = (): boolean => {
+  if (qaNonSteamBadges) return qaNonSteamBadges === "present";
+  return isPluginInstalled('NonSteamLaunchersBadges') || isPluginInstalled('NonSteamBadges') || isPluginInstalled('Non-Steam Badges');
+};
 
 export const isUnifiDeckInstalled = (): boolean => {
+  if (qaUnifiDeck) return qaUnifiDeck === "present";
   try {
     if (isPluginInstalled('Unifideck') || isPluginInstalled('UnifiDeck') || isPluginInstalled('UnifyDeck')) return true;
 

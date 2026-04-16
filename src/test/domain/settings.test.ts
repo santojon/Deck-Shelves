@@ -22,13 +22,16 @@ function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
     matchNativeSize: false,
     highlightFirst: false,
     hideStatusLine: false,
+    hideNewBadge: false,
+    hideCompatIcons: false,
+    hideNonSteamBadge: false,
     source: { type: 'tab', tab: 'all' },
     ...overrides,
   }
 }
 
 function makeSettings(shelves: Shelf[] = []): Settings {
-  return { enabled: true, hideRecents: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, shelves }
+  return { enabled: true, hideRecents: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves }
 }
 
 describe('patchShelfInSettings', () => {

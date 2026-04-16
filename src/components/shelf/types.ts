@@ -14,6 +14,7 @@ export type DeckRowItem = {
   shelfId?: string;
   updatePending?: boolean;
   isSteam?: boolean;
+  isNew?: boolean;
 };
 
 export const CARD_W = 133;

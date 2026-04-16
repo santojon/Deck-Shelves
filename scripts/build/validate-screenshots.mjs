@@ -32,6 +32,7 @@ const EXPECTED = [
   "shelf-hidden.png",
   "shelf-delete.png",
   "shelf-export.png",
+  "reset-all.png",
 ];
 
 // PNG magic bytes

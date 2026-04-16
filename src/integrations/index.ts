@@ -1,5 +1,5 @@
 // Plugin registry
-export { isPluginInstalled, isTabMasterInstalled, isExternalTabsProviderInstalled } from './registry';
+export { isPluginInstalled, isTabMasterInstalled, isExternalTabsProviderInstalled, isNonSteamBadgesInstalled } from './registry';
 
 // TabMaster integration
 export {
@@ -13,6 +13,9 @@ export {
   tabContainerToShelfSource,
   extractTabsForImport as extractTabMasterTabsForImport,
 } from './tabmaster';
+
+// Non-SteamBadges integration
+export { isNonSteamBadgesAvailable, NON_STEAM_BADGE_CLASS } from './nonsteambadges';
 
 // DOM-based tab integration (UnifiDeck + other DOM-rendering plugins)
 export {

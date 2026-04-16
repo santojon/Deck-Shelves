@@ -1,10 +1,12 @@
 <!--
   PR title MUST start with one of these tags:
-    [FIX]         — Bug fix              → patch version bump (e.g. 0.1.0 → 0.1.1)
-    [ENHANCEMENT] — Small improvement    → patch version bump (e.g. 0.1.0 → 0.1.1)
-    [REFACTOR]    — Refactor/restructure → minor version bump (e.g. 0.1.0 → 0.2.0)
-    [CLEANUP]     — Code cleanup         → minor version bump (e.g. 0.1.0 → 0.2.0)
-    [FEATURE]     — New feature          → major version bump (e.g. 0.1.0 → 1.0.0)
+    [FIX]         — Bug fix
+    [ENHANCEMENT] — Small improvement
+    [PERF]        — Performance improvement
+    [QA]          — QA harness / test instrumentation
+    [REFACTOR]    — Refactor/restructure
+    [CLEANUP]     — Code cleanup
+    [FEATURE]     — New feature
 
   Example: [FIX] Prevent shelf from disappearing on reboot
 -->
@@ -20,18 +22,16 @@
 
 ## Type of Change
 
-- [ ] Bug fix (`[FIX]`)
-- [ ] Enhancement (`[ENHANCEMENT]`)
 - [ ] New feature (`[FEATURE]`)
-- [ ] Refactor / restructure (`[REFACTOR]`)
-- [ ] Code cleanup (`[CLEANUP]`)
+- [ ] Refactor / Code cleanup (`[REFACTOR]`, `[CLEANUP]`)
+- [ ] Bug fix / Enhancement / QA / Performance update (`[FIX]`, `[ENHANCEMENT]`, `[QA]`, `[PERF]`)
 - [ ] Documentation update
 - [ ] i18n / localization
 - [ ] Build / CI change
 
 ## Checklist
 
-- [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`.
+- [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`.
 - [ ] I added my changes to `CHANGELOG.md` under `## [Unreleased]`.
 - [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] My code follows the project's code style (2 spaces, semicolons, double quotes).

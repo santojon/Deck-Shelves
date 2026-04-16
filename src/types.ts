@@ -6,6 +6,7 @@ export const FilterItemTypeSchema = z.enum([
   "nonSteam",
   "hidden",
   "updatePending",
+  "isNew",
   "deckCompatibility",
   "playedWithinDays",
   "playtimeRange",
@@ -76,6 +77,9 @@ export const ShelfSchema = z.object({
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
   hideStatusLine: z.boolean().default(false),
+  hideNewBadge: z.boolean().default(false),
+  hideCompatIcons: z.boolean().default(false),
+  hideNonSteamBadge: z.boolean().default(false),
   source: ShelfSourceSchema
 });
 
@@ -84,10 +88,14 @@ export type Shelf = z.infer<typeof ShelfSchema>;
 export const SettingsSchema = z.object({
   enabled: z.boolean().default(true),
   hideRecents: z.boolean().default(false),
+  hideHomeTabs: z.boolean().default(false),
   shelfHeroBackground: z.boolean().default(false),
   globalMatchNativeSize: z.boolean().default(false),
   globalHighlightFirst: z.boolean().default(false),
   globalHideStatusLine: z.boolean().default(false),
+  globalHideNewBadge: z.boolean().default(false),
+  globalHideCompatIcons: z.boolean().default(false),
+  globalHideNonSteamBadge: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([])
 });
 

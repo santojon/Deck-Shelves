@@ -13,10 +13,11 @@ const STYLES_POLL_MS = 3000;      // how often ensureStyles re-runs
 
 // Persisted cache (cold-start reflow avoidance)
 const DIMS_CACHE_KEY = "ds-cardsize";
-const DIMS_CACHE_VERSION = 1;
+const DIMS_CACHE_VERSION = 2;
 type PersistedDims = { v: number; dims: NativeCardDims; vw: number; vh: number; dpr: number };
 
 let cachedCardRadius = "0px";
+let cachedNewBadgeRadius = "0px";
 let cachedNativeDims: NativeCardDims | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
@@ -40,15 +41,15 @@ function loadPersistedDims(): NativeCardDims | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedDims;
     if (!parsed || parsed.v !== DIMS_CACHE_VERSION || !parsed.dims) return null;
-    const cur = viewportFingerprint();
-    if (parsed.vw !== cur.vw || parsed.vh !== cur.vh || Math.abs(parsed.dpr - cur.dpr) > 0.01) return null;
     return parsed.dims;
   } catch { return null; }
 }
 
 function persistDims(dims: NativeCardDims) {
   try {
-    const payload: PersistedDims = { v: DIMS_CACHE_VERSION, dims, ...viewportFingerprint() };
+    const fp = viewportFingerprint();
+    if (fp.vw < 100 || fp.vh < 100) return;
+    const payload: PersistedDims = { v: DIMS_CACHE_VERSION, dims, ...fp };
     (globalThis as any)?.localStorage?.setItem(DIMS_CACHE_KEY, JSON.stringify(payload));
   } catch {}
 }
@@ -64,6 +65,10 @@ function debouncedNotifyDims(_dims: NativeCardDims) {
     dimsDebounceTimer = null;
     nativeDimsListeners.forEach(cb => cb());
   }, DIMS_DEBOUNCE_MS);
+}
+function notifyDimsNow() {
+  if (dimsDebounceTimer) { clearTimeout(dimsDebounceTimer); dimsDebounceTimer = null; }
+  nativeDimsListeners.forEach(cb => cb());
 }
 
 export function getCachedCardRadius(): string { return cachedCardRadius; }
@@ -94,17 +99,51 @@ function detectNativeCardRadius(): string {
   return "0px";
 }
 
+function detectNativeNewBadgeRadius(): string {
+  try {
+    const docs = [getPreferredSteamDocument(), document];
+    for (const doc of docs) {
+      if (!doc) continue;
+      const nodes = doc.querySelectorAll<HTMLElement>('*');
+      for (let i = 0; i < nodes.length; i++) {
+        const el = nodes[i];
+        if (el.children.length !== 0) continue;
+        const t = el.textContent;
+        if (t !== 'Novo' && t !== 'NEW' && t !== 'New') continue;
+        const cs = getComputedStyle(el);
+        if (cs.backgroundColor !== 'rgb(26, 159, 255)') continue;
+        return cs.borderRadius || '0px';
+      }
+    }
+  } catch {}
+  return "0px";
+}
+
 function ensureStyles() {
   try {
     const newRadius = detectNativeCardRadius();
     const radiusChanged = newRadius !== cachedCardRadius;
     cachedCardRadius = newRadius;
+    const newBadgeRadius = detectNativeNewBadgeRadius();
+    const newBadgeRadiusChanged = newBadgeRadius !== cachedNewBadgeRadius;
+    cachedNewBadgeRadius = newBadgeRadius;
     const steamDoc = getPreferredSteamDocument();
     const newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
     // Only accept new dims when the change exceeds tolerance (avoids flicker
     // from focus-scale, rounding, or animation mid-frame measurements).
-    // When newDims is null (e.g. recents hidden), keep the cached dims.
+    // When newDims is null (e.g. recents hidden, or focus present), keep the cached dims.
     const tol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > DIMS_TOL_PX;
+    // When the new measurement lacks a field the cache already has (e.g. native
+    // featured card is focused/hidden and was skipped by discovery), preserve
+    // the cached value instead of treating the absence as a change. Otherwise
+    // leaving the DS shelf would overwrite featuredWidth with undefined and
+    // shrink the featured card back to the fallback size.
+    if (newDims && cachedNativeDims) {
+      if (!newDims.featuredWidth && cachedNativeDims.featuredWidth) newDims.featuredWidth = cachedNativeDims.featuredWidth;
+      if (!newDims.featuredHeight && cachedNativeDims.featuredHeight) newDims.featuredHeight = cachedNativeDims.featuredHeight;
+      if (!newDims.featuredImgHeight && cachedNativeDims.featuredImgHeight) newDims.featuredImgHeight = cachedNativeDims.featuredImgHeight;
+      if (!newDims.imgHeight && cachedNativeDims.imgHeight) newDims.imgHeight = cachedNativeDims.imgHeight;
+    }
     const dimsChanged = newDims !== null && (
       !cachedNativeDims ||
       tol(newDims.width, cachedNativeDims.width) ||
@@ -114,6 +153,21 @@ function ensureStyles() {
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
     if (dimsChanged && newDims) {
+      // Fast path: when the cache has no featuredWidth but the new measurement does,
+      // accept immediately. The featured card would otherwise render at the fallback
+      // landscape ratio for 6+ seconds (2 × poll interval) before resizing — visible
+      // as a slow enlarge on cold boot when matchNativeSize is on.
+      const acquiredFeatured = !!newDims.featuredWidth && !cachedNativeDims?.featuredWidth;
+      if (acquiredFeatured) {
+        cachedNativeDims = newDims;
+        persistDims(newDims);
+        pendingDims = null;
+        pendingDimsCount = 0;
+        // Synchronous notification — the 500ms debounce delays the featured
+        // card resize noticeably when it's finally discovered. Acquiring
+        // featured for the first time is a one-shot event; no debounce needed.
+        notifyDimsNow();
+      } else {
       // Require 2 consecutive polls showing the same new values before accepting
       const matchesPending = pendingDims &&
         !tol(newDims.width, pendingDims.width) &&
@@ -132,6 +186,7 @@ function ensureStyles() {
         pendingDims = newDims;
         pendingDimsCount = 1;
       }
+      }
     } else if (!cachedNativeDims && newDims) {
       cachedNativeDims = newDims;
       persistDims(newDims);
@@ -148,13 +203,15 @@ function ensureStyles() {
         style.id = STYLE_ID;
         style.textContent = buildStylesheet();
         doc.head.appendChild(style);
-      } else if (radiusChanged || dimsChanged) {
+      } else if (radiusChanged || dimsChanged || newBadgeRadiusChanged) {
         // Update CSS variables in-place instead of removing the stylesheet
         doc.documentElement.style.setProperty('--ds-card-radius', cachedCardRadius);
+        doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
         doc.documentElement.style.setProperty('--ds-native-card-w', `${cachedNativeDims?.width ?? CARD_W}px`);
         doc.documentElement.style.setProperty('--ds-native-card-h', `${cachedNativeDims?.height ?? CARD_ART_H}px`);
         doc.documentElement.style.setProperty('--ds-native-card-gap', `${cachedNativeDims?.gap ?? CARD_GAP}px`);
       }
+      doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
 
       // Detect page background color from the scrollable viewport or body
       try {
@@ -251,8 +308,8 @@ function buildStylesheet(): string {
       outline: none !important;
       outline-offset: 0px !important;
       border: none !important;
-      box-shadow: none !important;
-      z-index: 5;
+      box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px !important;
+      z-index: 12;
       filter: brightness(1);
     }
     #deck-shelves-home-root .ds-card::after {
@@ -341,6 +398,23 @@ function buildStylesheet(): string {
     .ds-compat-playable .ds-compat-verdict-icon { color: var(--custom-compat-icons-playable, rgb(255, 200, 44)); }
     .ds-compat-unsupported .ds-compat-verdict-icon { color: var(--custom-compat-icons-unsupported, rgb(220, 222, 223)); }
     .ds-compat-unknown .ds-compat-verdict-icon { color: var(--custom-compat-icons-unknown, rgba(255,255,255,0.4)); }
+    body.ds-hide-non-steam-badges .nonsteam-badge,
+    .ds-card--hide-non-steam-badge .nonsteam-badge { display: none !important; }
+    .ds-new-badge-band {
+      position: absolute; top: -2px; left: 0; right: 0;
+      height: 24px;
+      display: flex; justify-content: center; align-items: flex-start;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .ds-new-badge {
+      background: rgb(26, 159, 255); color: #fff;
+      font: 700 10px/20px "Motiva Sans", Helvetica, Arial, sans-serif;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      padding: 2px 12px; border-radius: var(--ds-new-badge-radius, 0px);
+      box-shadow: rgb(37, 53, 83) 0 1px 8px 0;
+      pointer-events: none;
+    }
     .ds-shelf-title {
       color: var(--ds-native-heading-color, inherit);
       font-size: 22px;
@@ -412,6 +486,17 @@ export function globalStylesStart() {
     globalStyleTimer = setInterval(ensureStyles, STYLES_POLL_MS);
     globalResizeHandler = () => ensureStyles();
     window.addEventListener('resize', globalResizeHandler);
+    // Short burst of early polls to catch native dims as soon as Steam's home
+    // renders its recents — otherwise we wait a full STYLES_POLL_MS (3s) for
+    // the first chance, which visibly delays the featured card sizing.
+    // Stops as soon as we have featured dims.
+    const earlyDelays = [150, 350, 700, 1200, 2000];
+    for (const d of earlyDelays) {
+      setTimeout(() => {
+        if (cachedNativeDims?.featuredWidth) return;
+        ensureStyles();
+      }, d);
+    }
   }
 }
 

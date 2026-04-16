@@ -3,6 +3,7 @@ import type { Settings } from "../types";
 import { SettingsSchema } from "../types";
 import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn } from "../runtime/logger";
+import { applyQASettingsOverride } from "../qa/harness";
 
 const CACHE_KEY = 'deck-shelves-settings-cache-v2';
 const SHARED_STATE_KEY = '__DECK_SHELVES_SHARED_SETTINGS__';
@@ -38,7 +39,8 @@ function writeSharedState(s: Settings) {
   } catch {}
 }
 
-let current: Settings | null = readCache() ?? readSharedState();
+const _init = readCache() ?? readSharedState();
+let current: Settings | null = _init ? applyQASettingsOverride(_init) : null;
 const listeners = new Set<(s: Settings) => void>();
 
 function isSameSettings(a: Settings | null, b: Settings): boolean {
@@ -53,7 +55,8 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
   });
 }
 
-function notify(s: Settings) {
+function notify(raw: Settings) {
+  const s = applyQASettingsOverride(raw);
   if (isSameSettings(current, s)) {
     return;
   }
@@ -96,6 +99,11 @@ export async function refreshSettings(): Promise<Settings> {
 }
 
 export async function saveSettings(next: Settings): Promise<boolean> {
+  if (__DEV__ && ((typeof __QA_ALL_SHELVES_HIDE_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_HIDE_RECENTS__) || (typeof __QA_ALL_SHELVES_SHOW_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_SHOW_RECENTS__))) {
+    logInfo("STORAGE", "saveSettings skipped (QA all-shelves override active)");
+    notify(next);
+    return true;
+  }
   logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
   notify(next);
   const payload = JSON.stringify(next);

@@ -5,6 +5,7 @@ import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
+import { focusElement } from "../core/focusRestore";
 
 // Re-export types and components from shelf/ for backwards compatibility
 export { type DeckRowItem } from "./shelf/types";
@@ -37,12 +38,13 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, hideStatusLine = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; hideStatusLine?: boolean }) {
+export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
-  const [collapsed, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
+  const [collapsedState, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
+  const collapsed = forceExpanded ? false : collapsedState;
   const [nativeRowClass, setNativeRowClass] = useState('');
 
   // Memoize effective dimensions — only recompute when the dims version changes,
@@ -53,19 +55,22 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     const w = matchNativeSize && nd ? nd.width : CARD_W;
     const h = matchNativeSize && nd ? nd.height : CARD_ART_H;
     const gap = matchNativeSize && nd ? nd.gap : CARD_GAP;
-    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(h * (460 / 215));
+    // Default featured: ~2× portrait width, same height — proportionally close
+    // to native "highlight" card layout. Avoids the 2.14 landscape aspect that
+    // makes the card look too wide against the portrait row.
+    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3);
     const featH = matchNativeSize && nd?.featuredHeight ? nd.featuredHeight : h;
     const artH = matchNativeSize && nd?.imgHeight ? nd.imgHeight : h;
     const featArtH = matchNativeSize && nd?.featuredImgHeight ? nd.featuredImgHeight : featH;
     return { w, h, gap, featW, featH, artH, featArtH };
   }, [matchNativeSize, dimsVersion]);
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
-  // If highlightFirst is enabled but native sizing is disabled, prefer a slightly
-  // larger featured card size derived from our defaults rather than attempting
-  // to pull any native dims. This avoids using native dimensions when the
-  // matchNativeSize toggle is off.
-  const finalFeaturedW = (!matchNativeSize && highlightFirst) ? Math.round(effectiveFeaturedW * 1.15) : effectiveFeaturedW;
-  const finalFeaturedH = (!matchNativeSize && highlightFirst) ? Math.round(effectiveFeaturedH * 1.15) : effectiveFeaturedH;
+  // When native dims are unavailable but highlightFirst is on, the featured
+  // card must stay the same HEIGHT as neighboring portrait cards — only width
+  // differs (landscape hero shape). Scaling height broke row alignment.
+  const finalFeaturedW = effectiveFeaturedW;
+  const finalFeaturedH = effectiveFeaturedH;
+  const finalFeaturedArtH = effectiveFeaturedArtH;
 
   useEffect(() => {
     globalStylesStart();
@@ -98,17 +103,74 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
-    let retryTimer: number | null = null;
+    const CENTER_TOLERANCE_PX = 32; // don't fight Steam when it's already close
+    let scheduled: number | null = null;
+    let lastScrollable: HTMLElement | null = null;
+    let lastTarget = -1;
+    const findScrollableAncestor = (node: HTMLElement | null): HTMLElement | null => {
+      let cur = node?.parentElement ?? null;
+      while (cur && cur !== cur.ownerDocument?.body) {
+        try {
+          const cs = getComputedStyle(cur);
+          const oy = (cs.overflowY || "").toLowerCase();
+          if ((oy === "auto" || oy === "scroll" || oy === "overlay") && cur.scrollHeight > cur.clientHeight) return cur;
+        } catch { /* skip */ }
+        cur = cur.parentElement;
+      }
+      return null;
+    };
+    // Center `el` inside its scrollable ancestor. One smooth scroll per focus
+    // event, issued only when needed — if Steam's native scroll already put
+    // the shelf near center (within tolerance), skip entirely to avoid
+    // competing smooth-scrolls that cause visible stutter.
+    const maybeCenter = () => {
+      try {
+        const scr = findScrollableAncestor(el);
+        if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
+        const elRect = el.getBoundingClientRect();
+        const scrRect = scr.getBoundingClientRect();
+        const currentCenterOffset = (elRect.top + elRect.height / 2) - (scrRect.top + scrRect.height / 2);
+        if (Math.abs(currentCenterOffset) <= CENTER_TOLERANCE_PX) return;
+        const delta = elRect.top - scrRect.top;
+        const target = Math.round(scr.scrollTop + delta - (scr.clientHeight - elRect.height) / 2);
+        const clamped = Math.max(0, Math.min(scr.scrollHeight - scr.clientHeight, target));
+        // Coalesce: ignore redundant scroll commands to the same target on the
+        // same scrollable — Steam may re-fire focusin during smooth scroll.
+        if (scr === lastScrollable && Math.abs(clamped - lastTarget) < 2) return;
+        lastScrollable = scr;
+        lastTarget = clamped;
+        try { scr.scrollTo({ top: clamped, behavior: "smooth" }); } catch { scr.scrollTop = clamped; }
+      } catch { /* ignore */ }
+    };
+    let verifyTimer: number | null = null;
     const onFocusIn = () => {
-      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-      requestAnimationFrame(() => el.scrollIntoView({ block: "center", behavior: "smooth" }));
+      if (scheduled === null) {
+        scheduled = requestAnimationFrame(() => {
+          scheduled = null;
+          maybeCenter();
+        });
+      }
+      // Verification pass after 300ms: covers the recently-expanded-shelf
+      // case where the first scroll reads mid-animation layout or Steam's
+      // native scroll competes with ours. Self-skips via the tolerance
+      // check inside maybeCenter when the shelf is already centered.
+      if (verifyTimer) clearTimeout(verifyTimer);
+      verifyTimer = window.setTimeout(() => {
+        verifyTimer = null;
+        // Reset the dedup target so the verification pass can re-issue the
+        // same scroll if it's genuinely needed again.
+        lastTarget = -1;
+        maybeCenter();
+      }, 300);
     };
     el.addEventListener("focusin", onFocusIn);
     return () => {
       el.removeEventListener("focusin", onFocusIn);
-      if (retryTimer) clearTimeout(retryTimer as number);
+      if (scheduled !== null) cancelAnimationFrame(scheduled);
+      if (verifyTimer) clearTimeout(verifyTimer);
     };
   }, []);
+
 
   useEffect(() => {
     const rowEl = rowRef.current;
@@ -271,9 +333,25 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
   }, []);
 
   const toggleCollapse = () => {
+    if (forceExpanded) return;
     const next = !collapsed;
+    const shelf = outerRef.current;
+    const focusedInside = !!shelf?.querySelector('.gpfocus, :focus');
     setCollapsed(next);
     if (shelfId) writeCollapsed(shelfId, next);
+    if (!focusedInside) return;
+    const tryFocus = (attempt: number) => {
+      let target: HTMLElement | null = null;
+      if (!next) {
+        target = rowRef.current?.querySelector<HTMLElement>('.ds-card') ?? null;
+      } else {
+        const all = Array.from(shelf?.ownerDocument?.querySelectorAll<HTMLElement>('.ds-shelf .ds-card') ?? []);
+        target = all.find((el) => !shelf?.contains(el)) ?? null;
+      }
+      if (target && focusElement(target)) return;
+      if (attempt < 20) setTimeout(() => tryFocus(attempt + 1), 50);
+    };
+    requestAnimationFrame(() => tryFocus(0));
   };
 
   if (!items.length) return null;
@@ -286,19 +364,20 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
       {title ? (
         <div
           ref={titleRef}
-          className="ds-shelf-title"
-          onClick={toggleCollapse}
+          className={`ds-shelf-title${forceExpanded ? ' ds-shelf-title--locked' : ''}`}
+          onClick={forceExpanded ? undefined : toggleCollapse}
           style={{
             marginBottom: 8,
             paddingLeft: "2.8vw",
             display: "flex",
             alignItems: "center",
             gap: 8,
-            cursor: "pointer",
+            cursor: forceExpanded ? "default" : "pointer",
             userSelect: "none",
+            pointerEvents: forceExpanded ? "none" : undefined,
           }}
         >
-          <span style={{ flex: 1 }}>{title}</span>
+          <span style={{ flex: 1 }}>{collapsed ? `+ ${title}` : title}</span>
         </div>
       ) : null}
       {!collapsed && (
@@ -334,9 +413,12 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
                 : <GameCard key={item.id} item={item}
                   cardW={highlightFirst && idx === 0 ? finalFeaturedW : effectiveW}
                   cardH={highlightFirst && idx === 0 ? finalFeaturedH : effectiveH}
-                  artH={highlightFirst && idx === 0 ? effectiveFeaturedArtH : effectiveArtH}
+                  artH={highlightFirst && idx === 0 ? finalFeaturedArtH : effectiveArtH}
                   featured={highlightFirst && idx === 0}
-                  hideStatusLine={hideStatusLine} />
+                  hideStatusLine={hideStatusLine}
+                  hideNewBadge={hideNewBadge}
+                  hideCompatIcons={hideCompatIcons}
+                  hideNonSteamBadge={hideNonSteamBadge} />
           )}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>

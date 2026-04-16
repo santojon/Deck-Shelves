@@ -8,12 +8,13 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
-import { applyHideRecents, getMountFailed } from "../runtime/homePatch";
+import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
-import { reparentNavTreeNodes, patchShelfEdgeNavigation, patchMenuButton } from "./home/navPatches";
+import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
+import { triggerShelfRefresh } from "../core/shelfRefresh";
 
 const ROOT_ID = "deck-shelves-home-root";
 const homePlatform = createDeckyPlatform();
@@ -155,10 +156,34 @@ export function HomeShelves() {
     const win = getPreferredSteamWindow();
     const obs = new MutationObserver(updateMount);
     obs.observe(doc.body, { childList: true, subtree: true });
-    // Long fallback for edge cases the observer misses (e.g. iframe navigation)
-    const timer = window.setInterval(updateMount, 10000);
+    // Short fallback covers SPA pushState navigation (library → home) that does
+    // not fire popstate/hashchange and may not trigger body subtree mutations.
+    const timer = window.setInterval(updateMount, 2000);
     win.addEventListener("hashchange", updateMount);
     win.addEventListener("popstate", updateMount);
+
+    // Patch history.pushState/replaceState so SPA navigations synchronously
+    // trigger updateMount (no 2s fallback wait when returning to home).
+    let wasOnHome = isHomeRoute();
+    const onRouteChange = () => {
+      const nowOnHome = isHomeRoute();
+      if (nowOnHome && !wasOnHome) {
+        updateMount();
+        triggerShelfRefresh();
+      }
+      wasOnHome = nowOnHome;
+    };
+    const hist = (win as any).history;
+    const origPush = hist?.pushState;
+    const origReplace = hist?.replaceState;
+    if (typeof origPush === "function") {
+      hist.pushState = function (...args: any[]) { const r = origPush.apply(this, args); onRouteChange(); return r; };
+    }
+    if (typeof origReplace === "function") {
+      hist.replaceState = function (...args: any[]) { const r = origReplace.apply(this, args); onRouteChange(); return r; };
+    }
+    win.addEventListener("popstate", onRouteChange);
+    win.addEventListener("hashchange", onRouteChange);
 
     return () => {
       alive = false;
@@ -166,6 +191,10 @@ export function HomeShelves() {
       window.clearInterval(timer);
       win.removeEventListener("hashchange", updateMount);
       win.removeEventListener("popstate", updateMount);
+      win.removeEventListener("popstate", onRouteChange);
+      win.removeEventListener("hashchange", onRouteChange);
+      try { if (origPush && hist.pushState !== origPush) hist.pushState = origPush; } catch {}
+      try { if (origReplace && hist.replaceState !== origReplace) hist.replaceState = origReplace; } catch {}
       doc.getElementById(ROOT_ID)?.remove();
     };
   }, []);
@@ -174,12 +203,17 @@ export function HomeShelves() {
     if (!mountEl) return;
     let alive = true;
     mountEl.dataset.deckShelvesRenderer = 'react';
-    const unsub = subscribeSettings((s) => { if (alive) setSettings(s); });
-    refreshSettings().then((s) => { if (alive) setSettings(s); }).catch(() => undefined);
+    const applyBodyClasses = (s: any) => {
+      try {
+        document.body?.classList?.toggle('ds-hide-non-steam-badges', s?.globalHideNonSteamBadge === true);
+      } catch {}
+    };
+    const unsub = subscribeSettings((s) => { if (alive) { setSettings(s); applyBodyClasses(s); } });
+    refreshSettings().then((s) => { if (alive) { setSettings(s); applyBodyClasses(s); } }).catch(() => undefined);
 
     const onSettingsChanged = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
-      if (detail && alive) setSettings(detail);
+      if (detail && alive) { setSettings(detail); applyBodyClasses(detail); }
     };
     globalThis.addEventListener("deck-shelves-settings-changed", onSettingsChanged);
 
@@ -187,6 +221,7 @@ export function HomeShelves() {
       alive = false;
       unsub();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettingsChanged);
+      try { document.body.classList.remove('ds-hide-non-steam-badges'); } catch {}
       delete mountEl.dataset.deckShelvesRenderer;
     };
   }, [mountEl]);
@@ -220,6 +255,12 @@ export function HomeShelves() {
     }
   }, [settings?.hideRecents, settings?.enabled, settings?.shelves, mountEl]);
 
+  // Apply hideHomeTabs — no suppression criteria, simple toggle. If no sibling
+  // elements are found around the mount, the helper is a no-op.
+  useEffect(() => {
+    applyHideHomeTabs(settings?.hideHomeTabs === true);
+  }, [settings?.hideHomeTabs, mountEl]);
+
   if (!mountEl) return null;
   if (!settings) return null;
 
@@ -243,13 +284,13 @@ export function HomeShelves() {
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHideStatusLine={settings.globalHideStatusLine === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} hideRecentsSetting={settings.hideRecents === true} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHideStatusLine={settings.globalHideStatusLine === true} globalHideNewBadge={settings.globalHideNewBadge === true} globalHideCompatIcons={settings.globalHideCompatIcons === true} globalHideNonSteamBadge={settings.globalHideNonSteamBadge === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} hideRecentsSetting={settings.hideRecents === true} />
     </PlatformProvider>,
     mountEl,
   ) as any;
 }
 
-function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false, shelfHeroBackground = false, hideRecentsSetting = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean; shelfHeroBackground?: boolean; hideRecentsSetting?: boolean }) {
+function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, shelfHeroBackground = false, hideRecentsSetting = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; shelfHeroBackground?: boolean; hideRecentsSetting?: boolean }) {
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
     const navApi = detectNavTreeApi();
@@ -259,20 +300,49 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       navApi.detail,
     );
 
+    // Apply idempotent patches (menu/edge/bridge) on every mount-subtree
+    // mutation. Reparent runs independently with its own triggers because
+    // Steam can rebuild our nav node's parent without touching our DOM
+    // subtree (e.g. when native home re-registers focusables around us).
     const applyPatches = () => {
       try {
         reparentNavTreeNodes(mountEl);
         patchShelfEdgeNavigation(mountEl);
         patchMenuButton();
+        installVerticalFocusBridge(mountEl);
         installPassiveMenuHook();
         tryRestoreFocus();
       } catch (e) { logInfo("HOME", "applyPatches failed", String(e)); }
     };
+    const reparentOnly = () => {
+      try { reparentNavTreeNodes(mountEl); } catch (e) { logInfo("HOME", "reparentOnly failed", String(e)); }
+    };
 
-    // Run patches immediately, then on DOM mutations + nav events
     applyPatches();
+
+    // Observer 1: mutations inside our mount (shelf render, collapse/expand)
     const obs = new MutationObserver(applyPatches);
     obs.observe(mountEl, { childList: true, subtree: true });
+
+    // Observer 2: mutations on mount's PARENT — catches Steam's native home
+    // re-adding/re-ordering siblings, which is when it re-registers our nav
+    // node at the wrong tree level. Only listens to direct-child changes.
+    let parentObs: MutationObserver | null = null;
+    if (mountEl.parentElement) {
+      parentObs = new MutationObserver(reparentOnly);
+      parentObs.observe(mountEl.parentElement, { childList: true });
+    }
+
+    // Safety net: poll every 750ms. Stability guard short-circuits when the
+    // position is correct, so this costs nothing in steady state. Catches
+    // cases where Steam re-registers without any DOM mutation at all.
+    const poll = window.setInterval(reparentOnly, 750);
+
+    // Focus events also signal Steam-driven tree changes; run reparent on
+    // focusin at the document level (cheap; guard will no-op when correct).
+    const doc = mountEl.ownerDocument;
+    const onFocusIn = () => reparentOnly();
+    doc?.addEventListener("focusin", onFocusIn, true);
 
     const win = getPreferredSteamWindow();
     const onNavEvent = () => { applyPatches(); if (hasPendingFocus()) beginFocusRestoreLoop(); };
@@ -281,6 +351,9 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
     return () => {
       obs.disconnect();
+      parentObs?.disconnect();
+      window.clearInterval(poll);
+      doc?.removeEventListener("focusin", onFocusIn, true);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
     };
@@ -354,7 +427,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}
-      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHideStatusLine={globalHideStatusLine} />)}
+      {shelves.map((shelf, idx) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} forceExpanded={hideRecentsSetting && idx === 0} />)}
     </Focusable>
   );
 }

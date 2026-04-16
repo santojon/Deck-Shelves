@@ -1,6 +1,8 @@
 import React from "react";
 import i18next from "i18next";
-import { HomeShelves } from "../components/HomeInject";
+import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";
+import { wrapHomeShelves } from "../qa/harness";
+const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
 import { refreshSettings } from "../settingsStore";
 import type { Shelf } from "../types";
 import { createDeckyPlatform } from "./deckyPlatform";
@@ -29,9 +31,23 @@ const rowScrollState = new Map<string, number>();
 let mountFailed = false;
 let mountError: string | null = null;
 
+if (__DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__) {
+  mountFailed = true;
+  mountError = "QA: forced shelf render error";
+}
+
 export function getMountFailed(): boolean { return mountFailed; }
 export function getMountError(): string | null { return mountError; }
-export function resetMountFailed(): void { mountFailed = false; mountError = null; lastRenderKey = ""; }
+export function resetMountFailed(): void { mountFailed = false; mountError = null; lastRenderKey = ""; notifyMountFailedChange(); }
+
+const mountFailedListeners = new Set<() => void>();
+export function subscribeMountFailed(cb: () => void): () => void {
+  mountFailedListeners.add(cb);
+  return () => { mountFailedListeners.delete(cb); };
+}
+function notifyMountFailedChange(): void {
+  for (const cb of mountFailedListeners) { try { cb(); } catch {} }
+}
 
 // --- Recents hiding ---
 let cachedRecentsEl: HTMLElement | null = null;
@@ -86,6 +102,79 @@ export function applyHideRecents(hidden: boolean): void {
       }
     }
   } catch (e) { logInfo("HOME", "applyHideRecents: margin-top failed", String(e)); }
+}
+
+// --- Home tabs (the native home area: recents + friends + novidades, etc.) ---
+// Scope: hide every sibling of our mount inside the same parent. Steam's home
+// viewport places all native "tabs" as siblings of our mount; removing all of
+// them leaves our shelves as the only visible area, which is the contract.
+// Each candidate must carry at least one webpack-hashed token so decorative
+// spacers/stray nodes aren't touched — no hardcoded classes.
+function setSiblingHidden(el: HTMLElement, hidden: boolean) {
+  if (hidden) {
+    if (el.dataset.dsHtHidden !== "1") {
+      el.dataset.dsHtPrevDisplay = el.style.getPropertyValue("display") || "";
+      el.dataset.dsHtHidden = "1";
+    }
+    el.style.setProperty("display", "none", "important");
+    el.setAttribute("aria-hidden", "true");
+  } else if (el.dataset.dsHtHidden === "1") {
+    const prev = el.dataset.dsHtPrevDisplay ?? "";
+    el.style.removeProperty("display");
+    if (prev) el.style.setProperty("display", prev);
+    delete el.dataset.dsHtHidden;
+    delete el.dataset.dsHtPrevDisplay;
+    el.removeAttribute("aria-hidden");
+  }
+  const focusables = el.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
+  for (const f of Array.from(focusables)) {
+    if (hidden) {
+      if (f.dataset.dsHtPrevTabindex === undefined) {
+        f.dataset.dsHtPrevTabindex = f.getAttribute("tabindex") ?? "0";
+      }
+      f.setAttribute("tabindex", "-1");
+    } else if (f.dataset.dsHtPrevTabindex !== undefined) {
+      f.setAttribute("tabindex", f.dataset.dsHtPrevTabindex);
+      delete f.dataset.dsHtPrevTabindex;
+    }
+  }
+}
+
+const hiddenHomeTabs = new Set<HTMLElement>();
+
+// Identify the "home tabs" siblings (Novidades/Amigos/Recomendados). These are
+// distinguished by containing a [role=tablist] descendant — a semantic marker
+// that survives Steam bundle renames and doesn't overlap with recents (which
+// has no tablist).
+function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
+  const parent = mountEl.parentElement;
+  if (!parent) return [];
+  const out: HTMLElement[] = [];
+  for (const child of Array.from(parent.children) as HTMLElement[]) {
+    if (child === mountEl) continue;
+    if (child.querySelector('[role="tablist"]')) out.push(child);
+  }
+  return out;
+}
+
+export function applyHideHomeTabs(hidden: boolean): void {
+  try {
+    const { doc } = getHostContext();
+    const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+
+    // Always restore previously-hidden elements first (handles parent changes).
+    for (const el of Array.from(hiddenHomeTabs)) {
+      if (el.isConnected) setSiblingHidden(el, false);
+      hiddenHomeTabs.delete(el);
+    }
+    if (!hidden) return;
+    if (!mount) return;
+
+    for (const el of collectHomeTabSiblings(mount)) {
+      setSiblingHidden(el, true);
+      hiddenHomeTabs.add(el);
+    }
+  } catch (e) { logInfo("HOME", "applyHideHomeTabs failed", String(e)); }
 }
 
 function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
@@ -157,6 +246,7 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
   };
 
   try { push(window, "current"); } catch {}
+  try { push((window as any).opener, "opener"); } catch {}
   try { push(findSPWindow(), "findSP"); } catch {}
   try { push((window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow, "focusedWindow"); } catch {}
   try { push((window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow, "mainWindow"); } catch {}
@@ -339,7 +429,8 @@ function ensureMount(): HTMLElement | null {
   }
 
   // Success — clear any previous failure
-  if (mountFailed) {
+  const qaForceShelfError = __DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__;
+  if (mountFailed && !qaForceShelfError) {
     mountFailed = false;
     mountError = null;
     logInfo("HOME", "mount recovered after previous failure");
@@ -759,9 +850,28 @@ async function renderHomeShelves() {
   }
 }
 
+class HomeBoundary extends React.Component<{ children: React.ReactNode }, { crashed: boolean }> {
+  state = { crashed: false };
+  static getDerivedStateFromError(_err: unknown) { return { crashed: true }; }
+  componentDidCatch(err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logError("HOME", "shelf render crashed — crash protection engaged", msg);
+    logDiagnostic("error", "Home shelf render crashed", msg);
+    mountFailed = true;
+    mountError = msg;
+    try {
+      const { doc } = getHostContext();
+      const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+      if (mount) { mount.innerHTML = ""; mount.style.display = "none"; }
+    } catch {}
+    notifyMountFailedChange();
+  }
+  render() { return this.state.crashed ? null : this.props.children; }
+}
+
 function HomeDomBridge() {
   getHostContext();
-  return React.createElement(HomeShelves);
+  return React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
 }
 
 function registerBridgeViaStore(store: any): boolean {
@@ -987,14 +1097,14 @@ export function installHomePatch(_routerHook?: any) {
       if (typeof renderFn === "function") {
         const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
         root.render(
-          React.createElement(HomeShelves)
+          React.createElement(HomeBoundary, null, React.createElement(HomeShelves))
         );
         fallbackRoot = root;
         fallbackMountId = mount.id;
         logInfo("HOME", "fallback: rendered via createRoot");
       } else if (typeof ReactDOM.render === "function") {
         ReactDOM.render(
-          React.createElement(HomeShelves),
+          React.createElement(HomeBoundary, null, React.createElement(HomeShelves)),
           mount
         );
         fallbackRoot = { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(mount); } catch {} } };
@@ -1012,7 +1122,7 @@ export function installHomePatch(_routerHook?: any) {
   observer.observe(hostDoc.body, { childList: true, subtree: true });
 
   if (timer) window.clearInterval(timer);
-  timer = window.setInterval(tryFallbackRender, 10000);
+  timer = window.setInterval(tryFallbackRender, 2000);
 
   const onRouteSignal = () => tryFallbackRender();
   hostWin.addEventListener("hashchange", onRouteSignal);

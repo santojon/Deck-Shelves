@@ -12,7 +12,9 @@ import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 
-export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean }) {
+const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const [appIds, setAppIds] = useState<number[] | null>(() => {
@@ -104,6 +106,9 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
     const item = items.get(appid) ?? { appid, name: `App ${appid}` };
     if (/^App \d+$/.test(item.name)) return [];
     const onMenuButton = () => showGameMenu(appid);
+    const addedTs = (item as any).addedTimestamp;
+    const addedMs = typeof addedTs === 'number' && addedTs > 0 ? (addedTs < 1e12 ? addedTs * 1000 : addedTs) : 0;
+    const isNew = addedMs > 0 ? (Date.now() - addedMs) < NEW_GAME_WINDOW_MS : false;
     return [{
       id: appid,
       appid,
@@ -117,6 +122,7 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
       isInstalled: item.installed,
       updatePending: item.updatePending,
       isSteam: item.isSteam,
+      isNew,
       statusText: item.installed != true ? t('status_not_installed') : undefined,
       shelfId: shelf.id,
     }];
@@ -135,5 +141,8 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
   });
 
   const effectiveHide = globalHideStatusLine === true ? true : (shelf.hideStatusLine === true);
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} hideStatusLine={effectiveHide} />;
+  const effectiveHideNewBadge = globalHideNewBadge === true ? true : (shelf.hideNewBadge === true);
+  const effectiveHideCompatIcons = globalHideCompatIcons === true ? true : (shelf.hideCompatIcons === true);
+  const effectiveHideNonSteamBadge = globalHideNonSteamBadge === true ? true : (shelf.hideNonSteamBadge === true);
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} forceExpanded={forceExpanded} />;
 }
