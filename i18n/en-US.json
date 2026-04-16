@@ -202,7 +202,7 @@
   "reset_all_confirm_title": "Reset everything?",
   "save": "Save",
   "shelf_hero_background": "Show first shelf background art",
-  "recents_replace_source": "Use first shelf as Recents",
+  "recents_replace_source": "Use first shelf as Recents (experimental)",
   "recents_replace_error_title": "Recents replacement failed",
   "recents_replace_error_desc": "The experimental recents replacement was disabled after a runtime error. Fell back to hiding the native recents.",
   "recents_replace_error_disable": "Disable toggle",

@@ -65,9 +65,59 @@ jobs:
 
           IMG_URL="https://raw.githubusercontent.com/$REPO/${TAG_NAME:-main}/assets/screenshots/home.png"
 
-          CHANGELOG=$(printf "%s" "$BODY" | tr -d '\r' | head -c 6000)
-          SELFTEXT=$(printf "Deck Shelves is an open-source Decky plugin that adds customizable game shelves to the Steam Deck home screen (filters, collections, Non-Steam games, hero background, etc.).\n\nThis release (**%s**) brings the changes below. Feedback, bug reports and ideas are welcome.\n\n![screenshot](%s)\n\n## Changelog\n\n%s\n\nReleases: https://github.com/%s/releases\n\n*Disclosure: I'm the developer. Not affiliated with Valve.*\n" \
-            "$TAG_NAME" "$IMG_URL" "$CHANGELOG" "$REPO")
+          # Condense the full changelog body into a short, descriptive summary.
+          # Reddit posts with giant changelogs are skimmed past — this keeps
+          # only the top bullets per section (Added/Changed/Fixed), trims
+          # trailing parenthetical detail, and caps the total to a short list.
+          cat > /tmp/reddit_changelog.py <<'PYEOF'
+          import sys, re
+          body = sys.stdin.read()
+          sections = {"Added": [], "Changed": [], "Fixed": []}
+          current = None
+          for raw in body.splitlines():
+              line = raw.rstrip()
+              stripped = line.lstrip()
+              heading = re.match(r"^#{2,3}\s+(Added|Changed|Fixed)\s*$", line.strip(), re.I)
+              if heading:
+                  current = heading.group(1).capitalize()
+                  continue
+              if line.startswith("#"):
+                  current = None
+                  continue
+              if current and stripped.startswith("-") and len(stripped) > 2:
+                  item = stripped.lstrip("-").strip()
+                  item = re.sub(r"^\[[A-Z]+\]\s*", "", item)
+                  item = re.sub(r"\s+`[A-Za-z0-9._/-]+`\s*", " ", item)
+                  item = re.sub(r"^`([^`]+)`\s*(?:\u2014|-)\s*", r"\1 \u2014 ", item)
+                  item = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", item)
+                  gist = re.split(r"\u2014|(?<=[.!?])\s+", item, maxsplit=1)[0].strip().rstrip(".,;:")
+                  if len(gist) > 110:
+                      gist = gist[:107].rstrip() + "..."
+                  if gist:
+                      sections[current].append(gist)
+          MAX_PER_SECTION = 4
+          out_lines = []
+          titles = {"Added": "What's new", "Changed": "Changes", "Fixed": "Fixes"}
+          for key in ("Added", "Changed", "Fixed"):
+              items = sections[key][:MAX_PER_SECTION]
+              if not items:
+                  continue
+              out_lines.append("### " + titles[key])
+              for it in items:
+                  out_lines.append("- " + it)
+              out_lines.append("")
+          total = sum(len(v) for v in sections.values())
+          shown = sum(min(MAX_PER_SECTION, len(sections[k])) for k in sections)
+          if total > shown:
+              out_lines.append("_" + str(total - shown) + " more change(s) in the full release notes._")
+          print("\n".join(out_lines).strip())
+          PYEOF
+          CHANGELOG=$(printf "%s" "$BODY" | tr -d '\r' | python3 /tmp/reddit_changelog.py)
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="See full notes on GitHub."
+          fi
+          SELFTEXT=$(printf "Deck Shelves is an open-source Decky plugin that adds customizable game shelves to the Steam Deck home screen (filters, collections, Non-Steam games, hero background, etc.).\n\n**Release %s** — highlights below. Full notes: %s\n\n![screenshot](%s)\n\n%s\n\nReleases: https://github.com/%s/releases\n\n*Disclosure: I'm the developer. Not affiliated with Valve.*\n" \
+            "$TAG_NAME" "$URL" "$IMG_URL" "$CHANGELOG" "$REPO")
 
           enc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"; }
           ENC_TITLE=$(enc "$TITLE")

@@ -324,10 +324,6 @@ function buildStylesheet(): string {
       pointer-events: none !important;
       z-index: 4 !important;
       opacity: 1 !important;
-      transition: none !important;
-      background: none !important;
-      background-image: none !important;
-      animation: none !important;
       display: inline !important;
     }
     #deck-shelves-home-root .ds-card.gpfocus::after,

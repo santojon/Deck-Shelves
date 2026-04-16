@@ -202,7 +202,7 @@
   "reset_all_confirm_title": "모두 초기화할까요?",
   "save": "저장",
   "shelf_hero_background": "첫 번째 선반 배경 아트 표시",
-  "recents_replace_source": "첫 번째 선반을 최근 게임으로 사용",
+  "recents_replace_source": "첫 번째 선반을 최근 게임으로 사용 (실험적)",
   "recents_replace_error_title": "최근 게임 교체 실패",
   "recents_replace_error_desc": "실험 기능이 오류로 비활성화되었습니다. 원래 숨기기 모드로 돌아갑니다.",
   "recents_replace_error_disable": "비활성화",

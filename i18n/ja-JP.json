@@ -202,7 +202,7 @@
   "reset_all_confirm_title": "すべてリセットしますか？",
   "save": "保存",
   "shelf_hero_background": "最初の棚の背景アートを表示",
-  "recents_replace_source": "最初の棚を「最近」として使用",
+  "recents_replace_source": "最初の棚を「最近」として使用（試験的）",
   "recents_replace_error_title": "最近のプレイ置換に失敗",
   "recents_replace_error_desc": "実験的な置換がエラーで無効化されました。従来の非表示に戻りました。",
   "recents_replace_error_disable": "無効にする",
