@@ -104,16 +104,53 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     const el = outerRef.current;
     if (!el) return;
     let retryTimer: number | null = null;
+    let retryTimer2: number | null = null;
+    const findScrollableAncestor = (node: HTMLElement | null): HTMLElement | null => {
+      let cur = node?.parentElement ?? null;
+      while (cur && cur !== cur.ownerDocument?.body) {
+        try {
+          const cs = getComputedStyle(cur);
+          const oy = (cs.overflowY || "").toLowerCase();
+          if ((oy === "auto" || oy === "scroll" || oy === "overlay") && cur.scrollHeight > cur.clientHeight) return cur;
+        } catch { /* skip */ }
+        cur = cur.parentElement;
+      }
+      return null;
+    };
+    // Compute explicit scroll position that centers `el` inside its scrollable
+    // ancestor. scrollIntoView({block:"center"}) was not producing the right
+    // offset in Steam's home container (likely intercepted or applied to a
+    // different ancestor); direct math on the viewport rects is reliable.
+    const centerSelf = () => {
+      try {
+        const scr = findScrollableAncestor(el);
+        if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
+        const elRect = el.getBoundingClientRect();
+        const scrRect = scr.getBoundingClientRect();
+        const delta = elRect.top - scrRect.top;
+        const target = scr.scrollTop + delta - (scr.clientHeight - elRect.height) / 2;
+        const clamped = Math.max(0, Math.min(scr.scrollHeight - scr.clientHeight, target));
+        try { scr.scrollTo({ top: clamped, behavior: "smooth" }); } catch { scr.scrollTop = clamped; }
+      } catch { /* ignore */ }
+    };
     const onFocusIn = () => {
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-      requestAnimationFrame(() => el.scrollIntoView({ block: "center", behavior: "smooth" }));
+      if (retryTimer2) { clearTimeout(retryTimer2); retryTimer2 = null; }
+      // Steam's native focus-into-view fires in the same frame and can
+      // override ours. Two follow-ups catch both the immediate layout and
+      // the later settled state (post-collapse/expand animations).
+      requestAnimationFrame(centerSelf);
+      retryTimer = window.setTimeout(centerSelf, 200);
+      retryTimer2 = window.setTimeout(centerSelf, 500);
     };
     el.addEventListener("focusin", onFocusIn);
     return () => {
       el.removeEventListener("focusin", onFocusIn);
       if (retryTimer) clearTimeout(retryTimer as number);
+      if (retryTimer2) clearTimeout(retryTimer2 as number);
     };
   }, []);
+
 
   useEffect(() => {
     const rowEl = rowRef.current;

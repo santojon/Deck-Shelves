@@ -66,6 +66,10 @@ function debouncedNotifyDims(_dims: NativeCardDims) {
     nativeDimsListeners.forEach(cb => cb());
   }, DIMS_DEBOUNCE_MS);
 }
+function notifyDimsNow() {
+  if (dimsDebounceTimer) { clearTimeout(dimsDebounceTimer); dimsDebounceTimer = null; }
+  nativeDimsListeners.forEach(cb => cb());
+}
 
 export function getCachedCardRadius(): string { return cachedCardRadius; }
 export function getCachedNativeDims(): NativeCardDims | null { return cachedNativeDims; }
@@ -159,7 +163,10 @@ function ensureStyles() {
         persistDims(newDims);
         pendingDims = null;
         pendingDimsCount = 0;
-        debouncedNotifyDims(newDims);
+        // Synchronous notification — the 500ms debounce delays the featured
+        // card resize noticeably when it's finally discovered. Acquiring
+        // featured for the first time is a one-shot event; no debounce needed.
+        notifyDimsNow();
       } else {
       // Require 2 consecutive polls showing the same new values before accepting
       const matchesPending = pendingDims &&
@@ -479,6 +486,17 @@ export function globalStylesStart() {
     globalStyleTimer = setInterval(ensureStyles, STYLES_POLL_MS);
     globalResizeHandler = () => ensureStyles();
     window.addEventListener('resize', globalResizeHandler);
+    // Short burst of early polls to catch native dims as soon as Steam's home
+    // renders its recents — otherwise we wait a full STYLES_POLL_MS (3s) for
+    // the first chance, which visibly delays the featured card sizing.
+    // Stops as soon as we have featured dims.
+    const earlyDelays = [150, 350, 700, 1200, 2000];
+    for (const d of earlyDelays) {
+      setTimeout(() => {
+        if (cachedNativeDims?.featuredWidth) return;
+        ensureStyles();
+      }, d);
+    }
   }
 }
 
