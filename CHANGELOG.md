@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-16
+
 ### Added
 
 - `[FEATURE]` Experimental `Use first shelf as recents (experimental)` toggle — when `Hide recent games` is active, the first visible shelf's games are injected into the native recents component (patch-of-render via `routerHook.addPatch` + `afterPatch` + `findInReactTree`, modelled on the discontinued HomeMaster plugin). Reuses 100% of the native DOM/CSS/animations (hero zoom, focus ring, CSS Loader theme support). Full i18n across all 16 locales.
