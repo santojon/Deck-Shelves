@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-04-16
+
 ### Added
 
 - `Hide "new" badge` toggle (per-shelf + global) suppresses the green "NEW" badge rendered on cards for recently added games (within the last 14 days, derived from the app's `user_added_ts`).
