@@ -23,6 +23,7 @@ export function defaultSettings(): Settings {
   return {
     enabled: false,
     hideRecents: false,
+    recentsReplaceSource: false,
     hideHomeTabs: false,
     shelfHeroBackground: false,
     globalMatchNativeSize: false,

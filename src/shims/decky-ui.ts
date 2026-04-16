@@ -43,6 +43,7 @@ export const ToggleField = decky.ToggleField ?? passthroughComponent;
 export const showContextMenu = decky.showContextMenu ?? noop;
 export const showModal = decky.showModal ?? noop;
 export const afterPatch = decky.afterPatch ?? ((_target: any, _method: any, _cb: any, _options?: any) => noop);
+export const findInReactTree = decky.findInReactTree ?? ((_node: any, _cb: any) => null);
 export const staticClasses = decky.staticClasses ?? {};
 
 export const gamepadDialogClasses =

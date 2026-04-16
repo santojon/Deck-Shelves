@@ -47,6 +47,16 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
   const collapsed = forceExpanded ? false : collapsedState;
   const [nativeRowClass, setNativeRowClass] = useState('');
 
+  // When forceExpanded turns on, clear the persisted collapsed state so that
+  // turning forceExpanded off again (e.g. user disables "replace recents")
+  // doesn't re-collapse the shelf from stale localStorage.
+  useEffect(() => {
+    if (forceExpanded && shelfId) {
+      if (collapsedState) setCollapsed(false);
+      writeCollapsed(shelfId, false);
+    }
+  }, [forceExpanded, shelfId]);
+
   // Memoize effective dimensions — only recompute when the dims version changes,
   // not on every render. This prevents intermediate states from causing layout jumps.
   const [dimsVersion, setDimsVersion] = useState(0);

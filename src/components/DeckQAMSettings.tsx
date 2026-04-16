@@ -21,6 +21,8 @@ import { ImportModal } from './qam/modals/ImportModal'
 import { TemplatePickerModal } from './qam/modals/TemplatePickerModal'
 import { FirstRunBanner } from './qam/modals/FirstRunBanner'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
+import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
+import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
 import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
 
@@ -55,6 +57,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useEffect(() => {
     const sync = () => { setMountCrashed(getMountFailed()); setCrashError(getMountError()) }
     const unsub = subscribeMountFailed(sync)
+    sync()
+    return unsub
+  }, [])
+  const [replaceFailed, setReplaceFailed] = useState(() => getRecentsReplaceFailed())
+  const [replaceError, setReplaceError] = useState<string | null>(() => getRecentsReplaceError())
+  useEffect(() => {
+    const sync = () => { setReplaceFailed(getRecentsReplaceFailed()); setReplaceError(getRecentsReplaceError()) }
+    const unsub = subscribeRecentsReplaceFailed(sync)
     sync()
     return unsub
   }, [])
@@ -102,7 +112,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {settings.enabled && settings.hideRecents === true && (
         <div style={{ paddingLeft: 14, fontSize: 12 }}>
           <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
+          <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true && !replaceFailed} disabled={mountCrashed || disableHideRecents || replaceFailed} onChange={(value: boolean) => actions.setRecentsReplaceSource(value)} />
         </div>
+      )}
+      {replaceFailed && (
+        <RecentsReplaceErrorBanner controller={controller} error={replaceError} onDismiss={() => { setReplaceFailed(false); setReplaceError(null) }} />
       )}
       {settings.enabled && (
         <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />

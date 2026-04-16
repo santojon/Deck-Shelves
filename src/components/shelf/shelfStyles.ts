@@ -308,7 +308,11 @@ function buildStylesheet(): string {
       outline: none !important;
       outline-offset: 0px !important;
       border: none !important;
-      box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px !important;
+      /* Theme-aware focus ring: keep the native drop shadow, add a thin
+         glow in the theme accent color (ArtHero etc. expose this var). If
+         the theme doesn't set it, the fallback is fully transparent so
+         only the drop shadow shows. */
+      box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px, 0 0 0 2px var(--custom-sp-color-border, transparent) !important;
       z-index: 12;
       filter: brightness(1);
     }
@@ -324,10 +328,6 @@ function buildStylesheet(): string {
       pointer-events: none !important;
       z-index: 4 !important;
       opacity: 1 !important;
-      transition: none !important;
-      background: none !important;
-      background-image: none !important;
-      animation: none !important;
       display: inline !important;
     }
     #deck-shelves-home-root .ds-card.gpfocus::after,
@@ -420,6 +420,16 @@ function buildStylesheet(): string {
       font-size: 22px;
       font-weight: 700;
       letter-spacing: 0.5px;
+    }
+    /* First shelf when recents are hidden: mirror the native "Recent games"
+       heading — smaller, lighter weight, no bottom margin. Probed from
+       SteamOS native shelf: 16px / 400 / margin 0. Color still inherits
+       from --ds-native-heading-color so themes (ArtHero etc.) paint it. */
+    .ds-shelf-title--locked {
+      font-size: 16px !important;
+      font-weight: 400 !important;
+      letter-spacing: 0 !important;
+      margin-bottom: 0 !important;
     }
     .ds-shelf-collapse-icon {
       font-size: 14px;

@@ -9,6 +9,10 @@ export function setPlatform(platform: PlatformApi) {
   currentPlatform = platform;
 }
 
+export function getPlatform(): PlatformApi | null {
+  return currentPlatform;
+}
+
 export function PlatformProvider({ platform, children }: { platform: PlatformApi; children: React.ReactNode }) {
   return <PlatformContext.Provider value={platform}>{children}</PlatformContext.Provider>;
 }

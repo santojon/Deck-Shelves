@@ -9,6 +9,7 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
+import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
@@ -229,9 +230,35 @@ export function HomeShelves() {
   // Apply hideRecents — only actually hide when the plugin is enabled and has
   // visible shelves.  Otherwise force recents visible regardless of the toggle
   // (we never change the stored setting, only the DOM state).
+  //
+  // When `recentsReplaceSource` is on, the native recents area remains
+  // visible on purpose — our router patch is driving its games array — so
+  // the visual hide is skipped. First visible shelf is forced-expanded only
+  // when we're truly hiding (preserves the current behaviour).
+  // Re-run this effect when the recents-replace kill switch flips (our
+  // experiment reported a runtime error → fall back to the visual hide).
+  const [replaceKillSwitch, setReplaceKillSwitch] = useState(() => getRecentsReplaceFailed());
+  useEffect(() => {
+    const sync = () => setReplaceKillSwitch(getRecentsReplaceFailed());
+    const unsub = subscribeRecentsReplaceFailed(sync);
+    sync();
+    return unsub;
+  }, []);
+  const [replaceInjecting, setReplaceInjecting] = useState(() => isRecentsReplaceInjecting());
+  useEffect(() => {
+    const sync = () => setReplaceInjecting(isRecentsReplaceInjecting());
+    const unsub = subscribeRecentsReplaceInjecting(sync);
+    sync();
+    return unsub;
+  }, []);
+
   useEffect(() => {
     const visibleShelves = (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden);
-    const canHide = settings?.enabled && settings?.hideRecents === true && visibleShelves.length > 0;
+    const replaceActive = settings?.enabled && settings?.hideRecents === true
+      && settings?.recentsReplaceSource === true && visibleShelves.length > 0
+      && !replaceKillSwitch;
+    const canHide = settings?.enabled && settings?.hideRecents === true
+      && visibleShelves.length > 0 && !replaceActive;
     applyHideRecents(canHide === true);
     // When recents are hidden, remove them from the gamepad navigation tree so
     // the D-pad skips straight to our shelves.  We keep the DOM intact (visibility:
@@ -253,7 +280,7 @@ export function HomeShelves() {
         else recentsEl.removeAttribute('aria-hidden');
       }
     }
-  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, mountEl]);
+  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, settings?.recentsReplaceSource, mountEl, replaceKillSwitch]);
 
   // Apply hideHomeTabs — no suppression criteria, simple toggle. If no sibling
   // elements are found around the mount, the helper is a no-op.
@@ -270,12 +297,18 @@ export function HomeShelves() {
     return null;
   }
 
-  const shelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
+  const visibleShelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
+
+  // When replace-source is actively injecting (toggle on + app ids resolved
+  // + not killed), the first shelf is already rendering inside the native
+  // recents slot. Skip it here to avoid a visual duplicate below. If the
+  // injection isn't happening (failed, not resolved yet), keep every shelf.
+  const shelves = (replaceInjecting && !replaceKillSwitch) ? visibleShelves.slice(1) : visibleShelves;
 
   // When the plugin is disabled, there are no visible shelves, or all shelves
   // are hidden — always ensure recents are visible regardless of the toggle
   // value (we never force-change the setting, just override the DOM state).
-  if (!settings.enabled || !shelves.length) {
+  if (!settings.enabled || !visibleShelves.length) {
     applyHideRecents(false);
     if (!settings.enabled) logWarn("HOME", "plugin disabled — recents forced visible");
     return null;
@@ -284,7 +317,7 @@ export function HomeShelves() {
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHideStatusLine={settings.globalHideStatusLine === true} globalHideNewBadge={settings.globalHideNewBadge === true} globalHideCompatIcons={settings.globalHideCompatIcons === true} globalHideNonSteamBadge={settings.globalHideNonSteamBadge === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true} hideRecentsSetting={settings.hideRecents === true} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHideStatusLine={settings.globalHideStatusLine === true} globalHideNewBadge={settings.globalHideNewBadge === true} globalHideCompatIcons={settings.globalHideCompatIcons === true} globalHideNonSteamBadge={settings.globalHideNonSteamBadge === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true && !(replaceInjecting && !replaceKillSwitch)} hideRecentsSetting={settings.hideRecents === true && (settings.recentsReplaceSource !== true || replaceKillSwitch)} />
     </PlatformProvider>,
     mountEl,
   ) as any;
