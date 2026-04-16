@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `[FEATURE]` Experimental `Use first shelf as recents (experimental)` toggle — when `Hide recent games` is active, the first visible shelf's games are injected into the native recents component (patch-of-render via `routerHook.addPatch` + `afterPatch` + `findInReactTree`, modelled on the discontinued HomeMaster plugin). Reuses 100% of the native DOM/CSS/animations (hero zoom, focus ring, CSS Loader theme support). Full i18n across all 16 locales.
+- Runtime kill switch for the experiment: filters appids by Steam `app_type` (Game/Application) before injection, detects tree-walk failures and `userCollections`-class errors via a global error trap, and auto-disables the feature with a `RecentsReplaceErrorBanner` in the QAM. Fallback to the existing visual-hide behaviour is automatic.
+- `[QA]` `qa:all-shelves-hide-home-tabs` / `qa:all-shelves-show-home-tabs` scripts mirror the recents-hide harness for the home tabs toggle.
+- `Hide home tabs` toggle hides the native novidades/amigos/recomendados area (detected via `[role="tablist"]` sibling of the mount, no hardcoded classes). Independent of `Hide recent games`.
+- Webpack discovery expanded with `heroRoot`, `heroInner`, `shelfSection`, `scrollGrid` tokens, populated both via runtime discovery and from the embedded `classmap.json` seed.
+- Destructive `Reset all` screenshot captured by the automation and validated alongside the other home/QAM captures.
+- `.roadmaps/PROJECT.md` — detailed project reference doc (premises, features, architecture, positives/negatives).
+- `.roadmaps/homemaster-findings.md` — research notes that back the recents-source replacement experiment.
+
+### Changed
+
+- `[REFACTOR]` PR title tag → version bump mapping: `[FEATURE]` is now minor (was major), `[REFACTOR]` is now major (was minor), `[CLEANUP]` stays minor. Roadmap cronograma renumbered accordingly.
+- `[PERF]` Shelf-to-shelf centring: switched to direct `scrollTo` math on the resolved scrollable ancestor and coalesced to one smooth scroll per focus event, with a 300 ms verification retry for recently-expanded shelves. Eliminates the stutter caused by competing `scrollIntoView({ block: "center" })` calls.
+- Screenshot automation opens the Steam main menu and activates its first item (home) before capturing, waits 6 s for overlays to settle, and scrolls via JS (`scrollTop = ...`) instead of mouse-wheel events to avoid triggering card hover overlays in `home` / `home-shelves`. English-locale switching removed (it never worked reliably and is discontinued).
+- Reddit release post: replaced the full changelog dump with a condensed, 3-section summary (top bullets per Added/Changed/Fixed) plus a Discord invite link.
+- Card focus ring honours the theme accent colour via `box-shadow: ..., 0 0 0 2px var(--custom-sp-color-border, transparent)` — transparent fallback means no regression on themes that don't set the variable.
+- `.ds-card::after` overrides relaxed (removed `animation: none`, `background-image: none`, `transition: none` on the default state) so native focus animations painted by the injected `WYgDg9NyCcMIVuMyZ_NBC` classes flow through — notable improvement under ArtHero and similar themes.
+- First-shelf "locked" heading (used when `Hide recent games` is on) now mirrors the native recents heading typography: 16 px / 400 weight / no bottom margin. Size/colour still follow the detected `--ds-native-heading-color`.
+- `HeroBackground` wrapper resized to match the native recents hero (top: −1, height: 374, bottom 5 px linear-gradient mask) — aligns with the native layout under ArtHero.
+
+### Fixed
+
+- `collectionStore.userCollections` access in `listCollections` is now try/catch'd per host window. The MobX computed getter can throw `Cannot read properties of undefined (reading 'values')` when the store isn't fully initialised; the error no longer escapes into the Decky ErrorBoundary.
+- Compat checks: 4 false positives eliminated (Colored Compatibility Icons, QAM Hide Tabs, Non-Steam Badges, TabMaster). The scripts now exclude our own toggle field names, the QA harness directory, and imports from `src/integrations/`.
+- Screenshot capture no longer leaves the home in an overlay/focus state — native recents cards were picking up `:hover` from the mouse-wheel cursor position.
+- Duplicate first shelf when the replace-source experiment is actively injecting — DS mount now slices off the first shelf only while the injection is live (not while failing or kicking in). Restores it automatically on fallback.
+- Hero background no longer renders on the shelf that used to be first when replace-source is active (would have produced two heroes stacked).
+- First-shelf collapse state cleared when `forceExpanded` flips on, so disabling replace-source after collapsing doesn't leave the row stuck closed.
+
 ## [1.2.5] - 2026-04-16
 
 ### Added
