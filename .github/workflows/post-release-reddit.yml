@@ -71,6 +71,10 @@ jobs:
           # trailing parenthetical detail, and caps the total to a short list.
           cat > /tmp/reddit_changelog.py <<'PYEOF'
           import sys, re
+          # Literal em-dash via chr() — safe across editors/terminals and, more
+          # importantly, avoids `\u2014` in an re.sub replacement string (which
+          # Python 3.12 rejects with `bad escape \u`).
+          EM = chr(0x2014)
           body = sys.stdin.read()
           sections = {"Added": [], "Changed": [], "Fixed": []}
           current = None
@@ -86,11 +90,11 @@ jobs:
                   continue
               if current and stripped.startswith("-") and len(stripped) > 2:
                   item = stripped.lstrip("-").strip()
-                  item = re.sub(r"^\[[A-Z]+\]\s*", "", item)
+                  item = re.sub(r"^`?\[[A-Z]+\]`?\s*", "", item)
                   item = re.sub(r"\s+`[A-Za-z0-9._/-]+`\s*", " ", item)
-                  item = re.sub(r"^`([^`]+)`\s*(?:\u2014|-)\s*", r"\1 \u2014 ", item)
+                  item = re.sub(r"^`([^`]+)`\s*(?:" + EM + r"|-)\s*", "\\1 " + EM + " ", item)
                   item = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", item)
-                  gist = re.split(r"\u2014|(?<=[.!?])\s+", item, maxsplit=1)[0].strip().rstrip(".,;:")
+                  gist = re.split(EM + r"|(?<=[.!?])\s+", item, maxsplit=1)[0].strip().rstrip(".,;:")
                   if len(gist) > 110:
                       gist = gist[:107].rstrip() + "..."
                   if gist:
