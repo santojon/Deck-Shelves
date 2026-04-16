@@ -103,8 +103,10 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
-    let retryTimer: number | null = null;
-    let retryTimer2: number | null = null;
+    const CENTER_TOLERANCE_PX = 32; // don't fight Steam when it's already close
+    let scheduled: number | null = null;
+    let lastScrollable: HTMLElement | null = null;
+    let lastTarget = -1;
     const findScrollableAncestor = (node: HTMLElement | null): HTMLElement | null => {
       let cur = node?.parentElement ?? null;
       while (cur && cur !== cur.ownerDocument?.body) {
@@ -117,37 +119,55 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
       }
       return null;
     };
-    // Compute explicit scroll position that centers `el` inside its scrollable
-    // ancestor. scrollIntoView({block:"center"}) was not producing the right
-    // offset in Steam's home container (likely intercepted or applied to a
-    // different ancestor); direct math on the viewport rects is reliable.
-    const centerSelf = () => {
+    // Center `el` inside its scrollable ancestor. One smooth scroll per focus
+    // event, issued only when needed — if Steam's native scroll already put
+    // the shelf near center (within tolerance), skip entirely to avoid
+    // competing smooth-scrolls that cause visible stutter.
+    const maybeCenter = () => {
       try {
         const scr = findScrollableAncestor(el);
         if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
         const elRect = el.getBoundingClientRect();
         const scrRect = scr.getBoundingClientRect();
+        const currentCenterOffset = (elRect.top + elRect.height / 2) - (scrRect.top + scrRect.height / 2);
+        if (Math.abs(currentCenterOffset) <= CENTER_TOLERANCE_PX) return;
         const delta = elRect.top - scrRect.top;
-        const target = scr.scrollTop + delta - (scr.clientHeight - elRect.height) / 2;
+        const target = Math.round(scr.scrollTop + delta - (scr.clientHeight - elRect.height) / 2);
         const clamped = Math.max(0, Math.min(scr.scrollHeight - scr.clientHeight, target));
+        // Coalesce: ignore redundant scroll commands to the same target on the
+        // same scrollable — Steam may re-fire focusin during smooth scroll.
+        if (scr === lastScrollable && Math.abs(clamped - lastTarget) < 2) return;
+        lastScrollable = scr;
+        lastTarget = clamped;
         try { scr.scrollTo({ top: clamped, behavior: "smooth" }); } catch { scr.scrollTop = clamped; }
       } catch { /* ignore */ }
     };
+    let verifyTimer: number | null = null;
     const onFocusIn = () => {
-      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-      if (retryTimer2) { clearTimeout(retryTimer2); retryTimer2 = null; }
-      // Steam's native focus-into-view fires in the same frame and can
-      // override ours. Two follow-ups catch both the immediate layout and
-      // the later settled state (post-collapse/expand animations).
-      requestAnimationFrame(centerSelf);
-      retryTimer = window.setTimeout(centerSelf, 200);
-      retryTimer2 = window.setTimeout(centerSelf, 500);
+      if (scheduled === null) {
+        scheduled = requestAnimationFrame(() => {
+          scheduled = null;
+          maybeCenter();
+        });
+      }
+      // Verification pass after 300ms: covers the recently-expanded-shelf
+      // case where the first scroll reads mid-animation layout or Steam's
+      // native scroll competes with ours. Self-skips via the tolerance
+      // check inside maybeCenter when the shelf is already centered.
+      if (verifyTimer) clearTimeout(verifyTimer);
+      verifyTimer = window.setTimeout(() => {
+        verifyTimer = null;
+        // Reset the dedup target so the verification pass can re-issue the
+        // same scroll if it's genuinely needed again.
+        lastTarget = -1;
+        maybeCenter();
+      }, 300);
     };
     el.addEventListener("focusin", onFocusIn);
     return () => {
       el.removeEventListener("focusin", onFocusIn);
-      if (retryTimer) clearTimeout(retryTimer as number);
-      if (retryTimer2) clearTimeout(retryTimer2 as number);
+      if (scheduled !== null) cancelAnimationFrame(scheduled);
+      if (verifyTimer) clearTimeout(verifyTimer);
     };
   }, []);
 
