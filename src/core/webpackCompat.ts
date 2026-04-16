@@ -119,6 +119,54 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
   return null;
 }
 
+/** Discover hero background and shelf section tokens in the native recents
+ *  area. The hero is an ancestor div whose direct child has a mask-image
+ *  (linear gradient fading to transparent at bottom). The shelf section is
+ *  a sibling of the hero inside the same recents root.
+ */
+function _discoverNativeHomeSectionTokens(doc: Document): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    // Hero root: first ancestor (from any shelf with a virtualized grid) that
+    // has a child with mask-image containing "linear-gradient". The child is
+    // the hero inner (cross-fades + animation).
+    const grid = doc.querySelector<HTMLElement>(".ReactVirtualized__Grid__innerScrollContainer");
+    if (grid) {
+      const section = grid.closest<HTMLElement>('[class^="_"], [class*=" _"]');
+      const sectionCls = section?.classList ? Array.from(section.classList).find((c) => c.startsWith("_") && c.length > 5) : undefined;
+      if (sectionCls) out.shelfSection = sectionCls;
+      const gridCls = Array.from(grid.classList).find((c) => c.startsWith("_") && c.length > 5);
+      if (gridCls) out.scrollGrid = gridCls;
+      // Walk up from section to find hero sibling
+      const sectionParent = section?.parentElement as HTMLElement | null;
+      if (sectionParent) {
+        for (const sib of Array.from(sectionParent.children) as HTMLElement[]) {
+          if (sib === section) continue;
+          const childCs = Array.from(sib.children).map((c) => {
+            try { return (doc.defaultView?.getComputedStyle?.(c as HTMLElement) ?? null); } catch { return null; }
+          });
+          const hasGradientMask = childCs.some((cs) => {
+            const m = (cs as any)?.maskImage || (cs as any)?.webkitMaskImage || "";
+            return typeof m === "string" && m.includes("linear-gradient");
+          });
+          if (hasGradientMask) {
+            const heroCls = Array.from(sib.classList).find((c) => c.startsWith("_") && c.length > 5);
+            if (heroCls) out.heroRoot = heroCls;
+            // First child with the mask = inner zoom container
+            const inner = sib.children[0] as HTMLElement | undefined;
+            if (inner) {
+              const innerCls = Array.from(inner.classList).find((c) => c.startsWith("_") && c.length > 5);
+              if (innerCls) out.heroInner = innerCls;
+            }
+            break;
+          }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return out;
+}
+
 /** Traverse shelf-level elements to discover nativeShelf, nativeShelfTitle, nativeShelfRow tokens.
  *  Looks for horizontal scroll containers (shelf rows) and their parent/sibling heading elements.
  */
@@ -283,7 +331,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
             if (cls && cls.startsWith('_') && cls.length > 4) {
               const nativeCardTokens = _discoverNativeCardTokens(doc);
               const nativeShelfTokens = _discoverNativeShelfTokens(doc);
-              return { viewport: cls, ...(nativeShelfTokens ?? {}), ...(nativeCardTokens ?? {}) };
+              const nativeSectionTokens = _discoverNativeHomeSectionTokens(doc);
+              return { viewport: cls, ...(nativeShelfTokens ?? {}), ...(nativeCardTokens ?? {}), ...nativeSectionTokens };
             }
           }
         }
@@ -356,7 +405,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         } catch {}
         const nativeCardTokens3 = _discoverNativeCardTokens(doc);
         const nativeShelfTokens3 = _discoverNativeShelfTokens(doc);
-        return { viewport: viewportToken, ...(nativeShelfTokens3 ?? {}), ...(nativeCardTokens3 ?? {}) };
+        const nativeSectionTokens3 = _discoverNativeHomeSectionTokens(doc);
+        return { viewport: viewportToken, ...(nativeShelfTokens3 ?? {}), ...(nativeCardTokens3 ?? {}), ...nativeSectionTokens3 };
       }
     } catch {}
 
@@ -385,7 +435,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
               if ((el.style && (el.style as any).overflowY === 'auto') || (sh > chh && chh > 80)) {
                 const nativeCardTokens = _discoverNativeCardTokens(doc);
                 const nativeShelfTokens4 = _discoverNativeShelfTokens(doc);
-                const out: Record<string,string> = { viewport: t, ...(nativeShelfTokens4 ?? {}), ...(nativeCardTokens ?? {}) };
+                const nativeSectionTokens4 = _discoverNativeHomeSectionTokens(doc);
+                const out: Record<string,string> = { viewport: t, ...(nativeShelfTokens4 ?? {}), ...(nativeCardTokens ?? {}), ...nativeSectionTokens4 };
                 try {
                   const viewportEl = el;
                   const childEls = Array.from(viewportEl.children).filter(c=> c instanceof HTMLElement) as HTMLElement[];
@@ -417,7 +468,8 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         // fallback: return most frequent token as viewport
         const sorted = Object.keys(tokenMap).sort((a,b)=> tokenMap[b].length - tokenMap[a].length);
         const nativeShelfTokens5 = _discoverNativeShelfTokens(doc);
-        return { viewport: sorted[0], ...(nativeShelfTokens5 ?? {}) };
+        const nativeSectionTokens5 = _discoverNativeHomeSectionTokens(doc);
+        return { viewport: sorted[0], ...(nativeShelfTokens5 ?? {}), ...nativeSectionTokens5 };
       }
     } catch {}
     return null;

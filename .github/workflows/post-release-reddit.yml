@@ -116,7 +116,7 @@ jobs:
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="See full notes on GitHub."
           fi
-          SELFTEXT=$(printf "Deck Shelves is an open-source Decky plugin that adds customizable game shelves to the Steam Deck home screen (filters, collections, Non-Steam games, hero background, etc.).\n\n**Release %s** — highlights below. Full notes: %s\n\n![screenshot](%s)\n\n%s\n\nReleases: https://github.com/%s/releases\n\n*Disclosure: I'm the developer. Not affiliated with Valve.*\n" \
+          SELFTEXT=$(printf "Deck Shelves is an open-source Decky plugin that adds customizable game shelves to the Steam Deck home screen (filters, collections, Non-Steam games, hero background, etc.).\n\n**Release %s** — highlights below. Full notes: %s\n\n![screenshot](%s)\n\n%s\n\n---\n\n- Releases: https://github.com/%s/releases\n- Chat / feedback: https://discord.gg/NrKtkf8qxN\n\n*Disclosure: I'm the developer. Not affiliated with Valve.*\n" \
             "$TAG_NAME" "$URL" "$IMG_URL" "$CHANGELOG" "$REPO")
 
           enc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"; }

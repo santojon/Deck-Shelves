@@ -172,15 +172,19 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       className="ds-hero-background"
       style={{
         position: "absolute",
-        top: -60,
+        // Match native recents hero dimensions (probed via CDP on ArtHero):
+        // top: -1, height: 374 with a ~5px linear fade at the bottom.
+        top: -1,
         left: 0,
         right: 0,
-        height: 420,
+        height: 374,
         overflow: "hidden",
         zIndex: -1,
         pointerEvents: "none",
         opacity: visible ? 1 : 0,
         transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
+        maskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))",
+        WebkitMaskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))" as any,
       }}
     >
       {/* Solid background layer — fills behind the image so the native
