@@ -22,8 +22,8 @@
 
 ## Type of Change
 
-- [ ] New feature (`[FEATURE]`)
-- [ ] Refactor / Code cleanup (`[REFACTOR]`, `[CLEANUP]`)
+- [ ] Refactor / restructure (`[REFACTOR]`)
+- [ ] New feature / Code cleanup (`[FEATURE]`, `[CLEANUP]`)
 - [ ] Bug fix / Enhancement / QA / Performance update (`[FIX]`, `[ENHANCEMENT]`, `[QA]`, `[PERF]`)
 - [ ] Documentation update
 - [ ] i18n / localization

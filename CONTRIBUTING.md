@@ -130,9 +130,9 @@ See `README.md` for quick commands and `scripts/devtools/README.md` for detailed
 | `[ENHANCEMENT]` | patch (0.1.0 → 0.1.1) | `[ENHANCEMENT] Add tooltip to shelf card on hover` |
 | `[PERF]` | patch (0.1.0 → 0.1.1) | `[PERF] Debounce shelf resolve on settings changes` |
 | `[QA]` | patch (0.1.0 → 0.1.1) | `[QA] Add forced-error harness for shelf render path` |
-| `[REFACTOR]` | minor (0.1.0 → 0.2.0) | `[REFACTOR] Simplify settings persistence layer` |
 | `[CLEANUP]` | minor (0.1.0 → 0.2.0) | `[CLEANUP] Remove deprecated filter helpers` |
-| `[FEATURE]` | major (0.1.0 → 1.0.0) | `[FEATURE] Add drag-and-drop shelf reordering` |
+| `[FEATURE]` | minor (0.1.0 → 0.2.0) | `[FEATURE] Add drag-and-drop shelf reordering` |
+| `[REFACTOR]` | major (0.1.0 → 1.0.0) | `[REFACTOR] Simplify settings persistence layer` |
 
 When a PR is merged to `main`, the version bump and tag creation happen automatically based on the title tag.
 

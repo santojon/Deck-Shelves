@@ -59,9 +59,9 @@ jobs:
             echo "bump=${{ inputs.bump }}" >> "$GITHUB_OUTPUT"
           else
             TITLE="$PR_TITLE"
-            if [[ "$TITLE" == \[FEATURE\]* ]]; then
+            if [[ "$TITLE" == \[REFACTOR\]* ]]; then
               echo "bump=major" >> "$GITHUB_OUTPUT"
-            elif [[ "$TITLE" == \[REFACTOR\]* || "$TITLE" == \[CLEANUP\]* ]]; then
+            elif [[ "$TITLE" == \[FEATURE\]* || "$TITLE" == \[CLEANUP\]* ]]; then
               echo "bump=minor" >> "$GITHUB_OUTPUT"
             elif [[ "$TITLE" == \[FIX\]* || "$TITLE" == \[ENHANCEMENT\]* || "$TITLE" == \[PERF\]* || "$TITLE" == \[QA\]* ]]; then
               echo "bump=patch" >> "$GITHUB_OUTPUT"
