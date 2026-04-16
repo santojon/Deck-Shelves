@@ -6,6 +6,7 @@ import { createDeckyPlatform } from "./runtime/deckyPlatform";
 import { PlatformProvider, setPlatform } from "./runtime/platformContext";
 import './runtime/embeddedClassMap';
 import { installHomePatch } from "./runtime/homePatch";
+import { installRecentsReplace } from "./runtime/recentsReplace";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installPluginApi } from "./core/pluginApi";
@@ -68,6 +69,7 @@ export default definePlugin((serverAPI?: any) => {
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
   const patch = enableHomePatch ? installHomePatch(routerHook) : null;
+  const recentsReplacePatch = installRecentsReplace(routerHook);
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
   const uninstallPluginApi = installPluginApi();
@@ -108,6 +110,7 @@ export default definePlugin((serverAPI?: any) => {
       try {
         logInfo("RUNTIME", "plugin dismount");
         patch?.uninstall?.();
+        recentsReplacePatch?.uninstall?.();
         routerHook?.removeRoute?.(ABOUT_ROUTE);
         uninstallRefresh();
         uninstallSystemEvents();

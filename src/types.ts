@@ -88,6 +88,7 @@ export type Shelf = z.infer<typeof ShelfSchema>;
 export const SettingsSchema = z.object({
   enabled: z.boolean().default(true),
   hideRecents: z.boolean().default(false),
+  recentsReplaceSource: z.boolean().default(false),
   hideHomeTabs: z.boolean().default(false),
   shelfHeroBackground: z.boolean().default(false),
   globalMatchNativeSize: z.boolean().default(false),

@@ -535,16 +535,22 @@ export async function listCollections(): Promise<SteamCollection[]> {
       return { id, name };
     })
     .filter((c) => c.id && c.name);
-  try {
-    for (const hostWindow of hostWindows) {
-      const globalCollectionStore = hostWindow?.collectionStore ?? (globalThis as any).collectionStore;
-      const userCollections = globalCollectionStore?.userCollections;
-      if (Array.isArray(userCollections)) {
+  for (const hostWindow of hostWindows) {
+    const globalCollectionStore = hostWindow?.collectionStore ?? (globalThis as any).collectionStore;
+    if (!globalCollectionStore) continue;
+    // The `userCollections` getter is a MobX computed that can throw with
+    // `Cannot read properties of undefined (reading 'values')` when the
+    // underlying observable maps haven't initialized yet. Wrap the ACCESS
+    // itself (not only the normalize/return below) so the throw is contained.
+    let userCollections: any = null;
+    try { userCollections = globalCollectionStore.userCollections; } catch { /* store not ready */ }
+    if (Array.isArray(userCollections)) {
+      try {
         const norm = normalize(userCollections as any[]);
         if (norm.length) return norm;
-      }
+      } catch {}
     }
-  } catch {}
+  }
   for (const sc of clients) {
     try {
       const res = await sc?.Collections?.GetCollections?.();

@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import decky
 
-DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "shelves": []}
+DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "shelves": []}
 
 
 def _settings_dir() -> str:
@@ -89,7 +89,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "hideCompatIcons": hide_compat_icons,
             "hideNonSteamBadge": hide_non_steam_badge,
         })
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "shelves": sanitized}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "shelves": sanitized}
 
 
 class Plugin:
