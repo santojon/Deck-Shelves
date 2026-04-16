@@ -213,47 +213,6 @@ def eval_target(host: str, port: int, ws_path: str, expression: str, msg_id: int
         sock.close()
 
 
-def apply_english_locale(host: str, port: int, shared_ws: str) -> bool:
-        """Try to switch the UI language to English using i18next."""
-        JS = r"""
-(function(){
-    try{
-        if (typeof i18next !== 'undefined' && i18next.changeLanguage) {
-            try { i18next.changeLanguage('en-US'); } catch(e){}
-        }
-        // Also set lang attribute as a best-effort fallback
-        try { document.documentElement.lang = 'en-US'; } catch(e){}
-        return 'requested';
-    }catch(e){ return 'err:'+ (e && e.message ? e.message : String(e)); }
-})()
-"""
-        try:
-            res = eval_target(host, port, shared_ws, JS)
-            print(f"  apply_english_locale -> {res}")
-        except Exception as e:
-            print(f"  [WARN] apply_english_locale request failed: {e}")
-            return False
-
-        # Poll for the language to be reported as en-US (give it a few seconds)
-        deadline = time.time() + 15.0
-        while time.time() < deadline:
-            try:
-                cur = eval_target(host, port, shared_ws, "(function(){ return (typeof i18next !== 'undefined' && i18next.language) ? i18next.language : document.documentElement.lang; })()")
-                if isinstance(cur, str) and cur.lower().startswith('en'):
-                    try:
-                        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-                        marker = OUTPUT_DIR / '.lang-applied'
-                        marker.write_text('en-US')
-                    except Exception:
-                        pass
-                    print(f"  Language confirmed: {cur}")
-                    return True
-            except Exception:
-                pass
-            time.sleep(0.5)
-        print("  [WARN] Language change to en-US not confirmed within timeout")
-        return False
-
 def check_cdp_reachable(host: str, port: int) -> bool:
     """Quick check that the CDP HTTP endpoint responds and returns targets."""
     try:
@@ -437,29 +396,113 @@ def close_mainmenu(host: str, port: int, bp: Dict) -> None:
         time.sleep(0.3)
 
 
+def open_mainmenu(host: str, port: int, shared_ws: str) -> bool:
+    """Open Steam's main menu via SteamUIStore. Returns True if a known entry
+    point was invoked. The main menu sits on top of any existing overlay, so
+    after a short wait we can safely act on it to reset state."""
+    JS = r"""
+(function(){
+    try {
+        var inst = (typeof SteamUIStore !== 'undefined') && SteamUIStore.WindowStore
+                   && SteamUIStore.WindowStore.GamepadUIMainWindowInstance;
+        if (inst) {
+            if (typeof inst.OpenMainMenu === 'function') { inst.OpenMainMenu(); return 'open-via-instance'; }
+            if (typeof inst.OnMainMenuButtonPressed === 'function') { inst.OnMainMenuButtonPressed(); return 'open-via-button'; }
+        }
+        if (typeof MainMenuStore !== 'undefined' && typeof MainMenuStore.OpenMainMenu === 'function') {
+            MainMenuStore.OpenMainMenu(); return 'open-via-store';
+        }
+        return 'no-entrypoint';
+    } catch(e) { return 'err:' + (e && e.message ? e.message : String(e)); }
+})()
+"""
+    try:
+        res = eval_target(host, port, shared_ws, JS)
+        print(f"    open_mainmenu -> {res}")
+        return isinstance(res, str) and res.startswith("open-")
+    except Exception as e:
+        print(f"    [WARN] open_mainmenu failed: {e}")
+        return False
+
+
+def click_mainmenu_first_item(host: str, port: int) -> bool:
+    """Click the top-most item in the Steam main menu. That item is the home
+    entry (localized as 'Home'/'Início'/etc.), so activating it forcibly
+    navigates to home and closes all overlays regardless of language."""
+    targets = get_targets(host, port)
+    mm = find_target(targets, "MainMenu")
+    if not mm:
+        return False
+    mm_ws = ws_path_for(mm, port)
+    JS = r"""
+(function(){
+    // Collect visible focusable/button items inside the main menu.
+    var candidates = Array.from(document.querySelectorAll(
+        'button, [role="button"], .Focusable, [tabindex]:not([tabindex="-1"])'
+    )).filter(function(el){
+        try {
+            var r = el.getBoundingClientRect();
+            if (r.width < 40 || r.height < 20) return false;
+            var cs = getComputedStyle(el);
+            if (cs.visibility === 'hidden' || cs.display === 'none' || cs.opacity === '0') return false;
+            return true;
+        } catch(_){ return false; }
+    });
+    if (!candidates.length) return 'empty';
+    // Sort by top coordinate — the top-most item is the home entry.
+    candidates.sort(function(a, b){
+        return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+    });
+    candidates[0].click();
+    return 'clicked:' + (candidates[0].textContent || '').trim().substring(0, 40);
+})()
+"""
+    try:
+        res = eval_target(host, port, mm_ws, JS)
+        print(f"    click_mainmenu_first_item -> {res}")
+        return isinstance(res, str) and res.startswith("clicked:")
+    except Exception as e:
+        print(f"    [WARN] click_mainmenu_first_item failed: {e}")
+        return False
+
+
 def ensure_bp_clean(host: str, port: int, bp: Dict, shared_ws: str) -> None:
-    """Ensure Big Picture is clean: no QAM, no MainMenu, no overlays, on library/home."""
-    # Navigate to home first — this closes most overlays automatically
+    """Ensure Big Picture is on a clean home screen with no overlays.
+
+    Sequence (per user spec):
+      1. Open the Steam main menu
+      2. Wait ~1.5s for it to render
+      3. Click the first (top) item — this is the home entry regardless of
+         language, so activating it forcibly lands on a clean home screen
+      4. Wait 6s for the navigation to settle and overlays to dispose
+
+    If the main-menu entry points aren't available on this Steam build,
+    fall back to direct navigation + Escape sweep.
+    """
+    bp_ws = ws_path_for(bp, port)
+
+    opened = open_mainmenu(host, port, shared_ws)
+    if opened:
+        time.sleep(1.5)
+        clicked = click_mainmenu_first_item(host, port)
+        if clicked:
+            print("    Aguardando 6s para home estabilizar...")
+            time.sleep(6.0)
+            return
+
+    # Fallback: entry points unavailable or item not clicked
+    print("    [fallback] main menu unavailable — using Navigate + Escape sweep")
     try:
         eval_target(host, port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
-    except:
+    except Exception:
         pass
     time.sleep(2.0)
-
-    # Send a few Escapes to dismiss any remaining modals/menus
     for _ in range(3):
         dismiss_bp_escape(host, port, bp)
-        time.sleep(0.25)
-
-    # Check if MainMenu got opened by Escape and close it
+        time.sleep(0.2)
     if is_mainmenu_open(host, port):
-        print("    [clean] MainMenu open, dismissing...")
-        # One more Escape closes the MainMenu
         dismiss_bp_escape(host, port, bp)
         time.sleep(0.5)
-
-    # Verify we're on a clean home
-    bp_ws = ws_path_for(bp, port)
     try:
         on_home = eval_target(host, port, bp_ws, """
         (function() {
@@ -471,7 +514,7 @@ def ensure_bp_clean(host: str, port: int, bp: Dict, shared_ws: str) -> None:
         if not on_home:
             eval_target(host, port, shared_ws, "SteamClient.Navigation.Navigate('/library/home')")
             time.sleep(2.0)
-    except:
+    except Exception:
         pass
 
 def click_qam_button(host: str, port: int, qam_ws: str, svg_hint: str, index: int = 0) -> bool:
@@ -560,7 +603,7 @@ ALL_TARGETS = [
     "game-detail", "game-menu",
     "shelf-actions", "shelf-edit", "shelf-hidden",
     "shelf-delete", "shelf-import", "shelf-export",
-    "about-page",
+    "reset-all", "about-page",
 ]
 
 
@@ -1073,6 +1116,47 @@ def screenshot_shelf_export(host: str, port: int, bp: Dict, shared_ws: str, qam_
     return result
 
 
+def screenshot_reset_all(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
+    """Capture the destructive Reset-all confirmation modal.
+    Opens the QAM, clicks the full-width reset button, waits for the modal,
+    captures, then dismisses with Cancel."""
+    bp_ws = ws_path_for(bp, port)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    # The reset button is a DialogButton whose SVG has the 'reset' path:
+    # circular-arrow shape unique to this icon. Fallback: find the button by
+    # its rendered width (spans the full QAM) near the bottom.
+    clicked = eval_target(host, port, qam_ws, r"""
+(function(){
+    // Try by text label (i18n-agnostic: just check button width/position)
+    var btns = Array.from(document.querySelectorAll('button'));
+    var scoped = btns.filter(function(b){ return b.closest('.deck-shelves-qam-scope'); });
+    if (!scoped.length) return 'no-scoped';
+    // Pick the widest button near the bottom (full-width destructive action)
+    scoped.sort(function(a, b){
+        var ra = a.getBoundingClientRect();
+        var rb = b.getBoundingClientRect();
+        if (rb.bottom !== ra.bottom) return rb.bottom - ra.bottom;
+        return rb.width - ra.width;
+    });
+    var target = scoped[0];
+    if (target) { target.click(); return 'clicked:w=' + Math.round(target.getBoundingClientRect().width); }
+    return 'no-target';
+})()
+""")
+    print(f"    reset button: {clicked}")
+    if not (isinstance(clicked, str) and clicked.startswith("clicked")):
+        close_qam(host, port, shared_ws)
+        time.sleep(0.5)
+        return None
+    time.sleep(2.0)
+    result = capture_bigpicture(host, port, bp, "reset-all.png")
+    cancel_bp_modal(host, port, bp_ws)
+    time.sleep(1.0)
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
 def screenshot_about_page(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture the About / Filter Documentation page."""
     bp_ws = ws_path_for(bp, port)
@@ -1126,14 +1210,6 @@ def main() -> int:
     bp = find_target(targets, "Big Picture")
     shared = find_target(targets, "SharedJSContext")
     qam = find_target(targets, "QuickAccess")
-
-    # Attempt to switch UI to English and rename shelf titles before capturing
-    if shared:
-        try:
-            shared_ws_try = ws_path_for(shared, args.port)
-            apply_english_locale(args.host, args.port, shared_ws_try)
-        except Exception as e:
-            print(f"  [WARN] apply_english_locale exception: {e}")
 
     if not bp:
         print("ERROR: No 'Big Picture' target — is the Deck in GamepadUI mode?")
@@ -1200,12 +1276,31 @@ def main() -> int:
 
 
 
-    # HOME: Ensure clean state, navigate to home, scroll to top
+    bp_ws = ws_path_for(bp, args.port)
+
+    # HOME: ensure_bp_clean already navigates to the top of home via main menu.
+    # Do NOT send mouseWheel events here — they trigger card hover states
+    # (label + brightness + shadow) which become the "overlay" on capture.
     print("\n[screenshot] home ...")
     ensure_bp_clean(args.host, args.port, bp, shared_ws)
-    for _ in range(6):
-        scroll_bp(args.host, args.port, bp, -2000)
-        time.sleep(0.15)
+    # Force scrollTop=0 on the home scrollable via JS (no mouse events → no hover)
+    eval_target(args.host, args.port, bp_ws, """
+(function(){
+    var mount = document.getElementById('deck-shelves-home-root');
+    var cur = mount ? mount.parentElement : null;
+    while (cur) {
+        try {
+            var cs = getComputedStyle(cur);
+            var oy = (cs.overflowY || '').toLowerCase();
+            if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && cur.scrollHeight > cur.clientHeight) {
+                cur.scrollTop = 0; return 'scrolled';
+            }
+        } catch(_){}
+        cur = cur.parentElement;
+    }
+    return 'no-scrollable';
+})()
+""")
     time.sleep(1.0)
     p = capture_bigpicture(args.host, args.port, bp, "home.png")
     if p:
@@ -1213,43 +1308,36 @@ def main() -> int:
         explicacoes.append(("home.png", "Tela inicial da Steam Deck mostrando as prateleiras personalizadas do plugin Deck Shelves."))
     time.sleep(1.2)
 
-    # HOME-SHELVES: Scroll até a segunda prateleira, overlays fechados, print
+    # HOME-SHELVES: scroll directly via JS to the second shelf. mouseWheel
+    # events would hover the card under (640,400) and pollute the capture.
     print("\n[screenshot] home-shelves ... (segunda prateleira)")
-    bp_ws = ws_path_for(bp, args.port)
-    shelf_rows = eval_target(args.host, args.port, bp_ws, """
-(function() {
-    var cards = Array.from(document.querySelectorAll('.ds-card'));
-    if (cards.length < 2) return null;
-    var rows = cards.map(card => card.closest('[class*=HorizontalScroll], [class*=Row]') || card.parentElement);
-    var uniqueRows = [];
-    var seen = new Set();
-    for (var row of rows) {
-        if (!row) continue;
-        var key = row.getBoundingClientRect().top + ':' + row.getBoundingClientRect().left;
-        if (!seen.has(key)) { uniqueRows.push(row); seen.add(key); }
+    scrolled = eval_target(args.host, args.port, bp_ws, """
+(function(){
+    var shelves = Array.from(document.querySelectorAll('.ds-shelf'));
+    if (shelves.length < 2) return { err: 'fewer-than-2-shelves', count: shelves.length };
+    // Find the nearest scrollable ancestor
+    var mount = document.getElementById('deck-shelves-home-root');
+    var scr = mount ? mount.parentElement : null;
+    while (scr) {
+        try {
+            var cs = getComputedStyle(scr);
+            var oy = (cs.overflowY || '').toLowerCase();
+            if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && scr.scrollHeight > scr.clientHeight) break;
+        } catch(_){}
+        scr = scr.parentElement;
     }
-    if (uniqueRows.length < 2) return null;
-    return uniqueRows.slice(0,2).map(row => row.getBoundingClientRect().top);
+    if (!scr) return { err: 'no-scrollable' };
+    var shelf = shelves[1];
+    var shelfRect = shelf.getBoundingClientRect();
+    var scrRect = scr.getBoundingClientRect();
+    // Land the second shelf ~200px below the top of the viewport
+    var target = Math.max(0, Math.round(scr.scrollTop + (shelfRect.top - scrRect.top) - 200));
+    scr.scrollTop = target;
+    return { ok: true, scrollTop: scr.scrollTop };
 })()
 """)
-    if not shelf_rows or not isinstance(shelf_rows, list) or len(shelf_rows) < 2:
-        print("  [ERROR] At least 2 shelves are required for the home-shelves screenshot. Please create a second shelf and try again.")
-        return 1
-    row_top = shelf_rows[1]
-    target_y = 200
-    scroll_needed = int(row_top - target_y)
-    if scroll_needed > 50:
-        steps = max(1, scroll_needed // 300)
-        per_step = scroll_needed // steps
-        for _ in range(steps):
-            scroll_bp(args.host, args.port, bp, per_step)
-            time.sleep(0.25)
-        time.sleep(2.0)
-    else:
-        time.sleep(1.0)
-    for _ in range(6):
-        dismiss_bp_escape(args.host, args.port, bp)
-        time.sleep(0.15)
+    print(f"  scroll result: {scrolled}")
+    time.sleep(1.5)
     p = capture_bigpicture(args.host, args.port, bp, "home-shelves.png")
     if p:
         captured.append(p)
@@ -1331,6 +1419,14 @@ def main() -> int:
         if p:
             captured.append(p)
             explicacoes.append(("shelf-export.png", "Modal de exportação de prateleiras."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] reset-all ... (confirmação destrutiva)")
+    if qam_ws:
+        p = screenshot_reset_all(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("reset-all.png", "Confirmação do botão Reset all (zera todas as prateleiras e configurações)."))
         time.sleep(1.5)
 
     print("\n[screenshot] about-page ...")
