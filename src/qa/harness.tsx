@@ -6,13 +6,15 @@ const qamError = __DEV__ && typeof __QA_QAM_ERROR__ !== "undefined" && __QA_QAM_
 const shelfError = __DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__;
 const allShelvesHide = __DEV__ && typeof __QA_ALL_SHELVES_HIDE_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_HIDE_RECENTS__;
 const allShelvesShow = __DEV__ && typeof __QA_ALL_SHELVES_SHOW_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_SHOW_RECENTS__;
+const allShelvesHideTabs = __DEV__ && typeof __QA_ALL_SHELVES_HIDE_HOME_TABS__ !== "undefined" && __QA_ALL_SHELVES_HIDE_HOME_TABS__;
+const allShelvesShowTabs = __DEV__ && typeof __QA_ALL_SHELVES_SHOW_HOME_TABS__ !== "undefined" && __QA_ALL_SHELVES_SHOW_HOME_TABS__;
 const forceTabMaster = __DEV__ && typeof __QA_FORCE_TABMASTER__ !== "undefined" ? __QA_FORCE_TABMASTER__ : "";
 const forceUnifiDeck = __DEV__ && typeof __QA_FORCE_UNIFIDECK__ !== "undefined" ? __QA_FORCE_UNIFIDECK__ : "";
 const forceNonSteamBadges = __DEV__ && typeof __QA_FORCE_NONSTEAMBADGES__ !== "undefined" ? __QA_FORCE_NONSTEAMBADGES__ : "";
 
-if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || forceTabMaster || forceUnifiDeck || forceNonSteamBadges) {
+if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceTabMaster || forceUnifiDeck || forceNonSteamBadges) {
   // eslint-disable-next-line no-console
-  console.warn("[Deck Shelves QA] active flags:", { firstRun, qamError, shelfError, allShelvesHide, allShelvesShow, forceTabMaster, forceUnifiDeck, forceNonSteamBadges });
+  console.warn("[Deck Shelves QA] active flags:", { firstRun, qamError, shelfError, allShelvesHide, allShelvesShow, allShelvesHideTabs, allShelvesShowTabs, forceTabMaster, forceUnifiDeck, forceNonSteamBadges });
 }
 
 function qaAllShelvesFixture(): Shelf[] {
@@ -28,11 +30,12 @@ function qaAllShelvesFixture(): Shelf[] {
 }
 
 export function applyQASettingsOverride(s: Settings): Settings {
-  if (!allShelvesHide && !allShelvesShow) return s;
+  if (!allShelvesHide && !allShelvesShow && !allShelvesHideTabs && !allShelvesShowTabs) return s;
   return {
     ...s,
     enabled: true,
-    hideRecents: allShelvesHide ? true : false,
+    hideRecents: allShelvesHide ? true : (allShelvesShow ? false : s.hideRecents),
+    hideHomeTabs: allShelvesHideTabs ? true : (allShelvesShowTabs ? false : s.hideHomeTabs),
     shelves: qaAllShelvesFixture(),
   };
 }

@@ -52,15 +52,6 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
     return 0;
   }
 
-  // Stability guard: if our node is already under the last known-good target
-  // AND the target still has multiple vertical children, it's already correct.
-  // Skip the recompute to avoid churn during collapse/expand mutations.
-  if (lastReparentTarget && ourNodes.every((n) => n.m_Parent === lastReparentTarget)) {
-    const stillValid = (lastReparentTarget.m_rgChildren?.length ?? 0) >= 2
-      && lastReparentTarget.GetLayout?.() === 1;
-    if (stillValid) return 0;
-  }
-
   // Do not perturb the tree while focus is inside our subtree — that
   // can orphan the currently-focused node if splicing happens mid-navigation.
   const activeEl = ctrl.m_ActiveContext?.ActiveElementNavNode?.m_element
@@ -82,23 +73,55 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
     return null;
   }
 
-  const nativeSibling = mountEl.previousElementSibling as HTMLElement | null;
-  const refEl = nativeSibling || mountEl;
-  const deepest = findDeepestContainer(root, refEl);
-  if (!deepest) return -1;
+  // Preferred target: the nav node whose Element === mountEl.parentElement.
+  // That's the home Panel that in DOM already contains [recents, mount, tabs]
+  // — placing our nav node inside it gets D-pad traversal
+  // recents → shelves → tabs (matching DOM order) instead of forcing users
+  // to walk past the tabs before reaching shelves.
+  function findNodeByElement(start: any, targetEl: HTMLElement): any | null {
+    let found: any = null;
+    (function walk(n: any) {
+      if (found) return;
+      const e = n.Element || n.m_element || n.m_Element;
+      if (e === targetEl) { found = n; return; }
+      for (const c of (n.m_rgChildren || [])) walk(c);
+    })(start);
+    return found;
+  }
 
-  let target = deepest;
-  let cursor: any = deepest.m_Parent;
-  while (cursor) {
-    try {
-      const layout = cursor.GetLayout?.();
-      const cc = (cursor.m_rgChildren || []).length;
-      if (layout === 1 && cc >= 2) {
-        target = cursor;
-        break;
-      }
-    } catch (e) { logInfo("HOME", "reparentNavTreeNodes: layout read failed", String(e)); }
-    cursor = cursor.m_Parent;
+  let target: any = null;
+  const domParent = mountEl.parentElement;
+  if (domParent) {
+    const domParentNode = findNodeByElement(root, domParent);
+    if (domParentNode && domParentNode.GetLayout?.() === 1) {
+      target = domParentNode;
+    }
+  }
+
+  if (!target) {
+    const nativeSibling = mountEl.previousElementSibling as HTMLElement | null;
+    const refEl = nativeSibling || mountEl;
+    const deepest = findDeepestContainer(root, refEl);
+    if (!deepest) return -1;
+    target = deepest;
+    let cursor: any = deepest.m_Parent;
+    while (cursor) {
+      try {
+        const layout = cursor.GetLayout?.();
+        const cc = (cursor.m_rgChildren || []).length;
+        if (layout === 1 && cc >= 2) {
+          target = cursor;
+          break;
+        }
+      } catch (e) { logInfo("HOME", "reparentNavTreeNodes: layout read failed", String(e)); }
+      cursor = cursor.m_Parent;
+    }
+  }
+
+  // Stability guard: once ourNodes are under the chosen target, no churn.
+  if (target && ourNodes.every((n) => n.m_Parent === target)) {
+    lastReparentTarget = target;
+    return 0;
   }
 
   let moved = 0;

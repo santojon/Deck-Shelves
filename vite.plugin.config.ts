@@ -15,6 +15,8 @@ export default defineConfig(({ mode }) => {
       __QA_SHELF_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_SHELF_ERROR === "1"),
       __QA_ALL_SHELVES_HIDE_RECENTS__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_ALL_SHELVES_HIDE_RECENTS === "1"),
       __QA_ALL_SHELVES_SHOW_RECENTS__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_ALL_SHELVES_SHOW_RECENTS === "1"),
+      __QA_ALL_SHELVES_HIDE_HOME_TABS__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_ALL_SHELVES_HIDE_HOME_TABS === "1"),
+      __QA_ALL_SHELVES_SHOW_HOME_TABS__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_ALL_SHELVES_SHOW_HOME_TABS === "1"),
       __QA_FORCE_TABMASTER__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_TABMASTER ?? "") : ""),
       __QA_FORCE_UNIFIDECK__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_UNIFIDECK ?? "") : ""),
       __QA_FORCE_NONSTEAMBADGES__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_NONSTEAMBADGES ?? "") : ""),

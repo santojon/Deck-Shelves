@@ -300,56 +300,62 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       navApi.detail,
     );
 
-    const applyIdempotentPatches = () => {
+    // Apply idempotent patches (menu/edge/bridge) on every mount-subtree
+    // mutation. Reparent runs independently with its own triggers because
+    // Steam can rebuild our nav node's parent without touching our DOM
+    // subtree (e.g. when native home re-registers focusables around us).
+    const applyPatches = () => {
       try {
+        reparentNavTreeNodes(mountEl);
         patchShelfEdgeNavigation(mountEl);
         patchMenuButton();
         installVerticalFocusBridge(mountEl);
         installPassiveMenuHook();
         tryRestoreFocus();
-      } catch (e) { logInfo("HOME", "applyIdempotentPatches failed", String(e)); }
+      } catch (e) { logInfo("HOME", "applyPatches failed", String(e)); }
+    };
+    const reparentOnly = () => {
+      try { reparentNavTreeNodes(mountEl); } catch (e) { logInfo("HOME", "reparentOnly failed", String(e)); }
     };
 
-    // Nav-tree reparent runs ONCE per mount / popstate with a short retry
-    // until it moves at least one node, then stops. No MutationObserver
-    // coupling — that was the source of collapse-triggered focus loss.
-    let reparentDone = false;
-    let reparentTimers: number[] = [];
-    const tryReparent = () => {
-      if (reparentDone) return true;
-      try {
-        const moved = reparentNavTreeNodes(mountEl);
-        if (moved > 0) { reparentDone = true; return true; }
-      } catch (e) { logInfo("HOME", "reparent failed", String(e)); }
-      return false;
-    };
-    const scheduleReparent = () => {
-      reparentTimers.forEach((t) => clearTimeout(t));
-      reparentTimers = [];
-      reparentDone = false;
-      if (tryReparent()) return;
-      for (const delay of [200, 500, 1000, 2000]) {
-        const t = window.setTimeout(() => { tryReparent(); }, delay);
-        reparentTimers.push(t);
-      }
-    };
+    applyPatches();
 
-    applyIdempotentPatches();
-    scheduleReparent();
-    const obs = new MutationObserver(applyIdempotentPatches);
+    // Observer 1: mutations inside our mount (shelf render, collapse/expand)
+    const obs = new MutationObserver(applyPatches);
     obs.observe(mountEl, { childList: true, subtree: true });
 
+    // Observer 2: mutations on mount's PARENT — catches Steam's native home
+    // re-adding/re-ordering siblings, which is when it re-registers our nav
+    // node at the wrong tree level. Only listens to direct-child changes.
+    let parentObs: MutationObserver | null = null;
+    if (mountEl.parentElement) {
+      parentObs = new MutationObserver(reparentOnly);
+      parentObs.observe(mountEl.parentElement, { childList: true });
+    }
+
+    // Safety net: poll every 750ms. Stability guard short-circuits when the
+    // position is correct, so this costs nothing in steady state. Catches
+    // cases where Steam re-registers without any DOM mutation at all.
+    const poll = window.setInterval(reparentOnly, 750);
+
+    // Focus events also signal Steam-driven tree changes; run reparent on
+    // focusin at the document level (cheap; guard will no-op when correct).
+    const doc = mountEl.ownerDocument;
+    const onFocusIn = () => reparentOnly();
+    doc?.addEventListener("focusin", onFocusIn, true);
+
     const win = getPreferredSteamWindow();
-    const onNavEvent = () => { applyIdempotentPatches(); scheduleReparent(); if (hasPendingFocus()) beginFocusRestoreLoop(); };
+    const onNavEvent = () => { applyPatches(); if (hasPendingFocus()) beginFocusRestoreLoop(); };
     win.addEventListener("popstate", onNavEvent);
     win.addEventListener("hashchange", onNavEvent);
 
     return () => {
       obs.disconnect();
+      parentObs?.disconnect();
+      window.clearInterval(poll);
+      doc?.removeEventListener("focusin", onFocusIn, true);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
-      reparentTimers.forEach((t) => clearTimeout(t));
-      reparentTimers = [];
     };
   }, [mountEl]);
 
