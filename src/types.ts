@@ -67,6 +67,10 @@ export const SmartShelfModeSchema = z.enum([
   "interrupted",
   "time_of_day",
   "daily_pick",
+  "on_deck",
+  "recently_played",
+  "long_session",
+  "non_steam",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 

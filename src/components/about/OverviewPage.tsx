@@ -11,6 +11,7 @@ export function OverviewPage() {
   const { t } = useTranslation()
   const features = [
     'about_feature_shelves','about_feature_sources','about_feature_filters','about_feature_advanced_groups',
+    'about_feature_smart_shelves',
     'about_feature_new_filters','about_feature_new_sorts','about_feature_api','about_feature_unifideck',
     'about_feature_first_run','about_feature_templates','about_feature_refresh','about_feature_suspend_resume',
     'about_feature_ci_tests','about_feature_screenshot_automation','about_feature_atomic_settings',

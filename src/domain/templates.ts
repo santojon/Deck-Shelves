@@ -37,6 +37,16 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     titleKey: "template_awaiting_update",
     source: { type: "filter", filter: { installed: true, updatePending: true, sort: "alphabetical" } },
   },
+  {
+    id: "non_steam",
+    titleKey: "template_non_steam",
+    source: { type: "filter", filter: { nonSteam: true, sort: "recent" } },
+  },
+  {
+    id: "long_session",
+    titleKey: "template_long_session",
+    source: { type: "filter", filter: { installed: true, minPlaytimeMinutes: 180, sort: "playtime" } },
+  },
 ];
 
 export const DEFAULT_SHELF_TEMPLATES: ShelfTemplate[] = [

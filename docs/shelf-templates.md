@@ -64,8 +64,25 @@ Shows installed games that have a pending update or download queued. Useful as a
 
 ---
 
+### Non-Steam / Emulators — `non_steam`
+
+**Source:** filter — `nonSteam: true`, sort by `recent`
+
+Shows non-Steam shortcuts (emulators, other launchers, manually added games) sorted by most recently played. The shelf is empty when no non-Steam entries exist.
+
+---
+
+### Long Sessions — `long_session`
+
+**Source:** filter — `installed: true`, `minPlaytimeMinutes: 180`, sort by `playtime` (descending)
+
+Shows installed games where the user has put in more than 3 hours — the titles they've genuinely committed to. Ordered by total playtime so the most-played entries surface first.
+
+---
+
 ## Notes
 
+- The template picker shows **Start blank** first, followed by all templates in a 2-column grid. Starting blank opens the Edit modal immediately.
 - Tab-based templates (`favorites`, `recent`, `installed`) delegate ordering entirely to Steam. The shelf limit still applies — only the first N games from the tab are shown.
-- Filter-based templates (`most_played`, `recently_added`, `awaiting_update`) use the plugin's own resolver and support all per-shelf display options (highlight first, match native size, etc.).
+- Filter-based templates (`most_played`, `recently_added`, `awaiting_update`, `non_steam`, `long_session`) use the plugin's own resolver and support all per-shelf display options (highlight first, match native size, etc.).
 - All templates produce fully editable shelves. Source type, sort order, limit, and display options can all be changed after creation.

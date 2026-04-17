@@ -12,16 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `[FEATURE]` Smart Shelves: new shelf type whose content is generated automatically by library heuristics — appears on the home screen only when the heuristic returns results, disappears otherwise (no CSS hiding, uses the natural `null` render path). Toggle `smartShelvesEnabled` in the QAM enables a separate Smart Shelves section with its own template picker and reorderable list.
-- Eight smart shelf templates: **Quick Play** (installed + Deck Verified/Playable + <2 h playtime), **Not Started** (zero playtime, never launched), **Deck Picks** (Deck Verified library), **Rediscover** (last played >6 months ago, >1 h playtime, Deck compatible), **Best Unplayed** (installed, never played), **Interrupted** (30 min–3 h playtime), **Time of Day** (rotates between Quick Play / Deck Picks / Rediscover by hour), and **Daily Pick** (deterministic daily rotation, no persisted state).
+- Twelve smart shelf templates: **Daily Pick** (deterministic daily rotation), **Deck Picks** (Deck Verified library), **On Deck** (installed + Deck compat, sort by recently played), **Recently Played** (last 30 days), **Long Sessions** (installed + >3 h playtime), **Not Started** (zero playtime, never launched), **Best Unplayed** (installed, never played), **Quick Play** (installed + Deck compat + <2 h), **Interrupted** (30 min–3 h), **Non-Steam** (non-Steam shortcuts and emulators), **Time of Day** (rotates by hour), and **Rediscover** (last played >6 months, >1 h, Deck compat). Ordered by probability of returning results in the picker.
 - `SmartShelf` / `SmartShelfMode` Zod types and `smartShelvesEnabled` / `smartShelvesAtBottom` / `smartShelves` fields in `SettingsSchema` — all optional with defaults, backwards compatible with existing settings.
 - `smartShelvesAtBottom` toggle (sub-toggle under the main switch) moves smart shelves below normal shelves. When `hideRecents` is active and the toggle is off, smart shelves are inserted after the first normal shelf (which occupies the native recents slot).
 - Smart shelf controls: hide/show, move up/move down, and delete — via the ⋯ context menu (same pattern as normal shelves). Smart shelves are not editable by design.
 - Smart shelf list uses `ShelfListLabel` (eye icon + title), matching the normal shelf list appearance.
 - Heuristic results memoized per `(mode, limit)` with a 5-minute TTL — avoids re-running on every home render cycle.
 - `smartShelvesEnabled`, `smartShelvesAtBottom`, and `smartShelves` preserved by `_sanitize_settings` in the Python backend and round-trip correctly through import/export.
-- `[DOCS]` `docs/smart-shelves.md`: full reference for all eight templates (criteria, sort, appear/disappear conditions, reliability, position logic).
-- `[DOCS]` `docs/shelf-templates.md`: reference for the six standard shelf templates and the three created by the first-run default action.
-- `[I18N]` All 17 smart shelf keys translated across all 16 supported locales.
+- Two new standard shelf templates: **Non-Steam / Emulators** (filter: `nonSteam: true`, sort recent) and **Long Sessions** (filter: `installed + >3 h playtime`, sort playtime).
+- Template pickers (standard and smart shelves) redesigned as a 2-column button grid where the button text is the template name. Standard picker shows **Start blank** first — opens the edit modal immediately.
+- `[DOCS]` `docs/smart-shelves.md`: full reference for all 12 templates; reliability table re-ordered highest first.
+- `[DOCS]` `docs/shelf-templates.md`: reference for all 8 standard templates; note about picker layout.
+- `[I18N]` All smart shelf and template i18n keys fully translated across all 16 supported locales.
+- In-plugin documentation (About → Shelves) updated with Smart Shelves section listing all 12 templates with descriptions, fully translated.
 
 ## [1.3.1] - 2026-04-17
 

@@ -159,17 +159,83 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 ---
 
+### On Deck — `on_deck`
+
+**When it appears:** you have installed games that are Deck Verified or Playable.
+
+**Criteria:**
+- `installed = true`
+- `deck_compatibility_category ∈ {Verified, Playable}`
+
+**Sort:** Verified before Playable; within the same tier, most recently played first.
+
+**When it disappears:** when no compatible game is installed.
+
+**Use case:** your active Deck-ready rotation — installed and ready to go, with the best-supported titles first.
+
+---
+
+### Recently Played — `recently_played`
+
+**When it appears:** you have played any game in the last 30 days.
+
+**Criteria:**
+- `last_played > (now − 30 days)`
+
+**Sort:** most recently played first.
+
+**When it disappears:** when no game has been played in the last 30 days (rare for active users).
+
+**Use case:** your current active rotation — what you've actually been playing this month.
+
+---
+
+### Long Sessions — `long_session`
+
+**When it appears:** you have installed games with more than 3 hours of playtime.
+
+**Criteria:**
+- `installed = true`
+- `playtime_forever > 180 min`
+
+**Sort:** most played first.
+
+**When it disappears:** when no installed game has more than 3 hours of playtime.
+
+**Use case:** the games you've committed to — good picks when you have time for a real session.
+
+---
+
+### Non-Steam — `non_steam`
+
+**When it appears:** you have non-Steam shortcuts in your library (emulators, other launchers).
+
+**Criteria:**
+- `is_non_steam = true`
+
+**Sort:** most recently played first.
+
+**When it disappears:** when there are no non-Steam entries.
+
+**Use case:** quick access to emulators and other launchers without browsing the full library.
+
+---
+
 ## Appearance Reliability Summary
 
 | Template | Disappears when… | Reliability |
 |---|---|---|
-| `quick_play` | all Deck-compat installed games >2 h played | Medium |
-| `not_started` | every game has been launched at least once | Medium |
-| `deck_picks` | no Deck Verified games in library | High |
-| `rediscover` | no compat game with >1 h untouched for 6 months | Low–Medium |
-| `best_unplayed` | all installed games have been played | Medium |
-| `interrupted` | no game in the 30–180 min range | Medium |
-| `time_of_day` | delegate for current hour is empty | Inherits |
 | `daily_pick` | library is completely empty | **Very High** |
+| `deck_picks` | no Deck Verified games in library | High |
+| `on_deck` | no compatible game is installed | High |
+| `recently_played` | no game played in last 30 days | High |
+| `long_session` | no installed game has >3 h playtime | High |
+| `not_started` | every game has been launched at least once | Medium |
+| `best_unplayed` | all installed games have been played | Medium |
+| `quick_play` | all Deck-compat installed games >2 h played | Medium |
+| `interrupted` | no game in the 30–180 min range | Medium |
+| `non_steam` | no non-Steam shortcuts in library | Medium |
+| `time_of_day` | delegate for current hour is empty | Inherits |
+| `rediscover` | no compat game with >1 h untouched for 6 months | Low–Medium |
 
-> `daily_pick` and `deck_picks` are the most likely to always be visible. Consider using the **hide** action on them if you prefer the slot to be empty rather than always occupied.
+> `daily_pick`, `deck_picks`, `on_deck`, and `recently_played` are the most likely to always be visible. The template picker lists templates from highest to lowest probability so you can pick the most useful ones first.

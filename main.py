@@ -94,7 +94,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(raw_smart, list):
         raw_smart = []
     sanitized_smart = []
-    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick"}
+    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played", "long_session", "non_steam"}
     for ss in raw_smart:
         if not isinstance(ss, dict):
             continue

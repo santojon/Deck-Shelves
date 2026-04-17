@@ -99,18 +99,55 @@ function resolveDailyPick(apps: AppOverview[], limit: number): number[] {
   return rotated.slice(0, limit).map((a) => a.appid);
 }
 
+function resolveOnDeck(apps: AppOverview[], limit: number): number[] {
+  return apps
+    .filter((a) => a.installed && (deckCompat(a) === DECK_VERIFIED || deckCompat(a) === DECK_PLAYABLE))
+    .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function resolveRecentlyPlayed(apps: AppOverview[], limit: number): number[] {
+  const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
+  return apps
+    .filter((a) => lastPlayedSec(a) > thirtyDaysAgo)
+    .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function resolveLongSession(apps: AppOverview[], limit: number): number[] {
+  return apps
+    .filter((a) => a.installed && playtimeMinutes(a) > 180)
+    .sort((a, b) => playtimeMinutes(b) - playtimeMinutes(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function resolveNonSteam(apps: AppOverview[], limit: number): number[] {
+  return apps
+    .filter((a) => a.is_non_steam)
+    .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
 export function resolveSmartShelf(mode: SmartShelfMode, apps: AppOverview[], limit: number): number[] {
   return cached(`${mode}:${limit}`, () => {
     try {
       switch (mode) {
-        case "quick_play": return resolveQuickPlay(apps, limit);
-        case "not_started": return resolveNotStarted(apps, limit);
-        case "deck_picks": return resolveDeckPicks(apps, limit);
-        case "rediscover": return resolveRediscover(apps, limit);
-        case "best_unplayed": return resolveBestUnplayed(apps, limit);
-        case "interrupted": return resolveInterrupted(apps, limit);
-        case "time_of_day": return resolveTimeOfDay(apps, limit);
-        case "daily_pick": return resolveDailyPick(apps, limit);
+        case "quick_play":      return resolveQuickPlay(apps, limit);
+        case "not_started":     return resolveNotStarted(apps, limit);
+        case "deck_picks":      return resolveDeckPicks(apps, limit);
+        case "rediscover":      return resolveRediscover(apps, limit);
+        case "best_unplayed":   return resolveBestUnplayed(apps, limit);
+        case "interrupted":     return resolveInterrupted(apps, limit);
+        case "time_of_day":     return resolveTimeOfDay(apps, limit);
+        case "daily_pick":      return resolveDailyPick(apps, limit);
+        case "on_deck":         return resolveOnDeck(apps, limit);
+        case "recently_played": return resolveRecentlyPlayed(apps, limit);
+        case "long_session":    return resolveLongSession(apps, limit);
+        case "non_steam":       return resolveNonSteam(apps, limit);
         default: return [];
       }
     } catch {
