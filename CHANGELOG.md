@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.4.0] - Unreleased
-
 ### Added
 
 - `[FEATURE]` Smart Shelves: new shelf type whose content is generated automatically by library heuristics — appears on the home screen only when the heuristic returns results, disappears otherwise (no CSS hiding, uses the natural `null` render path). Toggle `smartShelvesEnabled` in the QAM enables a separate Smart Shelves section with its own template picker and reorderable list.
