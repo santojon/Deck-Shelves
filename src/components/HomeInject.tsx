@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ShelfView } from "./Shelf";
-import type { Settings } from "../types";
+import type { Settings, Shelf, SmartShelf } from "../types";
 import { refreshSettings, subscribeSettings } from "../settingsStore";
 import { PlatformProvider } from "../runtime/platformContext";
 import { createDeckyPlatform } from "../runtime/deckyPlatform";
@@ -303,7 +303,40 @@ export function HomeShelves() {
   // + not killed), the first shelf is already rendering inside the native
   // recents slot. Skip it here to avoid a visual duplicate below. If the
   // injection isn't happening (failed, not resolved yet), keep every shelf.
-  const shelves = (replaceInjecting && !replaceKillSwitch) ? visibleShelves.slice(1) : visibleShelves;
+  const normalShelves = (replaceInjecting && !replaceKillSwitch) ? visibleShelves.slice(1) : visibleShelves;
+
+  // Convert enabled smart shelves to Shelf-compatible objects for ShelfView.
+  const smartShelves: Shelf[] = settings.smartShelvesEnabled
+    ? (settings.smartShelves ?? [])
+      .filter((s: SmartShelf) => s.enabled && !s.hidden)
+      .map((s: SmartShelf): Shelf => ({
+        id: s.id,
+        title: s.title,
+        enabled: true,
+        hidden: false,
+        limit: s.limit ?? 20,
+        matchNativeSize: false,
+        highlightFirst: false,
+        hideStatusLine: false,
+        hideNewBadge: false,
+        hideCompatIcons: false,
+        hideNonSteamBadge: false,
+        source: { type: "smart", mode: s.mode },
+      }))
+    : [];
+
+  // Placement logic:
+  //  - atBottom: normal first, then smart
+  //  - hideRecents + !atBottom: [first normal, ...smart, ...rest normal]
+  //  - default (!atBottom, no hideRecents): smart first, then normal
+  let shelves: Shelf[];
+  if (settings.smartShelvesAtBottom) {
+    shelves = [...normalShelves, ...smartShelves];
+  } else if (settings.hideRecents === true && normalShelves.length > 0) {
+    shelves = [normalShelves[0], ...smartShelves, ...normalShelves.slice(1)];
+  } else {
+    shelves = [...smartShelves, ...normalShelves];
+  }
 
   // When the plugin is disabled, there are no visible shelves, or all shelves
   // are hidden — always ensure recents are visible regardless of the toggle

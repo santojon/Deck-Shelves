@@ -241,5 +241,22 @@
   "toast_failed_save": "无法保存设置",
   "toast_imported": "设置已导入",
   "view_more": "在库中\n查看更多",
-  "visibility": "可见性"
+  "visibility": "可见性",
+  "smart_shelves_enabled": "启用智能书架",
+  "smart_no_shelves": "还没有智能书架",
+  "smart_add_shelf": "添加智能书架",
+  "smart_template_picker_title": "选择模板",
+  "smart_template_picker_desc": "智能书架自动显示 — 无需配置。",
+  "smart_template_quick_play": "快速游玩",
+  "smart_template_not_started": "未开始",
+  "smart_template_deck_picks": "Deck 精选",
+  "smart_template_rediscover": "重新发现",
+  "smart_template_best_unplayed": "最佳未玩",
+  "smart_template_interrupted": "中断游戏",
+  "smart_template_time_of_day": "每日时段",
+  "smart_template_daily_pick": "每日精选",
+  "smart_section_header": "智能书架",
+  "smart_shelves_at_bottom": "显示在底部",
+  "smart_first_run_title": "智能书架",
+  "smart_first_run_desc": "智能书架根据您的游戏库自动显示。当没有符合条件的游戏时会自动消失。"
 }

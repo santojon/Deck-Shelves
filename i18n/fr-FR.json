@@ -241,5 +241,22 @@
   "toast_failed_save": "Impossible d'enregistrer les paramètres",
   "toast_imported": "Paramètres importés",
   "view_more": "Voir plus\ndans votre\nbibliothèque",
-  "visibility": "Visibilité"
+  "visibility": "Visibilité",
+  "smart_shelves_enabled": "Activer les étagères intelligentes",
+  "smart_no_shelves": "Aucune étagère intelligente pour l'instant",
+  "smart_add_shelf": "Ajouter une étagère intelligente",
+  "smart_template_picker_title": "Choisir un modèle",
+  "smart_template_picker_desc": "Les étagères intelligentes apparaissent automatiquement — aucune configuration requise.",
+  "smart_template_quick_play": "Partie Rapide",
+  "smart_template_not_started": "Non Commencé",
+  "smart_template_deck_picks": "Sélection Deck",
+  "smart_template_rediscover": "Redécouvrir",
+  "smart_template_best_unplayed": "Meilleur Non Joué",
+  "smart_template_interrupted": "Interrompu",
+  "smart_template_time_of_day": "Heure du Jour",
+  "smart_template_daily_pick": "Sélection du Jour",
+  "smart_section_header": "Étagères Intelligentes",
+  "smart_shelves_at_bottom": "Afficher en bas",
+  "smart_first_run_title": "Étagères Intelligentes",
+  "smart_first_run_desc": "Les étagères intelligentes apparaissent automatiquement selon votre bibliothèque. Elles disparaissent si aucun jeu ne correspond."
 }

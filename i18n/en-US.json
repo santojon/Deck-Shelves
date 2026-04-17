@@ -241,5 +241,22 @@
   "toast_failed_save": "Could not save settings",
   "toast_imported": "Settings imported",
   "view_more": "View more\nin your\nlibrary",
-  "visibility": "Visibility"
+  "visibility": "Visibility",
+  "smart_section_header": "Smart Shelves",
+  "smart_shelves_enabled": "Enable smart shelves",
+  "smart_shelves_at_bottom": "Show at bottom",
+  "smart_no_shelves": "No smart shelves yet",
+  "smart_add_shelf": "Add smart shelf",
+  "smart_first_run_title": "Smart Shelves",
+  "smart_first_run_desc": "Smart shelves appear automatically based on your library. They disappear when no games match.",
+  "smart_template_picker_title": "Choose a template",
+  "smart_template_picker_desc": "Smart shelves appear automatically — no configuration needed.",
+  "smart_template_quick_play": "Quick Play",
+  "smart_template_not_started": "Not Started",
+  "smart_template_deck_picks": "Deck Picks",
+  "smart_template_rediscover": "Rediscover",
+  "smart_template_best_unplayed": "Best Unplayed",
+  "smart_template_interrupted": "Interrupted",
+  "smart_template_time_of_day": "Time of Day",
+  "smart_template_daily_pick": "Daily Pick"
 }

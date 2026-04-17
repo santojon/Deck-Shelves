@@ -1920,6 +1920,18 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     }
   }
 
+  if (source.type === "smart") {
+    try {
+      const { resolveSmartShelf } = await import("./smartShelves");
+      const apps = await getAllAppOverviews();
+      const ids = resolveSmartShelf(source.mode, apps, limit);
+      logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length });
+      return ids;
+    } catch {
+      return [];
+    }
+  }
+
   return [];
 }
 

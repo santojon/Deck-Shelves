@@ -241,5 +241,22 @@
   "toast_failed_save": "Nie udało się zapisać ustawień",
   "toast_imported": "Ustawienia zaimportowane",
   "view_more": "Zobacz więcej\nw swojej\nbibliotece",
-  "visibility": "Widoczność"
+  "visibility": "Widoczność",
+  "smart_shelves_enabled": "Włącz inteligentne półki",
+  "smart_no_shelves": "Brak inteligentnych półek",
+  "smart_add_shelf": "Dodaj inteligentną półkę",
+  "smart_template_picker_title": "Wybierz szablon",
+  "smart_template_picker_desc": "Inteligentne półki pojawiają się automatycznie — bez konfiguracji.",
+  "smart_template_quick_play": "Szybka Gra",
+  "smart_template_not_started": "Nierozpoczęte",
+  "smart_template_deck_picks": "Wybór Decka",
+  "smart_template_rediscover": "Odkryj Ponownie",
+  "smart_template_best_unplayed": "Najlepsze Niezagrane",
+  "smart_template_interrupted": "Przerwane",
+  "smart_template_time_of_day": "Pora Dnia",
+  "smart_template_daily_pick": "Codzienny Wybór",
+  "smart_section_header": "Inteligentne Półki",
+  "smart_shelves_at_bottom": "Pokaż na dole",
+  "smart_first_run_title": "Inteligentne Półki",
+  "smart_first_run_desc": "Inteligentne półki pojawiają się automatycznie na podstawie twojej biblioteki. Znikają, gdy żadna gra nie pasuje."
 }

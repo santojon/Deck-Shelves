@@ -241,5 +241,22 @@
   "toast_failed_save": "Не вдалося зберегти налаштування",
   "toast_imported": "Налаштування імпортовано",
   "view_more": "Більше\nу вашій\nбібліотеці",
-  "visibility": "Видимість"
+  "visibility": "Видимість",
+  "smart_shelves_enabled": "Увімкнути розумні полиці",
+  "smart_no_shelves": "Розумних полиць ще немає",
+  "smart_add_shelf": "Додати розумну полицю",
+  "smart_template_picker_title": "Обрати шаблон",
+  "smart_template_picker_desc": "Розумні полиці з'являються автоматично — налаштування не потрібне.",
+  "smart_template_quick_play": "Швидка гра",
+  "smart_template_not_started": "Не розпочаті",
+  "smart_template_deck_picks": "Вибір Deck",
+  "smart_template_rediscover": "Відкрити знову",
+  "smart_template_best_unplayed": "Найкращі незіграні",
+  "smart_template_interrupted": "Перервані",
+  "smart_template_time_of_day": "Час доби",
+  "smart_template_daily_pick": "Вибір дня",
+  "smart_section_header": "Розумні Полиці",
+  "smart_shelves_at_bottom": "Показувати знизу",
+  "smart_first_run_title": "Розумні Полиці",
+  "smart_first_run_desc": "Розумні полиці з'являються автоматично на основі вашої бібліотеки. Вони зникають, коли немає відповідних ігор."
 }

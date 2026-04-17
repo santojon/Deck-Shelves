@@ -241,5 +241,22 @@
   "toast_failed_save": "No se pudieron guardar los ajustes",
   "toast_imported": "Configuración importada",
   "view_more": "Ver más\nen tu\nbiblioteca",
-  "visibility": "Visibilidad"
+  "visibility": "Visibilidad",
+  "smart_shelves_enabled": "Activar estantes inteligentes",
+  "smart_no_shelves": "Aún no hay estantes inteligentes",
+  "smart_add_shelf": "Agregar estante inteligente",
+  "smart_template_picker_title": "Elige una plantilla",
+  "smart_template_picker_desc": "Los estantes inteligentes aparecen automáticamente — sin configuración.",
+  "smart_template_quick_play": "Partida Rápida",
+  "smart_template_not_started": "Sin Empezar",
+  "smart_template_deck_picks": "Selección Deck",
+  "smart_template_rediscover": "Redescubrir",
+  "smart_template_best_unplayed": "Mejor sin Jugar",
+  "smart_template_interrupted": "Interrumpido",
+  "smart_template_time_of_day": "Hora del Día",
+  "smart_template_daily_pick": "Selección Diaria",
+  "smart_section_header": "Estantes Inteligentes",
+  "smart_shelves_at_bottom": "Mostrar al final",
+  "smart_first_run_title": "Estantes Inteligentes",
+  "smart_first_run_desc": "Los estantes inteligentes aparecen automáticamente según tu biblioteca. Desaparecen cuando ningún juego coincide."
 }

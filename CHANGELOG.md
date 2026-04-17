@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - Unreleased
+
+### Added
+
+- `[FEATURE]` Smart Shelves: new shelf type whose content is generated automatically by library heuristics — appears on the home screen only when the heuristic returns results, disappears otherwise (no CSS hiding, uses the natural `null` render path). Toggle `smartShelvesEnabled` in the QAM enables a separate Smart Shelves section with its own template picker and reorderable list.
+- Eight smart shelf templates: **Quick Play** (installed + Deck Verified/Playable + <2 h playtime), **Not Started** (zero playtime, never launched), **Deck Picks** (Deck Verified library), **Rediscover** (last played >6 months ago, >1 h playtime, Deck compatible), **Best Unplayed** (installed, never played), **Interrupted** (30 min–3 h playtime), **Time of Day** (rotates between Quick Play / Deck Picks / Rediscover by hour), and **Daily Pick** (deterministic daily rotation, no persisted state).
+- `SmartShelf` / `SmartShelfMode` Zod types and `smartShelvesEnabled` / `smartShelvesAtBottom` / `smartShelves` fields in `SettingsSchema` — all optional with defaults, backwards compatible with existing settings.
+- `smartShelvesAtBottom` toggle (sub-toggle under the main switch) moves smart shelves below normal shelves. When `hideRecents` is active and the toggle is off, smart shelves are inserted after the first normal shelf (which occupies the native recents slot).
+- Smart shelf controls: hide/show, move up/move down, and delete — via the ⋯ context menu (same pattern as normal shelves). Smart shelves are not editable by design.
+- Smart shelf list uses `ShelfListLabel` (eye icon + title), matching the normal shelf list appearance.
+- Heuristic results memoized per `(mode, limit)` with a 5-minute TTL — avoids re-running on every home render cycle.
+- `smartShelvesEnabled`, `smartShelvesAtBottom`, and `smartShelves` preserved by `_sanitize_settings` in the Python backend and round-trip correctly through import/export.
+- `[DOCS]` `docs/smart-shelves.md`: full reference for all eight templates (criteria, sort, appear/disappear conditions, reliability, position logic).
+- `[DOCS]` `docs/shelf-templates.md`: reference for the six standard shelf templates and the three created by the first-run default action.
+- `[I18N]` All 17 smart shelf keys translated across all 16 supported locales.
+
 ## [1.3.1] - 2026-04-17
 
 ### Added

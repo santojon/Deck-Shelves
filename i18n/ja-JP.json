@@ -241,5 +241,22 @@
   "toast_failed_save": "設定を保存できませんでした",
   "toast_imported": "設定をインポートしました",
   "view_more": "ライブラリで\nもっと見る",
-  "visibility": "表示設定"
+  "visibility": "表示設定",
+  "smart_shelves_enabled": "スマートシェルフを有効にする",
+  "smart_no_shelves": "スマートシェルフはまだありません",
+  "smart_add_shelf": "スマートシェルフを追加",
+  "smart_template_picker_title": "テンプレートを選択",
+  "smart_template_picker_desc": "スマートシェルフは自動的に表示されます — 設定不要。",
+  "smart_template_quick_play": "クイックプレイ",
+  "smart_template_not_started": "未プレイ",
+  "smart_template_deck_picks": "Deck ピックス",
+  "smart_template_rediscover": "再発見",
+  "smart_template_best_unplayed": "未プレイのおすすめ",
+  "smart_template_interrupted": "中断したゲーム",
+  "smart_template_time_of_day": "時間帯",
+  "smart_template_daily_pick": "今日のピック",
+  "smart_section_header": "スマートシェルフ",
+  "smart_shelves_at_bottom": "下部に表示",
+  "smart_first_run_title": "スマートシェルフ",
+  "smart_first_run_desc": "スマートシェルフはライブラリに基づいて自動的に表示されます。条件に合うゲームがない場合は表示されません。"
 }

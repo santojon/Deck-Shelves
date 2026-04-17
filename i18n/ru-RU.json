@@ -241,5 +241,22 @@
   "toast_failed_save": "Не удалось сохранить настройки",
   "toast_imported": "Настройки импортированы",
   "view_more": "Ещё\nв вашей\nбиблиотеке",
-  "visibility": "Видимость"
+  "visibility": "Видимость",
+  "smart_shelves_enabled": "Включить умные полки",
+  "smart_no_shelves": "Умных полок пока нет",
+  "smart_add_shelf": "Добавить умную полку",
+  "smart_template_picker_title": "Выбрать шаблон",
+  "smart_template_picker_desc": "Умные полки появляются автоматически — настройка не требуется.",
+  "smart_template_quick_play": "Быстрая игра",
+  "smart_template_not_started": "Не начатые",
+  "smart_template_deck_picks": "Выбор Deck",
+  "smart_template_rediscover": "Переоткрыть",
+  "smart_template_best_unplayed": "Лучшие неигранные",
+  "smart_template_interrupted": "Прерванные",
+  "smart_template_time_of_day": "Время суток",
+  "smart_template_daily_pick": "Выбор дня",
+  "smart_section_header": "Умные Полки",
+  "smart_shelves_at_bottom": "Показывать снизу",
+  "smart_first_run_title": "Умные Полки",
+  "smart_first_run_desc": "Умные полки появляются автоматически на основе вашей библиотеки. Они исчезают, когда нет подходящих игр."
 }

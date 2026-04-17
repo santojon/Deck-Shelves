@@ -241,5 +241,22 @@
   "toast_failed_save": "Não foi possível salvar as configurações",
   "toast_imported": "Configurações importadas",
   "view_more": "Veja mais\nna sua\nbiblioteca",
-  "visibility": "Visibilidade"
+  "visibility": "Visibilidade",
+  "smart_shelves_enabled": "Ativar prateleiras inteligentes",
+  "smart_no_shelves": "Nenhuma prateleira inteligente ainda",
+  "smart_add_shelf": "Adicionar prateleira inteligente",
+  "smart_template_picker_title": "Escolha um modelo",
+  "smart_template_picker_desc": "Prateleiras inteligentes aparecem automaticamente — sem configuração necessária.",
+  "smart_template_quick_play": "Jogo Rápido",
+  "smart_template_not_started": "Não Iniciados",
+  "smart_template_deck_picks": "Escolhas do Deck",
+  "smart_template_rediscover": "Redescobrir",
+  "smart_template_best_unplayed": "Melhores Não Jogados",
+  "smart_template_interrupted": "Interrompidos",
+  "smart_template_time_of_day": "Hora do Dia",
+  "smart_template_daily_pick": "Escolha do Dia",
+  "smart_section_header": "Prateleiras Inteligentes",
+  "smart_shelves_at_bottom": "Mostrar no final",
+  "smart_first_run_title": "Prateleiras Inteligentes",
+  "smart_first_run_desc": "Prateleiras inteligentes aparecem automaticamente com base na sua biblioteca. Somem quando nenhum jogo corresponde."
 }

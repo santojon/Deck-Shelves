@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
-import type { Settings, Shelf, ShelfFilter, ShelfSource } from "../../types";
+import type { Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../../types";
 import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
 import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter, patchShelfInSettings } from "../../domain/settings";
-import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../domain/defaults";
+import { createDefaultShelf, createDefaultSource, createDefaultSmartShelf, randomShelfId } from "../../domain/defaults";
 import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [] });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -164,7 +164,7 @@ export function useSettingsController() {
       return shelf;
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [] };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [] };
       try {
         const ls = globalThis.localStorage;
         if (ls) {
@@ -247,6 +247,53 @@ export function useSettingsController() {
       const shelf = shelves.find((item) => item.id === id);
       if (!shelf || shelf.source.type !== "filter") return;
       await actions.patchShelf(id, { source: { type: "filter", filter: { ...normalizeFilter(shelf.source), ...patch } } });
+    },
+    async setSmartShelvesEnabled(enabled: boolean) {
+      const s = liveSettings();
+      if (!s || s.smartShelvesEnabled === enabled) return;
+      await persist({ ...s, smartShelvesEnabled: enabled });
+    },
+    async setSmartShelvesAtBottom(atBottom: boolean) {
+      const s = liveSettings();
+      if (!s || s.smartShelvesAtBottom === atBottom) return;
+      await persist({ ...s, smartShelvesAtBottom: atBottom });
+    },
+    async reorderSmartShelfIds(ids: string[]) {
+      const s = liveSettings();
+      if (!s) return;
+      const byId = new Map((s.smartShelves ?? []).map((sh) => [sh.id, sh] as const));
+      const reordered = ids.map((id) => byId.get(id)).filter(Boolean) as SmartShelf[];
+      if (reordered.length !== (s.smartShelves ?? []).length) return;
+      await persist({ ...s, smartShelves: reordered });
+    },
+    async addSmartShelf(mode: SmartShelfMode, title: string): Promise<SmartShelf | undefined> {
+      const s = liveSettings();
+      if (!s) return;
+      const shelf = createDefaultSmartShelf(mode, title);
+      await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
+      return shelf;
+    },
+    async removeSmartShelf(id: string) {
+      const s = liveSettings();
+      if (!s) return;
+      await persist({ ...s, smartShelves: (s.smartShelves ?? []).filter((sh) => sh.id !== id) });
+    },
+    async toggleSmartShelfHidden(id: string) {
+      const s = liveSettings();
+      if (!s) return;
+      const updated = (s.smartShelves ?? []).map((sh) => sh.id === id ? { ...sh, hidden: !sh.hidden } : sh);
+      await persist({ ...s, smartShelves: updated });
+    },
+    async moveSmartShelf(id: string, dir: -1 | 1) {
+      const s = liveSettings();
+      if (!s) return;
+      const list = [...(s.smartShelves ?? [])];
+      const idx = list.findIndex((sh) => sh.id === id);
+      if (idx < 0) return;
+      const target = idx + dir;
+      if (target < 0 || target >= list.length) return;
+      [list[idx], list[target]] = [list[target], list[idx]];
+      await persist({ ...s, smartShelves: list });
     },
     async setSourceType(id: string, type: "collection" | "tab" | "filter") {
       if (type === "collection") {

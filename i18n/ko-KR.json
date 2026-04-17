@@ -241,5 +241,22 @@
   "toast_failed_save": "설정을 저장할 수 없습니다",
   "toast_imported": "설정을 가져왔습니다",
   "view_more": "라이브러리에서\n더 보기",
-  "visibility": "표시 설정"
+  "visibility": "표시 설정",
+  "smart_shelves_enabled": "스마트 선반 활성화",
+  "smart_no_shelves": "스마트 선반이 없습니다",
+  "smart_add_shelf": "스마트 선반 추가",
+  "smart_template_picker_title": "템플릿 선택",
+  "smart_template_picker_desc": "스마트 선반은 자동으로 표시됩니다 — 설정 필요 없음.",
+  "smart_template_quick_play": "빠른 플레이",
+  "smart_template_not_started": "시작 안 함",
+  "smart_template_deck_picks": "Deck 추천",
+  "smart_template_rediscover": "다시 발견",
+  "smart_template_best_unplayed": "최고의 미플레이",
+  "smart_template_interrupted": "중단된 게임",
+  "smart_template_time_of_day": "시간대",
+  "smart_template_daily_pick": "오늘의 선택",
+  "smart_section_header": "스마트 선반",
+  "smart_shelves_at_bottom": "하단에 표시",
+  "smart_first_run_title": "스마트 선반",
+  "smart_first_run_desc": "스마트 선반은 라이브러리를 기반으로 자동으로 표시됩니다. 게임이 없으면 사라집니다."
 }

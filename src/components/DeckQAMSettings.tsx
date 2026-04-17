@@ -25,6 +25,9 @@ import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanne
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
 import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
+import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
+import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
+import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
@@ -69,6 +72,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return unsub
   }, [])
   const handleResetAll = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} />)
+  const handleAddSmart = () => openManagedModal((close) => <SmartShelfTemplateModal closeModal={close} controller={controller} />)
 
   // Compute whether the "hide recents" and "hero background" toggles should be
   // inactive.  They become disabled when there are no visible shelves or none of
@@ -137,6 +141,41 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </Field>
       <div className='deck-shelves-separator' />
       <ShelvesPanelSection controller={controller} />
+
+      {/* Smart Shelves — toggles first, then banner or list */}
+      <ToggleField
+        label={t('smart_shelves_enabled')}
+        checked={settings.smartShelvesEnabled === true}
+        disabled={mountCrashed}
+        onChange={(value: boolean) => actions.setSmartShelvesEnabled(value)}
+      />
+      {settings.smartShelvesEnabled && (
+        <div style={{ paddingLeft: 14, fontSize: 12 }}>
+          <ToggleField
+            label={t('smart_shelves_at_bottom')}
+            checked={settings.smartShelvesAtBottom === true}
+            disabled={mountCrashed}
+            onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)}
+          />
+        </div>
+      )}
+      {settings.smartShelvesEnabled && (settings.smartShelves ?? []).length === 0 && (
+        <SmartShelvesFirstRunBanner controller={controller} onAdd={handleAddSmart} />
+      )}
+      {settings.smartShelvesEnabled && (settings.smartShelves ?? []).length > 0 && (
+        <>
+          <div className='deck-shelves-section-header' style={{ marginTop: 12 }}>{t('smart_section_header')}</div>
+          <div className='deck-shelves-separator' />
+          <Field className='no-sep'>
+            <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+              <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
+            </Focusable>
+          </Field>
+          <div className='deck-shelves-separator' />
+          <SmartShelvesPanelSection controller={controller} />
+        </>
+      )}
+
       <div className='deck-shelves-section-header' style={{ marginTop: 8 }}>{t('apply_globally')}</div>
       <div className='deck-shelves-separator' />
       <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />

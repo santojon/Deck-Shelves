@@ -45,8 +45,9 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
 - **Developer / Publisher filter** — filter games by developer with automatic batch discovery
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
+- **Smart Shelves** — eight heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match (Quick Play, Not Started, Deck Picks, Rediscover, Best Unplayed, Interrupted, Time of Day, Daily Pick)
 - Reorder and toggle shelf visibility from the QAM
-- Import / export all shelves as JSON
+- Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry
 - Multi-language support (EN, PT-BR, PT-PT, FR, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN)

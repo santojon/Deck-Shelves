@@ -241,5 +241,22 @@
   "toast_failed_save": "Impossibile salvare le impostazioni",
   "toast_imported": "Impostazioni importate",
   "view_more": "Vedi altro\nnella tua\nlibreria",
-  "visibility": "Visibilità"
+  "visibility": "Visibilità",
+  "smart_shelves_enabled": "Attiva scaffali intelligenti",
+  "smart_no_shelves": "Nessuno scaffale intelligente",
+  "smart_add_shelf": "Aggiungi scaffale intelligente",
+  "smart_template_picker_title": "Scegli un modello",
+  "smart_template_picker_desc": "Gli scaffali intelligenti appaiono automaticamente — nessuna configurazione richiesta.",
+  "smart_template_quick_play": "Partita Rapida",
+  "smart_template_not_started": "Non Iniziato",
+  "smart_template_deck_picks": "Selezione Deck",
+  "smart_template_rediscover": "Riscopri",
+  "smart_template_best_unplayed": "Migliore Non Giocato",
+  "smart_template_interrupted": "Interrotto",
+  "smart_template_time_of_day": "Ora del Giorno",
+  "smart_template_daily_pick": "Scelta del Giorno",
+  "smart_section_header": "Scaffali Intelligenti",
+  "smart_shelves_at_bottom": "Mostra in fondo",
+  "smart_first_run_title": "Scaffali Intelligenti",
+  "smart_first_run_desc": "Gli scaffali intelligenti appaiono automaticamente in base alla tua libreria. Scompaiono quando nessun gioco corrisponde."
 }

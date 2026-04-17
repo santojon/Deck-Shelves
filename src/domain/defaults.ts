@@ -1,5 +1,5 @@
 
-import type { Settings, Shelf, ShelfFilter, ShelfSource } from "../types";
+import type { Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../types";
 
 export function randomShelfId() {
   return `s_${Math.random().toString(16).slice(2, 10)}`;
@@ -19,6 +19,10 @@ export function createDefaultShelf(firstCollectionId = "", title = "New shelf"):
   return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, source: createDefaultSource("tab", firstCollectionId) };
 }
 
+export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
+  return { id: randomShelfId(), title, mode, enabled: true, hidden: false };
+}
+
 export function defaultSettings(): Settings {
   return {
     enabled: false,
@@ -33,5 +37,8 @@ export function defaultSettings(): Settings {
     globalHideCompatIcons: false,
     globalHideNonSteamBadge: false,
     shelves: [],
+    smartShelvesEnabled: false,
+    smartShelvesAtBottom: false,
+    smartShelves: [],
   };
 }

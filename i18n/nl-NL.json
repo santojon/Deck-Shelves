@@ -241,5 +241,22 @@
   "toast_failed_save": "Kan instellingen niet opslaan",
   "toast_imported": "Instellingen geïmporteerd",
   "view_more": "Meer bekijken\nin je\nbibliotheek",
-  "visibility": "Zichtbaarheid"
+  "visibility": "Zichtbaarheid",
+  "smart_shelves_enabled": "Slimme planken inschakelen",
+  "smart_no_shelves": "Nog geen slimme planken",
+  "smart_add_shelf": "Slimme plank toevoegen",
+  "smart_template_picker_title": "Kies een sjabloon",
+  "smart_template_picker_desc": "Slimme planken verschijnen automatisch — geen configuratie nodig.",
+  "smart_template_quick_play": "Snel Spelen",
+  "smart_template_not_started": "Niet Begonnen",
+  "smart_template_deck_picks": "Deck Keuze",
+  "smart_template_rediscover": "Herontdekken",
+  "smart_template_best_unplayed": "Beste Ongespeld",
+  "smart_template_interrupted": "Onderbroken",
+  "smart_template_time_of_day": "Tijd van de Dag",
+  "smart_template_daily_pick": "Dagelijkse Keuze",
+  "smart_section_header": "Slimme Planken",
+  "smart_shelves_at_bottom": "Onderaan weergeven",
+  "smart_first_run_title": "Slimme Planken",
+  "smart_first_run_desc": "Slimme planken verschijnen automatisch op basis van je bibliotheek. Ze verdwijnen als er geen spellen overeenkomen."
 }

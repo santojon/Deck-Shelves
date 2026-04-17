@@ -241,5 +241,22 @@
   "toast_failed_save": "Einstellungen konnten nicht gespeichert werden",
   "toast_imported": "Einstellungen importiert",
   "view_more": "Mehr anzeigen\nin deiner\nBibliothek",
-  "visibility": "Sichtbarkeit"
+  "visibility": "Sichtbarkeit",
+  "smart_shelves_enabled": "Intelligente Regale aktivieren",
+  "smart_no_shelves": "Noch keine intelligenten Regale",
+  "smart_add_shelf": "Intelligentes Regal hinzufügen",
+  "smart_template_picker_title": "Vorlage wählen",
+  "smart_template_picker_desc": "Intelligente Regale erscheinen automatisch – keine Konfiguration nötig.",
+  "smart_template_quick_play": "Schnelles Spiel",
+  "smart_template_not_started": "Nicht gestartet",
+  "smart_template_deck_picks": "Deck-Auswahl",
+  "smart_template_rediscover": "Wiederentdecken",
+  "smart_template_best_unplayed": "Beste ungespielt",
+  "smart_template_interrupted": "Unterbrochen",
+  "smart_template_time_of_day": "Tageszeit",
+  "smart_template_daily_pick": "Tägliche Auswahl",
+  "smart_section_header": "Intelligente Regale",
+  "smart_shelves_at_bottom": "Unten anzeigen",
+  "smart_first_run_title": "Intelligente Regale",
+  "smart_first_run_desc": "Intelligente Regale erscheinen automatisch basierend auf deiner Bibliothek. Sie verschwinden, wenn keine Spiele passen."
 }

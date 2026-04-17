@@ -241,5 +241,22 @@
   "toast_failed_save": "Ayarlar kaydedilemedi",
   "toast_imported": "Ayarlar içe aktarıldı",
   "view_more": "Kütüphanenizde\ndaha fazlasını\ngörün",
-  "visibility": "Görünürlük"
+  "visibility": "Görünürlük",
+  "smart_shelves_enabled": "Akıllı rafları etkinleştir",
+  "smart_no_shelves": "Henüz akıllı raf yok",
+  "smart_add_shelf": "Akıllı raf ekle",
+  "smart_template_picker_title": "Şablon seç",
+  "smart_template_picker_desc": "Akıllı raflar otomatik görünür — yapılandırma gerekmez.",
+  "smart_template_quick_play": "Hızlı Oyun",
+  "smart_template_not_started": "Başlanmadı",
+  "smart_template_deck_picks": "Deck Seçimi",
+  "smart_template_rediscover": "Yeniden Keşfet",
+  "smart_template_best_unplayed": "En İyi Oynanmamış",
+  "smart_template_interrupted": "Yarıda Kaldı",
+  "smart_template_time_of_day": "Günün Saati",
+  "smart_template_daily_pick": "Günlük Seçim",
+  "smart_section_header": "Akıllı Raflar",
+  "smart_shelves_at_bottom": "Altta göster",
+  "smart_first_run_title": "Akıllı Raflar",
+  "smart_first_run_desc": "Akıllı raflar kütüphanenize göre otomatik olarak görünür. Eşleşen oyun olmadığında kaybolurlar."
 }
