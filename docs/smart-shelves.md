@@ -206,6 +206,22 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 ---
 
+### Roulette — `random_pick`
+
+**When it appears:** whenever there are any games in the library.
+
+**Criteria:** all library games are eligible.
+
+**Sort:** random (Fisher-Yates shuffle using `Math.random()`).
+
+**Cache:** results are memoized for 5 minutes (same TTL as all smart shelves). The selection refreshes automatically after 5 minutes.
+
+**When it disappears:** only when the library is completely empty.
+
+**Use case:** pure serendipity — surfaces anything from the library, useful when you can't decide what to play.
+
+---
+
 ### Non-Steam — `non_steam`
 
 **When it appears:** you have non-Steam shortcuts in your library (emulators, other launchers).
@@ -234,8 +250,23 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 | `best_unplayed` | all installed games have been played | Medium |
 | `quick_play` | all Deck-compat installed games >2 h played | Medium |
 | `interrupted` | no game in the 30–180 min range | Medium |
+| `random_pick` | library is completely empty | **Very High** |
 | `non_steam` | no non-Steam shortcuts in library | Medium |
 | `time_of_day` | delegate for current hour is empty | Inherits |
 | `rediscover` | no compat game with >1 h untouched for 6 months | Low–Medium |
 
-> `daily_pick`, `deck_picks`, `on_deck`, and `recently_played` are the most likely to always be visible. The template picker lists templates from highest to lowest probability so you can pick the most useful ones first.
+> `daily_pick`, `deck_picks`, `on_deck`, `recently_played`, and `random_pick` are the most likely to always be visible. The template picker lists templates from highest to lowest probability.
+
+---
+
+## Surprise Me
+
+When **Surprise Me** is enabled (sub-toggle under Smart Shelves in the QAM), the manual smart shelf list is hidden entirely. Instead, the system picks a set of smart shelf templates automatically each day using a deterministic daily seed — same day, same selection.
+
+**Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `2 + (dayIndex % 3)`, cycling 2, 3, or 4 shelves per day.
+
+**Selection:** all 13 templates are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
+
+**Reset time:** the seed is derived from the local calendar date (`YYYYMMDD`). The selection resets at **local midnight** — when the device clock rolls over to a new day.
+
+**Use case:** hands-off mode — let the plugin decide what to surface each day without any configuration.

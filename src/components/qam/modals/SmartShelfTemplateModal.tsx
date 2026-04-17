@@ -2,6 +2,7 @@ import { ConfirmModal, DialogButton, Focusable } from '@decky/ui'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelfMode } from '../../../types'
+import { SMART_TPL_ICON } from './templateIcons'
 
 type SmartTemplate = { mode: SmartShelfMode; titleKey: string }
 
@@ -12,6 +13,7 @@ export const SMART_TEMPLATES: SmartTemplate[] = [
   { mode: "on_deck",         titleKey: "smart_template_on_deck" },
   { mode: "recently_played", titleKey: "smart_template_recently_played" },
   { mode: "long_session",    titleKey: "smart_template_long_session" },
+  { mode: "random_pick",     titleKey: "smart_template_random_pick" },
   { mode: "not_started",     titleKey: "smart_template_not_started" },
   { mode: "best_unplayed",   titleKey: "smart_template_best_unplayed" },
   { mode: "quick_play",      titleKey: "smart_template_quick_play" },
@@ -28,8 +30,15 @@ const btnStyle: React.CSSProperties = {
   padding: '8px 6px',
   whiteSpace: 'normal',
   wordBreak: 'break-word',
-  textAlign: 'center',
   lineHeight: '18px',
+}
+
+const btnInner: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  flexWrap: 'wrap',
 }
 
 export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
@@ -57,7 +66,7 @@ export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal
               onOKButton={() => handleTemplate(tpl)}
               onOKActionDescription={t(tpl.titleKey as any)}
             >
-              {t(tpl.titleKey as any)}
+              <span style={btnInner}>{SMART_TPL_ICON[tpl.mode]}<span>{t(tpl.titleKey as any)}</span></span>
             </DialogButton>
           ))}
         </Focusable>

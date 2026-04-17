@@ -71,6 +71,7 @@ export const SmartShelfModeSchema = z.enum([
   "recently_played",
   "long_session",
   "non_steam",
+  "random_pick",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 
@@ -128,6 +129,8 @@ export const SettingsSchema = z.object({
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),
   smartShelves: z.array(SmartShelfSchema).default([]),
+  smartSurpriseMe: z.boolean().default(false),
+  smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

@@ -40,5 +40,7 @@ export function defaultSettings(): Settings {
     smartShelvesEnabled: false,
     smartShelvesAtBottom: false,
     smartShelves: [],
+    smartSurpriseMe: false,
+    smartSurpriseMeCount: 0,
   };
 }

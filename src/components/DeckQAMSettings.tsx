@@ -3,6 +3,7 @@ import {
   DialogButton,
   Field,
   Focusable,
+  SliderField,
   ToggleField,
   showModal,
 } from '@decky/ui'
@@ -157,12 +158,31 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             disabled={mountCrashed}
             onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)}
           />
+          <ToggleField
+            label={t('smart_surprise_me')}
+            checked={settings.smartSurpriseMe === true}
+            disabled={mountCrashed}
+            onChange={(value: boolean) => actions.setSmartSurpriseMe(value)}
+          />
         </div>
       )}
-      {settings.smartShelvesEnabled && (settings.smartShelves ?? []).length === 0 && (
+      {settings.smartShelvesEnabled && settings.smartSurpriseMe && (
+        <div style={{ paddingLeft: 14, fontSize: 12 }}>
+          <SliderField
+            label={t('smart_surprise_count')}
+            description={!settings.smartSurpriseMeCount ? t('smart_surprise_count_auto') : undefined}
+            value={settings.smartSurpriseMeCount ?? 0}
+            min={0}
+            max={5}
+            step={1}
+            onChange={(v: number) => actions.setSmartSurpriseMeCount(v)}
+          />
+        </div>
+      )}
+      {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length === 0 && (
         <SmartShelvesFirstRunBanner controller={controller} onAdd={handleAddSmart} />
       )}
-      {settings.smartShelvesEnabled && (settings.smartShelves ?? []).length > 0 && (
+      {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length > 0 && (
         <>
           <div className='deck-shelves-section-header' style={{ marginTop: 12 }}>{t('smart_section_header')}</div>
           <div className='deck-shelves-separator' />

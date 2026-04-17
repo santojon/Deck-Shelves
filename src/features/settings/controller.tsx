@@ -13,7 +13,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0 });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -164,7 +164,7 @@ export function useSettingsController() {
       return shelf;
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [] };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0 };
       try {
         const ls = globalThis.localStorage;
         if (ls) {
@@ -283,6 +283,16 @@ export function useSettingsController() {
       if (!s) return;
       const updated = (s.smartShelves ?? []).map((sh) => sh.id === id ? { ...sh, hidden: !sh.hidden } : sh);
       await persist({ ...s, smartShelves: updated });
+    },
+    async setSmartSurpriseMe(enabled: boolean) {
+      const s = liveSettings();
+      if (!s || s.smartSurpriseMe === enabled) return;
+      await persist({ ...s, smartSurpriseMe: enabled });
+    },
+    async setSmartSurpriseMeCount(count: number) {
+      const s = liveSettings();
+      if (!s || s.smartSurpriseMeCount === count) return;
+      await persist({ ...s, smartSurpriseMeCount: Math.max(0, Math.min(5, count)) });
     },
     async moveSmartShelf(id: string, dir: -1 | 1) {
       const s = liveSettings();

@@ -4,6 +4,7 @@ import type { SettingsController } from '../../../features/settings/controller'
 import { SHELF_TEMPLATES } from '../../../domain/templates'
 import { EditShelfModal } from './EditShelfModal'
 import { logInfo } from '../../../runtime/logger'
+import { SHELF_TPL_ICON } from './templateIcons'
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
@@ -26,8 +27,15 @@ const btnStyle: React.CSSProperties = {
   padding: '8px 6px',
   whiteSpace: 'normal',
   wordBreak: 'break-word',
-  textAlign: 'center',
   lineHeight: '18px',
+}
+
+const btnInner: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  flexWrap: 'wrap',
 }
 
 export function TemplatePickerModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
@@ -55,7 +63,7 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
       >
         <Focusable style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 8 }}>
           <DialogButton style={btnStyle} onClick={handleBlank} onOKButton={handleBlank} onOKActionDescription={t('template_blank')}>
-            {t('template_blank')}
+            <span style={btnInner}>{SHELF_TPL_ICON['blank']}<span>{t('template_blank')}</span></span>
           </DialogButton>
           {SHELF_TEMPLATES.map((tpl) => (
             <DialogButton
@@ -65,7 +73,7 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
               onOKButton={() => handleTemplate(tpl)}
               onOKActionDescription={t(tpl.titleKey as any)}
             >
-              {t(tpl.titleKey as any)}
+              <span style={btnInner}>{SHELF_TPL_ICON[tpl.id]}<span>{t(tpl.titleKey as any)}</span></span>
             </DialogButton>
           ))}
         </Focusable>

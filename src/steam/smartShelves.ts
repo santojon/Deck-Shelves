@@ -132,6 +132,15 @@ function resolveNonSteam(apps: AppOverview[], limit: number): number[] {
     .map((a) => a.appid);
 }
 
+function resolveRandomPick(apps: AppOverview[], limit: number): number[] {
+  const arr = [...apps];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.slice(0, limit).map((a) => a.appid);
+}
+
 export function resolveSmartShelf(mode: SmartShelfMode, apps: AppOverview[], limit: number): number[] {
   return cached(`${mode}:${limit}`, () => {
     try {
@@ -148,6 +157,7 @@ export function resolveSmartShelf(mode: SmartShelfMode, apps: AppOverview[], lim
         case "recently_played": return resolveRecentlyPlayed(apps, limit);
         case "long_session":    return resolveLongSession(apps, limit);
         case "non_steam":       return resolveNonSteam(apps, limit);
+        case "random_pick":     return resolveRandomPick(apps, limit);
         default: return [];
       }
     } catch {

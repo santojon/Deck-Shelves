@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { ShelfView } from "./Shelf";
-import type { Settings, Shelf, SmartShelf } from "../types";
+import type { Settings, Shelf, SmartShelf, SmartShelfMode } from "../types";
 import { refreshSettings, subscribeSettings } from "../settingsStore";
 import { PlatformProvider } from "../runtime/platformContext";
 import { createDeckyPlatform } from "../runtime/deckyPlatform";
@@ -19,6 +20,23 @@ import { triggerShelfRefresh } from "../core/shelfRefresh";
 
 const ROOT_ID = "deck-shelves-home-root";
 const homePlatform = createDeckyPlatform();
+
+const SURPRISE_MODES: SmartShelfMode[] = [
+  "daily_pick", "deck_picks", "on_deck", "recently_played", "long_session",
+  "random_pick", "not_started", "best_unplayed", "quick_play", "interrupted",
+  "non_steam", "time_of_day", "rediscover",
+];
+
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const out = [...arr];
+  let s = (seed | 0) >>> 0;
+  for (let i = out.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    const j = s % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 
 // Navigation patches (reparentNavTreeNodes, patchMenuButton, patchShelfEdgeNavigation)
@@ -134,6 +152,7 @@ function findOrCreateMount(): HTMLElement | null {
 }
 
 export function HomeShelves() {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [mountEl, setMountEl] = useState<HTMLElement | null>(null);
 
@@ -306,24 +325,47 @@ export function HomeShelves() {
   const normalShelves = (replaceInjecting && !replaceKillSwitch) ? visibleShelves.slice(1) : visibleShelves;
 
   // Convert enabled smart shelves to Shelf-compatible objects for ShelfView.
-  const smartShelves: Shelf[] = settings.smartShelvesEnabled
-    ? (settings.smartShelves ?? [])
-      .filter((s: SmartShelf) => s.enabled && !s.hidden)
-      .map((s: SmartShelf): Shelf => ({
-        id: s.id,
-        title: s.title,
+  let smartShelves: Shelf[] = [];
+  if (settings.smartShelvesEnabled) {
+    if (settings.smartSurpriseMe) {
+      const _now = new Date();
+      const dayIndex = _now.getFullYear() * 10000 + (_now.getMonth() + 1) * 100 + _now.getDate();
+      const rawCount = settings.smartSurpriseMeCount ?? 0;
+      const count = rawCount > 0 ? rawCount : (2 + (dayIndex % 3));
+      const selected = seededShuffle(SURPRISE_MODES, dayIndex).slice(0, count);
+      smartShelves = selected.map((mode): Shelf => ({
+        id: `surprise_${mode}`,
+        title: t(`smart_template_${mode}` as any),
         enabled: true,
         hidden: false,
-        limit: s.limit ?? 20,
+        limit: 20,
         matchNativeSize: false,
         highlightFirst: false,
         hideStatusLine: false,
         hideNewBadge: false,
         hideCompatIcons: false,
         hideNonSteamBadge: false,
-        source: { type: "smart", mode: s.mode },
-      }))
-    : [];
+        source: { type: "smart", mode },
+      }));
+    } else {
+      smartShelves = (settings.smartShelves ?? [])
+        .filter((s: SmartShelf) => s.enabled && !s.hidden)
+        .map((s: SmartShelf): Shelf => ({
+          id: s.id,
+          title: s.title,
+          enabled: true,
+          hidden: false,
+          limit: s.limit ?? 20,
+          matchNativeSize: false,
+          highlightFirst: false,
+          hideStatusLine: false,
+          hideNewBadge: false,
+          hideCompatIcons: false,
+          hideNonSteamBadge: false,
+          source: { type: "smart", mode: s.mode },
+        }));
+    }
+  }
 
   // Placement logic:
   //  - atBottom: normal first, then smart
