@@ -98,47 +98,51 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
     return () => { cancelled = true; };
   }, [platform, appIds?.join(","), metaVersion]);
 
+  const rowItems = useMemo((): DeckRowItem[] => {
+    if (!appIds?.length) return [];
+    const base = appIds.flatMap((appid): DeckRowItem[] => {
+      const item = items.get(appid) ?? { appid, name: `App ${appid}` };
+      if (/^App \d+$/.test(item.name)) return [];
+      const onMenuButton = () => showGameMenu(appid);
+      const addedTs = (item as any).addedTimestamp;
+      const addedMs = typeof addedTs === 'number' && addedTs > 0 ? (addedTs < 1e12 ? addedTs * 1000 : addedTs) : 0;
+      const isNew = addedMs > 0 ? (Date.now() - addedMs) < NEW_GAME_WINDOW_MS : false;
+      return [{
+        id: appid,
+        appid,
+        name: item.name,
+        portraitUrl: item.portraitUrl,
+        heroUrl: item.heroUrl,
+        onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
+        onMenuButton,
+        deckCompatCategory: item.deckCompatCategory,
+        playtimeMinutes: item.playtimeMinutes,
+        isInstalled: item.installed,
+        updatePending: item.updatePending,
+        isSteam: item.isSteam,
+        isNew,
+        statusText: item.installed != true ? t('status_not_installed') : undefined,
+        shelfId: shelf.id,
+      }];
+    });
+    if (!base.length) return base;
+    base.push({
+      id: `${shelf.id}__more`,
+      name: t('view_more'),
+      isMoreLink: true,
+      onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
+    });
+    return base;
+  }, [appIds, items, shelf.id, shelf.source, shelf.title, platform, t]);
+
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
   if (!appIds.length) return null;
-
-  const rowItems: DeckRowItem[] = appIds.flatMap((appid): DeckRowItem[] => {
-    const item = items.get(appid) ?? { appid, name: `App ${appid}` };
-    if (/^App \d+$/.test(item.name)) return [];
-    const onMenuButton = () => showGameMenu(appid);
-    const addedTs = (item as any).addedTimestamp;
-    const addedMs = typeof addedTs === 'number' && addedTs > 0 ? (addedTs < 1e12 ? addedTs * 1000 : addedTs) : 0;
-    const isNew = addedMs > 0 ? (Date.now() - addedMs) < NEW_GAME_WINDOW_MS : false;
-    return [{
-      id: appid,
-      appid,
-      name: item.name,
-      portraitUrl: item.portraitUrl,
-      heroUrl: item.heroUrl,
-      onActivate: () => { saveFocusTarget(appid, shelf.id); platform.navigateToApp(appid); },
-      onMenuButton,
-      deckCompatCategory: item.deckCompatCategory,
-      playtimeMinutes: item.playtimeMinutes,
-      isInstalled: item.installed,
-      updatePending: item.updatePending,
-      isSteam: item.isSteam,
-      isNew,
-      statusText: item.installed != true ? t('status_not_installed') : undefined,
-      shelfId: shelf.id,
-    }];
-  });
 
   if (!rowItems.length && items.size > 0 && metaVersion < 5) {
     return <div style={{ padding: 10 }}><Spinner /></div>;
   }
   if (!rowItems.length) return null;
-
-  rowItems.push({
-    id: `${shelf.id}__more`,
-    name: t('view_more'),
-    isMoreLink: true,
-    onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
-  });
 
   const effectiveHide = globalHideStatusLine === true ? true : (shelf.hideStatusLine === true);
   const effectiveHideNewBadge = globalHideNewBadge === true ? true : (shelf.hideNewBadge === true);

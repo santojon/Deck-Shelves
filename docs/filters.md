@@ -11,15 +11,18 @@ Deck Shelves supports advanced game filtering with AND/OR logic using filter gro
 | `nonSteam` | Non-Steam shortcuts (Epic, GOG, etc.) | — |
 | `hidden` | Hidden games | `mode`: `"only"` or `"exclude"` |
 | `updatePending` | Games with pending updates | — |
-| `deckCompatibility` | Steam Deck compatibility level | `levels`: `["verified", "playable", "unsupported"]` |
+| `isNew` | Added to library within 30 days | — |
+| `deckCompatibility` | Steam Deck compatibility level | `levels`: `["verified", "playable", "unsupported", "unknown"]` |
 | `playedWithinDays` | Played within N days | `days`: number |
+| `playtimeRange` | Total playtime in a range | `minHours`: number, `maxHours`: number (either optional) |
 | `nameIncludes` | Name contains substring | `text`: string |
 | `nameRegex` | Name matches regex | `pattern`: string |
-| `storeTags` | Has specific Steam store tags | `tags`: string[] |
-| `achievementCount` | Achievement count range | `min`, `max`: number |
-| `friendsWhoOwn` | Minimum friends who own | `min`: number |
-| `merge` | Combine multiple shelf sources | `sources`: ShelfSource[] |
+| `collection` | Games in a specific Steam collection | `collectionId`: string |
 | `developer` | Developer / Publisher name | `developers`: string[] |
+| `merge` | Combine multiple shelf sources | `sources`: ShelfSource[] |
+| `storeTag` | Has specific Steam store tags _(pass-through, not yet evaluated)_ | `tags`: string[] |
+| `achievements` | Achievement count range _(pass-through, not yet evaluated)_ | `min`, `max`: number |
+| `friends` | Minimum friends who own _(pass-through, not yet evaluated)_ | `min`: number |
 
 ## Filter Groups
 

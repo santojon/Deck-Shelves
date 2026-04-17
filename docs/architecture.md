@@ -97,6 +97,7 @@ src/
 │
 ├── runtime/
 │   ├── homePatch.tsx           Home screen DOM patching + fallback renderer
+│   ├── recentsReplace.tsx      Experimental: replaces native recents data source with first shelf
 │   ├── steamHost.ts            Steam window/document discovery
 │   ├── deckyPlatform.ts        Platform interface implementation
 │   ├── platform.ts             Platform interface definition
@@ -167,6 +168,15 @@ At runtime, the component discovers native classes from the recents section's si
 - `logInfo()` is a no-op in production builds (`__DEV__` flag)
 - Collection cache uses 60s TTL
 - Native dimension changes require 4px tolerance + 2-cycle confirmation
+
+### Recents Replace (`recentsReplace.tsx`)
+Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`). Instead of visually hiding the native "Recently Played" section, it patches the section's render output via `routerHook.addPatch("/library/home", ...)` + nested `afterPatch` calls to replace the `games` prop with the first visible shelf's app IDs. The native DOM, CSS, animations, hero background, and focus callbacks are preserved entirely. Safety mechanisms:
+- App IDs are filtered by `app_type` (1 = Game, 2 = Application) before injection — shortcuts, DLC, and music entries crash Steam's `userCollections` getter.
+- A global `error`/`unhandledrejection` trap detects `userCollections`-class errors and auto-disables the experiment.
+- On failure, `isRecentsReplaceInjecting()` returns `false` and `HomeInject` falls back to the standard visual-hide behaviour. The QAM shows a `RecentsReplaceErrorBanner`.
+
+### Hide Home Tabs (`hideHomeTabs`)
+When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection uses `[role="tablist"]` as a sibling of the plugin's mount element — no hardcoded class names, compatible with SteamOS updates.
 
 ### Plugin API (`pluginApi.ts`)
 External plugins can register custom shelf sources:

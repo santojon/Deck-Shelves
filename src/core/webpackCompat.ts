@@ -1,3 +1,5 @@
+/** Scans the document for a webpack-hashed CSS class token (starts with `_`, length > 5)
+ *  on a visible scrollable element. Used as a seed for the class map discovery. */
 export function findWebpackHashedClass(doc: Document): string | null {
   try {
     const els = Array.from(doc.querySelectorAll<HTMLElement>('[class]'));
@@ -16,11 +18,14 @@ export function findWebpackHashedClass(doc: Document): string | null {
   return null;
 }
 
+/** Converts a class token (or space-separated tokens) into a CSS selector string. */
 export function buildSelectorFromToken(token: string | null): string | null {
   if (!token) return null;
   return `.${token.replace(/\s+/g, '.')}`;
 }
 
+/** Returns the cached class map for the given document window, from in-memory store
+ *  (`__DS_CLASS_MAP`) or localStorage fallback. Returns null if not yet discovered. */
 export function getRuntimeClassMap(doc: Document): Record<string, string> | null {
   try {
     const w = (doc as any).defaultView as Window | undefined;
@@ -33,6 +38,8 @@ export function getRuntimeClassMap(doc: Document): Record<string, string> | null
   return null;
 }
 
+/** Persists the class map to `__DS_CLASS_MAP` (in-memory) and `localStorage` for the
+ *  given document window. Called after a successful discovery pass. */
 export function setRuntimeClassMap(doc: Document, map: Record<string, string>) {
   try {
     const w = (doc as any).defaultView as Window | undefined;
