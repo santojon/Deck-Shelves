@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-04-17
+
 ### Added
 
 - `[PERF]` SVG icons in `GameCard` moved to module-level constants — eliminates 7 JSX object allocations per card render.
