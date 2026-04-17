@@ -33,6 +33,7 @@ let cachedShelfId: string | null = null;
 let cachedTitle: string | null = null;
 let resolvePromise: Promise<void> | null = null;
 let lastResolveKey = "";
+let silentPatchFailures = 0;
 
 // --- Failed state (pub/sub) ---------------------------------------------
 let replaceFailed = false;
@@ -62,6 +63,7 @@ function notifyInjectingChange() { for (const cb of injectingListeners) { try { 
 export function resetRecentsReplaceFailed(): void {
   replaceFailed = false;
   replaceError = null;
+  silentPatchFailures = 0;
   notifyFailedChange();
   notifyInjectingChange();
 }
@@ -233,7 +235,17 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
               const recents = findInReactTree(ret2, (x: any) =>
                 x?.props && "autoFocus" in x.props && "showBackground" in x.props,
               );
-              if (!recents) return ret2;
+              if (!recents) {
+                // Tree walk failed to find the recents component (tree shape
+                // mismatch). Increment counter — after 5 consecutive silent
+                // failures, activate the killswitch so HomeInject falls back
+                // to visual hide instead of leaving the state permanently broken.
+                if (cachedAppIds?.length) {
+                  silentPatchFailures++;
+                  if (silentPatchFailures >= 5) markReplaceFailed("tree walk: recents node not found");
+                }
+                return ret2;
+              }
               afterPatch(recents.type, "type", (_c: any, ret3?: any) => {
                 if (!ret3) return ret3;
                 try {
@@ -243,11 +255,13 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                   if (!ids) { scheduleResolve(freshShelf); return ret3; }
                   const ok = mutateRecentsElement(ret3, freshShelf, ids);
                   if (!ok) {
-                    // Mutation failed (tree shape changed, empty ids, etc.).
-                    // Not fatal — native renders normally, HomeInject falls
-                    // back to visual hide.
+                    if (cachedAppIds?.length) {
+                      silentPatchFailures++;
+                      if (silentPatchFailures >= 5) markReplaceFailed("mutate: holder not found");
+                    }
                     return ret3;
                   }
+                  silentPatchFailures = 0;
                 } catch (e) {
                   logInfo("RUNTIME", "ret3 patch failed", String(e));
                   markReplaceFailed("ret3: " + String(e));

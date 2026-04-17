@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `[PERF]` SVG icons in `GameCard` moved to module-level constants — eliminates 7 JSX object allocations per card render.
+- `[PERF]` `rowItems` array in `ShelfView` wrapped in `useMemo` (deps: `appIds`, `items`, shelf identity) — avoids `flatMap` on every re-render unrelated to data changes.
+- `[PERF]` `sortOptions` in `EditShelfModal` wrapped in `useMemo`; `BASE_SOURCE_TYPES` extracted to module-level constant.
+
+### Changed
+
+- `[DOCS]` `docs/architecture.md`: added `recentsReplace.tsx` to the runtime/ directory listing; added Key Systems entries for Recents Replace and Hide Home Tabs.
+- `[DOCS]` `docs/filters.md`: corrected type names (`storeTag`, `achievements`, `friends`); added missing types (`isNew`, `playtimeRange`, `collection`); noted pass-through types not yet evaluated; fixed `playtimeRange` params (`minHours`/`maxHours`).
+- `[DOCS]` `README.md`: added "Use first shelf as recents (experimental)" and "Hide home tabs" to the features list.
+- `[DOCS]` `src/core/webpackCompat.ts`: added JSDoc to the four public functions (`findWebpackHashedClass`, `buildSelectorFromToken`, `getRuntimeClassMap`, `setRuntimeClassMap`).
+
+### Fixed
+
+- `[FIX]` `recentsReplace`: silent patch failures (tree walk not finding the recents node, or `mutateRecentsElement` returning false) no longer leave the feature in a permanently broken state. After 5 consecutive silent failures the kill-switch is activated, causing `HomeInject` to fall back to the standard visual-hide behaviour. The counter resets on any successful mutation and on manual reset.
+
 ## [1.3.0] - 2026-04-16
 
 ### Added

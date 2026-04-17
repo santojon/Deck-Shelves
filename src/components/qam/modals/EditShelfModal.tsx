@@ -21,6 +21,8 @@ import { isNonSteamBadgesAvailable } from '../../../integrations'
 
 type SourceType = 'collection' | 'tab' | 'filter' | 'external'
 
+const BASE_SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']
+
 const SORT_OPTIONS = [
   { value: 'alphabetical', labelKey: 'sort_alpha' },
   { value: 'recent', labelKey: 'sort_recent' },
@@ -103,8 +105,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     return () => { cancelled = true; clearTimeout(timer) }
   }, [previewSource, state.limit])
 
-  const baseSourceTypes: SourceType[] = ['collection', 'tab', 'filter']
-  const allSourceTypes: SourceType[] = externalSources.length > 0 ? [...baseSourceTypes, 'external'] : baseSourceTypes
+  const allSourceTypes: SourceType[] = externalSources.length > 0 ? [...BASE_SOURCE_TYPES, 'external'] : BASE_SOURCE_TYPES
   const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
     data: value,
     label: value === 'collection' ? t('source_collection') : value === 'tab' ? t('source_tab') : value === 'external' ? t('source_external') : t('source_filter'),
@@ -112,7 +113,10 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
   const tabOptions: SingleDropdownOption[] = tabs.map((item) => ({ data: item.id, label: item.name }))
   const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
   const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName }))
-  const sortOptions: SingleDropdownOption[] = SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) }))
+  const sortOptions = useMemo<SingleDropdownOption[]>(
+    () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
+    [t]
+  )
 
   const changeSourceType = (type: SourceType) => {
     setState((prev) => {

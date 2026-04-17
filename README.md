@@ -40,6 +40,8 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Highlight first game** — first card renders as a landscape featured card
 - **Hide status line** — toggle to hide the the play/install status of a game
 - **Hide recent games** — toggle to hide the native "Recently Played" section
+- **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
+- **Hide home tabs** — toggle to hide the native Novidades/Amigos/Recomendados tab bar
 - **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
 - **Developer / Publisher filter** — filter games by developer with automatic batch discovery
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
