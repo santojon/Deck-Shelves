@@ -11,18 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `[FEATURE]` Experimental `Use first shelf as recents (experimental)` toggle — when `Hide recent games` is active, the first visible shelf's games are injected into the native recents component (patch-of-render via `routerHook.addPatch` + `afterPatch` + `findInReactTree`, modelled on the discontinued HomeMaster plugin). Reuses 100% of the native DOM/CSS/animations (hero zoom, focus ring, CSS Loader theme support). Full i18n across all 16 locales.
+- `[FEATURE]` Experimental `Use first shelf as recents (experimental)` toggle — when `Hide recent games` is active, the first visible shelf's games are injected into the native recents component (patch-of-render via `routerHook.addPatch` + `afterPatch` + `findInReactTree`). Reuses 100% of the native DOM/CSS/animations (hero zoom, focus ring, CSS Loader theme support). Full i18n across all 16 locales.
 - Runtime kill switch for the experiment: filters appids by Steam `app_type` (Game/Application) before injection, detects tree-walk failures and `userCollections`-class errors via a global error trap, and auto-disables the feature with a `RecentsReplaceErrorBanner` in the QAM. Fallback to the existing visual-hide behaviour is automatic.
 - `[QA]` `qa:all-shelves-hide-home-tabs` / `qa:all-shelves-show-home-tabs` scripts mirror the recents-hide harness for the home tabs toggle.
 - `Hide home tabs` toggle hides the native novidades/amigos/recomendados area (detected via `[role="tablist"]` sibling of the mount, no hardcoded classes). Independent of `Hide recent games`.
 - Webpack discovery expanded with `heroRoot`, `heroInner`, `shelfSection`, `scrollGrid` tokens, populated both via runtime discovery and from the embedded `classmap.json` seed.
 - Destructive `Reset all` screenshot captured by the automation and validated alongside the other home/QAM captures.
-- `.roadmaps/PROJECT.md` — detailed project reference doc (premises, features, architecture, positives/negatives).
-- `.roadmaps/homemaster-findings.md` — research notes that back the recents-source replacement experiment.
 
 ### Changed
 
-- `[REFACTOR]` PR title tag → version bump mapping: `[FEATURE]` is now minor (was major), `[REFACTOR]` is now major (was minor), `[CLEANUP]` stays minor. Roadmap cronograma renumbered accordingly.
+- `[REFACTOR]` PR title tag → version bump mapping: `[FEATURE]` is now minor (was major), `[REFACTOR]` is now major (was minor), `[CLEANUP]` stays minor.
 - `[PERF]` Shelf-to-shelf centring: switched to direct `scrollTo` math on the resolved scrollable ancestor and coalesced to one smooth scroll per focus event, with a 300 ms verification retry for recently-expanded shelves. Eliminates the stutter caused by competing `scrollIntoView({ block: "center" })` calls.
 - Screenshot automation opens the Steam main menu and activates its first item (home) before capturing, waits 6 s for overlays to settle, and scrolls via JS (`scrollTop = ...`) instead of mouse-wheel events to avoid triggering card hover overlays in `home` / `home-shelves`. English-locale switching removed (it never worked reliably and is discontinued).
 - Reddit release post: replaced the full changelog dump with a condensed, 3-section summary (top bullets per Added/Changed/Fixed) plus a Discord invite link.
@@ -126,7 +124,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - QAM layout: added "Shelves" / "Apply globally" section headers with consistent padding; separator below action buttons; shelf list entries single-line with ellipsis
 - EditShelfModal fully restored: source type selection, filter panel, preview count, all toggles
 - Dependency updates: TypeScript 5.9→6.0, i18next 25→26, react-i18next 16→17, vitest 3→4, jsdom 21→29, esbuild 0.27→0.28, react 19.2.4→19.2.5
-- Roadmap reorganized: completed sprints collapsed to version table; added Sprint 6 (Native Components Audit), Sprint 7 (Manual Sort), Sprint 9 expanded to v2.0.0 with cleanup/optimization
 
 ### Fixed
 

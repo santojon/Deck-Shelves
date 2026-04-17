@@ -3,8 +3,7 @@
  * pelas apps da primeira shelf do usuário. Gated atrás do toggle
  * `recentsReplaceSource` (só aparece quando `hideRecents` está ativo).
  *
- * Mecanismo (replicado da análise do plugin HomeMaster — ver
- * `.roadmaps/homemaster-findings.md`): patch-of-render em três níveis via
+ * Mecanismo: patch-of-render em três níveis via
  * `routerHook.addPatch("/library/home", ...)` + `afterPatch(el, "type", ...)`
  * + `findInReactTree(x => x.props.games && x.props.onItemFocus)`. A mutação
  * é minimal: `p.props.games = ourAppIds`. O restante do DOM/CSS/animações
