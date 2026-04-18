@@ -18,12 +18,13 @@ export function DeckModalStyles() {
       }
 
       .deck-shelves-modal-scope .${gamepadDialogClasses.Field}.${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
-        left: 1vw;
-        right: 1vw;
+        left: 0;
+        right: 0;
       }
 
       .deck-shelves-modal-scope .field-item-container .${gamepadDialogClasses.Field} {
-        padding: 10px calc(28px + 1.4vw);
+        padding-left: 0;
+        padding-right: 0;
       }
 
       .deck-shelves-modal-scope .field-item-container .${gamepadDialogClasses.FieldLabel} {

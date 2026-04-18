@@ -205,7 +205,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'source',
                 title: t('edit_tab_source'),
                 content: (
-                  <div className='field-item-container'>
+                  <div className='field-item-container' style={{ padding: '0 16px' }}>
                     <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
                     {state.sourceType === 'collection' && (
                       <DropdownItem label={t('source_collection')} rgOptions={collectionOptions} selectedOption={state.collectionId} onChange={(opt: unknown) => setCollection(String(optionData(opt)))} bottomSeparator='thick' />
@@ -226,11 +226,9 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'filters',
                 title: t('edit_tab_filters'),
                 content: (
-                  <div className='field-item-container'>
+                  <div className='field-item-container' style={{ padding: '0 16px' }}>
                     <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
-                    <div style={{ padding: '4px 0' }}>
-                      <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} />
-                    </div>
+                    <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} />
                   </div>
                 ),
               }] : []),
@@ -238,7 +236,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'visual',
                 title: t('edit_tab_visual'),
                 content: (
-                  <div className='field-item-container'>
+                  <div className='field-item-container' style={{ padding: '0 16px' }}>
                     <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
                     <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
                   </div>
@@ -248,7 +246,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'display',
                 title: t('edit_tab_display'),
                 content: (
-                  <div className='field-item-container'>
+                  <div className='field-item-container' style={{ padding: '0 16px' }}>
                     <ToggleField label={t('hide_status_line')} checked={state.hideStatusLine} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideStatusLine: value }))} />
                     <ToggleField label={t('hide_new_badge')} checked={state.hideNewBadge} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideNewBadge: value }))} />
                     <ToggleField label={t('hide_compat_icons')} checked={state.hideCompatIcons} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideCompatIcons: value }))} />
