@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-18
+
 ### Added
 
 - **Forgotten** smart shelf template (`forgotten`): shows Steam games owned for 3+ years that have never been launched, sorted by oldest acquisition date first. Uses `rt_purchased_time` / `user_added_ts` from AppOverview. Low reliability by design — targets deep backlog clearing.
