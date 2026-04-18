@@ -604,6 +604,7 @@ ALL_TARGETS = [
     "shelf-actions", "shelf-edit", "shelf-hidden",
     "shelf-delete", "shelf-import", "shelf-export",
     "reset-all", "about-page",
+    "smart-shelves-qam", "smart-shelf-modal", "global-toggles",
 ]
 
 
@@ -1179,6 +1180,142 @@ def screenshot_about_page(host: str, port: int, bp: Dict, shared_ws: str, qam_ws
     return result
 
 
+def screenshot_smart_shelves_qam(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str, qam_target: Optional[Dict] = None) -> Optional[Path]:
+    """Capture QAM scrolled to the Smart Shelves section."""
+    if not qam_ws:
+        return None
+    ok = _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    if not ok:
+        return None
+
+    # Scroll the QAM scope to the smart shelves toggle
+    eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (!scope) return 'no-scope';
+    // Find the smart shelves toggle by scanning ToggleField labels
+    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    var node;
+    while (node = walker.nextNode()) {
+        var txt = (node.textContent || '').trim();
+        if (txt.length > 3 && txt.length < 80 &&
+            (txt.toLowerCase().indexOf('smart') !== -1 || txt.toLowerCase().indexOf('prateleira') !== -1)) {
+            var el = node.parentElement;
+            if (el) { el.scrollIntoView({ behavior: 'instant', block: 'start' }); return 'scrolled:' + txt.substring(0, 30); }
+        }
+    }
+    // Fallback: scroll to 60% of the QAM scope height
+    scope.scrollTop = Math.floor(scope.scrollHeight * 0.6);
+    return 'fallback-scroll';
+})()
+""")
+    time.sleep(1.0)
+
+    result = None
+    if qam_target:
+        result = capture_qam_target(host, port, qam_target, "smart-shelves-qam.png")
+    if not result or (result and result.stat().st_size == 0):
+        result = capture_bigpicture(host, port, bp, "smart-shelves-qam.png")
+
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
+def screenshot_smart_shelf_modal(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
+    """Capture the Smart Shelf template picker modal."""
+    if not qam_ws:
+        return None
+    bp_ws = ws_path_for(bp, port)
+    ok = _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    if not ok:
+        return None
+
+    # Scroll to the bottom of the QAM scope to reveal the smart shelves add button
+    eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (scope) scope.scrollTop = scope.scrollHeight;
+})()
+""")
+    time.sleep(0.5)
+
+    # Click add button inside the smart shelves section (smaller Focusable after SmartShelvesFirstRunBanner or list)
+    clicked = eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (!scope) return 'no-scope';
+    // Find the button/Focusable that appears inside the smart shelves section (after smart_section_header)
+    var headers = Array.from(scope.querySelectorAll('[class*="section-header"], [class*="sectionHeader"]'));
+    var smartHeader = null;
+    for (var h of headers) {
+        var txt = (h.textContent || '').toLowerCase();
+        if (txt.indexOf('smart') !== -1 || txt.indexOf('inteligente') !== -1) {
+            smartHeader = h; break;
+        }
+    }
+    if (smartHeader) {
+        // Find the next sibling add button
+        var sib = smartHeader.nextElementSibling;
+        while (sib) {
+            var btn = sib.querySelector('button, [role="button"]');
+            if (btn) { btn.click(); return 'clicked-after-header'; }
+            sib = sib.nextElementSibling;
+        }
+    }
+    // Fallback: find the SmartShelvesFirstRunBanner button
+    var allBtns = Array.from(scope.querySelectorAll('button'));
+    // Try to find a button whose text or SVG hints at "add"
+    for (var b of allBtns) {
+        if (b.innerHTML.indexOf('M12 5v14') !== -1 || b.innerHTML.indexOf('M5 12h14') !== -1) {
+            // Check it's in lower half of QAM
+            var r = b.getBoundingClientRect();
+            if (r.top > 200) { b.click(); return 'clicked-add-btn'; }
+        }
+    }
+    return 'not-found';
+})()
+""")
+    print(f"    smart-shelf-modal click: {clicked}")
+    time.sleep(2.0)
+
+    result = capture_bigpicture(host, port, bp, "smart-shelf-modal.png")
+    cancel_bp_modal(host, port, bp_ws)
+    time.sleep(0.5)
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
+def screenshot_global_toggles(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str, qam_target: Optional[Dict] = None) -> Optional[Path]:
+    """Capture QAM scrolled to the Apply Globally (global toggles) section."""
+    if not qam_ws:
+        return None
+    ok = _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    if not ok:
+        return None
+
+    eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (!scope) return 'no-scope';
+    scope.scrollTop = scope.scrollHeight;
+    return 'scrolled-to-bottom';
+})()
+""")
+    time.sleep(1.0)
+
+    result = None
+    if qam_target:
+        result = capture_qam_target(host, port, qam_target, "global-toggles.png")
+    if not result or (result and result.stat().st_size == 0):
+        result = capture_bigpicture(host, port, bp, "global-toggles.png")
+
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1435,6 +1572,30 @@ def main() -> int:
         if p:
             captured.append(p)
             explicacoes.append(("about-page.png", "Página About com documentação de filtros."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] smart-shelves-qam ...")
+    if qam_ws:
+        p = screenshot_smart_shelves_qam(args.host, args.port, bp, shared_ws, qam_ws, qam)
+        if p:
+            captured.append(p)
+            explicacoes.append(("smart-shelves-qam.png", "Seção de Smart Shelves no QAM do plugin."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] smart-shelf-modal ...")
+    if qam_ws:
+        p = screenshot_smart_shelf_modal(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("smart-shelf-modal.png", "Modal de seleção de template para Smart Shelf."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] global-toggles ...")
+    if qam_ws:
+        p = screenshot_global_toggles(args.host, args.port, bp, shared_ws, qam_ws, qam)
+        if p:
+            captured.append(p)
+            explicacoes.append(("global-toggles.png", "Seção de toggles globais no QAM do plugin."))
         time.sleep(1.5)
 
     if captured:

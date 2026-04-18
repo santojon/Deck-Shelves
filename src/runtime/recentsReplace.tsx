@@ -34,6 +34,7 @@ let cachedTitle: string | null = null;
 let resolvePromise: Promise<void> | null = null;
 let lastResolveKey = "";
 let silentPatchFailures = 0;
+let lastMutationTime = 0;
 
 // --- Failed state (pub/sub) ---------------------------------------------
 let replaceFailed = false;
@@ -64,6 +65,7 @@ export function resetRecentsReplaceFailed(): void {
   replaceFailed = false;
   replaceError = null;
   silentPatchFailures = 0;
+  lastMutationTime = 0;
   notifyFailedChange();
   notifyInjectingChange();
 }
@@ -138,8 +140,9 @@ function scheduleResolve(shelf: any) {
       cachedTitle = shelf.title ?? cachedTitle;
       const changed = prev?.length !== cachedAppIds.length || prev?.some((v, i) => v !== cachedAppIds![i]);
       if (changed) {
+        lastMutationTime = 0;
         notifyInjectingChange();
-        forceRemountRecents();
+        scheduleForceRemount(5);
       }
     })
     .catch((err) => {
@@ -149,15 +152,41 @@ function scheduleResolve(shelf: any) {
     .finally(() => { resolvePromise = null; });
 }
 
-/** Force the native recents React subtree to re-render. */
+/** Force the native recents React subtree to re-render.
+ *
+ * React-Router's history library (v4) uses per-entry keys in window.history.state
+ * to detect navigation. Firing popstate with the SAME key yields delta=0 → no
+ * re-render. To force a real re-render we:
+ *   1. pushState a dummy entry (new unique key) → histLen becomes 2
+ *   2. dispatch popstate with that state → React-Router sees unknown key, treats as
+ *      PUSH navigation to same pathname → route component re-renders → patch fires
+ *   3. history.go(-1) → async popstate back to original entry → second re-render
+ */
 function forceRemountRecents() {
   try {
     const win: any = globalThis;
-    if (win?.history?.state !== undefined) {
-      win.history.replaceState(win.history.state, "", win.location.href);
-      win.dispatchEvent(new Event("popstate"));
-    }
+    const tmpKey = "ds_" + Math.random().toString(36).slice(2);
+    win.history.pushState({ key: tmpKey, state: {} }, "", win.location.href);
+    win.dispatchEvent(new PopStateEvent("popstate", { state: win.history.state }));
+    win.history.go(-1);
   } catch (e) { logInfo("RUNTIME", "force-remount failed", String(e)); }
+}
+
+/** Retry forceRemountRecents up to `attemptsLeft` times (1.2s apart).
+ *  Stops early if a mutation was confirmed (lastMutationTime updated).
+ *  On exhaustion, marks the feature as failed so the banner shows. */
+function scheduleForceRemount(attemptsLeft: number) {
+  if (attemptsLeft <= 0) {
+    markReplaceFailed("force remount: no mutation confirmed after max retries");
+    return;
+  }
+  const before = lastMutationTime;
+  forceRemountRecents();
+  setTimeout(() => {
+    if (!activeFirstShelf()) return;
+    if (lastMutationTime > before) return;
+    scheduleForceRemount(attemptsLeft - 1);
+  }, 1200);
 }
 
 function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean {
@@ -244,7 +273,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                   const ids = cachedAppIds && cachedAppIds.length ? cachedAppIds : null;
                   if (ids) {
                     const ok = mutateRecentsElement(ret2, freshShelf, ids);
-                    if (ok) { silentPatchFailures = 0; return ret2; }
+                    if (ok) { silentPatchFailures = 0; lastMutationTime = Date.now(); return ret2; }
                   }
                 }
               }
@@ -282,6 +311,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                     return ret3;
                   }
                   silentPatchFailures = 0;
+                  lastMutationTime = Date.now();
                 } catch (e) {
                   logInfo("RUNTIME", "ret3 patch failed", String(e));
                   markReplaceFailed("ret3: " + String(e));
@@ -334,11 +364,9 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     }
     if (shelfKey(shelf) !== lastResolveKey) {
       cachedAppIds = null; cachedShelfId = null; lastResolveKey = "";
+      lastMutationTime = 0;
       notifyInjectingChange();
       scheduleResolve(shelf);
-      // Trigger re-render after a short delay to ensure the patch fires
-      // once the new app IDs are resolved.
-      setTimeout(forceRemountRecents, 800);
     }
   });
 

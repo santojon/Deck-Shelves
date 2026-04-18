@@ -317,12 +317,32 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
       let redirectTarget: HTMLElement | null = null;
 
       if (btn === DIR_DOWN) {
-        // Focus must be in a non-mount sibling (native top section area)
-        if (mount.contains(before)) return;
-        const sibling = Array.from(parent.children).find(
+        const parentChildren = Array.from(parent.children);
+        const mountIdx = parentChildren.indexOf(mount);
+
+        if (mount.contains(before)) {
+          // Bug A: block Steam's wrap-around on last shelf, but let downward nav (tabs) through.
+          const lastShelf = mount.querySelector<HTMLElement>(".ds-shelf:last-child");
+          if (lastShelf?.contains(before)) {
+            requestAnimationFrame(() => {
+              try {
+                const after = doc.querySelector<HTMLElement>(".gpfocus");
+                if (!after || mount.contains(after)) return;
+                // Only intercept if focus wrapped UP — ignore downward nav to tabs.
+                const afterRect = after.getBoundingClientRect();
+                if (afterRect.top < beforeRect.top - 20) focusElement(before);
+              } catch (e) { logInfo("HOME", "bug-a rAF failed", String(e)); }
+            });
+          }
+          return;
+        }
+
+        const sibling = parentChildren.find(
           (c) => c !== mount && (c as Element).contains(before),
         ) as HTMLElement | undefined;
         if (!sibling) return;
+        // Bug B: only bridge from siblings ABOVE our mount, not below (native tabs)
+        if (parentChildren.indexOf(sibling) > mountIdx) return;
         // Only bridge when focus is in the lower portion of its sibling
         // (likely the last row). Prevents hijacking mid-section DOWN moves.
         const sibRect = sibling.getBoundingClientRect();

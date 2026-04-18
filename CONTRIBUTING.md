@@ -109,10 +109,24 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 
 ## Screenshots (optional)
 
-
 > Screenshot capture and Devtools usage are documented in the main README and the Devtools readme under `scripts/devtools/README.md`.
 
 See `README.md` for quick commands and `scripts/devtools/README.md` for detailed diagnostic and screenshot guidance.
+
+### Screenshot capture workflow
+
+Follow these steps to regenerate the canonical screenshots:
+
+1. **Set the Steam Deck language to English** — open Settings → System → Language → English. This ensures all UI labels in the screenshots are in English.
+2. **Import the screenshot configuration** — in the plugin QAM, click the import button and import `assets/import/screenshots-en.json`. This sets up the exact shelf configuration used for automation (3 standard shelves, 1 hidden shelf, 3 smart shelves).
+3. **Adjust if needed** — if the implementation being captured adds new UI elements or changes behavior, verify that the import still reflects the current feature set. Edit the JSON if needed.
+4. **Open the Steam main menu** — press the Steam button to open the main menu, then navigate to Home. This ensures the plugin is mounted and the home screen is fully rendered.
+5. **Run the script**:
+   ```bash
+   pnpm run screenshots
+   ```
+   The script connects via CDP, validates at least 2 shelves and 1 game card are present, then captures all scenarios automatically.
+6. **Verify output** — screenshots are saved to `assets/screenshots/`. Review each PNG before committing.
 
 ## Submitting Changes
 

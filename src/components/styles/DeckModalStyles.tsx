@@ -1,14 +1,15 @@
 import { gamepadDialogClasses } from '@decky/ui'
 
+// Hardcoded minified class names (quickAccessControlsClasses is undefined in SharedJSContext)
+const _panelSection = '_10BxjeNEe7t7ZWYcnl3-J6'
+const _panelSectionRow = 'JAewWdUpiV3X2NTJykahD'
+const _panelSectionTitle = '_321l150NTQBTsPZ9NnzZIz'
+
 export function DeckModalStyles() {
   return (
     <style>{`
       .deck-shelves-modal-scope .${gamepadDialogClasses.GamepadDialogContent} .DialogHeader {
         margin-left: 15px;
-      }
-
-      .deck-shelves-modal-scope .${gamepadDialogClasses.ModalPosition} > .${gamepadDialogClasses.GamepadDialogContent} {
-        background: radial-gradient(155.42% 100% at 0% 0%, #060a0e 0 0%, #0e141b 100%);
       }
 
       .deck-shelves-modal-scope .name-field .${gamepadDialogClasses.Field} {
@@ -28,6 +29,23 @@ export function DeckModalStyles() {
       .deck-shelves-modal-scope .field-item-container .${gamepadDialogClasses.FieldLabel} {
         color: #8b929a;
         font-size: 12px;
+      }
+
+      .deck-shelves-modal-scope .field-item-container .${_panelSection} {
+        padding: 0;
+      }
+      .deck-shelves-modal-scope .field-item-container .${_panelSectionTitle} {
+        padding-left: 0;
+        padding-right: 0;
+      }
+      .deck-shelves-modal-scope .field-item-container .${_panelSectionRow} {
+        padding: 0;
+        margin: 0;
+      }
+      .deck-shelves-modal-scope .field-item-container .${_panelSectionRow} input[type="text"] {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
       }
 
 

@@ -88,7 +88,7 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
             childrenContainerWidth="min"
             inlineWrap="keep-inline"
           >
-            <div style={{ width: 100 }}>
+            <div style={{ minWidth: 150 }}>
               <Dropdown
                 rgOptions={modeOptions}
                 selectedOption={mode}
@@ -152,7 +152,7 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
               </div>
             )}
             <ButtonItem onClick={addItem} disabled={!canAddFilter}>
-              {t("filter_add")}
+              + {t("filter_add")}
             </ButtonItem>
           </div>
         </PanelSectionRow>

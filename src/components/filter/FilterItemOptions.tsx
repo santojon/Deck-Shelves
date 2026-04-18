@@ -114,13 +114,15 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
       return (
         <PanelSectionRow>
           <Field label={t("filter_type_nameIncludes")} bottomSeparator="none">
-            <TextField
-              value={String(p.text ?? "")}
-              onChange={(val: any) => {
-                const text = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
-                patchParams({ text });
-              }}
-            />
+            <div style={{ minWidth: 250 }}>
+                <TextField
+                value={String(p.text ?? "")}
+                onChange={(val: any) => {
+                  const text = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
+                  patchParams({ text });
+                }}
+              />
+            </div>
           </Field>
         </PanelSectionRow>
       );

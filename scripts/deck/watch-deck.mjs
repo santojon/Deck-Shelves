@@ -4,8 +4,18 @@ import path from "node:path";
 import process from "node:process";
 import { execSync } from "node:child_process";
 
+// Load .env from project root (Node doesn't source shell env files automatically)
+const __root = path.resolve(import.meta.dirname, "../..");
+const dotEnvPath = path.join(__root, ".env");
+if (fs.existsSync(dotEnvPath)) {
+  for (const line of fs.readFileSync(dotEnvPath, "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  }
+}
+
 const hard = process.argv.includes("--hard");
-const host = process.argv.filter((arg) => !arg.startsWith("--"))[2] || process.env.DECK_HOST || "steamdeck";
+const host = process.argv.filter((arg) => !arg.startsWith("--"))[2] || process.env.DECK_HOST || "";
 const roots = ["src", "i18n", "assets", "main.py", "plugin.json", "package.json", "vite.plugin.config.ts"];
 const watchers = [];
 let timer = null;
@@ -41,6 +51,11 @@ function watch(target) {
   } else {
     watchers.push(fs.watch(path.dirname(target), schedule));
   }
+}
+
+if (!host) {
+  console.error("[watch:deck] ERROR: no host. Pass as argument or set DECK_HOST in .env.");
+  process.exit(1);
 }
 
 for (const target of roots) watch(target);

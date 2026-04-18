@@ -1,16 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Script to install dependencies, build, and deploy the plugin to a Steam Deck
-# Usage: ./scripts/deploy/full-deploy.sh <HOST>
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a; source "${PROJECT_ROOT}/.env"; set +a
+fi
 
-set -e
+HOST="${1:-${DECK_HOST:-}}"
 
-HOST="$1"
-
-if [ -z "$HOST" ]; then
-    echo "Error: HOST parameter is required"
-    echo "Usage: $0 <HOST>"
-    exit 1
+if [[ -z "$HOST" ]]; then
+  echo "Error: HOST not set. Pass as argument or set DECK_HOST in .env." >&2
+  exit 1
 fi
 
 echo "Installing dependencies..."
