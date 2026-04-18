@@ -1,25 +1,10 @@
-import React from 'react'
-import { Menu, MenuItem, DialogButton, showContextMenu, showModal } from '@decky/ui'
+import { Menu, MenuItem, DialogButton, showContextMenu } from '@decky/ui'
 import { icons } from '../icons'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Shelf } from '../../../types'
-import { logInfo } from '../../../runtime/logger'
 import { DeleteConfirmModal } from '../modals/DeleteConfirmModal'
 import { EditShelfModal } from '../modals/EditShelfModal'
-
-function openManagedModal(render: (close: () => void) => React.ReactElement) {
-  let handle: any = null
-  const close = () => {
-    try {
-      if (typeof handle === 'function') return handle()
-      if (handle?.Close) return handle.Close()
-      if (handle?.closeModal) return handle.closeModal()
-      if (handle?.props?.closeModal) return handle.props.closeModal()
-    } catch (e) { logInfo("SETTINGS", "modal close failed", String(e)) }
-  }
-  handle = showModal(render(close))
-  return close
-}
+import { openManagedModal } from '../common/openManagedModal'
 
 export function showDeleteConfirm(controller: SettingsController, shelf: Shelf) {
   openManagedModal((close) => <DeleteConfirmModal closeModal={close} controller={controller} shelf={shelf} />)

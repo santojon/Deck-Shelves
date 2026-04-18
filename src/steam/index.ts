@@ -688,6 +688,7 @@ export type AppOverview = {
   header?: string;
   icon_hash?: string;
   update_pending?: boolean;
+  app_type?: number;
 };
 
 export function normalizeAppOverview(node: any): AppOverview | null {
@@ -754,6 +755,7 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     library_hero: String(node?.library_hero ?? node?.hero ?? node?.libraryHero ?? ""),
     header: String(node?.header ?? node?.header_image ?? node?.capsule ?? ""),
     icon_hash: String(node?.icon_hash ?? node?.iconHash ?? ""),
+    app_type: Number(node?.app_type ?? node?.appType ?? node?.m_eAppType ?? node?.eAppType ?? 0) || undefined,
   };
 }
 
@@ -1915,6 +1917,18 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       const ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
       return ids.slice(0, limit);
+    } catch {
+      return [];
+    }
+  }
+
+  if (source.type === "smart") {
+    try {
+      const { resolveSmartShelf } = await import("./smartShelves");
+      const apps = await getAllAppOverviews();
+      const ids = resolveSmartShelf(source.mode, apps, limit);
+      logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length });
+      return ids;
     } catch {
       return [];
     }

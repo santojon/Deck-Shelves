@@ -5,53 +5,35 @@ import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCo
 import { logInfo } from "../../runtime/logger";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
+import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 
 export function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowItem; cardW?: number; cardH?: number }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
 
   useEffect(() => {
-    function injectNativeClasses(): boolean {
+    return retryWithIntervals(() => {
       const doc = getPreferredSteamDocument();
-      const map = doc ? getRuntimeClassMap(doc) : null;
-      if (!map?.nativeCard) return false;
-      const sampleSelector = buildSelectorFromToken(map.nativeCard);
-      const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
-      if (nativeSample) {
-        const rootClasses = Array.from(nativeSample.classList).filter((cls) => (
-          cls !== 'Panel'
-          && cls !== 'Focusable'
-          && cls !== 'gpfocus'
-          && cls !== 'gpfocuswithin'
-          && !cls.startsWith('ds-')
-        ));
-        if (!rootClasses.includes('gpfocuswithin')) rootClasses.push('gpfocuswithin');
-        setNativeCardClass(rootClasses.join(' '));
-        try {
-          const pa = getComputedStyle(nativeSample, '::after');
-          const animName = (pa.animationName || '').split(',')[0] || '';
-          if (animName && animName !== 'none' && cardRef.current) cardRef.current.style.setProperty('--ds-native-after-animation', animName);
-        } catch (e) {
-          logInfo("HOME", "MoreCard: animation read failed", String(e));
+      const cls = resolveNativeCardClass(doc);
+      if (cls === null) return false;
+      setNativeCardClass(cls);
+      // Read animation from native sample for ::after pseudo-element styling
+      try {
+        const map = doc ? getRuntimeClassMap(doc) : null;
+        if (map?.nativeCard) {
+          const sel = buildSelectorFromToken(map.nativeCard);
+          const sample = sel ? doc?.querySelector(`${sel}:not(.ds-card)`) as HTMLElement | null : null;
+          if (sample) {
+            const pa = getComputedStyle(sample, '::after');
+            const animName = (pa.animationName || '').split(',')[0] || '';
+            if (animName && animName !== 'none' && cardRef.current) cardRef.current.style.setProperty('--ds-native-after-animation', animName);
+          }
         }
-      } else {
-        setNativeCardClass([map.nativeCard, map.nativeCardMods].filter(Boolean).join(' '));
+      } catch (e) {
+        logInfo("HOME", "MoreCard: animation read failed", String(e));
       }
       return true;
-    }
-
-    let attempts = 0;
-    const intervals = [250, 500, 800, 1200];
-    let timer: number | null = null;
-    const tryInject = () => {
-      attempts += 1;
-      const ok = injectNativeClasses();
-      if (!ok && attempts < intervals.length) {
-        timer = window.setTimeout(tryInject, intervals[attempts - 1]);
-      }
-    };
-    tryInject();
-    return () => { if (timer) clearTimeout(timer); };
+    }, [250, 500, 800, 1200]);
   }, []);
 
   const cachedCardRadius = getCachedCardRadius();

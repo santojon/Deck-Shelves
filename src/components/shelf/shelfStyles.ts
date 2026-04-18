@@ -421,16 +421,7 @@ function buildStylesheet(): string {
       font-weight: 700;
       letter-spacing: 0.5px;
     }
-    /* First shelf when recents are hidden: mirror the native "Recent games"
-       heading — smaller, lighter weight, no bottom margin. Probed from
-       SteamOS native shelf: 16px / 400 / margin 0. Color still inherits
-       from --ds-native-heading-color so themes (ArtHero etc.) paint it. */
-    .ds-shelf-title--locked {
-      font-size: 16px !important;
-      font-weight: 400 !important;
-      letter-spacing: 0 !important;
-      margin-bottom: 0 !important;
-    }
+
     .ds-shelf-collapse-icon {
       font-size: 14px;
       opacity: 0.5;

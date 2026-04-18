@@ -58,11 +58,41 @@ export const FilterSchema = z.object({
   filterGroup: FilterGroupSchema.optional(),
 }).passthrough();
 
+export const SmartShelfModeSchema = z.enum([
+  "quick_play",
+  "not_started",
+  "deck_picks",
+  "rediscover",
+  "best_unplayed",
+  "interrupted",
+  "time_of_day",
+  "daily_pick",
+  "on_deck",
+  "recently_played",
+  "long_session",
+  "non_steam",
+  "random_pick",
+  "forgotten",
+  "spare_time",
+]);
+export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
+
+export const SmartShelfSchema = z.object({
+  id: z.string().min(1).max(64),
+  title: z.string().min(1).max(64),
+  mode: SmartShelfModeSchema,
+  enabled: z.boolean().default(true),
+  hidden: z.boolean().default(false),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+export type SmartShelf = z.infer<typeof SmartShelfSchema>;
+
 export const ShelfSourceSchema = z.union([
   z.object({ type: z.literal("collection"), collectionId: z.string() }),
   z.object({ type: z.literal("tab"), tab: z.string().min(1) }),
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
+  z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
 ]);
 
 export type ShelfSource = z.infer<typeof ShelfSourceSchema>;
@@ -97,7 +127,12 @@ export const SettingsSchema = z.object({
   globalHideNewBadge: z.boolean().default(false),
   globalHideCompatIcons: z.boolean().default(false),
   globalHideNonSteamBadge: z.boolean().default(false),
-  shelves: z.array(ShelfSchema).default([])
+  shelves: z.array(ShelfSchema).default([]),
+  smartShelvesEnabled: z.boolean().default(false),
+  smartShelvesAtBottom: z.boolean().default(false),
+  smartShelves: z.array(SmartShelfSchema).default([]),
+  smartSurpriseMe: z.boolean().default(false),
+  smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

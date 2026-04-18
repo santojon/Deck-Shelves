@@ -1,43 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
-import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
+import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 
 export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; featured?: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
 
   useEffect(() => {
-    function injectNativeClasses(): boolean {
-      const doc = getPreferredSteamDocument();
-      const map = doc ? getRuntimeClassMap(doc) : null;
-      if (!map?.nativeCard) return false;
-      const sampleSelector = buildSelectorFromToken(map.nativeCard);
-      const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
-      if (nativeSample) {
-        const rootClasses = Array.from(nativeSample.classList).filter((cls) => (
-          cls !== 'Panel' && cls !== 'Focusable' && cls !== 'gpfocus' && cls !== 'gpfocuswithin' && !cls.startsWith('ds-')
-        ));
-        if (!rootClasses.includes('gpfocuswithin')) rootClasses.push('gpfocuswithin');
-        setNativeCardClass(rootClasses.join(' '));
-      } else {
-        setNativeCardClass([map.nativeCard, map.nativeCardMods].filter(Boolean).join(' '));
-      }
+    return retryWithIntervals(() => {
+      const cls = resolveNativeCardClass(getPreferredSteamDocument());
+      if (cls === null) return false;
+      setNativeCardClass(cls);
       return true;
-    }
-    let attempts = 0;
-    const intervals = [250, 500, 800, 1200];
-    let timer: number | null = null;
-    const tryInject = () => {
-      attempts += 1;
-      if (!injectNativeClasses() && attempts < intervals.length) {
-        timer = window.setTimeout(tryInject, intervals[attempts - 1]);
-      }
-    };
-    tryInject();
-    return () => { if (timer) clearTimeout(timer); };
+    }, [250, 500, 800, 1200]);
   }, []);
 
   const cachedCardRadius = getCachedCardRadius();

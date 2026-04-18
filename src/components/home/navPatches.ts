@@ -160,7 +160,10 @@ function interceptMenuBtn(button: number): boolean {
   if (button !== OPTIONS_BUTTON) return false;
   try {
     const doc = getPreferredSteamDocument();
-    const focused = (doc?.querySelector(".ds-card.gpfocus") ?? doc?.querySelector(".ds-card:focus")) as HTMLElement | null;
+    // Don't intercept if a modal/context menu is already open — prevents stacking
+    if (doc?.querySelector(".FullModalOverlay")) return false;
+    // Prefer real browser :focus over potentially-stale gpfocus class
+    const focused = (doc?.querySelector(".ds-card:focus") ?? doc?.querySelector(".ds-card.gpfocus")) as HTMLElement | null;
     if (!focused) return false;
     const appid = Number(focused.getAttribute("data-appid") ?? 0);
     if (appid <= 0) return false;
@@ -177,7 +180,10 @@ export function patchMenuButton(): void {
     (doc as any)[DS_DOC_MENU] = true;
     const handleMenu = (evt: Event) => {
       try {
-        const focused = (doc.querySelector(".ds-card.gpfocus") ?? doc.querySelector(".ds-card:focus")) as HTMLElement | null;
+        // Don't intercept if a modal/context menu is already open — prevents stacking
+        if (doc.querySelector(".FullModalOverlay")) return;
+        // Prefer real browser :focus over potentially-stale gpfocus class
+        const focused = (doc.querySelector(".ds-card:focus") ?? doc.querySelector(".ds-card.gpfocus")) as HTMLElement | null;
         if (focused) {
           const appid = Number(focused.getAttribute("data-appid") ?? 0);
           if (appid > 0) {

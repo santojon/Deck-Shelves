@@ -36,6 +36,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const prevHero = useRef<string | null>(null);
   const [visible, setVisible] = useState(false);
   const [nativeClasses, setNativeClasses] = useState<NativeHeroClasses | null>(null);
+  const [heroHeight, setHeroHeight] = useState(374);
   const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
   const currentAppid = useRef(0);
@@ -77,6 +78,22 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     discover();
     const t = setTimeout(discover, 2000);
     return () => clearTimeout(t);
+  }, [mountEl]);
+
+  // Clamp hero height to the first shelf's actual height so the art does not
+  // bleed into the second shelf row when smart shelves are shorter than the
+  // native recents section (which was used as the 374px baseline).
+  useEffect(() => {
+    const measure = () => {
+      const firstShelf = mountEl.querySelector('.ds-shelf') as HTMLElement | null;
+      if (!firstShelf) return;
+      const h = firstShelf.getBoundingClientRect().height;
+      if (h > 80) setHeroHeight(Math.round(h));
+    };
+    measure();
+    const obs = new MutationObserver(measure);
+    obs.observe(mountEl, { childList: true, subtree: true });
+    return () => obs.disconnect();
   }, [mountEl]);
 
   useEffect(() => {
@@ -167,24 +184,25 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     );
   }
 
+  // Extend 60px above the first shelf (fills the gap left by the hidden native
+  // recents). Cap to heroHeight + 60 so it never bleeds into the second shelf.
+  const heroTop = -60;
+  const heroH = heroHeight + 60;
+
   return (
     <div
       className="ds-hero-background"
       style={{
         position: "absolute",
-        // Match native recents hero dimensions (probed via CDP on ArtHero):
-        // top: -1, height: 374 with a ~5px linear fade at the bottom.
-        top: -1,
+        top: heroTop,
         left: 0,
         right: 0,
-        height: 374,
+        height: heroH,
         overflow: "hidden",
         zIndex: -1,
         pointerEvents: "none",
         opacity: visible ? 1 : 0,
         transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
-        maskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))",
-        WebkitMaskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))" as any,
       }}
     >
       {/* Solid background layer — fills behind the image so the native

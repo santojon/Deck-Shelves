@@ -45,8 +45,11 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
 - **Developer / Publisher filter** — filter games by developer with automatic batch discovery
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
+- **Smart Shelves** — fifteen heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match (Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten); ordered by probability of results in the picker
+- **Surprise Me** — sub-toggle that hides the manual smart shelf list and lets the system pick 1–5 templates each day automatically; configurable count slider (0 = system decides)
+- **Shelf templates** — 8 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions) in a 2-column grid picker; blank shelf option opens edit mode directly
 - Reorder and toggle shelf visibility from the QAM
-- Import / export all shelves as JSON
+- Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry
 - Multi-language support (EN, PT-BR, PT-PT, FR, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN)
@@ -119,6 +122,8 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - [Architecture](docs/architecture.md) — project structure, data flow, key systems
 - [Plugin API](docs/plugin-api.md) — register custom shelf sources from other plugins
 - [Filter System](docs/filters.md) — filter types, groups, sort options
+- [Shelf Templates](docs/shelf-templates.md) — standard shelf template presets
+- [Smart Shelves](docs/smart-shelves.md) — all 15 smart shelf templates, criteria, and reliability
 - [Development Guide](docs/development.md) — setup, build commands, testing, conventions
 - [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
 

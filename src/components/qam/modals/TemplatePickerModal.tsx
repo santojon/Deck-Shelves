@@ -1,9 +1,10 @@
-import { ConfirmModal, Field, DialogButton, showModal } from '@decky/ui'
+import { ConfirmModal, DialogButton, Focusable, showModal } from '@decky/ui'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import type { SettingsController } from '../../../features/settings/controller'
 import { SHELF_TEMPLATES } from '../../../domain/templates'
 import { EditShelfModal } from './EditShelfModal'
 import { logInfo } from '../../../runtime/logger'
+import { SHELF_TPL_ICON } from './templateIcons'
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
@@ -19,6 +20,24 @@ function openManagedModal(render: (close: () => void) => React.ReactElement) {
   return close
 }
 
+const btnStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: 44,
+  fontSize: 13,
+  padding: '8px 6px',
+  whiteSpace: 'normal',
+  wordBreak: 'break-word',
+  lineHeight: '18px',
+}
+
+const btnInner: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  flexWrap: 'wrap',
+}
+
 export function TemplatePickerModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
   const { t, actions } = controller
   const handleTemplate = async (tpl: typeof SHELF_TEMPLATES[0]) => {
@@ -29,7 +48,6 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
     closeModal?.()
     const shelf = await actions.addShelf()
     if (shelf) {
-      // Open edit modal for the newly created shelf
       openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={shelf} />)
     }
   }
@@ -43,24 +61,22 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
         onOK={() => closeModal?.()}
         onCancel={() => closeModal?.()}
       >
-        <div style={{ padding: 8 }}>
+        <Focusable style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 8 }}>
+          <DialogButton style={btnStyle} onClick={handleBlank} onOKButton={handleBlank} onOKActionDescription={t('template_blank')}>
+            <span style={btnInner}>{SHELF_TPL_ICON['blank']}<span>{t('template_blank')}</span></span>
+          </DialogButton>
           {SHELF_TEMPLATES.map((tpl) => (
-            <Field key={tpl.id} label={t(tpl.titleKey as any)}>
-              <DialogButton
-                onClick={() => handleTemplate(tpl)}
-                onOKButton={() => handleTemplate(tpl)}
-                onOKActionDescription={t('addShelf')}
-              >{t('addShelf')}</DialogButton>
-            </Field>
-          ))}
-          <Field label={t('template_blank')}>
             <DialogButton
-              onClick={handleBlank}
-              onOKButton={handleBlank}
-              onOKActionDescription={t('addShelf')}
-            >{t('addShelf')}</DialogButton>
-          </Field>
-        </div>
+              key={tpl.id}
+              style={btnStyle}
+              onClick={() => handleTemplate(tpl)}
+              onOKButton={() => handleTemplate(tpl)}
+              onOKActionDescription={t(tpl.titleKey as any)}
+            >
+              <span style={btnInner}>{SHELF_TPL_ICON[tpl.id]}<span>{t(tpl.titleKey as any)}</span></span>
+            </DialogButton>
+          ))}
+        </Focusable>
       </ConfirmModal>
     </div>
   )
