@@ -263,7 +263,7 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 When **Surprise Me** is enabled (sub-toggle under Smart Shelves in the QAM), the manual smart shelf list is hidden entirely. Instead, the system picks a set of smart shelf templates automatically each day using a deterministic daily seed — same day, same selection.
 
-**Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `2 + (dayIndex % 3)`, cycling 2, 3, or 4 shelves per day.
+**Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `1 + (dayIndex % 3)`, cycling 2, 3, or 4 shelves per day.
 
 **Selection:** all 13 templates are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
 

@@ -331,7 +331,7 @@ export function HomeShelves() {
       const _now = new Date();
       const dayIndex = _now.getFullYear() * 10000 + (_now.getMonth() + 1) * 100 + _now.getDate();
       const rawCount = settings.smartSurpriseMeCount ?? 0;
-      const count = rawCount > 0 ? rawCount : (2 + (dayIndex % 3));
+      const count = rawCount > 0 ? rawCount : (1 + (dayIndex % 3));
       const selected = seededShuffle(SURPRISE_MODES, dayIndex).slice(0, count);
       smartShelves = selected.map((mode): Shelf => ({
         id: `surprise_${mode}`,
