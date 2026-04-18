@@ -232,17 +232,37 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
           afterPatch(ret.type, "type", (_b: any, ret2?: any) => {
             if (!ret2) return ret2;
             try {
-              const recents = findInReactTree(ret2, (x: any) =>
-                x?.props && "autoFocus" in x.props && "showBackground" in x.props,
+              // Try direct approach first: if the games+onItemFocus holder is
+              // already accessible in ret2 (some Steam versions flatten the tree),
+              // mutate it without a third afterPatch level.
+              const directHolder = findInReactTree(ret2, (x: any) =>
+                x?.props?.games && Array.isArray(x.props.games) && typeof x?.props?.onItemFocus === "function",
               );
+              if (directHolder) {
+                const freshShelf = activeFirstShelf();
+                if (freshShelf) {
+                  const ids = cachedAppIds && cachedAppIds.length ? cachedAppIds : null;
+                  if (ids) {
+                    const ok = mutateRecentsElement(ret2, freshShelf, ids);
+                    if (ok) { silentPatchFailures = 0; return ret2; }
+                  }
+                }
+              }
+
+              // Standard approach: find the recents wrapper component and
+              // afterPatch its render to get ret3 where the holder lives.
+              // Broadened selector: original autoFocus+showBackground, plus
+              // fallback for structural variants (e.g. games in props at this level).
+              const recents = findInReactTree(ret2, (x: any) => {
+                if (!x?.props) return false;
+                if ("autoFocus" in x.props && "showBackground" in x.props) return true;
+                if (x.props.games && Array.isArray(x.props.games)) return true;
+                return false;
+              });
               if (!recents) {
-                // Tree walk failed to find the recents component (tree shape
-                // mismatch). Increment counter — after 5 consecutive silent
-                // failures, activate the killswitch so HomeInject falls back
-                // to visual hide instead of leaving the state permanently broken.
                 if (cachedAppIds?.length) {
                   silentPatchFailures++;
-                  if (silentPatchFailures >= 5) markReplaceFailed("tree walk: recents node not found");
+                  if (silentPatchFailures >= 10) markReplaceFailed("tree walk: recents node not found");
                 }
                 return ret2;
               }
@@ -257,7 +277,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                   if (!ok) {
                     if (cachedAppIds?.length) {
                       silentPatchFailures++;
-                      if (silentPatchFailures >= 5) markReplaceFailed("mutate: holder not found");
+                      if (silentPatchFailures >= 10) markReplaceFailed("mutate: holder not found");
                     }
                     return ret3;
                   }
@@ -296,6 +316,15 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
   }
 
   unsubSettings = subscribeSettings(() => {
+    // If the feature is re-enabled after a failure, auto-reset so the patch
+    // can retry without requiring a Steam restart.
+    if (replaceFailed) {
+      const s = getCurrentSettings();
+      if (s?.enabled && s.hideRecents === true && s.recentsReplaceSource === true) {
+        resetRecentsReplaceFailed();
+        cachedAppIds = null; cachedShelfId = null; lastResolveKey = "";
+      }
+    }
     const shelf = activeFirstShelf();
     if (!shelf) {
       const hadData = !!cachedAppIds?.length;
@@ -307,6 +336,9 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       cachedAppIds = null; cachedShelfId = null; lastResolveKey = "";
       notifyInjectingChange();
       scheduleResolve(shelf);
+      // Trigger re-render after a short delay to ensure the patch fires
+      // once the new app IDs are resolved.
+      setTimeout(forceRemountRecents, 800);
     }
   });
 
