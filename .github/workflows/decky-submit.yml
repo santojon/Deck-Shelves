@@ -132,26 +132,29 @@ jobs:
           git fetch upstream main --depth=1
 
           if [[ -n "$EXISTING_PR" ]]; then
-            # ── Update path: reuse existing branch, merge upstream, update submodule ──
+            # ── Update path: reuse existing branch, rebase on upstream, update submodule ──
             PR_NUMBER=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.number')
             BRANCH=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.headRefName')
             echo "🔍 Found existing PR #${PR_NUMBER} on branch: ${BRANCH}"
 
-            # Safety: when updating an existing PR we MUST NOT alter the PR
-            # title or body and MUST NOT create comments. Ensure the rest of
-            # this path performs only branch commits/pushes and never calls
-            # the GH CLI to edit the PR or add comments.
-            SKIP_PR_EDIT=1
+            # Detect if this existing PR is an "Update" or "Add" type by checking its title
+            EXISTING_PR_TITLE=$(gh pr view "${PR_NUMBER}" \
+              --repo SteamDeckHomebrew/decky-plugin-database \
+              --json title --jq '.title' 2>/dev/null || true)
+            echo "📋 Existing PR title: ${EXISTING_PR_TITLE}"
 
             git fetch origin "${BRANCH}"
             git checkout -B "${BRANCH}" "origin/${BRANCH}"
 
-            echo "🔀 Merging upstream/main (keeping upstream, adding ours)..."
-            git merge upstream/main --no-edit -X theirs || {
-              echo "⚠️ Merge had conflicts; applying -X theirs resolution..."
-              git checkout --theirs -- . 2>/dev/null || true
-              git add . 2>/dev/null || true
-              git commit --no-edit -m "Merge upstream/main into ${BRANCH}" || true
+            echo "🔀 Rebasing on upstream/main..."
+            git rebase upstream/main -X ours || {
+              echo "⚠️ Rebase conflict; falling back to merge..."
+              git rebase --abort 2>/dev/null || true
+              git merge upstream/main --no-edit -X theirs || {
+                git checkout --theirs -- . 2>/dev/null || true
+                git add . 2>/dev/null || true
+                git commit --no-edit -m "Merge upstream/main into ${BRANCH}" || true
+              }
             }
 
             # Ensure plugin folder is present and populated. Prefer a direct
@@ -191,9 +194,19 @@ jobs:
             git add .
             git commit -m "Update ${PLUGIN} to v${VERSION}" || echo "No changes to commit"
 
-            echo "🚀 Pushing updated branch ${BRANCH}..."
+            echo "🚀 Force pushing rebased branch ${BRANCH}..."
             git push "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" "${BRANCH}" --force
-            echo "✅ PR #${PR_NUMBER} updated via branch push."
+
+            # If this is an "Update" PR, update the title to reflect the new version.
+            # "Add" PRs keep their original title untouched.
+            if [[ "${EXISTING_PR_TITLE}" == Update* ]]; then
+              gh pr edit "${PR_NUMBER}" \
+                --repo SteamDeckHomebrew/decky-plugin-database \
+                --title "Update ${PLUGIN} to v${VERSION}"
+              echo "✅ PR #${PR_NUMBER} title updated to: Update ${PLUGIN} to v${VERSION}"
+            else
+              echo "✅ PR #${PR_NUMBER} branch updated (addition PR — title unchanged)."
+            fi
 
           else
             # ── Create path: new branch + PR ──
@@ -213,9 +226,12 @@ jobs:
             if [[ -n "$MERGED_PR" ]]; then
               IS_UPDATE=true
               echo "🔍 Found merged PR #${MERGED_PR} → this is an UPDATE submission"
+            elif git ls-tree upstream/main -- "plugins/${PLUGIN_SLUG}" 2>/dev/null | grep -q .; then
+              IS_UPDATE=true
+              echo "🔍 Plugin already exists in upstream → this is an UPDATE submission"
             else
               IS_UPDATE=false
-              echo "🔍 No merged PR found → this is a NEW plugin submission"
+              echo "🔍 No merged PR and plugin not in upstream → this is a NEW plugin submission"
             fi
 
             # Add or update plugin: clone fresh to ensure commit is present
