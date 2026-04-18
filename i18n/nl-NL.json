@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "Deck-compatibele spellen met meer dan 1 uur speeltijd die je 6+ maanden niet hebt gespeeld.",
   "about_feature_smart_shelves": "Slimme planken: 12 heuristische sjablonen die automatisch verschijnen en verdwijnen",
   "smart_template_random_pick": "Roulette",
+  "smart_template_forgotten": "Vergeten",
+  "smart_template_spare_time": "Vrije tijd",
   "smart_surprise_me": "Verras me",
   "smart_surprise_count": "Aantal planken",
   "smart_surprise_count_auto": "Automatisch — systeem beslist (1–5)",
   "docs_smart_template_random_pick": "Willekeurige selectie uit de hele bibliotheek — wisselt elke 5 minuten.",
+  "docs_smart_template_forgotten": "Steam-spellen al meer dan 3 jaar in je bibliotheek die je nooit hebt gestart — gesorteerd van oudst naar nieuwst.",
+  "docs_smart_template_spare_time": "Geïnstalleerde spellen met ≤2 uur speeltijd, getoond tijdens korte sessievensters: 6–9u, 12–14u en 19–22u. Verborgen buiten die vensters.",
   "docs_smart_surprise_me": "Verras me: het systeem kiest dagelijks automatisch 1–5 slimme planken. Je kunt een exact aantal instellen of het op 0 laten staan zodat het systeem beslist."
 }

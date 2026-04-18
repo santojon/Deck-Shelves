@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "Giochi compatibili Deck con oltre 1 ora di gioco non toccati da 6+ mesi.",
   "about_feature_smart_shelves": "Scaffali intelligenti: 12 modelli euristici che appaiono e scompaiono automaticamente",
   "smart_template_random_pick": "Roulette",
+  "smart_template_forgotten": "Dimenticati",
+  "smart_template_spare_time": "Tempo libero",
   "smart_surprise_me": "Sorprendimi",
   "smart_surprise_count": "Numero di scaffali",
   "smart_surprise_count_auto": "Automatico — il sistema decide (1–5)",
   "docs_smart_template_random_pick": "Selezione casuale dall'intera libreria — cambia ogni 5 minuti.",
+  "docs_smart_template_forgotten": "Giochi Steam in biblioteca da più di 3 anni che non hai mai avviato — ordinati dal più vecchio al più recente.",
+  "docs_smart_template_spare_time": "Giochi installati con ≤2 ore di gioco, mostrati durante le finestre di sessione breve: 6–9h, 12–14h e 19–22h. Nascosto al di fuori di quelle finestre.",
   "docs_smart_surprise_me": "Sorprendimi: il sistema sceglie automaticamente 1–5 scaffali intelligenti ogni giorno. Puoi impostare un numero esatto o lasciarlo a 0 per far decidere il sistema."
 }

@@ -41,6 +41,11 @@ export const SHELF_TPL_ICON: Record<string, React.ReactElement> = {
   long_session: Hourglass,
 }
 
+// Calendar with X — game sitting untouched for years
+const Forgotten = mk(<><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 2v2M11 2v2M2 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M6 10.5l4-2.5M6 8l4 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></>)
+// Coffee cup with steam — short-session play during breaks
+const Coffee = mk(<><path d="M3 5h8v6a3 3 0 01-3 3H6a3 3 0 01-3-3V5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M11 6.5h1a1.5 1.5 0 110 3h-1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M5.5 3.5c0-1 1-1 1-2M8 3.5c0-1 1-1 1-2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></>)
+
 export const SMART_TPL_ICON: Record<string, React.ReactElement> = {
   daily_pick: CalDot,
   deck_picks: Shield,
@@ -55,4 +60,6 @@ export const SMART_TPL_ICON: Record<string, React.ReactElement> = {
   non_steam: Gamepad,
   time_of_day: SunMoon,
   rediscover: Refresh,
+  forgotten: Forgotten,
+  spare_time: Coffee,
 }

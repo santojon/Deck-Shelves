@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "Deck-kompatible Spiele mit über 1 Stunde Spielzeit, die du seit 6+ Monaten nicht gespielt hast.",
   "about_feature_smart_shelves": "Intelligente Regale: 12 Heuristik-Vorlagen, die automatisch ein- und ausgeblendet werden",
   "smart_template_random_pick": "Roulette",
+  "smart_template_forgotten": "Vergessen",
+  "smart_template_spare_time": "Freie Stunden",
   "smart_surprise_me": "Überrasch mich",
   "smart_surprise_count": "Anzahl der Regale",
   "smart_surprise_count_auto": "Automatisch — System entscheidet (1–5)",
   "docs_smart_template_random_pick": "Willkürliche Auswahl aus der gesamten Bibliothek — wechselt alle 5 Minuten.",
+  "docs_smart_template_forgotten": "Steam-Spiele, die seit mehr als 3 Jahren in der Bibliothek sind und nie gestartet wurden — sortiert vom ältesten zum neuesten.",
+  "docs_smart_template_spare_time": "Installierte Spiele mit ≤2 Stunden Spielzeit, angezeigt in Kurzspielzeitfenstern: 6–9 Uhr, 12–14 Uhr und 19–22 Uhr. Außerhalb dieser Fenster ausgeblendet.",
   "docs_smart_surprise_me": "Überrasch mich: Das System wählt täglich automatisch 1–5 intelligente Regale aus. Du kannst eine genaue Anzahl festlegen oder sie bei 0 lassen, damit das System entscheidet."
 }

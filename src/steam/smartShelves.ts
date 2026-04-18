@@ -141,6 +141,43 @@ function resolveRandomPick(apps: AppOverview[], limit: number): number[] {
   return arr.slice(0, limit).map((a) => a.appid);
 }
 
+function rtAcquired(app: AppOverview): number {
+  return Number(app.rt_purchased_time ?? app.user_added_ts ?? 0);
+}
+
+function resolveForgotten(apps: AppOverview[], limit: number): number[] {
+  const threeYearsAgo = Math.floor(Date.now() / 1000) - 3 * 365 * 24 * 3600;
+  return apps
+    .filter(
+      (a) =>
+        !a.is_non_steam &&
+        // Exclude tools, applications, redistributables, Proton, servers, etc.
+        // app_type=1 is a game; absent means unknown (allow through)
+        (a.app_type === undefined || a.app_type === 1) &&
+        playtimeMinutes(a) === 0 &&
+        lastPlayedSec(a) === 0 &&
+        rtAcquired(a) > 0 &&
+        rtAcquired(a) < threeYearsAgo,
+    )
+    .sort((a, b) => rtAcquired(a) - rtAcquired(b))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function isSpareTimeWindow(): boolean {
+  const h = new Date().getHours();
+  return (h >= 6 && h < 9) || (h >= 12 && h < 14) || (h >= 19 && h < 22);
+}
+
+function resolveSpareTime(apps: AppOverview[], limit: number): number[] {
+  if (!isSpareTimeWindow()) return [];
+  return apps
+    .filter((a) => a.installed && playtimeMinutes(a) <= 120)
+    .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
 export function resolveSmartShelf(mode: SmartShelfMode, apps: AppOverview[], limit: number): number[] {
   return cached(`${mode}:${limit}`, () => {
     try {
@@ -158,6 +195,8 @@ export function resolveSmartShelf(mode: SmartShelfMode, apps: AppOverview[], lim
         case "long_session":    return resolveLongSession(apps, limit);
         case "non_steam":       return resolveNonSteam(apps, limit);
         case "random_pick":     return resolveRandomPick(apps, limit);
+        case "forgotten":       return resolveForgotten(apps, limit);
+        case "spare_time":      return resolveSpareTime(apps, limit);
         default: return [];
       }
     } catch {

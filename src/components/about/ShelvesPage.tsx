@@ -33,6 +33,8 @@ const SMART_TEMPLATES = [
   'docs_smart_template_non_steam',
   'docs_smart_template_time_of_day',
   'docs_smart_template_rediscover',
+  'docs_smart_template_forgotten',
+  'docs_smart_template_spare_time',
 ] as const
 
 const SMART_LABELS = [
@@ -49,6 +51,8 @@ const SMART_LABELS = [
   'smart_template_non_steam',
   'smart_template_time_of_day',
   'smart_template_rediscover',
+  'smart_template_forgotten',
+  'smart_template_spare_time',
 ] as const
 
 export function ShelvesPage() {

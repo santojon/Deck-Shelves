@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "6ヶ月以上触れていない1時間以上プレイしたDeck互換ゲーム。",
   "about_feature_smart_shelves": "スマートシェルフ：ライブラリに基づいて自動で表示・非表示になる12のテンプレート",
   "smart_template_random_pick": "ルーレット",
+  "smart_template_forgotten": "忘れもの",
+  "smart_template_spare_time": "空き時間",
   "smart_surprise_me": "サプライズモード",
   "smart_surprise_count": "シェルフ数",
   "smart_surprise_count_auto": "自動 — システムが決定 (1〜5)",
   "docs_smart_template_random_pick": "ライブラリ全体からランダム選択 — 5分ごとに更新。",
+  "docs_smart_template_forgotten": "3年以上ライブラリに追加されながら一度も起動していないSteamゲーム — 古い順に表示。",
+  "docs_smart_template_spare_time": "プレイ時間が2時間以下のインストール済みゲームを、短セッション時間帯（6〜9時、12〜14時、19〜22時）に表示。時間帯外は非表示。",
   "docs_smart_surprise_me": "サプライズモード：システムが毎日自動的に1〜5個のスマートシェルフを選択します。正確な数を設定するか、0のままにするとシステムが決定します。"
 }

@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "超过6个月未碰的已游玩1小时以上的Deck兼容游戏。",
   "about_feature_smart_shelves": "智能书架：12个启发式模板，根据游戏库自动显示和隐藏",
   "smart_template_random_pick": "轮盘",
+  "smart_template_forgotten": "遗忘",
+  "smart_template_spare_time": "空闲时光",
   "smart_surprise_me": "给我惊喜",
   "smart_surprise_count": "书架数量",
   "smart_surprise_count_auto": "自动 — 系统决定 (1–5)",
   "docs_smart_template_random_pick": "从整个游戏库随机选择 — 每5分钟更新一次。",
+  "docs_smart_template_forgotten": "在库中超过3年且从未启动过的Steam游戏 — 按购入时间从最旧到最新排序。",
+  "docs_smart_template_spare_time": "游戏时间≤2小时的已安装游戏，在短时游戏窗口期显示：6–9时、12–14时和19–22时。窗口期外隐藏。",
   "docs_smart_surprise_me": "给我惊喜：系统每天自动选择1–5个智能书架。您可以设置确切数量，或保持0让系统决定。"
 }

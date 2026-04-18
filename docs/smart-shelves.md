@@ -237,6 +237,46 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 
 ---
 
+### Spare Time — `spare_time`
+
+**When it appears:** only during three daily time windows — morning (6:00–8:59), lunch (12:00–13:59), and evening (19:00–21:59) — when you have installed games with ≤2 hours of playtime.
+
+**Criteria:**
+- Current hour ∈ {6–8, 12–13, 19–21}
+- `installed = true`
+- `playtime_forever ≤ 120 min`
+
+**Sort:** Deck Verified before Playable; within the same tier, most recently played first.
+
+**When it disappears:** outside the defined time windows (always empty), or when no installed game has ≤2 h of playtime.
+
+**Note:** the time is evaluated at resolve time. Outside the three windows the resolver returns an empty list immediately, so no shelf row is rendered.
+
+**Use case:** short-session suggestions during natural break points in the day — morning coffee, lunch, or after dinner.
+
+---
+
+### Forgotten — `forgotten`
+
+**When it appears:** you have Steam games (non-Steam shortcuts excluded) that have been in your library for more than 3 years and have never been launched.
+
+**Criteria:**
+- `is_non_steam = false`
+- `app_type = 1` (game) or unknown — excludes tools, Proton, redistributables, servers, SDKs
+- `playtime_forever = 0`
+- `last_played = 0` (never opened)
+- `rt_purchased_time` (or `user_added_ts`) > 0 AND < (now − 3 years)
+
+**Sort:** oldest acquisition date first (ascending by `rt_purchased_time`).
+
+**When it disappears:** when every game in the "never played" backlog was acquired less than 3 years ago, or when all games have been started at least once.
+
+**Reliability: Low.** Requires at least 3 years of library history with unplayed games. New accounts and active players will rarely see this shelf.
+
+**Use case:** surfaces the deepest backlog — games bought long ago and completely forgotten.
+
+---
+
 ## Appearance Reliability Summary
 
 | Template | Disappears when… | Reliability |
@@ -252,8 +292,10 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 | `interrupted` | no game in the 30–180 min range | Medium |
 | `random_pick` | library is completely empty | **Very High** |
 | `non_steam` | no non-Steam shortcuts in library | Medium |
+| `spare_time` | outside active windows, or no installed game ≤2 h | Medium (in-window) |
 | `time_of_day` | delegate for current hour is empty | Inherits |
 | `rediscover` | no compat game with >1 h untouched for 6 months | Low–Medium |
+| `forgotten` | no 3+ year old unplayed game in library | Low |
 
 > `daily_pick`, `deck_picks`, `on_deck`, `recently_played`, and `random_pick` are the most likely to always be visible. The template picker lists templates from highest to lowest probability.
 

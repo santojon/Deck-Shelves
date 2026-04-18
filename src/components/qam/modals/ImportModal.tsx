@@ -4,29 +4,7 @@ import { toaster, openFilePicker } from '@decky/api'
 import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import { importSettingsFromFile } from '../../../settingsStore'
 import type { SettingsController } from '../../../features/settings/controller'
-
-function textFromDeckyChange(value: unknown): string {
-  if (typeof value === 'string') return value
-  const maybe = (value as any)?.target?.value ?? (value as any)?.currentTarget?.value ?? (value as any)?.value ?? value
-  return typeof maybe === 'string' ? maybe : ''
-}
-
-function pickerPath(result: unknown): string {
-  if (typeof result === 'string') return result
-  if (Array.isArray(result)) return pickerPath(result[0])
-  const maybe = result as any
-  return String(maybe?.realpath ?? maybe?.path ?? maybe?.strPath ?? maybe?.filepath ?? maybe?.file_path ?? maybe?.selectedPath ?? '')
-}
-
-async function tryPickerCalls(calls: Array<() => Promise<unknown>>): Promise<string> {
-  for (const fn of calls) {
-    try {
-      const value = pickerPath(await fn())
-      if (value) return value
-    } catch {}
-  }
-  return ''
-}
+import { textFromDeckyChange, pickerPath, tryPickerCalls } from './modalUtils'
 
 async function pickJsonFile(startPath: string) {
   return await tryPickerCalls([

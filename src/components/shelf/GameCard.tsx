@@ -8,6 +8,7 @@ import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
+import { resolveNativeCardClass } from "./cardUtils";
 
 const downloadIcon = (
   <span className="ds-card-status-icon">
@@ -80,24 +81,13 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   useEffect(() => {
     function injectNativeClasses(): boolean {
       const doc = getPreferredSteamDocument();
+      const cls = resolveNativeCardClass(doc);
+      if (cls === null) return false;
+      setNativeCardClass(cls);
       const map = doc ? getRuntimeClassMap(doc) : null;
-      if (!map?.nativeCard) return false;
-      const sampleSelector = buildSelectorFromToken(map.nativeCard);
+      const sampleSelector = map?.nativeCard ? buildSelectorFromToken(map.nativeCard) : null;
       const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
       if (nativeSample) {
-        try {
-          const rootClasses = Array.from(nativeSample.classList).filter((cls) => (
-            cls !== 'Panel'
-            && cls !== 'Focusable'
-            && cls !== 'gpfocus'
-            && !cls.startsWith('ds-')
-          ));
-          if (!rootClasses.includes('gpfocuswithin')) rootClasses.push('gpfocuswithin');
-          setNativeCardClass(rootClasses.join(' '));
-        } catch (e) {
-          logInfo("HOME", "injectNativeClasses: classList read failed", String(e));
-          setNativeCardClass('');
-        }
 
         try {
           const pa = getComputedStyle(nativeSample, '::after');
@@ -123,9 +113,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         } catch (e) {
           logInfo("HOME", "injectNativeClasses: animation read failed", String(e));
         }
-      } else {
-        setNativeCardClass('');
       }
+      if (!map) return true;
       const artEl = cardRef.current?.querySelector('.ds-card-art');
       if (artEl) {
         if (map.nativeCardArt && !artEl.classList.contains(map.nativeCardArt)) artEl.classList.add(map.nativeCardArt);

@@ -72,6 +72,8 @@ export const SmartShelfModeSchema = z.enum([
   "long_session",
   "non_steam",
   "random_pick",
+  "forgotten",
+  "spare_time",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 

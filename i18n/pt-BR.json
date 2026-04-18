@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "Jogos compatíveis com Deck com mais de 1 hora de jogo que você não toca há 6+ meses.",
   "about_feature_smart_shelves": "Prateleiras inteligentes: 12 templates heurísticos que aparecem e somem automaticamente",
   "smart_template_random_pick": "Roleta",
+  "smart_template_forgotten": "Esquecidos",
+  "smart_template_spare_time": "Horas Vagas",
   "smart_surprise_me": "Me surpreenda",
   "smart_surprise_count": "Quantidade de prateleiras",
   "smart_surprise_count_auto": "Automático — o sistema decide (1–5)",
   "docs_smart_template_random_pick": "Seleção aleatória de toda a biblioteca — muda a cada 5 minutos.",
+  "docs_smart_template_forgotten": "Jogos Steam com mais de 3 anos na biblioteca que você nunca abriu — ordenados do mais antigo ao mais recente.",
+  "docs_smart_template_spare_time": "Jogos instalados com ≤2 horas de jogo, exibidos em horários de sessão curta: 6–9h, 12–14h e 19–22h. Oculto fora dessas janelas.",
   "docs_smart_surprise_me": "Me surpreenda: o sistema escolhe automaticamente 1–5 prateleiras inteligentes por dia. Você pode definir um número exato ou deixar em 0 para o sistema decidir."
 }

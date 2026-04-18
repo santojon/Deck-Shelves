@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "6+ aydır oynamadığınız 1 saatten fazla oynanmış Deck uyumlu oyunlar.",
   "about_feature_smart_shelves": "Akıllı raflar: otomatik görünen ve kaybolan 12 buluşsal şablon",
   "smart_template_random_pick": "Rulet",
+  "smart_template_forgotten": "Unutulanlar",
+  "smart_template_spare_time": "Boş Zaman",
   "smart_surprise_me": "Beni şaşırt",
   "smart_surprise_count": "Raf sayısı",
   "smart_surprise_count_auto": "Otomatik — sistem karar verir (1–5)",
   "docs_smart_template_random_pick": "Tüm kütüphaneden rastgele seçim — her 5 dakikada bir değişir.",
+  "docs_smart_template_forgotten": "3 yıldan uzun süredir kütüphanenizde olan ve hiç açmadığınız Steam oyunları — en eskiden en yeniye sıralı.",
+  "docs_smart_template_spare_time": "≤2 saatlik oyun süresi olan yüklü oyunlar, kısa oturum pencerelerinde gösterilir: 6–9, 12–14 ve 19–22. Bu pencereler dışında gizlidir.",
   "docs_smart_surprise_me": "Beni şaşırt: sistem her gün otomatik olarak 1–5 akıllı raf seçer. Tam sayı belirleyebilir veya sistemin karar vermesi için 0'da bırakabilirsiniz."
 }

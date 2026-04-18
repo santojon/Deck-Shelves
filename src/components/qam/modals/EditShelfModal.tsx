@@ -51,11 +51,7 @@ type EditableShelfState = {
   hideNonSteamBadge: boolean
 }
 
-function textFromDeckyChange(value: unknown): string {
-  if (typeof value === 'string') return value
-  const maybe = (value as any)?.target?.value ?? (value as any)?.currentTarget?.value ?? (value as any)?.value ?? value
-  return typeof maybe === 'string' ? maybe : ''
-}
+import { textFromDeckyChange } from './modalUtils'
 
 function optionData(option: unknown) {
   return (option as any)?.data ?? option

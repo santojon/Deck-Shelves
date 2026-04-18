@@ -24,7 +24,7 @@ const homePlatform = createDeckyPlatform();
 const SURPRISE_MODES: SmartShelfMode[] = [
   "daily_pick", "deck_picks", "on_deck", "recently_played", "long_session",
   "random_pick", "not_started", "best_unplayed", "quick_play", "interrupted",
-  "non_steam", "time_of_day", "rediscover",
+  "non_steam", "spare_time", "time_of_day", "rediscover", "forgotten",
 ];
 
 function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -369,12 +369,18 @@ export function HomeShelves() {
 
   // Placement logic:
   //  - atBottom: normal first, then smart
-  //  - hideRecents + !atBottom: [first normal, ...smart, ...rest normal]
-  //  - default (!atBottom, no hideRecents): smart first, then normal
+  //  - hideRecents + !atBottom + NOT replace-injecting: [first normal, ...smart, ...rest normal]
+  //    (first normal shelf acts as "recents slot placeholder" when native recents is hidden)
+  //  - replace-injecting or default: smart first (or last if atBottom), then normal
+  //    (when replace-injecting, shelf1 is already in the native recents slot; normalShelves
+  //     already has it removed, so the "after first" special case must not apply)
+  const useAfterFirst = settings.hideRecents === true
+    && normalShelves.length > 0
+    && !(replaceInjecting && !replaceKillSwitch);
   let shelves: Shelf[];
   if (settings.smartShelvesAtBottom) {
     shelves = [...normalShelves, ...smartShelves];
-  } else if (settings.hideRecents === true && normalShelves.length > 0) {
+  } else if (useAfterFirst) {
     shelves = [normalShelves[0], ...smartShelves, ...normalShelves.slice(1)];
   } else {
     shelves = [...smartShelves, ...normalShelves];

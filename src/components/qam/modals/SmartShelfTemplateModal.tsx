@@ -19,8 +19,10 @@ export const SMART_TEMPLATES: SmartTemplate[] = [
   { mode: "quick_play",      titleKey: "smart_template_quick_play" },
   { mode: "interrupted",     titleKey: "smart_template_interrupted" },
   { mode: "non_steam",       titleKey: "smart_template_non_steam" },
+  { mode: "spare_time",      titleKey: "smart_template_spare_time" },
   { mode: "time_of_day",     titleKey: "smart_template_time_of_day" },
   { mode: "rediscover",      titleKey: "smart_template_rediscover" },
+  { mode: "forgotten",       titleKey: "smart_template_forgotten" },
 ]
 
 const btnStyle: React.CSSProperties = {

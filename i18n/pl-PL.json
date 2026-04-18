@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "Gry kompatybilne z Deckiem z ponad 1 godziną gry, których nie tknąłeś przez 6+ miesięcy.",
   "about_feature_smart_shelves": "Inteligentne półki: 12 szablonów heurystycznych, które pojawiają się i znikają automatycznie",
   "smart_template_random_pick": "Ruletka",
+  "smart_template_forgotten": "Zapomniane",
+  "smart_template_spare_time": "Wolny czas",
   "smart_surprise_me": "Zaskocz mnie",
   "smart_surprise_count": "Liczba półek",
   "smart_surprise_count_auto": "Automatycznie — system decyduje (1–5)",
   "docs_smart_template_random_pick": "Losowy wybór z całej biblioteki — zmienia się co 5 minut.",
+  "docs_smart_template_forgotten": "Gry Steam w bibliotece od ponad 3 lat, których nigdy nie uruchomiono — posortowane od najstarszej do najnowszej.",
+  "docs_smart_template_spare_time": "Zainstalowane gry z ≤2 godzinami rozgrywki, wyświetlane w oknach krótkich sesji: 6–9h, 12–14h i 19–22h. Ukryte poza tymi oknami.",
   "docs_smart_surprise_me": "Zaskocz mnie: system automatycznie wybiera 1–5 inteligentnych półek każdego dnia. Możesz ustawić dokładną liczbę lub zostawić 0, żeby system zdecydował."
 }

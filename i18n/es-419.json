@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "Juegos compatibles con Deck con más de 1 hora de juego que no tocaste en 6+ meses.",
   "about_feature_smart_shelves": "Estantes inteligentes: 12 plantillas heurísticas que aparecen y desaparecen automáticamente",
   "smart_template_random_pick": "Ruleta",
+  "smart_template_forgotten": "Olvidados",
+  "smart_template_spare_time": "Tiempo libre",
   "smart_surprise_me": "Sorpréndeme",
   "smart_surprise_count": "Número de estantes",
   "smart_surprise_count_auto": "Automático — el sistema decide (1–5)",
   "docs_smart_template_random_pick": "Selección aleatoria de toda la biblioteca — cambia cada 5 minutos.",
+  "docs_smart_template_forgotten": "Juegos de Steam en tu biblioteca desde hace más de 3 años que nunca has abierto — ordenados del más antiguo al más reciente.",
+  "docs_smart_template_spare_time": "Juegos instalados con ≤2 horas de juego, mostrados en ventanas de sesión corta: 6–9h, 12–14h y 19–22h. Oculto fuera de esas ventanas.",
   "docs_smart_surprise_me": "Sorpréndeme: el sistema elige automáticamente 1–5 estantes inteligentes cada día. Puedes fijar un número exacto o dejarlo en 0 para que el sistema decida."
 }

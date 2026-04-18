@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "6개월 이상 손대지 않은 1시간 이상 플레이된 Deck 호환 게임.",
   "about_feature_smart_shelves": "스마트 선반: 라이브러리에 따라 자동으로 표시·숨겨지는 12가지 템플릿",
   "smart_template_random_pick": "룰렛",
+  "smart_template_forgotten": "잊혀진 게임",
+  "smart_template_spare_time": "여가 시간",
   "smart_surprise_me": "서프라이즈 모드",
   "smart_surprise_count": "선반 수",
   "smart_surprise_count_auto": "자동 — 시스템이 결정 (1–5)",
   "docs_smart_template_random_pick": "전체 라이브러리에서 무작위 선택 — 5분마다 변경.",
+  "docs_smart_template_forgotten": "3년 이상 라이브러리에 있지만 한 번도 실행하지 않은 Steam 게임 — 가장 오래된 순서로 정렬.",
+  "docs_smart_template_spare_time": "플레이 시간이 2시간 이하인 설치된 게임을 짧은 세션 시간대에 표시: 6–9시, 12–14시, 19–22시. 해당 시간대 외에는 숨겨집니다.",
   "docs_smart_surprise_me": "서프라이즈 모드: 시스템이 매일 자동으로 1–5개의 스마트 선반을 선택합니다. 정확한 수를 설정하거나 0으로 두면 시스템이 결정합니다."
 }

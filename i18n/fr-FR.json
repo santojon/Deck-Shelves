@@ -292,9 +292,13 @@
   "docs_smart_template_rediscover": "Jeux compatibles Deck avec plus d'1 heure de jeu non touché depuis 6+ mois.",
   "about_feature_smart_shelves": "Étagères intelligentes : 12 modèles heuristiques qui apparaissent et disparaissent automatiquement",
   "smart_template_random_pick": "Roulette",
+  "smart_template_forgotten": "Oubliés",
+  "smart_template_spare_time": "Temps libre",
   "smart_surprise_me": "Surprends-moi",
   "smart_surprise_count": "Nombre d'étagères",
   "smart_surprise_count_auto": "Automatique — le système décide (1–5)",
   "docs_smart_template_random_pick": "Sélection aléatoire de toute la bibliothèque — change toutes les 5 minutes.",
+  "docs_smart_template_forgotten": "Jeux Steam possédés depuis plus de 3 ans que vous n'avez jamais lancés — triés du plus ancien au plus récent.",
+  "docs_smart_template_spare_time": "Jeux installés avec ≤2 heures de jeu, affichés pendant les plages de courte session : 6–9h, 12–14h et 19–22h. Masqué en dehors de ces plages.",
   "docs_smart_surprise_me": "Surprends-moi : le système choisit automatiquement 1 à 5 étagères intelligentes chaque jour. Vous pouvez définir un nombre exact ou le laisser à 0 pour que le système décide."
 }

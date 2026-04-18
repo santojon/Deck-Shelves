@@ -688,6 +688,7 @@ export type AppOverview = {
   header?: string;
   icon_hash?: string;
   update_pending?: boolean;
+  app_type?: number;
 };
 
 export function normalizeAppOverview(node: any): AppOverview | null {
@@ -754,6 +755,7 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     library_hero: String(node?.library_hero ?? node?.hero ?? node?.libraryHero ?? ""),
     header: String(node?.header ?? node?.header_image ?? node?.capsule ?? ""),
     icon_hash: String(node?.icon_hash ?? node?.iconHash ?? ""),
+    app_type: Number(node?.app_type ?? node?.appType ?? node?.m_eAppType ?? node?.eAppType ?? 0) || undefined,
   };
 }
 

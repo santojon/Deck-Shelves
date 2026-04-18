@@ -5,24 +5,7 @@ import { DeckModalStyles } from '../../styles/DeckModalStyles'
 import type { SettingsController } from '../../../features/settings/controller'
 import { exportSettingsToFile } from '../../../settingsStore'
 import { resetMountFailed } from '../../../runtime/homePatch'
-
-function textFromDeckyChange(value: unknown): string {
-  if (typeof value === 'string') return value
-  const maybe = (value as any)?.target?.value ?? (value as any)?.currentTarget?.value ?? (value as any)?.value ?? value
-  return typeof maybe === 'string' ? maybe : ''
-}
-
-function filenameWithJson(name: string) {
-  const base = name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9._-]/g, '').replace(/-+/g, '-') || 'deck-shelves'
-  return base.toLowerCase().endsWith('.json') ? base : `${base}.json`
-}
-
-function pickerPath(result: unknown): string {
-  if (typeof result === 'string') return result
-  if (Array.isArray(result)) return pickerPath(result[0])
-  const maybe = result as any
-  return String(maybe?.realpath ?? maybe?.path ?? maybe?.strPath ?? maybe?.filepath ?? maybe?.file_path ?? maybe?.selectedPath ?? '')
-}
+import { textFromDeckyChange, filenameWithJson, pickerPath } from './modalUtils'
 
 async function pickFolder(startPath: string) {
   for (const fn of [

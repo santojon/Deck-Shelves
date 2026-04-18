@@ -117,6 +117,8 @@
   "docs_smart_template_time_of_day": "Changes based on the hour: Quick Play in the morning, Deck Picks in the afternoon, Rediscover at night.",
   "docs_smart_template_rediscover": "Deck-compatible games with over 1 hour of playtime that you haven't touched in 6+ months.",
   "docs_smart_template_random_pick": "Random selection from your entire library — refreshes every 5 minutes.",
+  "docs_smart_template_forgotten": "Steam games owned for 3+ years that you have never launched — sorted from oldest acquisition to newest.",
+  "docs_smart_template_spare_time": "Installed games with ≤2 hours of playtime, shown during short-session windows: 6–9h, 12–14h, and 19–22h. Hidden outside those windows.",
   "docs_smart_surprise_me": "Surprise Me: the system picks 1–5 smart shelf templates each day automatically. You can set an exact count or leave it at 0 for the system to decide.",
   "about_feature_smart_shelves": "Smart shelves: 12 heuristic templates that appear and disappear automatically based on your library",
   "docs_sort_added_desc": "Sort by when the game was added to your library (newest first).",
@@ -294,6 +296,8 @@
   "smart_template_long_session": "Long Sessions",
   "smart_template_non_steam": "Non-Steam",
   "smart_template_random_pick": "Roulette",
+  "smart_template_forgotten": "Forgotten",
+  "smart_template_spare_time": "Spare Time",
   "smart_surprise_me": "Surprise Me",
   "smart_surprise_count": "Number of shelves",
   "smart_surprise_count_auto": "Auto — system decides (1–5)"
