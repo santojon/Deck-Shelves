@@ -2,6 +2,7 @@ import { DropdownItem, Field, SliderField, TextField, ToggleField } from "@decky
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";
 import DeveloperFilterOptions from "./DeveloperFilterOptions";
+import PublisherFilterOptions from "./PublisherFilterOptions";
 import { COMPAT_LEVELS } from "./utils";
 
 export default function FilterItemOptions({ item, onChange }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void }) {
@@ -182,6 +183,29 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
 
     case "developer":
       return <DeveloperFilterOptions selected={Array.isArray(p.developers) ? p.developers : []} onChange={(devs) => patchParams({ developers: devs })} />;
+
+    case "publisher":
+      return <PublisherFilterOptions selected={Array.isArray(p.publishers) ? p.publishers : []} onChange={(pubs) => patchParams({ publishers: pubs })} />;
+
+    case "appIdList": {
+      const ids: number[] = Array.isArray(p.appIds) ? p.appIds : [];
+      return (
+        <div>
+          <Field label={t("filter_type_appIdList")} description={t("filter_appIdList_hint")} bottomSeparator="none">
+            <div style={{ minWidth: 250 }}>
+              <TextField
+                value={ids.join(", ")}
+                onChange={(val: any) => {
+                  const raw = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
+                  const parsed = raw.split(",").map((s: string) => Number(s.trim())).filter((n: number) => Number.isFinite(n) && n > 0);
+                  patchParams({ appIds: parsed });
+                }}
+              />
+            </div>
+          </Field>
+        </div>
+      );
+    }
 
     case "friends":
     case "achievements":

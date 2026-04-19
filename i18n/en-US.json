@@ -308,5 +308,11 @@
   "toast_failed_save": "Could not save settings",
   "toast_imported": "Settings imported",
   "view_more": "View more\nin your\nlibrary",
-  "visibility": "Visibility"
+  "visibility": "Visibility",
+  "highlight_all": "Highlight all games",
+  "filter_type_publisher": "Publisher",
+  "filter_publisher_loading": "Loading publishers...",
+  "filter_publisher_empty": "No publishers found",
+  "filter_type_appIdList": "App ID list",
+  "filter_appIdList_hint": "Comma-separated app IDs"
 }

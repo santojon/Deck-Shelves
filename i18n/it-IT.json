@@ -308,5 +308,11 @@
   "toast_failed_save": "Impossibile salvare le impostazioni",
   "toast_imported": "Impostazioni importate",
   "view_more": "Vedi altro\nnella tua\nlibreria",
-  "visibility": "Visibilità"
+  "visibility": "Visibilità",
+  "highlight_all": "Evidenzia tutti i giochi",
+  "filter_type_publisher": "Publisher",
+  "filter_publisher_loading": "Caricamento publisher...",
+  "filter_publisher_empty": "Nessun publisher trovato",
+  "filter_type_appIdList": "Lista App ID",
+  "filter_appIdList_hint": "App ID separati da virgola"
 }

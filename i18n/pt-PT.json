@@ -308,5 +308,11 @@
   "toast_failed_save": "Não foi possível guardar as definições",
   "toast_imported": "Definições importadas",
   "view_more": "Ver mais\nna sua\nbiblioteca",
-  "visibility": "Visibilidade"
+  "visibility": "Visibilidade",
+  "highlight_all": "Destacar todos os jogos",
+  "filter_type_publisher": "Editora",
+  "filter_publisher_loading": "A carregar editoras...",
+  "filter_publisher_empty": "Nenhuma editora encontrada",
+  "filter_type_appIdList": "Lista de App IDs",
+  "filter_appIdList_hint": "App IDs separados por vírgula"
 }

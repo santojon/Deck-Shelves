@@ -308,5 +308,11 @@
   "toast_failed_save": "Kan instellingen niet opslaan",
   "toast_imported": "Instellingen geïmporteerd",
   "view_more": "Meer bekijken\nin je\nbibliotheek",
-  "visibility": "Zichtbaarheid"
+  "visibility": "Zichtbaarheid",
+  "highlight_all": "Alle games markeren",
+  "filter_type_publisher": "Uitgever",
+  "filter_publisher_loading": "Uitgevers laden...",
+  "filter_publisher_empty": "Geen uitgevers gevonden",
+  "filter_type_appIdList": "App ID-lijst",
+  "filter_appIdList_hint": "App-ID's, kommagescheiden"
 }

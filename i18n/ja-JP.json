@@ -308,5 +308,11 @@
   "toast_failed_save": "設定を保存できませんでした",
   "toast_imported": "設定をインポートしました",
   "view_more": "ライブラリで\nもっと見る",
-  "visibility": "表示設定"
+  "visibility": "表示設定",
+  "highlight_all": "すべてのゲームをハイライト",
+  "filter_type_publisher": "パブリッシャー",
+  "filter_publisher_loading": "パブリッシャーを読み込み中...",
+  "filter_publisher_empty": "パブリッシャーが見つかりません",
+  "filter_type_appIdList": "アプリIDリスト",
+  "filter_appIdList_hint": "カンマ区切りのアプリID"
 }

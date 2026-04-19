@@ -308,5 +308,11 @@
   "toast_failed_save": "Не вдалося зберегти налаштування",
   "toast_imported": "Налаштування імпортовано",
   "view_more": "Більше\nу вашій\nбібліотеці",
-  "visibility": "Видимість"
+  "visibility": "Видимість",
+  "highlight_all": "Виділити всі ігри",
+  "filter_type_publisher": "Видавець",
+  "filter_publisher_loading": "Завантаження видавців...",
+  "filter_publisher_empty": "Видавців не знайдено",
+  "filter_type_appIdList": "Список App ID",
+  "filter_appIdList_hint": "App ID через кому"
 }

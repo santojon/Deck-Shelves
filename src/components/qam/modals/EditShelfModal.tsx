@@ -47,6 +47,7 @@ type EditableShelfState = {
   limit: number
   matchNativeSize: boolean
   highlightFirst: boolean
+  highlightAll: boolean
   hideStatusLine: boolean
   hideNewBadge: boolean
   hideCompatIcons: boolean
@@ -76,6 +77,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     limit: shelf.limit,
     matchNativeSize: shelf.matchNativeSize ?? false,
     highlightFirst: shelf.highlightFirst ?? false,
+    highlightAll: shelf.highlightAll ?? false,
     hideStatusLine: shelf.hideStatusLine ?? false,
     hideNewBadge: shelf.hideNewBadge ?? false,
     hideCompatIcons: shelf.hideCompatIcons ?? false,
@@ -155,7 +157,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     closeModal?.();
     (async () => {
       const title = state.title.trim() || t('newShelf');
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
       if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
@@ -239,6 +241,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                   <div className='field-item-container' style={{ padding: '0 16px' }}>
                     <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
                     <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
+                    <ToggleField label={t('highlight_all')} checked={state.highlightAll} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightAll: value }))} />
                   </div>
                 ),
               },

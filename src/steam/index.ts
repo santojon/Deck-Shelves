@@ -1649,6 +1649,19 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       result = selected.some((d) => d.toLowerCase() === dev.toLowerCase());
       break;
     }
+    case "publisher": {
+      const selected: string[] = Array.isArray(item.params?.publishers) ? item.params.publishers : [];
+      if (!selected.length) { result = true; break; }
+      const pub = getAppPublisherCached(app.appid);
+      result = selected.some((p) => p.toLowerCase() === pub.toLowerCase());
+      break;
+    }
+    case "appIdList": {
+      const ids: number[] = Array.isArray(item.params?.appIds) ? item.params.appIds.map(Number).filter(Number.isFinite) : [];
+      if (!ids.length) { result = true; break; }
+      result = ids.includes(app.appid);
+      break;
+    }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
     default:
       result = true;
@@ -2143,6 +2156,64 @@ function getAppDetailsStore(): any {
     if (s?.m_mapAppData) return s;
   }
   return null;
+}
+
+const publisherCache = new Map<number, string>();
+
+/** Read publisher from appDetailsStore without triggering a network load. */
+export function getAppPublisherCached(appid: number): string {
+  if (publisherCache.has(appid)) return publisherCache.get(appid)!;
+  try {
+    const store = getAppDetailsStore();
+    const entry = store?.m_mapAppData?.get?.(appid);
+    const pub: string = entry?.details?.strPublisherName ?? "";
+    if (pub) publisherCache.set(appid, pub);
+    return pub;
+  } catch {
+    return "";
+  }
+}
+
+export async function preloadPublisherData(appids: number[]): Promise<void> {
+  const sc = (globalThis as any).SteamClient ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
+  if (!sc?.Apps?.RegisterForAppDetails) return;
+
+  const uncached = appids.filter((id) => !publisherCache.has(id));
+  if (!uncached.length) return;
+
+  const BATCH = 30;
+  const TIMEOUT_MS = 5000;
+
+  for (let i = 0; i < uncached.length; i += BATCH) {
+    const batch = uncached.slice(i, i + BATCH);
+    await Promise.all(
+      batch.map(
+        (appid) =>
+          new Promise<void>((resolve) => {
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            try {
+              const handle = sc?.Apps?.RegisterForAppDetails?.(appid, (details: any) => {
+                try { handle?.unregister?.(); } catch {}
+                const pub: string = details?.strPublisherName ?? "";
+                publisherCache.set(appid, pub);
+                finish();
+              });
+              setTimeout(() => { try { handle?.unregister?.(); } catch {} finish(); }, TIMEOUT_MS);
+            } catch { finish(); }
+          }),
+      ),
+    );
+  }
+}
+
+export function getUniquePublishers(appids: number[]): string[] {
+  const set = new Set<string>();
+  for (const id of appids) {
+    const pub = getAppPublisherCached(id);
+    if (pub) set.add(pub);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
 /** Read developer from appDetailsStore without triggering a network load. */

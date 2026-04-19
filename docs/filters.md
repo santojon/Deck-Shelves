@@ -18,7 +18,9 @@ Deck Shelves supports advanced game filtering with AND/OR logic using filter gro
 | `nameIncludes` | Name contains substring | `text`: string |
 | `nameRegex` | Name matches regex | `pattern`: string |
 | `collection` | Games in a specific Steam collection | `collectionId`: string |
-| `developer` | Developer / Publisher name | `developers`: string[] |
+| `developer` | Filter by developer name | `developers`: string[] |
+| `publisher` | Filter by publisher name | `publishers`: string[] |
+| `appIdList` | Explicit whitelist of app IDs | `appIds`: number[] |
 | `merge` | Combine multiple shelf sources | `sources`: ShelfSource[] |
 | `storeTag` | Has specific Steam store tags _(pass-through, not yet evaluated)_ | `tags`: string[] |
 | `achievements` | Achievement count range _(pass-through, not yet evaluated)_ | `min`, `max`: number |

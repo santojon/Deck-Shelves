@@ -308,5 +308,11 @@
   "toast_failed_save": "Einstellungen konnten nicht gespeichert werden",
   "toast_imported": "Einstellungen importiert",
   "view_more": "Mehr anzeigen\nin deiner\nBibliothek",
-  "visibility": "Sichtbarkeit"
+  "visibility": "Sichtbarkeit",
+  "highlight_all": "Alle Spiele hervorheben",
+  "filter_type_publisher": "Publisher",
+  "filter_publisher_loading": "Publisher werden geladen...",
+  "filter_publisher_empty": "Keine Publisher gefunden",
+  "filter_type_appIdList": "App-ID-Liste",
+  "filter_appIdList_hint": "App-IDs, kommagetrennt"
 }

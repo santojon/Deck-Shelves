@@ -308,5 +308,11 @@
   "toast_failed_save": "No se pudieron guardar los ajustes",
   "toast_imported": "Ajustes importados",
   "view_more": "Ver más\nen tu\nbiblioteca",
-  "visibility": "Visibilidad"
+  "visibility": "Visibilidad",
+  "highlight_all": "Resaltar todos los juegos",
+  "filter_type_publisher": "Distribuidora",
+  "filter_publisher_loading": "Cargando distribuidoras...",
+  "filter_publisher_empty": "No se encontraron distribuidoras",
+  "filter_type_appIdList": "Lista de App IDs",
+  "filter_appIdList_hint": "App IDs separados por comas"
 }

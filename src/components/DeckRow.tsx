@@ -38,7 +38,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -421,10 +421,10 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
             item.isMoreLink
               ? <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
                 : <GameCard key={item.id} item={item}
-                  cardW={highlightFirst && idx === 0 ? finalFeaturedW : effectiveW}
-                  cardH={highlightFirst && idx === 0 ? finalFeaturedH : effectiveH}
-                  artH={highlightFirst && idx === 0 ? finalFeaturedArtH : effectiveArtH}
-                  featured={highlightFirst && idx === 0}
+                  cardW={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedW : effectiveW}
+                  cardH={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedH : effectiveH}
+                  artH={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedArtH : effectiveArtH}
+                  featured={highlightAll || (highlightFirst && idx === 0)}
                   hideStatusLine={hideStatusLine}
                   hideNewBadge={hideNewBadge}
                   hideCompatIcons={hideCompatIcons}

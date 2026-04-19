@@ -308,5 +308,11 @@
   "toast_failed_save": "无法保存设置",
   "toast_imported": "设置已导入",
   "view_more": "在库中\n查看更多",
-  "visibility": "可见性"
+  "visibility": "可见性",
+  "highlight_all": "高亮所有游戏",
+  "filter_type_publisher": "发行商",
+  "filter_publisher_loading": "正在加载发行商...",
+  "filter_publisher_empty": "未找到发行商",
+  "filter_type_appIdList": "App ID 列表",
+  "filter_appIdList_hint": "逗号分隔的 App ID"
 }

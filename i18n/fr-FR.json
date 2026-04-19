@@ -308,5 +308,11 @@
   "toast_failed_save": "Impossible d'enregistrer les paramètres",
   "toast_imported": "Paramètres importés",
   "view_more": "Voir plus\ndans votre\nbibliothèque",
-  "visibility": "Visibilité"
+  "visibility": "Visibilité",
+  "highlight_all": "Mettre en avant tous les jeux",
+  "filter_type_publisher": "Éditeur",
+  "filter_publisher_loading": "Chargement des éditeurs...",
+  "filter_publisher_empty": "Aucun éditeur trouvé",
+  "filter_type_appIdList": "Liste d'App IDs",
+  "filter_appIdList_hint": "App IDs séparés par des virgules"
 }

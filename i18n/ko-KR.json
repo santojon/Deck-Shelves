@@ -308,5 +308,11 @@
   "toast_failed_save": "설정을 저장할 수 없습니다",
   "toast_imported": "설정을 가져왔습니다",
   "view_more": "라이브러리에서\n더 보기",
-  "visibility": "표시 설정"
+  "visibility": "표시 설정",
+  "highlight_all": "모든 게임 강조 표시",
+  "filter_type_publisher": "퍼블리셔",
+  "filter_publisher_loading": "퍼블리셔 불러오는 중...",
+  "filter_publisher_empty": "퍼블리셔 없음",
+  "filter_type_appIdList": "앱 ID 목록",
+  "filter_appIdList_hint": "쉼표로 구분된 앱 ID"
 }

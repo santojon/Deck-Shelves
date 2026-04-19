@@ -308,5 +308,11 @@
   "toast_failed_save": "Ayarlar kaydedilemedi",
   "toast_imported": "Ayarlar içe aktarıldı",
   "view_more": "Kütüphanenizde\ndaha fazlasını\ngörün",
-  "visibility": "Görünürlük"
+  "visibility": "Görünürlük",
+  "highlight_all": "Tüm oyunları vurgula",
+  "filter_type_publisher": "Yayıncı",
+  "filter_publisher_loading": "Yayıncılar yükleniyor...",
+  "filter_publisher_empty": "Yayıncı bulunamadı",
+  "filter_type_appIdList": "App ID listesi",
+  "filter_appIdList_hint": "Virgülle ayrılmış App ID'ler"
 }
