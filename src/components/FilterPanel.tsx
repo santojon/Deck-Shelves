@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useRef, useEffect } from "react";
-import { ButtonItem, Field, Focusable, Dropdown } from "@decky/ui";
+import { DialogButton, Field, Focusable, Dropdown } from "@decky/ui";
 import type { SingleDropdownOption } from "@decky/ui";
 import type { FilterGroup, FilterItem } from "../types";
 import i18n from "../i18n";
@@ -78,7 +78,7 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
   });
 
   return (
-    <Focusable style={{ marginTop: 8 }}>
+    <div style={{ marginTop: 8 }}>
       <div>
         <div>
           <Field
@@ -141,17 +141,21 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
           })}
         </div>
 
-        <div>
-          {!canAddFilter && (
-            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginLeft: -42, marginRight: -42 }}>
+          {!canAddFilter ? (
+            <span style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.3 }}>
               {t("filter_finish_before_adding")}
-            </div>
+            </span>
+          ) : (
+            <div style={{ flex: 1 }} />
           )}
-          <ButtonItem onClick={addItem} disabled={!canAddFilter}>
-            + {t("filter_add")}
-          </ButtonItem>
+          <Focusable>
+            <DialogButton onClick={addItem} disabled={!canAddFilter} style={{ padding: "8px 16px" }}>
+              + {t("filter_add")}
+            </DialogButton>
+          </Focusable>
         </div>
       </div>
-    </Focusable>
+    </div>
   );
 }
