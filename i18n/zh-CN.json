@@ -315,7 +315,7 @@
   "filter_publisher_empty": "未找到发行商",
   "filter_type_appIdList": "App ID 列表",
   "filter_appIdList_hint": "逗号分隔的 App ID",
-  "docs_filter_developer_desc": "Show games developed by specific studios. Options are discovered from your library automatically.",
-  "docs_filter_publisher_desc": "Show games published by specific publishers. Options are discovered from your library automatically.",
-  "docs_filter_appidlist_desc": "Whitelist an explicit set of Steam app IDs. Only those games appear in the shelf."
+  "docs_filter_developer_desc": "显示由特定工作室开发的游戏。选项会自动从您的游戏库中发现。",
+  "docs_filter_publisher_desc": "显示由特定发行商发布的游戏。选项会自动从您的游戏库中发现。",
+  "docs_filter_appidlist_desc": "定义一个明确的 Steam App ID 列表。只有这些游戏会显示在书架中。"
 }

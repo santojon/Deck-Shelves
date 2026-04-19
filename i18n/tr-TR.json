@@ -315,7 +315,7 @@
   "filter_publisher_empty": "Yayıncı bulunamadı",
   "filter_type_appIdList": "App ID listesi",
   "filter_appIdList_hint": "Virgülle ayrılmış App ID'ler",
-  "docs_filter_developer_desc": "Show games developed by specific studios. Options are discovered from your library automatically.",
-  "docs_filter_publisher_desc": "Show games published by specific publishers. Options are discovered from your library automatically.",
-  "docs_filter_appidlist_desc": "Whitelist an explicit set of Steam app IDs. Only those games appear in the shelf."
+  "docs_filter_developer_desc": "Belirli stüdyolar tarafından geliştirilen oyunları gösterir. Seçenekler kütüphanenizden otomatik olarak keşfedilir.",
+  "docs_filter_publisher_desc": "Belirli yayıncılar tarafından yayınlanan oyunları gösterir. Seçenekler kütüphanenizden otomatik olarak keşfedilir.",
+  "docs_filter_appidlist_desc": "Açık bir Steam App ID listesi tanımlar. Yalnızca bu oyunlar rafta görünür."
 }

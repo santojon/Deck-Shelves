@@ -11,7 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`highlightAll` / `globalHighlightAll` not persisting**: both fields were missing from `_sanitize_settings()` in `main.py` — they were silently dropped on every save, causing the toggles to appear to self-unmark. Per-shelf `highlightAll` and global `globalHighlightAll` are now preserved correctly; `DEFAULT_SETTINGS` updated to include `globalHighlightAll`.
 - **Filter tab gamepad navigation**: filters inside the shelf editor were unreachable via gamepad. Two causes fixed — (1) `FilterSectionAccordion` wrapped both the accordion header and its expanded content in a single `Focusable` with `onOKButton`, which intercepted OK and blocked navigation into child elements; the toggle and content are now separate nodes so D-pad can reach the dropdowns and buttons inside. (2) `FilterEntry` was rendered inside a `Field`'s `description` prop, which is not part of the gamepad navigation tree; it is now rendered directly.
+
+### Changed
+
+- **i18n**: translated `docs_filter_developer_desc`, `docs_filter_publisher_desc`, and `docs_filter_appidlist_desc` in all 15 non-English locales — these documentation strings were previously left in English across de-DE, es-ES, es-419, fr-FR, it-IT, ja-JP, ko-KR, nl-NL, pl-PL, pt-BR, pt-PT, ru-RU, tr-TR, uk-UA, zh-CN.
 
 ## [1.5.0] - 2026-04-19
 

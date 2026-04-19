@@ -315,7 +315,7 @@
   "filter_publisher_empty": "Nie znaleziono wydawców",
   "filter_type_appIdList": "Lista App ID",
   "filter_appIdList_hint": "App ID oddzielone przecinkami",
-  "docs_filter_developer_desc": "Show games developed by specific studios. Options are discovered from your library automatically.",
-  "docs_filter_publisher_desc": "Show games published by specific publishers. Options are discovered from your library automatically.",
-  "docs_filter_appidlist_desc": "Whitelist an explicit set of Steam app IDs. Only those games appear in the shelf."
+  "docs_filter_developer_desc": "Wyświetla gry opracowane przez konkretne studia. Opcje są wykrywane automatycznie z twojej biblioteki.",
+  "docs_filter_publisher_desc": "Wyświetla gry wydane przez konkretnych wydawców. Opcje są wykrywane automatycznie z twojej biblioteki.",
+  "docs_filter_appidlist_desc": "Definiuje jawną listę App ID Steam. Na półce pojawiają się tylko te gry."
 }

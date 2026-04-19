@@ -315,7 +315,7 @@
   "filter_publisher_empty": "Издатели не найдены",
   "filter_type_appIdList": "Список App ID",
   "filter_appIdList_hint": "App ID через запятую",
-  "docs_filter_developer_desc": "Show games developed by specific studios. Options are discovered from your library automatically.",
-  "docs_filter_publisher_desc": "Show games published by specific publishers. Options are discovered from your library automatically.",
-  "docs_filter_appidlist_desc": "Whitelist an explicit set of Steam app IDs. Only those games appear in the shelf."
+  "docs_filter_developer_desc": "Показывает игры, разработанные конкретными студиями. Параметры определяются автоматически из вашей библиотеки.",
+  "docs_filter_publisher_desc": "Показывает игры, изданные конкретными издателями. Параметры определяются автоматически из вашей библиотеки.",
+  "docs_filter_appidlist_desc": "Задаёт явный список App ID Steam. В полке отображаются только эти игры."
 }

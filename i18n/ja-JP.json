@@ -315,7 +315,7 @@
   "filter_publisher_empty": "パブリッシャーが見つかりません",
   "filter_type_appIdList": "アプリIDリスト",
   "filter_appIdList_hint": "カンマ区切りのアプリID",
-  "docs_filter_developer_desc": "Show games developed by specific studios. Options are discovered from your library automatically.",
-  "docs_filter_publisher_desc": "Show games published by specific publishers. Options are discovered from your library automatically.",
-  "docs_filter_appidlist_desc": "Whitelist an explicit set of Steam app IDs. Only those games appear in the shelf."
+  "docs_filter_developer_desc": "特定のスタジオが開発したゲームを表示します。オプションはライブラリから自動的に検出されます。",
+  "docs_filter_publisher_desc": "特定のパブリッシャーが発売したゲームを表示します。オプションはライブラリから自動的に検出されます。",
+  "docs_filter_appidlist_desc": "Steam App IDの明示的なリストを定義します。それらのゲームのみがシェルフに表示されます。"
 }
