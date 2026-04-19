@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-19
+
 ### Added
 
 - **Highlight All**: new per-shelf toggle (`highlightAll`) and global toggle (`globalHighlightAll`) that renders all cards in a shelf as featured (landscape) cards, extending the existing `highlightFirst` behavior.
