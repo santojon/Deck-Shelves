@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useRef, useEffect } from "react";
-import { ButtonItem, Field, PanelSection, PanelSectionRow, Focusable, Dropdown } from "@decky/ui";
+import { DialogButton, Field, Focusable, Dropdown } from "@decky/ui";
 import type { SingleDropdownOption } from "@decky/ui";
 import type { FilterGroup, FilterItem } from "../types";
 import i18n from "../i18n";
@@ -78,17 +78,16 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
   });
 
   return (
-    <Focusable style={{ marginTop: 8 }}>
-      <PanelSection title={t("filter_section_title")}>
-        {/* Group Combination Logic — always visible */}
-        <PanelSectionRow>
+    <div style={{ marginTop: 8 }}>
+      <div>
+        <div>
           <Field
             label={t("filter_group_mode_label")}
             childrenLayout="inline"
             childrenContainerWidth="min"
             inlineWrap="keep-inline"
           >
-            <div style={{ width: 100 }}>
+            <div style={{ minWidth: 150 }}>
               <Dropdown
                 rgOptions={modeOptions}
                 selectedOption={mode}
@@ -97,10 +96,9 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
               />
             </div>
           </Field>
-        </PanelSectionRow>
+        </div>
 
-        {/* Filter list */}
-        <PanelSectionRow>
+        <div>
           {items.map((item, index) => {
             const isNewlyAdded = newFilterIdx.current === index;
             const isRestoredFocus =
@@ -141,22 +139,23 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
               </Fragment>
             );
           })}
-        </PanelSectionRow>
+        </div>
 
-        {/* Add filter */}
-        <PanelSectionRow>
-          <div>
-            {!canAddFilter && (
-              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                {t("filter_finish_before_adding")}
-              </div>
-            )}
-            <ButtonItem onClick={addItem} disabled={!canAddFilter}>
-              {t("filter_add")}
-            </ButtonItem>
-          </div>
-        </PanelSectionRow>
-      </PanelSection>
-    </Focusable>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginLeft: -42, marginRight: -42 }}>
+          {!canAddFilter ? (
+            <span style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.3 }}>
+              {t("filter_finish_before_adding")}
+            </span>
+          ) : (
+            <div style={{ flex: 1 }} />
+          )}
+          <Focusable>
+            <DialogButton onClick={addItem} disabled={!canAddFilter} style={{ padding: "8px 16px" }}>
+              + {t("filter_add")}
+            </DialogButton>
+          </Focusable>
+        </div>
+      </div>
+    </div>
   );
 }

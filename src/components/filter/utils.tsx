@@ -13,6 +13,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "nameIncludes",
   "nameRegex",
   "developer",
+  "publisher",
+  "appIdList",
   "friends",
   "storeTag",
   "achievements",
@@ -30,6 +32,7 @@ const INVERTIBLE_SET = new Set<FilterItemType>([
   "nameIncludes",
   "nameRegex",
   "developer",
+  "publisher",
 ]);
 
 export function canBeInverted(type: FilterItemType): boolean {
@@ -49,6 +52,8 @@ export function defaultParams(type: FilterItemType): Record<string, any> {
     case "achievements": return {};
     case "collection": return { collectionId: "" };
     case "developer": return { developers: [] };
+    case "publisher": return { publishers: [] };
+    case "appIdList": return { appIds: [] };
     case "merge": return { mode: "and", items: [] };
     default: return {};
   }
@@ -88,6 +93,10 @@ export function isValidParams(item: FilterItem): boolean {
       return Boolean(p.collectionId);
     case "developer":
       return Array.isArray(p.developers) && p.developers.length > 0;
+    case "publisher":
+      return Array.isArray(p.publishers) && p.publishers.length > 0;
+    case "appIdList":
+      return Array.isArray(p.appIds) && p.appIds.length > 0;
     case "merge":
       return Array.isArray(p.items) && p.items.length > 0;
     default:
@@ -114,6 +123,8 @@ export function getTypeLabel(type: FilterItemType): string {
     achievements: t("filter_type_achievements"),
     collection: t("filter_type_collection"),
     developer: t("filter_type_developer"),
+    publisher: t("filter_type_publisher"),
+    appIdList: t("filter_type_appIdList"),
     merge: t("filter_type_merge"),
   };
   return map[type] ?? type;

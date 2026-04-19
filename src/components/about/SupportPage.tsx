@@ -18,16 +18,18 @@ export function SupportPage() {
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_support_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_support_description')}</span>} />
       <Field bottomSeparator="none" childrenLayout="below">
-        <DialogButton
-          onClick={openKofi}
-          onOKButton={openKofi}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 14px', width: '100%' }}
-        >
-          <svg viewBox='0 0 24 24' fill='none' style={{ width: 18, height: 18, marginRight: 8, flexShrink: 0 }}>
-            <path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='#ff5e5b' />
-          </svg>
-          Ko-fi
-        </DialogButton>
+        <div style={{ display: 'flex' }}>
+          <DialogButton
+            onClick={openKofi}
+            onOKButton={openKofi}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            <svg viewBox='0 0 24 24' fill='none' style={{ width: 15, height: 15, marginRight: 6, flexShrink: 0 }}>
+              <path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='#ff5e5b' />
+            </svg>
+            Ko-fi
+          </DialogButton>
+        </div>
       </Field>
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('about_limitations_title')}</span>} />
       {limitations.map((l, i) => (

@@ -6,6 +6,8 @@
  - Make selector discovery deterministic across Steam versions and themes.
  - Allow `DeckRow` to use a runtime-provided `viewport` selector before falling back to heuristics.
 
+> **Caution:** webpack-hashed class tokens change on every Steam update without notice. Never hardcode a token (e.g. `_3PhGYbMWIcIaZCfllWN19N`) in application logic — always go through the runtime map or the heuristic fallback chain.
+
  ## Discovery snippet (run in CDP/CEF console)
  Paste this into the page console (or run via `cdp_probe.py` if supported):
 
@@ -64,6 +66,8 @@
  - Prefer injecting `window.__DS_CLASS_MAP` from a startup snippet (CDP) rather than relying solely on heuristics.
  - Keep a small per-version mapping file if you intend to distribute internals to QA.
  - Log tokens discovered by `cdp_probe` to build a version history.
+
+> **Tip:** after a SteamOS update, run the discovery snippet first and compare against the previous `classmap.json` seed. If tokens changed, update the seed and redeploy — the heuristic fallback will keep things working in the meantime, but with less precision.
 
  ## Safety and cleanup
  - Do not persist sensitive data in `localStorage`. The mapping is safe for UI tokens.

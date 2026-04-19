@@ -38,6 +38,7 @@ export const ScrollPanelGroup = decky.ScrollPanelGroup ?? passthroughComponent;
 export const SidebarNavigation = decky.SidebarNavigation ?? passthroughComponent;
 export const SliderField = decky.SliderField ?? passthroughComponent;
 export const Spinner = decky.Spinner ?? passthroughComponent;
+export const Tabs = decky.Tabs ?? passthroughComponent;
 export const TextField = decky.TextField ?? passthroughComponent;
 export const ToggleField = decky.ToggleField ?? passthroughComponent;
 export const showContextMenu = decky.showContextMenu ?? noop;

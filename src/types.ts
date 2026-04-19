@@ -17,6 +17,8 @@ export const FilterItemTypeSchema = z.enum([
   "achievements",
   "collection",
   "developer",
+  "publisher",
+  "appIdList",
   "merge",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
@@ -106,6 +108,7 @@ export const ShelfSchema = z.object({
   limit: z.number().int().min(1).max(100).default(20),
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
+  highlightAll: z.boolean().default(false),
   hideStatusLine: z.boolean().default(false),
   hideNewBadge: z.boolean().default(false),
   hideCompatIcons: z.boolean().default(false),
@@ -123,6 +126,7 @@ export const SettingsSchema = z.object({
   shelfHeroBackground: z.boolean().default(false),
   globalMatchNativeSize: z.boolean().default(false),
   globalHighlightFirst: z.boolean().default(false),
+  globalHighlightAll: z.boolean().default(false),
   globalHideStatusLine: z.boolean().default(false),
   globalHideNewBadge: z.boolean().default(false),
   globalHideCompatIcons: z.boolean().default(false),

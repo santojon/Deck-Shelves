@@ -124,6 +124,33 @@ export function DeckQAMStyles() {
         color: #8b929a;
         font-size: 14px;
       }
+
+      .deck-shelves-qam-scope .ds-collapsible-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #b8bcbf;
+        user-select: none;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .deck-shelves-qam-scope .ds-collapsible-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.14);
+        border-radius: 8px;
+        padding: 1px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        margin-right: 4px;
+      }
     `}</style>
   )
 }

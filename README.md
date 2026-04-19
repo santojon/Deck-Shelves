@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-70%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/tests-81%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![Compatibility](https://img.shields.io/badge/checks-35%2F35-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -38,12 +38,14 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
 - **Dynamic card sizing** — shelves match native card dimensions and from themes
 - **Highlight first game** — first card renders as a landscape featured card
+- **Highlight all games** — toggle per-shelf or globally to render every card as a landscape featured card
 - **Hide status line** — toggle to hide the the play/install status of a game
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
 - **Hide home tabs** — toggle to hide the native Novidades/Amigos/Recomendados tab bar
 - **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
-- **Developer / Publisher filter** — filter games by developer with automatic batch discovery
+- **Developer / Publisher filter** — filter games by developer or publisher with automatic batch discovery
+- **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
 - **Smart Shelves** — fifteen heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match (Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten); ordered by probability of results in the picker
 - **Surprise Me** — sub-toggle that hides the manual smart shelf list and lets the system pick 1–5 templates each day automatically; configurable count slider (0 = system decides)
@@ -115,6 +117,20 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 <p align="center">
   <img src="assets/screenshots/about-page.png" alt="Deck Shelves — About & Filter Documentation" width="768">
+</p>
+
+#### Smart Shelves
+
+<p align="center">
+  <img src="assets/screenshots/smart-shelves-qam.png" alt="Deck Shelves — Smart Shelves in QAM" width="314">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/smart-shelf-modal.png" alt="Deck Shelves — Smart Shelf Template Picker" width="768">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="314">
 </p>
 
 ## Documentation

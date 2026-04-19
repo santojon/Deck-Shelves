@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Highlight All**: new per-shelf toggle (`highlightAll`) and global toggle (`globalHighlightAll`) that renders all cards in a shelf as featured (landscape) cards, extending the existing `highlightFirst` behavior.
+- **Publisher filter**: new `publisher` filter type — filters games by publisher name, following the same pattern as the existing developer filter (toggle list, preloaded from Steam's app details store). Includes i18n support for all 16 locales.
+- **App ID list filter** (`appIdList`): new filter type matching games by explicit app IDs (comma-separated text field). Equivalent to TabMaster's whitelist filter. No preloading required.
+- `assets/import/screenshots-en.json` — importable preset (English, 3 standard shelves + 1 hidden + 3 smart shelves) used as the canonical state for screenshot automation.
+- `docs/qa-manual.md` — manual QA scenarios covering all features: enable/disable, shelf management, navigation, global toggles, smart shelves, and import/export.
+- Screenshot automation: three new capture targets — `smart-shelves-qam`, `smart-shelf-modal`, and `global-toggles`.
+- `src/test/qa/qam-visibility.test.ts` — vitest tests covering QAM visibility conditions for smart shelves and global toggles sections.
+- `.roadmaps/arthero-findings.md` — CSS Loader theme compatibility study: DOM structure, native recents class chain, isolation audit (Delly, Obsidian, Metropolitan). Confirmed our `ds-*` shelves are already isolated from theme selectors; ArtHero-specific study pending device with ArtHero installed.
+- **CSS Loader first-shelf slot**: when `hideRecents=true` and CSS Loader themes are active, the first shelf now receives `data-ds-recents-slot="true"` and the native recents root class (`_39tNvaLedsTrVh0fFsP4Jm`) so ArtHero and other CSS Loader themes can target it with their recents-area styles. When CSS Loader is absent the shelf keeps its normal `ds-*` appearance unchanged.
+
+### Changed
+
+- **QAM visibility**: Smart Shelves section and Apply Globally toggles are now hidden when the plugin is disabled (`enabled=false`). Only the main toggle and the shelf list remain visible, keeping the QAM uncluttered when shelves are off.
+
+### Fixed
+
+- **Navigation Bug B**: `installVerticalFocusBridge` no longer bridges focus from native tabs (below our mount) into the first shelf when navigating DOWN within tabs — only siblings above the mount trigger the bridge.
+- **Navigation Bug A**: pressing DIR_DOWN from the last shelf no longer causes Steam to wrap focus back to the first shelf when `hideHomeTabs=true` leaves no visible focusable elements below — focus is now held in place via a post-nav rAF redirect.
+
 ## [1.4.0] - 2026-04-18
 
 ### Added

@@ -30,6 +30,36 @@ import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 
+const SECTIONS_KEY = 'ds-qam-sections'
+function loadSections(): Record<string, boolean> {
+  try { const raw = localStorage.getItem(SECTIONS_KEY); return raw ? JSON.parse(raw) : {} } catch { return {} }
+}
+function saveSections(state: Record<string, boolean>) {
+  try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(state)) } catch {}
+}
+const _sectionOpen: Record<string, boolean> = loadSections()
+
+function CollapsibleSection({ id, title, count, initialOpen, children }: { id: string; title: string; count: number; initialOpen?: boolean; children: React.ReactNode }) {
+  const defaultOpen = id in _sectionOpen ? _sectionOpen[id] : (initialOpen !== undefined ? initialOpen : count > 0)
+  const [open, setOpen] = useState(defaultOpen)
+  const toggle = () => setOpen(o => { const next = !o; _sectionOpen[id] = next; saveSections(_sectionOpen); return next })
+  return (
+    <>
+      <div style={{ marginTop: 8 }}>
+        <Focusable className='ds-collapsible-header' onClick={toggle} onOKButton={toggle}>
+          <span>{title}</span>
+          <span style={{ display: 'flex', alignItems: 'center' }}>
+            {!open && count > 0 && <span className='ds-collapsible-badge'>{count}</span>}
+            <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>
+          </span>
+        </Focusable>
+      </div>
+      <div className='deck-shelves-separator' />
+      {open && children}
+    </>
+  )
+}
+
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
   const close = () => {
@@ -111,100 +141,112 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {mountCrashed && (
         <MountCrashBanner controller={controller} error={crashError} onDismiss={() => { setMountCrashed(false); setCrashError(null) }} />
       )}
-      {settings.enabled && (
-        <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
-      )}
-      {settings.enabled && settings.hideRecents === true && (
-        <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
-          <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true && !replaceFailed} disabled={mountCrashed || disableHideRecents || replaceFailed} onChange={(value: boolean) => actions.setRecentsReplaceSource(value)} />
-        </div>
-      )}
+      {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
+
+      <CollapsibleSection id='behavior' title={t('section_behavior')} count={[settings.hideRecents, settings.hideHomeTabs].filter(Boolean).length}>
+        {settings.enabled && (
+          <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
+        )}
+        {settings.enabled && settings.hideRecents === true && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
+            <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true && !replaceFailed} disabled={mountCrashed || disableHideRecents || replaceFailed} onChange={(value: boolean) => actions.setRecentsReplaceSource(value)} />
+          </div>
+        )}
+        <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
+      </CollapsibleSection>
+
       {replaceFailed && (
         <RecentsReplaceErrorBanner controller={controller} error={replaceError} onDismiss={() => { setReplaceFailed(false); setReplaceError(null) }} />
       )}
+
+      <CollapsibleSection id='shelves' title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
+        <Field className='no-sep'>
+          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex' }}>
+              <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
+              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
+              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
+            </div>
+            {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
+          </Focusable>
+        </Field>
+        <div className='deck-shelves-separator' />
+        <ShelvesPanelSection controller={controller} />
+      </CollapsibleSection>
+
       {settings.enabled && (
-        <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
-      )}
-
-      {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
-      <div className='deck-shelves-section-header' style={{ marginTop: 12 }}>{t('shelves_section')}</div>
-      <div className='deck-shelves-separator' />
-      <Field className='no-sep'>
-        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex' }}>
-            <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
-            <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
-            <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
+      <CollapsibleSection id='smart' title={t('smart_section_header')} count={settings.smartShelvesEnabled ? 1 : 0}>
+        <ToggleField
+          label={t('smart_shelves_enabled')}
+          checked={settings.smartShelvesEnabled === true}
+          disabled={mountCrashed}
+          onChange={(value: boolean) => actions.setSmartShelvesEnabled(value)}
+        />
+        {settings.smartShelvesEnabled && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            <ToggleField
+              label={t('smart_shelves_at_bottom')}
+              checked={settings.smartShelvesAtBottom === true}
+              disabled={mountCrashed}
+              onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)}
+            />
+            <ToggleField
+              label={t('smart_surprise_me')}
+              checked={settings.smartSurpriseMe === true}
+              disabled={mountCrashed}
+              onChange={(value: boolean) => actions.setSmartSurpriseMe(value)}
+            />
           </div>
-          {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
-        </Focusable>
-      </Field>
-      <div className='deck-shelves-separator' />
-      <ShelvesPanelSection controller={controller} />
-
-      {/* Smart Shelves — toggles first, then banner or list */}
-      <ToggleField
-        label={t('smart_shelves_enabled')}
-        checked={settings.smartShelvesEnabled === true}
-        disabled={mountCrashed}
-        onChange={(value: boolean) => actions.setSmartShelvesEnabled(value)}
-      />
-      {settings.smartShelvesEnabled && (
-        <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          <ToggleField
-            label={t('smart_shelves_at_bottom')}
-            checked={settings.smartShelvesAtBottom === true}
-            disabled={mountCrashed}
-            onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)}
-          />
-          <ToggleField
-            label={t('smart_surprise_me')}
-            checked={settings.smartSurpriseMe === true}
-            disabled={mountCrashed}
-            onChange={(value: boolean) => actions.setSmartSurpriseMe(value)}
-          />
-        </div>
-      )}
-      {settings.smartShelvesEnabled && settings.smartSurpriseMe && (
-        <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          <SliderField
-            label={t('smart_surprise_count')}
-            description={!settings.smartSurpriseMeCount ? t('smart_surprise_count_auto') : undefined}
-            value={settings.smartSurpriseMeCount ?? 0}
-            min={0}
-            max={5}
-            step={1}
-            onChange={(v: number) => actions.setSmartSurpriseMeCount(v)}
-          />
-        </div>
-      )}
-      {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length === 0 && (
-        <SmartShelvesFirstRunBanner controller={controller} onAdd={handleAddSmart} />
-      )}
-      {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length > 0 && (
-        <>
-          <div className='deck-shelves-section-header' style={{ marginTop: 12 }}>{t('smart_section_header')}</div>
-          <div className='deck-shelves-separator' />
-          <Field className='no-sep'>
-            <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
-              <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
-            </Focusable>
-          </Field>
-          <div className='deck-shelves-separator' />
-          <SmartShelvesPanelSection controller={controller} />
-        </>
+        )}
+        {settings.smartShelvesEnabled && settings.smartSurpriseMe && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            <SliderField
+              label={t('smart_surprise_count')}
+              description={!settings.smartSurpriseMeCount ? t('smart_surprise_count_auto') : undefined}
+              value={settings.smartSurpriseMeCount ?? 0}
+              min={0}
+              max={5}
+              step={1}
+              onChange={(v: number) => actions.setSmartSurpriseMeCount(v)}
+            />
+          </div>
+        )}
+        {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length === 0 && (
+          <SmartShelvesFirstRunBanner controller={controller} onAdd={handleAddSmart} />
+        )}
+        {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length > 0 && (
+          <>
+            <div style={{ marginTop: 8 }} />
+            <div className='deck-shelves-separator' />
+            <Field className='no-sep'>
+              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+                <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
+              </Focusable>
+            </Field>
+            <div className='deck-shelves-separator' />
+            <SmartShelvesPanelSection controller={controller} />
+          </>
+        )}
+      </CollapsibleSection>
       )}
 
-      <div className='deck-shelves-section-header' style={{ marginTop: 8 }}>{t('apply_globally')}</div>
-      <div className='deck-shelves-separator' />
-      <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
-      <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
-      <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />
-      <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNewBadge(value)} />
-      <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideCompatIcons(value)} />
-      {hasNonSteamBadges && (
-        <ToggleField label={t('hide_non_steam_badge')} checked={settings.globalHideNonSteamBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNonSteamBadge(value)} />
+      {settings.enabled && (
+      <CollapsibleSection
+        id='visual_global'
+        title={t('section_visual_global')}
+        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideStatusLine, settings.globalHideNewBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge].filter(Boolean).length}
+      >
+        <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
+        <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
+        <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightAll(value)} />
+        <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />
+        <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNewBadge(value)} />
+        <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideCompatIcons(value)} />
+        {hasNonSteamBadges && (
+          <ToggleField label={t('hide_non_steam_badge')} checked={settings.globalHideNonSteamBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNonSteamBadge(value)} />
+        )}
+      </CollapsibleSection>
       )}
       <Field className='no-sep'>
         <Focusable style={{ width: '100%', padding: '0 16px', boxSizing: 'border-box' }}>

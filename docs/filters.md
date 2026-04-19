@@ -18,11 +18,15 @@ Deck Shelves supports advanced game filtering with AND/OR logic using filter gro
 | `nameIncludes` | Name contains substring | `text`: string |
 | `nameRegex` | Name matches regex | `pattern`: string |
 | `collection` | Games in a specific Steam collection | `collectionId`: string |
-| `developer` | Developer / Publisher name | `developers`: string[] |
+| `developer` | Filter by developer name | `developers`: string[] |
+| `publisher` | Filter by publisher name | `publishers`: string[] |
+| `appIdList` | Explicit whitelist of app IDs | `appIds`: number[] |
 | `merge` | Combine multiple shelf sources | `sources`: ShelfSource[] |
 | `storeTag` | Has specific Steam store tags _(pass-through, not yet evaluated)_ | `tags`: string[] |
 | `achievements` | Achievement count range _(pass-through, not yet evaluated)_ | `min`, `max`: number |
 | `friends` | Minimum friends who own _(pass-through, not yet evaluated)_ | `min`: number |
+
+> **Note:** `storeTag`, `achievements`, and `friends` are stored and exported correctly but are not yet evaluated at runtime — shelves using only these filters will return all library games.
 
 ## Filter Groups
 
@@ -46,6 +50,10 @@ Each item can be `inverted` to negate the condition:
 { "type": "installed", "inverted": true, "params": {} }
 ```
 
+> **Tip:** use `mode: "or"` when you want to surface games that match *any* of several conditions — for example, games by one developer **or** another. Use `mode: "and"` (the default) when every condition must hold simultaneously.
+
+> **Tip:** `inverted` is available on most filter types. Combine it with `mode: "and"` to exclude specific subsets — e.g. installed games that are *not* hidden.
+
 ## Sort Options
 
 | Value | Description |
@@ -60,6 +68,8 @@ Each item can be `inverted` to negate the condition:
 | `added` | Library acquisition date (newest first) |
 
 ## Legacy Filter Format
+
+> **Note:** if you are importing shelves from a backup or from TabMaster, the conversion to the group format happens automatically — you do not need to migrate manually.
 
 Older settings may use a flat filter format:
 ```json

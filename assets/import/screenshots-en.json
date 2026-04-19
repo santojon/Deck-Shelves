@@ -1,0 +1,98 @@
+{
+  "enabled": true,
+  "hideRecents": false,
+  "recentsReplaceSource": false,
+  "hideHomeTabs": false,
+  "shelfHeroBackground": false,
+  "globalMatchNativeSize": false,
+  "globalHighlightFirst": false,
+  "globalHideStatusLine": false,
+  "globalHideNewBadge": false,
+  "globalHideCompatIcons": false,
+  "globalHideNonSteamBadge": false,
+  "shelves": [
+    {
+      "id": "ss_recently_played",
+      "title": "Recently Played",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": true,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "source": { "type": "tab", "tab": "recent" }
+    },
+    {
+      "id": "ss_favorites",
+      "title": "Favorites",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "source": { "type": "filter", "filter": { "favorites": true, "sort": "alphabetical" } }
+    },
+    {
+      "id": "ss_installed",
+      "title": "Installed Games",
+      "enabled": true,
+      "hidden": false,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "source": { "type": "filter", "filter": { "installed": true, "sort": "alphabetical" } }
+    },
+    {
+      "id": "ss_hidden_shelf",
+      "title": "Hidden Shelf (for screenshot)",
+      "enabled": true,
+      "hidden": true,
+      "limit": 20,
+      "matchNativeSize": false,
+      "highlightFirst": false,
+      "hideStatusLine": false,
+      "hideNewBadge": false,
+      "hideCompatIcons": false,
+      "hideNonSteamBadge": false,
+      "source": { "type": "tab", "tab": "all" }
+    }
+  ],
+  "smartShelvesEnabled": true,
+  "smartShelvesAtBottom": false,
+  "smartShelves": [
+    {
+      "id": "ss_quick_play",
+      "title": "Quick Play",
+      "mode": "quick_play",
+      "enabled": true,
+      "hidden": false
+    },
+    {
+      "id": "ss_daily_pick",
+      "title": "Daily Pick",
+      "mode": "daily_pick",
+      "enabled": true,
+      "hidden": false
+    },
+    {
+      "id": "ss_not_started",
+      "title": "Not Started",
+      "mode": "not_started",
+      "enabled": true,
+      "hidden": false
+    }
+  ],
+  "smartSurpriseMe": false,
+  "smartSurpriseMeCount": 0
+}

@@ -20,14 +20,15 @@ if [[ -z "$HOST" ]]; then
 fi
 
 REMOTE_PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
 # Fix ownership of only our plugin directory using sudo -S (non-interactive).
 # Pipe the password via stdin to avoid TTY requirement.
 if [[ -n "$SUDO_PASS" ]]; then
-  ssh "${USER_NAME}@${HOST}" \
+  ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" \
     "printf '%s\n' '${SUDO_PASS}' | sudo -S bash -c \"mkdir -p '${REMOTE_PLUGIN_DIR}' && chown -R ${USER_NAME}:${USER_NAME} '${REMOTE_PLUGIN_DIR}' && chmod -R u+rwX '${REMOTE_PLUGIN_DIR}'\" 2>/dev/null || true"
 else
-  ssh "${USER_NAME}@${HOST}" \
+  ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" \
     "mkdir -p '${REMOTE_PLUGIN_DIR}' && chown -R ${USER_NAME}:${USER_NAME} '${REMOTE_PLUGIN_DIR}' 2>/dev/null || true && chmod -R u+rwX '${REMOTE_PLUGIN_DIR}' 2>/dev/null || true"
 fi
 
