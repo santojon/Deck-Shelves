@@ -18,7 +18,7 @@ if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || al
 }
 
 function qaAllShelvesFixture(): Shelf[] {
-  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false };
+  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false };
   return [
     { ...base, id: "qa_update_pending", title: "QA: Update pending", source: { type: "filter", filter: { updatePending: true, sort: "alphabetical" } } },
     { ...base, id: "qa_recents", title: "QA: Recents", source: { type: "filter", filter: { sort: "recent" } } },

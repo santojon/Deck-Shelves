@@ -33,6 +33,9 @@ const EXPECTED = [
   "shelf-delete.png",
   "shelf-export.png",
   "reset-all.png",
+  "smart-shelves-qam.png",
+  "smart-shelf-modal.png",
+  "global-toggles.png",
 ];
 
 // PNG magic bytes
