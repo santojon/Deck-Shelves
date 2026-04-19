@@ -33,8 +33,17 @@ let cachedShelfId: string | null = null;
 let cachedTitle: string | null = null;
 let resolvePromise: Promise<void> | null = null;
 let lastResolveKey = "";
+// Tracks component type objects already patched via afterPatch(fn, "type", ...).
+// React memo/forwardRef wrappers are shared across renders; calling afterPatch
+// on the same object again each render stacks N callbacks — guard prevents that.
+let patchedTypes: WeakSet<object> = new WeakSet();
+// Telemetry counter — not wired to any kill-switch. Zeroes on successful mutation.
 let silentPatchFailures = 0;
-let lastMutationTime = 0;
+// Set once mutation has ever run successfully on this session — used by the
+// remount scheduler to stop retrying once we know the chain works.
+let mutationSucceededOnce = false;
+// Pending remount retry timer (nullable so we can cancel/replace).
+let remountTimer: ReturnType<typeof setTimeout> | null = null;
 
 // --- Failed state (pub/sub) ---------------------------------------------
 let replaceFailed = false;
@@ -65,7 +74,9 @@ export function resetRecentsReplaceFailed(): void {
   replaceFailed = false;
   replaceError = null;
   silentPatchFailures = 0;
-  lastMutationTime = 0;
+  mutationSucceededOnce = false;
+  patchedTypes = new WeakSet();
+  if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
   notifyFailedChange();
   notifyInjectingChange();
 }
@@ -140,9 +151,9 @@ function scheduleResolve(shelf: any) {
       cachedTitle = shelf.title ?? cachedTitle;
       const changed = prev?.length !== cachedAppIds.length || prev?.some((v, i) => v !== cachedAppIds![i]);
       if (changed) {
-        lastMutationTime = 0;
+        mutationSucceededOnce = false;
         notifyInjectingChange();
-        scheduleForceRemount(5);
+        scheduleForceRemounts();
       }
     })
     .catch((err) => {
@@ -152,41 +163,88 @@ function scheduleResolve(shelf: any) {
     .finally(() => { resolvePromise = null; });
 }
 
-/** Force the native recents React subtree to re-render.
- *
- * React-Router's history library (v4) uses per-entry keys in window.history.state
- * to detect navigation. Firing popstate with the SAME key yields delta=0 → no
- * re-render. To force a real re-render we:
- *   1. pushState a dummy entry (new unique key) → histLen becomes 2
- *   2. dispatch popstate with that state → React-Router sees unknown key, treats as
- *      PUSH navigation to same pathname → route component re-renders → patch fires
- *   3. history.go(-1) → async popstate back to original entry → second re-render
- */
+/** Force the native recents React subtree to re-render via history popstate.
+ *  Uses replaceState + popstate (same URL) — React Router sees the event and
+ *  re-dispatches location, which triggers the route to re-render. This is the
+ *  non-intrusive variant (no history stack mutation, no SPA nav corruption). */
 function forceRemountRecents() {
   try {
     const win: any = globalThis;
-    const tmpKey = "ds_" + Math.random().toString(36).slice(2);
-    win.history.pushState({ key: tmpKey, state: {} }, "", win.location.href);
-    win.dispatchEvent(new PopStateEvent("popstate", { state: win.history.state }));
-    win.history.go(-1);
+    if (win?.history?.state !== undefined) {
+      win.history.replaceState(win.history.state, "", win.location.href);
+      win.dispatchEvent(new Event("popstate"));
+    }
   } catch (e) { logInfo("RUNTIME", "force-remount failed", String(e)); }
 }
 
-/** Retry forceRemountRecents up to `attemptsLeft` times (1.2s apart).
- *  Stops early if a mutation was confirmed (lastMutationTime updated).
- *  On exhaustion, marks the feature as failed so the banner shows. */
-function scheduleForceRemount(attemptsLeft: number) {
-  if (attemptsLeft <= 0) {
-    markReplaceFailed("force remount: no mutation confirmed after max retries");
-    return;
+/** Schedule multiple forceRemount attempts at increasing delays.
+ *  First render often happens before cachedAppIds arrives, and some Steam
+ *  versions need several nudges before React Router re-dispatches. Each
+ *  attempt checks if mutation has landed (mutationSucceededOnce) and bails
+ *  early if so. Non-destructive: only calls replaceState, never corrupts
+ *  history or fires extra popstate events beyond the scheduled ones. */
+const REMOUNT_DELAYS = [0, 150, 500, 1200, 2500] as const;
+function scheduleForceRemounts() {
+  if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
+  let i = 0;
+  const tick = () => {
+    if (!activeFirstShelf()) { remountTimer = null; return; }
+    if (mutationSucceededOnce) { remountTimer = null; return; }
+    forceRemountRecents();
+    i++;
+    if (i < REMOUNT_DELAYS.length) {
+      remountTimer = setTimeout(tick, REMOUNT_DELAYS[i]);
+    } else {
+      remountTimer = null;
+    }
+  };
+  tick();
+}
+
+/** Polymorphic render-interception for any React component type.
+ *  Returns true if a patch was installed (either on shared type object or
+ *  element itself). Handles:
+ *   - memo wrapper `{ $$typeof, type, compare }` → afterPatch on "type"
+ *   - forwardRef wrapper `{ $$typeof, render }` → afterPatch on "render"
+ *   - plain function component → swap element.type to a wrapper (per-render)
+ *   - unknown type (string host, class) → no-op returning false
+ *  For memo/forwardRef, guarded by WeakSet to prevent wrapper accumulation.
+ *  For plain functions, the patch is transient (element is fresh each render)
+ *  so no WeakSet tracking needed. */
+function patchElementRender(
+  element: any,
+  cb: (args: any[], ret: any) => any,
+): boolean {
+  const t = element?.type;
+  if (!t) return false;
+  if (typeof t === "object") {
+    // memo or forwardRef
+    if (typeof (t as any).type === "function" || typeof (t as any).type === "object") {
+      if (patchedTypes.has(t)) return true;
+      patchedTypes.add(t);
+      afterPatch(t, "type", cb);
+      return true;
+    }
+    if (typeof (t as any).render === "function") {
+      if (patchedTypes.has(t)) return true;
+      patchedTypes.add(t);
+      afterPatch(t, "render", cb);
+      return true;
+    }
+    return false;
   }
-  const before = lastMutationTime;
-  forceRemountRecents();
-  setTimeout(() => {
-    if (!activeFirstShelf()) return;
-    if (lastMutationTime > before) return;
-    scheduleForceRemount(attemptsLeft - 1);
-  }, 1200);
+  if (typeof t === "function") {
+    // Plain function component — wrap the element's type directly. This is
+    // per-render (element is fresh each time) so no accumulation risk.
+    const original = t;
+    element.type = function DeckShelvesWrappedFn(props: any) {
+      const out = (original as any)(props);
+      const res = cb([props], out);
+      return res !== undefined ? res : out;
+    };
+    return true;
+  }
+  return false;
 }
 
 function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean {
@@ -248,6 +306,28 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
   let unsubSettings: (() => void) | null = null;
   const uninstallErrorTrap = installGlobalErrorTrap();
 
+  // Attempts to mutate the first holder we can reach inside `tree`. Returns
+  // true if mutation landed. Walks `findInReactTree` starting from tree so we
+  // short-circuit any level that already exposes the games/onItemFocus holder
+  // (covers Steam UI variants that flatten the three-level tree).
+  const tryDirectMutate = (tree: any): boolean => {
+    const freshShelf = activeFirstShelf();
+    if (!freshShelf) return false;
+    const ids = cachedAppIds && cachedAppIds.length ? cachedAppIds : null;
+    if (!ids) return false;
+    const holder = findInReactTree(tree, (x: any) =>
+      x?.props?.games && Array.isArray(x.props.games) && typeof x?.props?.onItemFocus === "function",
+    );
+    if (!holder) return false;
+    const ok = mutateRecentsElement(tree, freshShelf, ids);
+    if (ok) {
+      silentPatchFailures = 0;
+      mutationSucceededOnce = true;
+      if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
+    }
+    return ok;
+  };
+
   const patchFn = (props: { children: ReactElement }) => {
     try {
       const shelf = activeFirstShelf();
@@ -255,47 +335,39 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
 
       if (!cachedAppIds || cachedShelfId !== shelf.id) scheduleResolve(shelf);
 
+      // Level 1: page component render (element-level patch, fresh each render).
       afterPatch(props.children as any, "type", (_a: any, ret?: any) => {
         if (!ret) return ret;
         try {
-          afterPatch(ret.type, "type", (_b: any, ret2?: any) => {
+          // Shortcut: some Steam versions expose the games holder directly in ret.
+          if (tryDirectMutate(ret)) return ret;
+
+          // Level 2: intercept ret's render using polymorphic helper
+          // (handles memo, forwardRef, and plain function components).
+          patchElementRender(ret, (_b: any, ret2?: any) => {
             if (!ret2) return ret2;
             try {
-              // Try direct approach first: if the games+onItemFocus holder is
-              // already accessible in ret2 (some Steam versions flatten the tree),
-              // mutate it without a third afterPatch level.
-              const directHolder = findInReactTree(ret2, (x: any) =>
-                x?.props?.games && Array.isArray(x.props.games) && typeof x?.props?.onItemFocus === "function",
-              );
-              if (directHolder) {
-                const freshShelf = activeFirstShelf();
-                if (freshShelf) {
-                  const ids = cachedAppIds && cachedAppIds.length ? cachedAppIds : null;
-                  if (ids) {
-                    const ok = mutateRecentsElement(ret2, freshShelf, ids);
-                    if (ok) { silentPatchFailures = 0; lastMutationTime = Date.now(); return ret2; }
-                  }
-                }
-              }
+              // Try direct mutation on ret2 — covers most tree shapes without
+              // needing a third patch level. This is the primary success path
+              // for Steam builds where recents renders eagerly in the parent.
+              if (tryDirectMutate(ret2)) return ret2;
 
-              // Standard approach: find the recents wrapper component and
-              // afterPatch its render to get ret3 where the holder lives.
-              // Broadened selector: original autoFocus+showBackground, plus
-              // fallback for structural variants (e.g. games in props at this level).
-              const recents = findInReactTree(ret2, (x: any) => {
-                if (!x?.props) return false;
-                if ("autoFocus" in x.props && "showBackground" in x.props) return true;
-                if (x.props.games && Array.isArray(x.props.games)) return true;
-                return false;
-              });
+              // Fallback: locate the recents wrapper component and patch it
+              // to intercept its render output (ret3). Strict selector first,
+              // then broader games-array fallback.
+              let recents = findInReactTree(ret2, (x: any) =>
+                x?.props && "autoFocus" in x.props && "showBackground" in x.props,
+              );
               if (!recents) {
-                if (cachedAppIds?.length) {
-                  silentPatchFailures++;
-                  if (silentPatchFailures >= 10) markReplaceFailed("tree walk: recents node not found");
-                }
+                recents = findInReactTree(ret2, (x: any) =>
+                  x?.props?.games && Array.isArray(x.props.games),
+                );
+              }
+              if (!recents) {
+                if (cachedAppIds?.length) silentPatchFailures++;
                 return ret2;
               }
-              afterPatch(recents.type, "type", (_c: any, ret3?: any) => {
+              patchElementRender(recents, (_c: any, ret3?: any) => {
                 if (!ret3) return ret3;
                 try {
                   const freshShelf = activeFirstShelf();
@@ -304,14 +376,12 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                   if (!ids) { scheduleResolve(freshShelf); return ret3; }
                   const ok = mutateRecentsElement(ret3, freshShelf, ids);
                   if (!ok) {
-                    if (cachedAppIds?.length) {
-                      silentPatchFailures++;
-                      if (silentPatchFailures >= 10) markReplaceFailed("mutate: holder not found");
-                    }
+                    if (cachedAppIds?.length) silentPatchFailures++;
                     return ret3;
                   }
                   silentPatchFailures = 0;
-                  lastMutationTime = Date.now();
+                  mutationSucceededOnce = true;
+                  if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
                 } catch (e) {
                   logInfo("RUNTIME", "ret3 patch failed", String(e));
                   markReplaceFailed("ret3: " + String(e));
@@ -346,25 +416,26 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
   }
 
   unsubSettings = subscribeSettings(() => {
-    // If the feature is re-enabled after a failure, auto-reset so the patch
-    // can retry without requiring a Steam restart.
+    // If feature was previously killed but user re-enabled it, auto-reset so
+    // the patch chain can retry without requiring a Steam restart.
     if (replaceFailed) {
       const s = getCurrentSettings();
       if (s?.enabled && s.hideRecents === true && s.recentsReplaceSource === true) {
         resetRecentsReplaceFailed();
-        cachedAppIds = null; cachedShelfId = null; lastResolveKey = "";
       }
     }
     const shelf = activeFirstShelf();
     if (!shelf) {
       const hadData = !!cachedAppIds?.length;
       cachedAppIds = null; cachedShelfId = null; cachedTitle = null; lastResolveKey = "";
+      mutationSucceededOnce = false;
+      if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
       if (hadData) notifyInjectingChange();
       return;
     }
     if (shelfKey(shelf) !== lastResolveKey) {
       cachedAppIds = null; cachedShelfId = null; lastResolveKey = "";
-      lastMutationTime = 0;
+      mutationSucceededOnce = false;
       notifyInjectingChange();
       scheduleResolve(shelf);
     }
@@ -388,8 +459,11 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       try { unsubSettings?.(); } catch {}
       try { unsubApp?.(); } catch {}
       try { uninstallErrorTrap(); } catch {}
+      if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
       cachedAppIds = null; cachedShelfId = null; cachedTitle = null;
       lastResolveKey = "";
+      mutationSucceededOnce = false;
+      patchedTypes = new WeakSet();
       notifyInjectingChange();
     },
   };
