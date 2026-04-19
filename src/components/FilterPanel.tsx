@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useRef, useEffect } from "react";
-import { ButtonItem, Field, PanelSection, PanelSectionRow, Focusable, Dropdown } from "@decky/ui";
+import { ButtonItem, Field, Focusable, Dropdown } from "@decky/ui";
 import type { SingleDropdownOption } from "@decky/ui";
 import type { FilterGroup, FilterItem } from "../types";
 import i18n from "../i18n";
@@ -79,9 +79,8 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
 
   return (
     <Focusable style={{ marginTop: 8 }}>
-      <PanelSection title={t("filter_section_title")}>
-        {/* Group Combination Logic — always visible */}
-        <PanelSectionRow>
+      <div>
+        <div>
           <Field
             label={t("filter_group_mode_label")}
             childrenLayout="inline"
@@ -97,10 +96,9 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
               />
             </div>
           </Field>
-        </PanelSectionRow>
+        </div>
 
-        {/* Filter list */}
-        <PanelSectionRow>
+        <div>
           {items.map((item, index) => {
             const isNewlyAdded = newFilterIdx.current === index;
             const isRestoredFocus =
@@ -141,22 +139,19 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
               </Fragment>
             );
           })}
-        </PanelSectionRow>
+        </div>
 
-        {/* Add filter */}
-        <PanelSectionRow>
-          <div>
-            {!canAddFilter && (
-              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                {t("filter_finish_before_adding")}
-              </div>
-            )}
-            <ButtonItem onClick={addItem} disabled={!canAddFilter}>
-              + {t("filter_add")}
-            </ButtonItem>
-          </div>
-        </PanelSectionRow>
-      </PanelSection>
+        <div>
+          {!canAddFilter && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+              {t("filter_finish_before_adding")}
+            </div>
+          )}
+          <ButtonItem onClick={addItem} disabled={!canAddFilter}>
+            + {t("filter_add")}
+          </ButtonItem>
+        </div>
+      </div>
     </Focusable>
   );
 }

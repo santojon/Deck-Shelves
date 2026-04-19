@@ -1,4 +1,4 @@
-import { PanelSectionRow, DropdownItem, Field, SliderField, TextField, ToggleField } from "@decky/ui";
+import { DropdownItem, Field, SliderField, TextField, ToggleField } from "@decky/ui";
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";
 import DeveloperFilterOptions from "./DeveloperFilterOptions";
@@ -25,7 +25,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
 
     case "hidden":
       return (
-        <PanelSectionRow>
+        <div>
           <DropdownItem
             label={t("filter_type_hidden")}
             rgOptions={HIDDEN_OPTIONS}
@@ -33,7 +33,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
             onChange={(opt: any) => patchParams({ mode: (opt?.data ?? opt) as string })}
             bottomSeparator="none"
           />
-        </PanelSectionRow>
+        </div>
       );
 
     case "deckCompatibility": {
@@ -42,7 +42,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
       return (
         <>
           {COMPAT_LEVELS.map((key) => (
-            <PanelSectionRow key={key}>
+            <div key={key}>
               <ToggleField
                 label={t(`compat_${key}`)}
                 checked={compatSet.has(key)}
@@ -53,7 +53,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
                 }}
                 bottomSeparator="none"
               />
-            </PanelSectionRow>
+            </div>
           ))}
         </>
       );
@@ -62,7 +62,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
     case "playedWithinDays": {
       const days = Number(p.days ?? 30);
       return (
-        <PanelSectionRow>
+        <div>
           <Field label={`${t("filter_days")}: ${days}d`} bottomSeparator="none">
             <SliderField
               label=""
@@ -73,7 +73,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
               onChange={(v: number) => patchParams({ days: v })}
             />
           </Field>
-        </PanelSectionRow>
+        </div>
       );
     }
 
@@ -82,7 +82,7 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
       const maxH = Number(p.maxHours ?? 0);
       return (
         <>
-          <PanelSectionRow>
+          <div>
             <Field label={`${t("filter_playtime_min")}: ${minH}h`} bottomSeparator="none">
               <SliderField
                 label=""
@@ -93,8 +93,8 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
                 onChange={(v: number) => patchParams({ minHours: v > 0 ? v : undefined })}
               />
             </Field>
-          </PanelSectionRow>
-          <PanelSectionRow>
+          </div>
+          <div>
             <Field label={`${t("filter_playtime_max")}: ${maxH > 0 ? maxH + "h" : t("filter_playtime_any")}`} bottomSeparator="none">
               <SliderField
                 label=""
@@ -105,14 +105,14 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
                 onChange={(v: number) => patchParams({ maxHours: v > 0 ? v : undefined })}
               />
             </Field>
-          </PanelSectionRow>
+          </div>
         </>
       );
     }
 
     case "nameIncludes":
       return (
-        <PanelSectionRow>
+        <div>
           <Field label={t("filter_type_nameIncludes")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
                 <TextField
@@ -124,53 +124,59 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
               />
             </div>
           </Field>
-        </PanelSectionRow>
+        </div>
       );
 
     case "nameRegex":
       return (
-        <PanelSectionRow>
+        <div>
           <Field label={t("filter_type_nameRegex")} bottomSeparator="none">
-            <TextField
-              value={String(p.pattern ?? "")}
-              onChange={(val: any) => {
-                const pattern = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
-                patchParams({ pattern });
-              }}
-            />
+            <div style={{ minWidth: 250 }}>
+              <TextField
+                value={String(p.pattern ?? "")}
+                onChange={(val: any) => {
+                  const pattern = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
+                  patchParams({ pattern });
+                }}
+              />
+            </div>
           </Field>
-        </PanelSectionRow>
+        </div>
       );
 
     case "collection":
       return (
-        <PanelSectionRow>
+        <div>
           <Field label={t("filter_collection_label")} bottomSeparator="none">
-            <TextField
-              value={String(p.collectionId ?? "")}
-              onChange={(val: any) => {
-                const collectionId = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
-                patchParams({ collectionId });
-              }}
-            />
+            <div style={{ minWidth: 250 }}>
+              <TextField
+                value={String(p.collectionId ?? "")}
+                onChange={(val: any) => {
+                  const collectionId = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
+                  patchParams({ collectionId });
+                }}
+              />
+            </div>
           </Field>
-        </PanelSectionRow>
+        </div>
       );
 
     case "storeTag": {
       const tags: string[] = Array.isArray(p.tags) ? p.tags : [];
       return (
-        <PanelSectionRow>
+        <div>
           <Field label={t("filter_type_storeTag")} description={t("filter_tags_hint")} bottomSeparator="none">
-            <TextField
-              value={tags.join(", ")}
-              onChange={(val: any) => {
-                const raw = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
-                patchParams({ tags: raw.split(",").map((s: string) => s.trim()).filter(Boolean) });
-              }}
-            />
+            <div style={{ minWidth: 250 }}>
+              <TextField
+                value={tags.join(", ")}
+                onChange={(val: any) => {
+                  const raw = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
+                  patchParams({ tags: raw.split(",").map((s: string) => s.trim()).filter(Boolean) });
+                }}
+              />
+            </div>
           </Field>
-        </PanelSectionRow>
+        </div>
       );
     }
 
@@ -180,22 +186,22 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
     case "friends":
     case "achievements":
       return (
-        <PanelSectionRow>
+        <div>
           <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
             {t(item.type === "friends" ? "filter_friends_info" : "filter_achievements_info")}
           </div>
-        </PanelSectionRow>
+        </div>
       );
 
     case "merge": {
       const subItems: FilterItem[] = Array.isArray(p.items) ? (p.items as FilterItem[]) : [];
       const subMode: string = p.mode ?? "and";
       return (
-        <PanelSectionRow>
+        <div>
           <div style={{ padding: "4px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
             {t("filter_merge_info", { count: subItems.length, mode: subMode.toUpperCase() })}
           </div>
-        </PanelSectionRow>
+        </div>
       );
     }
 

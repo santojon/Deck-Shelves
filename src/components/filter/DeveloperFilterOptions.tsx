@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PanelSectionRow, ToggleField } from "@decky/ui";
+import { ToggleField } from "@decky/ui";
 import i18n from "../../i18n";
 import { getUniqueDevelopers, preloadDeveloperData, getAllAppOverviews } from "../../steam";
 
@@ -30,17 +30,17 @@ export default function DeveloperFilterOptions({ selected, onChange }: { selecte
   return (
     <>
       {loading && (
-        <PanelSectionRow>
+        <div>
           <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_developer_loading")}</div>
-        </PanelSectionRow>
+        </div>
       )}
       {!loading && allDevs.length === 0 && (
-        <PanelSectionRow>
+        <div>
           <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_developer_empty")}</div>
-        </PanelSectionRow>
+        </div>
       )}
       {allDevs.map((dev) => (
-        <PanelSectionRow key={dev}>
+        <div key={dev}>
           <ToggleField
             label={dev}
             checked={selectedSet.has(dev)}
@@ -51,7 +51,7 @@ export default function DeveloperFilterOptions({ selected, onChange }: { selecte
             }}
             bottomSeparator="none"
           />
-        </PanelSectionRow>
+        </div>
       ))}
     </>
   );
