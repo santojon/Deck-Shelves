@@ -24,6 +24,7 @@ import type { ReactElement } from "react";
 import { afterPatch, findInReactTree } from "@decky/ui";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
 import { getPlatform } from "./platformContext";
+import { getPreferredSteamDocument } from "./steamHost";
 import { logInfo, logWarn } from "./logger";
 
 type PatchHandle = { uninstall?: () => void } | null;
@@ -163,18 +164,115 @@ function scheduleResolve(shelf: any) {
     .finally(() => { resolvePromise = null; });
 }
 
-/** Force the native recents React subtree to re-render via history popstate.
- *  Uses replaceState + popstate (same URL) — React Router sees the event and
- *  re-dispatches location, which triggers the route to re-render. This is the
- *  non-intrusive variant (no history stack mutation, no SPA nav corruption). */
+/** Force the native recents React subtree to re-render.
+ *
+ *  Two-pronged strategy:
+ *   1. `history.replaceState` + popstate on `globalThis` — how the original
+ *      (working) implementation triggered React Router to re-dispatch the
+ *      location. Cheap, non-intrusive.
+ *   2. Direct fiber forceUpdate — locate the recents DOM node, walk up its
+ *      React fiber chain, and trigger a state update on the nearest stateful
+ *      ancestor. Works even when popstate is ignored (same-URL bail out).
+ *
+ *  Both are safe to call together: they cause independent render paths that
+ *  converge on the same outcome. The fiber path is the reliable fallback
+ *  when history events don't propagate — historically the reason a Steam
+ *  restart was needed for the toggle to take effect. */
 function forceRemountRecents() {
+  // Path 1: popstate (original working approach)
   try {
     const win: any = globalThis;
     if (win?.history?.state !== undefined) {
       win.history.replaceState(win.history.state, "", win.location.href);
       win.dispatchEvent(new Event("popstate"));
     }
-  } catch (e) { logInfo("RUNTIME", "force-remount failed", String(e)); }
+  } catch (e) { logInfo("RUNTIME", "force-remount popstate failed", String(e)); }
+
+  // Path 2: fiber forceUpdate (direct, bypasses React Router)
+  try { forceRemountViaFiber(); } catch (e) { logInfo("RUNTIME", "force-remount via fiber failed", String(e)); }
+}
+
+/** Locate the native recents DOM node, find its React fiber, and trigger a
+ *  re-render on the nearest stateful ancestor (class component forceUpdate,
+ *  or function component hook dispatch). This bypasses React Router entirely,
+ *  which is needed when history events don't cause the route to re-dispatch
+ *  (e.g. same-URL popstate bails out in React Router's transition manager). */
+function forceRemountViaFiber(): boolean {
+  const doc = getPreferredSteamDocument();
+  if (!doc) return false;
+
+  let domNode: Element | null = null;
+
+  // Preferred: the recents section is the immediate previous sibling of our
+  // mount (`#deck-shelves-home-root`). This is structural — locale-independent,
+  // doesn't rely on aria-label text variations across 16 languages.
+  try {
+    const mount = doc.querySelector("#deck-shelves-home-root");
+    const prev = mount?.previousElementSibling;
+    if (prev) domNode = prev;
+  } catch {}
+
+  // Fallbacks: explicit aria-labels (EN, PT, ES, FR, DE, IT, NL, RU, PL,
+  // TR, UK, JA, KO, ZH) + the generic virtualized-grid marker.
+  if (!domNode) {
+    const selectors = [
+      '[aria-label="Recent Games"]',
+      '[aria-label="Jogos recentes"]',
+      '[aria-label*="ecent"]',      // Recent / Recente / Récent / Recenti
+      '[aria-label*="ecientes"]',   // Recientes
+      '[aria-label*="ürzlich"]',    // Kürzlich (DE)
+      '[aria-label*="ecentemente"]',
+      '[aria-label*="statnio"]',    // Ostatnio (PL)
+      '[aria-label*="едавн"]',      // Недавно (RU/UK)
+      '[aria-label*="近使"]',        // 最近使 (JA/ZH)
+      '[aria-label*="최근"]',        // 최근 (KO)
+      '[aria-label*="Son oy"]',     // Son oynananlar (TR)
+      '[class*="ReactVirtualized__Grid"][aria-label]',
+    ];
+    for (const sel of selectors) {
+      try {
+        const el = doc.querySelector(sel);
+        if (el) { domNode = el; break; }
+      } catch {}
+    }
+  }
+  if (!domNode) return false;
+
+  // Find the React fiber attached to this DOM node.
+  const fiberKey = Object.keys(domNode).find((k) => k.startsWith("__reactFiber$"));
+  if (!fiberKey) return false;
+  let fiber: any = (domNode as any)[fiberKey];
+  if (!fiber) return false;
+
+  // Walk up the fiber chain looking for a component fiber we can re-render.
+  // Limit depth to avoid pathological trees.
+  let depth = 0;
+  while (fiber && depth < 50) {
+    // Class component — has a stateNode with forceUpdate
+    if (fiber.stateNode && typeof fiber.stateNode.forceUpdate === "function") {
+      try { fiber.stateNode.forceUpdate(); return true; } catch {}
+    }
+    // Function component — walk its hooks for a dispatch we can fire
+    if (typeof fiber.type === "function" || (fiber.type && typeof fiber.type.type === "function")) {
+      let hook = fiber.memoizedState;
+      let hopCount = 0;
+      while (hook && hopCount < 20) {
+        const dispatch = hook?.queue?.dispatch;
+        if (typeof dispatch === "function") {
+          try {
+            // Fire a no-op reducer update — triggers re-render without state change.
+            dispatch((x: any) => x);
+            return true;
+          } catch {}
+        }
+        hook = hook.next;
+        hopCount++;
+      }
+    }
+    fiber = fiber.return;
+    depth++;
+  }
+  return false;
 }
 
 /** Schedule multiple forceRemount attempts at increasing delays.
@@ -330,10 +428,17 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
 
   const patchFn = (props: { children: ReactElement }) => {
     try {
+      // IMPORTANT: install the patch chain unconditionally on every route
+      // render, regardless of whether the toggle is currently active. Without
+      // this, flipping the toggle ON while the user is already on the home
+      // page never installs the callbacks — the route doesn't re-render on a
+      // settings change, so patchFn never fires again, so the chain never
+      // reaches the recents component. Steam restart was working around this
+      // because a fresh route render would fire patchFn with the toggle
+      // already enabled. Now we install always, and check activeFirstShelf()
+      // inside the innermost callbacks — cheap no-op when toggle is off.
       const shelf = activeFirstShelf();
-      if (!shelf) return props;
-
-      if (!cachedAppIds || cachedShelfId !== shelf.id) scheduleResolve(shelf);
+      if (shelf && (!cachedAppIds || cachedShelfId !== shelf.id)) scheduleResolve(shelf);
 
       // Level 1: page component render (element-level patch, fresh each render).
       afterPatch(props.children as any, "type", (_a: any, ret?: any) => {
