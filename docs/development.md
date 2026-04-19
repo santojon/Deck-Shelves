@@ -29,6 +29,8 @@ DECK_CDP_PORT=8081         # CEF Remote Debugging port
 |---------|-------------|
 | `pnpm run build` | Development build (sourcemaps, `__DEV__=true`) |
 | `pnpm run build:release` | Production build (minified, `__DEV__=false`) |
+
+> **Caution:** always use `build:release` when creating a package for distribution or submission to the Decky Store. The `build` command includes sourcemaps and enables debug logging — it is for local development only.
 | `pnpm run deploy:deck` | Build + deploy to Deck via SSH |
 | `pnpm run deploy:deck:hard` | Deploy + restart Steam |
 | `pnpm run watch:deck` | Auto-deploy on file changes |
@@ -51,6 +53,8 @@ bash scripts/build/validate-compat.sh
 Validates against 23 compatibility targets: Decky Loader versions, SteamOS versions, CSS Loader themes, and coexisting plugins.
 
 ## Debug Flag
+
+> **Note:** the `debug` flag makes Decky reload the plugin automatically on each deploy — it must be absent from the final `plugin.json` submitted to the store. The deploy script handles this injection automatically; do not add the flag manually to the committed file.
 
 The `plugin.json` ships without the `debug` flag (required for Decky Store). During development, `deploy-deck.sh` automatically injects the flag into the staged copy so Decky reloads the plugin on deploy.
 
@@ -78,6 +82,8 @@ python3 scripts/devtools/deck/tools/inject_classmap.py
 ```
 
 ## i18n
+
+> **Caution:** every new i18n key must be added to all 16 locale files simultaneously — `validate-compat.sh` will fail CI if any file is missing a key. Use the English string as the value in non-English locales when a translation is not yet available; do not leave the key undefined or the runtime will fall back silently and log a warning.
 
 - Base locale: `i18n/en-US.json` (16 locales total)
 - New keys must be added to ALL locale files

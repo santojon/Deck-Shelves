@@ -314,5 +314,8 @@
   "filter_publisher_loading": "Uitgevers laden...",
   "filter_publisher_empty": "Geen uitgevers gevonden",
   "filter_type_appIdList": "App ID-lijst",
-  "filter_appIdList_hint": "App-ID's, kommagescheiden"
+  "filter_appIdList_hint": "App-ID's, kommagescheiden",
+  "docs_filter_developer_desc": "Show games developed by specific studios. Options are discovered from your library automatically.",
+  "docs_filter_publisher_desc": "Show games published by specific publishers. Options are discovered from your library automatically.",
+  "docs_filter_appidlist_desc": "Whitelist an explicit set of Steam app IDs. Only those games appear in the shelf."
 }

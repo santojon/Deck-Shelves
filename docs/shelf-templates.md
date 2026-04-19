@@ -82,6 +82,10 @@ Shows installed games where the user has put in more than 3 hours — the titles
 
 ## Notes
 
+> **Tip:** if none of the templates fit your use case, choose **Start blank** — it opens the edit modal directly so you can configure the source and filters from scratch without any preset defaults getting in the way.
+
+> **Note:** tab-based templates (`favorites`, `recent`, `installed`) delegate ordering entirely to Steam. The sort option in the shelf editor has no effect on these — the order is determined by Steam's own internal list. Only the limit (max number of cards) applies.
+
 - The template picker shows **Start blank** first, followed by all templates in a 2-column grid. Starting blank opens the Edit modal immediately.
 - Tab-based templates (`favorites`, `recent`, `installed`) delegate ordering entirely to Steam. The shelf limit still applies — only the first N games from the tab are shown.
 - Filter-based templates (`most_played`, `recently_added`, `awaiting_update`, `non_steam`, `long_session`) use the plugin's own resolver and support all per-shelf display options (highlight first, match native size, etc.).

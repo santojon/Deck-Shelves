@@ -136,16 +136,22 @@ Settings (backend JSON) → settingsStore → controller → HomeInject → Shel
 6. **`DeckRow`** renders the horizontal card row with scroll management
 7. **`homePatch`** provides a fallback DOM renderer when React portal is unavailable
 
+> **Note:** `HomeShelves` runs in `SharedJSContext`, but the portal is mounted into the Big Picture document. Any DOM query (e.g. `querySelector`) must use `getPreferredSteamDocument()` — querying `document` directly will target the wrong context and silently return nothing.
+
 ## Key Systems
 
 ### Native Class Discovery (`webpackCompat.ts`)
 Steam's GamepadUI uses webpack-hashed CSS classes that change on updates. The plugin discovers these at runtime by inspecting the DOM and stores them in `window.__DS_CLASS_MAP__`. This allows shelf cards to receive native Steam classes for CSS Loader theme compatibility.
+
+> **Caution:** class tokens in `window.__DS_CLASS_MAP__` are tied to specific SteamOS builds. A Steam update can rename them silently. The `webpackCompat` discovery re-runs on mount — never cache tokens in plugin settings or hardcode them in application logic.
 
 ### Navigation Integration (`home/navPatches.ts`)
 The plugin integrates with Steam's `FocusNavController` gamepad navigation system:
 - Reparents shelf nav tree nodes into the correct position
 - Patches `BTryInternalNavigation` to prevent horizontal focus escape
 - Intercepts the Options button to show the native game context menu
+
+> **Caution:** `home/navPatches.ts` is the most fragile part of the codebase. It monkey-patches `FocusNavController` on a single shared prototype. Any error here can break gamepad navigation across the entire Steam UI. Changes must be minimal and always preserve the stability guard that re-runs the reparent on remount.
 
 ### Hero Background (`shelf/HeroBackground.tsx`)
 The hero background replicates the exact native SteamOS "Recent Games" hero structure, discovered via Chrome DevTools Protocol (CDP) inspection on SteamOS 3.8:
@@ -169,6 +175,8 @@ At runtime, the component discovers native classes from the recents section's si
 - Collection cache uses 60s TTL
 - Native dimension changes require 4px tolerance + 2-cycle confirmation
 
+> **Note:** the API surface at `window.__DECK_SHELVES_API__` is currently v1 (shelf sources only). v2 will add `registerFilterType`, `registerSmartShelfSource`, and `getSavedFilters`. The signature will be frozen before the v2.0.0 release — do not depend on undocumented properties.
+
 ### Recents Replace (`recentsReplace.tsx`)
 Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`). Instead of visually hiding the native "Recently Played" section, it patches the section's render output via `routerHook.addPatch("/library/home", ...)` + nested `afterPatch` calls to replace the `games` prop with the first visible shelf's app IDs. The native DOM, CSS, animations, hero background, and focus callbacks are preserved entirely. Safety mechanisms:
 - App IDs are filtered by `app_type` (1 = Game, 2 = Application) before injection — shortcuts, DLC, and music entries crash Steam's `userCollections` getter.
@@ -177,6 +185,8 @@ Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`
 
 ### Hide Home Tabs (`hideHomeTabs`)
 When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection uses `[role="tablist"]` as a sibling of the plugin's mount element — no hardcoded class names, compatible with SteamOS updates.
+
+> **Note:** the hero does **not** use linear gradients or pseudo-elements for the bottom vignette. The fade is achieved entirely via `mask-image: radial-gradient(...)` on two nested wrapper divs — matching the native structure discovered via CDP. Replacing it with a CSS gradient would break CSS Loader theme compatibility.
 
 ### Plugin API (`pluginApi.ts`)
 External plugins can register custom shelf sources:

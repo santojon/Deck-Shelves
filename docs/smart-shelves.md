@@ -9,6 +9,8 @@ Smart shelves are a shelf type whose content is generated automatically by libra
 - Results are **memoized per (mode, limit) for 5 minutes** to avoid re-running on every home render cycle.
 - Smart shelves are **not editable** — they have no source filter to configure. Only reordering, hiding, and deleting are supported.
 
+> **Tip:** if a smart shelf appears too rarely or never matches your library, prefer **hiding** it over deleting — a hidden shelf can be re-enabled later from the QAM without losing its position in the list.
+
 ## Position
 
 By default, smart shelves appear **before** normal shelves. The `smartShelvesAtBottom` toggle moves them after. Exception: when `hideRecents` is active and `smartShelvesAtBottom` is off, smart shelves are inserted after the **first** normal shelf (which replaces the native recents slot).
@@ -137,6 +139,8 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 **When it disappears:** when the delegate for the current time slot returns an empty list.
 
 **Note:** the time is evaluated at resolve time (no background timer). The shelf updates naturally on the next home render / refresh cycle when the hour crosses a boundary.
+
+> **Note:** `time_of_day` and `spare_time` do not run on a background timer — the transition between time slots happens on the next natural refresh, which may be a few minutes after the clock boundary.
 
 **Use case:** a single adaptive shelf that suggests different things depending on when you play.
 
@@ -306,6 +310,8 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 When **Surprise Me** is enabled (sub-toggle under Smart Shelves in the QAM), the manual smart shelf list is hidden entirely. Instead, the system picks a set of smart shelf templates automatically each day using a deterministic daily seed — same day, same selection.
 
 **Count:** the slider sets how many templates appear (1–5). When set to 0, the system decides: `1 + (dayIndex % 3)`, cycling 2, 3, or 4 shelves per day.
+
+> **Note:** the count is the **maximum** number of shelves, not a guarantee. Templates that return no games for your library follow the normal null-render path and simply don't appear — the actual number of visible shelves may be lower.
 
 **Selection:** all 13 templates are shuffled with the daily seed. The first `count` entries from the shuffled list are used. Templates that return no games still follow the natural null-render path and disappear from the home screen — the count is the maximum, not a guarantee.
 

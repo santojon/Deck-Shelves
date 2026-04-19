@@ -32,6 +32,8 @@ const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
 cleanup();
 ```
 
+> **Caution:** always call the returned `cleanup()` function in your plugin's `onDismount` / teardown. Failing to do so leaves a stale source registered — Deck Shelves will keep calling your `resolve` function after your plugin is unloaded, which will silently fail or throw.
+
 ## How It Works
 
 1. Your plugin calls `registerShelfSource()` during initialization
@@ -51,6 +53,8 @@ Shelves backed by external sources are persisted as:
 
 If your plugin is not loaded when Deck Shelves starts, the shelf will show empty until the source is registered again.
 
+> **Note:** load order between Decky plugins is not guaranteed. Register your source as early as possible in your plugin's initialization, and design `resolve()` to handle being called before your plugin has fully loaded — returning an empty array is always safe.
+
 ## Querying Registered Sources
 
 ```typescript
@@ -59,5 +63,7 @@ const sources = window.__DECK_SHELVES_API__.getRegisteredSources();
 ```
 
 ## Implementation
+
+> **Note:** the API is currently v1. A v2 surface (`registerFilterType`, `registerSmartShelfSource`, `getSavedFilters`) is planned for v2.0.0 and will be announced before release. The existing `registerShelfSource` / `getRegisteredSources` signatures will not change.
 
 Source: [`src/core/pluginApi.ts`](../src/core/pluginApi.ts)
