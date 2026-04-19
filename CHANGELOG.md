@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Filter tab gamepad navigation**: filters inside the shelf editor were unreachable via gamepad. Two causes fixed — (1) `FilterSectionAccordion` wrapped both the accordion header and its expanded content in a single `Focusable` with `onOKButton`, which intercepted OK and blocked navigation into child elements; the toggle and content are now separate nodes so D-pad can reach the dropdowns and buttons inside. (2) `FilterEntry` was rendered inside a `Field`'s `description` prop, which is not part of the gamepad navigation tree; it is now rendered directly.
+
 ## [1.5.0] - 2026-04-19
 
 ### Added

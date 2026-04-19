@@ -112,18 +112,13 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
               <Fragment key={index}>
                 <FilterSectionAccordion index={index} item={item} isOpen={isOpen}>
                   <div>
-                    <Field
-                      label={t("filter_type_label")}
-                      description={
-                        <FilterEntry
-                          index={index}
-                          item={item}
-                          allItems={items}
-                          onChange={(updated) => updateItem(index, updated)}
-                          onDelete={() => removeItem(index)}
-                          shouldFocus={isNewlyAdded || isRestoredFocus}
-                        />
-                      }
+                    <FilterEntry
+                      index={index}
+                      item={item}
+                      allItems={items}
+                      onChange={(updated) => updateItem(index, updated)}
+                      onDelete={() => removeItem(index)}
+                      shouldFocus={isNewlyAdded || isRestoredFocus}
                     />
                     <FilterItemOptions
                       item={item}
