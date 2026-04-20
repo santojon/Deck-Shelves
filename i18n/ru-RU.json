@@ -235,8 +235,6 @@
   "recents_replace_error_disable": "Отключить",
   "recents_replace_error_retry": "Повторить",
   "recents_replace_error_title": "Сбой замены недавних",
-  "recents_replace_shelf": "Полка для замены Недавних",
-  "recents_replace_shelf_auto": "Первая видимая полка",
   "recents_replace_source": "Использовать полку как Недавние (экспериментально)",
   "remove_from_shelf": "Убрать с полки",
   "reset_all_button": "Сбросить всё",

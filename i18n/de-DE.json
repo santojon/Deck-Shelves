@@ -235,8 +235,6 @@
   "recents_replace_error_disable": "Deaktivieren",
   "recents_replace_error_retry": "Erneut versuchen",
   "recents_replace_error_title": "Zuletzt-Ersatz fehlgeschlagen",
-  "recents_replace_shelf": "Shelf als Zuletzt gespielt verwenden",
-  "recents_replace_shelf_auto": "Erste sichtbare Shelf",
   "recents_replace_source": "Shelf als Zuletzt gespielt anzeigen (experimentell)",
   "remove_from_shelf": "Vom Regal entfernen",
   "reset_all_button": "Alles zurücksetzen",

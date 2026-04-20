@@ -121,11 +121,6 @@ export function useSettingsController() {
       if (!s || s.recentsReplaceSource === recentsReplaceSource) return;
       await persist({ ...s, recentsReplaceSource });
     },
-    async setRecentsReplaceShelfId(recentsReplaceShelfId: string | undefined) {
-      const s = liveSettings();
-      if (!s || s.recentsReplaceShelfId === recentsReplaceShelfId) return;
-      await persist({ ...s, recentsReplaceShelfId });
-    },
     async setShelfHeroBackground(shelfHeroBackground: boolean) {
       const s = liveSettings();
       if (!s || s.shelfHeroBackground === shelfHeroBackground) return;

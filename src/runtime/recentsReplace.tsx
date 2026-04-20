@@ -69,6 +69,10 @@ export function isRecentsReplaceInjecting(): boolean {
   const shelf = activeFirstShelf();
   return !!shelf && !!cachedAppIds && cachedAppIds.length > 0;
 }
+
+/** Returns the id of the shelf currently injected into the native slot,
+ *  which may differ from `recentsReplaceShelfId` when a fallback was used. */
+export function getRecentsReplaceActiveShelfId(): string | null { return cachedShelfId; }
 const injectingListeners = new Set<() => void>();
 export function subscribeRecentsReplaceInjecting(cb: () => void): () => void {
   injectingListeners.add(cb);
@@ -133,10 +137,6 @@ function activeFirstShelf() {
   const s = getCurrentSettings();
   if (!s?.enabled || s.hideRecents !== true || s.recentsReplaceSource !== true) return null;
   const visible = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
-  if (s.recentsReplaceShelfId) {
-    const picked = visible.find((sh: any) => sh.id === s.recentsReplaceShelfId);
-    if (picked) return picked;
-  }
   return visible[0] ?? null;
 }
 
@@ -157,10 +157,18 @@ function scheduleResolve(shelf: any) {
       const prev = cachedAppIds;
       const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
       const known = filterKnownAppIds(valid);
-      if (valid.length > 0 && known.length === 0) {
-        // Shelf resolved but every app was filtered — no native-renderable apps.
-        markReplaceFailed("shelf contains no Steam-renderable apps (app_type 1/2/1073741824)");
-        cachedAppIds = [];
+      if (known.length === 0) {
+        // Shelf resolved to 0 usable apps — try next visible shelf in order.
+        const s = getCurrentSettings();
+        const visible = (s?.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
+        const currentIdx = visible.findIndex((sh: any) => sh.id === shelf.id);
+        const next = visible[currentIdx + 1];
+        if (next) {
+          lastResolveKey = "";
+          scheduleResolve(next);
+        } else {
+          cachedAppIds = [];
+        }
         return;
       }
       cachedAppIds = known;
@@ -285,7 +293,7 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
     const s = getCurrentSettings();
     holder.props.showFeaturedItem = !!(shelf.highlightFirst || shelf.highlightAll || s?.globalHighlightFirst || s?.globalHighlightAll);
     try {
-      const titleText = shelf.title ?? cachedTitle ?? "";
+      const titleText = cachedTitle ?? shelf.title ?? "";
       if (titleText) {
         ret3.props.children[1].props.children[0].props.children[0].props.children = titleText;
       }
@@ -371,7 +379,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       // already enabled. Now we install always, and check activeFirstShelf()
       // inside the innermost callbacks — cheap no-op when toggle is off.
       const shelf = activeFirstShelf();
-      if (shelf && (!cachedAppIds || cachedShelfId !== shelf.id)) scheduleResolve(shelf);
+      if (shelf && !cachedAppIds?.length) scheduleResolve(shelf);
 
       // Level 1: page component render (element-level patch, fresh each render).
       afterPatch(props.children as any, "type", (_a: any, ret?: any) => {

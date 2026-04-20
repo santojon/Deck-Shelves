@@ -235,8 +235,6 @@
   "recents_replace_error_disable": "Desativar toggle",
   "recents_replace_error_retry": "Tentar de novo",
   "recents_replace_error_title": "Substituição dos recentes falhou",
-  "recents_replace_shelf": "Prateleira a usar como Recentes",
-  "recents_replace_shelf_auto": "Primeira prateleira visível",
   "recents_replace_source": "Usar prateleira como Recentes (experimental)",
   "remove_from_shelf": "Remover da prateleira",
   "reset_all_button": "Redefinir tudo",

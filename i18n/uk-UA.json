@@ -235,8 +235,6 @@
   "recents_replace_error_disable": "Вимкнути",
   "recents_replace_error_retry": "Повторити",
   "recents_replace_error_title": "Заміна останніх не вдалася",
-  "recents_replace_shelf": "Полиця для Нещодавніх",
-  "recents_replace_shelf_auto": "Перша видима полиця",
   "recents_replace_source": "Використовувати полицю як Нещодавні (експериментально)",
   "remove_from_shelf": "Видалити з полиці",
   "reset_all_button": "Скинути все",

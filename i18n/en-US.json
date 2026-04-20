@@ -247,8 +247,6 @@
   "recents_replace_error_disable": "Disable toggle",
   "recents_replace_error_retry": "Retry",
   "recents_replace_error_title": "Recents replacement failed",
-  "recents_replace_shelf": "Shelf to use as Recents",
-  "recents_replace_shelf_auto": "First visible shelf",
   "recents_replace_source": "Use shelf as Recents (experimental)",
   "remove_from_shelf": "Remove from shelf",
   "reset_all_button": "Reset everything",
