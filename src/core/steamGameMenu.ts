@@ -175,6 +175,15 @@ export function showGameMenu(appid: number): void {
     }
   }
 
+  if (!cachedMenuComponent) {
+    lastExtractionAttempt = 0;
+    extractAppContextMenu();
+    if (cachedMenuComponent) {
+      showGameMenu(appid);
+      return;
+    }
+  }
+
   try {
     const dfl = getDFL();
     const R = getSteamReact();
