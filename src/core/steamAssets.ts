@@ -8,8 +8,8 @@ export type SteamArt = {
 export function getLandscapeUrls(appid: number, mtime?: number): string[] {
   const cacheBust = mtime ? `?c=${mtime}` : "";
   return [
-    `/customimages/${appid}_hero.png`,
-    `/customimages/${appid}_hero.jpg`,
+    `/customimages/${appid}.png`,
+    `/customimages/${appid}.jpg`,
     `/assets/${appid}/header.jpg${cacheBust}`,
     `/assets/${appid}/library_header.jpg${cacheBust}`,
     `/assets/${appid}/library_hero.jpg${cacheBust}`,
