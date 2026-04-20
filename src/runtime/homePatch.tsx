@@ -859,7 +859,7 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
   componentDidCatch(err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     boundaryFailureCount++;
-    logError("HOME", `shelf render crashed (${boundaryFailureCount}/${MAX_BOUNDARY_FAILURES})`, msg);
+    if (__DEV__) logError("HOME", `shelf render crashed (${boundaryFailureCount}/${MAX_BOUNDARY_FAILURES})`, msg);
     logDiagnostic("error", "Home shelf render crashed", msg);
     if (boundaryFailureCount >= MAX_BOUNDARY_FAILURES) {
       mountFailed = true;
@@ -869,7 +869,7 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
         const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
         if (mount) { mount.innerHTML = ""; mount.style.display = "none"; }
       } catch {}
-      toaster.toast({ title: "Deck Shelves", body: "Shelf render failed. Plugin disabled." });
+      toaster.toast({ title: i18next.t("mount_crash_title"), body: i18next.t("mount_crash_warning") });
       notifyMountFailedChange();
     } else {
       setTimeout(() => { if (!mountFailed) this.setState({ crashed: false }); }, 500);

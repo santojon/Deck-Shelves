@@ -24,7 +24,9 @@ import type { ReactElement } from "react";
 import { afterPatch, findInReactTree } from "@decky/ui";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
 import { getPlatform } from "./platformContext";
-import { logInfo, logWarn } from "./logger";
+import { logError, logInfo, logWarn } from "./logger";
+import { toaster } from "../shims/decky-api";
+import i18next from "i18next";
 
 type PatchHandle = { uninstall?: () => void } | null;
 
@@ -49,6 +51,7 @@ export function subscribeRecentsReplaceFailed(cb: () => void): () => void {
 /** True when the toggle is active AND we have cached app ids ready to be
  *  injected into the native recents shelf. Consumers use this to avoid
  *  rendering the first shelf twice (once natively, once in the DS mount). */
+export function getRecentsReplaceActiveShelfId(): string | null { return cachedShelfId; }
 export function isRecentsReplaceInjecting(): boolean {
   if (replaceFailed) return false;
   const shelf = activeFirstShelf();
@@ -72,7 +75,8 @@ function markReplaceFailed(reason: string) {
   if (replaceFailed) return;
   replaceFailed = true;
   replaceError = reason;
-  logWarn("RUNTIME", "recents replace disabled due to error", reason);
+  if (__DEV__) logError("RUNTIME", "recents replace disabled due to error", reason);
+  toaster.toast({ title: i18next.t("recents_replace_error_title"), body: i18next.t("recents_replace_error_desc") });
   notifyFailedChange();
   notifyInjectingChange();
 }

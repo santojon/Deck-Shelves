@@ -6,6 +6,7 @@ let cachedMenuTemplateProps: Record<string, any> = {};
 let lastExtractionAttempt = 0;
 const EXTRACTION_COOLDOWN = 3000;
 let passiveHookInstalled = false;
+let showGameMenuActive = false;
 
 function getSteamReact(): any {
   return (globalThis as any).SP_REACT;
@@ -99,6 +100,11 @@ export function extractAppContextMenu(): boolean {
     return origCreateElement.apply(React, [type, props, ...args]);
   };
 
+  const dfl = getDFL();
+  const origDflShow = dfl?.showContextMenu;
+  const origDeckyShow = (globalThis as any).showContextMenu;
+  if (dfl?.showContextMenu) dfl.showContextMenu = () => {};
+  if ((globalThis as any).showContextMenu) (globalThis as any).showContextMenu = () => {};
   try {
     const fakeEvt = new CustomEvent("fake", { bubbles: false });
     (fakeEvt as any).stopPropagation = () => {};
@@ -107,6 +113,8 @@ export function extractAppContextMenu(): boolean {
   } catch {
   } finally {
     React.createElement = origCreateElement;
+    if (dfl?.showContextMenu !== undefined) dfl.showContextMenu = origDflShow;
+    if (origDeckyShow !== undefined) (globalThis as any).showContextMenu = origDeckyShow;
   }
 
   if (capturedComponent) {
@@ -120,6 +128,16 @@ export function extractAppContextMenu(): boolean {
 }
 
 export function showGameMenu(appid: number): void {
+  if (showGameMenuActive) return;
+  showGameMenuActive = true;
+  try {
+    _showGameMenuImpl(appid);
+  } finally {
+    showGameMenuActive = false;
+  }
+}
+
+function _showGameMenuImpl(appid: number): void {
   installPassiveMenuHook();
 
   if (!cachedMenuComponent) extractAppContextMenu();
@@ -169,9 +187,8 @@ export function showGameMenu(appid: number): void {
 
   if (!cachedMenuComponent) {
     lastExtractionAttempt = 0;
-    extractAppContextMenu();
-    if (cachedMenuComponent) {
-      showGameMenu(appid);
+    if (extractAppContextMenu()) {
+      _showGameMenuImpl(appid);
       return;
     }
   }
