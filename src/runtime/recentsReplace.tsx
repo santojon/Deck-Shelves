@@ -57,6 +57,7 @@ export function subscribeRecentsReplaceFailed(cb: () => void): () => void {
   failedListeners.add(cb);
   return () => { failedListeners.delete(cb); };
 }
+
 /** True when the toggle is active AND we have cached app ids ready to be
  *  injected into the native recents shelf. Consumers use this to avoid
  *  rendering the first shelf twice (once natively, once in the DS mount). */
@@ -96,7 +97,7 @@ function markReplaceFailed(reason: string) {
  *  Confirmed via CDP: native recents only contains `app_type === 1` (Game).
  *  Passing Shortcut (1073741824), Music, DLC, Tool etc. crashes Steam's
  *  `userCollections` getter because those collections don't index them. */
-const RENDERABLE_STEAM_APP_TYPES: ReadonlySet<number> = new Set([1, 2]); // Game, Application
+const RENDERABLE_STEAM_APP_TYPES: ReadonlySet<number> = new Set([1, 2, 1073741824]); // Game, Application, Non-Steam Shortcut
 
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
@@ -118,6 +119,10 @@ function activeFirstShelf() {
   const s = getCurrentSettings();
   if (!s?.enabled || s.hideRecents !== true || s.recentsReplaceSource !== true) return null;
   const visible = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
+  if (s.recentsReplaceShelfId) {
+    const picked = visible.find((sh: any) => sh.id === s.recentsReplaceShelfId);
+    if (picked) return picked;
+  }
   return visible[0] ?? null;
 }
 
@@ -133,17 +138,14 @@ function scheduleResolve(shelf: any) {
   const platform = getPlatform();
   if (!platform) return;
   resolvePromise = platform
-    .resolveShelfAppIds(shelf.source, shelf.limit ?? 20)
+    .resolveShelfAppIds(shelf.source, shelf.limit ?? 20, (shelf as any).sort)
     .then((ids: number[]) => {
       const prev = cachedAppIds;
       const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
       const known = filterKnownAppIds(valid);
       if (valid.length > 0 && known.length === 0) {
-        // The shelf resolved but every app was filtered out (shortcuts, DLC,
-        // music, etc.) — the native recents component can only render Steam
-        // games (app_type 1/2). Signal failure so UI shows banner + falls
-        // back to visual hide instead of silently leaving native recents.
-        markReplaceFailed("first shelf contains no Steam-playable apps (app_type 1/2)");
+        // Shelf resolved but every app was filtered — no native-renderable apps.
+        markReplaceFailed("shelf contains no Steam-renderable apps (app_type 1/2/1073741824)");
         cachedAppIds = [];
         return;
       }

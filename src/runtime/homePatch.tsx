@@ -664,7 +664,7 @@ function createShelfCard(
 }
 
 async function buildShelfNode(shelf: Shelf): Promise<HTMLElement | null> {
-  const ids = await platform.resolveShelfAppIds(shelf.source, shelf.limit);
+  const ids = await platform.resolveShelfAppIds(shelf.source, shelf.limit, (shelf as any).sort);
   if (!ids.length) {
     logWarn("HOME", "shelf resolved zero apps", { shelfId: shelf.id, title: shelf.title, source: shelf.source });
     logDiagnostic("warn", "Shelf resolved zero apps", JSON.stringify({ shelfId: shelf.id, title: shelf.title }));

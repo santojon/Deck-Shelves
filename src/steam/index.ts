@@ -1678,7 +1678,23 @@ function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx?: Filt
   return apps.filter((app) => group.items.every((item) => evaluateFilterItem(item, app, ctx)));
 }
 
-export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number): Promise<number[]> {
+function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number[] {
+  const byId = new Map<number, AppOverview>();
+  for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
+  let apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  if (sort === "recent") apps = apps.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
+  else if (sort === "playtime") apps = apps.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
+  else if (sort === "release_date") apps = apps.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
+  else if (sort === "size_on_disk") apps = apps.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
+  else if (sort === "metacritic") apps = apps.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
+  else if (sort === "review_score") apps = apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
+  else if (sort === "added") apps = apps.slice().sort(compareByAdded);
+  else if (sort === "random") { apps = apps.slice(); for (let i = apps.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [apps[i], apps[j]] = [apps[j], apps[i]]; } }
+  else apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+  return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+}
+
+export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string): Promise<number[]> {
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
   if (!all.length) {
@@ -1744,6 +1760,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         count: ids.length,
       });
     }
+    if (sort) ids = applySortToIds(ids, sort, all);
     return ids.slice(0, limit);
   }
 
@@ -1782,13 +1799,21 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       try {
         logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length });
       } catch {}
-      return fromTabStore.slice(0, limit);
+      const tabStoreIds = sort ? applySortToIds(fromTabStore, sort, all) : fromTabStore;
+      return tabStoreIds.slice(0, limit);
     }
     const filtered = await resolveDynamicTab(rawTab, all);
-    const sorted = slugifyTab(rawTab) === "recent"
-      ? filtered
-      : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
-    const ids = sorted.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
+    let tabApps: AppOverview[];
+    if (sort) {
+      tabApps = filtered;
+    } else {
+      tabApps = slugifyTab(rawTab) === "recent"
+        ? filtered
+        : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+    }
+    let tabIds = tabApps.map((a) => appIdOf(a)).filter(Number.isFinite);
+    if (sort) tabIds = applySortToIds(tabIds, sort, all);
+    const ids = tabIds.slice(0, limit);
 
     // Migration fallback: existing shelves saved as UUID tab sources resolve via TabMaster's filters
     if (!ids.length && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTab)) {
@@ -1840,6 +1865,12 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
       } else if (fSort === "added") {
         filtered = filtered.slice().sort(compareByAdded);
+      } else if (fSort === "random") {
+        filtered = filtered.slice();
+        for (let i = filtered.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+        }
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
@@ -1927,8 +1958,9 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
   if (source.type === "external") {
     try {
       const { resolveExternalSource } = await import("../core/pluginApi");
-      const ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
+      let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
+      if (sort) ids = applySortToIds(ids, sort, all);
       return ids.slice(0, limit);
     } catch {
       return [];

@@ -34,6 +34,7 @@ const SORT_OPTIONS = [
   { value: 'metacritic', labelKey: 'sort_metacritic' },
   { value: 'review_score', labelKey: 'sort_review_score' },
   { value: 'added', labelKey: 'sort_added' },
+  { value: 'random', labelKey: 'sort_random' },
 ] as const
 
 type EditableShelfState = {
@@ -44,6 +45,7 @@ type EditableShelfState = {
   externalSourceId: string
   filter: ShelfFilter
   filterGroup: FilterGroup
+  sort: string
   limit: number
   matchNativeSize: boolean
   highlightFirst: boolean
@@ -74,6 +76,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     externalSourceId: shelf.source.type === 'external' ? shelf.source.sourceId : (externalSources[0]?.id ?? ''),
     filter: initialFilter,
     filterGroup: initialFilterGroup,
+    sort: (shelf as any).sort ?? 'alphabetical',
     limit: shelf.limit,
     matchNativeSize: shelf.matchNativeSize ?? false,
     highlightFirst: shelf.highlightFirst ?? false,
@@ -158,12 +161,13 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
-      if (state.sourceType === 'collection') patch.source = { type: 'collection', collectionId: state.collectionId };
+      if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
-        patch.source = selectedTab?.source ?? { type: 'tab', tab: state.tab }
+        patch.source = selectedTab?.source ?? { type: 'tab', tab: state.tab };
+        patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined;
       }
-      else if (state.sourceType === 'external') patch.source = { type: 'external', sourceId: state.externalSourceId };
+      else if (state.sourceType === 'external') { patch.source = { type: 'external', sourceId: state.externalSourceId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
       const ok = await actions.patchShelf(shelf.id, patch);
       logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
@@ -217,6 +221,9 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                     )}
                     {state.sourceType === 'external' && externalOptions.length > 0 && (
                       <DropdownItem label={t('source_external')} rgOptions={externalOptions} selectedOption={state.externalSourceId} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
+                    )}
+                    {state.sourceType !== 'filter' && (
+                      <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt)) }))} bottomSeparator='thick' />
                     )}
                     <Field label={`${t('limit')} (${state.limit})`}>
                       <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />

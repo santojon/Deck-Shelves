@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Sort for collection, tab and external shelves**: the sort dropdown (alphabetical, last session, total playtime, release date, size on disk, Metacritic, Steam review score, recently added, random) is now available for all shelf source types, not only filter shelves. Sort is shown in the source tab of the shelf editor and saved per shelf. Default remains alphabetical (no extra field stored).
+- **Random sort**: new `random` sort option available for all shelf types — games are shuffled via Fisher-Yates on every resolve.
+- **Surprise Me slider count**: the slider label in the QAM now shows the current count in parentheses when it is greater than zero (e.g. "Surprise Me (3)"), making the configured value readable without opening the slider.
+- **Select shelf for native recents replacement**: when "Use shelf as Recents" is enabled, a new dropdown lets you pick any specific shelf instead of always using the first visible one. Defaults to "First visible shelf" when no shelf is selected.
+
+### Fixed
+
+- **Non-Steam apps in native recents replacement**: shelves containing non-Steam shortcuts (app type `1073741824`) are now passed through to the native recents component instead of being pre-emptively blocked. If the native component crashes, the existing error trap still triggers `markReplaceFailed` and the error banner is shown. Fully native (no non-Steam apps) shelves continue to work as before.
+- **`recentsReplaceShelfId` null rejection**: the Zod schema now uses `.nullish()` instead of `.optional()` for `recentsReplaceShelfId`, accepting `null` from the Python backend without causing the full settings parse to fail and reset to defaults.
+
 ## [1.5.1] - 2026-04-19
 
 ### Fixed

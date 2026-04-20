@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
   DialogButton,
+  DropdownItem,
   Field,
   Focusable,
   SliderField,
   ToggleField,
   showModal,
 } from '@decky/ui'
+import type { SingleDropdownOption } from '@decky/ui'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
@@ -151,6 +153,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
             <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true && !replaceFailed} disabled={mountCrashed || disableHideRecents || replaceFailed} onChange={(value: boolean) => actions.setRecentsReplaceSource(value)} />
+            {settings.recentsReplaceSource === true && !replaceFailed && (() => {
+              const visibleShelves = (settings.shelves ?? []).filter((sh) => sh.enabled && !sh.hidden);
+              const shelfOptions: SingleDropdownOption[] = [
+                { data: '', label: t('recents_replace_shelf_auto') },
+                ...visibleShelves.map((sh) => ({ data: sh.id, label: sh.title })),
+              ];
+              return (
+                <DropdownItem label={t('recents_replace_shelf')} rgOptions={shelfOptions} selectedOption={settings.recentsReplaceShelfId ?? ''} onChange={(opt: unknown) => actions.setRecentsReplaceShelfId((opt as any)?.data || undefined)} bottomSeparator='none' />
+              );
+            })()}
           </div>
         )}
         <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
@@ -202,7 +214,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {settings.smartShelvesEnabled && settings.smartSurpriseMe && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             <SliderField
-              label={t('smart_surprise_count')}
+              label={settings.smartSurpriseMeCount ? `${t('smart_surprise_count')} (${settings.smartSurpriseMeCount})` : t('smart_surprise_count')}
               description={!settings.smartSurpriseMeCount ? t('smart_surprise_count_auto') : undefined}
               value={settings.smartSurpriseMeCount ?? 0}
               min={0}
