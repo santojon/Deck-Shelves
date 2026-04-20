@@ -310,6 +310,7 @@
   "toast_failed_import": "Could not import custom tabs",
   "toast_failed_save": "Could not save settings",
   "toast_imported": "Settings imported",
+  "toast_settings_reset": "Settings reset",
   "view_more": "View more\nin your\nlibrary",
   "visibility": "Visibility",
   "highlight_all": "Highlight all games",

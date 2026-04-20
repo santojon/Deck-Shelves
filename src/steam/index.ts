@@ -530,7 +530,7 @@ export async function listCollections(): Promise<SteamCollection[]> {
   const normalize = (items: any[]): SteamCollection[] => items
     .map((c: any) => {
       const id = String(c?.id ?? c?.collectionid ?? c?.gid ?? c?.key ?? c?.name ?? c?.displayName ?? "");
-      const name = String(c?.displayName ?? c?.name ?? c?.title ?? c?.label ?? "Collection");
+      const name = String(c?.displayName ?? c?.m_strName ?? c?.name ?? c?.title ?? c?.label ?? "Collection");
       if (id && name) cacheCollectionRaw(id, name, c);
       return { id, name };
     })
@@ -550,6 +550,22 @@ export async function listCollections(): Promise<SteamCollection[]> {
         if (norm.length) return norm;
       } catch {}
     }
+    // m_mapCollectionsFromStorage is a MobX ObservableMap; .keys()/.get() work.
+    // Collections have m_strId but no top-level `id`, so inject it explicitly.
+    try {
+      const m = globalCollectionStore.m_mapCollectionsFromStorage;
+      if (m && typeof m.keys === 'function') {
+        const items: any[] = [];
+        for (const key of m.keys()) {
+          try {
+            const c = m.get(key);
+            if (c) items.push({ id: (c as any).m_strId ?? key, ...(c as any) });
+          } catch {}
+        }
+        const norm = normalize(items);
+        if (norm.length) return norm;
+      }
+    } catch {}
   }
   for (const sc of clients) {
     try {
@@ -1678,6 +1694,76 @@ function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx?: Filt
   return apps.filter((app) => group.items.every((item) => evaluateFilterItem(item, app, ctx)));
 }
 
+function buildNonSteamPlatformMap(): Map<number, string> {
+  const map = new Map<number, string>();
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    const cols = cs?.userCollections;
+    const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
+    for (const c of list) {
+      const name = String(c?.displayName ?? c?.m_strName ?? "");
+      const m = name.match(/^\[Unifideck\]\s+(.+)/i);
+      if (!m) continue;
+      const platform = m[1].trim().toLowerCase();
+      const apps = c?.allApps ?? c?.m_rgApps ?? [];
+      for (const a of apps) {
+        const n = Number(a?.appid);
+        if (Number.isFinite(n)) map.set(n, platform);
+      }
+    }
+  } catch {}
+  return map;
+}
+
+function deduplicateNonSteam(ids: number[], all: AppOverview[]): number[] {
+  const byId = new Map<number, AppOverview>();
+  for (const a of all) { const id = appIdOf(a); if (id) byId.set(id, a); }
+  const platformMap = buildNonSteamPlatformMap();
+  const seen = new Set<string>();
+  return ids.filter((id) => {
+    const app = byId.get(id);
+    if (!app || !isNonSteamOf(app)) return true;
+    const name = normalizeText(appNameOf(app));
+    if (!name) return false;
+    const platform = platformMap.get(id) ?? "";
+    const key = `${name}\x00${platform}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// Random sort is stable for 24h per unique game set to avoid constant reshuffling.
+const RANDOM_SORT_TTL = 24 * 60 * 60 * 1000;
+
+function hashIdSet(ids: number[]): string {
+  const sorted = ids.slice().sort((a, b) => a - b);
+  let h = 5381;
+  for (const id of sorted) { h = ((h << 5) + h + (id & 0xffff)) & 0xffffffff; }
+  return (h >>> 0).toString(16);
+}
+
+function stableShuffleIds(ids: number[], cacheKey: string): number[] {
+  const lsKey = `ds-random-${cacheKey}`;
+  try {
+    const raw = localStorage.getItem(lsKey);
+    if (raw) {
+      const { ts, order } = JSON.parse(raw);
+      if (Date.now() - ts < RANDOM_SORT_TTL && Array.isArray(order)) {
+        const outSet = new Set<number>(order);
+        if (order.length === ids.length && ids.every(id => outSet.has(id))) return order;
+      }
+    }
+  } catch {}
+  const shuffled = ids.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  try { localStorage.setItem(lsKey, JSON.stringify({ ts: Date.now(), order: shuffled })); } catch {}
+  return shuffled;
+}
+
 function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number[] {
   const byId = new Map<number, AppOverview>();
   for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
@@ -1689,7 +1775,7 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number
   else if (sort === "metacritic") apps = apps.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
   else if (sort === "review_score") apps = apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
   else if (sort === "added") apps = apps.slice().sort(compareByAdded);
-  else if (sort === "random") { apps = apps.slice(); for (let i = apps.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [apps[i], apps[j]] = [apps[j], apps[i]]; } }
+  else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids)); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
   else apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }
@@ -1761,6 +1847,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       });
     }
     if (sort) ids = applySortToIds(ids, sort, all);
+    ids = deduplicateNonSteam(ids, all);
     return ids.slice(0, limit);
   }
 
@@ -1799,7 +1886,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       try {
         logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length });
       } catch {}
-      const tabStoreIds = sort ? applySortToIds(fromTabStore, sort, all) : fromTabStore;
+      const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all) : fromTabStore, all);
       return tabStoreIds.slice(0, limit);
     }
     const filtered = await resolveDynamicTab(rawTab, all);
@@ -1811,7 +1898,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         ? filtered
         : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
-    let tabIds = tabApps.map((a) => appIdOf(a)).filter(Number.isFinite);
+    let tabIds = deduplicateNonSteam(tabApps.map((a) => appIdOf(a)).filter(Number.isFinite), all);
     if (sort) tabIds = applySortToIds(tabIds, sort, all);
     const ids = tabIds.slice(0, limit);
 
@@ -1866,15 +1953,14 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       } else if (fSort === "added") {
         filtered = filtered.slice().sort(compareByAdded);
       } else if (fSort === "random") {
-        filtered = filtered.slice();
-        for (let i = filtered.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-        }
+        const fIds = filtered.map(a => appIdOf(a)).filter(Number.isFinite);
+        const fById = new Map<number, AppOverview>();
+        for (const a of filtered) { const id = appIdOf(a); if (id) fById.set(id, a); }
+        filtered = stableShuffleIds(fIds, hashIdSet(fIds)).map(id => fById.get(id)).filter(Boolean) as AppOverview[];
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
-      const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
+      const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all).slice(0, limit);
       if (!ids.length) {
         logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
       } else {
@@ -1940,7 +2026,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
 
-    const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite).slice(0, limit);
+    const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all).slice(0, limit);
     if (!ids.length) {
       logWarn("STEAM", "resolveShelfAppIds(filter) empty", {
         filter: f,
@@ -1961,6 +2047,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
       if (sort) ids = applySortToIds(ids, sort, all);
+      ids = deduplicateNonSteam(ids, all);
       return ids.slice(0, limit);
     } catch {
       return [];

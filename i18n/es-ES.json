@@ -310,6 +310,7 @@
   "toast_failed_import": "No se pudieron importar las pestañas personalizadas",
   "toast_failed_save": "No se pudieron guardar los ajustes",
   "toast_imported": "Ajustes importados",
+  "toast_settings_reset": "Settings reset",
   "view_more": "Ver más\nen tu\nbiblioteca",
   "visibility": "Visibilidad",
   "highlight_all": "Resaltar todos los juegos",

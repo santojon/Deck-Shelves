@@ -1,0 +1,41 @@
+name: "[ENHANCEMENT] Enhancement"
+description: Improve an existing feature without adding something entirely new
+title: "[ENHANCEMENT] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for improvements to existing behavior — UX polish, performance, accessibility, etc.
+        For entirely new features use the **Feature Request** template.
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: How does the feature work today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: improved
+    attributes:
+      label: Improved behavior
+      description: How should it work after the enhancement?
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why is this better?
+      description: What does the improvement unlock or fix from a UX / performance perspective?
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+    validations:
+      required: false

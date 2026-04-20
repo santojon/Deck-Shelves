@@ -310,6 +310,7 @@
   "toast_failed_import": "Не удалось импортировать пользовательские вкладки",
   "toast_failed_save": "Не удалось сохранить настройки",
   "toast_imported": "Настройки импортированы",
+  "toast_settings_reset": "Settings reset",
   "view_more": "Ещё\nв вашей\nбиблиотеке",
   "visibility": "Видимость",
   "highlight_all": "Выделить все игры",

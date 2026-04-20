@@ -310,6 +310,7 @@
   "toast_failed_import": "无法导入自定义标签页",
   "toast_failed_save": "无法保存设置",
   "toast_imported": "设置已导入",
+  "toast_settings_reset": "Settings reset",
   "view_more": "在库中\n查看更多",
   "visibility": "可见性",
   "highlight_all": "高亮所有游戏",

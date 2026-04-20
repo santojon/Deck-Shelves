@@ -310,6 +310,7 @@
   "toast_failed_import": "Özel sekmeler içe aktarılamadı",
   "toast_failed_save": "Ayarlar kaydedilemedi",
   "toast_imported": "Ayarlar içe aktarıldı",
+  "toast_settings_reset": "Settings reset",
   "view_more": "Kütüphanenizde\ndaha fazlasını\ngörün",
   "visibility": "Görünürlük",
   "highlight_all": "Tüm oyunları vurgula",

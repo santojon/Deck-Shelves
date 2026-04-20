@@ -310,6 +310,7 @@
   "toast_failed_import": "カスタムタブをインポートできませんでした",
   "toast_failed_save": "設定を保存できませんでした",
   "toast_imported": "設定をインポートしました",
+  "toast_settings_reset": "Settings reset",
   "view_more": "ライブラリで\nもっと見る",
   "visibility": "表示設定",
   "highlight_all": "すべてのゲームをハイライト",

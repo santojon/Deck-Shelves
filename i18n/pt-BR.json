@@ -310,6 +310,7 @@
   "toast_failed_import": "Não foi possível importar as abas personalizadas",
   "toast_failed_save": "Não foi possível salvar as configurações",
   "toast_imported": "Configurações importadas",
+  "toast_settings_reset": "Settings reset",
   "view_more": "Veja mais\nna sua\nbiblioteca",
   "visibility": "Visibilidade",
   "highlight_all": "Destacar todos os jogos",

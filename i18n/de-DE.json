@@ -310,6 +310,7 @@
   "toast_failed_import": "Benutzerdefinierte Tabs konnten nicht importiert werden",
   "toast_failed_save": "Einstellungen konnten nicht gespeichert werden",
   "toast_imported": "Einstellungen importiert",
+  "toast_settings_reset": "Settings reset",
   "view_more": "Mehr anzeigen\nin deiner\nBibliothek",
   "visibility": "Sichtbarkeit",
   "highlight_all": "Alle Spiele hervorheben",

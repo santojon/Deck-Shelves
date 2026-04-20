@@ -306,7 +306,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         <div className="ds-card-label-name">
           {item.name}
         </div>
-        {item.isSteam !== false && !hideStatusLine && (() => {
+        {!hideStatusLine && (() => {
           const hasUpdate = item.updatePending === true;
           const isInstalled = item.isInstalled === true;
           const hasPlaytime = !!playtime && item.playtimeMinutes && item.playtimeMinutes > 0;

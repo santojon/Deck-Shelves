@@ -184,10 +184,10 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     );
   }
 
-  // Extend 60px above the first shelf (fills the gap left by the hidden native
-  // recents). Cap to heroHeight + 60 so it never bleeds into the second shelf.
+  // Extend 60px above (fills hidden recents gap) and 60px below (envelope effect
+  // matching native hero which extended ~90px past the recents row bottom).
   const heroTop = -60;
-  const heroH = heroHeight + 60;
+  const heroH = heroHeight + 120;
 
   return (
     <div
@@ -203,6 +203,8 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         pointerEvents: "none",
         opacity: visible ? 1 : 0,
         transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
+        maskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))",
+        WebkitMaskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))" as any,
       }}
     >
       {/* Solid background layer — fills behind the image so the native

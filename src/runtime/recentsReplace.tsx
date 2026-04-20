@@ -26,6 +26,7 @@ import { getCurrentSettings, subscribeSettings } from "../settingsStore";
 import { getPlatform } from "./platformContext";
 import { getPreferredSteamDocument } from "./steamHost";
 import { logInfo, logWarn } from "./logger";
+import { toaster } from "../shims/decky-api";
 
 type PatchHandle = { uninstall?: () => void } | null;
 
@@ -40,6 +41,9 @@ let lastResolveKey = "";
 let patchedTypes: WeakSet<object> = new WeakSet();
 // Telemetry counter — not wired to any kill-switch. Zeroes on successful mutation.
 let silentPatchFailures = 0;
+// Counts render-chain mutation failures. After MAX_MOUNT_FAILURES the feature is disabled.
+const MAX_MOUNT_FAILURES = 3;
+let mountFailureCount = 0;
 // Set once mutation has ever run successfully on this session — used by the
 // remount scheduler to stop retrying once we know the chain works.
 let mutationSucceededOnce = false;
@@ -76,6 +80,7 @@ export function resetRecentsReplaceFailed(): void {
   replaceFailed = false;
   replaceError = null;
   silentPatchFailures = 0;
+  mountFailureCount = 0;
   mutationSucceededOnce = false;
   patchedTypes = new WeakSet();
   if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
@@ -90,6 +95,16 @@ function markReplaceFailed(reason: string) {
   logWarn("RUNTIME", "recents replace disabled due to error", reason);
   notifyFailedChange();
   notifyInjectingChange();
+}
+
+function tryMarkReplaceFailed(reason: string) {
+  if (replaceFailed) return;
+  mountFailureCount++;
+  logWarn("RUNTIME", `recents replace failure ${mountFailureCount}/${MAX_MOUNT_FAILURES}`, reason);
+  if (mountFailureCount >= MAX_MOUNT_FAILURES) {
+    markReplaceFailed(reason);
+    toaster.toast({ title: "Deck Shelves", body: "Native shelf replacement failed. Reverted to default." });
+  }
 }
 
 // --- Steam app validation -----------------------------------------------
@@ -127,7 +142,7 @@ function activeFirstShelf() {
 }
 
 function shelfKey(shelf: any): string {
-  return `${shelf.id}:${JSON.stringify(shelf.source)}:${shelf.limit ?? 20}`;
+  return `${shelf.id}:${JSON.stringify(shelf.source)}:${shelf.limit ?? 20}:${shelf.sort ?? ''}`;
 }
 
 function scheduleResolve(shelf: any) {
@@ -354,6 +369,8 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
     const trimmed = appIds.slice(0, Math.max(1, shelf.limit ?? 20));
     if (!trimmed.length) return false; // never pass empty — native expects non-empty
     holder.props.games = trimmed;
+    const s = getCurrentSettings();
+    holder.props.showFeaturedItem = !!(shelf.highlightFirst || shelf.highlightAll || s?.globalHighlightFirst || s?.globalHighlightAll);
     try {
       const titleText = shelf.title ?? cachedTitle ?? "";
       if (titleText) {
@@ -422,6 +439,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     const ok = mutateRecentsElement(tree, freshShelf, ids);
     if (ok) {
       silentPatchFailures = 0;
+      mountFailureCount = 0;
       mutationSucceededOnce = true;
       if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
     }
@@ -487,29 +505,30 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                     return ret3;
                   }
                   silentPatchFailures = 0;
+                  mountFailureCount = 0;
                   mutationSucceededOnce = true;
                   if (remountTimer) { clearTimeout(remountTimer); remountTimer = null; }
                 } catch (e) {
                   logInfo("RUNTIME", "ret3 patch failed", String(e));
-                  markReplaceFailed("ret3: " + String(e));
+                  tryMarkReplaceFailed("ret3: " + String(e));
                 }
                 return ret3;
               });
             } catch (e) {
               logInfo("RUNTIME", "ret2 findInReactTree failed", String(e));
-              markReplaceFailed("ret2: " + String(e));
+              tryMarkReplaceFailed("ret2: " + String(e));
             }
             return ret2;
           });
         } catch (e) {
           logInfo("RUNTIME", "ret patch failed", String(e));
-          markReplaceFailed("ret: " + String(e));
+          tryMarkReplaceFailed("ret: " + String(e));
         }
         return ret;
       });
     } catch (e) {
       logInfo("RUNTIME", "outer patch failed", String(e));
-      markReplaceFailed("outer: " + String(e));
+      tryMarkReplaceFailed("outer: " + String(e));
     }
     return props;
   };

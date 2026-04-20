@@ -310,6 +310,7 @@
   "toast_failed_import": "Не вдалося імпортувати користувацькі вкладки",
   "toast_failed_save": "Не вдалося зберегти налаштування",
   "toast_imported": "Налаштування імпортовано",
+  "toast_settings_reset": "Settings reset",
   "view_more": "Більше\nу вашій\nбібліотеці",
   "visibility": "Видимість",
   "highlight_all": "Виділити всі ігри",
