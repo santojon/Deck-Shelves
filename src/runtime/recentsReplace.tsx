@@ -159,13 +159,14 @@ function scheduleResolve(shelf: any) {
       const known = filterKnownAppIds(valid);
       if (known.length === 0) {
         // Shelf resolved to 0 usable apps — try next visible shelf in order.
+        // Use setTimeout so resolvePromise is null before the next call.
         const s = getCurrentSettings();
         const visible = (s?.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
         const currentIdx = visible.findIndex((sh: any) => sh.id === shelf.id);
         const next = visible[currentIdx + 1];
         if (next) {
           lastResolveKey = "";
-          scheduleResolve(next);
+          setTimeout(() => scheduleResolve(next), 0);
         } else {
           cachedAppIds = [];
         }

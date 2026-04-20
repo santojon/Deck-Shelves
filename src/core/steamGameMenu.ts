@@ -64,6 +64,8 @@ export function extractAppContextMenu(): boolean {
     const cls = panel.className ?? "";
     if (cls.indexOf("ds-card") >= 0 || cls.indexOf("ds-row") >= 0) continue;
     if (!panel.querySelector("img")) continue;
+    const rect = (panel as HTMLElement).getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) continue;
 
     const fiberKey = Object.keys(panel).find((k: string) => k.startsWith("__reactFiber$"));
     if (!fiberKey) continue;
@@ -99,6 +101,11 @@ export function extractAppContextMenu(): boolean {
     return origCreateElement.apply(React, [type, props, ...args]);
   };
 
+  const dfl = getDFL();
+  const origDflShow = dfl?.showContextMenu;
+  const origDeckyShow = (globalThis as any).showContextMenu;
+  if (dfl?.showContextMenu) dfl.showContextMenu = () => {};
+  if ((globalThis as any).showContextMenu) (globalThis as any).showContextMenu = () => {};
   try {
     const fakeEvt = new CustomEvent("fake", { bubbles: false });
     (fakeEvt as any).stopPropagation = () => {};
@@ -107,6 +114,8 @@ export function extractAppContextMenu(): boolean {
   } catch {
   } finally {
     React.createElement = origCreateElement;
+    if (dfl?.showContextMenu !== undefined) dfl.showContextMenu = origDflShow;
+    if (origDeckyShow !== undefined) (globalThis as any).showContextMenu = origDeckyShow;
   }
 
   if (capturedComponent) {

@@ -351,7 +351,7 @@ function buildStylesheet(): string {
     #deck-shelves-home-root .ds-card *:focus { outline: none !important; box-shadow: none !important; }
     .ds-card-art {
       position: absolute !important;
-      inset: 1px !important;
+      inset: 0 !important;
       height: var(--ds-card-art-h, 100%) !important;
       padding-top: 0 !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius});

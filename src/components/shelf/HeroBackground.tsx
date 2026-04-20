@@ -98,9 +98,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
 
   useEffect(() => {
     const updateHero = () => {
-      const firstShelf = mountEl.querySelector('.ds-shelf');
-      if (!firstShelf) return;
-      const focused = firstShelf.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      const focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
