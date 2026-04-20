@@ -121,6 +121,7 @@ export function extractAppContextMenu(): boolean {
 
 export function showGameMenu(appid: number): void {
   installPassiveMenuHook();
+  if (!cachedMenuComponent) extractAppContextMenu();
 
   const React = getSteamReact();
   const appStore = getAppStore();

@@ -10,6 +10,7 @@ import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow } from "./steamHost";
 import { discoverClassMap, setRuntimeClassMap, getRuntimeClassMap } from "../core/webpackCompat";
+import { toaster } from "../shims/decky-api";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -30,6 +31,8 @@ const rowScrollState = new Map<string, number>();
 // --- Crash protection ---
 let mountFailed = false;
 let mountError: string | null = null;
+const MAX_BOUNDARY_FAILURES = 3;
+let boundaryFailureCount = 0;
 
 if (__DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__) {
   mountFailed = true;
@@ -38,7 +41,7 @@ if (__DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__) 
 
 export function getMountFailed(): boolean { return mountFailed; }
 export function getMountError(): string | null { return mountError; }
-export function resetMountFailed(): void { mountFailed = false; mountError = null; lastRenderKey = ""; notifyMountFailedChange(); }
+export function resetMountFailed(): void { mountFailed = false; mountError = null; boundaryFailureCount = 0; lastRenderKey = ""; notifyMountFailedChange(); }
 
 const mountFailedListeners = new Set<() => void>();
 export function subscribeMountFailed(cb: () => void): () => void {
@@ -855,16 +858,22 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
   static getDerivedStateFromError(_err: unknown) { return { crashed: true }; }
   componentDidCatch(err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logError("HOME", "shelf render crashed — crash protection engaged", msg);
+    boundaryFailureCount++;
+    logError("HOME", `shelf render crashed (${boundaryFailureCount}/${MAX_BOUNDARY_FAILURES})`, msg);
     logDiagnostic("error", "Home shelf render crashed", msg);
-    mountFailed = true;
-    mountError = msg;
-    try {
-      const { doc } = getHostContext();
-      const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
-      if (mount) { mount.innerHTML = ""; mount.style.display = "none"; }
-    } catch {}
-    notifyMountFailedChange();
+    if (boundaryFailureCount >= MAX_BOUNDARY_FAILURES) {
+      mountFailed = true;
+      mountError = msg;
+      try {
+        const { doc } = getHostContext();
+        const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+        if (mount) { mount.innerHTML = ""; mount.style.display = "none"; }
+      } catch {}
+      toaster.toast({ title: "Deck Shelves", body: "Shelf render failed. Plugin disabled." });
+      notifyMountFailedChange();
+    } else {
+      setTimeout(() => { if (!mountFailed) this.setState({ crashed: false }); }, 500);
+    }
   }
   render() { return this.state.crashed ? null : this.props.children; }
 }

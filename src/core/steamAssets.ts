@@ -15,8 +15,8 @@ export function getLandscapeUrls(appid: number, mtime?: number): string[] {
     `/assets/${appid}/library_hero.jpg${cacheBust}`,
     `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/header.jpg`,
     `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_header.jpg`,
-    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
     `https://steamcdn-a.akamaihd.net/steam/apps/${appid}/header.jpg`,
+    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
   ];
 }
 
