@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-04-21
+
 ### Added
 
 - **Sort for collection, tab and external shelves**: the sort dropdown (alphabetical, last session, total playtime, release date, size on disk, Metacritic, Steam review score, recently added, random) is now available for all shelf source types, not only filter shelves. Sort is shown in the source tab of the shelf editor and saved per shelf. Default remains alphabetical (no extra field stored).
