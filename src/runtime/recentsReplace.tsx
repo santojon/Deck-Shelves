@@ -128,13 +128,19 @@ function scheduleResolve(shelf: any) {
       const prev = cachedAppIds;
       const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
       const known = filterKnownAppIds(valid);
-      if (valid.length > 0 && known.length === 0) {
-        // The shelf resolved but every app was filtered out (shortcuts, DLC,
-        // music, etc.) — the native recents component can only render Steam
-        // games (app_type 1/2). Signal failure so UI shows banner + falls
-        // back to visual hide instead of silently leaving native recents.
-        markReplaceFailed("first shelf contains no Steam-playable apps (app_type 1/2)");
-        cachedAppIds = [];
+      if (known.length === 0) {
+        // Shelf resolved to 0 native-renderable apps — try next visible shelf.
+        // setTimeout so resolvePromise is null before the next call.
+        const s = getCurrentSettings();
+        const visible = (s?.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
+        const currentIdx = visible.findIndex((sh: any) => sh.id === shelf.id);
+        const next = visible[currentIdx + 1];
+        if (next) {
+          lastResolveKey = "";
+          setTimeout(() => scheduleResolve(next), 0);
+        } else {
+          cachedAppIds = [];
+        }
         return;
       }
       cachedAppIds = known;
@@ -228,7 +234,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       const shelf = activeFirstShelf();
       if (!shelf) return props;
 
-      if (!cachedAppIds || cachedShelfId !== shelf.id) scheduleResolve(shelf);
+      if (!cachedAppIds?.length) scheduleResolve(shelf);
 
       afterPatch(props.children as any, "type", (_a: any, ret?: any) => {
         if (!ret) return ret;
@@ -324,6 +330,23 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     unsubApp = reg?.unregister ? () => reg.unregister() : null;
   } catch {}
 
+  const bootstrapTimers: ReturnType<typeof setTimeout>[] = [];
+  const kickstart = () => {
+    const shelf = activeFirstShelf();
+    if (!shelf) return;
+    if (!cachedAppIds?.length) {
+      lastResolveKey = "";
+      scheduleResolve(shelf);
+    }
+    forceRemountRecents();
+  };
+  for (const d of [80, 300, 800, 1800, 3500, 6000]) {
+    bootstrapTimers.push(setTimeout(() => {
+      if (replaceFailed) return;
+      kickstart();
+    }, d));
+  }
+
   logInfo("RUNTIME", "installed");
 
   return {
@@ -332,6 +355,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       try { unsubSettings?.(); } catch {}
       try { unsubApp?.(); } catch {}
       try { uninstallErrorTrap(); } catch {}
+      for (const t of bootstrapTimers) { try { clearTimeout(t); } catch {} }
       cachedAppIds = null; cachedShelfId = null; cachedTitle = null;
       lastResolveKey = "";
       notifyInjectingChange();
