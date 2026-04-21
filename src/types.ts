@@ -106,6 +106,7 @@ export const ShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).default(20),
+  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),

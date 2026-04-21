@@ -17,9 +17,10 @@ const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
+  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}`;
   const [appIds, setAppIds] = useState<number[] | null>(() => {
     try {
-      const raw = localStorage.getItem(`ds-shelf-cache-${shelf.id}`);
+      const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { ts, ids } = JSON.parse(raw);
         if (Date.now() - ts < 86400000) return ids; // 24h expiry
@@ -31,7 +32,7 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
   const firstLoad = useRef(true);
   const [metaVersion, setMetaVersion] = useState(0);
 
-  const sourceKey = useMemo(() => JSON.stringify(shelf.source), [shelf.source]);
+  const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,13 +42,13 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
       if (cancelled) return;
       try {
         mark(`shelf.resolve:${shelf.id}:start`);
-        platform.resolveShelfAppIds(shelf.source, shelf.limit)
+        platform.resolveShelfAppIds(shelf.source, shelf.limit, shelf.sort)
           .then((ids) => {
             if (!cancelled) {
               setAppIds(ids);
               setMetaVersion((v) => v + 1);
               firstLoad.current = false;
-              try { localStorage.setItem(`ds-shelf-cache-${shelf.id}`, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
+              try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
             }
           })
           .catch(() => {
@@ -76,7 +77,7 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
       unsubRefresh();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
     };
-  }, [platform, shelf.enabled, shelf.limit, sourceKey]);
+  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey]);
 
   useEffect(() => {
     let cancelled = false;

@@ -6,6 +6,7 @@ import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
+import { toaster } from "../../shims/decky-api";
 import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter, patchShelfInSettings } from "../../domain/settings";
 import { createDefaultShelf, createDefaultSource, createDefaultSmartShelf, randomShelfId } from "../../domain/defaults";
 import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
@@ -182,6 +183,7 @@ export function useSettingsController() {
         }
       } catch {}
       await persist(empty);
+      toaster.toast({ title: t("pluginName"), body: t("toast_settings_reset") });
       setSelectedId(null);
     },
     async createDefaultShelves() {

@@ -23,9 +23,9 @@ const STANDARD_TEMPLATES = [
 
 type SmartEntry = { labelKey: string; descKey: string }
 
-const SMART_GROUPS: { label: string; items: SmartEntry[] }[] = [
+const SMART_GROUPS: { labelKey: string; items: SmartEntry[] }[] = [
   {
-    label: 'Daily',
+    labelKey: 'docs_smart_group_daily',
     items: [
       { labelKey: 'smart_template_daily_pick',      descKey: 'docs_smart_template_daily_pick' },
       { labelKey: 'smart_template_recently_played', descKey: 'docs_smart_template_recently_played' },
@@ -34,7 +34,7 @@ const SMART_GROUPS: { label: string; items: SmartEntry[] }[] = [
     ],
   },
   {
-    label: 'Deck Ready',
+    labelKey: 'docs_smart_group_deck_ready',
     items: [
       { labelKey: 'smart_template_deck_picks',  descKey: 'docs_smart_template_deck_picks' },
       { labelKey: 'smart_template_on_deck',     descKey: 'docs_smart_template_on_deck' },
@@ -42,7 +42,7 @@ const SMART_GROUPS: { label: string; items: SmartEntry[] }[] = [
     ],
   },
   {
-    label: 'Discovery',
+    labelKey: 'docs_smart_group_discovery',
     items: [
       { labelKey: 'smart_template_not_started',   descKey: 'docs_smart_template_not_started' },
       { labelKey: 'smart_template_best_unplayed', descKey: 'docs_smart_template_best_unplayed' },
@@ -52,7 +52,7 @@ const SMART_GROUPS: { label: string; items: SmartEntry[] }[] = [
     ],
   },
   {
-    label: 'Anything Goes',
+    labelKey: 'docs_smart_group_anything_goes',
     items: [
       { labelKey: 'smart_template_random_pick', descKey: 'docs_smart_template_random_pick' },
       { labelKey: 'smart_template_non_steam',   descKey: 'docs_smart_template_non_steam' },
@@ -75,9 +75,7 @@ export function ShelvesPage() {
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_shelves_manage_body')}</span>} />
 
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('docs_templates_title')}</span>} />
-      <DocCallout variant="tip">
-        {t('docs_shelves_template_tip') || 'All templates produce fully editable shelves — source, sort, limit, and display options can all be changed after creation.'}
-      </DocCallout>
+      <DocCallout variant="tip">{t('docs_shelves_template_tip')}</DocCallout>
       {STANDARD_TEMPLATES.map((tpl) => (
         <Field key={tpl.id} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• <b>{t(tpl.labelKey as any)}</b> — {t(tpl.descKey as any)}</span>} />
       ))}
@@ -85,11 +83,9 @@ export function ShelvesPage() {
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('docs_smart_shelves_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_shelves_intro')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_shelves_enable')}</span>} />
-      <DocCallout variant="tip">
-        {t('docs_smart_shelves_hide_tip') || 'If a shelf rarely matches your library, prefer hiding it over deleting — it can be re-enabled later without losing its position.'}
-      </DocCallout>
+      <DocCallout variant="tip">{t('docs_smart_shelves_hide_tip')}</DocCallout>
       {SMART_GROUPS.map((group) => (
-        <DocAccordion key={group.label} label={group.label}>
+        <DocAccordion key={group.labelKey} label={t(group.labelKey as any)}>
           {group.items.map(({ labelKey, descKey }) => (
             <Field key={labelKey} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• <b>{t(labelKey as any)}</b> — {t(descKey as any)}</span>} />
           ))}

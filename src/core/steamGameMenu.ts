@@ -6,6 +6,7 @@ let cachedMenuTemplateProps: Record<string, any> = {};
 let lastExtractionAttempt = 0;
 const EXTRACTION_COOLDOWN = 3000;
 let passiveHookInstalled = false;
+let showGameMenuActive = false;
 
 function getSteamReact(): any {
   return (globalThis as any).SP_REACT;
@@ -64,6 +65,8 @@ export function extractAppContextMenu(): boolean {
     const cls = panel.className ?? "";
     if (cls.indexOf("ds-card") >= 0 || cls.indexOf("ds-row") >= 0) continue;
     if (!panel.querySelector("img")) continue;
+    const rect = (panel as HTMLElement).getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) continue;
 
     const fiberKey = Object.keys(panel).find((k: string) => k.startsWith("__reactFiber$"));
     if (!fiberKey) continue;
@@ -99,6 +102,11 @@ export function extractAppContextMenu(): boolean {
     return origCreateElement.apply(React, [type, props, ...args]);
   };
 
+  const dfl = getDFL();
+  const origDflShow = dfl?.showContextMenu;
+  const origDeckyShow = (globalThis as any).showContextMenu;
+  if (dfl?.showContextMenu) dfl.showContextMenu = () => {};
+  if ((globalThis as any).showContextMenu) (globalThis as any).showContextMenu = () => {};
   try {
     const fakeEvt = new CustomEvent("fake", { bubbles: false });
     (fakeEvt as any).stopPropagation = () => {};
@@ -107,6 +115,8 @@ export function extractAppContextMenu(): boolean {
   } catch {
   } finally {
     React.createElement = origCreateElement;
+    if (dfl?.showContextMenu !== undefined) dfl.showContextMenu = origDflShow;
+    if (origDeckyShow !== undefined) (globalThis as any).showContextMenu = origDeckyShow;
   }
 
   if (capturedComponent) {
@@ -120,68 +130,84 @@ export function extractAppContextMenu(): boolean {
 }
 
 export function showGameMenu(appid: number): void {
-  installPassiveMenuHook();
+  if (showGameMenuActive) return;
+  showGameMenuActive = true;
+  try {
+    installPassiveMenuHook();
+    if (!cachedMenuComponent) extractAppContextMenu();
 
-  const React = getSteamReact();
-  const appStore = getAppStore();
+    const React = getSteamReact();
+    const appStore = getAppStore();
 
-  if (React && appStore && cachedMenuComponent) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (React && appStore && cachedMenuComponent) {
+        try {
+          const overview = appStore.GetAppOverviewByAppID?.(appid);
+          if (overview) {
+            const doc = getSPDocument();
+            const cardEl = (doc.querySelector(`.ds-card[data-appid="${appid}"]`)
+              ?? doc.querySelector(".ds-card.gpfocus")
+              ?? doc.querySelector(".ds-card:focus")
+              ?? doc.activeElement) as HTMLElement;
+
+            const ownerWindow = (getPreferredSteamWindow() as any)
+              ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
+              ?? window;
+
+            const menuElement = React.createElement(cachedMenuComponent, {
+              ...cachedMenuTemplateProps,
+              overview,
+              client: cachedMenuTemplateProps.client ?? "mostavailable",
+              launchSource: cachedMenuTemplateProps.launchSource ?? 1000,
+              bInGamepadUI: cachedMenuTemplateProps.bInGamepadUI ?? true,
+              strCollectionId: cachedMenuTemplateProps.strCollectionId ?? "",
+              ownerWindow: ownerWindow ?? cachedMenuTemplateProps.ownerWindow,
+              hasCustomArtwork: undefined,
+              onChangeArtwork: undefined,
+            });
+
+            const dfl = getDFL();
+            if (dfl?.showContextMenu) {
+              dfl.showContextMenu(menuElement, cardEl);
+            } else {
+              showContextMenu(menuElement, cardEl as any);
+            }
+            return;
+          }
+        } catch {
+          cachedMenuComponent = null;
+          cachedMenuTemplateProps = {};
+        }
+      }
+
+      if (attempt === 0 && !cachedMenuComponent) {
+        lastExtractionAttempt = 0;
+        extractAppContextMenu();
+      } else {
+        break;
+      }
+    }
+
     try {
-      const overview = appStore.GetAppOverviewByAppID?.(appid);
-      if (overview) {
+      const dfl = getDFL();
+      const R = getSteamReact();
+      if (dfl?.showContextMenu && R && dfl.Menu && dfl.MenuItem) {
         const doc = getSPDocument();
         const cardEl = (doc.querySelector(`.ds-card[data-appid="${appid}"]`)
           ?? doc.querySelector(".ds-card.gpfocus")
-          ?? doc.querySelector(".ds-card:focus")
           ?? doc.activeElement) as HTMLElement;
-
-        const ownerWindow = (getPreferredSteamWindow() as any)
-          ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
-          ?? window;
-
-        const menuElement = React.createElement(cachedMenuComponent, {
-          ...cachedMenuTemplateProps,
-          overview,
-          client: cachedMenuTemplateProps.client ?? "mostavailable",
-          launchSource: cachedMenuTemplateProps.launchSource ?? 1000,
-          bInGamepadUI: cachedMenuTemplateProps.bInGamepadUI ?? true,
-          strCollectionId: cachedMenuTemplateProps.strCollectionId ?? "",
-          ownerWindow: ownerWindow ?? cachedMenuTemplateProps.ownerWindow,
-          hasCustomArtwork: undefined,
-          onChangeArtwork: undefined,
-        });
-
-        const dfl = getDFL();
-        if (dfl?.showContextMenu) {
-          dfl.showContextMenu(menuElement, cardEl);
-        } else {
-          showContextMenu(menuElement, cardEl as any);
-        }
-        return;
+        const menu = R.createElement(dfl.Menu, { label: "Game" },
+          R.createElement(dfl.MenuItem, {
+            onSelected: () => {
+              const nav = dfl.Navigation ?? (globalThis as any).SteamClient?.Navigation;
+              nav?.Navigate?.(`/library/app/${appid}`);
+            },
+          }, "View Details"),
+        );
+        dfl.showContextMenu(menu, cardEl);
       }
-    } catch {
-      cachedMenuComponent = null;
-      cachedMenuTemplateProps = {};
-    }
+    } catch {}
+  } finally {
+    showGameMenuActive = false;
   }
-
-  try {
-    const dfl = getDFL();
-    const R = getSteamReact();
-    if (dfl?.showContextMenu && R && dfl.Menu && dfl.MenuItem) {
-      const doc = getSPDocument();
-      const cardEl = (doc.querySelector(`.ds-card[data-appid="${appid}"]`)
-        ?? doc.querySelector(".ds-card.gpfocus")
-        ?? doc.activeElement) as HTMLElement;
-      const menu = R.createElement(dfl.Menu, { label: "Game" },
-        R.createElement(dfl.MenuItem, {
-          onSelected: () => {
-            const nav = dfl.Navigation ?? (globalThis as any).SteamClient?.Navigation;
-            nav?.Navigate?.(`/library/app/${appid}`);
-          },
-        }, "View Details"),
-      );
-      dfl.showContextMenu(menu, cardEl);
-    }
-  } catch {}
 }

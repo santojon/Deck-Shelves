@@ -10,7 +10,7 @@ import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
-import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting } from "../runtime/recentsReplace";
+import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
@@ -319,10 +319,17 @@ export function HomeShelves() {
   const visibleShelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
 
   // When replace-source is actively injecting (toggle on + app ids resolved
-  // + not killed), the first shelf is already rendering inside the native
+  // + not killed), the injected shelf is already rendering inside the native
   // recents slot. Skip it here to avoid a visual duplicate below. If the
   // injection isn't happening (failed, not resolved yet), keep every shelf.
-  const normalShelves = (replaceInjecting && !replaceKillSwitch) ? visibleShelves.slice(1) : visibleShelves;
+  const normalShelves = (replaceInjecting && !replaceKillSwitch)
+    ? (() => {
+        const activeId = getRecentsReplaceActiveShelfId();
+        return activeId
+          ? visibleShelves.filter((s) => s.id !== activeId)
+          : visibleShelves.slice(1);
+      })()
+    : visibleShelves;
 
   // Convert enabled smart shelves to Shelf-compatible objects for ShelfView.
   let smartShelves: Shelf[] = [];

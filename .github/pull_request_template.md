@@ -13,7 +13,12 @@
 
 ## Description
 
-<!-- Describe what this PR does and why. Link related issues with "Closes #123". -->
+<!-- Describe what this PR does and why. -->
+
+## Related Issues
+
+<!-- Link issues closed or addressed by this PR (one per line, 0 or more). -->
+<!-- Example: Closes #42 -->
 
 ## Changelog
 

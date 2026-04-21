@@ -54,24 +54,16 @@ export function FiltersPage() {
 
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_filters_groups_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_filters_groups_desc')}</span>} />
-      <DocCallout variant="tip">
-        Use <b>AND</b> when every condition must hold (e.g. installed + Deck Verified). Use <b>OR</b> when any condition is enough (e.g. one developer or another).
-      </DocCallout>
-      <DocCallout variant="tip">
-        Most filters can be <b>inverted</b> — combine with AND to exclude specific subsets, e.g. installed games that are <i>not</i> hidden.
-      </DocCallout>
-      <DocCallout variant="note">
-        Store Tag, Friends, and Achievements filters are saved and exported correctly but are not yet evaluated at runtime — shelves using only these filters will show all library games.
-      </DocCallout>
+      <DocCallout variant="tip">{t('docs_filters_and_or_tip')}</DocCallout>
+      <DocCallout variant="tip">{t('docs_filters_invert_tip')}</DocCallout>
+      <DocCallout variant="note">{t('docs_filters_pending_note')}</DocCallout>
 
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_filters_sort_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_filters_sort_body')}</span>} />
       {sortRows.map(([k, desc]) => (
         <Field key={k} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• <b>{t(k)}</b> — {t(desc)}</span>} />
       ))}
-      <DocCallout variant="note">
-        Sort has no effect on Tab-based shelves (Favorites, Recent, Installed) — order for those comes directly from Steam.
-      </DocCallout>
+      <DocCallout variant="note">{t('docs_filters_sort_tab_note')}</DocCallout>
     </DocSection>
   )
 }
