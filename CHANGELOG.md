@@ -18,10 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Context menu cache cleared on unrelated errors**: `cachedMenuComponent` is now only cleared when the error message suggests a render/component failure.
+- **Native recents overlay hero art stale after substitution**: `showFeaturedItem` is set from the shelf's highlight toggles and `onItemFocus` is invoked with the first game's overview after mutation, forcing the hero background to match the new first game instead of keeping the previously focused one.
+- **Native recents overlay abrupt focus transitions**: L2/L3 `afterPatch` callbacks were stacking on shared memo/forwardRef wrappers across every re-render, multiplying mutation runs per cycle and breaking the native cross-fade. A `WeakSet` now dedupes the patched component types.
+- **Context menu broken on SteamOS 3.9**: any render failure in `showGameMenu` now clears the cached menu component and template props so the next invocation re-extracts against the current Big Picture bundle. The previous selective error-message filter missed SteamOS 3.9's error phrasings, leaving stale cached props in use.
 - **Collapsible QAM sections gamepad selection highlight**: focus CSS added to the collapsible header so it shows a selection state when navigated with a gamepad.
-- **decky-submit rebase depth**: removed `--depth=1` from `git fetch upstream main` — shallow fetch prevented finding the merge base needed for rebase.
-- **decky-submit no longer updates PR title**: removed `gh pr edit --title` from the update path; branch is rebased and pushed without touching PR title, body, or comments.
 
 ## [1.5.2] - 2026-04-21
 

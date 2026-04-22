@@ -37,6 +37,13 @@ let resolvePromise: Promise<void> | null = null;
 let lastResolveKey = "";
 let silentPatchFailures = 0;
 let overlayFocusedAppId = 0;
+let patchedTypes: WeakSet<object> = new WeakSet();
+
+const CRASH_WINDOW_MS = 10000;
+const CRASH_THRESHOLD = 5;
+let crashCount = 0;
+let crashWindowStart = 0;
+function resetCrashCounter() { crashCount = 0; crashWindowStart = 0; }
 
 export function getOverlayFocusedAppId(): number { return overlayFocusedAppId; }
 export function getOverlayFirstCachedAppId(): number { return cachedAppIds?.[0] ?? 0; }
@@ -74,6 +81,8 @@ export function resetRecentsReplaceFailed(): void {
   cachedAppIds = null;
   cachedShelfId = null;
   lastResolveKey = "";
+  patchedTypes = new WeakSet();
+  resetCrashCounter();
   notifyFailedChange();
   notifyInjectingChange();
 }
@@ -184,6 +193,8 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
     const trimmed = appIds.slice(0, Math.max(1, shelf.limit ?? 20));
     if (!trimmed.length) return false; // never pass empty — native expects non-empty
     holder.props.games = trimmed;
+    const s = getCurrentSettings();
+    holder.props.showFeaturedItem = !!(shelf.highlightFirst || shelf.highlightAll || s?.globalHighlightFirst || s?.globalHighlightAll);
     const origOnItemFocus = holder.props.onItemFocus;
     holder.props.onItemFocus = (overview: any, ...args: any[]) => {
       try { overlayFocusedAppId = overview?.appid ?? overview?.nAppID ?? 0; } catch {}
@@ -207,13 +218,12 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
 // the known collectionStore/appStore signatures flips the kill switch.
 function isOurCrashFingerprint(msg: string): boolean {
   if (!msg) return false;
-  // Only the specific "values" getter crash on undefined that happens when
-  // userCollections tries to iterate a non-indexed app type. The broader
-  // "userCollections" and "collectionStore" strings can appear in unrelated
-  // Steam operations and must not trigger the killswitch spuriously.
-  return (
-    msg.includes("Cannot read properties of undefined") && msg.includes("values")
-  );
+  if (msg.includes("Cannot read properties of undefined") && msg.includes("values")) return true;
+  // React error #301 (Maximum update depth) — a state update cascade caused
+  // by our mutation firing a Steam callback during render.
+  if (msg.includes("Minified React error #301")) return true;
+  if (msg.includes("Maximum update depth")) return true;
+  return false;
 }
 
 function installGlobalErrorTrap() {
@@ -222,9 +232,11 @@ function installGlobalErrorTrap() {
       // Only fire when replacement is actively injecting (not just configured)
       if (!isRecentsReplaceInjecting()) return;
       const msg = String(evt?.error?.message ?? evt?.message ?? evt?.reason?.message ?? evt?.reason ?? "");
-      if (isOurCrashFingerprint(msg)) {
-        markReplaceFailed(msg.slice(0, 160));
-      }
+      if (!isOurCrashFingerprint(msg)) return;
+      const now = Date.now();
+      if (now - crashWindowStart > CRASH_WINDOW_MS) { crashCount = 0; crashWindowStart = now; }
+      crashCount++;
+      if (crashCount >= CRASH_THRESHOLD) markReplaceFailed(msg.slice(0, 160));
     };
     (globalThis as any).addEventListener?.("error", handler, true);
     (globalThis as any).addEventListener?.("unhandledrejection", handler, true);
@@ -261,6 +273,8 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       afterPatch(props.children as any, "type", (_a: any, ret?: any) => {
         if (!ret) return ret;
         try {
+          if (!ret.type || patchedTypes.has(ret.type)) return ret;
+          patchedTypes.add(ret.type);
           afterPatch(ret.type, "type", (_b: any, ret2?: any) => {
             if (!ret2) return ret2;
             try {
@@ -274,6 +288,8 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                 }
                 return ret2;
               }
+              if (!recents.type || patchedTypes.has(recents.type)) return ret2;
+              patchedTypes.add(recents.type);
               afterPatch(recents.type, "type", (_c: any, ret3?: any) => {
                 if (!ret3) return ret3;
                 try {
@@ -355,6 +371,15 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
   // the native tree unnecessarily.
   const bootstrapTimers: ReturnType<typeof setTimeout>[] = [];
   const tryResolve = () => {
+    if (!replaceFailed && isRecentsReplaceInjecting()) {
+      try {
+        const doc = (globalThis as any).document;
+        if (doc?.querySelector?.(".deckyErrorBoundary")) {
+          markReplaceFailed("decky error boundary detected during injection");
+          return;
+        }
+      } catch {}
+    }
     if (replaceFailed || (cachedAppIds && cachedAppIds.length > 0)) return;
     const shelf = activeFirstShelf();
     if (!shelf) return;

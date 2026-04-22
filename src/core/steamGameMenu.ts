@@ -57,11 +57,15 @@ export function extractAppContextMenu(): boolean {
   const React = getSteamReact();
   if (!doc || !React?.createElement) return false;
 
+  const mount = doc.getElementById("deck-shelves-home-root");
+  const nativeRecents = (mount?.previousElementSibling ?? null) as Element | null;
+
   const panels = doc.querySelectorAll(".Panel.Focusable");
   let menuFn: ((e: any) => void) | null = null;
 
   for (let i = 0; i < panels.length; i++) {
     const panel = panels[i];
+    if (nativeRecents && nativeRecents.contains(panel)) continue;
     const cls = panel.className ?? "";
     if (cls.indexOf("ds-card") >= 0 || cls.indexOf("ds-row") >= 0) continue;
     if (!panel.querySelector("img")) continue;
@@ -174,14 +178,9 @@ export function showGameMenu(appid: number): void {
             }
             return;
           }
-        } catch (e) {
-          // Only clear the cache if the error looks like a component render failure,
-          // not an unrelated issue (appStore lookup, etc.)
-          const msg = String((e as any)?.message ?? e ?? "");
-          if (msg.includes("createElement") || msg.includes("render") || msg.includes("component")) {
-            cachedMenuComponent = null;
-            cachedMenuTemplateProps = {};
-          }
+        } catch {
+          cachedMenuComponent = null;
+          cachedMenuTemplateProps = {};
         }
       }
 
