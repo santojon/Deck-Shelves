@@ -39,6 +39,7 @@ let silentPatchFailures = 0;
 let overlayFocusedAppId = 0;
 
 export function getOverlayFocusedAppId(): number { return overlayFocusedAppId; }
+export function getOverlayFirstCachedAppId(): number { return cachedAppIds?.[0] ?? 0; }
 
 // --- Failed state (pub/sub) ---------------------------------------------
 let replaceFailed = false;
@@ -70,6 +71,9 @@ export function resetRecentsReplaceFailed(): void {
   replaceFailed = false;
   replaceError = null;
   silentPatchFailures = 0;
+  cachedAppIds = null;
+  cachedShelfId = null;
+  lastResolveKey = "";
   notifyFailedChange();
   notifyInjectingChange();
 }
@@ -203,17 +207,20 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
 // the known collectionStore/appStore signatures flips the kill switch.
 function isOurCrashFingerprint(msg: string): boolean {
   if (!msg) return false;
+  // Only the specific "values" getter crash on undefined that happens when
+  // userCollections tries to iterate a non-indexed app type. The broader
+  // "userCollections" and "collectionStore" strings can appear in unrelated
+  // Steam operations and must not trigger the killswitch spuriously.
   return (
-    msg.includes("userCollections") ||
-    msg.includes("collectionStore") ||
-    (msg.includes("Cannot read properties of undefined") && msg.includes("values"))
+    msg.includes("Cannot read properties of undefined") && msg.includes("values")
   );
 }
 
 function installGlobalErrorTrap() {
   try {
     const handler = (evt: any) => {
-      if (!activeFirstShelf() && !replaceFailed) return; // only care while experiment is on
+      // Only fire when replacement is actively injecting (not just configured)
+      if (!isRecentsReplaceInjecting()) return;
       const msg = String(evt?.error?.message ?? evt?.message ?? evt?.reason?.message ?? evt?.reason ?? "");
       if (isOurCrashFingerprint(msg)) {
         markReplaceFailed(msg.slice(0, 160));
@@ -244,6 +251,13 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
 
       if (!cachedAppIds?.length) scheduleResolve(shelf);
 
+      // L1 afterPatch wraps props.children.type permanently (the wrapper
+      // persists on that element reference). Skip if __og is already set
+      // to avoid accumulating handlers when patchFn fires multiple times.
+      // L2/L3 patches are transient (per fresh element each render) so they
+      // must be re-applied every time L1's handler fires.
+      if ((props.children as any)?.type?.__og) return props;
+
       afterPatch(props.children as any, "type", (_a: any, ret?: any) => {
         if (!ret) return ret;
         try {
@@ -254,13 +268,9 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                 x?.props && "autoFocus" in x.props && "showBackground" in x.props,
               );
               if (!recents) {
-                // Tree walk failed to find the recents component (tree shape
-                // mismatch). Increment counter — after 5 consecutive silent
-                // failures, activate the killswitch so HomeInject falls back
-                // to visual hide instead of leaving the state permanently broken.
                 if (cachedAppIds?.length) {
                   silentPatchFailures++;
-                  if (silentPatchFailures >= 5) markReplaceFailed("tree walk: recents node not found");
+                  if (silentPatchFailures >= 10) markReplaceFailed("tree walk: recents node not found");
                 }
                 return ret2;
               }
@@ -275,7 +285,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                   if (!ok) {
                     if (cachedAppIds?.length) {
                       silentPatchFailures++;
-                      if (silentPatchFailures >= 5) markReplaceFailed("mutate: holder not found");
+                      if (silentPatchFailures >= 10) markReplaceFailed("mutate: holder not found");
                     }
                     return ret3;
                   }
@@ -338,21 +348,21 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     unsubApp = reg?.unregister ? () => reg.unregister() : null;
   } catch {}
 
+  // Bootstrap: patchFn only fires when Steam renders /library/home.
+  // If already on home at install time, we trigger resolve ourselves.
+  // Timers only call scheduleResolve — forceRemountRecents is called by
+  // scheduleResolve internally when data changes, so we never disturb
+  // the native tree unnecessarily.
   const bootstrapTimers: ReturnType<typeof setTimeout>[] = [];
-  const kickstart = () => {
+  const tryResolve = () => {
+    if (replaceFailed || (cachedAppIds && cachedAppIds.length > 0)) return;
     const shelf = activeFirstShelf();
     if (!shelf) return;
-    if (!cachedAppIds?.length) {
-      lastResolveKey = "";
-      scheduleResolve(shelf);
-    }
-    forceRemountRecents();
+    lastResolveKey = "";
+    scheduleResolve(shelf);
   };
-  for (const d of [80, 300, 800, 1800, 3500, 6000, 10000, 15000]) {
-    bootstrapTimers.push(setTimeout(() => {
-      if (replaceFailed) return;
-      kickstart();
-    }, d));
+  for (const d of [300, 1000, 2500, 5000, 10000]) {
+    bootstrapTimers.push(setTimeout(tryResolve, d));
   }
 
   let resumeUnsub: (() => void) | null = null;
@@ -360,24 +370,13 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     const client: any = (globalThis as any).SteamClient;
     const reg = client?.System?.RegisterForOnResumeFromSuspend?.(() => {
       if (replaceFailed) return;
-      // After resume from suspend: wait a bit then re-kickstart
-      setTimeout(() => { if (!replaceFailed) kickstart(); }, 1500);
-      setTimeout(() => { if (!replaceFailed) kickstart(); }, 4000);
+      cachedAppIds = null; lastResolveKey = "";
+      setTimeout(tryResolve, 2000);
     });
     resumeUnsub = reg?.unregister ? () => reg.unregister() : null;
   } catch {}
 
-  // Periodic refresh every 2min to recover from timing failures
-  const periodicTimer = setInterval(() => {
-    if (replaceFailed) return;
-    const shelf = activeFirstShelf();
-    if (!shelf) return;
-    if (!cachedAppIds?.length) {
-      lastResolveKey = "";
-      scheduleResolve(shelf);
-      forceRemountRecents();
-    }
-  }, 2 * 60 * 1000);
+  const periodicTimer = setInterval(tryResolve, 90 * 1000);
 
   logInfo("RUNTIME", "installed");
 

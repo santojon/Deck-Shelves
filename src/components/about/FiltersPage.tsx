@@ -46,6 +46,7 @@ export function FiltersPage() {
       <DocCallout variant="tip">{t('docs_filters_and_or_tip')}</DocCallout>
       <DocCallout variant="tip">{t('docs_filters_invert_tip')}</DocCallout>
       <DocCallout variant="note">{t('docs_filters_pending_note')}</DocCallout>
+      <div style={{ height: 56 }} />
     </DocSection>
   )
 }

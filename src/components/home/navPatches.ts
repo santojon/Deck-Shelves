@@ -13,7 +13,7 @@ import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { showGameMenu } from "../../core/steamGameMenu";
 import { logInfo } from "../../runtime/logger";
 import { focusElement } from "../../core/focusRestore";
-import { getOverlayFocusedAppId, isRecentsReplaceInjecting } from "../../runtime/recentsReplace";
+import { getOverlayFocusedAppId, getOverlayFirstCachedAppId, isRecentsReplaceInjecting } from "../../runtime/recentsReplace";
 
 const DIR_DOWN  = 10;
 const DIR_UP    = 9;
@@ -171,10 +171,12 @@ function interceptMenuBtn(button: number): boolean {
       const appid = Number(focused.getAttribute("data-appid") ?? 0);
       if (appid > 0) { showGameMenu(appid); return true; }
     }
-    // Overlay: native recents cards are focused — use tracked appid
+    // Overlay: native recents cards — intercept unconditionally to prevent native crash.
+    // Use tracked focused appid, falling back to first cached appid.
     if (isRecentsReplaceInjecting()) {
-      const appid = getOverlayFocusedAppId();
+      const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
       if (appid > 0) { showGameMenu(appid); return true; }
+      return true; // still intercept even if no appid yet — prevents native crash
     }
   } catch { return false; }
   return false;
@@ -202,14 +204,12 @@ export function patchMenuButton(): void {
             return;
           }
         }
-        // Overlay: intercept menu on native recents cards
+        // Overlay: intercept unconditionally — native handler crashes on replaced cards.
         if (isRecentsReplaceInjecting()) {
-          const appid = getOverlayFocusedAppId();
-          if (appid > 0) {
-            evt.stopImmediatePropagation();
-            evt.preventDefault();
-            showGameMenu(appid);
-          }
+          evt.stopImmediatePropagation();
+          evt.preventDefault();
+          const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
+          if (appid > 0) showGameMenu(appid);
         }
       } catch (e) { logInfo("HOME", "handleMenu failed", String(e)); }
     };
