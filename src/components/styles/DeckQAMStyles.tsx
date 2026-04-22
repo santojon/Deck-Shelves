@@ -153,7 +153,7 @@ export function DeckQAMStyles() {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(76, 144, 255, 0.45);
+        background: rgba(255,255,255,0.14);
         border-radius: 8px;
         padding: 1px 7px;
         font-size: 10px;
