@@ -1,15 +1,18 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 type CalloutVariant = 'note' | 'tip' | 'caution'
 
-const CONFIG: Record<CalloutVariant, { color: string; label: string }> = {
-  note:    { color: '#5b9bd5', label: 'NOTE' },
-  tip:     { color: '#4caf50', label: 'TIP' },
-  caution: { color: '#f0a742', label: 'CAUTION' },
+const CONFIG: Record<CalloutVariant, { color: string; labelKey: string }> = {
+  note:    { color: '#5b9bd5', labelKey: 'docs_callout_note' },
+  tip:     { color: '#4caf50', labelKey: 'docs_callout_tip' },
+  caution: { color: '#f0a742', labelKey: 'docs_callout_caution' },
 }
 
 export function DocCallout({ variant = 'note', children }: { variant?: CalloutVariant; children: React.ReactNode }) {
-  const { color, label } = CONFIG[variant]
+  const { t } = useTranslation()
+  const { color, labelKey } = CONFIG[variant]
+  const label = t(labelKey as any)
   return (
     <div style={{
       borderLeft: `3px solid ${color}`,

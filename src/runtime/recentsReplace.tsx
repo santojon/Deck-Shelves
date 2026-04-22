@@ -36,6 +36,9 @@ let cachedTitle: string | null = null;
 let resolvePromise: Promise<void> | null = null;
 let lastResolveKey = "";
 let silentPatchFailures = 0;
+let overlayFocusedAppId = 0;
+
+export function getOverlayFocusedAppId(): number { return overlayFocusedAppId; }
 
 // --- Failed state (pub/sub) ---------------------------------------------
 let replaceFailed = false;
@@ -86,7 +89,7 @@ function markReplaceFailed(reason: string) {
  *  Confirmed via CDP: native recents only contains `app_type === 1` (Game).
  *  Passing Shortcut (1073741824), Music, DLC, Tool etc. crashes Steam's
  *  `userCollections` getter because those collections don't index them. */
-const RENDERABLE_STEAM_APP_TYPES: ReadonlySet<number> = new Set([1, 2]); // Game, Application
+const RENDERABLE_STEAM_APP_TYPES: ReadonlySet<number> = new Set([1, 2, 1073741824]); // Game, Application, Non-Steam Shortcut
 
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
@@ -177,6 +180,11 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
     const trimmed = appIds.slice(0, Math.max(1, shelf.limit ?? 20));
     if (!trimmed.length) return false; // never pass empty — native expects non-empty
     holder.props.games = trimmed;
+    const origOnItemFocus = holder.props.onItemFocus;
+    holder.props.onItemFocus = (overview: any, ...args: any[]) => {
+      try { overlayFocusedAppId = overview?.appid ?? overview?.nAppID ?? 0; } catch {}
+      return origOnItemFocus?.(overview, ...args);
+    };
     try {
       const titleText = shelf.title ?? cachedTitle ?? "";
       if (titleText) {
@@ -340,12 +348,36 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     }
     forceRemountRecents();
   };
-  for (const d of [80, 300, 800, 1800, 3500, 6000]) {
+  for (const d of [80, 300, 800, 1800, 3500, 6000, 10000, 15000]) {
     bootstrapTimers.push(setTimeout(() => {
       if (replaceFailed) return;
       kickstart();
     }, d));
   }
+
+  let resumeUnsub: (() => void) | null = null;
+  try {
+    const client: any = (globalThis as any).SteamClient;
+    const reg = client?.System?.RegisterForOnResumeFromSuspend?.(() => {
+      if (replaceFailed) return;
+      // After resume from suspend: wait a bit then re-kickstart
+      setTimeout(() => { if (!replaceFailed) kickstart(); }, 1500);
+      setTimeout(() => { if (!replaceFailed) kickstart(); }, 4000);
+    });
+    resumeUnsub = reg?.unregister ? () => reg.unregister() : null;
+  } catch {}
+
+  // Periodic refresh every 2min to recover from timing failures
+  const periodicTimer = setInterval(() => {
+    if (replaceFailed) return;
+    const shelf = activeFirstShelf();
+    if (!shelf) return;
+    if (!cachedAppIds?.length) {
+      lastResolveKey = "";
+      scheduleResolve(shelf);
+      forceRemountRecents();
+    }
+  }, 2 * 60 * 1000);
 
   logInfo("RUNTIME", "installed");
 
@@ -355,9 +387,11 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       try { unsubSettings?.(); } catch {}
       try { unsubApp?.(); } catch {}
       try { uninstallErrorTrap(); } catch {}
+      try { resumeUnsub?.(); } catch {}
+      clearInterval(periodicTimer);
       for (const t of bootstrapTimers) { try { clearTimeout(t); } catch {} }
       cachedAppIds = null; cachedShelfId = null; cachedTitle = null;
-      lastResolveKey = "";
+      lastResolveKey = ""; overlayFocusedAppId = 0;
       notifyInjectingChange();
     },
   };

@@ -7,30 +7,30 @@ import { DocAccordion } from './DocAccordion'
 const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
 const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
 
-const GROUPS: { label: string; keys: string[] }[] = [
+const GROUPS: { labelKey: string; keys: string[] }[] = [
   {
-    label: 'Shelves & Filters',
+    labelKey: 'about_group_shelves_filters',
     keys: [
       'about_feature_shelves', 'about_feature_sources', 'about_feature_filters',
       'about_feature_advanced_groups', 'about_feature_smart_shelves', 'about_feature_hide_recents',
     ],
   },
   {
-    label: 'Library Options',
+    labelKey: 'about_group_library_options',
     keys: [
       'about_feature_sort', 'about_feature_new_sorts', 'about_feature_new_filters',
       'about_feature_developer_filter', 'about_feature_playtime',
     ],
   },
   {
-    label: 'Appearance',
+    labelKey: 'about_group_appearance',
     keys: [
       'about_feature_dynamic_sizing', 'about_feature_highlight_first',
       'about_feature_global_toggles', 'about_feature_mouse_hover',
     ],
   },
   {
-    label: 'Management & System',
+    labelKey: 'about_group_management',
     keys: [
       'about_feature_first_run', 'about_feature_templates', 'about_feature_reorder',
       'about_feature_visibility', 'about_feature_import_export', 'about_feature_external_imports',
@@ -49,7 +49,7 @@ export function OverviewPage() {
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_description')}</span>} />
       <Field focusable={true} bottomSeparator="none" label={<span style={labelStyle}>{t('about_features_title')}</span>} />
       {GROUPS.map((group, i) => (
-        <DocAccordion key={group.label} label={group.label} defaultOpen={i === 0}>
+        <DocAccordion key={group.labelKey} label={t(group.labelKey as any)} defaultOpen={i === 0}>
           {group.keys.map((k) => (
             <Field key={k} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• {t(k)}</span>} />
           ))}

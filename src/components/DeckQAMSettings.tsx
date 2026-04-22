@@ -176,7 +176,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </CollapsibleSection>
 
       {settings.enabled && (
-      <CollapsibleSection id='smart' title={t('smart_section_header')} count={settings.smartShelvesEnabled ? 1 : 0}>
+      <CollapsibleSection id='smart' title={t('smart_section_header')} count={settings.smartShelvesEnabled ? (settings.smartShelves ?? []).filter((s: any) => !s.hidden).length : 0}>
         <ToggleField
           label={t('smart_shelves_enabled')}
           checked={settings.smartShelvesEnabled === true}

@@ -174,9 +174,14 @@ export function showGameMenu(appid: number): void {
             }
             return;
           }
-        } catch {
-          cachedMenuComponent = null;
-          cachedMenuTemplateProps = {};
+        } catch (e) {
+          // Only clear the cache if the error looks like a component render failure,
+          // not an unrelated issue (appStore lookup, etc.)
+          const msg = String((e as any)?.message ?? e ?? "");
+          if (msg.includes("createElement") || msg.includes("render") || msg.includes("component")) {
+            cachedMenuComponent = null;
+            cachedMenuTemplateProps = {};
+          }
         }
       }
 

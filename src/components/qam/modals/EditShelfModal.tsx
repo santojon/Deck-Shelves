@@ -222,9 +222,10 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                     {state.sourceType === 'external' && externalOptions.length > 0 && (
                       <DropdownItem label={t('source_external')} rgOptions={externalOptions} selectedOption={state.externalSourceId} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
                     )}
-                    {state.sourceType !== 'filter' && (
-                      <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt)) }))} bottomSeparator='thick' />
-                    )}
+                    {state.sourceType === 'filter'
+                      ? <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
+                      : <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt)) }))} bottomSeparator='thick' />
+                    }
                     <Field label={`${t('limit')} (${state.limit})`}>
                       <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />
                     </Field>
@@ -236,7 +237,6 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 title: t('edit_tab_filters'),
                 content: (
                   <div className='field-item-container' style={{ padding: '0 16px' }}>
-                    <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
                     <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} />
                   </div>
                 ),

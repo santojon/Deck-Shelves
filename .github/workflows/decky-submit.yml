@@ -129,19 +129,13 @@ jobs:
           cd db-fork
 
           git remote add upstream https://github.com/SteamDeckHomebrew/decky-plugin-database.git 2>/dev/null || true
-          git fetch upstream main --depth=1
+          git fetch upstream main
 
           if [[ -n "$EXISTING_PR" ]]; then
             # ── Update path: reuse existing branch, rebase on upstream, update submodule ──
             PR_NUMBER=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.number')
             BRANCH=$(echo "$EXISTING_PR" | base64 --decode | jq -r '.headRefName')
             echo "🔍 Found existing PR #${PR_NUMBER} on branch: ${BRANCH}"
-
-            # Detect if this existing PR is an "Update" or "Add" type by checking its title
-            EXISTING_PR_TITLE=$(gh pr view "${PR_NUMBER}" \
-              --repo SteamDeckHomebrew/decky-plugin-database \
-              --json title --jq '.title' 2>/dev/null || true)
-            echo "📋 Existing PR title: ${EXISTING_PR_TITLE}"
 
             git fetch origin "${BRANCH}"
             git checkout -B "${BRANCH}" "origin/${BRANCH}"
@@ -197,16 +191,7 @@ jobs:
             echo "🚀 Force pushing rebased branch ${BRANCH}..."
             git push "https://x-access-token:${GH_TOKEN}@github.com/${FORK}.git" "${BRANCH}" --force
 
-            # If this is an "Update" PR, update the title to reflect the new version.
-            # "Add" PRs keep their original title untouched.
-            if [[ "${EXISTING_PR_TITLE}" == Update* ]]; then
-              gh pr edit "${PR_NUMBER}" \
-                --repo SteamDeckHomebrew/decky-plugin-database \
-                --title "Update ${PLUGIN} to v${VERSION}"
-              echo "✅ PR #${PR_NUMBER} title updated to: Update ${PLUGIN} to v${VERSION}"
-            else
-              echo "✅ PR #${PR_NUMBER} branch updated (addition PR — title unchanged)."
-            fi
+            echo "✅ PR #${PR_NUMBER} branch rebased and pushed (title unchanged)."
 
           else
             # ── Create path: new branch + PR ──

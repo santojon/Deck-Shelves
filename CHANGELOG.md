@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Smart Shelves about tab**: dedicated "Smart Shelves" tab in the About page, separate from the main Shelves tab. Lists all 15 smart templates grouped by category with sort/timing notes per template.
+- **Sort about tab**: dedicated "Sort" tab in the About page, extracted from the Filters tab. Lists all 8 sort modes with descriptions.
+- **Overview tab i18n group labels**: feature groups in the Overview tab are now i18n keys translated across all 16 locales.
+- **DocCallout labels i18n**: "NOTE", "TIP", "CAUTION" callout labels are now i18n keys translated in all 16 locales.
+- **Overlay native recents menu button**: pressing the menu/options button on a focused native-overlay card now opens the game context menu via tracked `onItemFocus` appid.
+- **Overlay restart recovery**: bootstrap timers extended to 15s; periodic 2-minute refresh re-kickstarts overlay when no cached ids; resume-from-suspend hook re-kickstarts overlay after wakeup.
+
+### Fixed
+
+- **Context menu cache cleared on unrelated errors**: `cachedMenuComponent` is now only cleared when the error message suggests a render/component failure.
+- **Collapsible QAM sections gamepad selection highlight**: focus CSS added to the collapsible header so it shows a selection state when navigated with a gamepad.
+- **decky-submit rebase depth**: removed `--depth=1` from `git fetch upstream main` — shallow fetch prevented finding the merge base needed for rebase.
+- **decky-submit no longer updates PR title**: removed `gh pr edit --title` from the update path; branch is rebased and pushed without touching PR title, body, or comments.
+
 ## [1.5.2] - 2026-04-21
 
 ### Added

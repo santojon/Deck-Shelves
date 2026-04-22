@@ -139,17 +139,27 @@ export function DeckQAMStyles() {
         user-select: none;
         width: 100%;
         box-sizing: border-box;
+        border-radius: 4px;
+        transition: background 0.1s;
+      }
+      .deck-shelves-qam-scope .ds-collapsible-header:focus,
+      .deck-shelves-qam-scope .ds-collapsible-header.gpfocus,
+      .deck-shelves-qam-scope .ds-collapsible-header [data-cs-gpfocused="true"],
+      .deck-shelves-qam-scope .ds-collapsible-header:focus-within {
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
       }
       .deck-shelves-qam-scope .ds-collapsible-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255,255,255,0.14);
+        background: rgba(76, 144, 255, 0.45);
         border-radius: 8px;
         padding: 1px 7px;
         font-size: 10px;
         font-weight: 700;
         margin-right: 4px;
+        color: #fff;
       }
     `}</style>
   )
