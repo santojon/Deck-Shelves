@@ -4,7 +4,10 @@ import { DialogBody, DialogControlsSection } from '@decky/ui'
 export function DocSection({ children }: { children: React.ReactNode }) {
   return (
     <DialogBody>
-      <DialogControlsSection>{children}</DialogControlsSection>
+      <DialogControlsSection>
+        {children}
+        <div style={{ height: 40 }} />
+      </DialogControlsSection>
     </DialogBody>
   )
 }

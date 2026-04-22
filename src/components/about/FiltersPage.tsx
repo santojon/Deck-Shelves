@@ -30,17 +30,6 @@ const filterRows: [string, string][] = [
   ['filter_type_merge',           'docs_filter_merge_desc'],
 ]
 
-const sortRows: [string, string][] = [
-  ['sort_alpha',        'docs_sort_alpha_desc'],
-  ['sort_recent',       'docs_sort_recent_desc'],
-  ['sort_added',        'docs_sort_added_desc'],
-  ['sort_playtime',     'docs_sort_playtime_desc'],
-  ['sort_release_date', 'docs_sort_release_date_desc'],
-  ['sort_size_on_disk', 'docs_sort_size_desc'],
-  ['sort_metacritic',   'docs_sort_metacritic_desc'],
-  ['sort_review_score', 'docs_sort_review_desc'],
-]
-
 export function FiltersPage() {
   const { t } = useTranslation()
   return (
@@ -53,17 +42,10 @@ export function FiltersPage() {
       ))}
 
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_filters_groups_title')}</span>} />
-      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_filters_groups_desc')}</span>} />
       <DocCallout variant="tip">{t('docs_filters_and_or_tip')}</DocCallout>
       <DocCallout variant="tip">{t('docs_filters_invert_tip')}</DocCallout>
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_filters_groups_desc')}</span>} />
       <DocCallout variant="note">{t('docs_filters_pending_note')}</DocCallout>
-
-      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_filters_sort_title')}</span>} />
-      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_filters_sort_body')}</span>} />
-      {sortRows.map(([k, desc]) => (
-        <Field key={k} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• <b>{t(k)}</b> — {t(desc)}</span>} />
-      ))}
-      <DocCallout variant="note">{t('docs_filters_sort_tab_note')}</DocCallout>
     </DocSection>
   )
 }

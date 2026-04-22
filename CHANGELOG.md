@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Smart Shelves about tab**: dedicated "Smart Shelves" tab in the About page, separate from the main Shelves tab. Lists all 15 smart templates grouped by category with sort/timing notes per template.
+- **Sort about tab**: dedicated "Sort" tab in the About page, extracted from the Filters tab. Lists all 8 sort modes with descriptions.
+- **Overview tab i18n group labels**: feature groups in the Overview tab are now i18n keys translated across all 16 locales.
+- **DocCallout labels i18n**: "NOTE", "TIP", "CAUTION" callout labels are now i18n keys translated in all 16 locales.
+- **Overlay native recents menu button**: pressing the menu/options button on a focused native-overlay card now opens the game context menu via tracked `onItemFocus` appid.
+- **Overlay restart recovery**: bootstrap timers extended to 15s; periodic 2-minute refresh re-kickstarts overlay when no cached ids; resume-from-suspend hook re-kickstarts overlay after wakeup.
+
+### Fixed
+
+- **Native recents overlay hero art stale after substitution**: `showFeaturedItem` is set from the shelf's highlight toggles and `onItemFocus` is invoked with the first game's overview after mutation, forcing the hero background to match the new first game instead of keeping the previously focused one.
+- **Native recents overlay abrupt focus transitions**: L2/L3 `afterPatch` callbacks were stacking on shared memo/forwardRef wrappers across every re-render, multiplying mutation runs per cycle and breaking the native cross-fade. A `WeakSet` now dedupes the patched component types.
+- **Context menu broken on SteamOS 3.9**: any render failure in `showGameMenu` now clears the cached menu component and template props so the next invocation re-extracts against the current Big Picture bundle. The previous selective error-message filter missed SteamOS 3.9's error phrasings, leaving stale cached props in use.
+- **Collapsible QAM sections gamepad selection highlight**: focus CSS added to the collapsible header so it shows a selection state when navigated with a gamepad.
+
 ## [1.5.2] - 2026-04-21
 
 ### Added

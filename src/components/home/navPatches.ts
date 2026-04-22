@@ -13,6 +13,7 @@ import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { showGameMenu } from "../../core/steamGameMenu";
 import { logInfo } from "../../runtime/logger";
 import { focusElement } from "../../core/focusRestore";
+import { getOverlayFocusedAppId, getOverlayFirstCachedAppId, isRecentsReplaceInjecting } from "../../runtime/recentsReplace";
 
 const DIR_DOWN  = 10;
 const DIR_UP    = 9;
@@ -160,13 +161,25 @@ function interceptMenuBtn(button: number): boolean {
   if (button !== OPTIONS_BUTTON) return false;
   try {
     const doc = getPreferredSteamDocument();
-    const focused = (doc?.querySelector(".ds-card.gpfocus") ?? doc?.querySelector(".ds-card:focus")) as HTMLElement | null;
-    if (!focused) return false;
-    const appid = Number(focused.getAttribute("data-appid") ?? 0);
-    if (appid <= 0) return false;
-    showGameMenu(appid);
-    return true;
+    // Try our own shelf cards first
+    const focused = (
+      doc?.querySelector(".ds-card.gpfocus") ??
+      doc?.querySelector(".ds-card:focus") ??
+      (doc?.activeElement?.closest?.(".ds-card") as HTMLElement | null)
+    ) as HTMLElement | null;
+    if (focused) {
+      const appid = Number(focused.getAttribute("data-appid") ?? 0);
+      if (appid > 0) { showGameMenu(appid); return true; }
+    }
+    // Overlay: native recents cards — intercept unconditionally to prevent native crash.
+    // Use tracked focused appid, falling back to first cached appid.
+    if (isRecentsReplaceInjecting()) {
+      const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
+      if (appid > 0) { showGameMenu(appid); return true; }
+      return true; // still intercept even if no appid yet — prevents native crash
+    }
   } catch { return false; }
+  return false;
 }
 
 export function patchMenuButton(): void {
@@ -177,14 +190,26 @@ export function patchMenuButton(): void {
     (doc as any)[DS_DOC_MENU] = true;
     const handleMenu = (evt: Event) => {
       try {
-        const focused = (doc.querySelector(".ds-card.gpfocus") ?? doc.querySelector(".ds-card:focus")) as HTMLElement | null;
+        const focused = (
+          doc.querySelector(".ds-card.gpfocus") ??
+          doc.querySelector(".ds-card:focus") ??
+          (doc.activeElement?.closest?.(".ds-card") as HTMLElement | null)
+        ) as HTMLElement | null;
         if (focused) {
           const appid = Number(focused.getAttribute("data-appid") ?? 0);
           if (appid > 0) {
             evt.stopImmediatePropagation();
             evt.preventDefault();
             showGameMenu(appid);
+            return;
           }
+        }
+        // Overlay: intercept unconditionally — native handler crashes on replaced cards.
+        if (isRecentsReplaceInjecting()) {
+          evt.stopImmediatePropagation();
+          evt.preventDefault();
+          const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
+          if (appid > 0) showGameMenu(appid);
         }
       } catch (e) { logInfo("HOME", "handleMenu failed", String(e)); }
     };

@@ -57,11 +57,15 @@ export function extractAppContextMenu(): boolean {
   const React = getSteamReact();
   if (!doc || !React?.createElement) return false;
 
+  const mount = doc.getElementById("deck-shelves-home-root");
+  const nativeRecents = (mount?.previousElementSibling ?? null) as Element | null;
+
   const panels = doc.querySelectorAll(".Panel.Focusable");
   let menuFn: ((e: any) => void) | null = null;
 
   for (let i = 0; i < panels.length; i++) {
     const panel = panels[i];
+    if (nativeRecents && nativeRecents.contains(panel)) continue;
     const cls = panel.className ?? "";
     if (cls.indexOf("ds-card") >= 0 || cls.indexOf("ds-row") >= 0) continue;
     if (!panel.querySelector("img")) continue;
