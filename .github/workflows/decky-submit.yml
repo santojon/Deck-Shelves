@@ -179,7 +179,7 @@ jobs:
                 git add "$GITMODULES"
               else
                 if ! grep -q "path = ${SUBMODULE_PATH}" "$GITMODULES" 2>/dev/null; then
-                  printf '\n[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" >> "$GITMODULES"
+                  printf '[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" >> "$GITMODULES"
                   git add "$GITMODULES"
                 fi
               fi
@@ -244,7 +244,7 @@ jobs:
                 git add "$GITMODULES"
               else
                 if ! grep -q "path = ${SUBMODULE_PATH}" "$GITMODULES" 2>/dev/null; then
-                  printf '\n[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" >> "$GITMODULES"
+                  printf '[submodule "%s"]\n\tpath = %s\n\turl = %s\n' "$SUBMODULE_PATH" "$SUBMODULE_PATH" "$SUBMODULE_URL" >> "$GITMODULES"
                   git add "$GITMODULES"
                 fi
               fi
