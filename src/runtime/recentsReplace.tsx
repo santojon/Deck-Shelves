@@ -371,15 +371,6 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
   // the native tree unnecessarily.
   const bootstrapTimers: ReturnType<typeof setTimeout>[] = [];
   const tryResolve = () => {
-    if (!replaceFailed && isRecentsReplaceInjecting()) {
-      try {
-        const doc = (globalThis as any).document;
-        if (doc?.querySelector?.(".deckyErrorBoundary")) {
-          markReplaceFailed("decky error boundary detected during injection");
-          return;
-        }
-      } catch {}
-    }
     if (replaceFailed || (cachedAppIds && cachedAppIds.length > 0)) return;
     const shelf = activeFirstShelf();
     if (!shelf) return;
