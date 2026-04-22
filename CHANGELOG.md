@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-04-22
+
 ### Added
 
 - **Smart Shelves about tab**: dedicated "Smart Shelves" tab in the About page, separate from the main Shelves tab. Lists all 15 smart templates grouped by category with sort/timing notes per template.
