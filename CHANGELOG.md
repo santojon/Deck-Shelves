@@ -26,10 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Developer filter layout**: the developer checklist switched from a vertical list of `ToggleField` rows to a 2-column grid of `DialogButton` tiles with a ✓/· indicator.
 - **TabMaster import layout**: tabs are split into collapsible "Tabs" (visible) and "Hidden" sections with a 2-column grid of tiles inside each. A Steam logo icon is shown to the left of Steam-native entries (tabs with no TabMaster filters), matching the TabMaster UI convention.
 
-### Fixed
-
-- **Context menu broken on SteamOS 3.9**: root cause was that SteamOS 3.9 no longer renders the native game menu via a single `{overview, client}`-templated component, so `extractAppContextMenu` never captures and `cachedMenuComponent` stays null. The fallback now builds a standalone `DFL.Menu` with Play (when installed, via `SteamClient.Apps.RunGame`), Properties (via `DFL.Navigation.NavigateToAppProperties`), and View Details — translated across 16 locales.
-
 ## [1.5.3] - 2026-04-22
 
 ### Added
