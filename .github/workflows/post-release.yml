@@ -1,8 +1,8 @@
 name: Post Release (Discord)
 
 on:
-  release:
-    types: [published]
+  # release:
+  #   types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -23,8 +23,6 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GITHUB_EVENT_PATH: ${{ env.EVENT_PATH }}
           REPO: ${{ github.repository }}
-          TAG: ${{ github.event.release.tag_name }}
-          REDDIT_SUBREDDIT: ${{ secrets.REDDIT_SUBREDDIT }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
           GH_TOKEN: ${{ github.token }}
@@ -47,10 +45,8 @@ jobs:
             BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
             URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
           fi
-          # compute image raw url using the tag if available else main
           RAW_URL="https://raw.githubusercontent.com/$REPO/${TAG:-main}/assets/screenshots/home.png"
           TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
-          # Use full release body as changelog, capped to ~3800 chars for Discord embed
           DESC=$(printf "%s" "$BODY" | tr -d '\r' | head -c 3800)
           DESC="$DESC\n\nReleases: https://github.com/$REPO/releases"
 
