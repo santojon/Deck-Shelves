@@ -373,5 +373,18 @@
   "export_shelves": "Planken exporteren",
   "import_shelves": "Planken importeren",
   "export_smart_shelves": "Slimme planken exporteren",
-  "import_smart_shelves": "Slimme planken importeren"
+  "import_smart_shelves": "Slimme planken importeren",
+  "reset_shelves_confirm_title": "Planken resetten",
+  "reset_shelves_confirm_desc": "Alle planken verwijderen? Dit kan niet ongedaan worden gemaakt.",
+  "reset_shelves_confirm_ok": "Planken resetten",
+  "reset_smart_shelves_confirm_title": "Slimme planken resetten",
+  "reset_smart_shelves_confirm_desc": "Alle slimme planken verwijderen en slimme functies uitschakelen? Dit kan niet ongedaan worden gemaakt.",
+  "reset_smart_shelves_confirm_ok": "Slimme planken resetten",
+  "toast_shelves_reset": "Planken gereset",
+  "toast_smart_shelves_reset": "Slimme planken gereset",
+  "reset_shelves": "Planken resetten",
+  "reset_smart_shelves": "Slimme planken resetten",
+  "sort_manual": "Handmatig",
+  "highlight_pattern_odd_even": "Oneven/Even",
+  "highlight_pattern_even_odd": "Even/Oneven"
 }

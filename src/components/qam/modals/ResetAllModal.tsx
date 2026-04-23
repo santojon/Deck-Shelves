@@ -2,14 +2,32 @@ import { ConfirmModal } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { resetMountFailed } from '../../../runtime/homePatch'
 
-export function ResetAllModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
+export type ResetScope = 'all' | 'shelves' | 'smart'
+
+function titleKey(scope: ResetScope): string {
+  if (scope === 'shelves') return 'reset_shelves_confirm_title'
+  if (scope === 'smart') return 'reset_smart_shelves_confirm_title'
+  return 'reset_all_confirm_title'
+}
+function descKey(scope: ResetScope): string {
+  if (scope === 'shelves') return 'reset_shelves_confirm_desc'
+  if (scope === 'smart') return 'reset_smart_shelves_confirm_desc'
+  return 'reset_all_confirm_desc'
+}
+function okKey(scope: ResetScope): string {
+  if (scope === 'shelves') return 'reset_shelves_confirm_ok'
+  if (scope === 'smart') return 'reset_smart_shelves_confirm_ok'
+  return 'reset_all_confirm_ok'
+}
+
+export function ResetAllModal({ closeModal, controller, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; scope?: ResetScope }) {
   const { t, actions } = controller
 
   return (
     <ConfirmModal
-      strTitle={t('reset_all_confirm_title')}
-      strDescription={t('reset_all_confirm_desc')}
-      strOKButtonText={t('reset_all_confirm_ok')}
+      strTitle={t(titleKey(scope) as any)}
+      strDescription={t(descKey(scope) as any)}
+      strOKButtonText={t(okKey(scope) as any)}
       strCancelButtonText={t('cancel')}
       bDestructiveWarning
       onCancel={closeModal}
@@ -17,8 +35,14 @@ export function ResetAllModal({ closeModal, controller }: { closeModal?: () => v
       onOK={() => {
         closeModal?.();
         (async () => {
-          await actions.resetAll();
-          resetMountFailed();
+          if (scope === 'shelves') {
+            await actions.resetShelves();
+          } else if (scope === 'smart') {
+            await actions.resetSmartShelves();
+          } else {
+            await actions.resetAll();
+            resetMountFailed();
+          }
         })();
       }}
     />

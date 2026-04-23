@@ -193,6 +193,19 @@ export function useSettingsController() {
       if (!s) return false;
       return writeJsonFile(destPath, JSON.stringify({ state: { smartShelves: s.smartShelves ?? [], smartShelvesEnabled: s.smartShelvesEnabled === true, smartShelvesAtBottom: s.smartShelvesAtBottom === true, smartSurpriseMe: s.smartSurpriseMe === true, smartSurpriseMeCount: s.smartSurpriseMeCount ?? 0 } }, null, 2));
     },
+    async resetShelves() {
+      const s = liveSettings();
+      if (!s) return;
+      await persist({ ...s, shelves: [] });
+      setSelectedId(null);
+      toaster.toast({ title: t("pluginName"), body: t("toast_shelves_reset") });
+    },
+    async resetSmartShelves() {
+      const s = liveSettings();
+      if (!s) return;
+      await persist({ ...s, smartShelves: [], smartShelvesEnabled: false, smartSurpriseMe: false, smartSurpriseMeCount: 0 });
+      toaster.toast({ title: t("pluginName"), body: t("toast_smart_shelves_reset") });
+    },
     async importSmartShelves(srcPath: string): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;

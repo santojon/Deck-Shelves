@@ -373,5 +373,18 @@
   "export_shelves": "棚をエクスポート",
   "import_shelves": "棚をインポート",
   "export_smart_shelves": "スマート棚をエクスポート",
-  "import_smart_shelves": "スマート棚をインポート"
+  "import_smart_shelves": "スマート棚をインポート",
+  "reset_shelves_confirm_title": "棚をリセット",
+  "reset_shelves_confirm_desc": "すべての棚を削除しますか？この操作は取り消せません。",
+  "reset_shelves_confirm_ok": "棚をリセット",
+  "reset_smart_shelves_confirm_title": "スマート棚をリセット",
+  "reset_smart_shelves_confirm_desc": "すべてのスマート棚を削除し、スマート機能を無効にしますか？この操作は取り消せません。",
+  "reset_smart_shelves_confirm_ok": "スマート棚をリセット",
+  "toast_shelves_reset": "棚をリセットしました",
+  "toast_smart_shelves_reset": "スマート棚をリセットしました",
+  "reset_shelves": "棚をリセット",
+  "reset_smart_shelves": "スマート棚をリセット",
+  "sort_manual": "手動",
+  "highlight_pattern_odd_even": "奇数/偶数",
+  "highlight_pattern_even_odd": "偶数/奇数"
 }

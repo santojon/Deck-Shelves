@@ -373,5 +373,18 @@
   "export_shelves": "선반 내보내기",
   "import_shelves": "선반 가져오기",
   "export_smart_shelves": "스마트 선반 내보내기",
-  "import_smart_shelves": "스마트 선반 가져오기"
+  "import_smart_shelves": "스마트 선반 가져오기",
+  "reset_shelves_confirm_title": "선반 초기화",
+  "reset_shelves_confirm_desc": "모든 선반을 삭제하시겠습니까? 실행 취소할 수 없습니다.",
+  "reset_shelves_confirm_ok": "선반 초기화",
+  "reset_smart_shelves_confirm_title": "스마트 선반 초기화",
+  "reset_smart_shelves_confirm_desc": "모든 스마트 선반을 삭제하고 스마트 기능을 비활성화하시겠습니까? 실행 취소할 수 없습니다.",
+  "reset_smart_shelves_confirm_ok": "스마트 선반 초기화",
+  "toast_shelves_reset": "선반이 초기화되었습니다",
+  "toast_smart_shelves_reset": "스마트 선반이 초기화되었습니다",
+  "reset_shelves": "선반 초기화",
+  "reset_smart_shelves": "스마트 선반 초기화",
+  "sort_manual": "수동",
+  "highlight_pattern_odd_even": "홀수/짝수",
+  "highlight_pattern_even_odd": "짝수/홀수"
 }

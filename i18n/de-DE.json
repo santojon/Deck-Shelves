@@ -373,5 +373,18 @@
   "export_shelves": "Regale exportieren",
   "import_shelves": "Regale importieren",
   "export_smart_shelves": "Smarte Regale exportieren",
-  "import_smart_shelves": "Smarte Regale importieren"
+  "import_smart_shelves": "Smarte Regale importieren",
+  "reset_shelves_confirm_title": "Regale zurücksetzen",
+  "reset_shelves_confirm_desc": "Alle Regale löschen? Dies kann nicht rückgängig gemacht werden.",
+  "reset_shelves_confirm_ok": "Regale zurücksetzen",
+  "reset_smart_shelves_confirm_title": "Smarte Regale zurücksetzen",
+  "reset_smart_shelves_confirm_desc": "Alle smarten Regale löschen und smarte Funktionen deaktivieren? Dies kann nicht rückgängig gemacht werden.",
+  "reset_smart_shelves_confirm_ok": "Smarte Regale zurücksetzen",
+  "toast_shelves_reset": "Regale zurückgesetzt",
+  "toast_smart_shelves_reset": "Smarte Regale zurückgesetzt",
+  "reset_shelves": "Regale zurücksetzen",
+  "reset_smart_shelves": "Smarte Regale zurücksetzen",
+  "sort_manual": "Manuell",
+  "highlight_pattern_odd_even": "Ungerade/Gerade",
+  "highlight_pattern_even_odd": "Gerade/Ungerade"
 }

@@ -373,5 +373,18 @@
   "export_shelves": "Експорт полиць",
   "import_shelves": "Імпорт полиць",
   "export_smart_shelves": "Експорт розумних полиць",
-  "import_smart_shelves": "Імпорт розумних полиць"
+  "import_smart_shelves": "Імпорт розумних полиць",
+  "reset_shelves_confirm_title": "Скинути полиці",
+  "reset_shelves_confirm_desc": "Видалити всі полиці? Це неможливо скасувати.",
+  "reset_shelves_confirm_ok": "Скинути полиці",
+  "reset_smart_shelves_confirm_title": "Скинути розумні полиці",
+  "reset_smart_shelves_confirm_desc": "Видалити всі розумні полиці та вимкнути розумні функції? Це неможливо скасувати.",
+  "reset_smart_shelves_confirm_ok": "Скинути розумні полиці",
+  "toast_shelves_reset": "Полиці скинуто",
+  "toast_smart_shelves_reset": "Розумні полиці скинуто",
+  "reset_shelves": "Скинути полиці",
+  "reset_smart_shelves": "Скинути розумні полиці",
+  "sort_manual": "Вручну",
+  "highlight_pattern_odd_even": "Непарні/Парні",
+  "highlight_pattern_even_odd": "Парні/Непарні"
 }

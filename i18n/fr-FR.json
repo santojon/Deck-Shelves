@@ -373,5 +373,18 @@
   "export_shelves": "Exporter les étagères",
   "import_shelves": "Importer des étagères",
   "export_smart_shelves": "Exporter les étagères intelligentes",
-  "import_smart_shelves": "Importer des étagères intelligentes"
+  "import_smart_shelves": "Importer des étagères intelligentes",
+  "reset_shelves_confirm_title": "Réinitialiser les étagères",
+  "reset_shelves_confirm_desc": "Supprimer toutes les étagères ? Cette action est irréversible.",
+  "reset_shelves_confirm_ok": "Réinitialiser les étagères",
+  "reset_smart_shelves_confirm_title": "Réinitialiser les étagères intelligentes",
+  "reset_smart_shelves_confirm_desc": "Supprimer toutes les étagères intelligentes et désactiver les fonctionnalités intelligentes ? Cette action est irréversible.",
+  "reset_smart_shelves_confirm_ok": "Réinitialiser les étagères intelligentes",
+  "toast_shelves_reset": "Étagères réinitialisées",
+  "toast_smart_shelves_reset": "Étagères intelligentes réinitialisées",
+  "reset_shelves": "Réinitialiser les étagères",
+  "reset_smart_shelves": "Réinitialiser les étagères intelligentes",
+  "sort_manual": "Manuel",
+  "highlight_pattern_odd_even": "Impair/Pair",
+  "highlight_pattern_even_odd": "Pair/Impair"
 }

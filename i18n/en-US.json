@@ -373,5 +373,18 @@
   "export_shelves": "Export shelves",
   "import_shelves": "Import shelves",
   "export_smart_shelves": "Export smart shelves",
-  "import_smart_shelves": "Import smart shelves"
+  "import_smart_shelves": "Import smart shelves",
+  "reset_shelves_confirm_title": "Reset shelves",
+  "reset_shelves_confirm_desc": "Delete all shelves? This cannot be undone.",
+  "reset_shelves_confirm_ok": "Reset shelves",
+  "reset_smart_shelves_confirm_title": "Reset smart shelves",
+  "reset_smart_shelves_confirm_desc": "Delete all smart shelves and disable smart features? This cannot be undone.",
+  "reset_smart_shelves_confirm_ok": "Reset smart shelves",
+  "toast_shelves_reset": "Shelves reset",
+  "toast_smart_shelves_reset": "Smart shelves reset",
+  "reset_shelves": "Reset shelves",
+  "reset_smart_shelves": "Reset smart shelves",
+  "sort_manual": "Manual",
+  "highlight_pattern_odd_even": "Odd/Even",
+  "highlight_pattern_even_odd": "Even/Odd"
 }

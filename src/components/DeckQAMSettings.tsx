@@ -90,6 +90,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
+  const handleResetShelves = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='shelves' />)
+  const handleResetSmart = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='smart' />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
   const [crashError, setCrashError] = useState<string | null>(() => getMountError())
   useEffect(() => {
@@ -169,10 +171,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex' }}>
               <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
-              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
-              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
+              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_shelves')} /></div>
+              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_shelves')} /></div>
             </div>
-            {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
+            <div style={{ display: 'flex' }}>
+              {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
+              <div style={{ marginLeft: hasTabMaster ? '10px' : 0 }}><ActionButton iconNode={icons.reset} onClick={handleResetShelves} okDescription={t('reset_shelves')} /></div>
+            </div>
           </Focusable>
         </Field>
         <div className='deck-shelves-separator' />
@@ -224,10 +229,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             <div style={{ marginTop: 8 }} />
             <div className='deck-shelves-separator' />
             <Field className='no-sep'>
-              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
-                <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
-                <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
-                <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportSmart} okDescription={t('export_smart_shelves')} /></div>
+              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex' }}>
+                  <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
+                  <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
+                  <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportSmart} okDescription={t('export_smart_shelves')} /></div>
+                </div>
+                <ActionButton iconNode={icons.reset} onClick={handleResetSmart} okDescription={t('reset_smart_shelves')} />
               </Focusable>
             </Field>
             <div className='deck-shelves-separator' />

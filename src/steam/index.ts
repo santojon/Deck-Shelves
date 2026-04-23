@@ -1783,6 +1783,16 @@ function stableShuffleIds(ids: number[], cacheKey: string): number[] {
   return shuffled;
 }
 
+export function applyManualOrder(ids: number[], manualOrder?: number[]): number[] {
+  if (!manualOrder?.length) return ids;
+  const idSet = new Set(ids);
+  const inOrder: number[] = [];
+  for (const id of manualOrder) if (idSet.has(id) && !inOrder.includes(id)) inOrder.push(id);
+  const inOrderSet = new Set(inOrder);
+  const rest = ids.filter((id) => !inOrderSet.has(id));
+  return [...inOrder, ...rest];
+}
+
 function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number[] {
   const byId = new Map<number, AppOverview>();
   for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }

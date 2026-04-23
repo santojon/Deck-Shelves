@@ -373,5 +373,18 @@
   "export_shelves": "Exportar estanterías",
   "import_shelves": "Importar estanterías",
   "export_smart_shelves": "Exportar estanterías inteligentes",
-  "import_smart_shelves": "Importar estanterías inteligentes"
+  "import_smart_shelves": "Importar estanterías inteligentes",
+  "reset_shelves_confirm_title": "Restablecer estanterías",
+  "reset_shelves_confirm_desc": "¿Eliminar todas las estanterías? No se puede deshacer.",
+  "reset_shelves_confirm_ok": "Restablecer estanterías",
+  "reset_smart_shelves_confirm_title": "Restablecer estanterías inteligentes",
+  "reset_smart_shelves_confirm_desc": "¿Eliminar todas las estanterías inteligentes y desactivar las funciones inteligentes? No se puede deshacer.",
+  "reset_smart_shelves_confirm_ok": "Restablecer estanterías inteligentes",
+  "toast_shelves_reset": "Estanterías restablecidas",
+  "toast_smart_shelves_reset": "Estanterías inteligentes restablecidas",
+  "reset_shelves": "Restablecer estanterías",
+  "reset_smart_shelves": "Restablecer estanterías inteligentes",
+  "sort_manual": "Manual",
+  "highlight_pattern_odd_even": "Impar/Par",
+  "highlight_pattern_even_odd": "Par/Impar"
 }

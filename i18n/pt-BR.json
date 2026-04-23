@@ -373,5 +373,18 @@
   "export_shelves": "Exportar prateleiras",
   "import_shelves": "Importar prateleiras",
   "export_smart_shelves": "Exportar prateleiras inteligentes",
-  "import_smart_shelves": "Importar prateleiras inteligentes"
+  "import_smart_shelves": "Importar prateleiras inteligentes",
+  "reset_shelves_confirm_title": "Redefinir prateleiras",
+  "reset_shelves_confirm_desc": "Excluir todas as prateleiras? Não é possível desfazer.",
+  "reset_shelves_confirm_ok": "Redefinir prateleiras",
+  "reset_smart_shelves_confirm_title": "Redefinir prateleiras inteligentes",
+  "reset_smart_shelves_confirm_desc": "Excluir todas as prateleiras inteligentes e desativar os recursos inteligentes? Não é possível desfazer.",
+  "reset_smart_shelves_confirm_ok": "Redefinir prateleiras inteligentes",
+  "toast_shelves_reset": "Prateleiras redefinidas",
+  "toast_smart_shelves_reset": "Prateleiras inteligentes redefinidas",
+  "reset_shelves": "Redefinir prateleiras",
+  "reset_smart_shelves": "Redefinir prateleiras inteligentes",
+  "sort_manual": "Manual",
+  "highlight_pattern_odd_even": "Ímpar/Par",
+  "highlight_pattern_even_odd": "Par/Ímpar"
 }

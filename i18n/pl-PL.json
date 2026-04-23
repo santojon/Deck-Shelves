@@ -373,5 +373,18 @@
   "export_shelves": "Eksportuj półki",
   "import_shelves": "Importuj półki",
   "export_smart_shelves": "Eksportuj inteligentne półki",
-  "import_smart_shelves": "Importuj inteligentne półki"
+  "import_smart_shelves": "Importuj inteligentne półki",
+  "reset_shelves_confirm_title": "Resetuj półki",
+  "reset_shelves_confirm_desc": "Usunąć wszystkie półki? Nie można tego cofnąć.",
+  "reset_shelves_confirm_ok": "Resetuj półki",
+  "reset_smart_shelves_confirm_title": "Resetuj inteligentne półki",
+  "reset_smart_shelves_confirm_desc": "Usunąć wszystkie inteligentne półki i wyłączyć funkcje inteligentne? Nie można tego cofnąć.",
+  "reset_smart_shelves_confirm_ok": "Resetuj inteligentne półki",
+  "toast_shelves_reset": "Półki zresetowane",
+  "toast_smart_shelves_reset": "Inteligentne półki zresetowane",
+  "reset_shelves": "Resetuj półki",
+  "reset_smart_shelves": "Resetuj inteligentne półki",
+  "sort_manual": "Ręcznie",
+  "highlight_pattern_odd_even": "Nieparzyste/Parzyste",
+  "highlight_pattern_even_odd": "Parzyste/Nieparzyste"
 }

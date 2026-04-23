@@ -373,5 +373,18 @@
   "export_shelves": "Rafları dışa aktar",
   "import_shelves": "Rafları içe aktar",
   "export_smart_shelves": "Akıllı rafları dışa aktar",
-  "import_smart_shelves": "Akıllı rafları içe aktar"
+  "import_smart_shelves": "Akıllı rafları içe aktar",
+  "reset_shelves_confirm_title": "Rafları sıfırla",
+  "reset_shelves_confirm_desc": "Tüm rafları silmek istiyor musunuz? Bu geri alınamaz.",
+  "reset_shelves_confirm_ok": "Rafları sıfırla",
+  "reset_smart_shelves_confirm_title": "Akıllı rafları sıfırla",
+  "reset_smart_shelves_confirm_desc": "Tüm akıllı rafları silip akıllı özellikleri devre dışı bırakmak istiyor musunuz? Bu geri alınamaz.",
+  "reset_smart_shelves_confirm_ok": "Akıllı rafları sıfırla",
+  "toast_shelves_reset": "Raflar sıfırlandı",
+  "toast_smart_shelves_reset": "Akıllı raflar sıfırlandı",
+  "reset_shelves": "Rafları sıfırla",
+  "reset_smart_shelves": "Akıllı rafları sıfırla",
+  "sort_manual": "El ile",
+  "highlight_pattern_odd_even": "Tek/Çift",
+  "highlight_pattern_even_odd": "Çift/Tek"
 }

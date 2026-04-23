@@ -373,5 +373,18 @@
   "export_shelves": "Экспорт полок",
   "import_shelves": "Импорт полок",
   "export_smart_shelves": "Экспорт умных полок",
-  "import_smart_shelves": "Импорт умных полок"
+  "import_smart_shelves": "Импорт умных полок",
+  "reset_shelves_confirm_title": "Сброс полок",
+  "reset_shelves_confirm_desc": "Удалить все полки? Это нельзя отменить.",
+  "reset_shelves_confirm_ok": "Сброс полок",
+  "reset_smart_shelves_confirm_title": "Сброс умных полок",
+  "reset_smart_shelves_confirm_desc": "Удалить все умные полки и отключить умные функции? Это нельзя отменить.",
+  "reset_smart_shelves_confirm_ok": "Сброс умных полок",
+  "toast_shelves_reset": "Полки сброшены",
+  "toast_smart_shelves_reset": "Умные полки сброшены",
+  "reset_shelves": "Сброс полок",
+  "reset_smart_shelves": "Сброс умных полок",
+  "sort_manual": "Вручную",
+  "highlight_pattern_odd_even": "Нечёт/Чёт",
+  "highlight_pattern_even_odd": "Чёт/Нечёт"
 }

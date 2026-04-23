@@ -11,6 +11,7 @@ import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
+import { applyManualOrder } from "../steam";
 
 const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -18,12 +19,15 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
   const { t } = useTranslation();
   const platform = usePlatform();
   const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}`;
+  const effectiveSort = shelf.source?.type === "filter"
+    ? (((shelf.source as any).filter?.sort as string | undefined) ?? shelf.sort)
+    : shelf.sort;
   const [appIds, setAppIds] = useState<number[] | null>(() => {
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { ts, ids } = JSON.parse(raw);
-        if (Date.now() - ts < 86400000) return ids; // 24h expiry
+        if (Date.now() - ts < 86400000) return effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids; // 24h expiry
       }
     } catch (e) { logInfo("HOME", "shelf cache read failed", String(e)); }
     return null;
@@ -45,7 +49,8 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
         platform.resolveShelfAppIds(shelf.source, shelf.limit, shelf.sort)
           .then((ids) => {
             if (!cancelled) {
-              setAppIds(ids);
+              const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
+              setAppIds(finalIds);
               setMetaVersion((v) => v + 1);
               firstLoad.current = false;
               try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
@@ -77,7 +82,7 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
       unsubRefresh();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
     };
-  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey]);
+  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? ""]);
 
   useEffect(() => {
     let cancelled = false;

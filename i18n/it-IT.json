@@ -373,5 +373,18 @@
   "export_shelves": "Esporta scaffali",
   "import_shelves": "Importa scaffali",
   "export_smart_shelves": "Esporta scaffali intelligenti",
-  "import_smart_shelves": "Importa scaffali intelligenti"
+  "import_smart_shelves": "Importa scaffali intelligenti",
+  "reset_shelves_confirm_title": "Reimposta scaffali",
+  "reset_shelves_confirm_desc": "Eliminare tutti gli scaffali? Non è possibile annullare.",
+  "reset_shelves_confirm_ok": "Reimposta scaffali",
+  "reset_smart_shelves_confirm_title": "Reimposta scaffali intelligenti",
+  "reset_smart_shelves_confirm_desc": "Eliminare tutti gli scaffali intelligenti e disattivare le funzionalità intelligenti? Non è possibile annullare.",
+  "reset_smart_shelves_confirm_ok": "Reimposta scaffali intelligenti",
+  "toast_shelves_reset": "Scaffali reimpostati",
+  "toast_smart_shelves_reset": "Scaffali intelligenti reimpostati",
+  "reset_shelves": "Reimposta scaffali",
+  "reset_smart_shelves": "Reimposta scaffali intelligenti",
+  "sort_manual": "Manuale",
+  "highlight_pattern_odd_even": "Dispari/Pari",
+  "highlight_pattern_even_odd": "Pari/Dispari"
 }
