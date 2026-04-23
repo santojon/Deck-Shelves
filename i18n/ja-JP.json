@@ -367,5 +367,7 @@
   "highlight_games_list": "ゲーム一覧",
   "menu_play": "プレイ",
   "menu_properties": "プロパティ",
-  "menu_view_details": "詳細を表示"
+  "menu_view_details": "詳細を表示",
+  "tabmaster_section_tabs": "タブ",
+  "tabmaster_section_hidden": "非表示"
 }

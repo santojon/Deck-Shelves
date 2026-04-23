@@ -367,5 +367,7 @@
   "highlight_games_list": "Lista de juegos",
   "menu_play": "Jugar",
   "menu_properties": "Propiedades",
-  "menu_view_details": "Ver detalles"
+  "menu_view_details": "Ver detalles",
+  "tabmaster_section_tabs": "Pestañas",
+  "tabmaster_section_hidden": "Ocultas"
 }

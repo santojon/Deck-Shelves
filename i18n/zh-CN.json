@@ -367,5 +367,7 @@
   "highlight_games_list": "游戏列表",
   "menu_play": "游玩",
   "menu_properties": "属性",
-  "menu_view_details": "查看详情"
+  "menu_view_details": "查看详情",
+  "tabmaster_section_tabs": "标签",
+  "tabmaster_section_hidden": "已隐藏"
 }

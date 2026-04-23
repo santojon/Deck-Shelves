@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cloud saves filter**: new `cloudAvailable` filter type — matches games with Steam Cloud support. Invertible.
 - **Controller support filter**: new `controllerSupport` filter type — matches games with partial or full controller support (`nControllerSupport >= 1`). Invertible.
 
+### Changed
+
+- **QAM collapsible header focus highlight**: the rounded corners on the focus highlight were removed — the background fill now matches the header's rectangular bounds for consistency with other QAM sections.
+- **Highlight specific games picker layout**: replaced by a horizontal mini-preview that matches real-shelf rendering — each game uses the same fallback chain (`customimages` → `portraitUrl`/`heroUrl` → local `/assets/{appid}/*` → Steam CDN). Non-featured tiles show portrait art, selected tiles switch to landscape/hero art at ~3x width. A circular green ✓ overlays the top-left corner of selected tiles. Games with no image fall back to the same gradient placeholder as real cards, with the game name centered. No rounded corners.
+- **Developer filter layout**: the developer checklist switched from a vertical list of `ToggleField` rows to a 2-column grid of `DialogButton` tiles with a ✓/· indicator.
+- **TabMaster import layout**: tabs are split into collapsible "Tabs" (visible) and "Hidden" sections with a 2-column grid of tiles inside each. A Steam logo icon is shown to the left of Steam-native entries (tabs with no TabMaster filters), matching the TabMaster UI convention.
+
 ### Fixed
 
 - **Context menu broken on SteamOS 3.9**: root cause was that SteamOS 3.9 no longer renders the native game menu via a single `{overview, client}`-templated component, so `extractAppContextMenu` never captures and `cachedMenuComponent` stays null. The fallback now builds a standalone `DFL.Menu` with Play (when installed, via `SteamClient.Apps.RunGame`), Properties (via `DFL.Navigation.NavigateToAppProperties`), and View Details — translated across 16 locales.

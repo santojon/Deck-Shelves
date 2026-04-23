@@ -367,5 +367,7 @@
   "highlight_games_list": "게임 목록",
   "menu_play": "플레이",
   "menu_properties": "속성",
-  "menu_view_details": "세부 정보 보기"
+  "menu_view_details": "세부 정보 보기",
+  "tabmaster_section_tabs": "탭",
+  "tabmaster_section_hidden": "숨김"
 }

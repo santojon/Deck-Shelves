@@ -367,5 +367,7 @@
   "highlight_games_list": "Список ігор",
   "menu_play": "Грати",
   "menu_properties": "Властивості",
-  "menu_view_details": "Докладніше"
+  "menu_view_details": "Докладніше",
+  "tabmaster_section_tabs": "Вкладки",
+  "tabmaster_section_hidden": "Приховані"
 }

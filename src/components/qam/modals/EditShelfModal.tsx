@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
   DropdownItem,
@@ -21,6 +21,7 @@ import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { ChevronIcon } from '../../filter/utils'
+import { getLandscapeUrls, getPortraitFallbacks } from '../../../core/steamAssets'
 
 type SourceType = 'collection' | 'tab' | 'filter' | 'external'
 type EditTab = 'source' | 'filters' | 'visual' | 'display'
@@ -65,6 +66,75 @@ function optionData(option: unknown) {
   return (option as any)?.data ?? option
 }
 
+function HighlightMiniCard({
+  appid, name, portraitUrl, heroUrl, selected, width, height, onToggle,
+}: {
+  appid: number; name: string; portraitUrl?: string; heroUrl?: string;
+  selected: boolean; width: number; height: number; onToggle: () => void;
+}) {
+  const urls = useMemo(() => {
+    const list: string[] = []
+    if (selected && appid > 0) {
+      for (const u of getLandscapeUrls(appid)) list.push(u)
+      if (heroUrl && !list.includes(heroUrl)) list.push(heroUrl)
+    } else {
+      if (appid > 0) {
+        list.push(`/customimages/${appid}p.png`)
+        list.push(`/customimages/${appid}p.jpg`)
+      }
+      if (portraitUrl && !list.includes(portraitUrl)) list.push(portraitUrl)
+      if (heroUrl && !list.includes(heroUrl)) list.push(heroUrl)
+      if (appid > 0) {
+        for (const u of getPortraitFallbacks(appid)) if (!list.includes(u)) list.push(u)
+      }
+    }
+    return list
+  }, [appid, portraitUrl, heroUrl, selected])
+
+  const imgRef = useRef<HTMLImageElement>(null)
+  const idxRef = useRef(0)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    idxRef.current = 0
+    setFailed(false)
+    if (imgRef.current && urls[0]) imgRef.current.src = urls[0]
+  }, [urls])
+
+  const onErr = () => {
+    idxRef.current += 1
+    if (imgRef.current && idxRef.current < urls.length) imgRef.current.src = urls[idxRef.current]
+    else setFailed(true)
+  }
+
+  return (
+    <Focusable
+      onClick={onToggle}
+      onOKButton={onToggle}
+      style={{
+        width, minWidth: width, height, flexShrink: 0,
+        overflow: 'hidden', cursor: 'pointer',
+        background: 'linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))',
+        outline: selected ? '2px solid #4caf50' : '1px solid rgba(255,255,255,0.12)',
+        transition: 'width 0.15s ease',
+        position: 'relative',
+        borderRadius: 0,
+      }}
+    >
+      {failed || !urls[0] ? (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: selected ? 16 : 6, boxSizing: 'border-box', textAlign: 'center' }}>
+          <span style={{ fontSize: selected ? 12 : 10, opacity: 0.6, wordBreak: 'break-word', lineHeight: 1.3 }}>{name}</span>
+        </div>
+      ) : (
+        <img ref={imgRef} src={urls[0]} alt={name} loading='lazy' onError={onErr} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      )}
+      {selected && (
+        <div style={{ position: 'absolute', top: 4, left: 4, width: 18, height: 18, borderRadius: '50%', background: '#4caf50', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,0.6)' }} aria-hidden='true'>✓</div>
+      )}
+    </Focusable>
+  )
+}
+
 export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, tabs: platformTabs, collections, actions } = controller
   const platform = usePlatform()
@@ -95,7 +165,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<EditTab>('source')
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
-  const [resolvedNames, setResolvedNames] = useState<Map<number, string>>(new Map())
+  const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
   const [highlightListExpanded, setHighlightListExpanded] = useState(false)
 
@@ -128,16 +198,16 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
 
   useEffect(() => {
     let cancelled = false
-    if (!resolvedIds.length) { setResolvedNames(new Map()); return }
+    if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
     ;(async () => {
-      const next = new Map<number, string>()
+      const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
       for (const id of resolvedIds) {
         try {
           const meta = await platform.getAppMeta(id)
-          next.set(id, meta?.name || `App ${id}`)
-        } catch { next.set(id, `App ${id}`) }
+          next.set(id, { name: meta?.name || `App ${id}`, portraitUrl: meta?.portraitUrl, heroUrl: meta?.heroUrl })
+        } catch { next.set(id, { name: `App ${id}` }) }
       }
-      if (!cancelled) setResolvedNames(next)
+      if (!cancelled) setResolvedMeta(next)
     })()
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
@@ -311,7 +381,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                           resolvedIds.length === 0 ? (
                             <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
                           ) : (
-                            <Focusable style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', maxHeight: 220, overflowY: 'auto' }}>
+                            <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, padding: '8px 0', width: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
                               {resolvedIds.map((id) => {
                                 const checked = state.highlightedAppIds.includes(id)
                                 const toggle = () => setState((prev) => ({
@@ -320,20 +390,21 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                                     ? prev.highlightedAppIds.filter((x) => x !== id)
                                     : [...prev.highlightedAppIds, id],
                                 }))
+                                const meta = resolvedMeta.get(id)
+                                const h = 84
+                                const w = checked ? 180 : 56
                                 return (
-                                  <Focusable
+                                  <HighlightMiniCard
                                     key={id}
-                                    onClick={toggle}
-                                    onOKButton={toggle}
-                                    style={{ width: '100%', padding: '6px 4px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                                  >
-                                    <span style={{ width: 16, textAlign: 'center', flexShrink: 0, color: checked ? '#4caf50' : 'rgba(255,255,255,0.3)' }}>
-                                      {checked ? '✓' : '·'}
-                                    </span>
-                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
-                                      {resolvedNames.get(id) ?? `App ${id}`}
-                                    </span>
-                                  </Focusable>
+                                    appid={id}
+                                    name={meta?.name ?? `App ${id}`}
+                                    portraitUrl={meta?.portraitUrl}
+                                    heroUrl={meta?.heroUrl}
+                                    selected={checked}
+                                    width={w}
+                                    height={h}
+                                    onToggle={toggle}
+                                  />
                                 )
                               })}
                             </Focusable>

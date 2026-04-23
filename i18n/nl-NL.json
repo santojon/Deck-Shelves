@@ -367,5 +367,7 @@
   "highlight_games_list": "Gamelijst",
   "menu_play": "Spelen",
   "menu_properties": "Eigenschappen",
-  "menu_view_details": "Details bekijken"
+  "menu_view_details": "Details bekijken",
+  "tabmaster_section_tabs": "Tabbladen",
+  "tabmaster_section_hidden": "Verborgen"
 }

@@ -367,5 +367,7 @@
   "highlight_games_list": "Oyun listesi",
   "menu_play": "Oyna",
   "menu_properties": "Özellikler",
-  "menu_view_details": "Ayrıntıları gör"
+  "menu_view_details": "Ayrıntıları gör",
+  "tabmaster_section_tabs": "Sekmeler",
+  "tabmaster_section_hidden": "Gizli"
 }

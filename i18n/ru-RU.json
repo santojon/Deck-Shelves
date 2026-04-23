@@ -367,5 +367,7 @@
   "highlight_games_list": "Список игр",
   "menu_play": "Играть",
   "menu_properties": "Свойства",
-  "menu_view_details": "Подробнее"
+  "menu_view_details": "Подробнее",
+  "tabmaster_section_tabs": "Вкладки",
+  "tabmaster_section_hidden": "Скрытые"
 }

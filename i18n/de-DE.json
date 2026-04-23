@@ -367,5 +367,7 @@
   "highlight_games_list": "Spieleliste",
   "menu_play": "Spielen",
   "menu_properties": "Eigenschaften",
-  "menu_view_details": "Details anzeigen"
+  "menu_view_details": "Details anzeigen",
+  "tabmaster_section_tabs": "Tabs",
+  "tabmaster_section_hidden": "Ausgeblendet"
 }
