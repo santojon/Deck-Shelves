@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { ShelfView } from "./Shelf";
 import type { Settings, Shelf, SmartShelf, SmartShelfMode } from "../types";
-import { refreshSettings, subscribeSettings } from "../settingsStore";
+import { refreshSettings, subscribeSettings, saveSettings, getCurrentSettings } from "../settingsStore";
+import { useContainerDragReorder } from "../core/reorder";
 import { PlatformProvider } from "../runtime/platformContext";
 import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
@@ -12,7 +13,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
-import { installPassiveMenuHook } from "../core/steamGameMenu";
+import { installPassiveMenuHook, prewarmMenuExtraction } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
@@ -442,6 +443,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     };
 
     applyPatches();
+    const disposePrewarm = prewarmMenuExtraction();
 
     // Observer 1: mutations inside our mount (shelf render, collapse/expand)
     const obs = new MutationObserver(applyPatches);
@@ -479,6 +481,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       doc?.removeEventListener("focusin", onFocusIn, true);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
+      disposePrewarm();
     };
   }, [mountEl]);
 
@@ -543,8 +546,40 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     return () => { cancelled = true; };
   }, [hideRecentsSetting, mountEl, shelves?.length]);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Drag-to-reorder shelves by holding the title (touch/mouse only; D-pad nav
+  // stays untouched). The hook scopes to `.ds-shelf[data-shelfid]` under the
+  // root container and only acts on ids that match REGULAR shelves in
+  // settings (smart shelves are position-managed separately via their toggle).
+  useContainerDragReorder<string>({
+    containerRef: rootRef,
+    itemSelector: '.ds-shelf[data-shelfid]',
+    getItemId: (el) => {
+      const id = el.getAttribute('data-shelfid');
+      if (!id) return null;
+      const s = getCurrentSettings();
+      return s?.shelves?.some((sh: any) => sh.id === id) ? id : null;
+    },
+    getOrder: () => {
+      const s = getCurrentSettings();
+      return (s?.shelves ?? []).map((sh: any) => sh.id as string);
+    },
+    onReorder: (newIds) => {
+      const s = getCurrentSettings();
+      if (!s) return;
+      const map = new Map(s.shelves.map((sh: any) => [sh.id, sh]));
+      const next = newIds.map((id) => map.get(id)).filter(Boolean) as any[];
+      for (const sh of s.shelves) if (!newIds.includes(sh.id)) next.push(sh);
+      saveSettings({ ...s, shelves: next });
+    },
+    axis: 'vertical',
+    allowedPointerTypes: ['mouse', 'touch'],
+  });
+
   return (
     <Focusable
+      ref={rootRef}
       className="deck-shelves-root"
       flow-children="column"
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}

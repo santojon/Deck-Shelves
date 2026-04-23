@@ -24,6 +24,28 @@ function getSPDocument(): Document {
   return getPreferredSteamDocument();
 }
 
+/**
+ * Prewarm the context-menu cache shortly after plugin mount. On cold start
+ * (Steam restart), the native library panels may not be rendered yet when the
+ * plugin first mounts, so the first extraction attempt fails and the menu
+ * button stops responding until the user manually opens a native menu. This
+ * function retries extraction at 500ms / 1500ms / 3500ms / 7000ms, bypassing
+ * the normal cooldown. Idempotent: stops once the cache is populated.
+ */
+export function prewarmMenuExtraction(): () => void {
+  if (cachedMenuComponent) return () => {};
+  const delays = [500, 1500, 3500, 7000];
+  const timers: any[] = [];
+  for (const ms of delays) {
+    timers.push(setTimeout(() => {
+      if (cachedMenuComponent) return;
+      lastExtractionAttempt = 0; // bypass cooldown — we want every delay to actually try
+      try { extractAppContextMenu(); } catch {}
+    }, ms));
+  }
+  return () => { for (const t of timers) clearTimeout(t); };
+}
+
 export function installPassiveMenuHook(): void {
   if (passiveHookInstalled || cachedMenuComponent) return;
   const React = getSteamReact();

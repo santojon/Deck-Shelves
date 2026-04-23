@@ -373,6 +373,7 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     <div
       ref={outerRef}
       className="Panel ds-shelf"
+      data-shelfid={shelfId || undefined}
         style={{ marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'var(--ds-shell-bg)' }}
     >
       {title ? (
