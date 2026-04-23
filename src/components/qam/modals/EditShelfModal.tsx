@@ -19,6 +19,8 @@ import { logInfo } from '../../../runtime/logger'
 import { resolveShelfAppIds } from '../../../steam'
 import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
+import { usePlatform } from '../../../runtime/platformContext'
+import { ChevronIcon } from '../../filter/utils'
 
 type SourceType = 'collection' | 'tab' | 'filter' | 'external'
 type EditTab = 'source' | 'filters' | 'visual' | 'display'
@@ -50,6 +52,7 @@ type EditableShelfState = {
   matchNativeSize: boolean
   highlightFirst: boolean
   highlightAll: boolean
+  highlightedAppIds: number[]
   hideStatusLine: boolean
   hideNewBadge: boolean
   hideCompatIcons: boolean
@@ -64,6 +67,7 @@ function optionData(option: unknown) {
 
 export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, tabs: platformTabs, collections, actions } = controller
+  const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
   const initialSourceType = shelf.source.type as SourceType
   const initialFilter = normalizeFilter(shelf.source)
@@ -81,6 +85,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     matchNativeSize: shelf.matchNativeSize ?? false,
     highlightFirst: shelf.highlightFirst ?? false,
     highlightAll: shelf.highlightAll ?? false,
+    highlightedAppIds: shelf.highlightedAppIds ?? [],
     hideStatusLine: shelf.hideStatusLine ?? false,
     hideNewBadge: shelf.hideNewBadge ?? false,
     hideCompatIcons: shelf.hideCompatIcons ?? false,
@@ -89,6 +94,10 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<EditTab>('source')
+  const [resolvedIds, setResolvedIds] = useState<number[]>([])
+  const [resolvedNames, setResolvedNames] = useState<Map<number, string>>(new Map())
+  const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
+  const [highlightListExpanded, setHighlightListExpanded] = useState(false)
 
   const previewSource = useMemo(() => {
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId }
@@ -103,11 +112,35 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     setPreviewCount(null)
     const timer = setTimeout(() => {
       resolveShelfAppIds(previewSource, state.limit)
-        .then((ids) => { if (!cancelled) setPreviewCount(ids.length) })
-        .catch(() => { if (!cancelled) setPreviewCount(0) })
+        .then((ids) => {
+          if (cancelled) return
+          setPreviewCount(ids.length)
+          setResolvedIds(ids)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setPreviewCount(0)
+          setResolvedIds([])
+        })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
   }, [previewSource, state.limit])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!resolvedIds.length) { setResolvedNames(new Map()); return }
+    ;(async () => {
+      const next = new Map<number, string>()
+      for (const id of resolvedIds) {
+        try {
+          const meta = await platform.getAppMeta(id)
+          next.set(id, meta?.name || `App ${id}`)
+        } catch { next.set(id, `App ${id}`) }
+      }
+      if (!cancelled) setResolvedNames(next)
+    })()
+    return () => { cancelled = true }
+  }, [platform, resolvedIds.join(',')])
 
   const allSourceTypes: SourceType[] = externalSources.length > 0 ? [...BASE_SOURCE_TYPES, 'external'] : BASE_SOURCE_TYPES
   const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
@@ -160,7 +193,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     closeModal?.();
     (async () => {
       const title = state.title.trim() || t('newShelf');
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: state.highlightedAppIds.length ? state.highlightedAppIds : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
       if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
@@ -249,6 +282,65 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                     <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
                     <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
                     <ToggleField label={t('highlight_all')} checked={state.highlightAll} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightAll: value }))} />
+                    <ToggleField
+                      label={t('highlight_specific_games')}
+                      checked={highlightPickerOpen}
+                      onChange={(value: boolean) => {
+                        setHighlightPickerOpen(value)
+                        if (!value) {
+                          setHighlightListExpanded(false)
+                          setState((prev) => ({ ...prev, highlightedAppIds: [] }))
+                        }
+                      }}
+                    />
+                    {highlightPickerOpen && (
+                      <div style={{ width: '100%', padding: 0, margin: 0 }}>
+                        <Focusable onClick={() => setHighlightListExpanded((v) => !v)} onOKButton={() => setHighlightListExpanded((v) => !v)}>
+                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, padding: '8px 0', marginLeft: -24, marginRight: -24 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.85)' }}>
+                              {t('highlight_games_list')}
+                              {state.highlightedAppIds.length > 0 && (
+                                <span style={{ marginLeft: 6, fontSize: 12, opacity: 0.7 }}>({state.highlightedAppIds.length})</span>
+                              )}
+                            </div>
+                            <div style={{ flexGrow: 1, height: 1, background: 'rgba(255,255,255,0.2)' }} />
+                            <ChevronIcon open={highlightListExpanded} />
+                          </div>
+                        </Focusable>
+                        {highlightListExpanded && (
+                          resolvedIds.length === 0 ? (
+                            <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+                          ) : (
+                            <Focusable style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', maxHeight: 220, overflowY: 'auto' }}>
+                              {resolvedIds.map((id) => {
+                                const checked = state.highlightedAppIds.includes(id)
+                                const toggle = () => setState((prev) => ({
+                                  ...prev,
+                                  highlightedAppIds: prev.highlightedAppIds.includes(id)
+                                    ? prev.highlightedAppIds.filter((x) => x !== id)
+                                    : [...prev.highlightedAppIds, id],
+                                }))
+                                return (
+                                  <Focusable
+                                    key={id}
+                                    onClick={toggle}
+                                    onOKButton={toggle}
+                                    style={{ width: '100%', padding: '6px 4px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                                  >
+                                    <span style={{ width: 16, textAlign: 'center', flexShrink: 0, color: checked ? '#4caf50' : 'rgba(255,255,255,0.3)' }}>
+                                      {checked ? '✓' : '·'}
+                                    </span>
+                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
+                                      {resolvedNames.get(id) ?? `App ${id}`}
+                                    </span>
+                                  </Focusable>
+                                )
+                              })}
+                            </Focusable>
+                          )
+                        )}
+                      </div>
+                    )}
                   </div>
                 ),
               },

@@ -354,5 +354,18 @@
   "docs_smart_sort_forgotten": "Sort: library acquisition date (oldest first)",
   "docs_smart_sort_random_pick": "Sort: random; refreshes every 24 hours",
   "docs_smart_sort_non_steam": "Sort: last session (most recent first)",
-  "docs_smart_sort_long_session": "Sort: total playtime (most played first)"
+  "docs_smart_sort_long_session": "Sort: total playtime (most played first)",
+  "template_category_status": "状態別",
+  "template_category_time": "時間別",
+  "template_category_compat": "互換性別",
+  "template_category_platform": "プラットフォーム別",
+  "template_category_other": "その他",
+  "filter_type_cloudAvailable": "クラウドセーブ",
+  "filter_type_controllerSupport": "コントローラー対応",
+  "highlight_specific_games": "特定のゲームを強調",
+  "highlight_specific_games_desc": "この棚の個別のゲームを選んで強調表示します。",
+  "highlight_games_list": "ゲーム一覧",
+  "menu_play": "プレイ",
+  "menu_properties": "プロパティ",
+  "menu_view_details": "詳細を表示"
 }

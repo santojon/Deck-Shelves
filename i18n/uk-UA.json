@@ -354,5 +354,18 @@
   "docs_smart_sort_forgotten": "Sort: library acquisition date (oldest first)",
   "docs_smart_sort_random_pick": "Sort: random; refreshes every 24 hours",
   "docs_smart_sort_non_steam": "Sort: last session (most recent first)",
-  "docs_smart_sort_long_session": "Sort: total playtime (most played first)"
+  "docs_smart_sort_long_session": "Sort: total playtime (most played first)",
+  "template_category_status": "За статусом",
+  "template_category_time": "За часом",
+  "template_category_compat": "За сумісністю",
+  "template_category_platform": "За платформою",
+  "template_category_other": "Інше",
+  "filter_type_cloudAvailable": "Хмарні збереження",
+  "filter_type_controllerSupport": "Підтримка контролера",
+  "highlight_specific_games": "Виділити окремі ігри",
+  "highlight_specific_games_desc": "Оберіть окремі ігри на цій полиці для виділення.",
+  "highlight_games_list": "Список ігор",
+  "menu_play": "Грати",
+  "menu_properties": "Властивості",
+  "menu_view_details": "Докладніше"
 }

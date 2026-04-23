@@ -354,5 +354,18 @@
   "docs_smart_sort_forgotten": "Sort: library acquisition date (oldest first)",
   "docs_smart_sort_random_pick": "Sort: random; refreshes every 24 hours",
   "docs_smart_sort_non_steam": "Sort: last session (most recent first)",
-  "docs_smart_sort_long_session": "Sort: total playtime (most played first)"
+  "docs_smart_sort_long_session": "Sort: total playtime (most played first)",
+  "template_category_status": "按状态",
+  "template_category_time": "按时间",
+  "template_category_compat": "按兼容性",
+  "template_category_platform": "按平台",
+  "template_category_other": "其他",
+  "filter_type_cloudAvailable": "云存档",
+  "filter_type_controllerSupport": "控制器支持",
+  "highlight_specific_games": "突出显示特定游戏",
+  "highlight_specific_games_desc": "选择此书架中要突出显示的单个游戏。",
+  "highlight_games_list": "游戏列表",
+  "menu_play": "游玩",
+  "menu_properties": "属性",
+  "menu_view_details": "查看详情"
 }

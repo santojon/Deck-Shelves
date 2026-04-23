@@ -354,5 +354,18 @@
   "docs_smart_sort_forgotten": "Sort: library acquisition date (oldest first)",
   "docs_smart_sort_random_pick": "Sort: random; refreshes every 24 hours",
   "docs_smart_sort_non_steam": "Sort: last session (most recent first)",
-  "docs_smart_sort_long_session": "Sort: total playtime (most played first)"
+  "docs_smart_sort_long_session": "Sort: total playtime (most played first)",
+  "template_category_status": "Per Stato",
+  "template_category_time": "Per Tempo",
+  "template_category_compat": "Per Compatibilità",
+  "template_category_platform": "Per Piattaforma",
+  "template_category_other": "Altri",
+  "filter_type_cloudAvailable": "Salvataggi sul cloud",
+  "filter_type_controllerSupport": "Supporto controller",
+  "highlight_specific_games": "Evidenzia giochi specifici",
+  "highlight_specific_games_desc": "Seleziona i giochi di questo scaffale da evidenziare.",
+  "highlight_games_list": "Elenco giochi",
+  "menu_play": "Gioca",
+  "menu_properties": "Proprietà",
+  "menu_view_details": "Visualizza dettagli"
 }

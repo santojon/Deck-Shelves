@@ -15,6 +15,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "developer",
   "publisher",
   "appIdList",
+  "cloudAvailable",
+  "controllerSupport",
   "friends",
   "storeTag",
   "achievements",
@@ -33,6 +35,8 @@ const INVERTIBLE_SET = new Set<FilterItemType>([
   "nameRegex",
   "developer",
   "publisher",
+  "cloudAvailable",
+  "controllerSupport",
 ]);
 
 export function canBeInverted(type: FilterItemType): boolean {
@@ -54,6 +58,8 @@ export function defaultParams(type: FilterItemType): Record<string, any> {
     case "developer": return { developers: [] };
     case "publisher": return { publishers: [] };
     case "appIdList": return { appIds: [] };
+    case "cloudAvailable": return {};
+    case "controllerSupport": return { min: 1 };
     case "merge": return { mode: "and", items: [] };
     default: return {};
   }
@@ -67,6 +73,8 @@ export function isValidParams(item: FilterItem): boolean {
     case "nonSteam":
     case "updatePending":
     case "isNew":
+    case "cloudAvailable":
+    case "controllerSupport":
       return true;
     case "hidden":
       return !!p.mode;
@@ -125,6 +133,8 @@ export function getTypeLabel(type: FilterItemType): string {
     developer: t("filter_type_developer"),
     publisher: t("filter_type_publisher"),
     appIdList: t("filter_type_appIdList"),
+    cloudAvailable: t("filter_type_cloudAvailable"),
+    controllerSupport: t("filter_type_controllerSupport"),
     merge: t("filter_type_merge"),
   };
   return map[type] ?? type;

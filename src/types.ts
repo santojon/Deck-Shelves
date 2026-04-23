@@ -19,6 +19,8 @@ export const FilterItemTypeSchema = z.enum([
   "developer",
   "publisher",
   "appIdList",
+  "cloudAvailable",
+  "controllerSupport",
   "merge",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
@@ -110,6 +112,7 @@ export const ShelfSchema = z.object({
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),
+  highlightedAppIds: z.array(z.number().int()).optional(),
   hideStatusLine: z.boolean().default(false),
   hideNewBadge: z.boolean().default(false),
   hideCompatIcons: z.boolean().default(false),

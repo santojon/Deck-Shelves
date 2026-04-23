@@ -76,6 +76,16 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_non_steam_badge = bool(s.get("hideNonSteamBadge", False))
         valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"}
         shelf_sort = str(s.get("sort") or "")
+        raw_highlighted = s.get("highlightedAppIds")
+        highlighted_ids: list = []
+        if isinstance(raw_highlighted, list):
+            for v in raw_highlighted:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        highlighted_ids.append(n)
+                except Exception:
+                    continue
         if not sid:
             continue
         shelf_entry: Dict[str, Any] = {
@@ -95,6 +105,8 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         }
         if shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
+        if highlighted_ids:
+            shelf_entry["highlightedAppIds"] = highlighted_ids
         sanitized.append(shelf_entry)
     # Sanitize smart shelves
     raw_smart = settings.get("smartShelves", [])

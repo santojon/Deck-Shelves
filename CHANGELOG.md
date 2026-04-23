@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Template picker grouping**: normal and smart shelf template pickers are now grouped into collapsible categories (By Status, By Time, By Compatibility, By Platform, Other) with per-category collapse state.
+- **Highlight specific games**: a shelf can now highlight individual games by `appid`. Enable via the "Highlight specific games" toggle in the shelf editor's Visual tab; an expandable "Game list" accordion then shows a full-width checklist of every game in the shelf, with a count of selected items. Stored as `highlightedAppIds` and applied per-card alongside existing `highlightFirst` / `highlightAll`.
+- **Cloud saves filter**: new `cloudAvailable` filter type — matches games with Steam Cloud support. Invertible.
+- **Controller support filter**: new `controllerSupport` filter type — matches games with partial or full controller support (`nControllerSupport >= 1`). Invertible.
+
+### Fixed
+
+- **Context menu broken on SteamOS 3.9**: root cause was that SteamOS 3.9 no longer renders the native game menu via a single `{overview, client}`-templated component, so `extractAppContextMenu` never captures and `cachedMenuComponent` stays null. The fallback now builds a standalone `DFL.Menu` with Play (when installed, via `SteamClient.Apps.RunGame`), Properties (via `DFL.Navigation.NavigateToAppProperties`), and View Details — translated across 16 locales.
+
 ## [1.5.3] - 2026-04-22
 
 ### Added

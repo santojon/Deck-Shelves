@@ -354,5 +354,18 @@
   "docs_smart_sort_forgotten": "Sort: library acquisition date (oldest first)",
   "docs_smart_sort_random_pick": "Sort: random; refreshes every 24 hours",
   "docs_smart_sort_non_steam": "Sort: last session (most recent first)",
-  "docs_smart_sort_long_session": "Sort: total playtime (most played first)"
+  "docs_smart_sort_long_session": "Sort: total playtime (most played first)",
+  "template_category_status": "상태별",
+  "template_category_time": "시간별",
+  "template_category_compat": "호환성별",
+  "template_category_platform": "플랫폼별",
+  "template_category_other": "기타",
+  "filter_type_cloudAvailable": "클라우드 저장",
+  "filter_type_controllerSupport": "컨트롤러 지원",
+  "highlight_specific_games": "특정 게임 강조",
+  "highlight_specific_games_desc": "이 선반에서 강조할 개별 게임을 선택하세요.",
+  "highlight_games_list": "게임 목록",
+  "menu_play": "플레이",
+  "menu_properties": "속성",
+  "menu_view_details": "세부 정보 보기"
 }

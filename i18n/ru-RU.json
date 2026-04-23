@@ -354,5 +354,18 @@
   "docs_smart_sort_forgotten": "Sort: library acquisition date (oldest first)",
   "docs_smart_sort_random_pick": "Sort: random; refreshes every 24 hours",
   "docs_smart_sort_non_steam": "Sort: last session (most recent first)",
-  "docs_smart_sort_long_session": "Sort: total playtime (most played first)"
+  "docs_smart_sort_long_session": "Sort: total playtime (most played first)",
+  "template_category_status": "По статусу",
+  "template_category_time": "По времени",
+  "template_category_compat": "По совместимости",
+  "template_category_platform": "По платформе",
+  "template_category_other": "Другое",
+  "filter_type_cloudAvailable": "Облачные сохранения",
+  "filter_type_controllerSupport": "Поддержка контроллера",
+  "highlight_specific_games": "Выделить отдельные игры",
+  "highlight_specific_games_desc": "Выберите отдельные игры на этой полке для выделения.",
+  "highlight_games_list": "Список игр",
+  "menu_play": "Играть",
+  "menu_properties": "Свойства",
+  "menu_view_details": "Подробнее"
 }

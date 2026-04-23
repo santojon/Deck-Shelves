@@ -354,5 +354,18 @@
   "docs_smart_sort_forgotten": "Sort: library acquisition date (oldest first)",
   "docs_smart_sort_random_pick": "Sort: random; refreshes every 24 hours",
   "docs_smart_sort_non_steam": "Sort: last session (most recent first)",
-  "docs_smart_sort_long_session": "Sort: total playtime (most played first)"
+  "docs_smart_sort_long_session": "Sort: total playtime (most played first)",
+  "template_category_status": "Duruma göre",
+  "template_category_time": "Zamana göre",
+  "template_category_compat": "Uyumluluğa göre",
+  "template_category_platform": "Platforma göre",
+  "template_category_other": "Diğer",
+  "filter_type_cloudAvailable": "Bulut kayıtları",
+  "filter_type_controllerSupport": "Denetleyici desteği",
+  "highlight_specific_games": "Belirli oyunları vurgula",
+  "highlight_specific_games_desc": "Bu raftan vurgulanacak oyunları seçin.",
+  "highlight_games_list": "Oyun listesi",
+  "menu_play": "Oyna",
+  "menu_properties": "Özellikler",
+  "menu_view_details": "Ayrıntıları gör"
 }

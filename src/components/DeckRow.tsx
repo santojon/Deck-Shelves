@@ -38,7 +38,11 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+  const highlightedSet = useMemo(() => {
+    if (!highlightedAppIds?.length) return null;
+    return new Set(highlightedAppIds);
+  }, [highlightedAppIds]);
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -417,19 +421,23 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
           }}
           flow-children="horizontal"
         >
-          {items.map((item, idx) =>
-            item.isMoreLink
-              ? <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
-                : <GameCard key={item.id} item={item}
-                  cardW={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedW : effectiveW}
-                  cardH={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedH : effectiveH}
-                  artH={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedArtH : effectiveArtH}
-                  featured={highlightAll || (highlightFirst && idx === 0)}
-                  hideStatusLine={hideStatusLine}
-                  hideNewBadge={hideNewBadge}
-                  hideCompatIcons={hideCompatIcons}
-                  hideNonSteamBadge={hideNonSteamBadge} />
-          )}
+          {items.map((item, idx) => {
+            if (item.isMoreLink) {
+              return <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />;
+            }
+            const isFeatured = highlightAll
+              || (highlightFirst && idx === 0)
+              || (!!highlightedSet && item.appid !== undefined && highlightedSet.has(item.appid));
+            return <GameCard key={item.id} item={item}
+              cardW={isFeatured ? finalFeaturedW : effectiveW}
+              cardH={isFeatured ? finalFeaturedH : effectiveH}
+              artH={isFeatured ? finalFeaturedArtH : effectiveArtH}
+              featured={isFeatured}
+              hideStatusLine={hideStatusLine}
+              hideNewBadge={hideNewBadge}
+              hideCompatIcons={hideCompatIcons}
+              hideNonSteamBadge={hideNonSteamBadge} />;
+          })}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>
       )}

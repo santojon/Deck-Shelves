@@ -200,14 +200,34 @@ export function showGameMenu(appid: number): void {
         const cardEl = (doc.querySelector(`.ds-card[data-appid="${appid}"]`)
           ?? doc.querySelector(".ds-card.gpfocus")
           ?? doc.activeElement) as HTMLElement;
-        const menu = R.createElement(dfl.Menu, { label: "Game" },
-          R.createElement(dfl.MenuItem, {
-            onSelected: () => {
-              const nav = dfl.Navigation ?? (globalThis as any).SteamClient?.Navigation;
-              nav?.Navigate?.(`/library/app/${appid}`);
-            },
-          }, "View Details"),
-        );
+        const overview = appStore?.GetAppOverviewByAppID?.(appid);
+        const installed = overview?.installed === true;
+        const nav = dfl.Navigation ?? (globalThis as any).SteamClient?.Navigation;
+        const sc: any = (globalThis as any).SteamClient;
+        const i18nT: any = (globalThis as any).i18next?.t?.bind((globalThis as any).i18next);
+        const lbl = (key: string, fallback: string) => {
+          try { const v = i18nT?.(key); return v && v !== key ? v : fallback; } catch { return fallback; }
+        };
+        const items: any[] = [];
+        if (installed && typeof sc?.Apps?.RunGame === "function") {
+          items.push(R.createElement(dfl.MenuItem, {
+            key: "play",
+            onSelected: () => { try { sc.Apps.RunGame(String(appid), "", -1, 1); } catch {} },
+          }, lbl("menu_play", "Play")));
+        }
+        if (typeof nav?.NavigateToAppProperties === "function") {
+          items.push(R.createElement(dfl.MenuItem, {
+            key: "properties",
+            onSelected: () => { try { nav.NavigateToAppProperties(appid); } catch {} },
+          }, lbl("menu_properties", "Properties")));
+        }
+        items.push(R.createElement(dfl.MenuItem, {
+          key: "details",
+          onSelected: () => {
+            try { (nav?.Navigate ?? sc?.Browser?.Navigate)?.(`/library/app/${appid}`); } catch {}
+          },
+        }, lbl("menu_view_details", "View Details")));
+        const menu = R.createElement(dfl.Menu, { label: overview?.display_name ?? "Game" }, ...items);
         dfl.showContextMenu(menu, cardEl);
       }
     } catch {}
