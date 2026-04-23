@@ -183,6 +183,25 @@ export async function importSettingsFromFile(srcPath: string): Promise<Settings>
   }
 }
 
+export async function writeJsonFile(path: string, content: string): Promise<boolean> {
+  try {
+    return !!(await withTimeout(call<[unknown], boolean>("write_json_file", { path, content }), 15000));
+  } catch (error) {
+    logError("STORAGE", "writeJsonFile failed", String(error));
+    return false;
+  }
+}
+
+export async function readJsonFile(path: string): Promise<string | null> {
+  try {
+    const r = await withTimeout(call<[unknown], { ok?: boolean; content?: string | null }>("read_json_file", { path }), 15000);
+    return (r?.ok && typeof r.content === "string") ? r.content : null;
+  } catch (error) {
+    logError("STORAGE", "readJsonFile failed", String(error));
+    return null;
+  }
+}
+
 export function getCurrentSettings(): Settings | null {
   return current;
 }

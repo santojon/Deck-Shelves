@@ -369,5 +369,9 @@
   "menu_properties": "Eigenschaften",
   "menu_view_details": "Details anzeigen",
   "tabmaster_section_tabs": "Tabs",
-  "tabmaster_section_hidden": "Ausgeblendet"
+  "tabmaster_section_hidden": "Ausgeblendet",
+  "export_shelves": "Regale exportieren",
+  "import_shelves": "Regale importieren",
+  "export_smart_shelves": "Smarte Regale exportieren",
+  "import_smart_shelves": "Smarte Regale importieren"
 }

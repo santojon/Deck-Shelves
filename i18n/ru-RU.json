@@ -369,5 +369,9 @@
   "menu_properties": "Свойства",
   "menu_view_details": "Подробнее",
   "tabmaster_section_tabs": "Вкладки",
-  "tabmaster_section_hidden": "Скрытые"
+  "tabmaster_section_hidden": "Скрытые",
+  "export_shelves": "Экспорт полок",
+  "import_shelves": "Импорт полок",
+  "export_smart_shelves": "Экспорт умных полок",
+  "import_smart_shelves": "Импорт умных полок"
 }

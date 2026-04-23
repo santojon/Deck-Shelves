@@ -330,6 +330,42 @@ class Plugin:
                 pass
             return self._read_state()
 
+    async def write_json_file(self, path: str = "", content: str = "", *args, **kwargs) -> bool:
+        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        if not path or not isinstance(content, str):
+            return False
+        try:
+            d = os.path.dirname(path)
+            if d:
+                os.makedirs(d, exist_ok=True)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
+            return True
+        except Exception as e:
+            try:
+                decky.logger.error(f"Failed writing json to {path}: {e}")
+            except Exception:
+                pass
+            return False
+
+    async def read_json_file(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
+        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        if not path or not os.path.exists(path):
+            return {"ok": False}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return {"ok": True, "content": f.read()}
+        except Exception as e:
+            try:
+                decky.logger.error(f"Failed reading json from {path}: {e}")
+            except Exception:
+                pass
+            return {"ok": False}
+
     async def _main(self):
         self._ensure_dirs()
         if not os.path.exists(_primary_file()):

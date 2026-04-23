@@ -369,5 +369,9 @@
   "menu_properties": "Proprietà",
   "menu_view_details": "Visualizza dettagli",
   "tabmaster_section_tabs": "Schede",
-  "tabmaster_section_hidden": "Nascoste"
+  "tabmaster_section_hidden": "Nascoste",
+  "export_shelves": "Esporta scaffali",
+  "import_shelves": "Importa scaffali",
+  "export_smart_shelves": "Esporta scaffali intelligenti",
+  "import_smart_shelves": "Importa scaffali intelligenti"
 }

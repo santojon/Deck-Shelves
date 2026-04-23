@@ -369,5 +369,9 @@
   "menu_properties": "Propriedades",
   "menu_view_details": "Ver detalhes",
   "tabmaster_section_tabs": "Separadores",
-  "tabmaster_section_hidden": "Ocultos"
+  "tabmaster_section_hidden": "Ocultos",
+  "export_shelves": "Exportar prateleiras",
+  "import_shelves": "Importar prateleiras",
+  "export_smart_shelves": "Exportar prateleiras inteligentes",
+  "import_smart_shelves": "Importar prateleiras inteligentes"
 }

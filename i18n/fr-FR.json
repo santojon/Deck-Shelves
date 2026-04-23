@@ -369,5 +369,9 @@
   "menu_properties": "Propriétés",
   "menu_view_details": "Voir les détails",
   "tabmaster_section_tabs": "Onglets",
-  "tabmaster_section_hidden": "Masqués"
+  "tabmaster_section_hidden": "Masqués",
+  "export_shelves": "Exporter les étagères",
+  "import_shelves": "Importer des étagères",
+  "export_smart_shelves": "Exporter les étagères intelligentes",
+  "import_smart_shelves": "Importer des étagères intelligentes"
 }

@@ -369,5 +369,9 @@
   "menu_properties": "Властивості",
   "menu_view_details": "Докладніше",
   "tabmaster_section_tabs": "Вкладки",
-  "tabmaster_section_hidden": "Приховані"
+  "tabmaster_section_hidden": "Приховані",
+  "export_shelves": "Експорт полиць",
+  "import_shelves": "Імпорт полиць",
+  "export_smart_shelves": "Експорт розумних полиць",
+  "import_smart_shelves": "Імпорт розумних полиць"
 }

@@ -78,6 +78,18 @@ export function DeckModalStyles() {
         min-width: 0;
       }
 
+      /* Reduce the save/cancel button footer so tab content has more room. */
+      .deck-shelves-modal-scope .${gamepadDialogClasses.BottomButtons} {
+        padding-top: 4px;
+        padding-bottom: 4px;
+        gap: 6px;
+      }
+      .deck-shelves-modal-scope .${gamepadDialogClasses.BottomButtons} .${gamepadDialogClasses.Button} {
+        padding-top: 6px;
+        padding-bottom: 6px;
+        min-height: 0;
+      }
+
     `}</style>
   )
 }

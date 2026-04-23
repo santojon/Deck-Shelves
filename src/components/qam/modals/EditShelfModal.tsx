@@ -20,8 +20,9 @@ import { resolveShelfAppIds } from '../../../steam'
 import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
-import { ChevronIcon } from '../../filter/utils'
+import { CheckIcon } from '../../filter/utils'
 import { getLandscapeUrls, getPortraitFallbacks } from '../../../core/steamAssets'
+import { computeCenteredScrollLeft } from '../../../core/scrollUtils'
 
 type SourceType = 'collection' | 'tab' | 'filter' | 'external'
 type EditTab = 'source' | 'filters' | 'visual' | 'display'
@@ -66,15 +67,75 @@ function optionData(option: unknown) {
   return (option as any)?.data ?? option
 }
 
+function HighlightRow({ children }: { children: React.ReactNode }) {
+  const rowRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const rowEl = rowRef.current
+    if (!rowEl) return
+
+    let rafPending: number | null = null
+    let throttleTimer: any = null
+    let throttled = false
+    let lastFocusedCard: HTMLElement | null = null
+
+    const doScroll = (card: HTMLElement) => {
+      const final = computeCenteredScrollLeft(
+        { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
+        { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight }
+      )
+      try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
+      throttled = true
+      if (throttleTimer) clearTimeout(throttleTimer)
+      throttleTimer = setTimeout(() => {
+        throttled = false
+        throttleTimer = null
+        if (lastFocusedCard && lastFocusedCard !== card) doScroll(lastFocusedCard)
+      }, 100)
+    }
+
+    const handle = (card: HTMLElement | null) => {
+      if (!card) return
+      lastFocusedCard = card
+      if (throttled) return
+      doScroll(card)
+    }
+
+    const onFocusIn = (e: Event) => {
+      const target = e.target as HTMLElement | null
+      const card = target?.closest('.ds-highlight-mini') as HTMLElement | null
+      if (!card || !rowEl.contains(card)) return
+      if (rafPending !== null) cancelAnimationFrame(rafPending)
+      rafPending = requestAnimationFrame(() => { rafPending = null; handle(card) })
+    }
+
+    rowEl.addEventListener('focusin', onFocusIn)
+    return () => {
+      rowEl.removeEventListener('focusin', onFocusIn)
+      if (rafPending !== null) cancelAnimationFrame(rafPending)
+      if (throttleTimer) clearTimeout(throttleTimer)
+    }
+  }, [])
+
+  return (
+    <Focusable
+      ref={rowRef}
+      style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, padding: '8px 0', width: 'calc(100% + 24px)', marginLeft: -12, marginRight: -12, overflowX: 'auto', overflowY: 'hidden' }}
+    >
+      {children}
+    </Focusable>
+  )
+}
+
 function HighlightMiniCard({
-  appid, name, portraitUrl, heroUrl, selected, width, height, onToggle,
+  appid, name, portraitUrl, heroUrl, featured, selected, width, height, onToggle,
 }: {
   appid: number; name: string; portraitUrl?: string; heroUrl?: string;
-  selected: boolean; width: number; height: number; onToggle: () => void;
+  featured: boolean; selected: boolean; width: number; height: number; onToggle: (() => void) | null;
 }) {
   const urls = useMemo(() => {
     const list: string[] = []
-    if (selected && appid > 0) {
+    if (featured && appid > 0) {
       for (const u of getLandscapeUrls(appid)) list.push(u)
       if (heroUrl && !list.includes(heroUrl)) list.push(heroUrl)
     } else {
@@ -89,7 +150,7 @@ function HighlightMiniCard({
       }
     }
     return list
-  }, [appid, portraitUrl, heroUrl, selected])
+  }, [appid, portraitUrl, heroUrl, featured])
 
   const imgRef = useRef<HTMLImageElement>(null)
   const idxRef = useRef(0)
@@ -107,13 +168,16 @@ function HighlightMiniCard({
     else setFailed(true)
   }
 
+  const interactive = !!onToggle
+  const noop = () => {}
   return (
     <Focusable
-      onClick={onToggle}
-      onOKButton={onToggle}
+      className='ds-highlight-mini'
+      onClick={interactive ? onToggle : noop}
+      onOKButton={interactive ? onToggle : noop}
       style={{
         width, minWidth: width, height, flexShrink: 0,
-        overflow: 'hidden', cursor: 'pointer',
+        overflow: 'hidden', cursor: interactive ? 'pointer' : 'default',
         background: 'linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))',
         outline: selected ? '2px solid #4caf50' : '1px solid rgba(255,255,255,0.12)',
         transition: 'width 0.15s ease',
@@ -122,14 +186,16 @@ function HighlightMiniCard({
       }}
     >
       {failed || !urls[0] ? (
-        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: selected ? 16 : 6, boxSizing: 'border-box', textAlign: 'center' }}>
-          <span style={{ fontSize: selected ? 12 : 10, opacity: 0.6, wordBreak: 'break-word', lineHeight: 1.3 }}>{name}</span>
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: featured ? 16 : 6, boxSizing: 'border-box', textAlign: 'center' }}>
+          <span style={{ fontSize: featured ? 12 : 10, opacity: 0.6, wordBreak: 'break-word', lineHeight: 1.3 }}>{name}</span>
         </div>
       ) : (
         <img ref={imgRef} src={urls[0]} alt={name} loading='lazy' onError={onErr} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       )}
       {selected && (
-        <div style={{ position: 'absolute', top: 4, left: 4, width: 18, height: 18, borderRadius: '50%', background: '#4caf50', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,0.6)' }} aria-hidden='true'>✓</div>
+        <div style={{ position: 'absolute', top: 4, left: 4, lineHeight: 0 }} aria-hidden='true'>
+          <CheckIcon />
+        </div>
       )}
     </Focusable>
   )
@@ -167,7 +233,6 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
-  const [highlightListExpanded, setHighlightListExpanded] = useState(false)
 
   const previewSource = useMemo(() => {
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId }
@@ -263,7 +328,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     closeModal?.();
     (async () => {
       const title = state.title.trim() || t('newShelf');
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: state.highlightedAppIds.length ? state.highlightedAppIds : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
       if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
@@ -288,7 +353,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
         onOK={handleSave}
         strOKButtonText={t('save')}
       >
-        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 56 }}>
+        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 48 }}>
           <div style={{ padding: '4px 16px 1px' }} className='name-field'>
             <Field
               description={
@@ -305,7 +370,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
           <div style={{ padding: '0 16px 8px', fontSize: '12px', color: previewCount === 0 ? '#f59e0b' : '#8b949e' }}>
             {previewCount === null ? t('preview_loading') : previewCount === 0 ? `⚠️ ${t('preview_empty')}` : t('preview_count', { count: previewCount })}
           </div>
-          <div style={{ position: 'relative', height: 320, overflow: 'hidden' }}>
+          <div style={{ position: 'relative', height: 360, overflow: 'hidden' }}>
           <Tabs
             activeTab={activeTab}
             onShowTab={(id: string) => setActiveTab(id as EditTab)}
@@ -355,62 +420,45 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                     <ToggleField
                       label={t('highlight_specific_games')}
                       checked={highlightPickerOpen}
-                      onChange={(value: boolean) => {
-                        setHighlightPickerOpen(value)
-                        if (!value) {
-                          setHighlightListExpanded(false)
-                          setState((prev) => ({ ...prev, highlightedAppIds: [] }))
-                        }
-                      }}
+                      onChange={(value: boolean) => setHighlightPickerOpen(value)}
                     />
-                    {highlightPickerOpen && (
-                      <div style={{ width: '100%', padding: 0, margin: 0 }}>
-                        <Focusable onClick={() => setHighlightListExpanded((v) => !v)} onOKButton={() => setHighlightListExpanded((v) => !v)}>
-                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, padding: '8px 0', marginLeft: -24, marginRight: -24 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.85)' }}>
-                              {t('highlight_games_list')}
-                              {state.highlightedAppIds.length > 0 && (
-                                <span style={{ marginLeft: 6, fontSize: 12, opacity: 0.7 }}>({state.highlightedAppIds.length})</span>
-                              )}
-                            </div>
-                            <div style={{ flexGrow: 1, height: 1, background: 'rgba(255,255,255,0.2)' }} />
-                            <ChevronIcon open={highlightListExpanded} />
-                          </div>
-                        </Focusable>
-                        {highlightListExpanded && (
-                          resolvedIds.length === 0 ? (
-                            <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-                          ) : (
-                            <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, padding: '8px 0', width: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
-                              {resolvedIds.map((id) => {
-                                const checked = state.highlightedAppIds.includes(id)
-                                const toggle = () => setState((prev) => ({
-                                  ...prev,
-                                  highlightedAppIds: prev.highlightedAppIds.includes(id)
-                                    ? prev.highlightedAppIds.filter((x) => x !== id)
-                                    : [...prev.highlightedAppIds, id],
-                                }))
-                                const meta = resolvedMeta.get(id)
-                                const h = 84
-                                const w = checked ? 180 : 56
-                                return (
-                                  <HighlightMiniCard
-                                    key={id}
-                                    appid={id}
-                                    name={meta?.name ?? `App ${id}`}
-                                    portraitUrl={meta?.portraitUrl}
-                                    heroUrl={meta?.heroUrl}
-                                    selected={checked}
-                                    width={w}
-                                    height={h}
-                                    onToggle={toggle}
-                                  />
-                                )
-                              })}
-                            </Focusable>
+                    {resolvedIds.length === 0 ? (
+                      <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+                    ) : (
+                      <HighlightRow>
+                        {resolvedIds.map((id, idx) => {
+                          const inHighlighted = state.highlightedAppIds.includes(id)
+                          const selected = highlightPickerOpen && inHighlighted
+                          const featured = state.highlightAll
+                            || (state.highlightFirst && idx === 0)
+                            || selected
+                          const h = 100
+                          const w = featured ? 210 : 68
+                          const meta = resolvedMeta.get(id)
+                          const toggle = highlightPickerOpen
+                            ? () => setState((prev) => ({
+                                ...prev,
+                                highlightedAppIds: prev.highlightedAppIds.includes(id)
+                                  ? prev.highlightedAppIds.filter((x) => x !== id)
+                                  : [...prev.highlightedAppIds, id],
+                              }))
+                            : null
+                          return (
+                            <HighlightMiniCard
+                              key={id}
+                              appid={id}
+                              name={meta?.name ?? `App ${id}`}
+                              portraitUrl={meta?.portraitUrl}
+                              heroUrl={meta?.heroUrl}
+                              featured={featured}
+                              selected={selected}
+                              width={w}
+                              height={h}
+                              onToggle={toggle}
+                            />
                           )
-                        )}
-                      </div>
+                        })}
+                      </HighlightRow>
                     )}
                   </div>
                 ),

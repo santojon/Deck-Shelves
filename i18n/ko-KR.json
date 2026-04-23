@@ -369,5 +369,9 @@
   "menu_properties": "속성",
   "menu_view_details": "세부 정보 보기",
   "tabmaster_section_tabs": "탭",
-  "tabmaster_section_hidden": "숨김"
+  "tabmaster_section_hidden": "숨김",
+  "export_shelves": "선반 내보내기",
+  "import_shelves": "선반 가져오기",
+  "export_smart_shelves": "스마트 선반 내보내기",
+  "import_smart_shelves": "스마트 선반 가져오기"
 }

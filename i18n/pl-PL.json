@@ -369,5 +369,9 @@
   "menu_properties": "Właściwości",
   "menu_view_details": "Zobacz szczegóły",
   "tabmaster_section_tabs": "Zakładki",
-  "tabmaster_section_hidden": "Ukryte"
+  "tabmaster_section_hidden": "Ukryte",
+  "export_shelves": "Eksportuj półki",
+  "import_shelves": "Importuj półki",
+  "export_smart_shelves": "Eksportuj inteligentne półki",
+  "import_smart_shelves": "Importuj inteligentne półki"
 }

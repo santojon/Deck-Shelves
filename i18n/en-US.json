@@ -369,5 +369,9 @@
   "menu_properties": "Properties",
   "menu_view_details": "View Details",
   "tabmaster_section_tabs": "Tabs",
-  "tabmaster_section_hidden": "Hidden"
+  "tabmaster_section_hidden": "Hidden",
+  "export_shelves": "Export shelves",
+  "import_shelves": "Import shelves",
+  "export_smart_shelves": "Export smart shelves",
+  "import_smart_shelves": "Import smart shelves"
 }

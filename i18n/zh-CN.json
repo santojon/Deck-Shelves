@@ -369,5 +369,9 @@
   "menu_properties": "属性",
   "menu_view_details": "查看详情",
   "tabmaster_section_tabs": "标签",
-  "tabmaster_section_hidden": "已隐藏"
+  "tabmaster_section_hidden": "已隐藏",
+  "export_shelves": "导出书架",
+  "import_shelves": "导入书架",
+  "export_smart_shelves": "导出智能书架",
+  "import_smart_shelves": "导入智能书架"
 }

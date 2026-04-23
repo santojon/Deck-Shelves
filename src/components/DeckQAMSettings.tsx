@@ -81,11 +81,15 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const isFirstRun = shelves.length === 0 && !settings.enabled
   const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
-  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
+  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves-shelves.json'} scope='shelves' />)
+  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='shelves' />)
+  const handleImportSmart = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves-smart-shelves.json'} scope='smart' />)
+  const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='smart' />)
+  const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} scope='all' />)
+  const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='all' />)
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
-  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
   const [crashError, setCrashError] = useState<string | null>(() => getMountError())
   useEffect(() => {
@@ -222,6 +226,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             <Field className='no-sep'>
               <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
                 <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
+                <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
+                <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportSmart} okDescription={t('export_smart_shelves')} /></div>
               </Focusable>
             </Field>
             <div className='deck-shelves-separator' />
@@ -249,15 +255,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </CollapsibleSection>
       )}
       <Field className='no-sep'>
-        <Focusable style={{ width: '100%', padding: '0 16px', boxSizing: 'border-box' }}>
-          <DialogButton
-            onClick={handleResetAll}
-            onOKButton={handleResetAll}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-          >
-            {icons.reset}
-            <span>{t('reset_all_button')}</span>
-          </DialogButton>
+        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex' }}>
+            <ActionButton iconNode={icons.import} onClick={handleImportAll} okDescription={t('import_settings')} />
+            <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportAll} okDescription={t('export_settings')} /></div>
+          </div>
+          <ActionButton iconNode={icons.reset} onClick={handleResetAll} okDescription={t('reset_all_button')} />
         </Focusable>
       </Field>
     </div>

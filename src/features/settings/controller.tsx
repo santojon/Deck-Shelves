@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
+import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings, writeJsonFile, readJsonFile } from "../../settingsStore";
 import type { Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../../types";
 import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
@@ -168,6 +168,48 @@ export function useSettingsController() {
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       return shelf;
+    },
+    async exportShelves(destPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      return writeJsonFile(destPath, JSON.stringify({ state: { shelves: s.shelves } }, null, 2));
+    },
+    async importShelves(srcPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const raw = await readJsonFile(srcPath);
+      if (!raw) return false;
+      try {
+        const parsed = JSON.parse(raw);
+        const imported = parsed?.state?.shelves ?? parsed?.shelves;
+        if (!Array.isArray(imported)) return false;
+        await persist({ ...s, shelves: imported });
+        if (imported[0]?.id) setSelectedId(imported[0].id);
+        return true;
+      } catch { return false; }
+    },
+    async exportSmartShelves(destPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      return writeJsonFile(destPath, JSON.stringify({ state: { smartShelves: s.smartShelves ?? [], smartShelvesEnabled: s.smartShelvesEnabled === true, smartShelvesAtBottom: s.smartShelvesAtBottom === true, smartSurpriseMe: s.smartSurpriseMe === true, smartSurpriseMeCount: s.smartSurpriseMeCount ?? 0 } }, null, 2));
+    },
+    async importSmartShelves(srcPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const raw = await readJsonFile(srcPath);
+      if (!raw) return false;
+      try {
+        const parsed = JSON.parse(raw);
+        const src = parsed?.state ?? parsed ?? {};
+        const next: Settings = { ...s };
+        if (Array.isArray(src.smartShelves)) next.smartShelves = src.smartShelves;
+        if (typeof src.smartShelvesEnabled === "boolean") next.smartShelvesEnabled = src.smartShelvesEnabled;
+        if (typeof src.smartShelvesAtBottom === "boolean") next.smartShelvesAtBottom = src.smartShelvesAtBottom;
+        if (typeof src.smartSurpriseMe === "boolean") next.smartSurpriseMe = src.smartSurpriseMe;
+        if (typeof src.smartSurpriseMeCount === "number") next.smartSurpriseMeCount = src.smartSurpriseMeCount;
+        await persist(next);
+        return true;
+      } catch { return false; }
     },
     async resetAll() {
       const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0 };

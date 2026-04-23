@@ -369,5 +369,9 @@
   "menu_properties": "Eigenschappen",
   "menu_view_details": "Details bekijken",
   "tabmaster_section_tabs": "Tabbladen",
-  "tabmaster_section_hidden": "Verborgen"
+  "tabmaster_section_hidden": "Verborgen",
+  "export_shelves": "Planken exporteren",
+  "import_shelves": "Planken importeren",
+  "export_smart_shelves": "Slimme planken exporteren",
+  "import_smart_shelves": "Slimme planken importeren"
 }

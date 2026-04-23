@@ -369,5 +369,9 @@
   "menu_properties": "Propiedades",
   "menu_view_details": "Ver detalles",
   "tabmaster_section_tabs": "Pestañas",
-  "tabmaster_section_hidden": "Ocultas"
+  "tabmaster_section_hidden": "Ocultas",
+  "export_shelves": "Exportar estanterías",
+  "import_shelves": "Importar estanterías",
+  "export_smart_shelves": "Exportar estanterías inteligentes",
+  "import_smart_shelves": "Importar estanterías inteligentes"
 }

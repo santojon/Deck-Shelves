@@ -369,5 +369,9 @@
   "menu_properties": "プロパティ",
   "menu_view_details": "詳細を表示",
   "tabmaster_section_tabs": "タブ",
-  "tabmaster_section_hidden": "非表示"
+  "tabmaster_section_hidden": "非表示",
+  "export_shelves": "棚をエクスポート",
+  "import_shelves": "棚をインポート",
+  "export_smart_shelves": "スマート棚をエクスポート",
+  "import_smart_shelves": "スマート棚をインポート"
 }

@@ -369,5 +369,9 @@
   "menu_properties": "Özellikler",
   "menu_view_details": "Ayrıntıları gör",
   "tabmaster_section_tabs": "Sekmeler",
-  "tabmaster_section_hidden": "Gizli"
+  "tabmaster_section_hidden": "Gizli",
+  "export_shelves": "Rafları dışa aktar",
+  "import_shelves": "Rafları içe aktar",
+  "export_smart_shelves": "Akıllı rafları dışa aktar",
+  "import_smart_shelves": "Akıllı rafları içe aktar"
 }
