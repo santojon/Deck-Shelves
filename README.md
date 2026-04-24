@@ -94,7 +94,15 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/shelf-edit.png" alt="Deck Shelves — Edit Shelf" width="768">
+  <img src="assets/screenshots/shelf-edit.png" alt="Deck Shelves — Edit Shelf (Source tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/shelf-edit-filters.png" alt="Deck Shelves — Edit Shelf (Filters tab with Saved Filters bar)" width="768">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/shelf-edit-visual.png" alt="Deck Shelves — Edit Shelf (Visual tab with highlight picker)" width="768">
 </p>
 
 <p align="center">
@@ -128,6 +136,20 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 <p align="center">
   <img src="assets/screenshots/smart-shelf-modal.png" alt="Deck Shelves — Smart Shelf Template Picker" width="768">
 </p>
+
+<p align="center">
+  <img src="assets/screenshots/smart-shelf-edit.png" alt="Deck Shelves — Edit Smart Shelf (sort override + filters)" width="768">
+</p>
+
+#### Saved Filters
+
+Visible in the QAM when at least one filter has been saved from the **Edit shelf → Filters** tab. Hidden automatically when empty.
+
+<p align="center">
+  <img src="assets/screenshots/saved-filters-qam.png" alt="Deck Shelves — Saved Filters section in QAM" width="314">
+</p>
+
+#### Global Toggles
 
 <p align="center">
   <img src="assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="314">
@@ -234,7 +256,7 @@ pnpm run upload:deckzip steamdeck
 
 To capture screenshots for documentation:
 
-1. Deploy the plugin to your Steam Deck (requires at least 2 shelves configured):
+1. Deploy the plugin to your Steam Deck (requires at least 2 shelves with 1+ game each; for `smart-shelf-edit.png` Smart Shelves must be enabled with at least one entry):
    ```bash
    npm run deploy
    ```
@@ -247,9 +269,39 @@ To capture screenshots for documentation:
 
   - Directly:
     ```bash
-    python3 scripts/devtools/deck/screenshot.py
+    python3 scripts/devtools/deck/screenshots/screenshot.py
     ```
 3. Screenshots are saved to `assets/screenshots/`.
+4. Validate the set (required files present, PNG magic header, >= 60 KB — catches blank popup frames):
+   ```bash
+   node scripts/build/validate-screenshots.mjs
+   ```
+
+#### Screenshot set
+
+The script writes one PNG per capture, organized by the flow it exercises:
+
+| File | Captures |
+|------|----------|
+| `home.png` | Home with the Deck Shelves portal mounted after native recents |
+| `home-shelves.png` | Home scrolled to show the second DS shelf in full |
+| `game-menu.png` | Context menu opened on a shelf card (MENU button) |
+| `qam.png` | QAM with the Deck Shelves plugin tab active |
+| `shelf-create.png` | Template picker modal (grouped by category) |
+| `shelf-actions.png` | Per-shelf action menu (Edit / Duplicate / Hide / Delete / reorder) |
+| `shelf-edit.png` | Edit shelf modal — Source tab (sort, source type, limit) |
+| `shelf-edit-filters.png` | Edit shelf modal — Filters tab (FilterPanel + SavedFiltersBar) |
+| `shelf-edit-visual.png` | Edit shelf modal — Visual tab (highlight toggles + picker + Odd/Even) |
+| `shelf-hidden.png` | QAM showing a shelf toggled to hidden (eye-slash icon) |
+| `shelf-delete.png` | Delete shelf confirmation dialog |
+| `shelf-import.png` / `shelf-export.png` | Import / export modals |
+| `reset-all.png` | Reset-all destructive confirmation |
+| `about-page.png` | About & Filter Documentation page |
+| `smart-shelves-qam.png` | QAM scrolled to the Smart Shelves section |
+| `smart-shelf-modal.png` | Smart Shelf template picker (category accordions) |
+| `smart-shelf-edit.png` | Edit Smart Shelf modal (sort override + filters + visual) |
+| `saved-filters-qam.png` | **Optional** — Saved Filters section in QAM; captured only when at least one filter has been saved |
+| `global-toggles.png` | Apply Globally section in QAM |
 
 ### Devtools diagnostics
 

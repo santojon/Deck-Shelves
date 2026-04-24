@@ -49,14 +49,6 @@ def find_target(targets: list, title_substring: str) -> Optional[dict]:
             return t
     return None
 
-import sys
-import argparse
-import base64
-import json
-import os
-import socket
-import struct
-
 OPEN_QAM_EXPR = """
 (function() {
     if (typeof SteamUIStore !== 'undefined' &&
@@ -178,23 +170,6 @@ def cdp_call(sock: socket.socket, method: str, params: Optional[Dict] = None, ms
         msg = json.loads(resp)
         if msg.get("id") == msg_id:
             return msg
-    try:
-        cdp_call(sock, "Page.enable", msg_id=1)
-        result = cdp_call(sock, "Page.captureScreenshot", {"format": "png"}, msg_id=2)
-        data = result.get("result", {}).get("data", "")
-        if not data:
-            return None
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        out = OUTPUT_DIR / filename
-        raw = base64.b64decode(data)
-        out.write_bytes(raw)
-        print(f"  Saved {filename} ({len(raw):,} bytes)")
-        return out
-    finally:
-        try:
-            sock.close()
-        except Exception:
-            pass
 
 
 # ---------------------------------------------------------------------------
@@ -598,13 +573,52 @@ def dismiss_bp_escape(host: str, port: int, bp_target: Dict) -> None:
 # High-level capture functions
 # ---------------------------------------------------------------------------
 
+# QAM popup captures (Page.captureScreenshot on the QAM popup target) should
+# always come from the popup's own compositor — the Big Picture window is
+# 1281×801 while the QAM popup is 522×741, and the framing is only correct
+# on the popup target. We retry a few times if the first frame comes back
+# zero-sized (compositor not ready), but we never fall back to Big Picture:
+# substituting a BP shot for a QAM shot would hide the popup behind the
+# game/home and lie about what the user actually sees.
+QAM_CAPTURE_RETRIES = 3
+QAM_CAPTURE_RETRY_DELAY = 0.6
+
+
+def capture_qam_with_fallback(
+    host: str,
+    port: int,
+    bp: Dict,
+    qam_target: Optional[Dict],
+    filename: str,
+) -> Optional[Path]:
+    """Capture the QAM popup target. Retries a few times on zero-size frames
+    (compositor hasn't pushed yet). Returns the QAM capture in every case when
+    `qam_target` is available — we do NOT fall back to Big Picture, which has
+    the wrong dimensions for QAM shots. When `qam_target` is None (no popup
+    window visible at all), fall back to Big Picture as last resort."""
+    if not qam_target:
+        return capture_bigpicture(host, port, bp, filename)
+    last: Optional[Path] = None
+    for attempt in range(QAM_CAPTURE_RETRIES):
+        last = capture_qam_target(host, port, qam_target, filename)
+        if last is not None and last.stat().st_size > 0:
+            return last
+        if attempt + 1 < QAM_CAPTURE_RETRIES:
+            print(f"  [WARN] QAM popup capture empty (attempt {attempt + 1}); retrying in {QAM_CAPTURE_RETRY_DELAY}s")
+            time.sleep(QAM_CAPTURE_RETRY_DELAY)
+    return last
+
+
 ALL_TARGETS = [
     "home", "home-shelves", "qam",
     "game-detail", "game-menu",
-    "shelf-actions", "shelf-edit", "shelf-hidden",
+    "shelf-actions", "shelf-edit", "shelf-edit-visual", "shelf-edit-filters",
+    "shelf-hidden",
     "shelf-delete", "shelf-import", "shelf-export",
     "reset-all", "about-page",
-    "smart-shelves-qam", "smart-shelf-modal", "global-toggles",
+    "smart-shelves-qam", "smart-shelf-modal", "smart-shelf-edit",
+    "saved-filters-qam",
+    "global-toggles",
 ]
 
 
@@ -738,14 +752,7 @@ def screenshot_qam(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: Optio
         time.sleep(2.0)
 
     print("  Capturing QAM...")
-    # Sempre sobrescrever qam.png
-    result = None
-    if qam_target:
-        result = capture_qam_target(host, port, qam_target, "qam.png")
-    # Sempre sobrescrever, mesmo se vazio
-    if not result or (result and result.stat().st_size == 0):
-        print("  [WARN] QAM target capture failed, falling back to Big Picture")
-        result = capture_bigpicture(host, port, bp, "qam.png")
+    result = capture_qam_with_fallback(host, port, bp, qam_target, "qam.png")
 
     print("  Closing QAM...")
     close_qam(host, port, shared_ws)
@@ -980,13 +987,7 @@ def screenshot_shelf_hidden(host: str, port: int, bp: Dict, shared_ws: str, qam_
         time.sleep(1.5)
         click_deckshelves_tab(host, port, qam_ws)
         time.sleep(2.0)  # Longer delay to ensure UI reflects hidden shelf
-        # Sempre sobrescrever shelf-hidden.png
-        result = None
-        if qam_target:
-            result = capture_qam_target(host, port, qam_target, "shelf-hidden.png")
-        # Sempre sobrescrever, mesmo se vazio
-        if not result or (result and result.stat().st_size == 0):
-            result = capture_bigpicture(host, port, bp, "shelf-hidden.png")
+        result = capture_qam_with_fallback(host, port, bp, qam_target, "shelf-hidden.png")
 
         # Toggle back (Show/Mostrar)
         if click_qam_button(host, port, qam_ws, "cx=", 0):
@@ -1117,31 +1118,42 @@ def screenshot_shelf_export(host: str, port: int, bp: Dict, shared_ws: str, qam_
     return result
 
 
-def screenshot_reset_all(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
+def screenshot_reset_all(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str, qam_target: Optional[Dict] = None) -> Optional[Path]:
     """Capture the destructive Reset-all confirmation modal.
-    Opens the QAM, clicks the full-width reset button, waits for the modal,
-    captures, then dismisses with Cancel."""
+
+    Reset-all is the *rightmost* icon-only DialogButton in the QAM footer row
+    (Import all | Export all | Reset all). It shares the icon-only footprint
+    with its siblings, so picking "widest button at bottom" picks one at
+    random. Instead we locate it by the unique SVG path of the reset icon
+    (`M3 12a9 9 0 1 0 3-6.7` — a circular-arrow shape) that
+    `src/components/qam/icons.tsx` uses.
+    """
     bp_ws = ws_path_for(bp, port)
     _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
-    # The reset button is a DialogButton whose SVG has the 'reset' path:
-    # circular-arrow shape unique to this icon. Fallback: find the button by
-    # its rendered width (spans the full QAM) near the bottom.
+    # Scroll to the very bottom so the footer row is in view before clicking.
+    eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (scope) scope.scrollTop = scope.scrollHeight;
+    return 'ok';
+})()
+""")
+    time.sleep(0.5)
     clicked = eval_target(host, port, qam_ws, r"""
 (function(){
-    // Try by text label (i18n-agnostic: just check button width/position)
-    var btns = Array.from(document.querySelectorAll('button'));
-    var scoped = btns.filter(function(b){ return b.closest('.deck-shelves-qam-scope'); });
-    if (!scoped.length) return 'no-scoped';
-    // Pick the widest button near the bottom (full-width destructive action)
-    scoped.sort(function(a, b){
-        var ra = a.getBoundingClientRect();
-        var rb = b.getBoundingClientRect();
-        if (rb.bottom !== ra.bottom) return rb.bottom - ra.bottom;
-        return rb.width - ra.width;
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (!scope) return 'no-scope';
+    // Match the circular-arrow path unique to the reset icon in icons.tsx.
+    // Use the FULL QAM scope and then pick the LAST match — that's the footer
+    // reset-all button, not the per-section reset buttons higher up.
+    var btns = Array.from(scope.querySelectorAll('button')).filter(function(b){
+        return b.innerHTML.indexOf('M3 12a9 9 0 1 0 3-6.7') !== -1;
     });
-    var target = scoped[0];
-    if (target) { target.click(); return 'clicked:w=' + Math.round(target.getBoundingClientRect().width); }
-    return 'no-target';
+    if (!btns.length) return 'no-reset-icon';
+    var target = btns[btns.length - 1];
+    target.click();
+    var r = target.getBoundingClientRect();
+    return 'clicked:bottom=' + Math.round(r.bottom) + ',count=' + btns.length;
 })()
 """)
     print(f"    reset button: {clicked}")
@@ -1150,6 +1162,9 @@ def screenshot_reset_all(host: str, port: int, bp: Dict, shared_ws: str, qam_ws:
         time.sleep(0.5)
         return None
     time.sleep(2.0)
+    # ResetAllModal goes through Decky's `showModal`, which renders into the
+    # Big Picture modal root (not the QAM popup). Capture BP so the
+    # confirmation dialog is visible on top of the home.
     result = capture_bigpicture(host, port, bp, "reset-all.png")
     cancel_bp_modal(host, port, bp_ws)
     time.sleep(1.0)
@@ -1211,11 +1226,7 @@ def screenshot_smart_shelves_qam(host: str, port: int, bp: Dict, shared_ws: str,
 """)
     time.sleep(1.0)
 
-    result = None
-    if qam_target:
-        result = capture_qam_target(host, port, qam_target, "smart-shelves-qam.png")
-    if not result or (result and result.stat().st_size == 0):
-        result = capture_bigpicture(host, port, bp, "smart-shelves-qam.png")
+    result = capture_qam_with_fallback(host, port, bp, qam_target, "smart-shelves-qam.png")
 
     close_qam(host, port, shared_ws)
     time.sleep(0.5)
@@ -1288,29 +1299,232 @@ def screenshot_smart_shelf_modal(host: str, port: int, bp: Dict, shared_ws: str,
 
 
 def screenshot_global_toggles(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str, qam_target: Optional[Dict] = None) -> Optional[Path]:
-    """Capture QAM scrolled to the Apply Globally (global toggles) section."""
+    """Capture QAM scrolled to the Apply Globally (visual_global) section.
+
+    Visual Global is the *second-to-last* CollapsibleSection in the QAM —
+    just above the Saved Filters section (which may be hidden) and the
+    footer row. Scrolling blindly to `scope.scrollHeight` lands on the
+    footer instead. We find the section header by the i18n title and
+    scroll it to the top of the view, then ensure it's expanded.
+    """
     if not qam_ws:
         return None
     ok = _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     if not ok:
         return None
 
+    scroll = eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (!scope) return 'no-scope';
+    // Section titles: the visual_global i18n key is rendered localized, so
+    // match by common roots across locales.
+    var needles = ['apply globally', 'aplicar globalmente', 'appliquer', 'global', 'globalmente'];
+    var headers = Array.from(scope.querySelectorAll('.ds-collapsible-header, [class*="collapsible-header"], [class*="section-header"]'));
+    var found = null;
+    for (var h of headers) {
+        var t = (h.textContent || '').toLowerCase();
+        if (!t) continue;
+        for (var n of needles) {
+            if (t.indexOf(n) !== -1) { found = h; break; }
+        }
+        if (found) break;
+    }
+    if (!found) {
+        // Fallback: walk text nodes — match i18n keys for Visual / highlight.
+        var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+        var node;
+        while (node = walker.nextNode()) {
+            var txt = (node.textContent || '').toLowerCase();
+            if (txt.indexOf('match_native') !== -1 || txt.indexOf('highlight_first') !== -1 ||
+                txt.indexOf('highlight_all') !== -1 || txt.indexOf('native size') !== -1) {
+                var el = node.parentElement;
+                if (el) { el.scrollIntoView({ behavior: 'instant', block: 'start' }); return 'fallback-toggles'; }
+            }
+        }
+        return 'not-found';
+    }
+    // Ensure the section is expanded before scrolling (if the collapsible
+    // renders its content conditionally, clicking the header toggles it).
+    var collapsed = found.getAttribute('aria-expanded') === 'false' ||
+                    found.querySelector('[class*="collapse-icon"]')?.textContent === '+' ||
+                    false;
+    if (collapsed) { try { found.click(); } catch(_){} }
+    found.scrollIntoView({ behavior: 'instant', block: 'start' });
+    return 'scrolled-to-header';
+})()
+""")
+    print(f"    global-toggles scroll: {scroll}")
+    time.sleep(1.2)
+
+    result = capture_qam_with_fallback(host, port, bp, qam_target, "global-toggles.png")
+
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
+def screenshot_saved_filters_qam(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str, qam_target: Optional[Dict] = None) -> Optional[Path]:
+    """Capture QAM scrolled to the Saved Filters section.
+
+    Saved Filters only renders when the user has at least one saved filter —
+    when empty, the CollapsibleSection is hidden entirely. The scroll helper
+    scans for the section header by i18n-aware text patterns and scrolls it
+    into view; if not found (no saved filters yet), returns None instead of
+    writing a misleading image.
+    """
+    if not qam_ws:
+        return None
+    ok = _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    if not ok:
+        return None
+
+    found = eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (!scope) return 'no-scope';
+    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    var node;
+    var matches = ['saved filter', 'filtros salvos', 'filtres enregistrés', 'gespeicherte filter', 'filtros guardados'];
+    while (node = walker.nextNode()) {
+        var txt = (node.textContent || '').trim().toLowerCase();
+        if (!txt || txt.length > 80) continue;
+        for (var m of matches) {
+            if (txt.indexOf(m) !== -1) {
+                var el = node.parentElement;
+                while (el && el.parentElement !== scope && el.parentElement) el = el.parentElement;
+                if (el) { el.scrollIntoView({ behavior: 'instant', block: 'start' }); return 'scrolled:' + txt; }
+            }
+        }
+    }
+    return 'not-found';
+})()
+""")
+    print(f"    saved-filters scroll: {found}")
+    if not (isinstance(found, str) and found.startswith("scrolled:")):
+        close_qam(host, port, shared_ws)
+        time.sleep(0.3)
+        print("  [SKIP] Saved Filters section is hidden (no saved filters configured)")
+        return None
+    time.sleep(1.0)
+
+    result = capture_qam_with_fallback(host, port, bp, qam_target, "saved-filters-qam.png")
+
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
+def screenshot_shelf_edit_tab(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str, tab_label: str, filename: str) -> Optional[Path]:
+    """Open the Edit shelf modal and activate a specific tab (Visual / Filters / Source / Display).
+
+    The tab bar is rendered by Decky's `Tabs` component; each tab is a
+    Focusable with its label text. We click the tab whose textContent matches
+    `tab_label` (case-insensitive, i18n-aware list of aliases) before capture.
+    """
+    bp_ws = ws_path_for(bp, port)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
+    if not click_qam_button(host, port, qam_ws, "cx=", 0):
+        close_qam(host, port, shared_ws)
+        return None
+    time.sleep(1.0)
+    eval_target(host, port, bp_ws, """
+(function() {
+    var items = document.querySelectorAll('[class*=_MenuItem], [class*=contextMenuItem], [role=menuitem]');
+    for (var el of items) {
+        var text = (el.textContent || '').trim();
+        if (text.indexOf('Edit') !== -1 || text.indexOf('Editar') !== -1 || text.indexOf('Modifier') !== -1 || text.indexOf('Bearbeiten') !== -1) {
+            el.click(); return 'ok';
+        }
+    }
+    var first = document.querySelector('[role=menuitem]');
+    if (first) { first.click(); return 'first'; }
+})()
+""")
+    time.sleep(2.0)
+    click = eval_target(host, port, bp_ws, f"""
+(function() {{
+    var needle = {json.dumps(tab_label.lower())};
+    var tabs = Array.from(document.querySelectorAll('[role="tab"], [class*="tab-bar-entry"], [class*="TabBar"] .Focusable, [class*="tabs_"] .Focusable'));
+    for (var t of tabs) {{
+        var txt = (t.textContent || '').trim().toLowerCase();
+        if (!txt) continue;
+        if (txt.indexOf(needle) !== -1) {{ t.click(); return 'clicked:' + txt; }}
+    }}
+    return 'not-found';
+}})()
+""")
+    print(f"    tab click ({tab_label}): {click}")
+    time.sleep(1.5)
+    result = capture_bigpicture(host, port, bp, filename)
+    cancel_bp_modal(host, port, bp_ws)
+    time.sleep(1.0)
+    close_qam(host, port, shared_ws)
+    time.sleep(0.5)
+    return result
+
+
+def screenshot_smart_shelf_edit(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
+    """Capture the Edit Smart Shelf modal.
+
+    Strategy: open QAM, scroll to the Smart Shelves list, click the ⋯ button
+    on the first enabled smart shelf row, then click Edit / Editar. Returns
+    None when Smart Shelves are disabled or no entries are enabled — the
+    modal wouldn't be reachable in that state.
+    """
+    bp_ws = ws_path_for(bp, port)
+    _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     eval_target(host, port, qam_ws, """
 (function() {
     var scope = document.querySelector('.deck-shelves-qam-scope');
     if (!scope) return 'no-scope';
-    scope.scrollTop = scope.scrollHeight;
-    return 'scrolled-to-bottom';
+    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    var node;
+    while (node = walker.nextNode()) {
+        var txt = (node.textContent || '').trim().toLowerCase();
+        if (txt.indexOf('smart') !== -1 || txt.indexOf('inteligente') !== -1) {
+            var el = node.parentElement;
+            if (el) { el.scrollIntoView({ behavior: 'instant', block: 'center' }); return 'scrolled'; }
+        }
+    }
+    return 'not-found';
 })()
 """)
     time.sleep(1.0)
-
-    result = None
-    if qam_target:
-        result = capture_qam_target(host, port, qam_target, "global-toggles.png")
-    if not result or (result and result.stat().st_size == 0):
-        result = capture_bigpicture(host, port, bp, "global-toggles.png")
-
+    # Click the ⋯ button on the FIRST smart shelf row (they come after the regular shelves).
+    clicked = eval_target(host, port, qam_ws, """
+(function() {
+    var scope = document.querySelector('.deck-shelves-qam-scope');
+    if (!scope) return 'no-scope';
+    var btns = Array.from(scope.querySelectorAll('button')).filter(b => b.innerHTML.indexOf('cx=') !== -1);
+    // Heuristic: the LAST ⋯ in the scope is the one on the last row (smart shelf) most of the time;
+    // fall back to clicking the ⋯ that sits below the smart header (positional).
+    if (!btns.length) return 'no-ellipsis';
+    var last = btns[btns.length - 1];
+    last.click();
+    return 'clicked-last';
+})()
+""")
+    print(f"    smart-shelf ellipsis: {clicked}")
+    if clicked != 'clicked-last':
+        close_qam(host, port, shared_ws)
+        return None
+    time.sleep(1.0)
+    eval_target(host, port, bp_ws, """
+(function() {
+    var items = document.querySelectorAll('[class*=_MenuItem], [class*=contextMenuItem], [role=menuitem]');
+    for (var el of items) {
+        var text = (el.textContent || '').trim();
+        if (text.indexOf('Edit') !== -1 || text.indexOf('Editar') !== -1 || text.indexOf('Modifier') !== -1 || text.indexOf('Bearbeiten') !== -1) {
+            el.click(); return 'ok';
+        }
+    }
+})()
+""")
+    time.sleep(2.0)
+    result = capture_bigpicture(host, port, bp, "smart-shelf-edit.png")
+    cancel_bp_modal(host, port, bp_ws)
+    time.sleep(1.0)
     close_qam(host, port, shared_ws)
     time.sleep(0.5)
     return result
@@ -1539,7 +1753,23 @@ def main() -> int:
         p = screenshot_shelf_edit(args.host, args.port, bp, shared_ws, qam_ws)
         if p:
             captured.append(p)
-            explicacoes.append(("shelf-edit.png", "Modal de edição de prateleira."))
+            explicacoes.append(("shelf-edit.png", "Modal de edição de prateleira (aba Source)."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] shelf-edit-filters ... (aba Filters com SavedFiltersBar)")
+    if qam_ws:
+        p = screenshot_shelf_edit_tab(args.host, args.port, bp, shared_ws, qam_ws, "filter", "shelf-edit-filters.png")
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-edit-filters.png", "Aba Filters da edição de prateleira — FilterPanel + SavedFiltersBar no topo."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] shelf-edit-visual ... (aba Visual com highlight picker)")
+    if qam_ws:
+        p = screenshot_shelf_edit_tab(args.host, args.port, bp, shared_ws, qam_ws, "visual", "shelf-edit-visual.png")
+        if p:
+            captured.append(p)
+            explicacoes.append(("shelf-edit-visual.png", "Aba Visual da edição — toggles de highlight + mini-preview + padrões Odd/Even."))
         time.sleep(1.5)
 
     print("\n[screenshot] shelf-delete ...")
@@ -1560,10 +1790,10 @@ def main() -> int:
 
     print("\n[screenshot] reset-all ... (confirmação destrutiva)")
     if qam_ws:
-        p = screenshot_reset_all(args.host, args.port, bp, shared_ws, qam_ws)
+        p = screenshot_reset_all(args.host, args.port, bp, shared_ws, qam_ws, qam)
         if p:
             captured.append(p)
-            explicacoes.append(("reset-all.png", "Confirmação do botão Reset all (zera todas as prateleiras e configurações)."))
+            explicacoes.append(("reset-all.png", "Confirmação do botão Reset all (ícone circular-arrow à direita do rodapé)."))
         time.sleep(1.5)
 
     print("\n[screenshot] about-page ...")
@@ -1588,6 +1818,22 @@ def main() -> int:
         if p:
             captured.append(p)
             explicacoes.append(("smart-shelf-modal.png", "Modal de seleção de template para Smart Shelf."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] smart-shelf-edit ... (EditSmartShelfModal)")
+    if qam_ws:
+        p = screenshot_smart_shelf_edit(args.host, args.port, bp, shared_ws, qam_ws)
+        if p:
+            captured.append(p)
+            explicacoes.append(("smart-shelf-edit.png", "Edição de Smart Shelf — sort override, filtros adicionais e toggles visuais."))
+        time.sleep(1.5)
+
+    print("\n[screenshot] saved-filters-qam ... (seção Saved Filters no QAM)")
+    if qam_ws:
+        p = screenshot_saved_filters_qam(args.host, args.port, bp, shared_ws, qam_ws, qam)
+        if p:
+            captured.append(p)
+            explicacoes.append(("saved-filters-qam.png", "Seção Saved Filters no QAM (oculta quando não há filtros salvos)."))
         time.sleep(1.5)
 
     print("\n[screenshot] global-toggles ...")

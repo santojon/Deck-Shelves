@@ -19,60 +19,121 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..");
 const screenshotsDir = join(root, "assets", "screenshots");
 
+// Expected screenshots — each entry lists the filename plus optional
+// min/max size and dimension hints. `maxSize` catches wrong-surface
+// captures: QAM popup PNGs at 522×741 compress to ~70-150 KB; a Big
+// Picture capture at 1281×801 is 300 KB–2.5 MB, well above the popup
+// range. A QAM popup shot that clocks in at 800 KB is almost certainly
+// a BP capture that was substituted for the real popup.
 const EXPECTED = [
-  "about-page.png",
-  "home.png",
-  "home-shelves.png",
-  "qam.png",
-  "game-menu.png",
-  "shelf-create.png",
-  "shelf-import.png",
-  "shelf-actions.png",
-  "shelf-edit.png",
-  "shelf-hidden.png",
-  "shelf-delete.png",
-  "shelf-export.png",
-  "reset-all.png",
-  "smart-shelves-qam.png",
-  "smart-shelf-modal.png",
-  "global-toggles.png",
+  { file: "about-page.png", minSize: 50_000 },
+  { file: "home.png" },
+  { file: "home-shelves.png" },
+  { file: "qam.png", surface: "qam-popup" },
+  { file: "game-menu.png" },
+  { file: "shelf-create.png" },
+  { file: "shelf-import.png" },
+  { file: "shelf-actions.png" },
+  { file: "shelf-edit.png" },
+  { file: "shelf-edit-filters.png" },
+  { file: "shelf-edit-visual.png" },
+  { file: "shelf-hidden.png", surface: "qam-popup" },
+  { file: "shelf-delete.png" },
+  { file: "shelf-export.png" },
+  { file: "reset-all.png" },
+  { file: "smart-shelves-qam.png", surface: "qam-popup" },
+  { file: "smart-shelf-modal.png" },
+  { file: "smart-shelf-edit.png" },
+  { file: "global-toggles.png", surface: "qam-popup" },
 ];
+
+// Optional screenshots — validated when present but not required. Saved
+// Filters depends on user state (no filters saved → section hidden → no
+// screenshot possible).
+const OPTIONAL = [
+  { file: "saved-filters-qam.png", surface: "qam-popup" },
+];
+
+// Surface profiles — per-surface size bounds and expected dimensions.
+const SURFACES = {
+  "qam-popup":   { minSize: 60_000,  maxSize: 250_000, width: 522,  height: 741 },
+  "big-picture": { minSize: 60_000,  maxSize: 3_000_000, width: 1281, height: 801 },
+};
 
 // PNG magic bytes
 const PNG_HEADER = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const MIN_SIZE = 10_000; // 10 KB minimum — anything smaller is likely broken
+// 60 KB matches QAM_CAPTURE_MIN_BYTES in the capture script — mostly-empty
+// popup frames (compositor hasn't pushed, dark screen) compress down to
+// ~39 KB at 522x741, well below this bar.
+const MIN_SIZE = 60_000;
 
 let errors = 0;
 
-for (const name of EXPECTED) {
-  const path = join(screenshotsDir, name);
+// Extract width/height from a PNG's IHDR chunk (bytes 16-23 after the
+// 8-byte magic + "IHDR" marker). PNG is big-endian 32-bit ints.
+function readPngDimensions(path) {
+  const buf = readFileSync(path);
+  if (buf.length < 24) return null;
+  const w = buf.readUInt32BE(16);
+  const h = buf.readUInt32BE(20);
+  return { width: w, height: h };
+}
+
+function validate(entry, { required }) {
+  const { file, minSize, maxSize, surface } = entry;
+  const profile = surface ? SURFACES[surface] : SURFACES["big-picture"];
+  const floor = minSize ?? profile.minSize ?? MIN_SIZE;
+  const ceiling = maxSize ?? profile.maxSize;
+
+  const path = join(screenshotsDir, file);
   if (!existsSync(path)) {
-    console.error(`MISSING  ${name}`);
-    errors++;
-    continue;
+    if (required) {
+      console.error(`MISSING  ${file}`);
+      errors++;
+    } else {
+      console.log(`SKIP     ${file} (optional, not present)`);
+    }
+    return;
   }
 
   const stat = statSync(path);
-  if (stat.size < MIN_SIZE) {
-    console.error(`TOO SMALL  ${name} (${stat.size} bytes, min ${MIN_SIZE})`);
+  if (stat.size < floor) {
+    console.error(`TOO SMALL  ${file} (${stat.size} bytes, min ${floor})`);
     errors++;
-    continue;
+    return;
+  }
+  if (ceiling && stat.size > ceiling) {
+    console.error(`WRONG SURFACE  ${file} (${(stat.size / 1024).toFixed(0)} KB > ${(ceiling / 1024).toFixed(0)} KB — expected ${surface ?? "big-picture"} capture)`);
+    errors++;
+    return;
   }
 
   const header = readFileSync(path, { length: 8 });
-  const buf = Buffer.from(header.buffer, header.byteOffset, Math.min(header.length, 8));
-  if (!buf.subarray(0, 8).equals(PNG_HEADER)) {
-    console.error(`NOT PNG  ${name}`);
+  const hbuf = Buffer.from(header.buffer, header.byteOffset, Math.min(header.length, 8));
+  if (!hbuf.subarray(0, 8).equals(PNG_HEADER)) {
+    console.error(`NOT PNG  ${file}`);
     errors++;
-    continue;
+    return;
   }
 
-  console.log(`OK       ${name} (${(stat.size / 1024).toFixed(0)} KB)`);
+  if (profile.width && profile.height) {
+    const dim = readPngDimensions(path);
+    if (dim && (dim.width !== profile.width || dim.height !== profile.height)) {
+      console.error(`WRONG DIMENSIONS  ${file} (${dim.width}x${dim.height}, expected ${profile.width}x${profile.height} for ${surface ?? "big-picture"})`);
+      errors++;
+      return;
+    }
+  }
+
+  console.log(`OK       ${file} (${(stat.size / 1024).toFixed(0)} KB)`);
 }
+
+for (const entry of EXPECTED) validate(entry, { required: true });
+for (const entry of OPTIONAL) validate(entry, { required: false });
 
 if (errors > 0) {
   console.error(`\n${errors} screenshot(s) failed validation`);
   process.exit(1);
 } else {
-  console.log(`\nAll ${EXPECTED.length} screenshots valid`);
+  console.log(`\nAll ${EXPECTED.length} required screenshots valid`);
 }
