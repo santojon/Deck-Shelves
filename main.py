@@ -119,6 +119,9 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             shelf_entry["highlightedAppIds"] = highlighted_ids
         if manual_ids:
             shelf_entry["manualOrder"] = manual_ids
+        manual_base_sort = str(s.get("manualBaseSort") or "")
+        if manual_base_sort and manual_base_sort in valid_sorts and manual_base_sort != "manual":
+            shelf_entry["manualBaseSort"] = manual_base_sort
         sanitized.append(shelf_entry)
     # Sanitize smart shelves
     raw_smart = settings.get("smartShelves", [])
@@ -152,7 +155,22 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         surprise_count = max(0, min(5, surprise_count))
     except Exception:
         surprise_count = 0
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count}
+    # Sanitize savedFilters: list of { id, name, group }
+    raw_saved = settings.get("savedFilters", [])
+    if not isinstance(raw_saved, list):
+        raw_saved = []
+    sanitized_saved = []
+    for sf in raw_saved:
+        if not isinstance(sf, dict):
+            continue
+        sf_id = str(sf.get("id") or "")[:64]
+        sf_name = sf.get("name") if isinstance(sf.get("name"), str) else ""
+        sf_name = sf_name.strip()[:64] if sf_name else ""
+        sf_group = sf.get("group") if isinstance(sf.get("group"), dict) else None
+        if not sf_id or not sf_name or sf_group is None:
+            continue
+        sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved}
 
 
 class Plugin:

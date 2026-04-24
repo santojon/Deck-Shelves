@@ -38,6 +38,13 @@ export const FilterGroupSchema = z.object({
 });
 export type FilterGroup = z.infer<typeof FilterGroupSchema>;
 
+export const SavedFilterSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().min(1).max(64),
+  group: FilterGroupSchema,
+});
+export type SavedFilter = z.infer<typeof SavedFilterSchema>;
+
 // --- Legacy flat filter schema (kept for backwards compatibility) ---
 
 export const FilterSchema = z.object({
@@ -110,6 +117,9 @@ export const ShelfSchema = z.object({
   limit: z.number().int().min(1).max(100).default(20),
   sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
+  // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
+  // Defaults to "alphabetical" when absent; must not be "manual" itself.
+  manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),
@@ -142,6 +152,7 @@ export const SettingsSchema = z.object({
   smartShelves: z.array(SmartShelfSchema).default([]),
   smartSurpriseMe: z.boolean().default(false),
   smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
+  savedFilters: z.array(SavedFilterSchema).default([]),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

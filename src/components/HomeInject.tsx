@@ -13,7 +13,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
-import { installPassiveMenuHook, prewarmMenuExtraction } from "../core/steamGameMenu";
+import { installPassiveMenuHook, installPassiveShowContextMenuHook, prewarmMenuExtraction } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
@@ -435,6 +435,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         patchMenuButton();
         installVerticalFocusBridge(mountEl);
         installPassiveMenuHook();
+        installPassiveShowContextMenuHook();
         tryRestoreFocus();
       } catch (e) { logInfo("HOME", "applyPatches failed", String(e)); }
     };

@@ -1,11 +1,12 @@
 import { showContextMenu } from "@decky/ui";
-import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
+import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 
 let cachedMenuComponent: any = null;
 let cachedMenuTemplateProps: Record<string, any> = {};
 let lastExtractionAttempt = 0;
 const EXTRACTION_COOLDOWN = 3000;
 let passiveHookInstalled = false;
+let showContextMenuHookInstalled = false;
 let showGameMenuActive = false;
 
 function getSteamReact(): any {
@@ -25,16 +26,44 @@ function getSPDocument(): Document {
 }
 
 /**
+ * Resolve the card anchor across every Steam window we know about. DS cards
+ * live in the GamepadUI popup while the plugin bundle (and the menu
+ * interceptor) runs in SharedJSContext — querying only the preferred doc
+ * misses the card and the context menu ends up anchored to <body>, which
+ * DFL renders off-screen.
+ */
+function findCardAnchor(appid: number): { doc: Document; el: HTMLElement } | null {
+  for (const d of getAllSteamDocuments()) {
+    const el = (
+      d.querySelector(`.ds-card[data-appid="${appid}"]`) ??
+      d.querySelector(".ds-card.gpfocus") ??
+      d.querySelector(".ds-card:focus")
+    ) as HTMLElement | null;
+    if (el) return { doc: d, el };
+  }
+  return null;
+}
+
+/**
  * Prewarm the context-menu cache shortly after plugin mount. On cold start
  * (Steam restart), the native library panels may not be rendered yet when the
  * plugin first mounts, so the first extraction attempt fails and the menu
  * button stops responding until the user manually opens a native menu. This
  * function retries extraction at 500ms / 1500ms / 3500ms / 7000ms, bypassing
  * the normal cooldown. Idempotent: stops once the cache is populated.
+ *
+ * Extraction is attempted regardless of SteamOS version — empirically, some
+ * 3.9+ builds still render the `{overview, client}` template, so skipping by
+ * version was causing false negatives where the real menu was available.
+ * If extraction fails on every retry, showGameMenu silently falls through to
+ * the DFL menu (Play / Properties / View Details).
  */
 export function prewarmMenuExtraction(): () => void {
   if (cachedMenuComponent) return () => {};
-  const delays = [500, 1500, 3500, 7000];
+  // Early 150ms tick runs before `recentsReplace` overwrites the native
+  // card content on most devices, so we can capture the native
+  // `{overview, client}` menu factory before the overlay injection.
+  const delays = [150, 500, 1500, 3500, 7000];
   const timers: any[] = [];
   for (const ms of delays) {
     timers.push(setTimeout(() => {
@@ -67,6 +96,39 @@ export function installPassiveMenuHook(): void {
     return origCreateElement.apply(React, [type, props, ...args]);
   };
   passiveHookInstalled = true;
+}
+
+/**
+ * Persistent hook on `DFL.showContextMenu` that captures the native menu
+ * component whenever Steam opens a context menu for a game — covers paths
+ * the `React.createElement` capture misses (e.g. showContextMenu invoked
+ * via internal Steam code that constructs the element before we installed
+ * the createElement hook). Stays installed for the life of the session;
+ * the guard `cachedMenuComponent` makes the capture a single-shot, the
+ * wrapper itself just passes through after that.
+ */
+export function installPassiveShowContextMenuHook(): void {
+  if (showContextMenuHookInstalled) return;
+  const dfl = getDFL();
+  if (!dfl || typeof dfl.showContextMenu !== "function") return;
+  const orig = dfl.showContextMenu;
+  dfl.showContextMenu = function (element: any, anchor: any, ...rest: any[]) {
+    try {
+      if (!cachedMenuComponent && element && typeof element.type === "function") {
+        const props = element.props ?? {};
+        if ("overview" in props && "client" in props) {
+          cachedMenuComponent = element.type;
+          const tProps = { ...props };
+          delete tProps.overview;
+          delete tProps.hasCustomArtwork;
+          delete tProps.onChangeArtwork;
+          cachedMenuTemplateProps = tProps;
+        }
+      }
+    } catch {}
+    return orig.apply(this, [element, anchor, ...rest]);
+  };
+  showContextMenuHookInstalled = true;
 }
 
 export function extractAppContextMenu(): boolean {
@@ -159,69 +221,75 @@ export function showGameMenu(appid: number): void {
   if (showGameMenuActive) return;
   showGameMenuActive = true;
   try {
-    installPassiveMenuHook();
-    if (!cachedMenuComponent) extractAppContextMenu();
+    // Native-menu path: extraction + cached component render. Wrapped in its
+    // own try so any failure (extraction crash, component render error) falls
+    // through to the DFL fallback menu rather than bubbling up to the caller.
+    try {
+      installPassiveMenuHook();
+      if (!cachedMenuComponent) extractAppContextMenu();
 
-    const React = getSteamReact();
-    const appStore = getAppStore();
+      const React = getSteamReact();
+      const appStore = getAppStore();
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (React && appStore && cachedMenuComponent) {
-        try {
-          const overview = appStore.GetAppOverviewByAppID?.(appid);
-          if (overview) {
-            const doc = getSPDocument();
-            const cardEl = (doc.querySelector(`.ds-card[data-appid="${appid}"]`)
-              ?? doc.querySelector(".ds-card.gpfocus")
-              ?? doc.querySelector(".ds-card:focus")
-              ?? doc.activeElement) as HTMLElement;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (React && appStore && cachedMenuComponent) {
+          try {
+            const overview = appStore.GetAppOverviewByAppID?.(appid);
+            if (overview) {
+              const anchor = findCardAnchor(appid);
+              const cardEl = (anchor?.el
+                ?? getSPDocument().activeElement) as HTMLElement;
 
-            const ownerWindow = (getPreferredSteamWindow() as any)
-              ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
-              ?? window;
+              const ownerWindow = (anchor?.doc.defaultView as any)
+                ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
+                ?? (getPreferredSteamWindow() as any)
+                ?? window;
 
-            const menuElement = React.createElement(cachedMenuComponent, {
-              ...cachedMenuTemplateProps,
-              overview,
-              client: cachedMenuTemplateProps.client ?? "mostavailable",
-              launchSource: cachedMenuTemplateProps.launchSource ?? 1000,
-              bInGamepadUI: cachedMenuTemplateProps.bInGamepadUI ?? true,
-              strCollectionId: cachedMenuTemplateProps.strCollectionId ?? "",
-              ownerWindow: ownerWindow ?? cachedMenuTemplateProps.ownerWindow,
-              hasCustomArtwork: undefined,
-              onChangeArtwork: undefined,
-            });
+              const menuElement = React.createElement(cachedMenuComponent, {
+                ...cachedMenuTemplateProps,
+                overview,
+                client: cachedMenuTemplateProps.client ?? "mostavailable",
+                launchSource: cachedMenuTemplateProps.launchSource ?? 1000,
+                bInGamepadUI: cachedMenuTemplateProps.bInGamepadUI ?? true,
+                strCollectionId: cachedMenuTemplateProps.strCollectionId ?? "",
+                ownerWindow: ownerWindow ?? cachedMenuTemplateProps.ownerWindow,
+                hasCustomArtwork: undefined,
+                onChangeArtwork: undefined,
+              });
 
-            const dfl = getDFL();
-            if (dfl?.showContextMenu) {
-              dfl.showContextMenu(menuElement, cardEl);
-            } else {
-              showContextMenu(menuElement, cardEl as any);
+              const dfl = getDFL();
+              if (dfl?.showContextMenu) {
+                dfl.showContextMenu(menuElement, cardEl);
+              } else {
+                showContextMenu(menuElement, cardEl as any);
+              }
+              return;
             }
-            return;
+          } catch {
+            cachedMenuComponent = null;
+            cachedMenuTemplateProps = {};
           }
-        } catch {
-          cachedMenuComponent = null;
-          cachedMenuTemplateProps = {};
+        }
+
+        if (attempt === 0 && !cachedMenuComponent) {
+          lastExtractionAttempt = 0;
+          extractAppContextMenu();
+        } else {
+          break;
         }
       }
-
-      if (attempt === 0 && !cachedMenuComponent) {
-        lastExtractionAttempt = 0;
-        extractAppContextMenu();
-      } else {
-        break;
-      }
+    } catch {
+      cachedMenuComponent = null;
+      cachedMenuTemplateProps = {};
     }
 
     try {
       const dfl = getDFL();
       const R = getSteamReact();
+      const appStore = getAppStore();
       if (dfl?.showContextMenu && R && dfl.Menu && dfl.MenuItem) {
-        const doc = getSPDocument();
-        const cardEl = (doc.querySelector(`.ds-card[data-appid="${appid}"]`)
-          ?? doc.querySelector(".ds-card.gpfocus")
-          ?? doc.activeElement) as HTMLElement;
+        const anchor = findCardAnchor(appid);
+        const cardEl = (anchor?.el ?? getSPDocument().activeElement) as HTMLElement;
         const overview = appStore?.GetAppOverviewByAppID?.(appid);
         const installed = overview?.installed === true;
         const nav = dfl.Navigation ?? (globalThis as any).SteamClient?.Navigation;

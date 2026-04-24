@@ -9,7 +9,7 @@
  *   shelf row horizontally and implements scroll throttle.
  */
 
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
+import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { showGameMenu } from "../../core/steamGameMenu";
 import { logInfo } from "../../runtime/logger";
 import { focusElement } from "../../core/focusRestore";
@@ -157,16 +157,26 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   return moved;
 }
 
+function findFocusedDsCard(): HTMLElement | null {
+  // DispatchVirtualButtonClick runs from SharedJSContext, but ds-cards live in
+  // the popup (GamepadUI) window. Scan every known Steam document — preferred
+  // first, then all candidates — so we find the focused card regardless of
+  // which window holds it.
+  for (const d of getAllSteamDocuments()) {
+    const el = (
+      d.querySelector(".ds-card.gpfocus") ??
+      d.querySelector(".ds-card:focus") ??
+      (d.activeElement?.closest?.(".ds-card") as HTMLElement | null)
+    ) as HTMLElement | null;
+    if (el) return el;
+  }
+  return null;
+}
+
 function interceptMenuBtn(button: number): boolean {
   if (button !== OPTIONS_BUTTON) return false;
   try {
-    const doc = getPreferredSteamDocument();
-    // Try our own shelf cards first
-    const focused = (
-      doc?.querySelector(".ds-card.gpfocus") ??
-      doc?.querySelector(".ds-card:focus") ??
-      (doc?.activeElement?.closest?.(".ds-card") as HTMLElement | null)
-    ) as HTMLElement | null;
+    const focused = findFocusedDsCard();
     if (focused) {
       const appid = Number(focused.getAttribute("data-appid") ?? 0);
       if (appid > 0) { showGameMenu(appid); return true; }
@@ -184,37 +194,35 @@ function interceptMenuBtn(button: number): boolean {
 
 export function patchMenuButton(): void {
   const DS_DOC_MENU = "__ds_doc_menu__";
-  const doc = getPreferredSteamDocument();
-
-  if (doc && !(doc as any)[DS_DOC_MENU]) {
-    (doc as any)[DS_DOC_MENU] = true;
-    const handleMenu = (evt: Event) => {
-      try {
-        const focused = (
-          doc.querySelector(".ds-card.gpfocus") ??
-          doc.querySelector(".ds-card:focus") ??
-          (doc.activeElement?.closest?.(".ds-card") as HTMLElement | null)
-        ) as HTMLElement | null;
-        if (focused) {
-          const appid = Number(focused.getAttribute("data-appid") ?? 0);
-          if (appid > 0) {
-            evt.stopImmediatePropagation();
-            evt.preventDefault();
-            showGameMenu(appid);
-            return;
-          }
-        }
-        // Overlay: intercept unconditionally — native handler crashes on replaced cards.
-        if (isRecentsReplaceInjecting()) {
+  // Register on every Steam document we can see: ds-cards may live in the
+  // popup (GamepadUI) while the plugin bundle itself runs in SharedJSContext.
+  // Event listeners must live on the document that actually hosts the card.
+  const handleMenu = (evt: Event) => {
+    try {
+      const focused = findFocusedDsCard();
+      if (focused) {
+        const appid = Number(focused.getAttribute("data-appid") ?? 0);
+        if (appid > 0) {
           evt.stopImmediatePropagation();
           evt.preventDefault();
-          const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
-          if (appid > 0) showGameMenu(appid);
+          showGameMenu(appid);
+          return;
         }
-      } catch (e) { logInfo("HOME", "handleMenu failed", String(e)); }
-    };
-    doc.addEventListener("vgp_onmenubutton", handleMenu, true);
-    doc.addEventListener("contextmenu", handleMenu, true);
+      }
+      // Overlay: intercept unconditionally — native handler crashes on replaced cards.
+      if (isRecentsReplaceInjecting()) {
+        evt.stopImmediatePropagation();
+        evt.preventDefault();
+        const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
+        if (appid > 0) showGameMenu(appid);
+      }
+    } catch (e) { logInfo("HOME", "handleMenu failed", String(e)); }
+  };
+  for (const d of getAllSteamDocuments()) {
+    if ((d as any)[DS_DOC_MENU]) continue;
+    (d as any)[DS_DOC_MENU] = true;
+    d.addEventListener("vgp_onmenubutton", handleMenu, true);
+    d.addEventListener("contextmenu", handleMenu, true);
   }
 
   const ctrl = (globalThis as any).FocusNavController
@@ -279,6 +287,24 @@ export function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
           const throttled: Set<HTMLElement> = (globalThis as any).__ds_scroll_throttle_rows;
           if (throttled?.has(el)) return true;
         }
+      }
+      // DOWN on the last DS shelf when the native tab bar is hidden (hideHomeTabs=true)
+      // wraps focus to the top and visually tilts the view. Consume the event so focus
+      // stays put — user can't navigate past the last shelf to a non-existent target.
+      if (direction === DIR_DOWN) {
+        try {
+          const doc: Document | null = getPreferredSteamDocument();
+          const mount = doc?.getElementById("deck-shelves-home-root") as HTMLElement | null;
+          const focused = (doc?.querySelector(".gpfocus") as HTMLElement | null) ?? null;
+          if (mount && focused && mount.contains(focused)) {
+            const lastShelf = mount.querySelector<HTMLElement>(".ds-shelf:last-child");
+            if (lastShelf && lastShelf.contains(focused)) {
+              const tabs = doc?.querySelector('[role="tablist"]') as HTMLElement | null;
+              const tabsVisible = !!tabs && tabs.getBoundingClientRect().height > 0;
+              if (!tabsVisible) return true;
+            }
+          }
+        } catch (e) { logInfo("HOME", "DOWN wrap guard failed", String(e)); }
       }
       const result = orig.call(this, direction, flag);
       if (!result && (direction === DIR_LEFT || direction === DIR_RIGHT)) {

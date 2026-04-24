@@ -1,6 +1,6 @@
 
 import { Spinner } from "@decky/ui";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
 import { usePlatform } from "../runtime/platformContext";
@@ -15,10 +15,10 @@ import { applyManualOrder } from "../steam";
 
 const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}`;
+  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}`;
   const effectiveSort = shelf.source?.type === "filter"
     ? (((shelf.source as any).filter?.sort as string | undefined) ?? shelf.sort)
     : shelf.sort;
@@ -46,7 +46,19 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
       if (cancelled) return;
       try {
         mark(`shelf.resolve:${shelf.id}:start`);
-        platform.resolveShelfAppIds(shelf.source, shelf.limit, shelf.sort)
+        // On manual sort, resolve using the configured base sort (default
+        // alphabetical) so items not in `manualOrder` follow the user-chosen
+        // natural order. For filter sources the sort lives inside
+        // `source.filter.sort` (the third arg is ignored by that branch),
+        // so we clone the source and swap `filter.sort` to the base sort.
+        const baseSort = (shelf as any).manualBaseSort ?? "alphabetical";
+        const isManual = effectiveSort === "manual";
+        const resolveSort = isManual ? baseSort : shelf.sort;
+        let resolveSource: any = shelf.source;
+        if (isManual && shelf.source?.type === "filter") {
+          resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: baseSort } };
+        }
+        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort)
           .then((ids) => {
             if (!cancelled) {
               const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
@@ -82,7 +94,7 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
       unsubRefresh();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
     };
-  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? ""]);
+  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? ""]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,3 +168,9 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
   const effectiveHideNonSteamBadge = globalHideNonSteamBadge === true ? true : (shelf.hideNonSteamBadge === true);
   return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} forceExpanded={forceExpanded} />;
 }
+
+// Shallow-prop memo: settings changes in unrelated sections (e.g. toggling a
+// behavior switch elsewhere) rebuild ShelvesContainer but produce identical
+// shelf/global props for most shelves — skipping those cascades avoids
+// re-resolving appIds and re-rendering DeckRow for every pass.
+export const ShelfView = memo(ShelfViewImpl);

@@ -52,6 +52,7 @@ type EditableShelfState = {
   filter: ShelfFilter
   filterGroup: FilterGroup
   sort: string
+  manualBaseSort: string
   limit: number
   matchNativeSize: boolean
   highlightFirst: boolean
@@ -356,7 +357,7 @@ function ManualSortRow({
   return (
     <Focusable
       ref={rowRef}
-      style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, padding: '8px 0', width: '100%', overflowX: 'auto', overflowY: 'hidden' }}
+      style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, padding: '8px 12px', width: '100%', overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box' }}
     >
       {order.map((id, idx) => {
         const m = meta.get(id)
@@ -495,6 +496,56 @@ function HighlightMiniCard({
   )
 }
 
+function SavedFiltersBar({ controller, currentGroup, onApply }: { controller: SettingsController; currentGroup: FilterGroup; onApply: (g: FilterGroup) => void }) {
+  const { t, settings, actions } = controller
+  const saved = settings?.savedFilters ?? []
+  const [picked, setPicked] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+  const [name, setName] = useState('')
+
+  const options: SingleDropdownOption[] = [
+    { data: '', label: t('saved_filter_placeholder') },
+    ...saved.map((f) => ({ data: f.id, label: f.name })),
+  ]
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {saved.length > 0 && (
+        <DropdownItem
+          rgOptions={options}
+          selectedOption={picked}
+          onChange={(opt: unknown) => {
+            const id = String(optionData(opt) ?? '')
+            setPicked(id)
+            if (!id) return
+            const found = saved.find((f) => f.id === id)
+            if (found) onApply(found.group)
+          }}
+          label={t('saved_filter_apply')}
+        />
+      )}
+      {saving ? (
+        <Focusable style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
+          <DialogButton
+            disabled={!name.trim()}
+            onClick={async () => {
+              const trimmed = name.trim()
+              if (!trimmed) return
+              await actions.saveFilter(trimmed, currentGroup)
+              setSaving(false)
+              setName('')
+            }}
+          >{t('saved_filter_save')}</DialogButton>
+          <DialogButton onClick={() => { setSaving(false); setName('') }}>{t('cancel')}</DialogButton>
+        </Focusable>
+      ) : (
+        <DialogButton style={{ marginTop: 8 }} onClick={() => setSaving(true)}>{t('saved_filter_save_current')}</DialogButton>
+      )}
+    </div>
+  )
+}
+
 export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
   const { t, tabs: platformTabs, collections, actions } = controller
   const platform = usePlatform()
@@ -511,6 +562,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     filter: initialFilter,
     filterGroup: initialFilterGroup,
     sort: (shelf as any).sort ?? 'alphabetical',
+    manualBaseSort: (shelf as any).manualBaseSort ?? 'alphabetical',
     limit: shelf.limit,
     matchNativeSize: shelf.matchNativeSize ?? false,
     highlightFirst: shelf.highlightFirst ?? false,
@@ -546,9 +598,13 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId }
     if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab }
     if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
-    const effectiveFilter = filterGroupToFilter(state.filterGroup, state.filter.sort)
+    // When manual sort is active, use the configured base sort for the
+    // preview so the mini-card row reflects the actual order of non-manual
+    // positions at runtime (matches what Shelf.tsx resolves on home).
+    const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
+    const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
     return { type: 'filter' as const, filter: effectiveFilter }
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort])
 
   useEffect(() => {
     let cancelled = false
@@ -597,6 +653,10 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
     [t]
   )
+  const baseSortOptions = useMemo<SingleDropdownOption[]>(
+    () => SORT_OPTIONS.filter((item) => item.value !== 'manual').map((item) => ({ data: item.value, label: t(item.labelKey) })),
+    [t]
+  )
 
   const changeSourceType = (type: SourceType) => {
     setState((prev) => {
@@ -637,7 +697,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
       if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
@@ -688,7 +748,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'source',
                 title: t('edit_tab_source'),
                 content: (
-                  <div className='field-item-container' style={{ padding: '0 16px', maxHeight: 400, overflowY: 'auto', overflowX: 'hidden' }}>
+                  <div className='field-item-container' style={{ padding: '0 24px', maxHeight: 400, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
                     <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
                     {state.sourceType === 'collection' && (
                       <DropdownItem label={t('source_collection')} rgOptions={collectionOptions} selectedOption={state.collectionId} onChange={(opt: unknown) => setCollection(String(optionData(opt)))} bottomSeparator='thick' />
@@ -703,6 +763,9 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                       ? <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
                       : <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt)) }))} bottomSeparator='thick' />
                     }
+                    {isManualSort && (
+                      <DropdownItem label={t('manual_base_sort')} rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} bottomSeparator='thick' />
+                    )}
                     <Field label={`${t('limit')} (${state.limit})`}>
                       <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />
                     </Field>
@@ -727,7 +790,12 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'filters',
                 title: t('edit_tab_filters'),
                 content: (
-                  <div className='field-item-container' style={{ padding: '0 16px' }}>
+                  <div className='field-item-container' style={{ padding: '0 24px', boxSizing: 'border-box' }}>
+                    <SavedFiltersBar
+                      controller={controller}
+                      currentGroup={state.filterGroup}
+                      onApply={changeFilterGroup}
+                    />
                     <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} />
                   </div>
                 ),
@@ -736,7 +804,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'visual',
                 title: t('edit_tab_visual'),
                 content: (
-                  <div className='field-item-container' style={{ padding: '0 16px', maxHeight: 400, overflowY: 'auto', overflowX: 'hidden' }}>
+                  <div className='field-item-container' style={{ padding: '0 24px', maxHeight: 400, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
                     <ToggleField label={t('match_native_size')} checked={state.matchNativeSize} onChange={(value: boolean) => setState((prev) => ({ ...prev, matchNativeSize: value }))} />
                     <ToggleField label={t('highlight_first')} checked={state.highlightFirst} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightFirst: value }))} />
                     <ToggleField label={t('highlight_all')} checked={state.highlightAll} onChange={(value: boolean) => setState((prev) => ({ ...prev, highlightAll: value }))} />
@@ -798,8 +866,8 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                           const featured = state.highlightAll
                             || (state.highlightFirst && idx === 0)
                             || selected
-                          const h = 80
-                          const w = featured ? 168 : 54
+                          const h = 100
+                          const w = featured ? 210 : 68
                           const meta = resolvedMeta.get(id)
                           const toggle = highlightPickerOpen
                             ? () => {
@@ -837,7 +905,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 id: 'display',
                 title: t('edit_tab_display'),
                 content: (
-                  <div className='field-item-container' style={{ padding: '0 16px' }}>
+                  <div className='field-item-container' style={{ padding: '0 24px', boxSizing: 'border-box' }}>
                     <ToggleField label={t('hide_status_line')} checked={state.hideStatusLine} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideStatusLine: value }))} />
                     <ToggleField label={t('hide_new_badge')} checked={state.hideNewBadge} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideNewBadge: value }))} />
                     <ToggleField label={t('hide_compat_icons')} checked={state.hideCompatIcons} onChange={(value: boolean) => setState((prev) => ({ ...prev, hideCompatIcons: value }))} />
