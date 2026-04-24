@@ -141,12 +141,11 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     // competing smooth-scrolls that cause visible stutter.
     //
     // Exception: when this shelf is promoted to the native-recents slot
-    // (`forceExpanded=true`), align it to the TOP of the viewport instead of
-    // centering. Native recents sit at the top of the home, and our
-    // promoted shelf — often taller than half the viewport due to the hero
-    // art — gets its bottom clipped when `scrollTop` clamps to 0 trying to
-    // center. Matching the native geometry (top-aligned) avoids the clip
-    // when the user navigates UP into it from below.
+    // (`forceExpanded=true`), pin the scrollable to the very top — otherwise
+    // the shelf's natural position near scroll content top leaves its header
+    // clipped by prior content (hero, hidden recents spacer). scrollTop=0
+    // is the only position that guarantees the promoted shelf renders in
+    // full below whatever sits above it.
     const maybeCenter = () => {
       try {
         const scr = findScrollableAncestor(el);
@@ -154,15 +153,10 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
         const elRect = el.getBoundingClientRect();
         const scrRect = scr.getBoundingClientRect();
         if (forceExpandedRef.current) {
-          // Scroll so the shelf's top lands just below the viewport top
-          // (respecting its own `scrollMarginTop`).
-          const margin = parseInt(getComputedStyle(el).scrollMarginTop || "0", 10) || 0;
-          const target = Math.round(scr.scrollTop + (elRect.top - scrRect.top) - margin);
-          const clamped = Math.max(0, Math.min(scr.scrollHeight - scr.clientHeight, target));
-          if (scr === lastScrollable && Math.abs(clamped - lastTarget) < 2) return;
+          if (scr === lastScrollable && lastTarget === 0) return;
           lastScrollable = scr;
-          lastTarget = clamped;
-          try { scr.scrollTo({ top: clamped, behavior: "smooth" }); } catch { scr.scrollTop = clamped; }
+          lastTarget = 0;
+          try { scr.scrollTo({ top: 0, behavior: "smooth" }); } catch { scr.scrollTop = 0; }
           return;
         }
         const currentCenterOffset = (elRect.top + elRect.height / 2) - (scrRect.top + scrRect.height / 2);
@@ -256,7 +250,10 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       }
       try {
         const outer = outerRef.current;
-        if (outer) requestAnimationFrame(() => outer.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+        if (outer) requestAnimationFrame(() => {
+          if (forceExpandedRef.current) return;
+          outer.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
       } catch (e) {
         logInfo("HOME", "scrollIntoView failed", String(e));
       }
@@ -280,13 +277,17 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
         if (anc) {
           const outerEl = outerRef.current;
           if (outerEl) {
-            const outerRect = outerEl.getBoundingClientRect();
-            const ancRect = anc.getBoundingClientRect();
-            const delta = outerRect.top - ancRect.top;
-            const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (outerRect.height / 2);
-            const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
-            const finalTop = Math.max(0, Math.min(target, maxScroll));
-            try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
+            if (forceExpandedRef.current) {
+              try { anc.scrollTo({ top: 0, behavior: 'smooth' }); } catch { anc.scrollTop = 0; }
+            } else {
+              const outerRect = outerEl.getBoundingClientRect();
+              const ancRect = anc.getBoundingClientRect();
+              const delta = outerRect.top - ancRect.top;
+              const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (outerRect.height / 2);
+              const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
+              const finalTop = Math.max(0, Math.min(target, maxScroll));
+              try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
+            }
           }
         }
       } catch (e) {
@@ -317,13 +318,17 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
           if (viewport) {
             const outerEl = outerRef.current;
             if (outerEl) {
-              const outerRect = outerEl.getBoundingClientRect();
-              const vpRect = viewport.getBoundingClientRect();
-              const delta = outerRect.top - vpRect.top;
-              const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (outerRect.height / 2);
-              const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-              const finalTop = Math.max(0, Math.min(target, max));
-              try { viewport.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { viewport.scrollTop = finalTop; }
+              if (forceExpandedRef.current) {
+                try { viewport.scrollTo({ top: 0, behavior: 'smooth' }); } catch { viewport.scrollTop = 0; }
+              } else {
+                const outerRect = outerEl.getBoundingClientRect();
+                const vpRect = viewport.getBoundingClientRect();
+                const delta = outerRect.top - vpRect.top;
+                const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (outerRect.height / 2);
+                const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+                const finalTop = Math.max(0, Math.min(target, max));
+                try { viewport.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { viewport.scrollTop = finalTop; }
+              }
             }
           }
         }
