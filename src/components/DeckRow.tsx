@@ -110,6 +110,12 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     return () => clearTimeout(t);
   }, []);
 
+  // Keep `forceExpanded` readable inside the focus-scroll effect without
+  // re-subscribing the listener every time it flips — the effect below
+  // captures a ref so it always sees the current value.
+  const forceExpandedRef = useRef(forceExpanded);
+  useEffect(() => { forceExpandedRef.current = forceExpanded; }, [forceExpanded]);
+
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
@@ -133,12 +139,32 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     // event, issued only when needed — if Steam's native scroll already put
     // the shelf near center (within tolerance), skip entirely to avoid
     // competing smooth-scrolls that cause visible stutter.
+    //
+    // Exception: when this shelf is promoted to the native-recents slot
+    // (`forceExpanded=true`), align it to the TOP of the viewport instead of
+    // centering. Native recents sit at the top of the home, and our
+    // promoted shelf — often taller than half the viewport due to the hero
+    // art — gets its bottom clipped when `scrollTop` clamps to 0 trying to
+    // center. Matching the native geometry (top-aligned) avoids the clip
+    // when the user navigates UP into it from below.
     const maybeCenter = () => {
       try {
         const scr = findScrollableAncestor(el);
         if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
         const elRect = el.getBoundingClientRect();
         const scrRect = scr.getBoundingClientRect();
+        if (forceExpandedRef.current) {
+          // Scroll so the shelf's top lands just below the viewport top
+          // (respecting its own `scrollMarginTop`).
+          const margin = parseInt(getComputedStyle(el).scrollMarginTop || "0", 10) || 0;
+          const target = Math.round(scr.scrollTop + (elRect.top - scrRect.top) - margin);
+          const clamped = Math.max(0, Math.min(scr.scrollHeight - scr.clientHeight, target));
+          if (scr === lastScrollable && Math.abs(clamped - lastTarget) < 2) return;
+          lastScrollable = scr;
+          lastTarget = clamped;
+          try { scr.scrollTo({ top: clamped, behavior: "smooth" }); } catch { scr.scrollTop = clamped; }
+          return;
+        }
         const currentCenterOffset = (elRect.top + elRect.height / 2) - (scrRect.top + scrRect.height / 2);
         if (Math.abs(currentCenterOffset) <= CENTER_TOLERANCE_PX) return;
         const delta = elRect.top - scrRect.top;

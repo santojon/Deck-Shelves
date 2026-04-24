@@ -177,7 +177,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
+          <div style={{ position: 'relative', height: 410, overflow: 'hidden' }}>
             <Tabs
               activeTab={activeTab}
               onShowTab={(id: string) => setActiveTab(id as Tab)}
