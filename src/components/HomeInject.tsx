@@ -13,7 +13,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
-import { installPassiveMenuHook, installPassiveShowContextMenuHook, prewarmMenuExtraction } from "../core/steamGameMenu";
+import { installPassiveMenuHook, installPassiveShowContextMenuHook } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
@@ -450,7 +450,15 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     };
 
     applyPatches();
-    const disposePrewarm = prewarmMenuExtraction();
+    // Proactive extraction via `prewarmMenuExtraction` was removed: it
+    // invoked the native `onMenuButton` handler on mount, which briefly
+    // opened a real Steam context menu on the home screen — users saw
+    // this as "the menu button being pressed by itself" right after
+    // Steam restart. Extraction still happens lazily on the first user
+    // MENU press (inside `showGameMenu`), and the passive hooks
+    // (`installPassiveMenuHook` / `installPassiveShowContextMenuHook`)
+    // keep capturing opportunistically when Steam itself renders a
+    // native menu (e.g. in the library game detail view).
 
     // Observer 1: mutations inside our mount (shelf render, collapse/expand)
     const obs = new MutationObserver(applyPatches);
@@ -488,7 +496,6 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       doc?.removeEventListener("focusin", onFocusIn, true);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
-      disposePrewarm();
     };
   }, [mountEl]);
 

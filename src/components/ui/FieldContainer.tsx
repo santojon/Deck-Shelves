@@ -21,7 +21,7 @@ export function FieldContainer({
   const base: CSSProperties = {
     padding: '0 24px',
     boxSizing: 'border-box',
-    ...(scrollable ? { maxHeight: 400, overflowY: 'auto', overflowX: 'hidden' } : {}),
+    ...(scrollable ? { maxHeight: 340, overflowY: 'auto', overflowX: 'hidden' } : {}),
     ...style,
   }
   return <div className='field-item-container' style={base}>{children}</div>

@@ -242,8 +242,13 @@ export function ManualSortRow({
       ref={rowRef}
       style={{
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8,
-        margin: '0 -24px', padding: '8px 24px', width: 'auto',
+        // Extend to container outer edges; no internal horizontal padding —
+        // first/last card sit flush against the edge. Matches HighlightRow.
+        margin: '0 -24px', padding: '8px 0', width: 'auto',
         overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
+        touchAction: 'pan-x',
+        overscrollBehaviorX: 'contain',
+        overscrollBehaviorY: 'none',
       }}
     >
       {order.map((id, idx) => {

@@ -85,8 +85,19 @@ export function HighlightRow({ children }: { children: React.ReactNode }) {
       ref={rowRef}
       style={{
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8,
-        margin: '0 -24px', padding: '8px 24px', width: 'auto',
+        // Extend to container outer edges with a negative horizontal margin
+        // (matches Decky Field footprint). No internal horizontal padding
+        // here so the first/last card sit flush against the edge.
+        margin: '0 -24px', padding: '8px 0', width: 'auto',
         overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
+        // Horizontal scrolling should NOT drift vertically. `pan-x` tells
+        // the browser this row owns horizontal pans; vertical gestures go
+        // to the parent. `overscroll-behavior-*` stops scroll chaining
+        // when the row hits its edge so the parent's `overflow-y: auto`
+        // can't catch the remaining gesture and jitter.
+        touchAction: 'pan-x',
+        overscrollBehaviorX: 'contain',
+        overscrollBehaviorY: 'none',
       }}
     >
       {children}
