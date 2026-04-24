@@ -16,11 +16,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
@@ -28,13 +31,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
-      - name: Build and package
-        run: |
-          pnpm run build:release
-          pnpm run dist
+      - name: Build plugin (release mode)
+        run: pnpm run build:release
+
+      - name: Package release zip
+        run: pnpm run dist
 
       - name: Resolve release tag
-        id: meta
+        id: tag
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG="${GITHUB_REF_NAME}"
@@ -42,32 +46,40 @@ jobs:
             TAG="v$(node -p "require('./package.json').version")"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          VERSION="${TAG#v}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Release tag: ${TAG}"
 
-          # Release body: prefer the user-facing RELEASE_NOTES.md; fall back
-          # to the technical CHANGELOG.md when a version is missing there.
+      - name: Extract release notes for tag
+        id: notes
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          # Prefer the user-facing RELEASE_NOTES.md; fall back to the
+          # technical CHANGELOG.md when a version is missing there.
           NOTES=""
           if [[ -f "RELEASE_NOTES.md" ]]; then
             NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d')
           fi
           if [[ -z "$NOTES" && -f "CHANGELOG.md" ]]; then
+            echo "RELEASE_NOTES.md had no section for ${VERSION} — falling back to CHANGELOG.md"
             NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md | sed '/^$/N;/^\n$/d')
           fi
-          if [[ -n "$NOTES" ]]; then
-            {
-              echo "body<<BODY_EOF"
-              echo "$NOTES"
-              echo "BODY_EOF"
-            } >> "$GITHUB_OUTPUT"
+          if [[ -z "$NOTES" ]]; then
+            echo "No release notes found for ${VERSION} — generate_release_notes will be used."
           fi
+          {
+            echo "body<<BODY_EOF"
+            printf '%s\n' "$NOTES"
+            echo "BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.SUBMIT_TOKEN || github.token }}
-          tag_name: ${{ steps.meta.outputs.tag }}
-          name: Deck Shelves ${{ steps.meta.outputs.tag }}
-          body: ${{ steps.meta.outputs.body || '' }}
-          generate_release_notes: ${{ steps.meta.outputs.body == '' }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Deck Shelves ${{ steps.tag.outputs.tag }}
+          body: ${{ steps.notes.outputs.body }}
+          generate_release_notes: ${{ steps.notes.outputs.body == '' }}
           files: |
             deck-shelves-v*.zip

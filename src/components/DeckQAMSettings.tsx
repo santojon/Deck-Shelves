@@ -224,13 +224,17 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             <SliderField
               label={settings.smartSurpriseMeCount ? `${t('smart_surprise_count')} (${settings.smartSurpriseMeCount})` : t('smart_surprise_count')}
-              description={!settings.smartSurpriseMeCount ? t('smart_surprise_count_auto') : undefined}
               value={settings.smartSurpriseMeCount ?? 0}
               min={0}
               max={5}
               step={1}
               onChange={(v: number) => actions.setSmartSurpriseMeCount(v)}
             />
+            {!settings.smartSurpriseMeCount && (
+              <div style={{ textAlign: 'center', padding: '4px 12px 8px', fontSize: 12, opacity: 0.7 }}>
+                {t('smart_surprise_count_auto')}
+              </div>
+            )}
           </div>
         )}
         {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length === 0 && (

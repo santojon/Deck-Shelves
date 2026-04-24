@@ -132,23 +132,35 @@ jobs:
             fi
           fi
 
-      - name: Run validations
-        run: |
-          pnpm run typecheck
-          node scripts/build/validate.mjs
+      - name: TypeScript check
+        run: pnpm run typecheck
 
-      - name: Commit and tag
+      - name: Static validation
+        run: node scripts/build/validate.mjs
+
+      - name: Configure git author
         run: |
-          VERSION="${{ steps.version.outputs.new }}"
           AUTHOR=$(node -p "require('./plugin.json').author")
-
           git config user.name "${AUTHOR}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
+      - name: Stage version files
+        run: |
           git add package.json pnpm-lock.yaml CHANGELOG.md
           [[ -f RELEASE_NOTES.md ]] && git add RELEASE_NOTES.md || true
+
+      - name: Commit bump
+        run: |
+          VERSION="${{ steps.version.outputs.new }}"
           git commit -m "chore: bump version to v${VERSION}"
+
+      - name: Tag commit
+        run: |
+          VERSION="${{ steps.version.outputs.new }}"
           git tag "v${VERSION}"
-          # push branch and ensure tag is explicitly pushed
+
+      - name: Push branch + tag
+        run: |
+          VERSION="${{ steps.version.outputs.new }}"
           git push origin main
           git push origin "v${VERSION}" || git push origin --tags

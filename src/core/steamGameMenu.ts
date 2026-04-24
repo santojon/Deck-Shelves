@@ -141,15 +141,16 @@ export function extractAppContextMenu(): boolean {
   const React = getSteamReact();
   if (!doc || !React?.createElement) return false;
 
-  const mount = doc.getElementById("deck-shelves-home-root");
-  const nativeRecents = (mount?.previousElementSibling ?? null) as Element | null;
-
+  // Match v1.4.0 behavior: iterate every visible Panel.Focusable with an
+  // image and a `__reactFiber$` — no `nativeRecents.contains(panel)` filter.
+  // The nativeRecents exclusion was added later thinking it'd be safer, but
+  // it excluded the exact wrappers that host the native `onMenuButton`
+  // when recents-replace is active — killing extraction.
   const panels = doc.querySelectorAll(".Panel.Focusable");
   let menuFn: ((e: any) => void) | null = null;
 
   for (let i = 0; i < panels.length; i++) {
     const panel = panels[i];
-    if (nativeRecents && nativeRecents.contains(panel)) continue;
     const cls = panel.className ?? "";
     if (cls.indexOf("ds-card") >= 0 || cls.indexOf("ds-row") >= 0) continue;
     if (!panel.querySelector("img")) continue;
@@ -190,11 +191,13 @@ export function extractAppContextMenu(): boolean {
     return origCreateElement.apply(React, [type, props, ...args]);
   };
 
-  const dfl = getDFL();
-  const origDflShow = dfl?.showContextMenu;
-  const origDeckyShow = (globalThis as any).showContextMenu;
-  if (dfl?.showContextMenu) dfl.showContextMenu = () => {};
-  if ((globalThis as any).showContextMenu) (globalThis as any).showContextMenu = () => {};
+  // Invoke the native handler to force it to build a `{overview, client}`
+  // menu element — captured by the React.createElement hook above. We do
+  // NOT stub `dfl.showContextMenu` here (that was added later thinking it'd
+  // prevent a brief native-menu flash during extraction, but the handler's
+  // `showContextMenu` call often resolves to a module-bound reference that
+  // doesn't go through `dfl`, so the stub is a no-op at best and breaks
+  // capture ordering at worst).
   try {
     const fakeEvt = new CustomEvent("fake", { bubbles: false });
     (fakeEvt as any).stopPropagation = () => {};
@@ -203,8 +206,6 @@ export function extractAppContextMenu(): boolean {
   } catch {
   } finally {
     React.createElement = origCreateElement;
-    if (dfl?.showContextMenu !== undefined) dfl.showContextMenu = origDflShow;
-    if (origDeckyShow !== undefined) (globalThis as any).showContextMenu = origDeckyShow;
   }
 
   if (capturedComponent) {
@@ -302,7 +303,7 @@ export function showGameMenu(appid: number): void {
         if (installed && typeof sc?.Apps?.RunGame === "function") {
           items.push(R.createElement(dfl.MenuItem, {
             key: "play",
-            onSelected: () => { try { sc.Apps.RunGame(String(appid), "", -1, 1); } catch {} },
+            onSelected: () => { try { sc?.Apps?.RunGame(String(appid), "", -1, 1); } catch {} },
           }, lbl("menu_play", "Play")));
         }
         if (typeof nav?.NavigateToAppProperties === "function") {

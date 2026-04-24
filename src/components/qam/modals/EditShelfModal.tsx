@@ -203,7 +203,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
         onOK={handleSave}
         strOKButtonText={t('save')}
       >
-        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 48 }}>
+        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
           <ModalHeader
             t={t}
             title={state.title}
@@ -237,9 +237,15 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                     {isManualSort && (
                       <DropdownItem label={t('manual_base_sort')} rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} bottomSeparator='thick' />
                     )}
-                    <Field label={`${t('limit')} (${state.limit})`}>
-                      <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />
-                    </Field>
+                    <SliderField
+                      label={`${t('limit')} (${state.limit})`}
+                      value={state.limit}
+                      min={1}
+                      max={40}
+                      step={1}
+                      bottomSeparator='thick'
+                      onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
+                    />
                     {isManualSort && (
                       resolvedIds.length === 0
                         ? <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>

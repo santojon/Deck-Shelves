@@ -13,11 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
@@ -31,14 +34,16 @@ jobs:
       - name: Static validation
         run: node scripts/build/validate.mjs
 
-      - name: Run unit tests (TypeScript)
+      - name: Run TypeScript unit tests
         run: pnpm run test
 
-      - name: Set up Python and run Python tests
+      - name: Setup Python
         run: |
           python3 -m pip install -U pip setuptools
           python3 -m pip install pytest
-          python3 -m pytest src/test/ -v
+
+      - name: Run Python unit tests
+        run: python3 -m pytest src/test/ -v
 
       - name: Build plugin (release mode)
         run: pnpm run build:release
@@ -49,7 +54,8 @@ jobs:
       - name: Run compatibility checks
         run: bash scripts/build/validate-compat.sh
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload release zip artifact
+        uses: actions/upload-artifact@v4
         with:
           name: deck-shelves-${{ github.sha }}
           path: |

@@ -51,7 +51,13 @@ run_checks() {
     ((fail++))
   fi
 
-  if grep -rn '\.Apps\.' "$src" 2>/dev/null | grep -v '[[:space:]]*\*[[:space:]]' | grep -v '//.*\.Apps\.' | grep -qv '?\.' ; then
+  # Match `.Apps.` but skip: JSDoc/C-style comment lines (leading whitespace + `*`),
+  # single-line comment lines (`//` before the occurrence), and any line that already
+  # uses optional chaining anywhere (`?.`).
+  if grep -rn '\.Apps\.' "$src" 2>/dev/null \
+      | grep -Ev ':[[:space:]]*\*( |/|\*)' \
+      | grep -Ev ':[[:space:]]*//' \
+      | grep -qv '?\.' ; then
     echo "  ⚠️  Apps API accessed without optional chaining"
     ((fail++))
   else

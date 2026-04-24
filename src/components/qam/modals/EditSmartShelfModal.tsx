@@ -170,7 +170,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
         onOK={handleSave}
         strOKButtonText={t('save')}
       >
-        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 48 }}>
+        <Focusable onMenuButton={handleSave} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
           <ModalHeader
             t={t}
             title={state.title}
@@ -190,9 +190,15 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                       <Field label={t('smart_mode')}>
                         <div style={{ padding: '4px 0', opacity: 0.85 }}>{t(`smart_template_${shelf.mode}` as any)}</div>
                       </Field>
-                      <Field label={`${t('limit')} (${state.limit})`}>
-                        <SliderField label='' value={state.limit} min={1} max={40} step={1} onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))} />
-                      </Field>
+                      <SliderField
+                        label={`${t('limit')} (${state.limit})`}
+                        value={state.limit}
+                        min={1}
+                        max={40}
+                        step={1}
+                        bottomSeparator='thick'
+                        onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
+                      />
                       <DropdownItem label={t('smart_sort_override')} rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt) ?? '') }))} bottomSeparator='thick' />
                       {isManual && (
                         <DropdownItem label={t('manual_base_sort')} rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} bottomSeparator='thick' />
