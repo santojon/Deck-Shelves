@@ -35,6 +35,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const [items, setItems] = useState<Map<number, PlatformAppMeta>>(new Map());
   const firstLoad = useRef(true);
   const [metaVersion, setMetaVersion] = useState(0);
+  // Increments on every `resolve()` call; each in-flight promise captures
+  // the id at start and bails on completion if the id has advanced —
+  // prevents a slow resolve from overwriting a newer one (e.g. user
+  // rapid-toggles sort or edits the filter while the previous fetch is
+  // still pending).
+  const resolveGenRef = useRef(0);
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
@@ -44,6 +50,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
 
     const resolve = () => {
       if (cancelled) return;
+      const gen = ++resolveGenRef.current;
       try {
         mark(`shelf.resolve:${shelf.id}:start`);
         // On manual sort, resolve using the configured base sort (default
@@ -60,16 +67,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         }
         platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort)
           .then((ids) => {
-            if (!cancelled) {
-              const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
-              setAppIds(finalIds);
-              setMetaVersion((v) => v + 1);
-              firstLoad.current = false;
-              try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
-            }
+            if (cancelled || gen !== resolveGenRef.current) return;
+            const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
+            setAppIds(finalIds);
+            setMetaVersion((v) => v + 1);
+            firstLoad.current = false;
+            try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
           })
           .catch(() => {
-            if (!cancelled && firstLoad.current) setAppIds([]);
+            if (cancelled || gen !== resolveGenRef.current) return;
+            if (firstLoad.current) setAppIds([]);
           })
           .finally(() => {
             measure(`shelf.resolve:${shelf.id}`, `shelf.resolve:${shelf.id}:start`);

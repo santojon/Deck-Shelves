@@ -48,18 +48,14 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const [collapsedState, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
+  // When our shelf takes the native-recents slot (`forceExpanded=true`),
+  // render it expanded but preserve the user's original collapsed status
+  // untouched — if it later loses the slot (becomes second/third/etc.),
+  // it should return to whatever state the user had chosen. We intentionally
+  // do NOT overwrite `collapsedState` or the persisted `ds-collapsed-{id}`
+  // key while `forceExpanded` is active.
   const collapsed = forceExpanded ? false : collapsedState;
   const [nativeRowClass, setNativeRowClass] = useState('');
-
-  // When forceExpanded turns on, clear the persisted collapsed state so that
-  // turning forceExpanded off again (e.g. user disables "replace recents")
-  // doesn't re-collapse the shelf from stale localStorage.
-  useEffect(() => {
-    if (forceExpanded && shelfId) {
-      if (collapsedState) setCollapsed(false);
-      writeCollapsed(shelfId, false);
-    }
-  }, [forceExpanded, shelfId]);
 
   // Memoize effective dimensions — only recompute when the dims version changes,
   // not on every render. This prevents intermediate states from causing layout jumps.

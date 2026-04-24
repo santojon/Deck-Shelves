@@ -473,10 +473,13 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       parentObs.observe(mountEl.parentElement, { childList: true });
     }
 
-    // Safety net: poll every 750ms. Stability guard short-circuits when the
-    // position is correct, so this costs nothing in steady state. Catches
-    // cases where Steam re-registers without any DOM mutation at all.
-    const poll = window.setInterval(reparentOnly, 750);
+    // Safety net: poll every 3s. Stability guard short-circuits when the
+    // position is correct, so the wake-ups cost near-zero in steady state.
+    // MutationObservers (inside mount + on parent) + focusin + popstate +
+    // hashchange already cover every real reparent trigger; the interval
+    // only catches exotic Steam re-registers with no DOM mutation at all.
+    // Previously ran at 750ms — 4× the wake-ups for no measurable benefit.
+    const poll = window.setInterval(reparentOnly, 3000);
 
     // Focus events also signal Steam-driven tree changes; run reparent on
     // focusin at the document level (cheap; guard will no-op when correct).
@@ -562,6 +565,28 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Which shelf id is actually the first rendered `.ds-shelf` right now —
+  // updated by a MutationObserver on the mount. Needed because the first
+  // entry in the `shelves` array may render `null` (e.g. a filter resolves
+  // to 0 apps), so "first in the array" ≠ "first on screen". Only the
+  // first on-screen shelf should be promoted to the native-recents slot
+  // when `hideRecentsSetting` is on — via `forceExpanded`.
+  const [firstVisibleId, setFirstVisibleId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!hideRecentsSetting) { setFirstVisibleId(null); return; }
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    const scan = () => {
+      const first = rootEl.querySelector<HTMLElement>('.ds-shelf[data-shelfid]');
+      const id = first?.getAttribute('data-shelfid') ?? null;
+      setFirstVisibleId((prev) => (prev === id ? prev : id));
+    };
+    scan();
+    const obs = new MutationObserver(scan);
+    obs.observe(rootEl, { childList: true, subtree: false });
+    return () => obs.disconnect();
+  }, [hideRecentsSetting, shelves]);
+
   // Drag-to-reorder shelves by holding the title (touch/mouse only; D-pad nav
   // stays untouched). The hook scopes to `.ds-shelf[data-shelfid]` under the
   // root container and only acts on ids that match REGULAR shelves in
@@ -599,7 +624,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}
-      {shelves.map((shelf, idx) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} forceExpanded={hideRecentsSetting && idx === 0} />)}
+      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} />)}
     </Focusable>
   );
 }

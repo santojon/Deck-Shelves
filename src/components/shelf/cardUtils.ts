@@ -1,4 +1,3 @@
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 
 // Returns null when the class map isn't ready yet (caller should retry).

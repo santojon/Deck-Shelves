@@ -20,7 +20,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Modal content no longer gets clipped on the sides.** Dropdowns, toggles, and preview rows inside the edit modals now use the same horizontal rhythm as Decky's native fields — content lines up end-to-end instead of getting cut.
 - **Preview rows stay centered when you move cards.** Clicking a chevron on a mini-card in the manual-sort row smoothly re-centers the shifted card, and toggling a card to featured in the highlight preview re-centers it when its neighbors reflow.
-- **Home shelves are faster.** Shelves now skip unnecessary re-renders when unrelated settings change, so the home stays snappy when you toggle something in the QAM.
+- **Home shelves are faster.** Shelves now skip unnecessary re-renders when unrelated settings change, so the home stays snappy when you toggle something in the QAM. Background safety-net timers run less often (4× fewer wake-ups on the home nav patch), saving a small but real bit of battery during idle viewing.
+- **Shelves no longer flicker with stale results.** Rapidly changing a shelf's settings — switching sort back and forth, editing a filter — no longer lets a slow previous resolve overwrite a newer one. Only the latest result is rendered.
 - **Regular shelves and smart shelves share the same editing experience.** Same tabs, same visual controls, same preview behavior — you only see what's relevant for each shelf type.
 - **Template picker + TabMaster import layouts.** Cleaner 2-column grids; Steam-native entries in the TabMaster import now show a Steam logo so they're easy to spot.
 - **More sort options for every shelf type.** Sort by alphabetical, last session, playtime, release date, size on disk, Metacritic, Steam review score, recently added, or random — no matter if the shelf is from a collection, a library tab, or a filter.
@@ -31,6 +32,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **No more visual tilt when scrolling DOWN past the last shelf** when you have the home tabs hidden.
 - **Manual base sort actually takes effect** on filter-based shelves — previously the base order silently fell back to alphabetical on those.
 - **Missing translations.** All new text from this release is translated into every supported language (en-US, pt-BR, pt-PT, es-419, es-ES, de-DE, fr-FR, it-IT, ja-JP, ko-KR, nl-NL, pl-PL, ru-RU, tr-TR, uk-UA, zh-CN).
+- **A collapsed shelf stays collapsed when it loses the native-recents slot.** If you had manually collapsed a shelf and then turned on "Hide recent games" (which promotes that shelf to be first on the home), the shelf would stay collapsed forever after — its remembered state was being overwritten. Now the shelf is forced open only while it holds the slot; your original collapsed/expanded choice is restored as soon as it moves down.
+- **The "first shelf" slot now promotes the first shelf that actually shows games.** If your top shelf is a filter that sometimes resolves to zero games (e.g. "Games awaiting update"), the slot used to sit empty and the next populated shelf below stayed collapsed. The slot now re-targets automatically to whichever shelf is first on screen, re-expanding and locking it until another shelf takes its place.
 
 ## [1.5.3] - 2026-04-22
 

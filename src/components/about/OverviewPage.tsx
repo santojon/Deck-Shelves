@@ -12,13 +12,16 @@ const GROUPS: { labelKey: string; keys: string[] }[] = [
     labelKey: 'about_group_shelves_filters',
     keys: [
       'about_feature_shelves', 'about_feature_sources', 'about_feature_filters',
-      'about_feature_advanced_groups', 'about_feature_smart_shelves', 'about_feature_hide_recents',
+      'about_feature_advanced_groups', 'about_feature_smart_shelves',
+      'about_feature_edit_smart', 'about_feature_saved_filters',
+      'about_feature_hide_recents',
     ],
   },
   {
     labelKey: 'about_group_library_options',
     keys: [
-      'about_feature_sort', 'about_feature_new_sorts', 'about_feature_new_filters',
+      'about_feature_sort', 'about_feature_new_sorts', 'about_feature_manual_base_sort',
+      'about_feature_new_filters',
       'about_feature_developer_filter', 'about_feature_playtime',
     ],
   },

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
   DropdownItem,
-  Field,
   Focusable,
   SliderField,
   Tabs,
