@@ -364,7 +364,6 @@ The project includes CDP-based diagnostics and screenshot automation for Steam D
 ## Contributing
 
 [![Issues](https://img.shields.io/github/issues/santojon/Deck-Shelves?color=%2344cc11)](https://github.com/santojon/Deck-Shelves/issues)
-[![Discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/NrKtkf8qxN)
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, code style, and how to submit changes.
 
