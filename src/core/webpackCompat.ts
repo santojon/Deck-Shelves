@@ -242,6 +242,12 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
     for (const img of imgs) {
       try {
         if (img.closest('.ds-card') || img.closest('#deck-shelves-home-root')) continue;
+        // Skip our own modal preview mini-cards: they match the Focusable +
+        // cursor:pointer + <img> shape this scan uses to find native cards,
+        // and their user-chosen sizes would poison the native-dim cache —
+        // first shelf renders with tiny cards + broken scroll after the
+        // modal closes until the next poll re-establishes real dims.
+        if (img.closest('.ds-highlight-mini') || img.closest('.deck-shelves-modal-scope')) continue;
         const r = img.getBoundingClientRect();
         if (r.height < 80) continue;
         // Walk up to find the focusable card root. Prefer Focusable/Panel elements
