@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-04-24
+
 ### Added
 
 - **Template picker grouping**: normal and smart shelf template pickers are now grouped into collapsible categories (By Status, By Time, By Compatibility, By Platform, Other) with per-category collapse state.

@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-04-24
+
 ### Added
 
 - **Save and reuse filters.** Build a filter combo inside a shelf's Filters tab, name it, and apply it to any other shelf later — saved filters live in their own collapsible section in the Quick Access Menu, where you can rename or delete them.
