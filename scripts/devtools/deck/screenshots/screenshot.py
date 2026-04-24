@@ -580,8 +580,12 @@ def dismiss_bp_escape(host: str, port: int, bp_target: Dict) -> None:
 # zero-sized (compositor not ready), but we never fall back to Big Picture:
 # substituting a BP shot for a QAM shot would hide the popup behind the
 # game/home and lie about what the user actually sees.
-QAM_CAPTURE_RETRIES = 3
-QAM_CAPTURE_RETRY_DELAY = 0.6
+QAM_CAPTURE_RETRIES = 5
+QAM_CAPTURE_RETRY_DELAY = 0.8
+# Popup frames below this size are almost always blank (compositor hasn't
+# pushed a frame yet). A real populated QAM popup at 522×741 compresses to
+# 70-150 KB; a dark empty frame is ~38-40 KB.
+QAM_CAPTURE_BLANK_THRESHOLD = 50_000
 
 
 def capture_qam_with_fallback(
@@ -591,21 +595,40 @@ def capture_qam_with_fallback(
     qam_target: Optional[Dict],
     filename: str,
 ) -> Optional[Path]:
-    """Capture the QAM popup target. Retries a few times on zero-size frames
-    (compositor hasn't pushed yet). Returns the QAM capture in every case when
-    `qam_target` is available — we do NOT fall back to Big Picture, which has
-    the wrong dimensions for QAM shots. When `qam_target` is None (no popup
-    window visible at all), fall back to Big Picture as last resort."""
+    """Capture the QAM popup target. Retries on blank frames (compositor
+    hasn't pushed yet — the popup returns a dark PNG around 38-40 KB).
+    Returns the QAM capture always when `qam_target` is available — we do
+    NOT fall back to Big Picture, which has the wrong dimensions for QAM
+    shots. When `qam_target` is None (no popup window at all), fall back
+    to Big Picture as last resort. Between retries, nudge the popup with
+    a synthetic focus event to make the compositor paint a fresh frame."""
     if not qam_target:
         return capture_bigpicture(host, port, bp, filename)
+    qam_ws_path = ws_path_for(qam_target, port)
     last: Optional[Path] = None
     for attempt in range(QAM_CAPTURE_RETRIES):
         last = capture_qam_target(host, port, qam_target, filename)
-        if last is not None and last.stat().st_size > 0:
+        size = last.stat().st_size if last is not None else 0
+        if size >= QAM_CAPTURE_BLANK_THRESHOLD:
             return last
         if attempt + 1 < QAM_CAPTURE_RETRIES:
-            print(f"  [WARN] QAM popup capture empty (attempt {attempt + 1}); retrying in {QAM_CAPTURE_RETRY_DELAY}s")
+            print(f"  [WARN] QAM popup frame blank ({size:,} B, attempt {attempt + 1}); nudging compositor and retrying")
+            try:
+                # A tiny scroll + focus cycle forces the compositor to repaint.
+                eval_target(host, port, qam_ws_path, """
+(function(){
+    var scope = document.querySelector('.deck-shelves-qam-scope') || document.body;
+    if (scope) { scope.scrollTop += 1; scope.scrollTop -= 1; }
+    var f = document.activeElement;
+    if (f && f.blur) f.blur();
+    if (f && f.focus) f.focus();
+    return 'nudged';
+})()
+""")
+            except Exception as e:
+                print(f"    [WARN] compositor nudge failed: {e}")
             time.sleep(QAM_CAPTURE_RETRY_DELAY)
+    print(f"  [WARN] QAM popup stayed blank after {QAM_CAPTURE_RETRIES} attempts ({size:,} B) — keeping last frame")
     return last
 
 

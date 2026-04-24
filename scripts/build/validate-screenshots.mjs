@@ -55,8 +55,12 @@ const OPTIONAL = [
 ];
 
 // Surface profiles — per-surface size bounds and expected dimensions.
+// Keep `minSize` for qam-popup in sync with `QAM_CAPTURE_BLANK_THRESHOLD` in
+// `scripts/devtools/deck/screenshots/screenshot.py` (50_000). A populated
+// popup at 522×741 compresses to 70-150 KB; a blank compositor frame is
+// ~38-40 KB, so anything below ~50 KB is a failed capture.
 const SURFACES = {
-  "qam-popup":   { minSize: 60_000,  maxSize: 250_000, width: 522,  height: 741 },
+  "qam-popup":   { minSize: 50_000,  maxSize: 250_000,   width: 522,  height: 741 },
   "big-picture": { minSize: 60_000,  maxSize: 3_000_000, width: 1281, height: 801 },
 };
 
@@ -133,7 +137,15 @@ for (const entry of OPTIONAL) validate(entry, { required: false });
 
 if (errors > 0) {
   console.error(`\n${errors} screenshot(s) failed validation`);
+  console.error("\nResolution hints:");
+  console.error("  MISSING          → capture is absent. Rerun `python3 scripts/devtools/deck/screenshots/screenshot.py`.");
+  console.error("  TOO SMALL        → QAM popup frame is blank (compositor not ready). Rerun; the capture script retries on blanks.");
+  console.error("  WRONG SURFACE    → a Big Picture screenshot was saved for a file expected to be a QAM popup capture. Rerun with the current script.");
+  console.error("  WRONG DIMENSIONS → the PNG dims don't match the surface. Inspect the file; the surface profile may have drifted.");
   process.exit(1);
 } else {
-  console.log(`\nAll ${EXPECTED.length} required screenshots valid`);
+  const required = EXPECTED.length;
+  const optionalPresent = OPTIONAL.filter(e => existsSync(join(screenshotsDir, e.file))).length;
+  const total = required + optionalPresent;
+  console.log(`\nAll ${required} required screenshots valid (${total} total — ${optionalPresent}/${OPTIONAL.length} optional present)`);
 }
