@@ -365,15 +365,21 @@ export function HomeShelves() {
           enabled: true,
           hidden: false,
           limit: s.limit ?? 20,
-          matchNativeSize: false,
-          highlightFirst: false,
-          highlightAll: false,
-          hideStatusLine: false,
-          hideNewBadge: false,
-          hideCompatIcons: false,
-          hideNonSteamBadge: false,
-          source: { type: "smart", mode: s.mode },
-        }));
+          matchNativeSize: (s as any).matchNativeSize ?? false,
+          highlightFirst: (s as any).highlightFirst ?? false,
+          highlightAll: (s as any).highlightAll ?? false,
+          highlightedAppIds: (s as any).highlightedAppIds,
+          hideStatusLine: (s as any).hideStatusLine ?? false,
+          hideNewBadge: (s as any).hideNewBadge ?? false,
+          hideCompatIcons: (s as any).hideCompatIcons ?? false,
+          hideNonSteamBadge: (s as any).hideNonSteamBadge ?? false,
+          source: { type: "smart", mode: s.mode, filterGroup: (s as any).filterGroup } as any,
+          // Surface user-configured overrides so resolveShelfAppIds +
+          // Shelf.tsx can apply them on top of the mode's candidates.
+          sort: (s as any).sort,
+          manualOrder: (s as any).manualOrder,
+          manualBaseSort: (s as any).manualBaseSort,
+        } as any));
     }
   }
 

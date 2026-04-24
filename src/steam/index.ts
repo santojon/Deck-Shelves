@@ -2087,8 +2087,23 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     try {
       const { resolveSmartShelf } = await import("./smartShelves");
       const apps = await getAllAppOverviews();
-      const ids = resolveSmartShelf(source.mode, apps, limit);
-      logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length });
+      const smartFilterGroup = (source as any).filterGroup;
+      // If the user added extra filters, resolve smart without a limit first
+      // so filtering doesn't prematurely truncate candidates, then apply the
+      // filters + sort + final limit below.
+      const wantsPostProcess = !!smartFilterGroup || !!sort;
+      const rawIds = resolveSmartShelf(source.mode, apps, wantsPostProcess ? Math.max(limit * 4, 200) : limit);
+      let ids = rawIds;
+      if (smartFilterGroup && Array.isArray(smartFilterGroup.items) && smartFilterGroup.items.length > 0) {
+        const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));
+        const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+        ids = evaluateFilterGroup(smartFilterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+      }
+      if (sort && sort !== "manual") {
+        ids = applySortToIds(ids, sort, apps);
+      }
+      ids = ids.slice(0, limit);
+      logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
       return ids;
     } catch {
       return [];

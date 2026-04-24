@@ -371,6 +371,17 @@ export function useSettingsController() {
       const updated = (s.smartShelves ?? []).map((sh) => sh.id === id ? { ...sh, hidden: !sh.hidden } : sh);
       await persist({ ...s, smartShelves: updated });
     },
+    async patchSmartShelf(id: string, patch: Partial<SmartShelf>) {
+      const s = liveSettings();
+      if (!s) return;
+      const list = s.smartShelves ?? [];
+      const current = list.find((sh) => sh.id === id);
+      if (!current) return;
+      const next = { ...current, ...patch };
+      if (JSON.stringify(current) === JSON.stringify(next)) return;
+      const updated = list.map((sh) => sh.id === id ? next : sh);
+      await persist({ ...s, smartShelves: updated });
+    },
     async setSmartSurpriseMe(enabled: boolean) {
       const s = liveSettings();
       if (!s || s.smartSurpriseMe === enabled) return;

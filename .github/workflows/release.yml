@@ -44,14 +44,19 @@ jobs:
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           VERSION="${TAG#v}"
 
-          CHANGELOG=""
-          if [[ -f "CHANGELOG.md" ]]; then
-            CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          # Release body: prefer the user-facing RELEASE_NOTES.md; fall back
+          # to the technical CHANGELOG.md when a version is missing there.
+          NOTES=""
+          if [[ -f "RELEASE_NOTES.md" ]]; then
+            NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d')
           fi
-          if [[ -n "$CHANGELOG" ]]; then
+          if [[ -z "$NOTES" && -f "CHANGELOG.md" ]]; then
+            NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          fi
+          if [[ -n "$NOTES" ]]; then
             {
               echo "body<<BODY_EOF"
-              echo "$CHANGELOG"
+              echo "$NOTES"
               echo "BODY_EOF"
             } >> "$GITHUB_OUTPUT"
           fi

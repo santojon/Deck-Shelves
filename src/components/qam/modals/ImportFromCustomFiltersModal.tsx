@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable } from '@decky/ui'
 import { toaster } from '@decky/api'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { getTabMasterTabsFromSettingsFile, extractTabMasterTabsForImport, tabContainerToShelfSource } from '../../../integrations'
 import { findTabMasterContextValue } from '../../../steam'
@@ -126,8 +126,7 @@ export function ImportFromCustomFiltersModal({ closeModal, controller }: { close
   )
 
   return (
-    <div className='deck-shelves-modal-scope'>
-      <DeckModalStyles />
+    <ModalShell>
       <ConfirmModal
         strTitle={t('import_from_tabmaster')}
         strDescription={t('import_from_tabmaster_desc')}
@@ -164,6 +163,6 @@ export function ImportFromCustomFiltersModal({ closeModal, controller }: { close
           )}
         </div>
       </ConfirmModal>
-    </div>
+    </ModalShell>
   )
 }

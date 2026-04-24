@@ -99,7 +99,7 @@ jobs:
       - name: Update pnpm-lock.yaml version
         run: pnpm install --lockfile-only
 
-      - name: Update CHANGELOG.md
+      - name: Update CHANGELOG.md and RELEASE_NOTES.md
         run: |
           VERSION="${{ steps.version.outputs.new }}"
           DATE=$(date +%Y-%m-%d)
@@ -119,6 +119,19 @@ jobs:
 
           sed -i "s/^## \[Unreleased\]/## [Unreleased]\n\n## [${VERSION}] - ${DATE}/" CHANGELOG.md
 
+          # Promote the user-facing RELEASE_NOTES.md too, if present. Not
+          # fatal when it's missing or empty — the release workflow falls
+          # back to CHANGELOG.md in that case.
+          if [[ -f "RELEASE_NOTES.md" ]] && grep -q "^## \[Unreleased\]" RELEASE_NOTES.md; then
+            NOTES_CONTENT=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{exit} found{print}' RELEASE_NOTES.md)
+            NOTES_TRIMMED=$(echo "$NOTES_CONTENT" | sed '/^[[:space:]]*$/d')
+            if [[ -n "$NOTES_TRIMMED" ]]; then
+              sed -i "s/^## \[Unreleased\]/## [Unreleased]\n\n## [${VERSION}] - ${DATE}/" RELEASE_NOTES.md
+            else
+              echo "⚠️ RELEASE_NOTES.md [Unreleased] is empty — skipping promote (release will fall back to CHANGELOG.md)"
+            fi
+          fi
+
       - name: Run validations
         run: |
           pnpm run typecheck
@@ -133,6 +146,7 @@ jobs:
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
           git add package.json pnpm-lock.yaml CHANGELOG.md
+          [[ -f RELEASE_NOTES.md ]] && git add RELEASE_NOTES.md || true
           git commit -m "chore: bump version to v${VERSION}"
           git tag "v${VERSION}"
           # push branch and ensure tag is explicitly pushed

@@ -43,9 +43,14 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Plugin: $PLUGIN_NAME v$VERSION ($COMMIT)"
 
-          # Extract changelog for this version
+          # Extract release notes for this version — prefer the user-facing
+          # RELEASE_NOTES.md, fall back to the technical CHANGELOG.md when
+          # the version is missing there.
           CHANGELOG=""
-          if [[ -f "CHANGELOG.md" ]]; then
+          if [[ -f "RELEASE_NOTES.md" ]]; then
+            CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" RELEASE_NOTES.md | sed '/^$/N;/^\n$/d' | sed -e 's/^[[:space:]]*//' -e '/^$/d')
+          fi
+          if [[ -z "$CHANGELOG" && -f "CHANGELOG.md" ]]; then
             CHANGELOG=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md | sed '/^$/N;/^\n$/d' | sed -e 's/^[[:space:]]*//' -e '/^$/d')
           fi
           if [[ -z "$CHANGELOG" ]]; then

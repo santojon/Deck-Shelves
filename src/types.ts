@@ -95,6 +95,24 @@ export const SmartShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).optional(),
+  // Optional user overrides — apply on top of the mode's built-in behavior.
+  // `sort` overrides the mode's default ordering (supports the same values as
+  // regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
+  // `filterGroup` narrows the mode's candidate pool with additional filters.
+  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
+  manualOrder: z.array(z.number().int()).optional(),
+  manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
+  filterGroup: FilterGroupSchema.optional(),
+  // Visual overrides — mirrored from `ShelfSchema` so smart shelves can
+  // share the regular-shelf visual customization surface.
+  matchNativeSize: z.boolean().optional(),
+  highlightFirst: z.boolean().optional(),
+  highlightAll: z.boolean().optional(),
+  highlightedAppIds: z.array(z.number().int()).optional(),
+  hideStatusLine: z.boolean().optional(),
+  hideNewBadge: z.boolean().optional(),
+  hideCompatIcons: z.boolean().optional(),
+  hideNonSteamBadge: z.boolean().optional(),
 });
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 

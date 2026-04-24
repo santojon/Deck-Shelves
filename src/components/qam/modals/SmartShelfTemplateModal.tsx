@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable } from '@decky/ui'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelfMode } from '../../../types'
 import { SMART_TPL_ICON } from './templateIcons'
@@ -67,8 +67,7 @@ export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal
     .map((cat) => ({ cat, items: SMART_TEMPLATES.filter((x) => x.category === cat) }))
     .filter((g) => g.items.length > 0)
   return (
-    <div className='deck-shelves-modal-scope'>
-      <DeckModalStyles />
+    <ModalShell>
       <ConfirmModal
         strTitle={t('smart_template_picker_title')}
         strDescription={t('smart_template_picker_desc')}
@@ -105,6 +104,6 @@ export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal
           ))}
         </Focusable>
       </ConfirmModal>
-    </div>
+    </ModalShell>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { ModalShell } from '../../ui'
 import { importSettingsFromFile } from '../../../settingsStore'
 import type { SettingsController } from '../../../features/settings/controller'
 import { textFromDeckyChange, tryPickerCalls } from './modalUtils'
@@ -28,8 +28,7 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
   const [importBusy, setImportBusy] = useState(false)
   const title = t(titleKeyFor(scope) as any)
   return (
-    <div className='deck-shelves-modal-scope'>
-      <DeckModalStyles />
+    <ModalShell>
       <ConfirmModal
         strTitle={title}
         strDescription={path}
@@ -81,6 +80,6 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
           </div>
         </Focusable>
       </ConfirmModal>
-    </div>
+    </ModalShell>
   )
 }

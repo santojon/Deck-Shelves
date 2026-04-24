@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable, showModal } from '@decky/ui'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { SHELF_TEMPLATES } from '../../../domain/templates'
 import type { ShelfTemplateCategory } from '../../../domain/templates'
@@ -67,8 +67,7 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
     .map((cat) => ({ cat, items: SHELF_TEMPLATES.filter((x) => x.category === cat) }))
     .filter((g) => g.items.length > 0)
   return (
-    <div className='deck-shelves-modal-scope'>
-      <DeckModalStyles />
+    <ModalShell>
       <ConfirmModal
         strTitle={t('template_picker_title')}
         strDescription={t('template_picker_desc')}
@@ -110,6 +109,6 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
           ))}
         </Focusable>
       </ConfirmModal>
-    </div>
+    </ModalShell>
   )
 }

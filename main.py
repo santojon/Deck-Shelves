@@ -148,6 +148,44 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         entry: Dict[str, Any] = {"id": ss_id, "title": ss_title, "mode": ss_mode, "enabled": ss_enabled, "hidden": ss_hidden}
         if ss.get("limit") is not None:
             entry["limit"] = ss_limit
+        # Optional user overrides on top of the mode's natural output.
+        ss_sort = str(ss.get("sort") or "")
+        if ss_sort and ss_sort in valid_sorts:
+            entry["sort"] = ss_sort
+        ss_base = str(ss.get("manualBaseSort") or "")
+        if ss_base and ss_base in valid_sorts and ss_base != "manual":
+            entry["manualBaseSort"] = ss_base
+        raw_ss_manual = ss.get("manualOrder")
+        if isinstance(raw_ss_manual, list):
+            ss_manual_ids: list = []
+            for v in raw_ss_manual:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_manual_ids.append(n)
+                except Exception:
+                    continue
+            if ss_manual_ids:
+                entry["manualOrder"] = ss_manual_ids
+        ss_filter_group = ss.get("filterGroup")
+        if isinstance(ss_filter_group, dict):
+            entry["filterGroup"] = ss_filter_group
+        # Visual overrides mirrored from regular shelves.
+        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge"):
+            if bool_key in ss:
+                entry[bool_key] = bool(ss.get(bool_key, False))
+        raw_ss_highlighted = ss.get("highlightedAppIds")
+        if isinstance(raw_ss_highlighted, list):
+            ss_highlighted_ids: list = []
+            for v in raw_ss_highlighted:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_highlighted_ids.append(n)
+                except Exception:
+                    continue
+            if ss_highlighted_ids:
+                entry["highlightedAppIds"] = ss_highlighted_ids
         sanitized_smart.append(entry)
 
     try:
