@@ -13,7 +13,9 @@
 
 ## Description
 
+<!-- AUTOFILL:DESCRIPTION:START -->
 <!-- Describe what this PR does and why. -->
+<!-- AUTOFILL:DESCRIPTION:END -->
 
 ## Related Issues
 
@@ -22,8 +24,12 @@
 
 ## Changelog
 
-<!-- Add your changes under the appropriate heading in CHANGELOG.md → ## [Unreleased]. -->
+<!-- AUTOFILL:CHANGELOG:START -->
+<!-- Add your changes under ## [Unreleased] in CHANGELOG.md (technical detail) -->
+<!-- AND in RELEASE_NOTES.md (user-facing, less jargon). Release bodies prefer -->
+<!-- RELEASE_NOTES.md and fall back to CHANGELOG.md if a version is missing there. -->
 <!-- Example entry: "- Fixed shelf disappearing after reboot." -->
+<!-- AUTOFILL:CHANGELOG:END -->
 
 ## Type of Change
 
@@ -37,7 +43,7 @@
 ## Checklist
 
 - [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`.
-- [ ] I added my changes to `CHANGELOG.md` under `## [Unreleased]`.
+- [ ] I added my changes to `CHANGELOG.md` and `RELEASE_NOTES.md` under `## [Unreleased]`.
 - [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] My code follows the project's code style (2 spaces, semicolons, double quotes).
 - [ ] I ran `pnpm run build:plugin` with no errors.

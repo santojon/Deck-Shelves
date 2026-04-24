@@ -139,7 +139,7 @@ export function DeckQAMStyles() {
         user-select: none;
         width: 100%;
         box-sizing: border-box;
-        border-radius: 4px;
+        border-radius: 0;
         transition: background 0.1s;
       }
       .deck-shelves-qam-scope .ds-collapsible-header:focus,

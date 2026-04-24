@@ -19,6 +19,8 @@ export const FilterItemTypeSchema = z.enum([
   "developer",
   "publisher",
   "appIdList",
+  "cloudAvailable",
+  "controllerSupport",
   "merge",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
@@ -35,6 +37,13 @@ export const FilterGroupSchema = z.object({
   items: z.array(FilterItemSchema).default([]),
 });
 export type FilterGroup = z.infer<typeof FilterGroupSchema>;
+
+export const SavedFilterSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().min(1).max(64),
+  group: FilterGroupSchema,
+});
+export type SavedFilter = z.infer<typeof SavedFilterSchema>;
 
 // --- Legacy flat filter schema (kept for backwards compatibility) ---
 
@@ -86,6 +95,24 @@ export const SmartShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).optional(),
+  // Optional user overrides — apply on top of the mode's built-in behavior.
+  // `sort` overrides the mode's default ordering (supports the same values as
+  // regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
+  // `filterGroup` narrows the mode's candidate pool with additional filters.
+  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
+  manualOrder: z.array(z.number().int()).optional(),
+  manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
+  filterGroup: FilterGroupSchema.optional(),
+  // Visual overrides — mirrored from `ShelfSchema` so smart shelves can
+  // share the regular-shelf visual customization surface.
+  matchNativeSize: z.boolean().optional(),
+  highlightFirst: z.boolean().optional(),
+  highlightAll: z.boolean().optional(),
+  highlightedAppIds: z.array(z.number().int()).optional(),
+  hideStatusLine: z.boolean().optional(),
+  hideNewBadge: z.boolean().optional(),
+  hideCompatIcons: z.boolean().optional(),
+  hideNonSteamBadge: z.boolean().optional(),
 });
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
@@ -106,10 +133,15 @@ export const ShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).default(20),
-  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
+  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
+  manualOrder: z.array(z.number().int()).optional(),
+  // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
+  // Defaults to "alphabetical" when absent; must not be "manual" itself.
+  manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),
+  highlightedAppIds: z.array(z.number().int()).optional(),
   hideStatusLine: z.boolean().default(false),
   hideNewBadge: z.boolean().default(false),
   hideCompatIcons: z.boolean().default(false),
@@ -138,6 +170,7 @@ export const SettingsSchema = z.object({
   smartShelves: z.array(SmartShelfSchema).default([]),
   smartSurpriseMe: z.boolean().default(false),
   smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
+  savedFilters: z.array(SavedFilterSchema).default([]),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

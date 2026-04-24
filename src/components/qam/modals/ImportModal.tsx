@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { ModalShell } from '../../ui'
 import { importSettingsFromFile } from '../../../settingsStore'
 import type { SettingsController } from '../../../features/settings/controller'
-import { textFromDeckyChange, pickerPath, tryPickerCalls } from './modalUtils'
+import { textFromDeckyChange, tryPickerCalls } from './modalUtils'
+
+export type ImportScope = 'all' | 'shelves' | 'smart'
 
 async function pickJsonFile(startPath: string) {
   return await tryPickerCalls([
@@ -13,18 +15,24 @@ async function pickJsonFile(startPath: string) {
   ])
 }
 
-export function ImportModal({ closeModal, controller, initialPath }: { closeModal?: () => void; controller: SettingsController; initialPath: string }) {
-  const { t } = controller
+function titleKeyFor(scope: ImportScope): string {
+  if (scope === 'shelves') return 'import_shelves'
+  if (scope === 'smart') return 'import_smart_shelves'
+  return 'import_settings'
+}
+
+export function ImportModal({ closeModal, controller, initialPath, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; initialPath: string; scope?: ImportScope }) {
+  const { t, actions } = controller
   const [path, setPath] = useState(initialPath)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
+  const title = t(titleKeyFor(scope) as any)
   return (
-    <div className='deck-shelves-modal-scope'>
-      <DeckModalStyles />
+    <ModalShell>
       <ConfirmModal
-        strTitle={t('import_settings')}
+        strTitle={title}
         strDescription={path}
-        strOKButtonText={importBusy ? t('loading') : t('import_settings')}
+        strOKButtonText={importBusy ? t('loading') : title}
         strCancelButtonText={t('cancel')}
         onCancel={closeModal}
         onEscKeypress={closeModal}
@@ -33,9 +41,15 @@ export function ImportModal({ closeModal, controller, initialPath }: { closeModa
           setImportBusy(true);
           (async () => {
             try {
-              const next = await importSettingsFromFile(path);
-              if (next.shelves[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
-              toaster.toast({ title: t('pluginName'), body: next ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
+              let ok = false
+              if (scope === 'shelves') ok = await actions.importShelves(path)
+              else if (scope === 'smart') ok = await actions.importSmartShelves(path)
+              else {
+                const next = await importSettingsFromFile(path);
+                ok = !!next
+                if (ok && next.shelves[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
+              }
+              toaster.toast({ title: t('pluginName'), body: ok ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
             } catch (error) {
               toaster.toast({ title: t('pluginName'), body: String(error) });
             } finally {
@@ -66,6 +80,6 @@ export function ImportModal({ closeModal, controller, initialPath }: { closeModa
           </div>
         </Focusable>
       </ConfirmModal>
-    </div>
+    </ModalShell>
   )
 }

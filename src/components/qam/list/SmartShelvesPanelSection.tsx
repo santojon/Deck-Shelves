@@ -2,6 +2,7 @@ import { Menu, MenuItem, DialogButton, showContextMenu } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf } from '../../../types'
 import { DeleteConfirmSmartModal } from '../modals/DeleteConfirmSmartModal'
+import { EditSmartShelfModal } from '../modals/EditSmartShelfModal'
 import { icons } from '../icons'
 import { openManagedModal } from '../common/openManagedModal'
 import { ReorderableShelfList } from '../common/ReorderableShelfList'
@@ -12,6 +13,9 @@ function SmartShelfActionsContextMenu({ controller, shelf }: { controller: Setti
   const index = smartShelves.findIndex((s) => s.id === shelf.id)
   return (
     <Menu label={t('actions')}>
+      <MenuItem onSelected={() => openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={shelf} />)}>
+        {t('editShelf')}
+      </MenuItem>
       <MenuItem onSelected={() => actions.toggleSmartShelfHidden(shelf.id)}>
         {shelf.hidden ? t('show_shelf') : t('hide_shelf')}
       </MenuItem>

@@ -74,8 +74,28 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_new_badge = bool(s.get("hideNewBadge", False))
         hide_compat_icons = bool(s.get("hideCompatIcons", False))
         hide_non_steam_badge = bool(s.get("hideNonSteamBadge", False))
-        valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"}
+        valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"}
         shelf_sort = str(s.get("sort") or "")
+        raw_manual = s.get("manualOrder")
+        manual_ids: list = []
+        if isinstance(raw_manual, list):
+            for v in raw_manual:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        manual_ids.append(n)
+                except Exception:
+                    continue
+        raw_highlighted = s.get("highlightedAppIds")
+        highlighted_ids: list = []
+        if isinstance(raw_highlighted, list):
+            for v in raw_highlighted:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        highlighted_ids.append(n)
+                except Exception:
+                    continue
         if not sid:
             continue
         shelf_entry: Dict[str, Any] = {
@@ -95,6 +115,13 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         }
         if shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
+        if highlighted_ids:
+            shelf_entry["highlightedAppIds"] = highlighted_ids
+        if manual_ids:
+            shelf_entry["manualOrder"] = manual_ids
+        manual_base_sort = str(s.get("manualBaseSort") or "")
+        if manual_base_sort and manual_base_sort in valid_sorts and manual_base_sort != "manual":
+            shelf_entry["manualBaseSort"] = manual_base_sort
         sanitized.append(shelf_entry)
     # Sanitize smart shelves
     raw_smart = settings.get("smartShelves", [])
@@ -121,6 +148,44 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         entry: Dict[str, Any] = {"id": ss_id, "title": ss_title, "mode": ss_mode, "enabled": ss_enabled, "hidden": ss_hidden}
         if ss.get("limit") is not None:
             entry["limit"] = ss_limit
+        # Optional user overrides on top of the mode's natural output.
+        ss_sort = str(ss.get("sort") or "")
+        if ss_sort and ss_sort in valid_sorts:
+            entry["sort"] = ss_sort
+        ss_base = str(ss.get("manualBaseSort") or "")
+        if ss_base and ss_base in valid_sorts and ss_base != "manual":
+            entry["manualBaseSort"] = ss_base
+        raw_ss_manual = ss.get("manualOrder")
+        if isinstance(raw_ss_manual, list):
+            ss_manual_ids: list = []
+            for v in raw_ss_manual:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_manual_ids.append(n)
+                except Exception:
+                    continue
+            if ss_manual_ids:
+                entry["manualOrder"] = ss_manual_ids
+        ss_filter_group = ss.get("filterGroup")
+        if isinstance(ss_filter_group, dict):
+            entry["filterGroup"] = ss_filter_group
+        # Visual overrides mirrored from regular shelves.
+        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge"):
+            if bool_key in ss:
+                entry[bool_key] = bool(ss.get(bool_key, False))
+        raw_ss_highlighted = ss.get("highlightedAppIds")
+        if isinstance(raw_ss_highlighted, list):
+            ss_highlighted_ids: list = []
+            for v in raw_ss_highlighted:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_highlighted_ids.append(n)
+                except Exception:
+                    continue
+            if ss_highlighted_ids:
+                entry["highlightedAppIds"] = ss_highlighted_ids
         sanitized_smart.append(entry)
 
     try:
@@ -128,7 +193,22 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         surprise_count = max(0, min(5, surprise_count))
     except Exception:
         surprise_count = 0
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count}
+    # Sanitize savedFilters: list of { id, name, group }
+    raw_saved = settings.get("savedFilters", [])
+    if not isinstance(raw_saved, list):
+        raw_saved = []
+    sanitized_saved = []
+    for sf in raw_saved:
+        if not isinstance(sf, dict):
+            continue
+        sf_id = str(sf.get("id") or "")[:64]
+        sf_name = sf.get("name") if isinstance(sf.get("name"), str) else ""
+        sf_name = sf_name.strip()[:64] if sf_name else ""
+        sf_group = sf.get("group") if isinstance(sf.get("group"), dict) else None
+        if not sf_id or not sf_name or sf_group is None:
+            continue
+        sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved}
 
 
 class Plugin:
@@ -317,6 +397,42 @@ class Plugin:
             except Exception:
                 pass
             return self._read_state()
+
+    async def write_json_file(self, path: str = "", content: str = "", *args, **kwargs) -> bool:
+        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        if not path or not isinstance(content, str):
+            return False
+        try:
+            d = os.path.dirname(path)
+            if d:
+                os.makedirs(d, exist_ok=True)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
+            return True
+        except Exception as e:
+            try:
+                decky.logger.error(f"Failed writing json to {path}: {e}")
+            except Exception:
+                pass
+            return False
+
+    async def read_json_file(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
+        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        if not path or not os.path.exists(path):
+            return {"ok": False}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return {"ok": True, "content": f.read()}
+        except Exception as e:
+            try:
+                decky.logger.error(f"Failed reading json from {path}: {e}")
+            except Exception:
+                pass
+            return {"ok": False}
 
     async def _main(self):
         self._ensure_dirs()

@@ -32,15 +32,21 @@ type NativeHeroClasses = {
 };
 
 export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
-  const [heroUrl, setHeroUrl] = useState<string | null>(null);
-  const prevHero = useRef<string | null>(null);
+  // Two stacked image slots so the new hero can fade IN while the old one
+  // fades OUT — matches the native Steam recents hero cross-fade. On each
+  // focus change we assign the new URL to the currently-inactive slot and
+  // flip `activeSlot` so only one layer is at opacity 1 at any time.
+  const [slotA, setSlotA] = useState<string | null>(null);
+  const [slotB, setSlotB] = useState<string | null>(null);
+  const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
   const [visible, setVisible] = useState(false);
   const [nativeClasses, setNativeClasses] = useState<NativeHeroClasses | null>(null);
   const [heroHeight, setHeroHeight] = useState(374);
-  const imgRef = useRef<HTMLImageElement>(null);
   const fallbackIdx = useRef(0);
   const currentAppid = useRef(0);
   const allUrls = useRef<string[]>([]);
+  const activeSlotRef = useRef<'A' | 'B'>('A');
+  useEffect(() => { activeSlotRef.current = activeSlot }, [activeSlot]);
 
   // Discover native hero classes from the recents section
   useEffect(() => {
@@ -103,12 +109,17 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
       if (appid !== currentAppid.current) {
-        prevHero.current = heroUrl;
         currentAppid.current = appid;
         const urls = getHeroUrls(appid);
         allUrls.current = urls;
         fallbackIdx.current = 0;
-        setHeroUrl(urls[0] ?? null);
+        // Assign the new URL to the INACTIVE slot, then flip active so the
+        // old layer fades out while the new layer fades in. One transition
+        // span handles the cross-fade — same pattern Steam uses natively.
+        const nextSlot: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
+        if (nextSlot === 'A') setSlotA(urls[0] ?? null);
+        else setSlotB(urls[0] ?? null);
+        setActiveSlot(nextSlot);
         setVisible(true);
       } else {
         setVisible(true);
@@ -130,57 +141,61 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     };
   }, [mountEl]);
 
-  const onImgError = () => {
+  const onImgError = (slot: 'A' | 'B') => () => {
     fallbackIdx.current += 1;
-    if (fallbackIdx.current < allUrls.current.length) {
-      setHeroUrl(allUrls.current[fallbackIdx.current]);
-    } else if (prevHero.current) {
-      setHeroUrl(prevHero.current);
-      setVisible(true);
+    const next = allUrls.current[fallbackIdx.current];
+    if (next) {
+      if (slot === 'A') setSlotA(next); else setSlotB(next);
     } else {
+      // No fallback left — hide this slot. If the previous slot still holds
+      // a valid image, flip back to it instead of going blank.
       setVisible(false);
     }
   };
 
-  if (!heroUrl) return null;
+  if (!slotA && !slotB) return null;
 
-  // Build native-matching DOM structure:
-  // outer (clip) > wrappers (with native classes → bring native CSS including mask) > zoom > img
+  // Build native-matching DOM structure for a single slot:
+  // wrappers (with native classes → bring native CSS including mask) > zoom > img
   const wrappers = nativeClasses?.wrapperClasses ?? [];
 
-  let inner = (
-    <div
-      className={nativeClasses?.zoomContainerClass || undefined}
-      style={{ position: "absolute", inset: 0, overflow: "visible" }}
-    >
-      <img
-        ref={imgRef}
-        className={nativeClasses?.imgClass || undefined}
-        src={heroUrl}
-        onError={onImgError}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "50% 50%",
-          display: "block",
-        }}
-        loading="eager"
-      />
-    </div>
-  );
-
-  // Wrap in intermediate containers — native classes bring their own mask-image via CSS
-  for (let i = wrappers.length - 1; i >= 0; i--) {
-    inner = (
+  const buildLayer = (url: string | null, slot: 'A' | 'B') => {
+    if (!url) return null;
+    let inner: React.ReactNode = (
       <div
-        className={wrappers[i] || undefined}
+        className={nativeClasses?.zoomContainerClass || undefined}
         style={{ position: "absolute", inset: 0, overflow: "visible" }}
       >
-        {inner}
+        <img
+          className={nativeClasses?.imgClass || undefined}
+          src={url}
+          onError={onImgError(slot)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "50% 50%",
+            display: "block",
+          }}
+          loading="eager"
+        />
       </div>
     );
-  }
+    for (let i = wrappers.length - 1; i >= 0; i--) {
+      inner = (
+        <div
+          className={wrappers[i] || undefined}
+          style={{ position: "absolute", inset: 0, overflow: "visible" }}
+        >
+          {inner}
+        </div>
+      );
+    }
+    return inner;
+  };
+
+  const layerA = buildLayer(slotA, 'A');
+  const layerB = buildLayer(slotB, 'B');
 
   // Extend 60px above (fills hidden recents gap) and 60px below (envelope effect
   // matching native hero which extended ~90px past the recents row bottom).
@@ -214,7 +229,28 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         background: "var(--ds-page-bg, rgb(0,0,0))",
         zIndex: -1,
       }} />
-      {inner}
+      {/* Two stacked image layers — only one is at opacity 1 at a time, the
+          other fades in with a 0.5s transition. On focus change, the new
+          URL is written into the inactive layer and `activeSlot` flips,
+          producing a cross-fade between the old and new hero art. */}
+      {layerA && (
+        <div style={{
+          position: "absolute", inset: 0, overflow: "visible",
+          opacity: activeSlot === 'A' ? 1 : 0,
+          transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
+        }}>
+          {layerA}
+        </div>
+      )}
+      {layerB && (
+        <div style={{
+          position: "absolute", inset: 0, overflow: "visible",
+          opacity: activeSlot === 'B' ? 1 : 0,
+          transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
+        }}>
+          {layerB}
+        </div>
+      )}
       {/* Bottom fade — gradient from page bg to transparent at the top,
           ensuring a smooth transition at the bottom edge of the hero area.
           Uses var(--ds-page-bg) to follow the active theme color. */}

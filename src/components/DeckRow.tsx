@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { memo, useEffect, useRef, useState, useMemo } from "react";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
@@ -38,24 +38,24 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-export function DeckRow({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+  const highlightedSet = useMemo(() => {
+    if (!highlightedAppIds?.length) return null;
+    return new Set(highlightedAppIds);
+  }, [highlightedAppIds]);
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const [collapsedState, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
+  // When our shelf takes the native-recents slot (`forceExpanded=true`),
+  // render it expanded but preserve the user's original collapsed status
+  // untouched — if it later loses the slot (becomes second/third/etc.),
+  // it should return to whatever state the user had chosen. We intentionally
+  // do NOT overwrite `collapsedState` or the persisted `ds-collapsed-{id}`
+  // key while `forceExpanded` is active.
   const collapsed = forceExpanded ? false : collapsedState;
   const [nativeRowClass, setNativeRowClass] = useState('');
-
-  // When forceExpanded turns on, clear the persisted collapsed state so that
-  // turning forceExpanded off again (e.g. user disables "replace recents")
-  // doesn't re-collapse the shelf from stale localStorage.
-  useEffect(() => {
-    if (forceExpanded && shelfId) {
-      if (collapsedState) setCollapsed(false);
-      writeCollapsed(shelfId, false);
-    }
-  }, [forceExpanded, shelfId]);
 
   // Memoize effective dimensions — only recompute when the dims version changes,
   // not on every render. This prevents intermediate states from causing layout jumps.
@@ -110,6 +110,12 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     return () => clearTimeout(t);
   }, []);
 
+  // Keep `forceExpanded` readable inside the focus-scroll effect without
+  // re-subscribing the listener every time it flips — the effect below
+  // captures a ref so it always sees the current value.
+  const forceExpandedRef = useRef(forceExpanded);
+  useEffect(() => { forceExpandedRef.current = forceExpanded; }, [forceExpanded]);
+
   useEffect(() => {
     const el = outerRef.current;
     if (!el) return;
@@ -133,12 +139,26 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     // event, issued only when needed — if Steam's native scroll already put
     // the shelf near center (within tolerance), skip entirely to avoid
     // competing smooth-scrolls that cause visible stutter.
+    //
+    // Exception: when this shelf is promoted to the native-recents slot
+    // (`forceExpanded=true`), pin the scrollable to the very top — otherwise
+    // the shelf's natural position near scroll content top leaves its header
+    // clipped by prior content (hero, hidden recents spacer). scrollTop=0
+    // is the only position that guarantees the promoted shelf renders in
+    // full below whatever sits above it.
     const maybeCenter = () => {
       try {
         const scr = findScrollableAncestor(el);
         if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
         const elRect = el.getBoundingClientRect();
         const scrRect = scr.getBoundingClientRect();
+        if (forceExpandedRef.current) {
+          if (scr === lastScrollable && lastTarget === 0) return;
+          lastScrollable = scr;
+          lastTarget = 0;
+          try { scr.scrollTo({ top: 0, behavior: "smooth" }); } catch { scr.scrollTop = 0; }
+          return;
+        }
         const currentCenterOffset = (elRect.top + elRect.height / 2) - (scrRect.top + scrRect.height / 2);
         if (Math.abs(currentCenterOffset) <= CENTER_TOLERANCE_PX) return;
         const delta = elRect.top - scrRect.top;
@@ -230,7 +250,10 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
       }
       try {
         const outer = outerRef.current;
-        if (outer) requestAnimationFrame(() => outer.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+        if (outer) requestAnimationFrame(() => {
+          if (forceExpandedRef.current) return;
+          outer.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
       } catch (e) {
         logInfo("HOME", "scrollIntoView failed", String(e));
       }
@@ -254,13 +277,17 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
         if (anc) {
           const outerEl = outerRef.current;
           if (outerEl) {
-            const outerRect = outerEl.getBoundingClientRect();
-            const ancRect = anc.getBoundingClientRect();
-            const delta = outerRect.top - ancRect.top;
-            const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (outerRect.height / 2);
-            const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
-            const finalTop = Math.max(0, Math.min(target, maxScroll));
-            try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
+            if (forceExpandedRef.current) {
+              try { anc.scrollTo({ top: 0, behavior: 'smooth' }); } catch { anc.scrollTop = 0; }
+            } else {
+              const outerRect = outerEl.getBoundingClientRect();
+              const ancRect = anc.getBoundingClientRect();
+              const delta = outerRect.top - ancRect.top;
+              const target = anc.scrollTop + delta - (anc.clientHeight / 2) + (outerRect.height / 2);
+              const maxScroll = Math.max(0, anc.scrollHeight - anc.clientHeight);
+              const finalTop = Math.max(0, Math.min(target, maxScroll));
+              try { anc.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { anc.scrollTop = finalTop; }
+            }
           }
         }
       } catch (e) {
@@ -291,13 +318,17 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
           if (viewport) {
             const outerEl = outerRef.current;
             if (outerEl) {
-              const outerRect = outerEl.getBoundingClientRect();
-              const vpRect = viewport.getBoundingClientRect();
-              const delta = outerRect.top - vpRect.top;
-              const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (outerRect.height / 2);
-              const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-              const finalTop = Math.max(0, Math.min(target, max));
-              try { viewport.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { viewport.scrollTop = finalTop; }
+              if (forceExpandedRef.current) {
+                try { viewport.scrollTo({ top: 0, behavior: 'smooth' }); } catch { viewport.scrollTop = 0; }
+              } else {
+                const outerRect = outerEl.getBoundingClientRect();
+                const vpRect = viewport.getBoundingClientRect();
+                const delta = outerRect.top - vpRect.top;
+                const target = viewport.scrollTop + delta - (viewport.clientHeight / 2) + (outerRect.height / 2);
+                const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+                const finalTop = Math.max(0, Math.min(target, max));
+                try { viewport.scrollTo({ top: finalTop, behavior: 'smooth' }); } catch { viewport.scrollTop = finalTop; }
+              }
             }
           }
         }
@@ -369,6 +400,7 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
     <div
       ref={outerRef}
       className="Panel ds-shelf"
+      data-shelfid={shelfId || undefined}
         style={{ marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'var(--ds-shell-bg)' }}
     >
       {title ? (
@@ -417,22 +449,32 @@ export function DeckRow({ title, items, shelfId, matchNativeSize = false, highli
           }}
           flow-children="horizontal"
         >
-          {items.map((item, idx) =>
-            item.isMoreLink
-              ? <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />
-                : <GameCard key={item.id} item={item}
-                  cardW={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedW : effectiveW}
-                  cardH={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedH : effectiveH}
-                  artH={highlightAll || (highlightFirst && idx === 0) ? finalFeaturedArtH : effectiveArtH}
-                  featured={highlightAll || (highlightFirst && idx === 0)}
-                  hideStatusLine={hideStatusLine}
-                  hideNewBadge={hideNewBadge}
-                  hideCompatIcons={hideCompatIcons}
-                  hideNonSteamBadge={hideNonSteamBadge} />
-          )}
+          {items.map((item, idx) => {
+            if (item.isMoreLink) {
+              return <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />;
+            }
+            const isFeatured = highlightAll
+              || (highlightFirst && idx === 0)
+              || (!!highlightedSet && item.appid !== undefined && highlightedSet.has(item.appid));
+            return <GameCard key={item.id} item={item}
+              cardW={isFeatured ? finalFeaturedW : effectiveW}
+              cardH={isFeatured ? finalFeaturedH : effectiveH}
+              artH={isFeatured ? finalFeaturedArtH : effectiveArtH}
+              featured={isFeatured}
+              hideStatusLine={hideStatusLine}
+              hideNewBadge={hideNewBadge}
+              hideCompatIcons={hideCompatIcons}
+              hideNonSteamBadge={hideNonSteamBadge} />;
+          })}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>
       )}
     </div>
   );
 }
+
+// Shallow-prop memo: `items` is already memoized in ShelfView via useMemo,
+// so re-renders triggered by unrelated parent state (e.g. settings panel
+// updates) don't force a full shelf re-render when only non-visual props
+// have been recomputed identically.
+export const DeckRow = memo(DeckRowImpl);

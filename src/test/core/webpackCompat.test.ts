@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { discoverClassMap, setRuntimeClassMap, getRuntimeClassMap, discoverNativeCardDimensions } from '../../core/webpackCompat';
 
 describe('webpackCompat discovery', () => {

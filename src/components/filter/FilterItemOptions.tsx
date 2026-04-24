@@ -22,6 +22,8 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
     case "nonSteam":
     case "updatePending":
     case "isNew":
+    case "cloudAvailable":
+    case "controllerSupport":
       return null;
 
     case "hidden":

@@ -1,0 +1,86 @@
+name: PR Autofill
+
+# Fills the PR body's Description / Changelog sections from the PR branch's
+# `## [Unreleased]` entries in RELEASE_NOTES.md and CHANGELOG.md.
+#
+# Uses `pull_request_target` so the token has `pull-requests: write` even on
+# PRs opened from forks. The workflow only READS text files from the PR head
+# (never runs code from it) and edits the PR body via the GitHub API — no
+# untrusted input is ever passed to a shell.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  autofill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head (read-only text files)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          persist-credentials: false
+
+      - name: Autofill PR body from Unreleased sections
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 <<'PY'
+          import os, re, subprocess, sys
+
+          def extract_unreleased(path: str) -> str:
+              if not os.path.exists(path):
+                  return ''
+              with open(path, 'r', encoding='utf-8') as f:
+                  text = f.read()
+              m = re.search(
+                  r'^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[|\Z)',
+                  text, re.MULTILINE | re.DOTALL,
+              )
+              return m.group(1).strip() if m else ''
+
+          def replace_between(body: str, key: str, content: str) -> str:
+              if not content:
+                  return body
+              start = f'<!-- AUTOFILL:{key}:START -->'
+              end   = f'<!-- AUTOFILL:{key}:END -->'
+              if start not in body or end not in body:
+                  return body
+              replacement = f'{start}\n{content}\n{end}'
+              return re.sub(
+                  re.escape(start) + r'.*?' + re.escape(end),
+                  lambda _m: replacement,
+                  body, count=1, flags=re.DOTALL,
+              )
+
+          desc = extract_unreleased('RELEASE_NOTES.md')
+          chg  = extract_unreleased('CHANGELOG.md')
+
+          pr_number = os.environ['PR_NUMBER']
+          repo      = os.environ['REPO']
+
+          body = subprocess.check_output(
+              ['gh', 'pr', 'view', pr_number, '--repo', repo, '--json', 'body', '--jq', '.body'],
+              text=True,
+          )
+
+          new_body = replace_between(body, 'DESCRIPTION', desc)
+          new_body = replace_between(new_body, 'CHANGELOG',   chg)
+
+          if new_body == body:
+              print('No autofill changes (markers missing, Unreleased empty, or already synced).')
+              sys.exit(0)
+
+          subprocess.run(
+              ['gh', 'pr', 'edit', pr_number, '--repo', repo, '--body-file', '-'],
+              input=new_body, text=True, check=True,
+          )
+          print('PR body autofilled from Unreleased sections.')
+          PY

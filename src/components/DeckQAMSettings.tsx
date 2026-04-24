@@ -4,6 +4,7 @@ import {
   Field,
   Focusable,
   SliderField,
+  TextField,
   ToggleField,
   showModal,
 } from '@decky/ui'
@@ -16,6 +17,7 @@ import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations
 
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
+import { textFromDeckyChange } from './qam/modals/modalUtils'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
@@ -29,36 +31,7 @@ import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
 import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
-
-const SECTIONS_KEY = 'ds-qam-sections'
-function loadSections(): Record<string, boolean> {
-  try { const raw = localStorage.getItem(SECTIONS_KEY); return raw ? JSON.parse(raw) : {} } catch { return {} }
-}
-function saveSections(state: Record<string, boolean>) {
-  try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(state)) } catch {}
-}
-const _sectionOpen: Record<string, boolean> = loadSections()
-
-function CollapsibleSection({ id, title, count, initialOpen, children }: { id: string; title: string; count: number; initialOpen?: boolean; children: React.ReactNode }) {
-  const defaultOpen = id in _sectionOpen ? _sectionOpen[id] : (initialOpen !== undefined ? initialOpen : count > 0)
-  const [open, setOpen] = useState(defaultOpen)
-  const toggle = () => setOpen(o => { const next = !o; _sectionOpen[id] = next; saveSections(_sectionOpen); return next })
-  return (
-    <>
-      <div style={{ marginTop: 8 }}>
-        <Focusable className='ds-collapsible-header' onClick={toggle} onOKButton={toggle}>
-          <span>{title}</span>
-          <span style={{ display: 'flex', alignItems: 'center' }}>
-            {!open && count > 0 && <span className='ds-collapsible-badge'>{count}</span>}
-            <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>
-          </span>
-        </Focusable>
-      </div>
-      <div className='deck-shelves-separator' />
-      {open && children}
-    </>
-  )
-}
+import { CollapsibleSection } from './ui'
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
@@ -74,6 +47,45 @@ function openManagedModal(render: (close: () => void) => React.ReactElement) {
   return close
 }
 
+function SavedFiltersList({ controller }: { controller: SettingsController }) {
+  const { t, settings, actions } = controller
+  const saved = settings?.savedFilters ?? []
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState<string>('')
+  if (saved.length === 0) {
+    return <div style={{ padding: '4px 16px', opacity: 0.7 }}>{t('saved_filter_empty')}</div>
+  }
+  return (
+    <>
+      {saved.map((f) => (
+        <Field key={f.id} className='no-sep'>
+          <Focusable style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 16px', boxSizing: 'border-box' }}>
+            {editingId === f.id ? (
+              <>
+                <TextField value={draft} onChange={(value: unknown) => setDraft(textFromDeckyChange(value))} />
+                <DialogButton
+                  disabled={!draft.trim()}
+                  onClick={async () => {
+                    await actions.renameSavedFilter(f.id, draft.trim())
+                    setEditingId(null); setDraft('')
+                  }}
+                >{t('saved_filter_save')}</DialogButton>
+                <DialogButton onClick={() => { setEditingId(null); setDraft('') }}>{t('cancel')}</DialogButton>
+              </>
+            ) : (
+              <>
+                <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                <DialogButton onClick={() => { setEditingId(f.id); setDraft(f.name) }}>{t('saved_filter_rename')}</DialogButton>
+                <DialogButton onClick={() => actions.deleteSavedFilter(f.id)}>{t('saved_filter_delete')}</DialogButton>
+              </>
+            )}
+          </Focusable>
+        </Field>
+      ))}
+    </>
+  )
+}
+
 export function DeckQAMSettings({ controller }: { controller: SettingsController }) {
   const { t, settings, shelves, actions } = controller
   const platform = usePlatform();
@@ -81,11 +93,17 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const isFirstRun = shelves.length === 0 && !settings.enabled
   const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
-  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} />)
+  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves-shelves.json'} scope='shelves' />)
+  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='shelves' />)
+  const handleImportSmart = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves-smart-shelves.json'} scope='smart' />)
+  const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='smart' />)
+  const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} scope='all' />)
+  const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='all' />)
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
-  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
+  const handleResetShelves = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='shelves' />)
+  const handleResetSmart = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='smart' />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
   const [crashError, setCrashError] = useState<string | null>(() => getMountError())
   useEffect(() => {
@@ -165,10 +183,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex' }}>
               <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
-              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_settings')} /></div>
-              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_settings')} /></div>
+              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_shelves')} /></div>
+              <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_shelves')} /></div>
             </div>
-            {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
+            <div style={{ display: 'flex' }}>
+              {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
+              <div style={{ marginLeft: hasTabMaster ? '10px' : 0 }}><ActionButton iconNode={icons.reset} onClick={handleResetShelves} okDescription={t('reset_shelves')} /></div>
+            </div>
           </Focusable>
         </Field>
         <div className='deck-shelves-separator' />
@@ -203,13 +224,17 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             <SliderField
               label={settings.smartSurpriseMeCount ? `${t('smart_surprise_count')} (${settings.smartSurpriseMeCount})` : t('smart_surprise_count')}
-              description={!settings.smartSurpriseMeCount ? t('smart_surprise_count_auto') : undefined}
               value={settings.smartSurpriseMeCount ?? 0}
               min={0}
               max={5}
               step={1}
               onChange={(v: number) => actions.setSmartSurpriseMeCount(v)}
             />
+            {!settings.smartSurpriseMeCount && (
+              <div style={{ textAlign: 'center', padding: '4px 12px 8px', fontSize: 12, opacity: 0.7 }}>
+                {t('smart_surprise_count_auto')}
+              </div>
+            )}
           </div>
         )}
         {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length === 0 && (
@@ -220,8 +245,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             <div style={{ marginTop: 8 }} />
             <div className='deck-shelves-separator' />
             <Field className='no-sep'>
-              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
-                <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
+              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex' }}>
+                  <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
+                  <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
+                  <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportSmart} okDescription={t('export_smart_shelves')} /></div>
+                </div>
+                <ActionButton iconNode={icons.reset} onClick={handleResetSmart} okDescription={t('reset_smart_shelves')} />
               </Focusable>
             </Field>
             <div className='deck-shelves-separator' />
@@ -248,16 +278,24 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
       </CollapsibleSection>
       )}
+
+      {settings.enabled && (settings.savedFilters?.length ?? 0) > 0 && (
+      <CollapsibleSection
+        id='saved_filters'
+        title={t('saved_filters_section')}
+        count={settings.savedFilters?.length ?? 0}
+      >
+        <SavedFiltersList controller={controller} />
+      </CollapsibleSection>
+      )}
+
       <Field className='no-sep'>
-        <Focusable style={{ width: '100%', padding: '0 16px', boxSizing: 'border-box' }}>
-          <DialogButton
-            onClick={handleResetAll}
-            onOKButton={handleResetAll}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-          >
-            {icons.reset}
-            <span>{t('reset_all_button')}</span>
-          </DialogButton>
+        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex' }}>
+            <ActionButton iconNode={icons.import} onClick={handleImportAll} okDescription={t('import_settings')} />
+            <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportAll} okDescription={t('export_settings')} /></div>
+          </div>
+          <ActionButton iconNode={icons.reset} onClick={handleResetAll} okDescription={t('reset_all_button')} />
         </Focusable>
       </Field>
     </div>

@@ -1,6 +1,6 @@
 
 import { Spinner } from "@decky/ui";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";
 import { usePlatform } from "../runtime/platformContext";
@@ -11,19 +11,23 @@ import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
+import { applyManualOrder } from "../steam";
 
 const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}`;
+  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}`;
+  const effectiveSort = shelf.source?.type === "filter"
+    ? (((shelf.source as any).filter?.sort as string | undefined) ?? shelf.sort)
+    : shelf.sort;
   const [appIds, setAppIds] = useState<number[] | null>(() => {
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { ts, ids } = JSON.parse(raw);
-        if (Date.now() - ts < 86400000) return ids; // 24h expiry
+        if (Date.now() - ts < 86400000) return effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids; // 24h expiry
       }
     } catch (e) { logInfo("HOME", "shelf cache read failed", String(e)); }
     return null;
@@ -31,6 +35,12 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
   const [items, setItems] = useState<Map<number, PlatformAppMeta>>(new Map());
   const firstLoad = useRef(true);
   const [metaVersion, setMetaVersion] = useState(0);
+  // Increments on every `resolve()` call; each in-flight promise captures
+  // the id at start and bails on completion if the id has advanced —
+  // prevents a slow resolve from overwriting a newer one (e.g. user
+  // rapid-toggles sort or edits the filter while the previous fetch is
+  // still pending).
+  const resolveGenRef = useRef(0);
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
@@ -40,19 +50,33 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
 
     const resolve = () => {
       if (cancelled) return;
+      const gen = ++resolveGenRef.current;
       try {
         mark(`shelf.resolve:${shelf.id}:start`);
-        platform.resolveShelfAppIds(shelf.source, shelf.limit, shelf.sort)
+        // On manual sort, resolve using the configured base sort (default
+        // alphabetical) so items not in `manualOrder` follow the user-chosen
+        // natural order. For filter sources the sort lives inside
+        // `source.filter.sort` (the third arg is ignored by that branch),
+        // so we clone the source and swap `filter.sort` to the base sort.
+        const baseSort = (shelf as any).manualBaseSort ?? "alphabetical";
+        const isManual = effectiveSort === "manual";
+        const resolveSort = isManual ? baseSort : shelf.sort;
+        let resolveSource: any = shelf.source;
+        if (isManual && shelf.source?.type === "filter") {
+          resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: baseSort } };
+        }
+        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort)
           .then((ids) => {
-            if (!cancelled) {
-              setAppIds(ids);
-              setMetaVersion((v) => v + 1);
-              firstLoad.current = false;
-              try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
-            }
+            if (cancelled || gen !== resolveGenRef.current) return;
+            const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
+            setAppIds(finalIds);
+            setMetaVersion((v) => v + 1);
+            firstLoad.current = false;
+            try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
           })
           .catch(() => {
-            if (!cancelled && firstLoad.current) setAppIds([]);
+            if (cancelled || gen !== resolveGenRef.current) return;
+            if (firstLoad.current) setAppIds([]);
           })
           .finally(() => {
             measure(`shelf.resolve:${shelf.id}`, `shelf.resolve:${shelf.id}:start`);
@@ -77,7 +101,7 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
       unsubRefresh();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
     };
-  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey]);
+  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? ""]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,5 +173,11 @@ export function ShelfView({ shelf, globalMatchNativeSize = false, globalHighligh
   const effectiveHideNewBadge = globalHideNewBadge === true ? true : (shelf.hideNewBadge === true);
   const effectiveHideCompatIcons = globalHideCompatIcons === true ? true : (shelf.hideCompatIcons === true);
   const effectiveHideNonSteamBadge = globalHideNonSteamBadge === true ? true : (shelf.hideNonSteamBadge === true);
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} forceExpanded={forceExpanded} />;
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} forceExpanded={forceExpanded} />;
 }
+
+// Shallow-prop memo: settings changes in unrelated sections (e.g. toggling a
+// behavior switch elsewhere) rebuild ShelvesContainer but produce identical
+// shelf/global props for most shelves — skipping those cascades avoids
+// re-resolving appIds and re-rendering DeckRow for every pass.
+export const ShelfView = memo(ShelfViewImpl);

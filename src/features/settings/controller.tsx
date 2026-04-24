@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
-import type { Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../../types";
+import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings, writeJsonFile, readJsonFile } from "../../settingsStore";
+import type { FilterGroup, SavedFilter, Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../../types";
 import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
@@ -14,7 +14,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0 });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -169,8 +169,88 @@ export function useSettingsController() {
       setSelectedId(shelf.id);
       return shelf;
     },
+    async exportShelves(destPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      return writeJsonFile(destPath, JSON.stringify({ state: { shelves: s.shelves } }, null, 2));
+    },
+    async importShelves(srcPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const raw = await readJsonFile(srcPath);
+      if (!raw) return false;
+      try {
+        const parsed = JSON.parse(raw);
+        const imported = parsed?.state?.shelves ?? parsed?.shelves;
+        if (!Array.isArray(imported)) return false;
+        await persist({ ...s, shelves: imported });
+        if (imported[0]?.id) setSelectedId(imported[0].id);
+        return true;
+      } catch { return false; }
+    },
+    async exportSmartShelves(destPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      return writeJsonFile(destPath, JSON.stringify({ state: { smartShelves: s.smartShelves ?? [], smartShelvesEnabled: s.smartShelvesEnabled === true, smartShelvesAtBottom: s.smartShelvesAtBottom === true, smartSurpriseMe: s.smartSurpriseMe === true, smartSurpriseMeCount: s.smartSurpriseMeCount ?? 0 } }, null, 2));
+    },
+    async saveFilter(name: string, group: FilterGroup): Promise<SavedFilter | null> {
+      const s = liveSettings();
+      if (!s) return null;
+      const trimmed = (name || "").trim().slice(0, 64);
+      if (!trimmed) return null;
+      const id = `sf_${Math.random().toString(36).slice(2, 10)}`;
+      const entry: SavedFilter = { id, name: trimmed, group };
+      const existing = s.savedFilters ?? [];
+      await persist({ ...s, savedFilters: [...existing, entry] });
+      return entry;
+    },
+    async deleteSavedFilter(id: string) {
+      const s = liveSettings();
+      if (!s) return;
+      const next = (s.savedFilters ?? []).filter((f) => f.id !== id);
+      await persist({ ...s, savedFilters: next });
+    },
+    async renameSavedFilter(id: string, name: string) {
+      const s = liveSettings();
+      if (!s) return;
+      const trimmed = (name || "").trim().slice(0, 64);
+      if (!trimmed) return;
+      const next = (s.savedFilters ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f));
+      await persist({ ...s, savedFilters: next });
+    },
+    async resetShelves() {
+      const s = liveSettings();
+      if (!s) return;
+      await persist({ ...s, shelves: [] });
+      setSelectedId(null);
+      toaster.toast({ title: t("pluginName"), body: t("toast_shelves_reset") });
+    },
+    async resetSmartShelves() {
+      const s = liveSettings();
+      if (!s) return;
+      await persist({ ...s, smartShelves: [], smartShelvesEnabled: false, smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
+      toaster.toast({ title: t("pluginName"), body: t("toast_smart_shelves_reset") });
+    },
+    async importSmartShelves(srcPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const raw = await readJsonFile(srcPath);
+      if (!raw) return false;
+      try {
+        const parsed = JSON.parse(raw);
+        const src = parsed?.state ?? parsed ?? {};
+        const next: Settings = { ...s };
+        if (Array.isArray(src.smartShelves)) next.smartShelves = src.smartShelves;
+        if (typeof src.smartShelvesEnabled === "boolean") next.smartShelvesEnabled = src.smartShelvesEnabled;
+        if (typeof src.smartShelvesAtBottom === "boolean") next.smartShelvesAtBottom = src.smartShelvesAtBottom;
+        if (typeof src.smartSurpriseMe === "boolean") next.smartSurpriseMe = src.smartSurpriseMe;
+        if (typeof src.smartSurpriseMeCount === "number") next.smartSurpriseMeCount = src.smartSurpriseMeCount;
+        await persist(next);
+        return true;
+      } catch { return false; }
+    },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0 };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] };
       try {
         const ls = globalThis.localStorage;
         if (ls) {
@@ -289,6 +369,17 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s) return;
       const updated = (s.smartShelves ?? []).map((sh) => sh.id === id ? { ...sh, hidden: !sh.hidden } : sh);
+      await persist({ ...s, smartShelves: updated });
+    },
+    async patchSmartShelf(id: string, patch: Partial<SmartShelf>) {
+      const s = liveSettings();
+      if (!s) return;
+      const list = s.smartShelves ?? [];
+      const current = list.find((sh) => sh.id === id);
+      if (!current) return;
+      const next = { ...current, ...patch };
+      if (JSON.stringify(current) === JSON.stringify(next)) return;
+      const updated = list.map((sh) => sh.id === id ? next : sh);
       await persist({ ...s, smartShelves: updated });
     },
     async setSmartSurpriseMe(enabled: boolean) {

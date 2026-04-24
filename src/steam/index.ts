@@ -705,6 +705,8 @@ export type AppOverview = {
   icon_hash?: string;
   update_pending?: boolean;
   app_type?: number;
+  cloud_available?: boolean;
+  controller_support?: number;
 };
 
 export function normalizeAppOverview(node: any): AppOverview | null {
@@ -772,6 +774,12 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     header: String(node?.header ?? node?.header_image ?? node?.capsule ?? ""),
     icon_hash: String(node?.icon_hash ?? node?.iconHash ?? ""),
     app_type: Number(node?.app_type ?? node?.appType ?? node?.m_eAppType ?? node?.eAppType ?? 0) || undefined,
+    cloud_available: readOptionalBoolean(node, ["bCloudAvailable", "cloud_available", "b_cloud_available"]),
+    controller_support: (() => {
+      const raw = node?.nControllerSupport ?? node?.controller_support ?? node?.n_controller_support;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : undefined;
+    })(),
   };
 }
 
@@ -1678,6 +1686,17 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       result = ids.includes(app.appid);
       break;
     }
+    case "cloudAvailable": {
+      result = app.cloud_available === true;
+      break;
+    }
+    case "controllerSupport": {
+      // nControllerSupport: 0 = none, 1 = partial, 2 = full
+      const n = Number(app.controller_support ?? 0);
+      const min = Number(item.params?.min ?? 1);
+      result = Number.isFinite(n) && n >= min;
+      break;
+    }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
     default:
       result = true;
@@ -1762,6 +1781,16 @@ function stableShuffleIds(ids: number[], cacheKey: string): number[] {
   }
   try { localStorage.setItem(lsKey, JSON.stringify({ ts: Date.now(), order: shuffled })); } catch {}
   return shuffled;
+}
+
+export function applyManualOrder(ids: number[], manualOrder?: number[]): number[] {
+  if (!manualOrder?.length) return ids;
+  const idSet = new Set(ids);
+  const inOrder: number[] = [];
+  for (const id of manualOrder) if (idSet.has(id) && !inOrder.includes(id)) inOrder.push(id);
+  const inOrderSet = new Set(inOrder);
+  const rest = ids.filter((id) => !inOrderSet.has(id));
+  return [...inOrder, ...rest];
 }
 
 function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number[] {
@@ -2058,8 +2087,23 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     try {
       const { resolveSmartShelf } = await import("./smartShelves");
       const apps = await getAllAppOverviews();
-      const ids = resolveSmartShelf(source.mode, apps, limit);
-      logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length });
+      const smartFilterGroup = (source as any).filterGroup;
+      // If the user added extra filters, resolve smart without a limit first
+      // so filtering doesn't prematurely truncate candidates, then apply the
+      // filters + sort + final limit below.
+      const wantsPostProcess = !!smartFilterGroup || !!sort;
+      const rawIds = resolveSmartShelf(source.mode, apps, wantsPostProcess ? Math.max(limit * 4, 200) : limit);
+      let ids = rawIds;
+      if (smartFilterGroup && Array.isArray(smartFilterGroup.items) && smartFilterGroup.items.length > 0) {
+        const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));
+        const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+        ids = evaluateFilterGroup(smartFilterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+      }
+      if (sort && sort !== "manual") {
+        ids = applySortToIds(ids, sort, apps);
+      }
+      ids = ids.slice(0, limit);
+      logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
       return ids;
     } catch {
       return [];

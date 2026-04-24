@@ -43,5 +43,6 @@ export function defaultSettings(): Settings {
     smartShelves: [],
     smartSurpriseMe: false,
     smartSurpriseMeCount: 0,
+    savedFilters: [],
   };
 }

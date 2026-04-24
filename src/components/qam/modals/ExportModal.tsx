@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { ModalShell } from '../../ui'
 import { exportSettingsToFile } from '../../../settingsStore'
 import type { SettingsController } from '../../../features/settings/controller'
-import { textFromDeckyChange, filenameWithJson, pickerPath, tryPickerCalls } from './modalUtils'
+import { textFromDeckyChange, filenameWithJson, tryPickerCalls } from './modalUtils'
+
+export type ExportScope = 'all' | 'shelves' | 'smart'
 
 async function pickFolder(startPath: string) {
   return await tryPickerCalls([
@@ -13,17 +15,28 @@ async function pickFolder(startPath: string) {
   ])
 }
 
-export function ExportModal({ closeModal, controller, folderPath }: { closeModal?: () => void; controller: SettingsController; folderPath: string }) {
-  const { t } = controller
-  const [name, setName] = useState('deck-shelves')
+function titleKeyFor(scope: ExportScope): string {
+  if (scope === 'shelves') return 'export_shelves'
+  if (scope === 'smart') return 'export_smart_shelves'
+  return 'export_settings'
+}
+
+function defaultNameFor(scope: ExportScope): string {
+  if (scope === 'shelves') return 'deck-shelves-shelves'
+  if (scope === 'smart') return 'deck-shelves-smart-shelves'
+  return 'deck-shelves'
+}
+
+export function ExportModal({ closeModal, controller, folderPath, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; folderPath: string; scope?: ExportScope }) {
+  const { t, actions } = controller
+  const [name, setName] = useState(defaultNameFor(scope))
   const [folder, setFolder] = useState(folderPath)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [saveBusy, setSaveBusy] = useState(false)
   return (
-    <div className='deck-shelves-modal-scope'>
-      <DeckModalStyles />
+    <ModalShell>
       <ConfirmModal
-        strTitle={t('export_settings')}
+        strTitle={t(titleKeyFor(scope) as any)}
         strDescription={folder}
         strOKButtonText={saveBusy ? t('loading') : t('save')}
         strCancelButtonText={t('cancel')}
@@ -34,7 +47,10 @@ export function ExportModal({ closeModal, controller, folderPath }: { closeModal
           (async () => {
             const target = `${folder}/${filenameWithJson(name)}`;
             try {
-              const ok = await exportSettingsToFile(target);
+              let ok = false
+              if (scope === 'shelves') ok = await actions.exportShelves(target)
+              else if (scope === 'smart') ok = await actions.exportSmartShelves(target)
+              else ok = await exportSettingsToFile(target)
               if (!ok) {
                 toaster.toast({ title: t('pluginName'), body: t('toast_failed_export') });
                 return;
@@ -71,6 +87,6 @@ export function ExportModal({ closeModal, controller, folderPath }: { closeModal
           </div>
         </Focusable>
       </ConfirmModal>
-    </div>
+    </ModalShell>
   )
 }

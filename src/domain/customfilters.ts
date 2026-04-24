@@ -46,6 +46,8 @@ export function mapFilterTypeToInternal(raw: string): FilterItemType {
     case 'developer': return 'developer'
     case 'publisher': return 'publisher'
     case 'appidlist': case 'whitelist': return 'appIdList'
+    case 'cloudavailable': case 'cloudsaves': case 'cloudsave': return 'cloudAvailable'
+    case 'controllersupport': case 'controller': return 'controllerSupport'
     case 'merge': return 'merge'
     default: return 'nameIncludes'
   }

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { ShelfView } from "./Shelf";
 import type { Settings, Shelf, SmartShelf, SmartShelfMode } from "../types";
-import { refreshSettings, subscribeSettings } from "../settingsStore";
+import { refreshSettings, subscribeSettings, saveSettings, getCurrentSettings } from "../settingsStore";
+import { useContainerDragReorder } from "../core/reorder";
 import { PlatformProvider } from "../runtime/platformContext";
 import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
@@ -12,7 +13,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
-import { installPassiveMenuHook } from "../core/steamGameMenu";
+import { installPassiveMenuHook, installPassiveShowContextMenuHook } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
@@ -364,15 +365,21 @@ export function HomeShelves() {
           enabled: true,
           hidden: false,
           limit: s.limit ?? 20,
-          matchNativeSize: false,
-          highlightFirst: false,
-          highlightAll: false,
-          hideStatusLine: false,
-          hideNewBadge: false,
-          hideCompatIcons: false,
-          hideNonSteamBadge: false,
-          source: { type: "smart", mode: s.mode },
-        }));
+          matchNativeSize: (s as any).matchNativeSize ?? false,
+          highlightFirst: (s as any).highlightFirst ?? false,
+          highlightAll: (s as any).highlightAll ?? false,
+          highlightedAppIds: (s as any).highlightedAppIds,
+          hideStatusLine: (s as any).hideStatusLine ?? false,
+          hideNewBadge: (s as any).hideNewBadge ?? false,
+          hideCompatIcons: (s as any).hideCompatIcons ?? false,
+          hideNonSteamBadge: (s as any).hideNonSteamBadge ?? false,
+          source: { type: "smart", mode: s.mode, filterGroup: (s as any).filterGroup } as any,
+          // Surface user-configured overrides so resolveShelfAppIds +
+          // Shelf.tsx can apply them on top of the mode's candidates.
+          sort: (s as any).sort,
+          manualOrder: (s as any).manualOrder,
+          manualBaseSort: (s as any).manualBaseSort,
+        } as any));
     }
   }
 
@@ -434,6 +441,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         patchMenuButton();
         installVerticalFocusBridge(mountEl);
         installPassiveMenuHook();
+        installPassiveShowContextMenuHook();
         tryRestoreFocus();
       } catch (e) { logInfo("HOME", "applyPatches failed", String(e)); }
     };
@@ -442,6 +450,15 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     };
 
     applyPatches();
+    // Proactive extraction via `prewarmMenuExtraction` was removed: it
+    // invoked the native `onMenuButton` handler on mount, which briefly
+    // opened a real Steam context menu on the home screen — users saw
+    // this as "the menu button being pressed by itself" right after
+    // Steam restart. Extraction still happens lazily on the first user
+    // MENU press (inside `showGameMenu`), and the passive hooks
+    // (`installPassiveMenuHook` / `installPassiveShowContextMenuHook`)
+    // keep capturing opportunistically when Steam itself renders a
+    // native menu (e.g. in the library game detail view).
 
     // Observer 1: mutations inside our mount (shelf render, collapse/expand)
     const obs = new MutationObserver(applyPatches);
@@ -456,10 +473,13 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       parentObs.observe(mountEl.parentElement, { childList: true });
     }
 
-    // Safety net: poll every 750ms. Stability guard short-circuits when the
-    // position is correct, so this costs nothing in steady state. Catches
-    // cases where Steam re-registers without any DOM mutation at all.
-    const poll = window.setInterval(reparentOnly, 750);
+    // Safety net: poll every 3s. Stability guard short-circuits when the
+    // position is correct, so the wake-ups cost near-zero in steady state.
+    // MutationObservers (inside mount + on parent) + focusin + popstate +
+    // hashchange already cover every real reparent trigger; the interval
+    // only catches exotic Steam re-registers with no DOM mutation at all.
+    // Previously ran at 750ms — 4× the wake-ups for no measurable benefit.
+    const poll = window.setInterval(reparentOnly, 3000);
 
     // Focus events also signal Steam-driven tree changes; run reparent on
     // focusin at the document level (cheap; guard will no-op when correct).
@@ -543,14 +563,68 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     return () => { cancelled = true; };
   }, [hideRecentsSetting, mountEl, shelves?.length]);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Which shelf id is actually the first rendered `.ds-shelf` right now —
+  // updated by a MutationObserver on the mount. Needed because the first
+  // entry in the `shelves` array may render `null` (e.g. a filter resolves
+  // to 0 apps), so "first in the array" ≠ "first on screen". Only the
+  // first on-screen shelf should be promoted to the native-recents slot
+  // when `hideRecentsSetting` is on — via `forceExpanded`.
+  const [firstVisibleId, setFirstVisibleId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!hideRecentsSetting) { setFirstVisibleId(null); return; }
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    const scan = () => {
+      const first = rootEl.querySelector<HTMLElement>('.ds-shelf[data-shelfid]');
+      const id = first?.getAttribute('data-shelfid') ?? null;
+      setFirstVisibleId((prev) => (prev === id ? prev : id));
+    };
+    scan();
+    const obs = new MutationObserver(scan);
+    obs.observe(rootEl, { childList: true, subtree: false });
+    return () => obs.disconnect();
+  }, [hideRecentsSetting, shelves]);
+
+  // Drag-to-reorder shelves by holding the title (touch/mouse only; D-pad nav
+  // stays untouched). The hook scopes to `.ds-shelf[data-shelfid]` under the
+  // root container and only acts on ids that match REGULAR shelves in
+  // settings (smart shelves are position-managed separately via their toggle).
+  useContainerDragReorder<string>({
+    containerRef: rootRef,
+    itemSelector: '.ds-shelf[data-shelfid]',
+    getItemId: (el) => {
+      const id = el.getAttribute('data-shelfid');
+      if (!id) return null;
+      const s = getCurrentSettings();
+      return s?.shelves?.some((sh: any) => sh.id === id) ? id : null;
+    },
+    getOrder: () => {
+      const s = getCurrentSettings();
+      return (s?.shelves ?? []).map((sh: any) => sh.id as string);
+    },
+    onReorder: (newIds) => {
+      const s = getCurrentSettings();
+      if (!s) return;
+      const map = new Map(s.shelves.map((sh: any) => [sh.id, sh]));
+      const next = newIds.map((id) => map.get(id)).filter(Boolean) as any[];
+      for (const sh of s.shelves) if (!newIds.includes(sh.id)) next.push(sh);
+      saveSettings({ ...s, shelves: next });
+    },
+    axis: 'vertical',
+    allowedPointerTypes: ['mouse', 'touch'],
+  });
+
   return (
     <Focusable
+      ref={rootRef}
       className="deck-shelves-root"
       flow-children="column"
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}
-      {shelves.map((shelf, idx) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} forceExpanded={hideRecentsSetting && idx === 0} />)}
+      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} />)}
     </Focusable>
   );
 }

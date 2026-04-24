@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
 import { toaster, openFilePicker } from '@decky/api'
-import { DeckModalStyles } from '../../styles/DeckModalStyles'
+import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { exportSettingsToFile } from '../../../settingsStore'
 import { resetMountFailed } from '../../../runtime/homePatch'
@@ -24,8 +24,7 @@ export function ExportAndClearModal({ closeModal, controller, folderPath }: { cl
   const [browseBusy, setBrowseBusy] = useState(false)
   const [saveBusy, setSaveBusy] = useState(false)
   return (
-    <div className='deck-shelves-modal-scope'>
-      <DeckModalStyles />
+    <ModalShell>
       <ConfirmModal
         strTitle={t('mount_crash_export_and_reset')}
         strDescription={folder}
@@ -78,6 +77,6 @@ export function ExportAndClearModal({ closeModal, controller, folderPath }: { cl
           </div>
         </Focusable>
       </ConfirmModal>
-    </div>
+    </ModalShell>
   )
 }
