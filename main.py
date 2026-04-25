@@ -186,6 +186,32 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                     continue
             if ss_highlighted_ids:
                 entry["highlightedAppIds"] = ss_highlighted_ids
+        # refreshIntervalHours: optional float in [0, 720]; 0 means "use default".
+        try:
+            ri = ss.get("refreshIntervalHours")
+            if ri is not None:
+                ri_num = float(ri)
+                if ri_num > 0 and ri_num <= 720:
+                    entry["refreshIntervalHours"] = ri_num
+        except Exception:
+            pass
+        # smartParams: dict of string -> finite number. Only persist keys whose
+        # value is a real number (filters out NaN / strings / nested objects).
+        raw_params = ss.get("smartParams")
+        if isinstance(raw_params, dict):
+            cleaned: dict = {}
+            for k, v in raw_params.items():
+                if not isinstance(k, str) or not k:
+                    continue
+                try:
+                    n = float(v)
+                    if n != n or n in (float("inf"), float("-inf")):
+                        continue
+                    cleaned[k] = n
+                except Exception:
+                    continue
+            if cleaned:
+                entry["smartParams"] = cleaned
         sanitized_smart.append(entry)
 
     try:

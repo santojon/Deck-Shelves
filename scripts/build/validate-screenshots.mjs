@@ -55,12 +55,16 @@ const OPTIONAL = [
 ];
 
 // Surface profiles — per-surface size bounds and expected dimensions.
-// Keep `minSize` for qam-popup in sync with `QAM_CAPTURE_BLANK_THRESHOLD` in
-// `scripts/devtools/deck/screenshots/screenshot.py` (50_000). A populated
-// popup at 522×741 compresses to 70-150 KB; a blank compositor frame is
-// ~38-40 KB, so anything below ~50 KB is a failed capture.
+//
+// QAM popup PNGs (522×741) span a wide compression range: a panel with
+// sparse content on the dark theme background can land at ~38-40 KB, while
+// a fully-populated section sits at 90-150 KB. The dimension check is the
+// real "right surface" signal; `minSize` only catches truly-empty PNGs
+// (compressed dark uniform fill, well under 20 KB). Keep this in sync with
+// `QAM_CAPTURE_BLANK_THRESHOLD` in
+// `scripts/devtools/deck/screenshots/screenshot.py`.
 const SURFACES = {
-  "qam-popup":   { minSize: 50_000,  maxSize: 250_000,   width: 522,  height: 741 },
+  "qam-popup":   { minSize: 20_000,  maxSize: 250_000,   width: 522,  height: 741 },
   "big-picture": { minSize: 60_000,  maxSize: 3_000_000, width: 1281, height: 801 },
 };
 

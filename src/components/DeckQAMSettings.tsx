@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
-  DialogButton,
   Field,
   Focusable,
   SliderField,
-  TextField,
   ToggleField,
   showModal,
 } from '@decky/ui'
@@ -17,7 +15,6 @@ import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations
 
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
-import { textFromDeckyChange } from './qam/modals/modalUtils'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
@@ -29,6 +26,7 @@ import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplac
 import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
 import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
+import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 import { CollapsibleSection } from './ui'
@@ -48,41 +46,15 @@ function openManagedModal(render: (close: () => void) => React.ReactElement) {
 }
 
 function SavedFiltersList({ controller }: { controller: SettingsController }) {
-  const { t, settings, actions } = controller
+  const { t, settings } = controller
   const saved = settings?.savedFilters ?? []
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [draft, setDraft] = useState<string>('')
   if (saved.length === 0) {
     return <div style={{ padding: '4px 16px', opacity: 0.7 }}>{t('saved_filter_empty')}</div>
   }
   return (
-    <>
-      {saved.map((f) => (
-        <Field key={f.id} className='no-sep'>
-          <Focusable style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 16px', boxSizing: 'border-box' }}>
-            {editingId === f.id ? (
-              <>
-                <TextField value={draft} onChange={(value: unknown) => setDraft(textFromDeckyChange(value))} />
-                <DialogButton
-                  disabled={!draft.trim()}
-                  onClick={async () => {
-                    await actions.renameSavedFilter(f.id, draft.trim())
-                    setEditingId(null); setDraft('')
-                  }}
-                >{t('saved_filter_save')}</DialogButton>
-                <DialogButton onClick={() => { setEditingId(null); setDraft('') }}>{t('cancel')}</DialogButton>
-              </>
-            ) : (
-              <>
-                <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                <DialogButton onClick={() => { setEditingId(f.id); setDraft(f.name) }}>{t('saved_filter_rename')}</DialogButton>
-                <DialogButton onClick={() => actions.deleteSavedFilter(f.id)}>{t('saved_filter_delete')}</DialogButton>
-              </>
-            )}
-          </Focusable>
-        </Field>
-      ))}
-    </>
+    <div className='deck-shelves-shelf-list'>
+      {saved.map((f) => <SavedFilterRow key={f.id} controller={controller} savedFilter={f} />)}
+    </div>
   )
 }
 

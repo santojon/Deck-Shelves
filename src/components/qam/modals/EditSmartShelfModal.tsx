@@ -23,6 +23,8 @@ import { ManualSortRow } from './editShelf/ManualSortRow'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { ModalHeader } from './editShelf/ModalHeader'
+import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
+import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode } from '../../../steam/smartParams'
 
 type Tab = 'source' | 'filters' | 'visual' | 'display'
 
@@ -42,6 +44,8 @@ type EditState = {
   hideNewBadge: boolean
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
+  refreshIntervalHours: number
+  smartParams: Record<string, number>
 }
 
 export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf }) {
@@ -65,7 +69,12 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     hideNewBadge: (shelf as any).hideNewBadge ?? false,
     hideCompatIcons: (shelf as any).hideCompatIcons ?? false,
     hideNonSteamBadge: (shelf as any).hideNonSteamBadge ?? false,
+    refreshIntervalHours: (shelf as any).refreshIntervalHours ?? 0,
+    smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
   })
+
+  const paramKeys = useMemo(() => paramKeysForMode(shelf.mode), [shelf.mode])
+  const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
@@ -96,11 +105,15 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     [t],
   )
 
+  const smartParamsKey = JSON.stringify(state.smartParams)
   const previewSource = useMemo(() => {
     const base: any = { type: 'smart' as const, mode: shelf.mode }
     if (state.filterEnabled && state.filterGroup.items.length > 0) base.filterGroup = state.filterGroup
+    if (paramKeys.length) base.smartParams = state.smartParams
+    if (state.refreshIntervalHours > 0) base.refreshIntervalHours = state.refreshIntervalHours
     return base
-  }, [shelf.mode, state.filterEnabled, state.filterGroup])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shelf.mode, state.filterEnabled, state.filterGroup, smartParamsKey, state.refreshIntervalHours, paramKeys.length])
 
   useEffect(() => {
     let cancelled = false
@@ -155,6 +168,15 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       ;(patch as any).hideNewBadge = state.hideNewBadge
       ;(patch as any).hideCompatIcons = state.hideCompatIcons
       ;(patch as any).hideNonSteamBadge = state.hideNonSteamBadge
+      ;(patch as any).refreshIntervalHours = state.refreshIntervalHours > 0 ? state.refreshIntervalHours : undefined
+      // Only persist params that diverge from the mode's defaults — keeps the
+      // settings JSON minimal and lets future default tweaks reach existing shelves.
+      const defaults = SMART_PARAM_DEFAULTS[shelf.mode] ?? {}
+      const overrides: Record<string, number> = {}
+      for (const k of paramKeys) {
+        if (state.smartParams[k] !== defaults[k]) overrides[k] = state.smartParams[k]
+      }
+      ;(patch as any).smartParams = Object.keys(overrides).length ? overrides : undefined
       const ok = await actions.patchSmartShelf(shelf.id, patch)
       logInfo('SETTINGS', 'smart shelf updated', { shelfId: shelf.id, success: ok })
     })()
@@ -203,6 +225,34 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                       {isManual && (
                         <DropdownItem label={t('manual_base_sort')} rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} bottomSeparator='thick' />
                       )}
+                      <SliderField
+                        label={state.refreshIntervalHours > 0 ? `${t('smart_refresh_interval')} (${state.refreshIntervalHours} h)` : t('smart_refresh_interval_default')}
+                        description={t('smart_refresh_interval_desc')}
+                        value={state.refreshIntervalHours}
+                        min={0}
+                        max={72}
+                        step={1}
+                        bottomSeparator='thick'
+                        onChange={(value: number) => setState((prev) => ({ ...prev, refreshIntervalHours: value }))}
+                      />
+                      {paramKeys.map((key) => {
+                        const meta = SMART_PARAM_META[key]
+                        if (!meta) return null
+                        const value = state.smartParams[key] ?? 0
+                        const unit = meta.unitKey ? t(meta.unitKey as any) : ''
+                        return (
+                          <SliderField
+                            key={key}
+                            label={`${t(meta.labelKey as any)} (${value}${unit ? ` ${unit}` : ''})`}
+                            value={value}
+                            min={meta.min}
+                            max={meta.max}
+                            step={meta.step}
+                            bottomSeparator='thick'
+                            onChange={(v: number) => setSmartParam(key, v)}
+                          />
+                        )
+                      })}
                       {isManual && (
                         resolvedIds.length === 0
                           ? <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
@@ -224,14 +274,21 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                   id: 'filters',
                   title: t('edit_tab_filters'),
                   content: (
-                    <FieldContainer>
+                    <FieldContainer scrollable>
                       <ToggleField
                         label={t('smart_filter_enable')}
                         checked={state.filterEnabled}
-                        onChange={(value: boolean) => setState((prev) => ({ ...prev, filterEnabled: value }))}
+                        onChange={(value: boolean) => setState((prev) => ({ ...prev, filterEnabled: value, filterGroup: value && prev.filterGroup.items.length === 0 ? { mode: 'and', items: [] } : prev.filterGroup }))}
                       />
                       {state.filterEnabled && (
-                        <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} />
+                        <>
+                          <SavedFiltersBar
+                            controller={controller}
+                            currentGroup={state.filterGroup}
+                            onApply={(group) => setState((prev) => ({ ...prev, filterGroup: { ...group } }))}
+                          />
+                          <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} />
+                        </>
                       )}
                     </FieldContainer>
                   ),

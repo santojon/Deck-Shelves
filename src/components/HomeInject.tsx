@@ -373,7 +373,13 @@ export function HomeShelves() {
           hideNewBadge: (s as any).hideNewBadge ?? false,
           hideCompatIcons: (s as any).hideCompatIcons ?? false,
           hideNonSteamBadge: (s as any).hideNonSteamBadge ?? false,
-          source: { type: "smart", mode: s.mode, filterGroup: (s as any).filterGroup } as any,
+          source: {
+            type: "smart",
+            mode: s.mode,
+            filterGroup: (s as any).filterGroup,
+            smartParams: (s as any).smartParams,
+            refreshIntervalHours: (s as any).refreshIntervalHours,
+          } as any,
           // Surface user-configured overrides so resolveShelfAppIds +
           // Shelf.tsx can apply them on top of the mode's candidates.
           sort: (s as any).sort,

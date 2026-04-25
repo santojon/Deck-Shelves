@@ -402,5 +402,17 @@
   "reset_smart_shelves": "Repor prateleiras inteligentes",
   "sort_manual": "Manual",
   "highlight_pattern_odd_even": "Ímpar/Par",
-  "highlight_pattern_even_odd": "Par/Ímpar"
+  "highlight_pattern_even_odd": "Par/Ímpar",
+  "smart_refresh_interval": "Intervalo de atualização",
+  "smart_refresh_interval_default": "Intervalo de atualização (padrão 5 min)",
+  "smart_refresh_interval_desc": "Com que frequência recalcular esta prateleira. 0 = usar padrão de 5 min.",
+  "smart_param_max_playtime": "Tempo máximo jogado",
+  "smart_param_min_playtime": "Tempo mínimo jogado",
+  "smart_param_months_ago": "Meses desde a última partida",
+  "smart_param_years_ago": "Anos desde a aquisição",
+  "smart_param_days_ago": "Dias atrás",
+  "smart_unit_min": "min",
+  "smart_unit_months": "meses",
+  "smart_unit_years": "anos",
+  "smart_unit_days": "dias"
 }

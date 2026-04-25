@@ -582,10 +582,11 @@ def dismiss_bp_escape(host: str, port: int, bp_target: Dict) -> None:
 # game/home and lie about what the user actually sees.
 QAM_CAPTURE_RETRIES = 5
 QAM_CAPTURE_RETRY_DELAY = 0.8
-# Popup frames below this size are almost always blank (compositor hasn't
-# pushed a frame yet). A real populated QAM popup at 522×741 compresses to
-# 70-150 KB; a dark empty frame is ~38-40 KB.
-QAM_CAPTURE_BLANK_THRESHOLD = 50_000
+# Popup frames below this size are almost always blank — a 522×741 PNG with
+# nothing but uniform dark fill compresses to under 15 KB; even a panel with
+# a single section header lands above 30 KB. Keep in sync with the
+# `qam-popup.minSize` profile in `scripts/build/validate-screenshots.mjs`.
+QAM_CAPTURE_BLANK_THRESHOLD = 20_000
 
 
 def capture_qam_with_fallback(

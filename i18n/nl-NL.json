@@ -402,5 +402,17 @@
   "reset_smart_shelves": "Slimme planken resetten",
   "sort_manual": "Handmatig",
   "highlight_pattern_odd_even": "Oneven/Even",
-  "highlight_pattern_even_odd": "Even/Oneven"
+  "highlight_pattern_even_odd": "Even/Oneven",
+  "smart_refresh_interval": "Refresh interval",
+  "smart_refresh_interval_default": "Refresh interval (default 5 min)",
+  "smart_refresh_interval_desc": "How often to recompute this shelf. 0 = use the 5-minute default.",
+  "smart_param_max_playtime": "Max playtime",
+  "smart_param_min_playtime": "Min playtime",
+  "smart_param_months_ago": "Months since last played",
+  "smart_param_years_ago": "Years since acquired",
+  "smart_param_days_ago": "Days back",
+  "smart_unit_min": "min",
+  "smart_unit_months": "months",
+  "smart_unit_years": "years",
+  "smart_unit_days": "days"
 }

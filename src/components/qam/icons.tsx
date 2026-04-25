@@ -22,4 +22,6 @@ export const icons = {
   ellipsis: icon(<><circle cx='6' cy='12' r='1.4' fill='currentColor' stroke='none' /><circle cx='12' cy='12' r='1.4' fill='currentColor' stroke='none' /><circle cx='18' cy='12' r='1.4' fill='currentColor' stroke='none' /></>, 16),
   tabMaster: icon(<><rect x='2' y='8' width='20' height='13' rx='2' /><path d='M2 12h20' /><rect x='6' y='5' width='6' height='3' rx='1' /></>),
   reset: icon(<><path d='M3 12a9 9 0 1 0 3-6.7' /><path d='M3 4v5h5' /></>),
+  save: icon(<><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z' /><polyline points='17 21 17 13 7 13 7 21' /><polyline points='7 3 7 8 15 8' /></>),
+  close: icon(<><path d='M18 6 6 18' /><path d='M6 6l12 12' /></>),
 };
