@@ -1,5 +1,10 @@
 import type { FilterGroup, FilterItem } from "../types";
 import { mark, measure } from "../core/perf";
+import {
+  hasExternalSortOption, applyExternalSort,
+  hasExternalFilterType, evaluateExternalFilter,
+  type PublicAppMeta,
+} from "../core/pluginApi";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
@@ -1698,8 +1703,19 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       break;
     }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
-    default:
+    default: {
+      // Plugin API: delegate to a registered external filter type when the
+      // type id is unknown internally. Unknown + unregistered types still
+      // pass-through (true) so an unregistered plugin filter doesn't hide
+      // the user's entire library.
+      try {
+        if (hasExternalFilterType(item.type as string)) {
+          result = evaluateExternalFilter(item.type as string, app as unknown as PublicAppMeta, item.params ?? {});
+          break;
+        }
+      } catch { /* fall through to pass */ }
       result = true;
+    }
   }
   return item.inverted ? !result : result;
 }
@@ -1805,7 +1821,24 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number
   else if (sort === "review_score") apps = apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
   else if (sort === "added") apps = apps.slice().sort(compareByAdded);
   else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids)); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
-  else apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+  else {
+    // Plugin API: delegate to a registered external sort option when the
+    // id is unknown internally. External sort returning `null` (not
+    // registered or threw) falls back to alphabetical so the shelf still
+    // renders something stable.
+    let externalIds: number[] | null = null;
+    try {
+      if (hasExternalSortOption(sort)) {
+        externalIds = applyExternalSort(sort, ids, apps as unknown as ReadonlyArray<PublicAppMeta>);
+      }
+    } catch { /* registry unavailable; fall through to alphabetical */ }
+    if (externalIds) {
+      const order = new Map(externalIds.map((id, idx) => [id, idx] as const));
+      apps = apps.slice().sort((a, b) => (order.get(appIdOf(a)) ?? 1e9) - (order.get(appIdOf(b)) ?? 1e9));
+    } else {
+      apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+    }
+  }
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
@@ -2086,6 +2119,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
   if (source.type === "smart") {
     try {
       const { resolveSmartShelf } = await import("./smartShelves");
+      const { hasExternalSmartSource, resolveExternalSmartSource } = await import("../core/pluginApi");
       const apps = await getAllAppOverviews();
       const smartFilterGroup = (source as any).filterGroup;
       const smartParams = (source as any).smartParams as Record<string, number> | undefined;
@@ -2097,7 +2131,17 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // so filtering doesn't prematurely truncate candidates, then apply the
       // filters + sort + final limit below.
       const wantsPostProcess = !!smartFilterGroup || !!sort;
-      const rawIds = resolveSmartShelf(source.mode, apps, wantsPostProcess ? Math.max(limit * 4, 200) : limit, smartParams, ttlMs);
+      const fetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
+      // Plugin API: when the mode is registered by an external plugin, hand
+      // off to its resolver instead of the built-in heuristic. Internal
+      // modes always take precedence to keep behavior deterministic when
+      // an external plugin happens to use the same id.
+      let rawIds: number[];
+      if (hasExternalSmartSource(source.mode)) {
+        rawIds = await resolveExternalSmartSource(source.mode, fetchLimit, smartParams ?? {});
+      } else {
+        rawIds = resolveSmartShelf(source.mode, apps, fetchLimit, smartParams, ttlMs);
+      }
       let ids = rawIds;
       if (smartFilterGroup && Array.isArray(smartFilterGroup.items) && smartFilterGroup.items.length > 0) {
         const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));

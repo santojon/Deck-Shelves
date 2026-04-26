@@ -7,6 +7,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
+- **Plugin API v2.** Other plugins can now extend Deck Shelves at runtime — registering custom shelf sources, smart-shelf templates, filter types, sort options, import formats, and pre-baked saved filters. Anything they register becomes available everywhere it would naturally appear (shelf editor dropdowns, smart-shelf picker, filter resolver). Read-only contracts are also exposed for plugins that want to consume Deck Shelves state in the future. Full guide and worked examples in `docs/plugin-api.md`.
 - **CSS Loader compatibility (ArtHero family).** When the native recents are hidden and a CSS Loader is active, the first shelf is now wired into the theme's recents styling — themes that paint a hero or restyle the recents block now flow into the promoted shelf without breaking plugin styling. With ArtHero specifically, the plugin's own background art turns off automatically so the theme's hero is the only one running (no double zoom/blur).
 
 ## [1.6.0] - 2026-04-24

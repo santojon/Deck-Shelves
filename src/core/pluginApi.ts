@@ -1,60 +1,485 @@
 /**
- * Public inter-plugin API for Deck Shelves.
+ * Deck Shelves Public Plugin API — v2.
  *
- * External plugins can register custom shelf sources via:
- *   window.__DECK_SHELVES_API__.registerShelfSource(descriptor)
+ * External Decky plugins extend Deck Shelves at runtime via the global
+ * surface `window.__DECK_SHELVES_API__`. The same object is preserved across
+ * v1 → v2 (the existing `registerShelfSource` / `getRegisteredSources`
+ * methods keep their v1 signatures); v2 adds new registries for smart shelf
+ * sources, filter types, sort options, import formats, and saved filters,
+ * plus consumer-side contracts for plugins that want to read Deck Shelves
+ * state.
  *
- * The returned cleanup function must be called on plugin dismount.
+ * Stability contract: every shape exported from this module is part of the
+ * public ABI. Field names, descriptor parameters, and method signatures are
+ * frozen for the lifetime of `version: 2`. Additive changes (new optional
+ * fields, new methods) are backward-compatible; removals or renames bump
+ * `version`.
  *
- * Source type "external" in shelf config is persisted as:
- *   { type: "external", sourceId: string }
+ * See `docs/plugin-api.md` for usage patterns and worked examples.
  */
 
-export type ExternalShelfSourceDescriptor = {
-  /** Unique ID for this source — must be stable across reloads */
+import type { ReactNode } from "react";
+import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
+
+// ---------------------------------------------------------------------------
+// 1. PUBLIC TYPES — frozen shape exposed to external plugins
+// ---------------------------------------------------------------------------
+
+/** Cleanup callback returned by every `register*` method. Calling it
+ *  removes the registered entry; safe to call more than once. */
+export type Unsubscribe = () => void;
+
+/**
+ * Read-only subset of Steam's `AppOverview`. External resolvers and filter
+ * evaluators receive this shape — never mutate it. The set of fields is
+ * intentionally narrow; request additional fields via plugin API issues
+ * rather than reaching into the underlying object.
+ */
+export interface PublicAppMeta {
+  readonly appid: number;
+  readonly name: string;
+  readonly installed: boolean;
+  readonly is_non_steam: boolean;
+  readonly playtime_forever?: number;
+  readonly last_played?: number;
+  readonly deck_compatibility_category?: number;
+  readonly bCloudAvailable?: boolean;
+  readonly nControllerSupport?: number;
+}
+
+// ---- 1a. Shelf-source registries (regular + smart) -------------------------
+
+/**
+ * Regular shelf source — a plugin-supplied list of appids that becomes a
+ * shelf the user can pick from the Source dropdown in the shelf editor.
+ * Persisted as `{ type: "external", sourceId }`.
+ */
+export interface ExternalShelfSourceDescriptor {
+  /** Stable id (recommended: `pluginName.entryName`). Survives reloads. */
   id: string;
-  /** Human-readable name shown in the QAM source dropdown */
+  /** Label shown in the Source dropdown. */
   displayName: string;
-  /** Called whenever Deck Shelves needs to refresh shelf contents */
+  /** Resolves the current appid list. Called whenever Deck Shelves needs to
+   *  refresh. Returning fewer than `limit` ids is fine; returning duplicates
+   *  is silently de-duplicated. Errors are caught — return `[]` on failure. */
   resolve: (limit: number) => Promise<number[]>;
-};
+}
+
+/**
+ * Smart shelf source — like a regular source but exposes optional per-shelf
+ * tuning parameters that the user can adjust in the smart-shelf editor.
+ * Persisted as `{ type: "smart", mode: <id> }`; the `mode` string matches
+ * `id` here when registered externally (internal modes use enum values).
+ */
+export interface SmartShelfSourceDescriptor {
+  id: string;
+  displayName: string;
+  /** Optional category key for picker grouping (e.g. "status", "time"). */
+  category?: string;
+  /** Default values for every key in `paramMeta`. Required when `paramMeta`
+   *  is defined; ignored otherwise. */
+  defaultParams?: Readonly<Record<string, number>>;
+  /** Slider metadata for the smart-shelf edit modal. Each key becomes a
+   *  numeric slider; units are display-only. */
+  paramMeta?: Readonly<Record<string, {
+    label: string;
+    min: number;
+    max: number;
+    step: number;
+    unit?: string;
+  }>>;
+  /** Returns the current appid list. `params` carries the user's overrides
+   *  merged on top of `defaultParams`. */
+  resolve: (limit: number, params: Readonly<Record<string, number>>) => Promise<number[]>;
+}
+
+// ---- 1b. Filter type registry ---------------------------------------------
+
+/**
+ * Filter type — pure predicate evaluated per-game by the FilterPanel
+ * resolver. Persisted as a `FilterItem` with `type === <id>` and
+ * `params === <plugin-defined object>`.
+ *
+ * Phase 1 limitation: the FilterPanel UI does not yet render external
+ * editors — users construct external filter items via JSON or other
+ * plugins. The runtime evaluation works as soon as the type is registered.
+ */
+export interface ExternalFilterTypeDescriptor {
+  id: string;
+  displayName: string;
+  /** Default `params` shape. Used when a shelf is constructed from a
+   *  template that references the filter type without explicit params. */
+  defaultParams?: Readonly<Record<string, unknown>>;
+  /** Whether the filter supports the `inverted` flag. Defaults to `true`. */
+  invertible?: boolean;
+  /** Pure predicate. Must not mutate `app` or `params`. Throwing is
+   *  treated as a `false` result. */
+  evaluate: (app: PublicAppMeta, params: Readonly<Record<string, unknown>>) => boolean;
+  /** Optional editor (Phase 2 wire-up). Stored for future use; not yet
+   *  rendered by the FilterPanel. */
+  renderEditor?: (props: {
+    params: Readonly<Record<string, unknown>>;
+    onChange: (next: Record<string, unknown>) => void;
+  }) => ReactNode;
+}
+
+// ---- 1c. Sort option registry ---------------------------------------------
+
+/**
+ * Sort option — pure ordering function. Persisted as the shelf's `sort`
+ * field (any string; internal sorts use specific enum values, external
+ * sorts use whatever id was registered).
+ */
+export interface ExternalSortOptionDescriptor {
+  id: string;
+  displayName: string;
+  /** Returns a NEW array (do not mutate input) of appids in the desired
+   *  order. Apps not present in the input are dropped silently. */
+  sort: (appIds: ReadonlyArray<number>, apps: ReadonlyArray<PublicAppMeta>) => number[];
+}
+
+// ---- 1d. Import type registry ---------------------------------------------
+
+/**
+ * Import type — parses an arbitrary text payload (e.g. a Playnite JSON
+ * dump) into a list of shelf descriptors that Deck Shelves can save.
+ *
+ * Phase 1 limitation: the registry is exposed but not yet wired into the
+ * ImportModal UI. Plugins can call import flows programmatically by reading
+ * from `getRegisteredImportTypes()` and feeding the parser output into
+ * their own UX.
+ */
+export interface ExternalImportTypeDescriptor {
+  id: string;
+  displayName: string;
+  /** Optional file-extension hint (e.g. ".json", ".csv"). UI-only. */
+  fileExtension?: string;
+  parse: (raw: string) => Promise<ParsedImport>;
+}
+
+export interface ParsedImport {
+  shelves: Array<{
+    title: string;
+    /** Either an existing `ExternalShelfSourceDescriptor.id` (the source
+     *  must be registered separately) or a built-in source descriptor in
+     *  the same shape Deck Shelves uses internally. */
+    source: { type: "external"; sourceId: string };
+    limit?: number;
+  }>;
+}
+
+// ---- 1e. Saved filter registration ----------------------------------------
+
+/**
+ * Saved filter — a named `FilterGroup` the user can apply across shelves.
+ * Plugins may seed pre-baked filter combos (e.g. "Console-style RPGs",
+ * "Couch co-op") that show up in the Saved Filters section of the QAM.
+ *
+ * Registration is idempotent: re-registering the same id replaces the
+ * previous entry. Cleanup removes the entry from the user's settings.
+ *
+ * The `group` field has the same shape as the internal `FilterGroup` type
+ * — `mode: "and" | "or"` plus an array of `{ type, params, inverted? }`
+ * items. Use only filter types you know exist (built-in or another plugin's
+ * `registerFilterType` call).
+ */
+export interface ExternalSavedFilterDescriptor {
+  id: string;
+  name: string;
+  group: PublicFilterGroup;
+}
+
+export interface PublicFilterGroup {
+  mode: "and" | "or";
+  items: ReadonlyArray<PublicFilterItem>;
+}
+
+export interface PublicFilterItem {
+  type: string;
+  inverted?: boolean;
+  params?: Readonly<Record<string, unknown>>;
+}
+
+// ---- 1f. Consumer contracts (Phase 2 — currently stubbed) ------------------
+
+/** Read-only projection of a shelf, exposed to consumer plugins. */
+export interface PublicShelf {
+  readonly id: string;
+  readonly title: string;
+  readonly enabled: boolean;
+  readonly hidden: boolean;
+  readonly limit: number;
+  readonly sort?: string;
+  readonly source: PublicShelfSource;
+}
+
+export type PublicShelfSource =
+  | { type: "collection"; collectionId: string }
+  | { type: "tab"; tab: string }
+  | { type: "filter"; filter: { sort?: string; group?: PublicFilterGroup } }
+  | { type: "external"; sourceId: string }
+  | { type: "smart"; mode: string };
+
+export interface PublicSmartShelf {
+  readonly id: string;
+  readonly title: string;
+  readonly mode: string;
+  readonly enabled: boolean;
+  readonly hidden: boolean;
+  readonly limit?: number;
+  readonly sort?: string;
+}
+
+export interface PublicSavedFilter {
+  readonly id: string;
+  readonly name: string;
+  readonly group: PublicFilterGroup;
+}
+
+// ---------------------------------------------------------------------------
+// 2. API SURFACE — what `window.__DECK_SHELVES_API__` exposes
+// ---------------------------------------------------------------------------
 
 export interface DeckShelvesPublicAPI {
-  readonly version: number;
-  registerShelfSource(descriptor: ExternalShelfSourceDescriptor): () => void;
-  getRegisteredSources(): ExternalShelfSourceDescriptor[];
+  /** API surface version. v1 plugins should check `version >= 1` to detect
+   *  v2 method availability before calling new methods. */
+  readonly version: 2;
+
+  // --- v1 (unchanged) -----------------------------------------------------
+  registerShelfSource(d: ExternalShelfSourceDescriptor): Unsubscribe;
+  getRegisteredSources(): ReadonlyArray<ExternalShelfSourceDescriptor>;
+
+  // --- v2 registries ------------------------------------------------------
+  registerSmartShelfSource(d: SmartShelfSourceDescriptor): Unsubscribe;
+  getRegisteredSmartSources(): ReadonlyArray<SmartShelfSourceDescriptor>;
+
+  registerFilterType(d: ExternalFilterTypeDescriptor): Unsubscribe;
+  getRegisteredFilterTypes(): ReadonlyArray<ExternalFilterTypeDescriptor>;
+
+  registerSortOption(d: ExternalSortOptionDescriptor): Unsubscribe;
+  getRegisteredSortOptions(): ReadonlyArray<ExternalSortOptionDescriptor>;
+
+  registerImportType(d: ExternalImportTypeDescriptor): Unsubscribe;
+  getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>;
+
+  registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
+
+  // --- v2 consumer contracts (Phase 2 — currently stubbed) ----------------
+  getShelves(): ReadonlyArray<PublicShelf>;
+  getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
+  getSavedFilters(): ReadonlyArray<PublicSavedFilter>;
+  subscribeToShelves(cb: (shelves: ReadonlyArray<PublicShelf>) => void): Unsubscribe;
+  subscribeToSmartShelves(cb: (shelves: ReadonlyArray<PublicSmartShelf>) => void): Unsubscribe;
+  subscribeToSavedFilters(cb: (filters: ReadonlyArray<PublicSavedFilter>) => void): Unsubscribe;
 }
 
-const registry = new Map<string, ExternalShelfSourceDescriptor>();
+// ---------------------------------------------------------------------------
+// 3. IN-MEMORY REGISTRIES — lookup is O(1), iteration is insertion-order
+// ---------------------------------------------------------------------------
 
-function makeApi(): DeckShelvesPublicAPI {
-  return {
-    version: 1,
-    registerShelfSource(descriptor: ExternalShelfSourceDescriptor): () => void {
-      registry.set(descriptor.id, descriptor);
-      return () => { registry.delete(descriptor.id); };
-    },
-    getRegisteredSources(): ExternalShelfSourceDescriptor[] {
-      return Array.from(registry.values());
-    },
-  };
-}
+const shelfSources = new Map<string, ExternalShelfSourceDescriptor>();
+const smartSources = new Map<string, SmartShelfSourceDescriptor>();
+const filterTypes = new Map<string, ExternalFilterTypeDescriptor>();
+const sortOptions = new Map<string, ExternalSortOptionDescriptor>();
+const importTypes = new Map<string, ExternalImportTypeDescriptor>();
 
-export function installPluginApi(): () => void {
-  const api = makeApi();
-  try { (window as any).__DECK_SHELVES_API__ = api; } catch {}
-  return () => {
-    try { delete (window as any).__DECK_SHELVES_API__; } catch {}
-    registry.clear();
-  };
-}
+// ---------------------------------------------------------------------------
+// 4. INTERNAL ACCESSORS — used by `src/steam/index.ts` resolver paths to
+// delegate to external entries when an unknown id is encountered. Kept
+// out of the public API so plugins can't bypass guards.
+// ---------------------------------------------------------------------------
 
 export function resolveExternalSource(sourceId: string, limit: number): Promise<number[]> {
-  const src = registry.get(sourceId);
+  const src = shelfSources.get(sourceId);
   if (!src) return Promise.resolve([]);
   return src.resolve(limit).catch(() => []);
 }
 
 export function getExternalSources(): ExternalShelfSourceDescriptor[] {
-  return Array.from(registry.values());
+  return Array.from(shelfSources.values());
+}
+
+export function hasExternalSmartSource(id: string): boolean {
+  return smartSources.has(id);
+}
+
+export function resolveExternalSmartSource(
+  id: string,
+  limit: number,
+  params: Record<string, number>,
+): Promise<number[]> {
+  const src = smartSources.get(id);
+  if (!src) return Promise.resolve([]);
+  const merged = { ...(src.defaultParams ?? {}), ...params };
+  return src.resolve(limit, merged).catch(() => []);
+}
+
+export function getExternalSmartSourceMeta(id: string): SmartShelfSourceDescriptor | undefined {
+  return smartSources.get(id);
+}
+
+export function hasExternalFilterType(id: string): boolean {
+  return filterTypes.has(id);
+}
+
+export function evaluateExternalFilter(
+  id: string,
+  app: PublicAppMeta,
+  params: Record<string, unknown>,
+): boolean {
+  const ft = filterTypes.get(id);
+  if (!ft) return false;
+  try { return ft.evaluate(app, params); } catch { return false; }
+}
+
+export function hasExternalSortOption(id: string): boolean {
+  return sortOptions.has(id);
+}
+
+export function applyExternalSort(
+  id: string,
+  appIds: number[],
+  apps: ReadonlyArray<PublicAppMeta>,
+): number[] | null {
+  const so = sortOptions.get(id);
+  if (!so) return null;
+  try {
+    const out = so.sort(appIds, apps);
+    return Array.isArray(out) ? out.filter((n) => Number.isFinite(n)) : null;
+  } catch { return null; }
+}
+
+export function getExternalImportTypes(): ExternalImportTypeDescriptor[] {
+  return Array.from(importTypes.values());
+}
+
+// ---------------------------------------------------------------------------
+// 5. SAVED-FILTER REGISTRATION — wires into the user settings store. A
+// plugin-registered saved filter is persisted with id prefix `ext:<id>` so
+// it never collides with user-created entries; cleanup removes it.
+// ---------------------------------------------------------------------------
+
+const SAVED_FILTER_PREFIX = "ext:";
+
+async function persistRegisteredSavedFilter(d: ExternalSavedFilterDescriptor): Promise<void> {
+  const s = getCurrentSettings();
+  if (!s) return;
+  const fullId = `${SAVED_FILTER_PREFIX}${d.id}`;
+  const existing = (s.savedFilters ?? []).filter((f: any) => f.id !== fullId);
+  const next = [...existing, { id: fullId, name: d.name, group: { ...d.group } as any }];
+  await saveSettings({ ...s, savedFilters: next as any });
+}
+
+async function removeRegisteredSavedFilter(id: string): Promise<void> {
+  const s = getCurrentSettings();
+  if (!s) return;
+  const fullId = `${SAVED_FILTER_PREFIX}${id}`;
+  const next = (s.savedFilters ?? []).filter((f: any) => f.id !== fullId);
+  await saveSettings({ ...s, savedFilters: next as any });
+}
+
+// ---------------------------------------------------------------------------
+// 6. API CONSTRUCTOR
+// ---------------------------------------------------------------------------
+
+function makeApi(): DeckShelvesPublicAPI {
+  return {
+    version: 2,
+
+    // v1
+    registerShelfSource(d) {
+      shelfSources.set(d.id, d);
+      return () => { shelfSources.delete(d.id); };
+    },
+    getRegisteredSources() { return Array.from(shelfSources.values()); },
+
+    // Smart sources
+    registerSmartShelfSource(d) {
+      smartSources.set(d.id, d);
+      return () => { smartSources.delete(d.id); };
+    },
+    getRegisteredSmartSources() { return Array.from(smartSources.values()); },
+
+    // Filter types
+    registerFilterType(d) {
+      filterTypes.set(d.id, d);
+      return () => { filterTypes.delete(d.id); };
+    },
+    getRegisteredFilterTypes() { return Array.from(filterTypes.values()); },
+
+    // Sort options
+    registerSortOption(d) {
+      sortOptions.set(d.id, d);
+      return () => { sortOptions.delete(d.id); };
+    },
+    getRegisteredSortOptions() { return Array.from(sortOptions.values()); },
+
+    // Import types
+    registerImportType(d) {
+      importTypes.set(d.id, d);
+      return () => { importTypes.delete(d.id); };
+    },
+    getRegisteredImportTypes() { return Array.from(importTypes.values()); },
+
+    // Saved filters — persisted in user settings under prefixed id
+    registerSavedFilter(d) {
+      void persistRegisteredSavedFilter(d);
+      return () => { void removeRegisteredSavedFilter(d.id); };
+    },
+
+    // ---- Consumer contracts (Phase 2 — stubbed for now) -------------------
+    // Shape is frozen; implementation will arrive in a later release. Until
+    // then, getters return `[]` and subscriptions never fire — callers can
+    // depend on the type signature, just not on receiving data yet.
+    getShelves() { return [] as ReadonlyArray<PublicShelf>; },
+    getSmartShelves() { return [] as ReadonlyArray<PublicSmartShelf>; },
+    getSavedFilters() { return [] as ReadonlyArray<PublicSavedFilter>; },
+    subscribeToShelves(_cb) { return () => {}; },
+    subscribeToSmartShelves(_cb) { return () => {}; },
+    subscribeToSavedFilters(_cb) { return () => {}; },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 7. INSTALL / UNINSTALL
+// ---------------------------------------------------------------------------
+
+let installedUnsub: (() => void) | null = null;
+
+/**
+ * Event dispatched on `window` immediately after the API surface is installed.
+ * `event.detail` is the live `DeckShelvesPublicAPI` object — same reference
+ * as `window.__DECK_SHELVES_API__`. Plugin authors can listen for this
+ * instead of polling, and still fall back to the global for late-loaded
+ * plugins (the global is set _before_ the event fires).
+ */
+export const READY_EVENT = "deck-shelves-ready";
+
+/**
+ * Event dispatched on `window` immediately before the API is torn down
+ * (Deck Shelves unloading). External plugins should release any cached API
+ * reference on this event to avoid using a stale object after teardown.
+ */
+export const TEARDOWN_EVENT = "deck-shelves-teardown";
+
+export function installPluginApi(): () => void {
+  const api = makeApi();
+  try { (window as any).__DECK_SHELVES_API__ = api; } catch {}
+  try { window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: api })); } catch {}
+
+  // Best-effort settings-changes hook; consumer subscriptions are stubbed
+  // for now, but the unsubscribe is set up so a future implementation can
+  // re-enable it without changing the install flow.
+  installedUnsub = subscribeSettings(() => { /* Phase 2 hook */ });
+
+  return () => {
+    try { window.dispatchEvent(new CustomEvent(TEARDOWN_EVENT)); } catch {}
+    try { delete (window as any).__DECK_SHELVES_API__; } catch {}
+    if (installedUnsub) { try { installedUnsub(); } catch {} installedUnsub = null; }
+    shelfSources.clear();
+    smartSources.clear();
+    filterTypes.clear();
+    sortOptions.clear();
+    importTypes.clear();
+  };
 }
