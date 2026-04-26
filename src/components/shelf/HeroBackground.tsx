@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { logInfo } from "../../runtime/logger";
+import { isArtHeroActive } from "../../core/cssLoaderDetect";
 
 function getHeroUrls(appid: number): string[] {
   return [
@@ -54,6 +55,61 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const allUrls = useRef<string[]>([]);
   const activeSlotRef = useRef<'A' | 'B'>('A');
   useEffect(() => { activeSlotRef.current = activeSlot }, [activeSlot]);
+
+  // Themes like ArtHero overlay the focused game's info on top of the hero
+  // (where the native recents component renders that info). Our shelf
+  // doesn't carry the native game-info element, so we mirror it here by
+  // CLONING the focused card's own `.ds-card-label` DOM — same classes,
+  // same formatting (status icon + name + playtime), just repositioned
+  // above the row. The in-card label is hidden in the promoted shelf via
+  // CSS to avoid duplication. Detected once on mount via the structural
+  // signature; stays out entirely when no theme that needs it is active.
+  const [needsHeroLabel] = useState(() => {
+    try { return isArtHeroActive(); } catch { return false; }
+  });
+  const [labelHtml, setLabelHtml] = useState<string | null>(null);
+
+  // When a hero-label theme is active, mark .deck-shelves-root so the
+  // stylesheet can hide the in-card label inside the promoted shelf —
+  // otherwise the focused card would render its label twice (once below
+  // the art, once above via this overlay).
+  useEffect(() => {
+    if (!needsHeroLabel) return;
+    const root = mountEl.querySelector('.deck-shelves-root') as HTMLElement | null;
+    if (!root) return;
+    root.setAttribute('data-ds-hero-label', 'true');
+    return () => { root.removeAttribute('data-ds-hero-label'); };
+  }, [needsHeroLabel, mountEl]);
+
+  // Track the promoted shelf's row height so the label sits exactly above
+  // the cards even when the row resizes (matchNativeSize discovery, smart
+  // shelf changes, focused-card scale up). Geometry: HeroBackground spans
+  // 60px above and 60px below the shelf, so `bottom: 60` of the hero =
+  // shelf bottom = row bottom. Label at `bottom: 60 + rowHeight + gap`
+  // sits just above the row top.
+  const [labelBottomPx, setLabelBottomPx] = useState(340);
+  useEffect(() => {
+    if (!needsHeroLabel) return;
+    let observedRow: HTMLElement | null = null;
+    const ro = new ResizeObserver(() => measure());
+    const measure = () => {
+      const row = mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll') as HTMLElement | null;
+      if (!row) return;
+      if (row !== observedRow) {
+        if (observedRow) ro.unobserve(observedRow);
+        ro.observe(row);
+        observedRow = row;
+      }
+      const h = row.getBoundingClientRect().height;
+      if (h > 0) setLabelBottomPx(70 + Math.round(h));
+    };
+    measure();
+    // Re-measure when the promoted shelf appears/disappears or its
+    // descendants restructure (focused card flips to featured, etc.).
+    const mo = new MutationObserver(measure);
+    mo.observe(mountEl, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-ds-recents-slot', 'class', 'style'] });
+    return () => { ro.disconnect(); mo.disconnect(); };
+  }, [needsHeroLabel, mountEl]);
 
   // Discover native hero classes from the recents section
   useEffect(() => {
@@ -110,8 +166,17 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   }, [mountEl]);
 
   useEffect(() => {
-    const updateHero = () => {
-      const focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+    const updateHero = (e?: Event) => {
+      // Prefer the focusin event's target — it's the card that just gained
+      // focus, before any class transitions complete. Falls back to a DOM
+      // query when called via the MutationObserver (no event payload).
+      let focused: HTMLElement | null = null;
+      if (e && e.target instanceof HTMLElement) {
+        focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
+      }
+      if (!focused) {
+        focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      }
       if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
@@ -128,12 +193,20 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         else setSlotB(urls[0] ?? null);
         setActiveSlot(nextSlot);
         setVisible(true);
+        // Clone the focused card's full label DOM (.ds-card-label with all
+        // inner classes — name, status icon, playtime) so the hero overlay
+        // mirrors it byte-for-byte. Same classes = same formatting; the
+        // overlay positions it above the row instead of below.
+        if (needsHeroLabel) {
+          const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
+          setLabelHtml(labelEl ? labelEl.outerHTML : null);
+        }
       } else {
         setVisible(true);
       }
     };
 
-    const observer = new MutationObserver(updateHero);
+    const observer = new MutationObserver(() => updateHero());
     observer.observe(mountEl, { subtree: true, attributes: true, attributeFilter: ['class'] });
     mountEl.addEventListener('focusin', updateHero);
     const onFocusOut = (e: FocusEvent) => {
@@ -271,6 +344,31 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         pointerEvents: "none",
         zIndex: 1,
       }} />
+      {/* Game info overlay — clones the focused card's `.ds-card-label`
+          DOM (all classes preserved) so the hero label is identical to
+          the regular card label, only positioned above the row instead of
+          below. The wrapper div carries `ds-promoted-hero-label` which the
+          stylesheet uses to override the cloned label's own absolute
+          positioning back to static (it was originally `position: absolute;
+          top: artH` inside its card). The in-card label is hidden via CSS
+          on the promoted shelf so we don't render two copies of the same
+          label. pointerEvents:none so it never intercepts focus. */}
+      {needsHeroLabel && labelHtml && (
+        <div
+          className="ds-promoted-hero-label"
+          style={{
+            position: "absolute",
+            left: 40,
+            bottom: labelBottomPx,
+            right: 40,
+            pointerEvents: "none",
+            zIndex: 2,
+            opacity: visible ? 1 : 0,
+            transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), bottom 0.2s ease",
+          }}
+          dangerouslySetInnerHTML={{ __html: labelHtml }}
+        />
+      )}
     </div>
   );
 }
