@@ -233,6 +233,13 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       }
       if (!focused) return;
+      // Hero art mirrors only the first shelf — native Steam recents hero
+      // never reacts to focus on shelves below the recents row, so neither
+      // should ours. Prefer the explicit promoted marker when present
+      // (CSS Loader path); fall back to the first DOM shelf otherwise.
+      const heroShelf = (mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"]')
+        ?? mountEl.querySelector('.ds-shelf')) as HTMLElement | null;
+      if (heroShelf && !heroShelf.contains(focused)) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
       if (appid !== currentAppid.current) {
@@ -252,22 +259,16 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         // inner classes — name, status icon, playtime) so the hero overlay
         // mirrors it byte-for-byte. Same classes = same formatting; the
         // overlay positions it above the row instead of below.
-        // Only update when the focused card lives INSIDE the promoted
-        // shelf — otherwise the label would flip to cards from other
-        // shelves below, which makes no sense for a hero-area overlay.
         if (needsHeroLabel) {
-          const inPromoted = !!focused.closest('.ds-shelf[data-ds-recents-slot="true"]');
-          if (inPromoted) {
-            const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-            setLabelHtml(labelEl ? labelEl.outerHTML : null);
-            // Align the hero label horizontally with the focused card's
-            // left edge — matches native ArtHero, where the label tracks
-            // the focused tile rather than sitting at a fixed viewport
-            // offset. Floor to 40 so the label never collides with the
-            // screen edge if the row scrolls a card to position 0.
-            const cardLeft = focused.getBoundingClientRect().left;
-            setLabelLeftPx(Math.max(40, Math.round(cardLeft)));
-          }
+          const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
+          setLabelHtml(labelEl ? labelEl.outerHTML : null);
+          // Align the hero label horizontally with the focused card's
+          // left edge — matches native ArtHero, where the label tracks
+          // the focused tile rather than sitting at a fixed viewport
+          // offset. Floor to 40 so the label never collides with the
+          // screen edge if the row scrolls a card to position 0.
+          const cardLeft = focused.getBoundingClientRect().left;
+          setLabelLeftPx(Math.max(40, Math.round(cardLeft)));
         }
       } else {
         setVisible(true);
