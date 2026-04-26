@@ -83,11 +83,18 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
 
   // Track the promoted shelf's row height so the label sits exactly above
   // the cards even when the row resizes (matchNativeSize discovery, smart
-  // shelf changes, focused-card scale up). Geometry: HeroBackground spans
-  // 60px above and 60px below the shelf, so `bottom: 60` of the hero =
-  // shelf bottom = row bottom. Label at `bottom: 60 + rowHeight + gap`
-  // sits just above the row top.
-  const [labelBottomPx, setLabelBottomPx] = useState(340);
+  // shelf changes, focused-card scale up). The label uses `position:
+  // fixed` so `bottom` is relative to the viewport — and the row sits at
+  // the viewport bottom (the shelf takes calc(100vh - 56px) and the row
+  // is flexed to the bottom). `bottom: rowHeight + gap` puts the label
+  // exactly `gap` pixels above the row's top edge.
+  const [labelBottomPx, setLabelBottomPx] = useState(320);
+  // Track the focused card's left edge so the label stays horizontally
+  // aligned with it as the row scrolls. Native ArtHero behaves the same:
+  // the label sits at the left edge of the focused tile, not at a fixed
+  // viewport offset. Default 40 = the original hardcoded margin until we
+  // know the real position.
+  const [labelLeftPx, setLabelLeftPx] = useState(40);
   useEffect(() => {
     if (!needsHeroLabel) return;
     let observedRow: HTMLElement | null = null;
@@ -101,14 +108,28 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         observedRow = row;
       }
       const h = row.getBoundingClientRect().height;
-      if (h > 0) setLabelBottomPx(70 + Math.round(h));
+      if (h > 0) setLabelBottomPx(Math.round(h) + 10);
     };
     measure();
     // Re-measure when the promoted shelf appears/disappears or its
     // descendants restructure (focused card flips to featured, etc.).
     const mo = new MutationObserver(measure);
     mo.observe(mountEl, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-ds-recents-slot', 'class', 'style'] });
-    return () => { ro.disconnect(); mo.disconnect(); };
+    // The row's horizontal scroll moves the focused card — mirror it on the
+    // label so the alignment keeps up with `centeredScrollLeft` animations.
+    const onRowScroll = () => {
+      const focusedCard = mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"] .ds-card.gpfocus, .ds-shelf[data-ds-recents-slot="true"] .ds-card:focus') as HTMLElement | null;
+      if (!focusedCard) return;
+      const cardLeft = focusedCard.getBoundingClientRect().left;
+      setLabelLeftPx(Math.max(40, Math.round(cardLeft)));
+    };
+    const row = mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll') as HTMLElement | null;
+    if (row) row.addEventListener('scroll', onRowScroll, { passive: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      if (row) row.removeEventListener('scroll', onRowScroll);
+    };
   }, [needsHeroLabel, mountEl]);
 
   // Discover native hero classes from the recents section
@@ -197,9 +218,22 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         // inner classes — name, status icon, playtime) so the hero overlay
         // mirrors it byte-for-byte. Same classes = same formatting; the
         // overlay positions it above the row instead of below.
+        // Only update when the focused card lives INSIDE the promoted
+        // shelf — otherwise the label would flip to cards from other
+        // shelves below, which makes no sense for a hero-area overlay.
         if (needsHeroLabel) {
-          const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-          setLabelHtml(labelEl ? labelEl.outerHTML : null);
+          const inPromoted = !!focused.closest('.ds-shelf[data-ds-recents-slot="true"]');
+          if (inPromoted) {
+            const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
+            setLabelHtml(labelEl ? labelEl.outerHTML : null);
+            // Align the hero label horizontally with the focused card's
+            // left edge — matches native ArtHero, where the label tracks
+            // the focused tile rather than sitting at a fixed viewport
+            // offset. Floor to 40 so the label never collides with the
+            // screen edge if the row scrolls a card to position 0.
+            const cardLeft = focused.getBoundingClientRect().left;
+            setLabelLeftPx(Math.max(40, Math.round(cardLeft)));
+          }
         }
       } else {
         setVisible(true);
@@ -357,14 +391,13 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         <div
           className="ds-promoted-hero-label"
           style={{
-            position: "absolute",
-            left: 40,
+            position: "fixed",
+            left: labelLeftPx,
             bottom: labelBottomPx,
-            right: 40,
             pointerEvents: "none",
             zIndex: 2,
             opacity: visible ? 1 : 0,
-            transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), bottom 0.2s ease",
+            transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), left 0.2s ease, bottom 0.2s ease",
           }}
           dangerouslySetInnerHTML={{ __html: labelHtml }}
         />

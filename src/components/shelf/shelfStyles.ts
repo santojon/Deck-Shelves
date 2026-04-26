@@ -295,7 +295,7 @@ function buildStylesheet(): string {
       height: calc(100vh - 56px) !important;
     }
     .ds-shelf[data-ds-recents-slot="true"] .ds-shelf-title {
-      display: none;
+      display: none !important;
     }
     .ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll {
       margin-top: auto;
@@ -319,6 +319,31 @@ function buildStylesheet(): string {
       width: auto !important;
       padding-top: 0 !important;
       opacity: 1 !important;
+    }
+    /* Match native ArtHero text scale: 22px / weight 800 for the name,
+       ~14.7px / weight 700 for the status. Status icons are dropped — the
+       native overlay shows just text (e.g. "Last two weeks: 2 min"), no
+       download / play / update icons. */
+    .ds-promoted-hero-label .ds-card-label-name {
+      font-size: 22px !important;
+      font-weight: 800 !important;
+      line-height: 1.15 !important;
+      white-space: nowrap !important;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
+    }
+    .ds-promoted-hero-label .ds-card-status {
+      font-size: 14.6667px !important;
+      font-weight: 700 !important;
+      opacity: 1 !important;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+    }
+    /* Hide only the play icon (installed + no pending update). The download
+       icon (not installed) and the update icon (installed + update pending)
+       stay visible — they convey actionable state the user needs to see. */
+    .ds-promoted-hero-label .ds-card-status-icon.ds-card-status-play {
+      display: none !important;
     }
     .ds-card {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
