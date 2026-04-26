@@ -279,25 +279,34 @@ function buildStylesheet(): string {
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
-    /* When the first shelf is promoted into the native recents slot via
-       Opção B, it inherits the native rule  ._39tNvaLedsTrVh0fFsP4Jm
-       { height: 105vh } . The 105vh extends 5% past the viewport, so cards
-       laid out at the bottom of that box end up clipped below the visible
-       area. Cap to the visible content height (subtract our mount offset)
-       so the row sits at the visible bottom. Flex column + margin-top:auto
-       on the row pushes cards to that bottom, matching ArtHero's layout
-       (hero art fills above the cards). The title is hidden — when ArtHero
-       is active this slot is the hero region, native recents have no
-       visible title, and showing ours would clutter the hero. */
+    /* The Opção B promotion adds the native wrapper class to our first
+       shelf so theme rules (Obsidian backgrounds, Delly fades, ArtHero
+       hero/mask, etc.) reach our shelf naturally. But that wrapper class
+       also drags in the native rule ._39tNvaLedsTrVh0fFsP4Jm { height:
+       105vh }, which would inflate our shelf to 5% past the viewport.
+       Reset it to auto unconditionally so the shelf is compact (just
+       title + row) by default. The ArtHero-specific layout below then
+       opts back into the tall flex container only when needed. */
     .ds-shelf[data-ds-recents-slot="true"] {
+      height: auto !important;
+    }
+
+    /* ArtHero (and any future hero-label theme) opts into the full layout:
+       full-height shelf, title hidden, cards flexed to the bottom — so the
+       hero overlay can fill the visible area above the row exactly the way
+       native recents do. Gated on the data-ds-hero-label attribute (set by
+       HeroBackground when an ArtHero-family theme is detected) so that
+       deactivating ArtHero reverts the layout to the compact default
+       above without any code change. */
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
       display: flex !important;
       flex-direction: column;
       height: calc(100vh - 56px) !important;
     }
-    .ds-shelf[data-ds-recents-slot="true"] .ds-shelf-title {
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-shelf-title {
       display: none !important;
     }
-    .ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll {
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll {
       margin-top: auto;
     }
 

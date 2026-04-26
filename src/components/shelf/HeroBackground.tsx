@@ -64,10 +64,31 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   // above the row. The in-card label is hidden in the promoted shelf via
   // CSS to avoid duplication. Detected once on mount via the structural
   // signature; stays out entirely when no theme that needs it is active.
-  const [needsHeroLabel] = useState(() => {
+  const [needsHeroLabel, setNeedsHeroLabel] = useState(() => {
     try { return isArtHeroActive(); } catch { return false; }
   });
   const [labelHtml, setLabelHtml] = useState<string | null>(null);
+
+  // Re-evaluate when CSS Loader themes are added/removed at runtime — the
+  // user can toggle ArtHero on/off without reloading the plugin, so the
+  // initial mount value is just a starting point. CSS Loader appends and
+  // removes <style class="css-loader-style"> tags directly in the Big
+  // Picture document's <head> (verified via CDP). The Big Picture doc is
+  // a different document than SharedJSContext where this React tree
+  // lives, so we MUST observe via getPreferredSteamDocument() — using
+  // the bare `document.head` watches the wrong tree and the observer
+  // never fires.
+  useEffect(() => {
+    const recheck = () => {
+      try { setNeedsHeroLabel(isArtHeroActive()); } catch {}
+    };
+    const doc = getPreferredSteamDocument();
+    const head = doc?.head ?? doc?.documentElement;
+    if (!head) return;
+    const obs = new MutationObserver(recheck);
+    obs.observe(head, { childList: true });
+    return () => obs.disconnect();
+  }, []);
 
   // When a hero-label theme is active, mark .deck-shelves-root so the
   // stylesheet can hide the in-card label inside the promoted shelf —
@@ -253,7 +274,28 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       mountEl.removeEventListener('focusin', updateHero);
       mountEl.removeEventListener('focusout', onFocusOut);
     };
-  }, [mountEl]);
+    // `needsHeroLabel` is part of the deps so the closure inside `updateHero`
+    // always sees its current value — without it, toggling ArtHero on after
+    // mount keeps the captured `false` and the label branch never runs.
+  }, [mountEl, needsHeroLabel]);
+
+  // When `needsHeroLabel` flips ON, snapshot the currently focused card's
+  // label immediately — otherwise the user would have to move focus once
+  // for the next focusin to populate it. When it flips OFF, clear the
+  // label so a stale clone doesn't briefly render before unmount.
+  useEffect(() => {
+    if (!needsHeroLabel) {
+      setLabelHtml(null);
+      return;
+    }
+    const focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+    if (!focused) return;
+    const inPromoted = !!focused.closest('.ds-shelf[data-ds-recents-slot="true"]');
+    if (!inPromoted) return;
+    const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
+    setLabelHtml(labelEl ? labelEl.outerHTML : null);
+    setLabelLeftPx(Math.max(40, Math.round(focused.getBoundingClientRect().left)));
+  }, [needsHeroLabel, mountEl]);
 
   const onImgError = (slot: 'A' | 'B') => () => {
     fallbackIdx.current += 1;
