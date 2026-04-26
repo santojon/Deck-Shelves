@@ -1,5 +1,23 @@
 import { gamepadDialogClasses, quickAccessControlsClasses } from '@decky/ui'
 
+// Bridge: `quickAccessControlsClasses` is undefined in SharedJSContext (where
+// DeckModalStyles renders), but it IS defined here in the QAM context. Persist
+// the three obfuscated class tokens we use in modal CSS to localStorage on
+// module load so DeckModalStyles can pick them up via the same key without
+// hardcoding values that drift on every Steam Big Picture update. Storage key
+// must match the read in `DeckModalStyles.tsx`.
+try {
+  const w: any = (typeof window !== 'undefined') ? window : null
+  const cls: any = quickAccessControlsClasses as any
+  if (w?.localStorage && cls?.PanelSection) {
+    w.localStorage.setItem('ds_qam_panel_classes', JSON.stringify({
+      PanelSection: cls.PanelSection,
+      PanelSectionRow: cls.PanelSectionRow,
+      PanelSectionTitle: cls.PanelSectionTitle,
+    }))
+  }
+} catch {}
+
 export function DeckQAMStyles() {
   return (
     <style>{`

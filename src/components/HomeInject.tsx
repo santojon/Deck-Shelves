@@ -18,6 +18,12 @@ import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement }
 import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
+import { getRuntimeClassMap } from "../core/webpackCompat";
+
+// Fallback for the native shelf-section token when the runtime classmap
+// hasn't been populated yet. Mirrors `FALLBACK_SHELF_SECTION` in
+// `runtime/homePatch.tsx`.
+const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
 const ROOT_ID = "deck-shelves-home-root";
 const homePlatform = createDeckyPlatform();
@@ -56,7 +62,10 @@ function hasHomeDomSignals(): boolean {
   if (!doc) return false;
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
   if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X')) return true; } catch (e) { logInfo("HOME", "hasHomeDomSignals: class selector failed", String(e)); }
+  try {
+    const token = getRuntimeClassMap(doc)?.shelfSection || FALLBACK_SHELF_SECTION;
+    if (doc.querySelector(`div.${token}, [class*="${token}"]`)) return true;
+  } catch (e) { logInfo("HOME", "hasHomeDomSignals: class selector failed", String(e)); }
   return false;
 }
 

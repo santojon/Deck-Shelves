@@ -263,6 +263,23 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
   return out;
 }
 
+// Hardcoded fallback for the native shelf-section token. Used only when the
+// runtime classmap hasn't been populated yet (very early boot, before
+// `discoverClassMap` runs). Anywhere else, prefer the live token via
+// `shelfSectionSelector(doc)`.
+const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
+
+function shelfSectionSelector(doc: Document): string {
+  try {
+    const map = getRuntimeClassMap(doc);
+    const token = map?.shelfSection;
+    if (token && typeof token === "string") {
+      return `div.${token}, [class*="${token}"]`;
+    }
+  } catch {}
+  return `div.${FALLBACK_SHELF_SECTION}, [class*="${FALLBACK_SHELF_SECTION}"]`;
+}
+
 function scoreWindow(win: Window): number {
   try {
     const doc = win.document;
@@ -271,7 +288,7 @@ function scoreWindow(win: Window): number {
     if (href.includes("/routes/library/home") || href.includes("library/home")) score += 4;
     if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) score += 8;
     if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) score += 6;
-    try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) score += 2; } catch {}
+    try { if (doc.querySelector(shelfSectionSelector(doc))) score += 2; } catch {}
     if (doc.body?.childElementCount) score += 1;
     return score;
   } catch {
@@ -303,7 +320,7 @@ function getContextSnapshot() {
   const { win, doc, source } = getHostContext();
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`;
   let hasObfuscatedAnchor = false;
-  try { hasObfuscatedAnchor = !!doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]'); } catch {}
+  try { hasObfuscatedAnchor = !!doc.querySelector(shelfSectionSelector(doc)); } catch {}
   return {
     source,
     href,
@@ -322,7 +339,7 @@ function isHomeVisible(): boolean {
   if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
   if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
   if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  try { if (doc.querySelector('div._282X0J4BtrSF1IXctmOe-X, [class*="_282X0J4BtrSF1IXctmOe-X"]')) return true; } catch {}
+  try { if (doc.querySelector(shelfSectionSelector(doc))) return true; } catch {}
   return false;
 }
 
@@ -372,7 +389,7 @@ function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | nu
     if (section?.parentElement) return { parent: section.parentElement, before: section };
   }
 
-  const known = doc.querySelector("div._282X0J4BtrSF1IXctmOe-X, [class*='_282X0J4BtrSF1IXctmOe-X']") as HTMLElement | null;
+  const known = doc.querySelector(shelfSectionSelector(doc)) as HTMLElement | null;
   if (known?.parentElement) return { parent: known.parentElement, before: known.nextSibling };
 
   const containers = Array.from(doc.querySelectorAll('[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]'));

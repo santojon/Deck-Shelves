@@ -1,11 +1,34 @@
 import { gamepadDialogClasses } from '@decky/ui'
 
-// Hardcoded minified class names (quickAccessControlsClasses is undefined in SharedJSContext)
-const _panelSection = '_10BxjeNEe7t7ZWYcnl3-J6'
-const _panelSectionRow = 'JAewWdUpiV3X2NTJykahD'
-const _panelSectionTitle = '_321l150NTQBTsPZ9NnzZIz'
+// Last-known fallback values for the QAM panel classes. `quickAccessControlsClasses`
+// is undefined in SharedJSContext (where this style block renders), so we read
+// the live tokens from localStorage — written by `DeckQAMStyles` on module
+// load (QAM context HAS the classes). When the user has never opened the QAM,
+// we still need a working CSS string, so the constants below are the seed.
+// They will drift on Steam updates; the QAM-side bridge keeps them current.
+const FALLBACK_PANEL_SECTION = '_10BxjeNEe7t7ZWYcnl3-J6'
+const FALLBACK_PANEL_SECTION_ROW = 'JAewWdUpiV3X2NTJykahD'
+const FALLBACK_PANEL_SECTION_TITLE = '_321l150NTQBTsPZ9NnzZIz'
+
+function getPanelClasses(): { section: string; row: string; title: string } {
+  try {
+    const raw = (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage.getItem('ds_qam_panel_classes')
+      : null
+    if (raw) {
+      const parsed = JSON.parse(raw) ?? {}
+      return {
+        section: typeof parsed.PanelSection === 'string' && parsed.PanelSection ? parsed.PanelSection : FALLBACK_PANEL_SECTION,
+        row:     typeof parsed.PanelSectionRow === 'string' && parsed.PanelSectionRow ? parsed.PanelSectionRow : FALLBACK_PANEL_SECTION_ROW,
+        title:   typeof parsed.PanelSectionTitle === 'string' && parsed.PanelSectionTitle ? parsed.PanelSectionTitle : FALLBACK_PANEL_SECTION_TITLE,
+      }
+    }
+  } catch {}
+  return { section: FALLBACK_PANEL_SECTION, row: FALLBACK_PANEL_SECTION_ROW, title: FALLBACK_PANEL_SECTION_TITLE }
+}
 
 export function DeckModalStyles() {
+  const { section: _panelSection, row: _panelSectionRow, title: _panelSectionTitle } = getPanelClasses()
   return (
     <style>{`
       .deck-shelves-modal-scope .${gamepadDialogClasses.GamepadDialogContent} .DialogHeader {
