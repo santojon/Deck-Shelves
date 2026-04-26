@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CSS Loader / ArtHero coexistence**: new `src/core/cssLoaderDetect.ts` exposes `isCssLoaderActive()`, `isArtHeroActive()`, and `getNativeRecentsClassName(mountEl)` reading `<style class="css-loader-style">` tags in the active document. When `hideRecents=true` and a CSS Loader theme is active, `HomeInject` adds `data-ds-recents-slot="true"` plus the live native-recents wrapper class (read from `mountEl.previousElementSibling`) to the first DS shelf so theme rules targeting the recents wrapper also style the promoted shelf. The class assignment is purely additive — `ds-*` classes are never stripped.
+- **HeroBackground auto-disable on ArtHero**: when an ArtHero-family theme is active at mount, `HeroBackground` returns `null` to avoid stacking our zoom/brightness/saturate animation on top of the theme's own hero image.
+- **`checks/plugins/cssloader/arthero.sh`**: static validator for ArtHero coexistence — checks the detection helper, HeroBackground guard, additive class promotion, runtime DOM read (no hardcoded native token), and `css-loader-style` probe.
+
 ## [1.6.0] - 2026-04-24
 
 ### Added

@@ -7,7 +7,7 @@
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
 [![Tests](https://img.shields.io/badge/tests-81%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![Compatibility](https://img.shields.io/badge/checks-36%2F36-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
+[![Compatibility](https://img.shields.io/badge/checks-37%2F37-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Steam%20OS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)

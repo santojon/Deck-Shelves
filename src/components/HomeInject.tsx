@@ -19,6 +19,7 @@ import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { getRuntimeClassMap } from "../core/webpackCompat";
+import { isCssLoaderActive, getNativeRecentsClassName } from "../core/cssLoaderDetect";
 
 // Fallback for the native shelf-section token when the runtime classmap
 // hasn't been populated yet. Mirrors `FALLBACK_SHELF_SECTION` in
@@ -601,6 +602,47 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     obs.observe(rootEl, { childList: true, subtree: false });
     return () => obs.disconnect();
   }, [hideRecentsSetting, shelves]);
+
+  // CSS Loader compat — narrow scope by design.
+  //
+  // Themes that restyle the UNIVERSAL shelf surface (card shape, transitions,
+  // generic animations) target classes our cards inherit naturally from
+  // React/Decky (`Panel`, `Focusable`, plus the hashed component tokens) —
+  // those themes already reach every DS shelf at all times without any
+  // intervention from us.
+  //
+  // Themes that restyle the RECENTS WRAPPER (hero art height, banner mode,
+  // ArtHero family etc.) target the obfuscated class on the parent of the
+  // native recents block. Our shelves don't carry that class — so when the
+  // user hides native recents we promote ONLY the first visible shelf into
+  // that selector space by adding `data-ds-recents-slot` + the live wrapper
+  // class read from `mountEl.previousElementSibling`.
+  //
+  // Invariants enforced by the guard chain below — do NOT loosen without
+  // updating `checks/plugins/cssloader/arthero.sh`:
+  //   1. Promotion only when `hideRecentsSetting` is true.
+  //   2. Promotion only on the FIRST visible shelf (`firstVisibleId`).
+  //   3. Promotion only when at least one CSS Loader theme is active.
+  //   4. Class assignment is purely additive — `ds-*` is never stripped.
+  useEffect(() => {
+    if (!hideRecentsSetting) return;       // INVARIANT 1
+    if (!firstVisibleId) return;            // INVARIANT 2
+    if (!isCssLoaderActive()) return;       // INVARIANT 3
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    const nativeClass = getNativeRecentsClassName(mountEl);
+    if (!nativeClass) return;
+    const target = rootEl.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${CSS.escape(firstVisibleId)}"]`);
+    if (!target) return;
+    target.setAttribute('data-ds-recents-slot', 'true');
+    target.classList.add(nativeClass);      // INVARIANT 4
+    return () => {
+      try {
+        target.removeAttribute('data-ds-recents-slot');
+        target.classList.remove(nativeClass);
+      } catch {}
+    };
+  }, [hideRecentsSetting, firstVisibleId, mountEl]);
 
   // Drag-to-reorder shelves by holding the title (touch/mouse only; D-pad nav
   // stays untouched). The hook scopes to `.ds-shelf[data-shelfid]` under the

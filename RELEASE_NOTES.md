@@ -5,6 +5,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **CSS Loader compatibility (ArtHero family).** When the native recents are hidden and a CSS Loader is active, the first shelf is now wired into the theme's recents styling — themes that paint a hero or restyle the recents block now flow into the promoted shelf without breaking plugin styling. With ArtHero specifically, the plugin's own background art turns off automatically so the theme's hero is the only one running (no double zoom/blur).
+
 ## [1.6.0] - 2026-04-24
 
 ### Added
