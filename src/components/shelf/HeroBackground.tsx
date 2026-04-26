@@ -194,17 +194,30 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   // Clamp hero height to the first shelf's actual height so the art does not
   // bleed into the second shelf row when smart shelves are shorter than the
   // native recents section (which was used as the 374px baseline).
+  // ResizeObserver is required because shelf height can change via *style*
+  // (e.g. ArtHero opting in/out toggles `height: calc(100vh-56px)` ↔ `auto`
+  // with no DOM mutation) — a MutationObserver alone would miss it and the
+  // hero would stay stuck at the old height.
   useEffect(() => {
+    let observedShelf: HTMLElement | null = null;
     const measure = () => {
       const firstShelf = mountEl.querySelector('.ds-shelf') as HTMLElement | null;
       if (!firstShelf) return;
+      if (firstShelf !== observedShelf) {
+        if (observedShelf) ro.unobserve(observedShelf);
+        ro.observe(firstShelf);
+        observedShelf = firstShelf;
+      }
       const h = firstShelf.getBoundingClientRect().height;
       if (h > 80) setHeroHeight(Math.round(h));
     };
+    const ro = new ResizeObserver(measure);
     measure();
-    const obs = new MutationObserver(measure);
-    obs.observe(mountEl, { childList: true, subtree: true });
-    return () => obs.disconnect();
+    // MutationObserver catches the shelf swapping (e.g. promotion changes,
+    // smart-shelf flip) so we can re-target the ResizeObserver.
+    const mo = new MutationObserver(measure);
+    mo.observe(mountEl, { childList: true, subtree: true });
+    return () => { ro.disconnect(); mo.disconnect(); };
   }, [mountEl]);
 
   useEffect(() => {
@@ -264,15 +277,14 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     const observer = new MutationObserver(() => updateHero());
     observer.observe(mountEl, { subtree: true, attributes: true, attributeFilter: ['class'] });
     mountEl.addEventListener('focusin', updateHero);
-    const onFocusOut = (e: FocusEvent) => {
-      const related = e.relatedTarget as HTMLElement | null;
-      if (!related || !mountEl.contains(related)) setVisible(false);
-    };
-    mountEl.addEventListener('focusout', onFocusOut);
+    // No focusout hide: native ArtHero keeps the last focused game's hero
+    // visible until another card takes focus. During gamepad navigation
+    // between rows, Steam can briefly emit focusout with relatedTarget=null
+    // before the new card focuses — hiding the hero in that gap caused
+    // intermittent disappearance of the hero art and label overlay.
     return () => {
       observer.disconnect();
       mountEl.removeEventListener('focusin', updateHero);
-      mountEl.removeEventListener('focusout', onFocusOut);
     };
     // `needsHeroLabel` is part of the deps so the closure inside `updateHero`
     // always sees its current value — without it, toggling ArtHero on after
