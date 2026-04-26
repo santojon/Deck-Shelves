@@ -260,6 +260,12 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         cursor: "pointer",
         overflow: "visible",
         ["--ds-card-art-h" as string]: artH < cardH ? `${artH}px` : "100%",
+        // Per-card height/width ratio used by the TiltedHome compat CSS to
+        // compute the exact zoom scale that covers the skewed parallelogram
+        // — featured (landscape) and portrait cards need different scale
+        // factors. Reflects the live rendered dimensions, so any screen-size
+        // or theme-driven dim change automatically reaches the calc().
+        ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
       <div

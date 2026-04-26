@@ -26,12 +26,19 @@ run_checks() {
     ((fail++))
   fi
 
-  # 3. HeroBackground skips when ArtHero theme is active to avoid double hero.
-  if grep -q 'isArtHeroActive' "$src/components/shelf/HeroBackground.tsx" 2>/dev/null; then
-    echo "  ✅ HeroBackground guards against ArtHero (no duplicate hero animation)"
+  # 3. HeroBackground rendering is gated at the parent (HomeInject) — when
+  # the recents-replace overlay is injecting, the parent doesn't pass
+  # `shelfHeroBackground=true`, so our hero isn't rendered alongside the
+  # native one. With the overlay OFF, the native hero element is hidden, so
+  # ArtHero's CSS doesn't paint anything and we can safely render our hero
+  # (it inherits the native hero classes via discovery, so ArtHero's
+  # mask-image rule still applies to ours).
+  if grep -q 'replaceInjecting' "$src/components/HomeInject.tsx" 2>/dev/null \
+     && grep -q 'shelfHeroBackground' "$src/components/HomeInject.tsx" 2>/dev/null; then
+    echo "  ✅ HeroBackground render gated by replaceInjecting (no duplicate hero)"
     ((pass++))
   else
-    echo "  ❌ HeroBackground does not guard against ArtHero — risk of duplicate hero"
+    echo "  ❌ HeroBackground render gate missing replaceInjecting check"
     ((fail++))
   fi
 
@@ -69,6 +76,18 @@ run_checks() {
     ((pass++))
   else
     echo "  ❌ Detection does not look at css-loader-style tags"
+    ((fail++))
+  fi
+
+  # 7b. ArtHero detection uses the structural signature (heroInner + mask-image
+  # rule) rather than relying on theme-name attributes — those don't exist in
+  # most CSS Loader builds. Verified live on a Deck running the ArtHero theme.
+  if grep -q "heroToken" "$src/core/cssLoaderDetect.ts" 2>/dev/null \
+     && grep -q "mask-image" "$src/core/cssLoaderDetect.ts" 2>/dev/null; then
+    echo "  ✅ ArtHero detected by structural signature (heroInner + mask-image)"
+    ((pass++))
+  else
+    echo "  ❌ ArtHero detection lacks structural signature — name-based detection is unreliable"
     ((fail++))
   fi
 

@@ -1,12 +1,15 @@
 import { getPreferredSteamDocument } from "../runtime/steamHost";
+import { getRuntimeClassMap } from "./webpackCompat";
 
 /**
  * Lightweight detection helpers for CSS Loader + the ArtHero theme family.
  *
  * CSS Loader injects every theme rule under `<style class="css-loader-style">`
- * tags (one per theme). Each tag carries a `data-name`/`data-id` attribute
- * with the theme name; we read those to know which themes are active without
- * needing CSS Loader's own JS API.
+ * tags. On most builds the tags don't carry a `data-name`/`data-id` attribute
+ * (only `id=<UUID>`), and ArtHero's CSS doesn't reference the string "ArtHero"
+ * anywhere — so name-based detection is unreliable. Instead we detect ArtHero
+ * by its **structural signature**: it's the only theme that styles the native
+ * hero-inner element (`heroInner` in our classmap) with a `mask-image` rule.
  *
  * Used by:
  *  - `HeroBackground` to skip rendering when the active theme paints its own
@@ -16,7 +19,9 @@ import { getPreferredSteamDocument } from "../runtime/steamHost";
  *    were the native recents element.
  */
 
-const ART_HERO_PATTERN = /art\s*hero|arthero/i;
+// Fallback for the heroInner token if the runtime classmap hasn't been
+// populated yet — same value as `classmap.json` ships with.
+const FALLBACK_HERO_INNER = "_30D-80Lg-Luy-KxOumBlaY";
 
 function getCssLoaderStyleNodes(): HTMLStyleElement[] {
   try {
@@ -34,26 +39,25 @@ export function isCssLoaderActive(): boolean {
 }
 
 /**
- * Returns true when any active CSS Loader theme matches the ArtHero family
- * (ArtHero, ArtHero Dark, ArtHero Alt, etc.). The match is case-insensitive
- * and tolerates the optional space between "Art" and "Hero". Falls back to
- * scanning the style content for the theme name when the data attributes
- * are missing.
+ * Returns true when an ArtHero-family theme is active (ArtHero, ArtHero Dark,
+ * ArtHero Alt, derivatives). Detection is structural rather than name-based:
+ * ArtHero is the only theme that injects a CSS rule combining the native
+ * hero-inner class with a `mask-image` declaration. Internal Steam updates
+ * that rename `heroInner` are tracked via the runtime classmap, so a single
+ * repository edit (in `classmap.json`) is enough to keep detection working.
  */
 export function isArtHeroActive(): boolean {
+  let heroToken = FALLBACK_HERO_INNER;
+  try {
+    const doc = getPreferredSteamDocument();
+    const map = doc ? getRuntimeClassMap(doc) : null;
+    if (map?.heroInner && typeof map.heroInner === "string") heroToken = map.heroInner;
+  } catch {}
   const nodes = getCssLoaderStyleNodes();
   for (const node of nodes) {
     try {
-      const name = node.getAttribute("data-name") || node.getAttribute("data-id") || "";
-      if (ART_HERO_PATTERN.test(name)) return true;
-    } catch {}
-  }
-  // Fallback: scan textContent for a theme-name comment when attributes are
-  // absent (some CSS Loader builds inline the name as a comment).
-  for (const node of nodes) {
-    try {
       const text = node.textContent || "";
-      if (ART_HERO_PATTERN.test(text)) return true;
+      if (text.includes(heroToken) && /mask-image/i.test(text)) return true;
     } catch {}
   }
   return false;

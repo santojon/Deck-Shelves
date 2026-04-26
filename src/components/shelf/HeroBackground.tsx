@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { logInfo } from "../../runtime/logger";
-import { isArtHeroActive } from "../../core/cssLoaderDetect";
 
 function getHeroUrls(appid: number): string[] {
   return [
@@ -33,13 +32,13 @@ type NativeHeroClasses = {
 };
 
 export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
-  // Skip rendering entirely when an ArtHero-family CSS Loader theme is
-  // active — those themes paint their own hero on the recents slot, and
-  // ours stacked on top would duplicate the zoom/blur animations and
-  // double the GPU cost.
-  const [skip] = useState(() => {
-    try { return isArtHeroActive(); } catch { return false; }
-  });
+  // The dual-hero risk (ours stacking on top of an ArtHero-family theme's
+  // own hero) is already handled at the parent: HomeInject only renders
+  // this component when `!replaceInjecting`. In that path the native
+  // recents element is `visibility: hidden, height: 0`, so ArtHero's CSS
+  // (which targets the native heroInner) isn't actually painting anything.
+  // Our hero element here is the only visible hero; via the discovered
+  // native classes below, ArtHero's mask-image fade still applies to OURS.
   // Two stacked image slots so the new hero can fade IN while the old one
   // fades OUT — matches the native Steam recents hero cross-fade. On each
   // focus change we assign the new URL to the currently-inactive slot and
@@ -161,7 +160,6 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     }
   };
 
-  if (skip) return null;
   if (!slotA && !slotB) return null;
 
   // Build native-matching DOM structure for a single slot:

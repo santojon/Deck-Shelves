@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { ShelfView } from "./Shelf";
@@ -401,22 +401,31 @@ export function HomeShelves() {
 
   // Placement logic:
   //  - atBottom: normal first, then smart
-  //  - hideRecents + !atBottom + NOT replace-injecting: [first normal, ...smart, ...rest normal]
-  //    (first normal shelf acts as "recents slot placeholder" when native recents is hidden)
+  //  - hideRecents + NOT replace-injecting: DOM order is [...normal, ...smart]
+  //    so a normal shelf is always the first DOM child (Opção B can promote
+  //    it into the recents slot — smart shelves are heuristic and may
+  //    render `null`, so they must never be ahead of any normal in the DOM).
+  //    Visual order is restored via CSS `order` further down: promoted
+  //    normal at order 0, smart at order 1, remaining normals at order 2 —
+  //    yields the user-intended [firstNormal, smart, restNormal] interleave
+  //    even when the first normal happens to render empty.
   //  - replace-injecting or default: smart first (or last if atBottom), then normal
   //    (when replace-injecting, shelf1 is already in the native recents slot; normalShelves
   //     already has it removed, so the "after first" special case must not apply)
-  const useAfterFirst = settings.hideRecents === true
-    && normalShelves.length > 0
+  const normalFirst = settings.smartShelvesAtBottom
+    || (settings.hideRecents === true && !(replaceInjecting && !replaceKillSwitch));
+  const shelves: Shelf[] = normalFirst
+    ? [...normalShelves, ...smartShelves]
+    : [...smartShelves, ...normalShelves];
+
+  // Visual interleave mode: when hiding recents AND the user did NOT request
+  // smart-shelves-at-bottom, we render [normal..., smart...] in the DOM but
+  // present them visually as [promoted normal, smart, rest of normal] via
+  // flex `order`. When `smartShelvesAtBottom=true`, the user explicitly
+  // wants smart at the end — no reorder needed, the array order matches.
+  const interleaveSmart = settings.hideRecents === true
+    && !settings.smartShelvesAtBottom
     && !(replaceInjecting && !replaceKillSwitch);
-  let shelves: Shelf[];
-  if (settings.smartShelvesAtBottom) {
-    shelves = [...normalShelves, ...smartShelves];
-  } else if (useAfterFirst) {
-    shelves = [normalShelves[0], ...smartShelves, ...normalShelves.slice(1)];
-  } else {
-    shelves = [...smartShelves, ...normalShelves];
-  }
 
   // When the plugin is disabled, there are no visible shelves, or all shelves
   // are hidden — always ensure recents are visible regardless of the toggle
@@ -430,13 +439,13 @@ export function HomeShelves() {
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHighlightAll={settings.globalHighlightAll === true} globalHideStatusLine={settings.globalHideStatusLine === true} globalHideNewBadge={settings.globalHideNewBadge === true} globalHideCompatIcons={settings.globalHideCompatIcons === true} globalHideNonSteamBadge={settings.globalHideNonSteamBadge === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true && !(replaceInjecting && !replaceKillSwitch)} hideRecentsSetting={settings.hideRecents === true && (settings.recentsReplaceSource !== true || replaceKillSwitch)} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHighlightAll={settings.globalHighlightAll === true} globalHideStatusLine={settings.globalHideStatusLine === true} globalHideNewBadge={settings.globalHideNewBadge === true} globalHideCompatIcons={settings.globalHideCompatIcons === true} globalHideNonSteamBadge={settings.globalHideNonSteamBadge === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true && !(replaceInjecting && !replaceKillSwitch)} hideRecentsSetting={settings.hideRecents === true && (settings.recentsReplaceSource !== true || replaceKillSwitch)} interleaveSmart={interleaveSmart} />
     </PlatformProvider>,
     mountEl,
   ) as any;
 }
 
-function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, shelfHeroBackground = false, hideRecentsSetting = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; shelfHeroBackground?: boolean; hideRecentsSetting?: boolean }) {
+function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, shelfHeroBackground = false, hideRecentsSetting = false, interleaveSmart = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; shelfHeroBackground?: boolean; hideRecentsSetting?: boolean; interleaveSmart?: boolean }) {
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
     const navApi = detectNavTreeApi();
@@ -587,15 +596,26 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   // to 0 apps), so "first in the array" ≠ "first on screen". Only the
   // first on-screen shelf should be promoted to the native-recents slot
   // when `hideRecentsSetting` is on — via `forceExpanded`.
+  // Smart shelves are never promoted to the recents slot — they appear and
+  // disappear based on heuristics, so handing them the recents-slot styling
+  // would make the slot's identity flicker. Only normal (user-defined)
+  // shelves are eligible for promotion.
   const [firstVisibleId, setFirstVisibleId] = useState<string | null>(null);
   useEffect(() => {
     if (!hideRecentsSetting) { setFirstVisibleId(null); return; }
     const rootEl = rootRef.current;
     if (!rootEl) return;
+    const smartIds = new Set(
+      (shelves ?? []).filter((s: any) => s?.source?.type === 'smart').map((s: any) => s.id),
+    );
     const scan = () => {
-      const first = rootEl.querySelector<HTMLElement>('.ds-shelf[data-shelfid]');
-      const id = first?.getAttribute('data-shelfid') ?? null;
-      setFirstVisibleId((prev) => (prev === id ? prev : id));
+      const all = rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]');
+      let pick: string | null = null;
+      for (const el of Array.from(all)) {
+        const id = el.getAttribute('data-shelfid');
+        if (id && !smartIds.has(id)) { pick = id; break; }
+      }
+      setFirstVisibleId((prev) => (prev === pick ? prev : pick));
     };
     scan();
     const obs = new MutationObserver(scan);
@@ -673,6 +693,24 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     allowedPointerTypes: ['mouse', 'touch'],
   });
 
+  // Visual interleave: when needed, REORDER the shelves array so the DOM
+  // matches the visual order. CSS `order` was tried but it doesn't move
+  // gamepad/accessibility focus — navigation followed DOM order, jumping
+  // from promoted to "rest of normal" without visiting smart in between.
+  // Reordering at React level fixes both rendering and navigation in one
+  // pass. Falls back to the original `shelves` array when interleave is
+  // off OR when `firstVisibleId` isn't yet known.
+  const orderedShelves = useMemo(() => {
+    if (!interleaveSmart || !firstVisibleId) return shelves;
+    const normals = shelves.filter((s: any) => s?.source?.type !== 'smart');
+    const smarts  = shelves.filter((s: any) => s?.source?.type === 'smart');
+    const firstIdx = normals.findIndex((s: any) => s.id === firstVisibleId);
+    if (firstIdx < 0) return shelves;
+    const first = normals[firstIdx];
+    const rest = normals.filter((_: any, i: number) => i !== firstIdx);
+    return [first, ...smarts, ...rest];
+  }, [shelves, interleaveSmart, firstVisibleId]);
+
   return (
     <Focusable
       ref={rootRef}
@@ -681,7 +719,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}
-      {shelves.map((shelf) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} />)}
+      {orderedShelves.map((shelf: any) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} />)}
     </Focusable>
   );
 }

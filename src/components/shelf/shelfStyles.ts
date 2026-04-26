@@ -278,6 +278,28 @@ function buildStylesheet(): string {
     .Panel.ds-shelf { background: transparent !important; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+    /* When the first shelf is promoted into the native recents slot via
+       Opção B, it inherits the native rule  ._39tNvaLedsTrVh0fFsP4Jm
+       { height: 105vh } . The 105vh extends 5% past the viewport, so cards
+       laid out at the bottom of that box end up clipped below the visible
+       area. Cap to the visible content height (subtract our mount offset)
+       so the row sits at the visible bottom. Flex column + margin-top:auto
+       on the row pushes cards to that bottom, matching ArtHero's layout
+       (hero art fills above the cards). The title is hidden — when ArtHero
+       is active this slot is the hero region, native recents have no
+       visible title, and showing ours would clutter the hero. */
+    .ds-shelf[data-ds-recents-slot="true"] {
+      display: flex !important;
+      flex-direction: column;
+      height: calc(100vh - 56px) !important;
+    }
+    .ds-shelf[data-ds-recents-slot="true"] .ds-shelf-title {
+      display: none;
+    }
+    .ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll {
+      margin-top: auto;
+    }
     .ds-card {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       overflow: hidden;
@@ -365,6 +387,44 @@ function buildStylesheet(): string {
     .ds-card:hover .ds-card-art {
       z-index: 2;
     }
+
+    /* TiltedHome (Renaissance) compat — universal: when a CSS Loader theme
+       sets --ren-tilt-angle on :root, our cards mirror the same skew the
+       theme applies to native recents tiles. var() without a fallback on
+       the angle means the whole transform is invalid (and dropped) when no
+       theme defines it — zero GPU/composite cost in the no-theme case.
+
+       The transform targets the img inside .ds-card-art rather than the
+       container, because the container is absolutely positioned inside a
+       .ds-card with overflow:visible — transforming the container would
+       scale it past the card edges into neighboring cards. The img lives
+       inside .ds-card-art (overflow:hidden) so the skew/scale is clipped.
+
+       The cover scale is COMPUTED, not fixed: for a HxW box sheared by
+       angle theta, the parallelogram fully encloses the original rect
+       when scaled by 1 + abs(tan(theta)) * (H/W). The H/W ratio is
+       published per card as --ds-card-h-w-ratio (set in GameCard.tsx) so
+       featured (landscape) and portrait cards each get the minimum scale
+       needed to cover their own skew gap — no overshooting, no wedges. */
+    /* abs() is not supported in the Chromium build that ships with SteamOS,
+       but max() and tan() are. abs(tan(x)) is computed via
+       max(tan(x), tan(0 - x)) — for any real x, exactly one of the two
+       tan() calls is positive (or both zero), so max() returns |tan(x)|. */
+    .ds-card-art img {
+      transform: skew(var(--ren-tilt-angle))
+                 scale(calc(1 + max(tan(var(--ren-tilt-angle)), tan(calc(0deg - var(--ren-tilt-angle)))) * var(--ds-card-h-w-ratio, 1.5)));
+      transition: transform 0.4s;
+    }
+    .ds-card.gpfocus .ds-card-art img,
+    .ds-card:focus .ds-card-art img,
+    .ds-card:hover .ds-card-art img {
+      /* Focus state: same parametric coverage scale, plus a small
+         multiplicative bump that mirrors the native scale(1.02) lift —
+         expressed as +2% of whatever the cover scale resolved to. */
+      transform: skew(var(--ren-tilt-angle))
+                 scale(calc((1 + max(tan(var(--ren-tilt-angle)), tan(calc(0deg - var(--ren-tilt-angle)))) * var(--ds-card-h-w-ratio, 1.5)) * 1.02));
+    }
+
     .ds-card .ds-card-label {
       opacity: 0;
       transition: opacity .15s ease;
