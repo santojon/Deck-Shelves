@@ -2089,9 +2089,9 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       const apps = await getAllAppOverviews();
       const smartFilterGroup = (source as any).filterGroup;
       const smartParams = (source as any).smartParams as Record<string, number> | undefined;
-      const refreshIntervalHours = (source as any).refreshIntervalHours as number | undefined;
-      const ttlMs = typeof refreshIntervalHours === "number" && refreshIntervalHours > 0
-        ? refreshIntervalHours * 3600 * 1000
+      const refreshIntervalMinutes = (source as any).refreshIntervalMinutes as number | undefined;
+      const ttlMs = typeof refreshIntervalMinutes === "number" && refreshIntervalMinutes > 0
+        ? refreshIntervalMinutes * 60 * 1000
         : undefined;
       // If the user added extra filters, resolve smart without a limit first
       // so filtering doesn't prematurely truncate candidates, then apply the

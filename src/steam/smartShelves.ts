@@ -7,7 +7,7 @@ const DECK_VERIFIED = 3;
 const DECK_PLAYABLE = 2;
 
 const resolverCache = new Map<string, { ts: number; ids: number[] }>();
-const DEFAULT_SMART_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_SMART_TTL_MS = 60 * 60 * 1000;
 
 function cached(key: string, ttlMs: number, fn: () => number[]): number[] {
   const entry = resolverCache.get(key);
@@ -193,7 +193,7 @@ function resolveSpareTime(apps: AppOverview[], limit: number): number[] {
  * `params` are per-mode tuning knobs (see `smartParams.ts`); missing keys
  * fall back to the resolver's hardcoded defaults.
  *
- * `ttlMs` overrides the default 5-minute cache window. A user can set this
+ * `ttlMs` overrides the default 60-minute cache window. A user can set this
  * via the EditSmartShelfModal `refreshIntervalHours` field — the same mode
  * with a longer TTL stays cached longer; a shorter TTL refreshes sooner.
  * Cache key includes mode + limit + serialized params + ttlMs so different

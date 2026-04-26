@@ -378,7 +378,7 @@ export function HomeShelves() {
             mode: s.mode,
             filterGroup: (s as any).filterGroup,
             smartParams: (s as any).smartParams,
-            refreshIntervalHours: (s as any).refreshIntervalHours,
+            refreshIntervalMinutes: (s as any).refreshIntervalMinutes,
           } as any,
           // Surface user-configured overrides so resolveShelfAppIds +
           // Shelf.tsx can apply them on top of the mode's candidates.

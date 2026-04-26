@@ -186,13 +186,15 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                     continue
             if ss_highlighted_ids:
                 entry["highlightedAppIds"] = ss_highlighted_ids
-        # refreshIntervalHours: optional float in [0, 720]; 0 means "use default".
+        # refreshIntervalMinutes: optional positive int in [1, 43200] (= 30 days).
+        # Missing / unparseable / out-of-range values fall back to the resolver's
+        # default 60-minute TTL.
         try:
-            ri = ss.get("refreshIntervalHours")
+            ri = ss.get("refreshIntervalMinutes")
             if ri is not None:
-                ri_num = float(ri)
-                if ri_num > 0 and ri_num <= 720:
-                    entry["refreshIntervalHours"] = ri_num
+                ri_num = int(float(ri))
+                if 1 <= ri_num <= 43200:
+                    entry["refreshIntervalMinutes"] = ri_num
         except Exception:
             pass
         # smartParams: dict of string -> finite number. Only persist keys whose

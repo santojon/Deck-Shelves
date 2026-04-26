@@ -113,10 +113,10 @@ export const SmartShelfSchema = z.object({
   hideNewBadge: z.boolean().optional(),
   hideCompatIcons: z.boolean().optional(),
   hideNonSteamBadge: z.boolean().optional(),
-  // Optional refresh cadence in hours. When unset (or 0) the resolver uses
-  // its default 5-minute TTL; otherwise the cached result is reused for
-  // `refreshIntervalHours * 3600 * 1000` ms.
-  refreshIntervalHours: z.number().min(0).max(720).optional(),
+  // Optional refresh cadence in minutes. When unset the resolver uses its
+  // default 60-minute TTL; otherwise the cached result is reused for
+  // `refreshIntervalMinutes * 60 * 1000` ms. Capped at 30 days.
+  refreshIntervalMinutes: z.number().int().min(1).max(43200).optional(),
   // Per-mode tuning knobs for the heuristic resolvers. Keys are mode-specific
   // (see `SMART_PARAM_META` in `src/steam/smartParams.ts`); values are
   // numbers. Missing entries fall back to the resolver's hardcoded defaults.

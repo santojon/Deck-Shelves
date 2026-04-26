@@ -6,6 +6,7 @@ import {
   Focusable,
   SliderField,
   Tabs,
+  TextField,
   ToggleField,
 } from '@decky/ui'
 import type { SingleDropdownOption } from '@decky/ui'
@@ -24,7 +25,13 @@ import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { ModalHeader } from './editShelf/ModalHeader'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
+import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode } from '../../../steam/smartParams'
+
+// Effective TTL when `refreshIntervalMinutes` is unset on a shelf — must
+// match `DEFAULT_SMART_TTL_MS` in `src/steam/smartShelves.ts`. Used to
+// pre-fill the edit field so users see the actual current cadence.
+const DEFAULT_REFRESH_MINUTES = 60
 
 type Tab = 'source' | 'filters' | 'visual' | 'display'
 
@@ -44,7 +51,7 @@ type EditState = {
   hideNewBadge: boolean
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
-  refreshIntervalHours: number
+  refreshIntervalMinutes: number
   smartParams: Record<string, number>
 }
 
@@ -69,9 +76,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     hideNewBadge: (shelf as any).hideNewBadge ?? false,
     hideCompatIcons: (shelf as any).hideCompatIcons ?? false,
     hideNonSteamBadge: (shelf as any).hideNonSteamBadge ?? false,
-    refreshIntervalHours: (shelf as any).refreshIntervalHours ?? 0,
+    refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
     smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
   })
+  // Buffered text representation of the refresh-interval field — keeps the
+  // user free to clear / partially edit the input without immediately
+  // collapsing it back to the default. Committed to numeric state on blur.
+  const [refreshDraft, setRefreshDraft] = useState<string>(String((shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES))
 
   const paramKeys = useMemo(() => paramKeysForMode(shelf.mode), [shelf.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
@@ -110,10 +121,12 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     const base: any = { type: 'smart' as const, mode: shelf.mode }
     if (state.filterEnabled && state.filterGroup.items.length > 0) base.filterGroup = state.filterGroup
     if (paramKeys.length) base.smartParams = state.smartParams
-    if (state.refreshIntervalHours > 0) base.refreshIntervalHours = state.refreshIntervalHours
+    if (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES) {
+      base.refreshIntervalMinutes = state.refreshIntervalMinutes
+    }
     return base
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shelf.mode, state.filterEnabled, state.filterGroup, smartParamsKey, state.refreshIntervalHours, paramKeys.length])
+  }, [shelf.mode, state.filterEnabled, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length])
 
   useEffect(() => {
     let cancelled = false
@@ -168,7 +181,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       ;(patch as any).hideNewBadge = state.hideNewBadge
       ;(patch as any).hideCompatIcons = state.hideCompatIcons
       ;(patch as any).hideNonSteamBadge = state.hideNonSteamBadge
-      ;(patch as any).refreshIntervalHours = state.refreshIntervalHours > 0 ? state.refreshIntervalHours : undefined
+      // Only persist when the user diverged from the default cadence; otherwise
+      // omit so the shelf inherits whatever the resolver default ends up being.
+      ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
+        ? state.refreshIntervalMinutes
+        : undefined
       // Only persist params that diverge from the mode's defaults — keeps the
       // settings JSON minimal and lets future default tweaks reach existing shelves.
       const defaults = SMART_PARAM_DEFAULTS[shelf.mode] ?? {}
@@ -225,16 +242,38 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                       {isManual && (
                         <DropdownItem label={t('manual_base_sort')} rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} bottomSeparator='thick' />
                       )}
-                      <SliderField
-                        label={state.refreshIntervalHours > 0 ? `${t('smart_refresh_interval')} (${state.refreshIntervalHours} h)` : t('smart_refresh_interval_default')}
+                      <Field
+                        label={t('smart_refresh_interval')}
                         description={t('smart_refresh_interval_desc')}
-                        value={state.refreshIntervalHours}
-                        min={0}
-                        max={72}
-                        step={1}
                         bottomSeparator='thick'
-                        onChange={(value: number) => setState((prev) => ({ ...prev, refreshIntervalHours: value }))}
-                      />
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <TextField
+                              value={refreshDraft}
+                              onChange={(value: unknown) => {
+                                const text = textFromDeckyChange(value)
+                                // Strip any non-digit so the input stays purely numeric on
+                                // gamepad/touch keyboards that allow letters through.
+                                const digits = text.replace(/[^0-9]/g, '')
+                                setRefreshDraft(digits)
+                                if (digits === '') return
+                                const n = Math.max(1, Math.min(43200, parseInt(digits, 10) || DEFAULT_REFRESH_MINUTES))
+                                setState((prev) => ({ ...prev, refreshIntervalMinutes: n }))
+                              }}
+                              onBlur={() => {
+                                // Normalize empty / out-of-range input back to the default
+                                // when the user leaves the field.
+                                const n = parseInt(refreshDraft, 10)
+                                const clamped = Number.isFinite(n) ? Math.max(1, Math.min(43200, n)) : DEFAULT_REFRESH_MINUTES
+                                setRefreshDraft(String(clamped))
+                                setState((prev) => ({ ...prev, refreshIntervalMinutes: clamped }))
+                              }}
+                            />
+                          </div>
+                          <span style={{ opacity: 0.7, fontSize: 13, whiteSpace: 'nowrap' }}>{t('smart_unit_min')}</span>
+                        </div>
+                      </Field>
                       {paramKeys.map((key) => {
                         const meta = SMART_PARAM_META[key]
                         if (!meta) return null
