@@ -145,9 +145,9 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 
 Visible in the QAM when at least one filter has been saved from the **Edit shelf → Filters** tab. Hidden automatically when empty.
 
-<!-- <p align="center">
+<p align="center">
   <img src="assets/screenshots/saved-filters-qam.png" alt="Deck Shelves — Saved Filters section in QAM" width="314">
-</p> -->
+</p>
 
 #### Global Toggles
 
