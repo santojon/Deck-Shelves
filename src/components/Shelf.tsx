@@ -12,6 +12,7 @@ import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 import { applyManualOrder } from "../steam";
+import { invalidateSmartShelfCache } from "../steam/smartShelves";
 
 const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -41,6 +42,10 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // rapid-toggles sort or edits the filter while the previous fetch is
   // still pending).
   const resolveGenRef = useRef(0);
+  // Exposed so the in-row refresh card (smart shelves with a refresh interval)
+  // can re-trigger this shelf's resolve() without going through the global
+  // refresh emitter — only this shelf's appIds need to flip.
+  const resolveRef = useRef<() => void>(() => {});
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
@@ -88,6 +93,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
 
     // Initial load
     resolve();
+    resolveRef.current = resolve;
 
     // Subscribe to global refresh emitter (replaces per-shelf polling timer)
     const unsubRefresh = subscribeShelfRefresh(resolve);
@@ -151,12 +157,42 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       }];
     });
     if (!base.length) return base;
-    base.push({
-      id: `${shelf.id}__more`,
-      name: t('view_more'),
-      isMoreLink: true,
-      onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
-    });
+    // Trailing card rules:
+    //   - Smart shelf with a refreshable mode → refresh card (resolver result
+    //     can actually change between clicks: random shuffle, time-window
+    //     modes, recently_played cutoff sliding).
+    //   - Smart shelf with a deterministic mode → no trailing card. Adding
+    //     view-more would mislead (the smart resolver can't be opened in the
+    //     library directly), and refresh would be a no-op against stable
+    //     app data.
+    //   - Non-smart shelf → view-more-in-library card pointing at the source.
+    const REFRESHABLE_SMART_MODES: readonly string[] = [
+      'random_pick',
+      'time_of_day',
+      'spare_time',
+      'recently_played',
+    ];
+    const src: any = shelf.source;
+    const isSmart = src?.type === 'smart';
+    const isRefreshableSmart = isSmart && REFRESHABLE_SMART_MODES.includes(src.mode);
+    if (isRefreshableSmart) {
+      base.push({
+        id: `${shelf.id}__refresh`,
+        name: t('refresh'),
+        isRefresh: true,
+        onActivate: () => {
+          invalidateSmartShelfCache();
+          resolveRef.current();
+        },
+      });
+    } else if (!isSmart) {
+      base.push({
+        id: `${shelf.id}__more`,
+        name: t('view_more'),
+        isMoreLink: true,
+        onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
+      });
+    }
     return base;
   }, [appIds, items, shelf.id, shelf.source, shelf.title, platform, t]);
 

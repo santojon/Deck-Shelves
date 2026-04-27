@@ -272,17 +272,95 @@ function buildStylesheet(): string {
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
+      --ds-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
+      --ds-row-base-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
     #deck-shelves-home-root { margin-top: -32px !important; }
     .deck-shelves-root { background: transparent; }
     .Panel.ds-shelf { background: transparent !important; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+    /* The Opção B promotion adds the native wrapper class to our first
+       shelf so theme rules (Obsidian backgrounds, Delly fades, ArtHero
+       hero/mask, etc.) reach our shelf naturally. But that wrapper class
+       also drags in the native rule ._39tNvaLedsTrVh0fFsP4Jm { height:
+       105vh }, which would inflate our shelf to 5% past the viewport.
+       Reset it to auto unconditionally so the shelf is compact (just
+       title + row) by default. The ArtHero-specific layout below then
+       opts back into the tall flex container only when needed. */
+    .ds-shelf[data-ds-recents-slot="true"] {
+      height: auto !important;
+    }
+
+    /* ArtHero (and any future hero-label theme) opts into the full layout:
+       full-height shelf, title hidden, cards flexed to the bottom — so the
+       hero overlay can fill the visible area above the row exactly the way
+       native recents do. Gated on the data-ds-hero-label attribute (set by
+       HeroBackground when an ArtHero-family theme is detected) so that
+       deactivating ArtHero reverts the layout to the compact default
+       above without any code change. */
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
+      display: flex !important;
+      flex-direction: column;
+      height: calc(100vh - 56px) !important;
+    }
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-shelf-title {
+      display: none !important;
+    }
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll {
+      margin-top: auto;
+    }
+
+    /* Hero-label overlay (ArtHero etc.): when the active theme requires the
+       focused card's info to be shown above the row, HeroBackground clones
+       the .ds-card-label DOM into a wrapper here. The cloned label keeps
+       its own classes (so all formatting matches the in-card label exactly)
+       but its inline position:absolute / top:artH was meaningful only
+       inside the card — reset it to static here so it lays out naturally
+       in the wrapper. The original in-card label is hidden so the focused
+       card doesn't render the same label twice. */
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label {
+      display: none !important;
+    }
+    .ds-promoted-hero-label .ds-card-label {
+      position: static !important;
+      top: auto !important;
+      left: auto !important;
+      width: auto !important;
+      padding-top: 0 !important;
+      opacity: 1 !important;
+    }
+    /* Match native ArtHero text scale: 22px / weight 800 for the name,
+       ~14.7px / weight 700 for the status. Status icons are dropped — the
+       native overlay shows just text (e.g. "Last two weeks: 2 min"), no
+       download / play / update icons. */
+    .ds-promoted-hero-label .ds-card-label-name {
+      font-size: 22px !important;
+      font-weight: 800 !important;
+      line-height: 1.15 !important;
+      white-space: nowrap !important;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
+    }
+    .ds-promoted-hero-label .ds-card-status {
+      font-size: 14.6667px !important;
+      font-weight: 700 !important;
+      opacity: 1 !important;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+    }
+    /* Hide only the play icon (installed + no pending update). The download
+       icon (not installed) and the update icon (installed + update pending)
+       stay visible — they convey actionable state the user needs to see. */
+    .ds-promoted-hero-label .ds-card-status-icon.ds-card-status-play {
+      display: none !important;
+    }
     .ds-card {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       overflow: hidden;
       filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease, transform 0.4s;
       will-change: width, height;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
@@ -338,6 +416,18 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer { display: none !important; }
+    /* Refresh icon spin — driven by class added on click via DOM (not React
+       state) so the animation survives the upstream setAppIds() that may
+       reconcile the row while playing. The class is re-added each click via
+       a remove + reflow + add sequence so consecutive clicks restart the
+       spin from 0deg instead of stuttering. */
+    @keyframes ds-refresh-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .ds-refresh-icon.ds-refresh-spinning {
+      animation: ds-refresh-spin 0.7s cubic-bezier(0.4, 0.05, 0.4, 1);
+    }
     @keyframes ds-shelf-shimmer {
       0% { background-position: 0% 0%; opacity: 0; }
       40% { opacity: 1; }
@@ -365,6 +455,46 @@ function buildStylesheet(): string {
     .ds-card:hover .ds-card-art {
       z-index: 2;
     }
+
+    /* TiltedHome (Renaissance) compat — universal: when a CSS Loader theme
+       sets --ren-tilt-angle on :root, our cards mirror the same skew the
+       theme applies to native recents tiles. var() without a fallback on
+       the angle means the whole transform is invalid (and dropped) when no
+       theme defines it — zero GPU/composite cost in the no-theme case.
+
+       The skew is on .ds-card (the visual card wrapper) so the entire card
+       structure tilts as a parallelogram — image, label, focus glow, and
+       blank-card variants (MoreCard, RefreshCard) all participate. .ds-card
+       already has overflow:hidden so children clip to the skewed bounds,
+       matching native TiltedHome. Focus adds scale(1.02) only — native
+       TiltedHome's focused-tile rule. */
+    .ds-card {
+      transform: skew(var(--ren-tilt-angle));
+    }
+    /* Focus state — covers gpfocus (gamepad focus on the card itself),
+       is-selected (Steam's selected-tile marker), and the live :focus /
+       :hover pseudos. NOTE: .gpfocuswithin is intentionally excluded — it
+       fires on EVERY card whenever a descendant of the row has focus, so
+       including it would scale every card and erase the focus indicator.
+
+       Steam also injects a higher-specificity rule
+       (.BasicUI .NATIVE-CLASS.Focusable:focus { transform: translateZ(15px) })
+       that strips our skew on the truly-focused card. !important wins the
+       cascade; translateZ(15px) preserves the native depth lift so the
+       focused card still floats above its neighbors. */
+    .ds-card.gpfocus,
+    .ds-card.is-selected,
+    .ds-card:focus,
+    .ds-card:hover {
+      transform: skew(var(--ren-tilt-angle)) scale(1.02) translateZ(15px) !important;
+    }
+    /* No row-gap compensation: native TiltedHome accepts visual overlap of
+       adjacent skewed cards as part of the aesthetic, and trying to widen
+       the gap to fully separate parallelograms leaves obvious empty space
+       between focused cards (the focus glow then has to travel through
+       that gap). Match native: cards skewed, gap stays at the row's
+       configured value, parallelograms gently overlap. */
+
     .ds-card .ds-card-label {
       opacity: 0;
       transition: opacity .15s ease;

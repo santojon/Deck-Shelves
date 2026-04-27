@@ -54,18 +54,41 @@ const OPTIONAL = [
   { file: "saved-filters-qam.png", surface: "qam-popup" },
 ];
 
-// Surface profiles — per-surface size bounds and expected dimensions.
+// Surface profiles — per-surface size bounds and an aspect-ratio window
+// (width / height) instead of raw dimensions. Steam BP and the QAM popup
+// can both shift surface size between releases (window chrome reshuffle,
+// DPR change, layout tweak); raw-dim allowlists drift constantly and
+// invalidate fresh captures whenever Steam ships an update. The aspect
+// window survives DPR scaling and minor viewport changes while still
+// catching the real failure mode this check exists to prevent: a QAM
+// popup capture (always portrait) accidentally getting saved into a
+// Big Picture slot (always landscape), or vice-versa. The two ranges
+// don't overlap, so a misfile-d capture flips clearly to the wrong bucket.
 //
-// QAM popup PNGs (522×741) span a wide compression range: a panel with
-// sparse content on the dark theme background can land at ~38-40 KB, while
-// a fully-populated section sits at 90-150 KB. The dimension check is the
-// real "right surface" signal; `minSize` only catches truly-empty PNGs
-// (compressed dark uniform fill, well under 20 KB). Keep this in sync with
-// `QAM_CAPTURE_BLANK_THRESHOLD` in
+// `minWidth` filters out tiny / cropped captures that happen to land in
+// the right aspect range by accident.
+//
+// QAM popup PNGs span a wide compression range: a panel with sparse
+// content on the dark theme background can land at ~38-40 KB, while a
+// fully-populated section sits at 90-150 KB. `minSize` catches truly-
+// empty PNGs (compressed dark uniform fill, well under 20 KB). Keep in
+// sync with `QAM_CAPTURE_BLANK_THRESHOLD` in
 // `scripts/devtools/deck/screenshots/screenshot.py`.
 const SURFACES = {
-  "qam-popup":   { minSize: 20_000,  maxSize: 250_000,   width: 522,  height: 741 },
-  "big-picture": { minSize: 60_000,  maxSize: 3_000_000, width: 1281, height: 801 },
+  "qam-popup": {
+    minSize: 20_000,
+    maxSize: 250_000,
+    aspectRange: [0.30, 0.85],  // portrait: 522×741 → 0.704 ; 597×1377 → 0.434
+    minWidth: 400,
+  },
+  "big-picture": {
+    minSize: 60_000,
+    // Bumped from 3 MB to 5 MB — high-DPR captures of image-heavy home
+    // views push individual PNGs past 4 MB.
+    maxSize: 5_000_000,
+    aspectRange: [1.40, 2.00],  // landscape: 1281×801 → 1.599 ; 2562×1442 → 1.777
+    minWidth: 1000,
+  },
 };
 
 // PNG magic bytes
@@ -124,10 +147,22 @@ function validate(entry, { required }) {
     return;
   }
 
-  if (profile.width && profile.height) {
+  if (Array.isArray(profile.aspectRange) && profile.aspectRange.length === 2) {
     const dim = readPngDimensions(path);
-    if (dim && (dim.width !== profile.width || dim.height !== profile.height)) {
-      console.error(`WRONG DIMENSIONS  ${file} (${dim.width}x${dim.height}, expected ${profile.width}x${profile.height} for ${surface ?? "big-picture"})`);
+    if (!dim || dim.width <= 0 || dim.height <= 0) {
+      console.error(`UNREADABLE  ${file} (PNG header missing IHDR dims)`);
+      errors++;
+      return;
+    }
+    if (profile.minWidth && dim.width < profile.minWidth) {
+      console.error(`TOO NARROW  ${file} (${dim.width}px wide, min ${profile.minWidth}px for ${surface ?? "big-picture"})`);
+      errors++;
+      return;
+    }
+    const aspect = dim.width / dim.height;
+    const [minA, maxA] = profile.aspectRange;
+    if (aspect < minA || aspect > maxA) {
+      console.error(`WRONG ASPECT  ${file} (${dim.width}x${dim.height} ratio ${aspect.toFixed(3)}, expected ${minA.toFixed(2)}–${maxA.toFixed(2)} for ${surface ?? "big-picture"})`);
       errors++;
       return;
     }
@@ -145,7 +180,9 @@ if (errors > 0) {
   console.error("  MISSING          → capture is absent. Rerun `python3 scripts/devtools/deck/screenshots/screenshot.py`.");
   console.error("  TOO SMALL        → QAM popup frame is blank (compositor not ready). Rerun; the capture script retries on blanks.");
   console.error("  WRONG SURFACE    → a Big Picture screenshot was saved for a file expected to be a QAM popup capture. Rerun with the current script.");
-  console.error("  WRONG DIMENSIONS → the PNG dims don't match the surface. Inspect the file; the surface profile may have drifted.");
+  console.error("  WRONG ASPECT     → the PNG ratio is outside the expected window for this surface (BP=landscape, QAM=portrait). Likely the file was saved into the wrong slot.");
+  console.error("  TOO NARROW       → the capture is below the minimum width for this surface (cropped, scaled, or wrong context).");
+  console.error("  UNREADABLE       → the PNG IHDR chunk is missing or malformed.");
   process.exit(1);
 } else {
   const required = EXPECTED.length;
