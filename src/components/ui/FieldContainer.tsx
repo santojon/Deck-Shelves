@@ -41,10 +41,18 @@ export function FieldContainer({
     return () => { el.removeEventListener('focusin', onFocusIn) }
   }, [scrollable])
 
+  // Decky's Field component uses width: 100%+84px with margin: -42px each
+  // side — designed for parent containers with 42px h-padding (matches the
+  // Tabs panel's own 41.95px). With our prior 24px padding, the field's
+  // negative margin pushed content 18px past our edge on each side. In
+  // non-scrollable mode (overflow:visible) that just spilled visually; in
+  // scrollable mode (overflowX:hidden) the right edge was CLIPPED, making
+  // Source/Visual tabs look "narrower" than Filters/Display. 42px aligns
+  // with Decky's expectation so fields render flush within FC bounds.
   const base: CSSProperties = {
-    padding: '0 24px',
+    padding: '0 42px',
     boxSizing: 'border-box',
-    ...(scrollable ? { maxHeight: 370, overflowY: 'auto', overflowX: 'hidden' } : {}),
+    ...(scrollable ? { maxHeight: 'min(calc(100vh - 280px), 660px)', overflowY: 'auto', overflowX: 'hidden' } : {}),
     ...style,
   }
   return <div ref={ref} className='field-item-container' style={base}>{children}</div>

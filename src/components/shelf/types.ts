@@ -4,6 +4,7 @@ export type DeckRowItem = {
   portraitUrl?: string;
   heroUrl?: string;
   isMoreLink?: boolean;
+  isRefresh?: boolean;
   onActivate?: () => void;
   onMenuButton?: (evt: any) => void;
   appid?: number;

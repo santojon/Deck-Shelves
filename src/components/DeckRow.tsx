@@ -18,6 +18,7 @@ export { PlaceholderCard } from "./shelf/PlaceholderCard";
 import { type DeckRowItem, CARD_W, CARD_ART_H, CARD_GAP } from "./shelf/types";
 import { GameCard } from "./shelf/GameCard";
 import { MoreCard } from "./shelf/MoreCard";
+import { RefreshCard } from "./shelf/RefreshCard";
 import {
   getCachedNativeDims,
   globalStylesStart,
@@ -450,6 +451,9 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
           flow-children="horizontal"
         >
           {items.map((item, idx) => {
+            if (item.isRefresh) {
+              return <RefreshCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />;
+            }
             if (item.isMoreLink) {
               return <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />;
             }

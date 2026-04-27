@@ -605,15 +605,25 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     if (!hideRecentsSetting) { setFirstVisibleId(null); return; }
     const rootEl = rootRef.current;
     if (!rootEl) return;
-    const smartIds = new Set(
-      (shelves ?? []).filter((s: any) => s?.source?.type === 'smart').map((s: any) => s.id),
-    );
+    // Walk shelves in CONFIG order (not DOM order) and pick the first
+    // non-smart shelf that's currently rendering content. Two reasons:
+    //   1. Skip empty/unresolved shelves so a 0-apps first shelf does not
+    //      get promoted while another shelf's content sits below with the
+    //      empty shelf's title still nominally claiming the slot.
+    //   2. Keep the candidate stable regardless of which shelf finishes
+    //      resolving first — pure DOM-order scans pick the fastest
+    //      resolver, which often is a non-Steam / smaller shelf instead of
+    //      the user's intended first shelf.
     const scan = () => {
-      const all = rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]');
+      const renderedIds = new Set(
+        Array.from(rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]'))
+          .map((el) => el.getAttribute('data-shelfid'))
+          .filter((id): id is string => !!id),
+      );
       let pick: string | null = null;
-      for (const el of Array.from(all)) {
-        const id = el.getAttribute('data-shelfid');
-        if (id && !smartIds.has(id)) { pick = id; break; }
+      for (const sh of (shelves ?? [])) {
+        if (!sh || (sh as any).source?.type === 'smart') continue;
+        if (renderedIds.has(sh.id)) { pick = sh.id; break; }
       }
       setFirstVisibleId((prev) => (prev === pick ? prev : pick));
     };

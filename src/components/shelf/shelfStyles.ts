@@ -272,6 +272,8 @@ function buildStylesheet(): string {
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
+      --ds-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
+      --ds-row-base-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
     #deck-shelves-home-root { margin-top: -32px !important; }
     .deck-shelves-root { background: transparent; }
@@ -358,7 +360,7 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       overflow: hidden;
       filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease, transform 0.4s;
       will-change: width, height;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
@@ -414,6 +416,18 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer { display: none !important; }
+    /* Refresh icon spin — driven by class added on click via DOM (not React
+       state) so the animation survives the upstream setAppIds() that may
+       reconcile the row while playing. The class is re-added each click via
+       a remove + reflow + add sequence so consecutive clicks restart the
+       spin from 0deg instead of stuttering. */
+    @keyframes ds-refresh-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .ds-refresh-icon.ds-refresh-spinning {
+      animation: ds-refresh-spin 0.7s cubic-bezier(0.4, 0.05, 0.4, 1);
+    }
     @keyframes ds-shelf-shimmer {
       0% { background-position: 0% 0%; opacity: 0; }
       40% { opacity: 1; }
@@ -448,36 +462,38 @@ function buildStylesheet(): string {
        the angle means the whole transform is invalid (and dropped) when no
        theme defines it — zero GPU/composite cost in the no-theme case.
 
-       The transform targets the img inside .ds-card-art rather than the
-       container, because the container is absolutely positioned inside a
-       .ds-card with overflow:visible — transforming the container would
-       scale it past the card edges into neighboring cards. The img lives
-       inside .ds-card-art (overflow:hidden) so the skew/scale is clipped.
+       The skew is on .ds-card (the visual card wrapper) so the entire card
+       structure tilts as a parallelogram — image, label, focus glow, and
+       blank-card variants (MoreCard, RefreshCard) all participate. .ds-card
+       already has overflow:hidden so children clip to the skewed bounds,
+       matching native TiltedHome. Focus adds scale(1.02) only — native
+       TiltedHome's focused-tile rule. */
+    .ds-card {
+      transform: skew(var(--ren-tilt-angle));
+    }
+    /* Focus state — covers gpfocus (gamepad focus on the card itself),
+       is-selected (Steam's selected-tile marker), and the live :focus /
+       :hover pseudos. NOTE: .gpfocuswithin is intentionally excluded — it
+       fires on EVERY card whenever a descendant of the row has focus, so
+       including it would scale every card and erase the focus indicator.
 
-       The cover scale is COMPUTED, not fixed: for a HxW box sheared by
-       angle theta, the parallelogram fully encloses the original rect
-       when scaled by 1 + abs(tan(theta)) * (H/W). The H/W ratio is
-       published per card as --ds-card-h-w-ratio (set in GameCard.tsx) so
-       featured (landscape) and portrait cards each get the minimum scale
-       needed to cover their own skew gap — no overshooting, no wedges. */
-    /* abs() is not supported in the Chromium build that ships with SteamOS,
-       but max() and tan() are. abs(tan(x)) is computed via
-       max(tan(x), tan(0 - x)) — for any real x, exactly one of the two
-       tan() calls is positive (or both zero), so max() returns |tan(x)|. */
-    .ds-card-art img {
-      transform: skew(var(--ren-tilt-angle))
-                 scale(calc(1 + max(tan(var(--ren-tilt-angle)), tan(calc(0deg - var(--ren-tilt-angle)))) * var(--ds-card-h-w-ratio, 1.5)));
-      transition: transform 0.4s;
+       Steam also injects a higher-specificity rule
+       (.BasicUI .NATIVE-CLASS.Focusable:focus { transform: translateZ(15px) })
+       that strips our skew on the truly-focused card. !important wins the
+       cascade; translateZ(15px) preserves the native depth lift so the
+       focused card still floats above its neighbors. */
+    .ds-card.gpfocus,
+    .ds-card.is-selected,
+    .ds-card:focus,
+    .ds-card:hover {
+      transform: skew(var(--ren-tilt-angle)) scale(1.02) translateZ(15px) !important;
     }
-    .ds-card.gpfocus .ds-card-art img,
-    .ds-card:focus .ds-card-art img,
-    .ds-card:hover .ds-card-art img {
-      /* Focus state: same parametric coverage scale, plus a small
-         multiplicative bump that mirrors the native scale(1.02) lift —
-         expressed as +2% of whatever the cover scale resolved to. */
-      transform: skew(var(--ren-tilt-angle))
-                 scale(calc((1 + max(tan(var(--ren-tilt-angle)), tan(calc(0deg - var(--ren-tilt-angle)))) * var(--ds-card-h-w-ratio, 1.5)) * 1.02));
-    }
+    /* No row-gap compensation: native TiltedHome accepts visual overlap of
+       adjacent skewed cards as part of the aesthetic, and trying to widen
+       the gap to fully separate parallelograms leaves obvious empty space
+       between focused cards (the focus glow then has to travel through
+       that gap). Match native: cards skewed, gap stays at the row's
+       configured value, parallelograms gently overlap. */
 
     .ds-card .ds-card-label {
       opacity: 0;

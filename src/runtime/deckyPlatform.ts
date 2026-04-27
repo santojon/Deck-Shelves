@@ -13,6 +13,14 @@ function navigate(appid: number) {
 }
 
 function navigateToShelfSource(source: ShelfSource, _title?: string) {
+  // Original navigation behavior — proven over many releases:
+  //   - collection → /library/collection/<id> (specific collection page)
+  //   - tab        → /library  (Steam BP opens the library on the user's
+  //                  last-active library tab; nothing extra to do here)
+  //   - filter     → /library
+  //   - default    → /library
+  // Bare /library is the canonical "open the library" route. Steam's BP
+  // resolves it to whichever library view the user was last on.
   const steamClient = (globalThis as any).SteamClient ?? (globalThis as any).window?.SteamClient;
   const nav = steamClient?.Navigation ?? Navigation;
   const safeNavigate = (path: string) => {
@@ -24,7 +32,6 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
     try {
       const doc = (globalThis as any).document ?? (globalThis as any).window?.document;
       if (!doc) return false;
-      // Try matching data attributes or anchors that include the collection id
       const selectors = [
         `[data-collection-id="${id}"]`,
         `[data-collection-id*="${id}"]`,
@@ -33,10 +40,7 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
       ];
       for (const s of selectors) {
         const el = doc.querySelector(s) as HTMLElement | null;
-        if (el) {
-          el.click();
-          return true;
-        }
+        if (el) { el.click(); return true; }
       }
     } catch {}
     return false;
@@ -47,8 +51,7 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
     return;
   }
   if (source.type === 'collection') {
-    // Try common navigation paths first
-    const id = String(source.collectionId ?? "");
+    const id = String((source as any).collectionId ?? "");
     if (id) {
       const candidates = [
         `/library/collection/${id}`,
@@ -57,7 +60,6 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
         `/library/collections/${encodeURIComponent(id)}`,
       ];
       for (const p of candidates) if (safeNavigate(p)) return;
-      // Try clicking a link in the DOM that references the collection id
       if (tryClickCollectionLink(id)) return;
     }
     if (safeNavigate('/library/collections')) return;
