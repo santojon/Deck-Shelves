@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-04-27
+
 ### Added
 
 - **Plugin API v2** (`src/core/pluginApi.ts`, `version: 2`): expanded `window.__DECK_SHELVES_API__` with new registries — `registerSmartShelfSource`, `registerFilterType`, `registerSortOption`, `registerImportType`, `registerSavedFilter`, plus matching `getRegistered*` enumerators. v1 surface (`registerShelfSource` / `getRegisteredSources`) preserved unchanged. Registered smart sources, filter types, and sort options are wired into the live resolver paths — registering them is enough to make them work for shelves, filter groups, and sort dropdowns. Consumer-side contracts (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeTo*`) are defined as stable types but stubbed for now (return empty / no-op cleanup); concrete data feed lands in a follow-up release. Comprehensive guide in `docs/plugin-api.md`.

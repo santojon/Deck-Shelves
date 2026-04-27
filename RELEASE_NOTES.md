@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-04-27
+
 ### Added
 
 - **Plugin API v2.** Other plugins can now extend Deck Shelves at runtime — registering custom shelf sources, smart-shelf templates, filter types, sort options, import formats, and pre-baked saved filters. Anything they register becomes available everywhere it would naturally appear (shelf editor dropdowns, smart-shelf picker, filter resolver). Read-only contracts are also exposed for plugins that want to consume Deck Shelves state in the future. Full guide and worked examples in `docs/plugin-api.md`.
