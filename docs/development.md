@@ -73,9 +73,20 @@ pnpm run screenshots:validate
 
 ## CDP Diagnostics
 
+The unified `cdp.py` covers the common debug loop (find target → run probe → check result). See [`cdp.md`](./cdp.md) for the full reference.
+
 ```bash
-# Run a CDP expression on the Deck
-python3 scripts/devtools/deck/tools/cdp_eval.py "document.title"
+# List CDP targets with aliases (bp / qam / sjc / mainmenu)
+python3 scripts/devtools/deck/cdp.py targets
+
+# Evaluate a JS expression in a target
+python3 scripts/devtools/deck/cdp.py eval bp 'document.title'
+
+# Capture a screenshot of the QAM
+python3 scripts/devtools/deck/cdp.py screenshot qam /tmp/qam.png
+
+# Stream console warnings/errors
+python3 scripts/devtools/deck/cdp.py console sjc
 
 # Inject a classmap for testing
 python3 scripts/devtools/deck/tools/inject_classmap.py
