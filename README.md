@@ -440,8 +440,7 @@ SteamUIStore.GamepadNavTree
    cleanup on unmount restores original parent ordering
 ```
 
-#### First-shelf promotion (CSS Loader / ArtHero)
-
+#### First-shelf promotion
 ```
 hideRecentsSetting = true ?  ── no ──► no promotion, no overlay
         │ yes
