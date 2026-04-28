@@ -72,6 +72,3 @@
  ## Safety and cleanup
  - Do not persist sensitive data in `localStorage`. The mapping is safe for UI tokens.
  - Remove or update the mapping when Steam or the UI changes.
-
- ---
- File created by the dev tooling. If you want, I can attempt to run the discovery snippet remotely and return detected tokens from your Deck.
