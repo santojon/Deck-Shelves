@@ -47,9 +47,9 @@ run_checks() {
     ((pass++))
   fi
 
-  if grep -rq "rt_last_time_played\|minutes_playtime\|last_played" "$src" 2>/dev/null; then
+  if grep -rq --exclude-dir=test "rt_last_time_played\|minutes_playtime\|last_played" "$src" 2>/dev/null; then
     local unsafe_access
-    unsafe_access=$(grep -rn "rt_last_time_played\|minutes_playtime\|last_played" "$src" 2>/dev/null | grep -Ev '\?[.:?]|try|catch|//|type |interface ' | head -3)
+    unsafe_access=$(grep -rn --exclude-dir=test "rt_last_time_played\|minutes_playtime\|last_played" "$src" 2>/dev/null | grep -Ev '\?[.:?]|try|catch|//|type |interface ' | head -3)
     if [[ -z "$unsafe_access" ]]; then
       echo "  ✅ Playtime field access is guarded"
       ((pass++))

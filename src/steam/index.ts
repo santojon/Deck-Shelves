@@ -1720,7 +1720,7 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
   return item.inverted ? !result : result;
 }
 
-function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx?: FilterEvalContext): AppOverview[] {
+export function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx?: FilterEvalContext): AppOverview[] {
   if (!group.items || group.items.length === 0) return apps;
   const mode = group.mode ?? "and";
   if (mode === "or") {
@@ -2315,7 +2315,6 @@ const developerCache = new Map<number, string>();
 // Persistent cache in localStorage to survive plugin reloads. Keys: appid -> developer string
 const DEV_CACHE_KEY = 'deck-shelves-dev-cache-v1';
 const DEV_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-let devCacheDirty = false;
 let devCacheSaveTimer: number | null = null;
 
 function loadDeveloperCacheFromStorage() {
@@ -2340,14 +2339,12 @@ function persistDeveloperCacheToStorage() {
     for (const [k, v] of developerCache.entries()) map[String(k)] = v;
     const payload = { ts: Date.now(), map };
     globalThis.localStorage?.setItem(DEV_CACHE_KEY, JSON.stringify(payload));
-    devCacheDirty = false;
     if (devCacheSaveTimer) { clearTimeout(devCacheSaveTimer); devCacheSaveTimer = null; }
   } catch {}
 }
 
 function scheduleDeveloperCachePersist() {
   if (devCacheSaveTimer) return;
-  devCacheDirty = true;
   // debounce write to avoid thrashing
   devCacheSaveTimer = setTimeout(() => { try { persistDeveloperCacheToStorage(); } catch {} }, 1000) as unknown as number;
 }

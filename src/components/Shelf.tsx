@@ -6,6 +6,7 @@ import type { Shelf } from "../types";
 import { usePlatform } from "../runtime/platformContext";
 import type { PlatformAppMeta } from "../runtime/platform";
 import { DeckRow, type DeckRowItem } from "./DeckRow";
+import { REFRESHABLE_SMART_MODES } from "./shelf/types";
 import { showGameMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
@@ -166,12 +167,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     //     library directly), and refresh would be a no-op against stable
     //     app data.
     //   - Non-smart shelf → view-more-in-library card pointing at the source.
-    const REFRESHABLE_SMART_MODES: readonly string[] = [
-      'random_pick',
-      'time_of_day',
-      'spare_time',
-      'recently_played',
-    ];
     const src: any = shelf.source;
     const isSmart = src?.type === 'smart';
     const isRefreshableSmart = isSmart && REFRESHABLE_SMART_MODES.includes(src.mode);

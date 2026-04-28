@@ -5,6 +5,24 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Three new shelf templates surface in the About → Shelves docs.** Steam Cloud, Deck Verified, and Top Reviewed now have proper descriptions in your language — the templates themselves landed earlier; this fills in the help text in all 16 supported languages.
+- **Cleaner translations across the smart shelves docs.** The "Sort: alphabetical / Sort: last session / …" lines that appeared in English on every non-English locale are now translated, plus the smart-shelf parameter labels (Days back, Min/Max playtime, Refresh interval, etc.) and category names (Daily, Discovery, Deck Ready, Anything Goes).
+- **Hide shelf title (per-shelf and global).** New toggle in the QAM Visual section and inside each shelf's Display tab — when on, the row's title block disappears and the cards row stays visible regardless of the collapse state. Useful for theme-heavy setups where the row title duplicates artwork already in the card.
+- **About → Learn more.** New section in the About page with **GitHub** and **Report issue / request feature** buttons (D-pad navigates between them sideways), plus an inline **Other versions** link in the version footer pointing to the releases page.
+- **Lighter, friendlier icons across the QAM and edit modals.** Filters, Display, Sort, Smart Shelves, Saved Filters, About, Behavior, Shelves, Visual Global section headers all picked up matching feather-style icons; Source / Visual / Overview / How to / Shelves docs intentionally stayed icon-free.
+
+### Changed
+
+- **Translations swept across all 16 locales.** Removed 20 unused keys (translation strings that no longer matched any UI surface) and translated 380 strings that had been left in English in non-English locales. Locale files are now sorted alphabetically for stable diffs.
+
+### Fixed
+
+- **"Recently Played" template now opens with the correct source in the edit modal.** A wrong tab id ("recent" — never exposed by Steam) made the source field fall back to the first available option whenever you opened the modal. The template now uses a filter source sorted by recent. Existing affected shelves are migrated automatically the first time you open the plugin after this update.
+- **Mini-card preview no longer clips the green selection outline or focus glow.** The bottom edge of focused cards in the highlight picker / manual-sort row stayed cut by the surrounding container's overflow boundary; preview rows now scroll the focused card fully into view.
+- **ArtHero hero label aligns with the focused card's left edge.** A 40px floor on the label's position offset it 16px to the right when the row sat close to the screen edge — gone now.
+
 ## [1.6.1] - 2026-04-27
 
 ### Added

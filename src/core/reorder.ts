@@ -16,6 +16,44 @@ import { useEffect, useState } from "react";
 export type ReorderAxis = "horizontal" | "vertical";
 export type ReorderPointerType = "mouse" | "touch" | "pen";
 
+/**
+ * Pure hit-test: given the bounding rects of items in container order
+ * (`itemRects`), pick the index whose rect contains the pointer position
+ * along the active axis. Returns -1 when the pointer is between rects or
+ * outside all of them.
+ *
+ * Extracted from `useContainerDragReorder` so the test suite can exercise
+ * the math without a DOM/React renderer.
+ */
+export function findReorderTargetIndex(
+  itemRects: ReadonlyArray<{ left: number; right: number; top: number; bottom: number }>,
+  pointer: { x: number; y: number },
+  axis: ReorderAxis,
+): number {
+  const current = axis === "horizontal" ? pointer.x : pointer.y;
+  for (let i = 0; i < itemRects.length; i++) {
+    const r = itemRects[i];
+    const lo = axis === "horizontal" ? r.left : r.top;
+    const hi = axis === "horizontal" ? r.right : r.bottom;
+    if (current >= lo && current <= hi) return i;
+  }
+  return -1;
+}
+
+/**
+ * Pure reorder: take the current ordered list and a (from, to) pair and
+ * return the new list. Returns `null` when `fromId` isn't present or is
+ * already at `toIdx` so callers can short-circuit without a no-op render.
+ */
+export function moveInOrder<T>(order: ReadonlyArray<T>, fromId: T, toIdx: number): T[] | null {
+  const from = order.indexOf(fromId);
+  if (from === -1 || from === toIdx) return null;
+  const next = order.slice();
+  const [picked] = next.splice(from, 1);
+  next.splice(toIdx, 0, picked);
+  return next;
+}
+
 export type ContainerDragReorderOptions<T extends string | number> = {
   containerRef: React.RefObject<HTMLElement | null>;
   /** CSS selector for items inside the container (each must resolve to a unique id). */
@@ -105,21 +143,12 @@ export function useContainerDragReorder<T extends string | number>(opts: Contain
       const id = capturedId;
       if (id == null) return;
       const items = Array.from(container.querySelectorAll<HTMLElement>(itemSelector));
-      const current = axis === "horizontal" ? e.clientX : e.clientY;
-      let targetIdx = -1;
-      for (let i = 0; i < items.length; i++) {
-        const r = items[i].getBoundingClientRect();
-        const lo = axis === "horizontal" ? r.left : r.top;
-        const hi = axis === "horizontal" ? r.right : r.bottom;
-        if (current >= lo && current <= hi) { targetIdx = i; break; }
-      }
+      const rects = items.map((el) => el.getBoundingClientRect());
+      const targetIdx = findReorderTargetIndex(rects, { x: e.clientX, y: e.clientY }, axis);
       if (targetIdx === -1) return;
-      const order = getOrder().slice();
-      const from = order.indexOf(id);
-      if (from === -1 || from === targetIdx) return;
-      const [picked] = order.splice(from, 1);
-      order.splice(targetIdx, 0, picked);
-      onReorder(order);
+      const next = moveInOrder(getOrder(), id, targetIdx);
+      if (!next) return;
+      onReorder(next);
     };
 
     const onPointerUpOrCancel = () => reset();

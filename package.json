@@ -40,7 +40,7 @@
     "devtools:diag": "python3 scripts/devtools/deck/cli.py diag list",
     "test:all": "pnpm run test && python3 -m pip install -U pip setuptools && python3 -m pip install pytest && python3 -m pytest src/test/ -v",
     "clean": "rm -rf build dist .deploy build/package *.zip",
-    "precommit": "pnpm run typecheck && pnpm run test && pnpm run build:release && pnpm run validate:compat && node scripts/build/validate-screenshots.mjs 2>/dev/null || true",
+    "precommit": "pnpm run typecheck && pnpm run test:all && pnpm run build:release && pnpm run validate:compat && node scripts/build/validate-screenshots.mjs 2>/dev/null || true",
     "deploy:verify": "pnpm run deploy:deck:hard && sleep 20 && pnpm run devtools:cli -- probe --mode smoke",
     "update": "pnpm update --latest && pnpm update --latest --dev && pnpm install",
     "update:safe": "pnpm update && pnpm install",

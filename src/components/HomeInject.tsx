@@ -18,6 +18,7 @@ import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement }
 import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
+import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isCssLoaderActive, getNativeRecentsClassName } from "../core/cssLoaderDetect";
 
@@ -622,11 +623,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
           .map((el) => el.getAttribute('data-shelfid'))
           .filter((id): id is string => !!id),
       );
-      let pick: string | null = null;
-      for (const sh of (shelves ?? [])) {
-        if (!sh || (sh as any).source?.type === 'smart') continue;
-        if (renderedIds.has(sh.id)) { pick = sh.id; break; }
-      }
+      const pick = pickFirstVisibleShelfId(shelves ?? [], renderedIds);
       setFirstVisibleId((prev) => (prev === pick ? prev : pick));
     };
     scan();
@@ -713,14 +710,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   // pass. Falls back to the original `shelves` array when interleave is
   // off OR when `firstVisibleId` isn't yet known.
   const orderedShelves = useMemo(() => {
-    if (!interleaveSmart || !firstVisibleId) return shelves;
-    const normals = shelves.filter((s: any) => s?.source?.type !== 'smart');
-    const smarts  = shelves.filter((s: any) => s?.source?.type === 'smart');
-    const firstIdx = normals.findIndex((s: any) => s.id === firstVisibleId);
-    if (firstIdx < 0) return shelves;
-    const first = normals[firstIdx];
-    const rest = normals.filter((_: any, i: number) => i !== firstIdx);
-    return [first, ...smarts, ...rest];
+    if (!interleaveSmart) return shelves;
+    return interleaveSmartShelves(shelves, firstVisibleId);
   }, [shelves, interleaveSmart, firstVisibleId]);
 
   return (
