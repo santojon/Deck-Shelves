@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-04-28
+
 ### Added
 
 - **Sprint 9 regression suite — 69 new tests across 6 files (full suite at 166 TS + 22 Python = 188 passing)**. Cumulative coverage targets the surfaces required to refactor the Plugin API safely in Sprint 8: `applyManualOrder` (mutation/dedup edge cases — [src/test/steam/applyManualOrder.test.ts](src/test/steam/applyManualOrder.test.ts)); `evaluateFilterGroup` for every filter type — installed/favorites/nonSteam/hidden mode/updatePending/isNew/deckCompatibility/playedWithinDays/playtimeRange/nameIncludes/nameRegex/cloudAvailable/controllerSupport/merge/appIdList/inverted/and-or/unknown-passthrough — [src/test/steam/evaluateFilterGroup.test.ts](src/test/steam/evaluateFilterGroup.test.ts); `resolveSmartShelf` mode-by-mode (quick_play/not_started/deck_picks/best_unplayed/non_steam) + cache identity + `invalidateSmartShelfCache` semantics — [src/test/steam/smartShelves.test.ts](src/test/steam/smartShelves.test.ts); `REFRESHABLE_SMART_MODES` membership + cross-check against `SmartShelfModeSchema` enum — [src/test/components/refreshableSmartModes.test.ts](src/test/components/refreshableSmartModes.test.ts); `pickFirstVisibleShelfId` config-order + smart-skip + null-safe + `interleaveSmartShelves` invariants — [src/test/domain/shelfOrder.test.ts](src/test/domain/shelfOrder.test.ts); `findReorderTargetIndex` horizontal/vertical hit-test + axis isolation + gap detection + `moveInOrder` no-op short-circuit — [src/test/core/reorder.test.ts](src/test/core/reorder.test.ts).

@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-04-28
+
 ### Added
 
 - **Three new shelf templates surface in the About → Shelves docs.** Steam Cloud, Deck Verified, and Top Reviewed now have proper descriptions in your language — the templates themselves landed earlier; this fills in the help text in all 16 supported languages.
