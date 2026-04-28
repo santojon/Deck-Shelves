@@ -142,7 +142,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       const focusedCard = mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"] .ds-card.gpfocus, .ds-shelf[data-ds-recents-slot="true"] .ds-card:focus') as HTMLElement | null;
       if (!focusedCard) return;
       const cardLeft = focusedCard.getBoundingClientRect().left;
-      setLabelLeftPx(Math.max(40, Math.round(cardLeft)));
+      setLabelLeftPx(Math.max(0, Math.round(cardLeft)));
     };
     const row = mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll') as HTMLElement | null;
     if (row) row.addEventListener('scroll', onRowScroll, { passive: true });
@@ -265,10 +265,19 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
           // Align the hero label horizontally with the focused card's
           // left edge — matches native ArtHero, where the label tracks
           // the focused tile rather than sitting at a fixed viewport
-          // offset. Floor to 40 so the label never collides with the
-          // screen edge if the row scrolls a card to position 0.
-          const cardLeft = focused.getBoundingClientRect().left;
-          setLabelLeftPx(Math.max(40, Math.round(cardLeft)));
+          // offset. Floor to 0 so the label never gets pushed off the
+          // viewport's left edge if the rect read returns negative
+          // mid-animation. The rAF read defers to AFTER `centeredScrollLeft`
+          // settles — the focusin event fires before Steam's smooth-scroll
+          // animation completes, so reading rect.left synchronously yields a
+          // stale x and the label visibly trails the card on wrap-around or
+          // matchNative remeasures. The onRowScroll listener still tracks
+          // mid-flight so the label keeps up frame-by-frame after the rAF.
+          requestAnimationFrame(() => {
+            try {
+              setLabelLeftPx(Math.max(0, Math.round(focused.getBoundingClientRect().left)));
+            } catch {}
+          });
         }
       } else {
         setVisible(true);
@@ -307,7 +316,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     if (!inPromoted) return;
     const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
     setLabelHtml(labelEl ? labelEl.outerHTML : null);
-    setLabelLeftPx(Math.max(40, Math.round(focused.getBoundingClientRect().left)));
+    setLabelLeftPx(Math.max(0, Math.round(focused.getBoundingClientRect().left)));
   }, [needsHeroLabel, mountEl]);
 
   const onImgError = (slot: 'A' | 'B') => () => {

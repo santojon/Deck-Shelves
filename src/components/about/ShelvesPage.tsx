@@ -18,6 +18,9 @@ const STANDARD_TEMPLATES = [
   { id: 'awaiting_update', labelKey: 'template_awaiting_update', descKey: 'docs_template_awaiting_update' },
   { id: 'non_steam',       labelKey: 'template_non_steam',      descKey: 'docs_template_non_steam' },
   { id: 'long_session',    labelKey: 'template_long_session',   descKey: 'docs_template_long_session' },
+  { id: 'steam_cloud',     labelKey: 'template_steam_cloud',    descKey: 'docs_template_steam_cloud' },
+  { id: 'deck_verified',   labelKey: 'template_deck_verified',  descKey: 'docs_template_deck_verified' },
+  { id: 'top_reviewed',    labelKey: 'template_top_reviewed',   descKey: 'docs_template_top_reviewed' },
 ] as const
 
 export function ShelvesPage() {

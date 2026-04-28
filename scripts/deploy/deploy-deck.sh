@@ -89,6 +89,17 @@ fi
 ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "ls '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] ERROR: dist/index.js not found!'"
 
 if [[ "$HARD" == "1" ]]; then
+  # Killing Steam alone does NOT reload the plugin's Python backend —
+  # plugin_loader.service keeps the imported `main.py` module cached in
+  # memory across Steam restarts. Backend (main.py) edits only take
+  # effect after restarting the loader service. Frontend bundle reloads
+  # naturally with Steam.
+  if [[ -n "${SUDO_PASS}" ]]; then
+    ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "echo '${SUDO_PASS}' | sudo -S systemctl restart plugin_loader.service >/dev/null 2>&1 || true"
+    echo "[deploy] plugin_loader restarted (backend Python reloaded)."
+  else
+    echo "[deploy] WARN: DECK_SUDO_PASS not set — plugin_loader NOT restarted; backend Python edits may not apply."
+  fi
   ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "killall steam >/dev/null 2>&1 || true"
   echo "[deploy] Hard reload requested: Steam terminated."
 else

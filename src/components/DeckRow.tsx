@@ -39,7 +39,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; forceExpanded?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; forceExpanded?: boolean }) {
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
@@ -404,7 +404,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       data-shelfid={shelfId || undefined}
         style={{ marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'var(--ds-shell-bg)' }}
     >
-      {title ? (
+      {title && !hideShelfTitle ? (
         <div
           ref={titleRef}
           className={`ds-shelf-title${forceExpanded ? ' ds-shelf-title--locked' : ''}`}
@@ -423,7 +423,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
           <span style={{ flex: 1 }}>{collapsed ? `+ ${title}` : title}</span>
         </div>
       ) : null}
-      {!collapsed && (
+      {(!collapsed || hideShelfTitle) && (
         <Focusable
           ref={rowRef}
           className={`ds-row-scroll${nativeRowClass ? ` ${nativeRowClass}` : ''}`}

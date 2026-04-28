@@ -21,4 +21,5 @@ export type EditableShelfState = {
   hideNewBadge: boolean
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
+  hideShelfTitle: boolean
 }

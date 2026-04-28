@@ -26,13 +26,14 @@ function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
     hideNewBadge: false,
     hideCompatIcons: false,
     hideNonSteamBadge: false,
+    hideShelfTitle: false,
     source: { type: 'tab', tab: 'all' },
     ...overrides,
   }
 }
 
 function makeSettings(shelves: Shelf[] = []): Settings {
-  return { enabled: true, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, shelves, smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] }
+  return { enabled: true, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, shelves, smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] }
 }
 
 describe('patchShelfInSettings', () => {

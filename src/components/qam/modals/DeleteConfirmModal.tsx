@@ -16,10 +16,7 @@ export function DeleteConfirmModal({ closeModal, controller, shelf }: { closeMod
       onEscKeypress={closeModal}
       onOK={() => {
         closeModal?.();
-        (async () => {
-          const ok = await actions.removeShelf(shelf.id);
-          // lightweight log kept in parent file
-        })();
+        void actions.removeShelf(shelf.id);
       }}
     />
   )

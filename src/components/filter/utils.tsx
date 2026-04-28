@@ -144,31 +144,11 @@ export function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export const CheckIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 3, flexShrink: 0 }}>
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
-export const XIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f44336" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 3, flexShrink: 0 }}>
-    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-export const ChevronIcon = ({ open }: { open: boolean }) => (
-  <svg
-    width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-    style={{ transition: "transform 0.2s ease-in-out", transform: open ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0 }}
-  >
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
-
-export const TrashIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M10 10v6" /><path d="M14 10v6" /><path d="M6 6l1 14h10l1-14" />
-  </svg>
-);
+// Icons moved to the shared `src/components/icons.tsx` module so other
+// surfaces (QAM section headers, edit modal tabs, About) consume the same
+// stroke-style set. Re-exported here to keep existing call sites working
+// without churn — they import `CheckIcon` / `XIcon` / `ChevronIcon` /
+// `TrashIcon` from this filter-utils module.
+export { CheckIcon, XIcon, ChevronIcon, TrashIcon } from '../icons';
 
 export default {};

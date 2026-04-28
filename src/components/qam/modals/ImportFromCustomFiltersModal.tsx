@@ -5,15 +5,9 @@ import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { getTabMasterTabsFromSettingsFile, extractTabMasterTabsForImport, tabContainerToShelfSource } from '../../../integrations'
 import { findTabMasterContextValue } from '../../../steam'
-import { ChevronIcon } from '../../filter/utils'
+import { ChevronIcon, SteamIcon } from '../../icons'
 
 type ImportTab = { id: string; title: string; source?: any; isSteam: boolean; hidden: boolean }
-
-const SteamIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ flexShrink: 0 }}>
-    <path d="M11.98 2C6.48 2 2.04 6.45 2.01 11.94L7.16 14.04a2.7 2.7 0 0 1 2.95-.6l2.3-3.34v-.05a3.61 3.61 0 0 1 7.22 0 3.61 3.61 0 0 1-3.62 3.6h-.09l-3.28 2.35c0 .1.02.2.02.3a2.72 2.72 0 0 1-5.39.5L3.5 15.27A9.97 9.97 0 0 0 22 12c0-5.52-4.48-10-10.02-10ZM8.3 17.14l-1.18-.49a2.05 2.05 0 0 0 3.71-.37 2.04 2.04 0 0 0-1.14-2.66 2.02 2.02 0 0 0-1.56.02l1.22.5a1.5 1.5 0 0 1-1.15 2.78l-.42-.17.52 1.39Zm7.69-7.67a2.4 2.4 0 0 0-2.41-2.4 2.4 2.4 0 0 0-2.41 2.4 2.4 2.4 0 0 0 2.41 2.4 2.4 2.4 0 0 0 2.41-2.4Zm-4.22 0a1.81 1.81 0 1 1 3.63-.01 1.81 1.81 0 0 1-3.63.01Z"/>
-  </svg>
-)
 
 export function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
   const { t, actions } = controller

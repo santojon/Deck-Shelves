@@ -30,6 +30,7 @@ import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 import { CollapsibleSection } from './ui'
+import { GearIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon } from './icons'
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
@@ -133,7 +134,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
 
-      <CollapsibleSection id='behavior' title={t('section_behavior')} count={[settings.hideRecents, settings.hideHomeTabs].filter(Boolean).length}>
+      <CollapsibleSection id='behavior' icon={<GearIcon />} title={t('section_behavior')} count={[settings.hideRecents, settings.hideHomeTabs].filter(Boolean).length}>
         {settings.enabled && (
           <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
         )}
@@ -150,7 +151,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         <RecentsReplaceErrorBanner controller={controller} error={replaceError} onDismiss={() => { setReplaceFailed(false); setReplaceError(null) }} />
       )}
 
-      <CollapsibleSection id='shelves' title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
+      <CollapsibleSection id='shelves' icon={<StackIcon />} title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
         <Field className='no-sep'>
           <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex' }}>
@@ -169,7 +170,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </CollapsibleSection>
 
       {settings.enabled && (
-      <CollapsibleSection id='smart' title={t('smart_section_header')} count={settings.smartShelvesEnabled ? (settings.smartShelves ?? []).filter((s: any) => !s.hidden).length : 0}>
+      <CollapsibleSection id='smart' icon={<SparkleIcon />} title={t('smart_section_header')} count={settings.smartShelvesEnabled ? (settings.smartShelves ?? []).filter((s: any) => !s.hidden).length : 0}>
         <ToggleField
           label={t('smart_shelves_enabled')}
           checked={settings.smartShelvesEnabled === true}
@@ -236,12 +237,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {settings.enabled && (
       <CollapsibleSection
         id='visual_global'
+        icon={<WandIcon />}
         title={t('section_visual_global')}
-        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideStatusLine, settings.globalHideNewBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge].filter(Boolean).length}
+        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideShelfTitle, settings.globalHideStatusLine, settings.globalHideNewBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge].filter(Boolean).length}
       >
         <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
         <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
         <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightAll(value)} />
+        <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideShelfTitle(value)} />
         <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />
         <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNewBadge(value)} />
         <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideCompatIcons(value)} />
@@ -254,6 +257,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {settings.enabled && (settings.savedFilters?.length ?? 0) > 0 && (
       <CollapsibleSection
         id='saved_filters'
+        icon={<BookmarkIcon />}
         title={t('saved_filters_section')}
         count={settings.savedFilters?.length ?? 0}
       >

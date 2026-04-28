@@ -28,12 +28,14 @@ export function CollapsibleSection({
   title,
   count,
   initialOpen,
+  icon,
   children,
 }: {
   id: string;
   title: string;
   count: number;
   initialOpen?: boolean;
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const defaultOpen = id in _sectionOpen ? _sectionOpen[id] : (initialOpen !== undefined ? initialOpen : count > 0)
@@ -48,7 +50,10 @@ export function CollapsibleSection({
     <>
       <div style={{ marginTop: 8 }}>
         <Focusable className='ds-collapsible-header' onClick={toggle} onOKButton={toggle}>
-          <span>{title}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {icon}
+            {title}
+          </span>
           <span style={{ display: 'flex', alignItems: 'center' }}>
             {!open && count > 0 && <span className='ds-collapsible-badge'>{count}</span>}
             <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>

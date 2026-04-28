@@ -1,15 +1,6 @@
 import React, { useState } from 'react'
 import { Focusable } from '@decky/ui'
-
-const Chevron = ({ open }: { open: boolean }) => (
-  <svg
-    width="12" height="12" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-    style={{ transition: 'transform 0.2s ease', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', flexShrink: 0 }}
-  >
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-)
+import { ChevronIcon } from '../icons'
 
 export function DocAccordion({ label, children, defaultOpen = false }: {
   label: string
@@ -35,7 +26,7 @@ export function DocAccordion({ label, children, defaultOpen = false }: {
             {label}
           </span>
           <span style={{ color: '#8b9ab5' }}>
-            <Chevron open={open} />
+            <ChevronIcon open={open} />
           </span>
         </div>
         {open && (

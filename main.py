@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import decky
 
-DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
+DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
 
 
 def _settings_dir() -> str:
@@ -60,6 +60,14 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if title == "[object Object]":
             title = "Shelf"
         source = s.get("source") if isinstance(s.get("source"), dict) else {"type": "tab", "tab": "all"}
+        # Migrate stale "Recently Played" template shelves: an earlier version
+        # of the template emitted source = {type:"tab", tab:"recent"}, but the
+        # runtime tab list does not include "recent" — the edit modal can't
+        # match the dropdown option and the shelf appears unconfigured. The
+        # filter-source equivalent (sort by recent activity) round-trips
+        # cleanly through the modal and produces the same result on the home.
+        if isinstance(source, dict) and source.get("type") == "tab" and source.get("tab") == "recent":
+            source = {"type": "filter", "filter": {"sort": "recent"}}
         try:
             limit = int(s.get("limit") or 12)
         except Exception:
@@ -74,6 +82,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_new_badge = bool(s.get("hideNewBadge", False))
         hide_compat_icons = bool(s.get("hideCompatIcons", False))
         hide_non_steam_badge = bool(s.get("hideNonSteamBadge", False))
+        hide_shelf_title = bool(s.get("hideShelfTitle", False))
         valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"}
         shelf_sort = str(s.get("sort") or "")
         raw_manual = s.get("manualOrder")
@@ -112,6 +121,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "hideNewBadge": hide_new_badge,
             "hideCompatIcons": hide_compat_icons,
             "hideNonSteamBadge": hide_non_steam_badge,
+            "hideShelfTitle": hide_shelf_title,
         }
         if shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
@@ -171,7 +181,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(ss_filter_group, dict):
             entry["filterGroup"] = ss_filter_group
         # Visual overrides mirrored from regular shelves.
-        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge"):
+        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle"):
             if bool_key in ss:
                 entry[bool_key] = bool(ss.get(bool_key, False))
         raw_ss_highlighted = ss.get("highlightedAppIds")
@@ -236,7 +246,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if not sf_id or not sf_name or sf_group is None:
             continue
         sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved}
 
 
 class Plugin:

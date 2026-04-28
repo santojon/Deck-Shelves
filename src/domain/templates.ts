@@ -20,7 +20,12 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     id: "recent",
     titleKey: "template_recent",
     category: "time",
-    source: { type: "tab", tab: "recent" },
+    // listLibraryTabs() exposes [all, favorites, installed, hidden, nonsteam]
+    // — no "recent" tab. A tab-source shelf with tab="recent" can't be
+    // matched in the edit modal's dropdown and visibly falls back to the
+    // first option. Filter source with sort="recent" reproduces "recently
+    // played" semantically and round-trips cleanly through the modal.
+    source: { type: "filter", filter: { sort: "recent" } },
   },
   {
     id: "installed",
@@ -57,6 +62,40 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     titleKey: "template_long_session",
     category: "time",
     source: { type: "filter", filter: { installed: true, minPlaytimeMinutes: 180, sort: "playtime" } },
+  },
+  {
+    id: "steam_cloud",
+    titleKey: "template_steam_cloud",
+    category: "platform",
+    // cloudAvailable / controllerSupport / deckCompatibility aren't on the
+    // flat ShelfFilter schema — wrap them in a filterGroup so the resolver
+    // routes through evaluateFilterGroup. Same pattern works in the Edit
+    // modal Filters tab without any schema migration.
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "cloudAvailable", inverted: false, params: {} }] },
+        sort: "alphabetical",
+      },
+    },
+  },
+  {
+    id: "deck_verified",
+    titleKey: "template_deck_verified",
+    category: "platform",
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified"] } }] },
+        sort: "alphabetical",
+      },
+    },
+  },
+  {
+    id: "top_reviewed",
+    titleKey: "template_top_reviewed",
+    category: "status",
+    source: { type: "filter", filter: { installed: true, sort: "review_score" } },
   },
 ];
 
