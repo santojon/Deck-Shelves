@@ -5,15 +5,26 @@ import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn } from "../runtime/logger";
 import { applyQASettingsOverride } from "../qa/harness";
 
-const CACHE_KEY = 'deck-shelves-settings-cache-v2';
+// Bumping the cache key invalidates persisted localStorage entries from
+// previous plugin versions in one shot. v3 forces a backend refetch on
+// first load after upgrade — required because the backend sanitizer
+// migrates legacy "Recently Played" shelves whose stale source the cache
+// would otherwise keep alive across plugin reloads.
+const CACHE_KEY = 'deck-shelves-settings-cache-v3';
 const SHARED_STATE_KEY = '__DECK_SHELVES_SHARED_SETTINGS__';
 
 function readCache(): Settings | null {
   try {
+    // One-shot cleanup of pre-v3 cache entries so users upgrading from
+    // older builds don't carry stale shelf sources forward.
+    try { globalThis.localStorage?.removeItem('deck-shelves-settings-cache-v2'); } catch {}
     const raw = globalThis.localStorage?.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = SettingsSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
+    // Apply migrations to cached payload too — same pre-v3 payload could
+    // also be sitting at v3 if the user wrote it after the cache bump
+    // before the migration shipped.
+    return parsed.success ? migrate(parsed.data) : null;
   } catch {
     return null;
   }
@@ -70,10 +81,32 @@ function notify(raw: Settings) {
   } catch {}
 }
 
+// One-time migrations applied to every settings load — runs against both
+// the cached snapshot and freshly-fetched backend payloads, so users carry
+// the fix forward regardless of where the stale data sits. Each migration
+// MUST be idempotent.
+function migrate(s: Settings): Settings {
+  let mutated = false;
+  const shelves = s.shelves.map((sh) => {
+    // "Recently Played" template used to emit { type: "tab", tab: "recent" },
+    // but listLibraryTabs() never had a "recent" tab id — so the edit modal's
+    // dropdown couldn't match and the source field looked unset. Filter
+    // source with sort=recent reproduces the same behavior on the home and
+    // round-trips cleanly through the modal.
+    const src = sh.source as any;
+    if (src && src.type === "tab" && src.tab === "recent") {
+      mutated = true;
+      return { ...sh, source: { type: "filter", filter: { sort: "recent" } } as any };
+    }
+    return sh;
+  });
+  return mutated ? { ...s, shelves } : s;
+}
+
 function normalize(raw: unknown): Settings {
   const candidate = (raw && typeof raw === "object" && "state" in (raw as any)) ? (raw as any).state : raw;
   const parsed = SettingsSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : defaultSettings();
+  return migrate(parsed.success ? parsed.data : defaultSettings());
 }
 
 export async function refreshSettings(): Promise<Settings> {

@@ -74,6 +74,15 @@ export function HighlightMiniCard({
         transition: 'width 0.15s ease, outline 0.1s ease, box-shadow 0.1s ease',
         position: 'relative',
         borderRadius: 0,
+        // Reserve room for the Decky Focusable focus glow that extends ~24px
+        // past the card's bottom edge. `block: 'nearest'` in HighlightRow's
+        // focusin handler treats the card as visible the moment its bounding
+        // box is inside the FieldContainer, but the glow drawn outside the
+        // box still gets clipped by the FieldContainer's overflow:auto.
+        // scroll-margin-bottom is honored by scrollIntoView, padding the
+        // card's effective scroll target so the FieldContainer scrolls a
+        // little further and the glow lands inside the visible window.
+        scrollMarginBottom: 32,
       }}
     >
       {failed || !urls[0] ? (

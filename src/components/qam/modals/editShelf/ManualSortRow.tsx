@@ -244,7 +244,10 @@ export function ManualSortRow({
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8,
         // Extend to container outer edges; no internal horizontal padding —
         // first/last card sit flush against the edge. Matches HighlightRow.
-        margin: '0 -24px', padding: '8px 0', width: 'auto',
+        margin: '0 -24px', padding: '12px 0 28px', width: 'auto',
+        // 28px bottom padding reserves room for the Decky Focusable focus
+        // glow on the mini-card (extends ~24px past the card edge); see
+        // HighlightRow for the rationale on keeping overflow-y: hidden.
         overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
         touchAction: 'pan-x',
         overscrollBehaviorX: 'contain',

@@ -60,6 +60,14 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if title == "[object Object]":
             title = "Shelf"
         source = s.get("source") if isinstance(s.get("source"), dict) else {"type": "tab", "tab": "all"}
+        # Migrate stale "Recently Played" template shelves: an earlier version
+        # of the template emitted source = {type:"tab", tab:"recent"}, but the
+        # runtime tab list does not include "recent" — the edit modal can't
+        # match the dropdown option and the shelf appears unconfigured. The
+        # filter-source equivalent (sort by recent activity) round-trips
+        # cleanly through the modal and produces the same result on the home.
+        if isinstance(source, dict) and source.get("type") == "tab" and source.get("tab") == "recent":
+            source = {"type": "filter", "filter": {"sort": "recent"}}
         try:
             limit = int(s.get("limit") or 12)
         except Exception:

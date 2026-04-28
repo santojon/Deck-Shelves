@@ -88,7 +88,14 @@ export function HighlightRow({ children }: { children: React.ReactNode }) {
         // Extend to container outer edges with a negative horizontal margin
         // (matches Decky Field footprint). No internal horizontal padding
         // here so the first/last card sit flush against the edge.
-        margin: '0 -24px', padding: '8px 0', width: 'auto',
+        margin: '0 -24px', padding: '12px 0 28px', width: 'auto',
+        // overflow-y: visible would let the focus glow escape vertically,
+        // but Chromium computes overflow-y to auto whenever overflow-x is
+        // auto/scroll/hidden — so a vertical scrollbar would briefly appear
+        // on focus. Keep both axes clipped and reserve enough vertical
+        // padding (28px below) for Steam's drop-shadow focus glow on the
+        // mini-card, which extends ~24px past the card's bottom edge and
+        // was being cut off when the row used 8px symmetric padding.
         overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
         // Horizontal scrolling should NOT drift vertically. `pan-x` tells
         // the browser this row owns horizontal pans; vertical gestures go
