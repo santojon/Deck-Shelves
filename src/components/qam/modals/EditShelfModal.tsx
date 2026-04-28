@@ -24,6 +24,19 @@ import { ManualSortRow } from './editShelf/ManualSortRow'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
+import { FunnelIcon, EyeIcon } from '../../icons'
+
+// Tab title with optional leading icon — uses inline-flex so the icon
+// aligns vertically with the label text. Applied selectively (not every
+// tab) so the strip stays uncluttered.
+function TabLabel({ icon, text }: { icon?: React.ReactNode; text: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {icon}
+      {text}
+    </span>
+  )
+}
 import { ModalHeader } from './editShelf/ModalHeader'
 
 
@@ -54,6 +67,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     hideNewBadge: shelf.hideNewBadge ?? false,
     hideCompatIcons: shelf.hideCompatIcons ?? false,
     hideNonSteamBadge: shelf.hideNonSteamBadge ?? false,
+    hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
   })
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [previewCount, setPreviewCount] = useState<number | null>(null)
@@ -178,7 +192,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle };
       if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
@@ -264,7 +278,10 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
               },
               ...(state.sourceType === 'filter' ? [{
                 id: 'filters',
-                title: t('edit_tab_filters'),
+                // Decky's Tab.title is typed `string` but Steam's underlying
+                // Tabs component renders any ReactNode — cast lets us inline
+                // a leading icon next to the label text.
+                title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_filters')} />) as unknown as string,
                 content: (
                   <FieldContainer>
                     <SavedFiltersBar
@@ -299,11 +316,11 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
               },
               {
                 id: 'display',
-                title: t('edit_tab_display'),
+                title: (<TabLabel icon={<EyeIcon />} text={t('edit_tab_display')} />) as unknown as string,
                 content: (
                   <DisplayTabContent
                     t={t}
-                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge }}
+                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle }}
                     setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                     hasNonSteamBadges={hasNonSteamBadges}
                   />

@@ -1,20 +1,58 @@
 import React from 'react'
-import { Field, DialogButton } from '@decky/ui'
+import { Field, DialogButton, Focusable } from '@decky/ui'
 import { useTranslation } from 'react-i18next'
 import pkg from '../../../package.json'
 import { DocSection } from './DocSection'
 
 const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
+const GITHUB_URL = 'https://github.com/santojon/Deck-Shelves'
+const ISSUES_URL = 'https://github.com/santojon/Deck-Shelves/issues'
+const RELEASES_URL = 'https://github.com/santojon/Deck-Shelves/releases'
 const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
 const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
 const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: '#dcdedf' }
 
+const openInBrowser = (url: string) => {
+  try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(url) }
+  catch (e) { console.warn('OpenInSystemBrowser failed', e) }
+}
+
 export function SupportPage() {
   const { t } = useTranslation()
-  const openKofi = () => { try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(KOFI_URL) } catch (e) { console.warn('OpenInSystemBrowser failed', e) } }
+  const openKofi = () => openInBrowser(KOFI_URL)
+  const openGitHub = () => openInBrowser(GITHUB_URL)
+  const openIssues = () => openInBrowser(ISSUES_URL)
+  const openReleases = () => openInBrowser(RELEASES_URL)
   const limitations = [t('about_limitation_deck_only'), t('about_limitation_decky'), t('about_limitation_home')]
   return (
     <DocSection>
+      <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_learn_more_title')}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_learn_more_description')}</span>} />
+      <Field bottomSeparator="none" childrenLayout="below">
+        {/* `flow-children="horizontal"` tells the Decky/Steam gamepad nav
+            tree to move L/R between these buttons instead of U/D — without
+            it the buttons render side-by-side visually but D-pad navigates
+            top-to-bottom (the default Focusable flow). */}
+        <Focusable
+          flow-children="horizontal"
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+        >
+          <DialogButton
+            onClick={openGitHub}
+            onOKButton={openGitHub}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_learn_more_github')}
+          </DialogButton>
+          <DialogButton
+            onClick={openIssues}
+            onOKButton={openIssues}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_report_issue')}
+          </DialogButton>
+        </Focusable>
+      </Field>
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_support_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_support_description')}</span>} />
       <Field bottomSeparator="none" childrenLayout="below">
@@ -35,7 +73,25 @@ export function SupportPage() {
       {limitations.map((l, i) => (
         <Field key={i} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• {l}</span>} />
       ))}
-      <Field focusable={true} bottomSeparator="none" description={<span style={{ ...labelStyle, textAlign: 'center', fontSize: 11, color: '#666' }}>{t('about_version')}: {pkg.version}</span>} />
+      <Field
+        focusable={true}
+        bottomSeparator="none"
+        description={
+          <span style={{ ...labelStyle, textAlign: 'center', fontSize: 11, color: '#666' }}>
+            {t('about_version')}: {pkg.version}
+            {' · '}
+            <a
+              role="button"
+              tabIndex={0}
+              onClick={openReleases}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openReleases() }}
+              style={{ color: '#7aa9d6', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              {t('about_other_versions')}
+            </a>
+          </span>
+        }
+      />
     </DocSection>
   )
 }

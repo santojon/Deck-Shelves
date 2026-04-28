@@ -16,7 +16,7 @@ export function createDefaultSource(kind: "collection" | "tab" | "filter", first
 }
 
 export function createDefaultShelf(firstCollectionId = "", title = "New shelf"): Shelf {
-  return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, source: createDefaultSource("tab", firstCollectionId) };
+  return { id: randomShelfId(), title, enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, source: createDefaultSource("tab", firstCollectionId) };
 }
 
 export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
@@ -37,6 +37,7 @@ export function defaultSettings(): Settings {
     globalHideNewBadge: false,
     globalHideCompatIcons: false,
     globalHideNonSteamBadge: false,
+    globalHideShelfTitle: false,
     shelves: [],
     smartShelvesEnabled: false,
     smartShelvesAtBottom: false,

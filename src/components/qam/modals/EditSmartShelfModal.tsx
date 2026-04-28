@@ -24,6 +24,19 @@ import { ManualSortRow } from './editShelf/ManualSortRow'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { ModalHeader } from './editShelf/ModalHeader'
+import { FunnelIcon, EyeIcon } from '../../icons'
+
+// Same TabLabel pattern used by EditShelfModal — kept local rather than
+// shared because the two modals diverge enough that a tiny duplication
+// is cheaper than a new shared file.
+function TabLabel({ icon, text }: { icon?: React.ReactNode; text: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {icon}
+      {text}
+    </span>
+  )
+}
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode } from '../../../steam/smartParams'
@@ -51,6 +64,7 @@ type EditState = {
   hideNewBadge: boolean
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
+  hideShelfTitle: boolean
   refreshIntervalMinutes: number
   smartParams: Record<string, number>
 }
@@ -76,6 +90,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     hideNewBadge: (shelf as any).hideNewBadge ?? false,
     hideCompatIcons: (shelf as any).hideCompatIcons ?? false,
     hideNonSteamBadge: (shelf as any).hideNonSteamBadge ?? false,
+    hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
     smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
   })
@@ -181,6 +196,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       ;(patch as any).hideNewBadge = state.hideNewBadge
       ;(patch as any).hideCompatIcons = state.hideCompatIcons
       ;(patch as any).hideNonSteamBadge = state.hideNonSteamBadge
+      ;(patch as any).hideShelfTitle = state.hideShelfTitle
       // Only persist when the user diverged from the default cadence; otherwise
       // omit so the shelf inherits whatever the resolver default ends up being.
       ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
@@ -311,7 +327,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                 },
                 {
                   id: 'filters',
-                  title: t('edit_tab_filters'),
+                  title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_filters')} />) as unknown as string,
                   content: (
                     <FieldContainer scrollable>
                       <ToggleField
@@ -355,11 +371,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                 },
                 {
                   id: 'display',
-                  title: t('edit_tab_display'),
+                  title: (<TabLabel icon={<EyeIcon />} text={t('edit_tab_display')} />) as unknown as string,
                   content: (
                     <DisplayTabContent
                       t={t}
-                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge }}
+                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle }}
                       setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       hasNonSteamBadges={hasNonSteamBadges}
                     />

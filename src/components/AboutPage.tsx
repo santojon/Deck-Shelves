@@ -8,6 +8,20 @@ import { SmartShelvesPage } from './about/SmartShelvesPage'
 import { FiltersPage } from './about/FiltersPage'
 import { SortPage } from './about/SortPage'
 import { SupportPage } from './about/SupportPage'
+import { FunnelIcon, SortIcon, SparkleIcon, InfoCircleIcon } from './icons'
+
+// Decky's `Tab.title` is typed as `string` but the runtime renders any
+// ReactNode. The cast lets us inline a leading icon next to the label
+// for the tabs that benefit from a visual cue (filters/sort/smart/about);
+// less-distinctive tabs keep plain text to avoid clutter.
+function tabLabel(icon: React.ReactNode, text: string): string {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {icon}
+      {text}
+    </span>
+  ) as unknown as string
+}
 
 export function AboutPage() {
   const { t } = useTranslation()
@@ -21,10 +35,10 @@ export function AboutPage() {
           { id: 'overview', title: t('docs_overview_title'), content: <OverviewPage /> },
           { id: 'howto', title: t('about_howto_title'), content: <HowToPage /> },
           { id: 'shelves', title: t('docs_shelves_title'), content: <ShelvesPage /> },
-          { id: 'smart', title: t('docs_smart_shelves_title'), content: <SmartShelvesPage /> },
-          { id: 'filters', title: t('docs_filters_title'), content: <FiltersPage /> },
-          { id: 'sort', title: t('docs_sort_title'), content: <SortPage /> },
-          { id: 'support', title: t('about'), content: <SupportPage /> },
+          { id: 'smart', title: tabLabel(<SparkleIcon />, t('docs_smart_shelves_title')), content: <SmartShelvesPage /> },
+          { id: 'filters', title: tabLabel(<FunnelIcon />, t('docs_filters_title')), content: <FiltersPage /> },
+          { id: 'sort', title: tabLabel(<SortIcon />, t('docs_sort_title')), content: <SortPage /> },
+          { id: 'support', title: tabLabel(<InfoCircleIcon />, t('about')), content: <SupportPage /> },
         ]}
       />
     </div>
