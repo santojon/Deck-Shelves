@@ -63,6 +63,40 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     category: "time",
     source: { type: "filter", filter: { installed: true, minPlaytimeMinutes: 180, sort: "playtime" } },
   },
+  {
+    id: "steam_cloud",
+    titleKey: "template_steam_cloud",
+    category: "platform",
+    // cloudAvailable / controllerSupport / deckCompatibility aren't on the
+    // flat ShelfFilter schema — wrap them in a filterGroup so the resolver
+    // routes through evaluateFilterGroup. Same pattern works in the Edit
+    // modal Filters tab without any schema migration.
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "cloudAvailable", inverted: false, params: {} }] },
+        sort: "alphabetical",
+      },
+    },
+  },
+  {
+    id: "deck_verified",
+    titleKey: "template_deck_verified",
+    category: "platform",
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified"] } }] },
+        sort: "alphabetical",
+      },
+    },
+  },
+  {
+    id: "top_reviewed",
+    titleKey: "template_top_reviewed",
+    category: "status",
+    source: { type: "filter", filter: { installed: true, sort: "review_score" } },
+  },
 ];
 
 export const DEFAULT_SHELF_TEMPLATES: ShelfTemplate[] = [
