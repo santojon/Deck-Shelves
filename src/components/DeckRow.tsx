@@ -6,6 +6,7 @@ import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
 import { focusElement } from "../core/focusRestore";
+import { flowChildrenProps } from "../core/steamOSVersion";
 
 // Re-export types and components from shelf/ for backwards compatibility
 export { type DeckRowItem } from "./shelf/types";
@@ -448,7 +449,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
             scrollBehavior: "smooth",
             padding: "6px 0 46px 2.8vw",
           }}
-          flow-children="horizontal"
+          {...flowChildrenProps("horizontal")}
         >
           {items.map((item, idx) => {
             if (item.isRefresh) {

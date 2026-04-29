@@ -11,6 +11,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Hide game names (per shelf and global).** New toggle in each shelf's Display tab and in the QAM Visual section. When on, the game name disappears from cards — only the artwork (and optionally the playtime / status line) is shown. Useful for theme-heavy setups where the artwork already carries the title.
 - **Hide install indicator (per shelf and global).** New toggle that hides the install / download / update / play icons in the status line while keeping playtime visible. Use it together with **Hide status line** for a cleaner card grid, or alone to keep playtime but drop the install state icon.
 
+### Fixed
+
+- **Game context menu now works on SteamOS 3.7.21 again.** The plugin now detects the OS version and falls back to the simpler menu detection used in older releases when running on SteamOS 3.7 or older — with the modern flow kept intact for 3.8 / 3.9. The fallback menu (Play / Properties / View Details) is the same on every version, so even if menu detection fails the MENU button always surfaces something usable.
+
 ## [1.6.2] - 2026-04-28
 
 ### Added

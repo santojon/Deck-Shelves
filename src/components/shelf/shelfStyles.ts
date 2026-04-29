@@ -601,7 +601,6 @@ function buildStylesheet(): string {
       text-align: center;
       word-break: break-word;
     }
-    .ds-card.ds-card--featured .ds-card-label { opacity: 1 !important; }
     .ds-card.ds-card--featured .ds-card-art img { object-position: center top; }
   `;
 }

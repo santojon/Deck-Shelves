@@ -19,6 +19,7 @@ import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
+import { flowChildrenProps } from "../core/steamOSVersion";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isCssLoaderActive, getNativeRecentsClassName } from "../core/cssLoaderDetect";
 
@@ -720,7 +721,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     <Focusable
       ref={rootRef}
       className="deck-shelves-root"
-      flow-children="column"
+      {...flowChildrenProps("column")}
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}

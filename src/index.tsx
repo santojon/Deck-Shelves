@@ -11,6 +11,7 @@ import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installPluginApi } from "./core/pluginApi";
 import { logDiagnostic } from "./runtime/diagnostics";
+import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
 import { AboutPage } from "./components/AboutPage";
@@ -79,6 +80,14 @@ export default definePlugin((serverAPI?: any) => {
   )); } catch (e) { console.warn("addRoute failed", e); }
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
+
+  // Prefetch SteamOS version asynchronously so synchronous version-gated
+  // paths (e.g. `useLegacyMenuFlow()` in `steamGameMenu.ts`) hit the cache
+  // by the time the user interacts. On 3.7.x the only source is the async
+  // `SteamClient.System.GetSystemInfo()` — sync sources return null there.
+  void prefetchSteamOSVersion().then((v) => {
+    logDiagnostic("info", "SteamOS version", v ?? "unknown");
+  }).catch(() => {});
 
   // Log system environment for easier support debugging
   try {
