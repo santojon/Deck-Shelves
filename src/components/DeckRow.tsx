@@ -67,10 +67,9 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     const w = matchNativeSize && nd ? nd.width : CARD_W;
     const h = matchNativeSize && nd ? nd.height : CARD_ART_H;
     const gap = matchNativeSize && nd ? nd.gap : CARD_GAP;
-    // Default featured: ~2× portrait width, same height — proportionally close
-    // to native "highlight" card layout. Avoids the 2.14 landscape aspect that
-    // makes the card look too wide against the portrait row.
-    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3);
+    // Default featured: ~3.21× portrait width (matches base native 430px featured
+    // card at 134px portrait width, measured via CDP on the Steam Deck home screen).
+    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3.21);
     const featH = matchNativeSize && nd?.featuredHeight ? nd.featuredHeight : h;
     const artH = matchNativeSize && nd?.imgHeight ? nd.imgHeight : h;
     const featArtH = matchNativeSize && nd?.featuredImgHeight ? nd.featuredImgHeight : featH;

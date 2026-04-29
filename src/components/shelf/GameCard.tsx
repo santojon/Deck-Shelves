@@ -320,10 +320,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           const hasPlaytime = !!playtime && item.playtimeMinutes && item.playtimeMinutes > 0;
 
           if (!isInstalled && !hasPlaytime) {
-            if (hideInstallIndicator) return null;
             return (
               <div className="ds-card-status">
-                {downloadIcon}
+                {!hideInstallIndicator && downloadIcon}
                 <span>{t('status_not_installed')}</span>
               </div>
             );

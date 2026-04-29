@@ -123,18 +123,21 @@ export function isSteamOS38OrLater(): boolean | null {
  * Returns props to spread onto a `<Focusable>` to set its gamepad-nav
  * `flow-children` direction safely across SteamOS versions.
  *
- * On SteamOS ≤ 3.7, Steam's `library.js` throws `Assertion Failed:
- * Unhandled flow-children: <value>` whenever it sees an unknown direction
- * — that assertion bubbles up through React render and Decky's
- * ErrorBoundary catches it, leaving the surrounding panel blank (this is
- * how the QAM ends up empty on 3.7.21 once we add even one
- * `flow-children`-enabled Focusable). Returns `{}` (drops the prop
- * entirely) on `false` (≤ 3.7); on `null` (unknown) and `true` (≥ 3.8)
- * keeps the prop so the modern path is never regressed.
+ * Currently always returns `{}` (drops the prop entirely). CDP probing
+ * confirmed Steam's `library.js` throws `Assertion Failed: Unhandled
+ * flow-children: <value>` on **both** 3.7.21 and 3.8/3.9 — the assertion
+ * bubbles through React render and Decky's ErrorBoundary catches it,
+ * leaving the surrounding panel blank (this is how the QAM ends up empty
+ * once any plugin renders a `flow-children`-enabled Focusable). The
+ * `direction` argument is kept for documentation / future reactivation
+ * if Steam ever ships a build that accepts the prop without asserting,
+ * but the runtime contract is "drop, always, on every version".
+ *
+ * Gamepad navigation still works via DOM order — for our use cases
+ * (horizontal card row, button toolbar) sibling-walk reproduces the
+ * intended L/R or U/D nav without an explicit hint.
  */
-export function flowChildrenProps(direction: "horizontal" | "vertical" | "column"):
-  | { "flow-children": "horizontal" | "vertical" | "column" }
-  | Record<string, never> {
-  if (isSteamOS38OrLater() === false) return {};
-  return { "flow-children": direction };
+export function flowChildrenProps(_direction: "horizontal" | "vertical" | "column"):
+  Record<string, never> {
+  return {};
 }
