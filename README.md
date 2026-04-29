@@ -42,7 +42,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Hide status line** — toggle to hide the the play/install status of a game
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
-- **Hide home tabs** — toggle to hide the native Novidades/Amigos/Recomendados tab bar
+- **Hide home tabs** — toggle to hide the native home tab bar on te bottom of shelves
 - **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
 - **Developer / Publisher filter** — filter games by developer or publisher with automatic batch discovery
 - **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
