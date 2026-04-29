@@ -45,6 +45,74 @@ function getSPDocument(): Document {
 }
 
 /**
+ * Steam's native game-card `onMenuButton` handler builds the
+ * `{overview, client, …}` AppContextMenu element via either
+ * `React.createElement` (older Steam builds, mixed code paths) or the
+ * React 18 JSX runtime `SP_JSX.jsx` / `SP_JSX.jsxs` (every recent build,
+ * including BOTH SteamOS 3.7.21 stable AND 3.8/3.9 — confirmed via CDP).
+ *
+ * Patching only `React.createElement` (as the v1.x series did) silently
+ * misses the JSX-runtime path, leaving `cachedComponent` null forever and
+ * forcing the menu into the DFL fallback. This helper installs hooks on
+ * all three primitives under a single capture flag and returns a
+ * `restore()` plus a getter for the captured component + sanitised
+ * template props. Idempotent: the same `onCapture` callback fires on
+ * whichever primitive Steam happens to use.
+ */
+function installCaptureHooks(): {
+  getCaptured: () => { component: any; templateProps: Record<string, any> } | null;
+  restore: () => void;
+} {
+  const React = getSteamReact();
+  const jsxRuntime: any = (globalThis as any).SP_JSX;
+
+  const origCreateElement: any = React?.createElement;
+  const origJsx: any = jsxRuntime?.jsx;
+  const origJsxs: any = jsxRuntime?.jsxs;
+
+  let captured: { component: any; templateProps: Record<string, any> } | null = null;
+
+  const captureFromArgs = (type: any, props: any) => {
+    if (captured) return;
+    if (typeof type !== "function") return;
+    if (!props || !("overview" in props) || !("client" in props)) return;
+    const tProps = { ...props };
+    delete tProps.overview;
+    delete tProps.hasCustomArtwork;
+    delete tProps.onChangeArtwork;
+    captured = { component: type, templateProps: tProps };
+  };
+
+  if (React && typeof origCreateElement === "function") {
+    React.createElement = function (type: any, props: any, ...args: any[]) {
+      captureFromArgs(type, props);
+      return origCreateElement.apply(React, [type, props, ...args]);
+    };
+  }
+  if (jsxRuntime && typeof origJsx === "function") {
+    jsxRuntime.jsx = function (type: any, props: any, key?: any) {
+      captureFromArgs(type, props);
+      return origJsx.call(jsxRuntime, type, props, key);
+    };
+  }
+  if (jsxRuntime && typeof origJsxs === "function") {
+    jsxRuntime.jsxs = function (type: any, props: any, key?: any) {
+      captureFromArgs(type, props);
+      return origJsxs.call(jsxRuntime, type, props, key);
+    };
+  }
+
+  return {
+    getCaptured: () => captured,
+    restore: () => {
+      if (React && typeof origCreateElement === "function") React.createElement = origCreateElement;
+      if (jsxRuntime && typeof origJsx === "function") jsxRuntime.jsx = origJsx;
+      if (jsxRuntime && typeof origJsxs === "function") jsxRuntime.jsxs = origJsxs;
+    },
+  };
+}
+
+/**
  * Resolve the card anchor across every Steam window we know about. DS cards
  * live in the GamepadUI popup while the plugin bundle (and the menu
  * interceptor) runs in SharedJSContext — querying only the preferred doc
@@ -106,23 +174,54 @@ export function prewarmMenuExtraction(): () => void {
 export function installPassiveMenuHook(): void {
   if (passiveHookInstalled || cachedMenuComponent) return;
   const React = getSteamReact();
-  if (!React?.createElement) return;
+  const jsxRuntime: any = (globalThis as any).SP_JSX;
+  if (!React?.createElement && typeof jsxRuntime?.jsx !== "function") return;
 
-  const origCreateElement = React.createElement;
-  React.createElement = function (type: any, props: any, ...args: any[]) {
-    if (!cachedMenuComponent && typeof type === "function"
-        && props && "overview" in props && "client" in props) {
-      cachedMenuComponent = type;
-      const tProps = { ...props };
-      delete tProps.overview;
-      delete tProps.hasCustomArtwork;
-      delete tProps.onChangeArtwork;
-      cachedMenuTemplateProps = tProps;
-      React.createElement = origCreateElement;
-      passiveHookInstalled = false;
-    }
-    return origCreateElement.apply(React, [type, props, ...args]);
+  // Persistent passive hook — captures the {overview, client} template the
+  // first time ANY native game menu is opened (e.g. user right-clicks a
+  // native card, or a `prewarmMenuExtraction` tick fires). Patches all
+  // three primitives (createElement + jsx + jsxs) so it works on every
+  // build (3.7 emits via jsx, 3.8/3.9 also emits via jsx). Self-uninstalls
+  // on first capture to avoid persistent overhead.
+  const origCreateElement: any = React?.createElement;
+  const origJsx: any = jsxRuntime?.jsx;
+  const origJsxs: any = jsxRuntime?.jsxs;
+
+  const tryCapture = (type: any, props: any) => {
+    if (cachedMenuComponent) return false;
+    if (typeof type !== "function") return false;
+    if (!props || !("overview" in props) || !("client" in props)) return false;
+    cachedMenuComponent = type;
+    const tProps = { ...props };
+    delete tProps.overview;
+    delete tProps.hasCustomArtwork;
+    delete tProps.onChangeArtwork;
+    cachedMenuTemplateProps = tProps;
+    if (React && typeof origCreateElement === "function") React.createElement = origCreateElement;
+    if (jsxRuntime && typeof origJsx === "function") jsxRuntime.jsx = origJsx;
+    if (jsxRuntime && typeof origJsxs === "function") jsxRuntime.jsxs = origJsxs;
+    passiveHookInstalled = false;
+    return true;
   };
+
+  if (React && typeof origCreateElement === "function") {
+    React.createElement = function (type: any, props: any, ...args: any[]) {
+      tryCapture(type, props);
+      return origCreateElement.apply(React, [type, props, ...args]);
+    };
+  }
+  if (jsxRuntime && typeof origJsx === "function") {
+    jsxRuntime.jsx = function (type: any, props: any, key?: any) {
+      tryCapture(type, props);
+      return origJsx.call(jsxRuntime, type, props, key);
+    };
+  }
+  if (jsxRuntime && typeof origJsxs === "function") {
+    jsxRuntime.jsxs = function (type: any, props: any, key?: any) {
+      tryCapture(type, props);
+      return origJsxs.call(jsxRuntime, type, props, key);
+    };
+  }
   passiveHookInstalled = true;
 }
 
@@ -211,50 +310,7 @@ function extractAppContextMenuLegacy(): boolean {
 
   if (!menuFn) return false;
 
-  // Hook every element-creation primitive Steam may use on 3.7.x. CDP
-  // probing on 3.7.21 stable confirmed the native handler emits the menu
-  // via the JSX runtime form (`SP_JSX.jsx(<Component>, {overview, client, …})`),
-  // NOT `React.createElement`. The v1.2/v1.4 series only patched
-  // `React.createElement`, so the original strategy never captured the
-  // component on this build — which is why showGameMenu always fell into
-  // the DFL fallback here. Patch jsx + jsxs (and createElement, defensively
-  // for builds that mix forms) on the same hook flag.
-  const origCreateElement = React.createElement;
-  const jsxRuntime: any = (globalThis as any).SP_JSX;
-  const origJsx: any = jsxRuntime?.jsx;
-  const origJsxs: any = jsxRuntime?.jsxs;
-  let capturedComponent: any = null;
-  let capturedTemplateProps: Record<string, any> = {};
-
-  const captureFromArgs = (type: any, props: any) => {
-    if (!capturedComponent && typeof type === "function"
-        && props && "overview" in props && "client" in props) {
-      capturedComponent = type;
-      const tProps = { ...props };
-      delete tProps.overview;
-      delete tProps.hasCustomArtwork;
-      delete tProps.onChangeArtwork;
-      capturedTemplateProps = tProps;
-    }
-  };
-
-  React.createElement = function (type: any, props: any, ...args: any[]) {
-    captureFromArgs(type, props);
-    return origCreateElement.apply(React, [type, props, ...args]);
-  };
-  if (jsxRuntime && typeof origJsx === "function") {
-    jsxRuntime.jsx = function (type: any, props: any, key?: any) {
-      captureFromArgs(type, props);
-      return origJsx.call(jsxRuntime, type, props, key);
-    };
-  }
-  if (jsxRuntime && typeof origJsxs === "function") {
-    jsxRuntime.jsxs = function (type: any, props: any, key?: any) {
-      captureFromArgs(type, props);
-      return origJsxs.call(jsxRuntime, type, props, key);
-    };
-  }
-
+  const hooks = installCaptureHooks();
   try {
     const fakeEvt = new CustomEvent("fake", { bubbles: false });
     (fakeEvt as any).stopPropagation = () => {};
@@ -262,14 +318,13 @@ function extractAppContextMenuLegacy(): boolean {
     menuFn(fakeEvt);
   } catch {
   } finally {
-    React.createElement = origCreateElement;
-    if (jsxRuntime && typeof origJsx === "function") jsxRuntime.jsx = origJsx;
-    if (jsxRuntime && typeof origJsxs === "function") jsxRuntime.jsxs = origJsxs;
+    hooks.restore();
   }
 
-  if (capturedComponent) {
-    legacyCachedComponent = capturedComponent;
-    legacyCachedTemplateProps = capturedTemplateProps;
+  const captured = hooks.getCaptured();
+  if (captured) {
+    legacyCachedComponent = captured.component;
+    legacyCachedTemplateProps = captured.templateProps;
     return true;
   }
 
@@ -384,30 +439,18 @@ export function extractAppContextMenu(): boolean {
 
   if (!menuFn) return false;
 
-  const origCreateElement = React.createElement;
-  let capturedComponent: any = null;
-  let capturedTemplateProps: Record<string, any> = {};
-
-  React.createElement = function (type: any, props: any, ...args: any[]) {
-    if (!capturedComponent && typeof type === "function"
-        && props && "overview" in props && "client" in props) {
-      capturedComponent = type;
-      const tProps = { ...props };
-      delete tProps.overview;
-      delete tProps.hasCustomArtwork;
-      delete tProps.onChangeArtwork;
-      capturedTemplateProps = tProps;
-    }
-    return origCreateElement.apply(React, [type, props, ...args]);
-  };
-
-  // Invoke the native handler to force it to build a `{overview, client}`
-  // menu element — captured by the React.createElement hook above. We do
-  // NOT stub `dfl.showContextMenu` here (that was added later thinking it'd
-  // prevent a brief native-menu flash during extraction, but the handler's
-  // `showContextMenu` call often resolves to a module-bound reference that
-  // doesn't go through `dfl`, so the stub is a no-op at best and breaks
-  // capture ordering at worst).
+  // Hook React.createElement + SP_JSX.jsx/jsxs together — both 3.7.21 and
+  // 3.8/3.9 emit the {overview, client} menu via the JSX runtime form
+  // (`SP_JSX.jsx`), not `React.createElement`. Patching only createElement
+  // (the original strategy) silently misses the modern path too, even on
+  // 3.9. Confirmed via CDP on both versions.
+  //
+  // We do NOT stub `dfl.showContextMenu` here (that was added later
+  // thinking it'd prevent a brief native-menu flash during extraction, but
+  // the handler's `showContextMenu` call often resolves to a module-bound
+  // reference that doesn't go through `dfl`, so the stub is a no-op at best
+  // and breaks capture ordering at worst).
+  const hooks = installCaptureHooks();
   try {
     const fakeEvt = new CustomEvent("fake", { bubbles: false });
     (fakeEvt as any).stopPropagation = () => {};
@@ -415,12 +458,13 @@ export function extractAppContextMenu(): boolean {
     menuFn(fakeEvt);
   } catch {
   } finally {
-    React.createElement = origCreateElement;
+    hooks.restore();
   }
 
-  if (capturedComponent) {
-    cachedMenuComponent = capturedComponent;
-    cachedMenuTemplateProps = capturedTemplateProps;
+  const captured = hooks.getCaptured();
+  if (captured) {
+    cachedMenuComponent = captured.component;
+    cachedMenuTemplateProps = captured.templateProps;
     passiveHookInstalled = false;
     return true;
   }
