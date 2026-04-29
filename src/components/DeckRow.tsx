@@ -6,6 +6,7 @@ import { getPreferredSteamDocument } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
 import { focusElement } from "../core/focusRestore";
+import { flowChildrenProps } from "../core/steamOSVersion";
 
 // Re-export types and components from shelf/ for backwards compatibility
 export { type DeckRowItem } from "./shelf/types";
@@ -39,7 +40,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; forceExpanded?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean }) {
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
@@ -66,10 +67,9 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     const w = matchNativeSize && nd ? nd.width : CARD_W;
     const h = matchNativeSize && nd ? nd.height : CARD_ART_H;
     const gap = matchNativeSize && nd ? nd.gap : CARD_GAP;
-    // Default featured: ~2× portrait width, same height — proportionally close
-    // to native "highlight" card layout. Avoids the 2.14 landscape aspect that
-    // makes the card look too wide against the portrait row.
-    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3);
+    // Default featured: ~3.21× portrait width (matches base native 430px featured
+    // card at 134px portrait width, measured via CDP on the Steam Deck home screen).
+    const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3.21);
     const featH = matchNativeSize && nd?.featuredHeight ? nd.featuredHeight : h;
     const artH = matchNativeSize && nd?.imgHeight ? nd.imgHeight : h;
     const featArtH = matchNativeSize && nd?.featuredImgHeight ? nd.featuredImgHeight : featH;
@@ -448,7 +448,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
             scrollBehavior: "smooth",
             padding: "6px 0 46px 2.8vw",
           }}
-          flow-children="horizontal"
+          {...flowChildrenProps("horizontal")}
         >
           {items.map((item, idx) => {
             if (item.isRefresh) {
@@ -468,7 +468,9 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
               hideStatusLine={hideStatusLine}
               hideNewBadge={hideNewBadge}
               hideCompatIcons={hideCompatIcons}
-              hideNonSteamBadge={hideNonSteamBadge} />;
+              hideNonSteamBadge={hideNonSteamBadge}
+              hideGameName={hideGameNames}
+              hideInstallIndicator={hideInstallIndicator} />;
           })}
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>

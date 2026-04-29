@@ -18,8 +18,8 @@ export type DeckRowItem = {
   isNew?: boolean;
 };
 
-export const CARD_W = 133;
-export const CARD_ART_H = 200;
+export const CARD_W = 134;
+export const CARD_ART_H = 201;
 export const CARD_GAP = 12;
 
 // Smart-shelf modes whose result can change between two clicks of the

@@ -13,53 +13,58 @@ src/
 ├── components/                React UI
 │   ├── HomeInject.tsx          Portal renderer for home screen shelves
 │   ├── DeckRow.tsx             Shelf row layout (imports shelf/ modules)
-│   ├── Shelf.tsx               Single shelf data resolver
+│   ├── Shelf.tsx               Single shelf data resolver (memoized + generation-id cancel)
 │   ├── DeckQAMSettings.tsx     Quick Access Menu settings panel
 │   ├── FilterPanel.tsx         Filter group editor UI
 │   ├── AboutPage.tsx           About / documentation page
 │   ├── Settings.tsx            Settings page wrapper
 │   ├── ErrorBoundary.tsx       React error boundary
-│   ├── home/
-│   │   └── navPatches.ts       Gamepad nav tree reparenting + menu button patches
-│   ├── filter/
-│   │   ├── DeveloperFilterOptions.tsx  Developer/publisher filter UI
-│   │   ├── FilterEntry.tsx     Single filter row (type + invert + delete)
-│   │   ├── FilterItemOptions.tsx  Per-type parameter editors
-│   │   ├── FilterSectionAccordion.tsx  Collapsible filter section
-│   │   └── utils.tsx           Filter type labels, defaults, validation
+│   ├── icons.tsx               Shared feather-style SVG icons (FunnelIcon, EyeIcon, …)
+│   ├── home/navPatches/         Split nav-patch modules (one concern per file)
+│   │   ├── reparent.ts          reparentNavTreeNodes — splice between recents and tabs
+│   │   ├── menuButton.ts        MENU button → game context menu
+│   │   ├── edgeNavigation.ts    L/R throttle + DOWN tilt guard (when home tabs hidden)
+│   │   ├── verticalBridge.ts    DOWN/UP bridge between mount and native neighbors
+│   │   └── constants.ts         DIR_*, DS_*_PATCHED, OPTIONS_BUTTON
+│   ├── filter/                 Filter group editor (recursive UI)
+│   ├── ui/                     Shared domain-agnostic primitives
+│   │   ├── ModalShell           .deck-shelves-modal-scope + DeckModalStyles
+│   │   ├── FieldContainer       .field-item-container + scrollable mode (focusin → scrollIntoView)
+│   │   ├── LabeledTextField     Field + TextField + textFromDeckyChange
+│   │   └── CollapsibleSection   QAM collapsible section with localStorage state
 │   ├── qam/
-│   │   ├── icons.tsx           Shared SVG icons for QAM
 │   │   ├── common/
-│   │   │   ├── ActionButton.tsx    Toolbar action button
-│   │   │   └── ShelfListLabel.tsx  Shelf list item label
 │   │   ├── list/
-│   │   │   ├── ShelfActions.tsx    Per-shelf action buttons (edit/delete/reorder)
-│   │   │   └── ShelvesPanelSection.tsx  Reorderable shelf list
 │   │   └── modals/
-│   │       ├── DeleteConfirmModal.tsx
-│   │       ├── EditShelfModal.tsx
-│   │       ├── ExportModal.tsx
-│   │       ├── FirstRunBanner.tsx
-│   │       ├── ImportFromCustomFiltersModal.tsx
-│   │       ├── ImportModal.tsx
-│   │       └── TemplatePickerModal.tsx
+│   │       ├── EditShelfModal.tsx          Regular shelf editor
+│   │       ├── EditSmartShelfModal.tsx     Smart shelf editor (sort override, filterGroup, smartParams, refresh interval)
+│   │       ├── (Export/Import/Template/ResetAll/Delete/ImportFromCustomFilters with `scope`)
+│   │       └── editShelf/                  Components shared by both edit modals
+│   │           ├── HighlightMiniCard.tsx   Mini-card with fallback art chain + chevrons + selected/grabbed states
+│   │           ├── HighlightRow.tsx        Horizontal row with focus-centered scroll + re-center
+│   │           ├── ManualSortRow.tsx       Manual order row — gamepad grab + pointer-hold drag + chevrons
+│   │           ├── SavedFiltersBar.tsx     Saved-filters dropdown + "save current"
+│   │           ├── VisualTabContent.tsx    Toggles + highlight picker + odd/even patterns + preview
+│   │           ├── DisplayTabContent.tsx   hide-* toggles (status line, install indicator, new badge, compat icons, non-steam, shelf title, game names)
+│   │           ├── ModalHeader.tsx         Title + preview counter
+│   │           └── constants/types/utils.ts
 │   ├── shelf/
-│   │   ├── types.ts            DeckRowItem type, card dimension constants
-│   │   ├── shelfStyles.ts      CSS injection, native dim discovery, global timer
-│   │   ├── GameCard.tsx         Game card with native class injection
-│   │   ├── MoreCard.tsx         "View more" link card
-│   │   ├── PlaceholderCard.tsx  Fallback card (no art available)
-│   │   └── HeroBackground.tsx   Hero background art (CDP-based native replication)
+│   │   ├── types.ts            DeckRowItem, card dimensions, REFRESHABLE_SMART_MODES
+│   │   ├── shelfStyles.ts      CSS injection, native dim discovery, ds-refresh-spin keyframes, TiltedHome compat
+│   │   ├── GameCard.tsx         Game card with native class injection + label/status gates
+│   │   ├── MoreCard.tsx         "View more" trailing tile (non-smart shelves)
+│   │   ├── RefreshCard.tsx      Refresh trailing tile (refreshable smart shelves and sort=random)
+│   │   ├── PlaceholderCard.tsx  Fallback card
+│   │   └── HeroBackground.tsx   Two-layer cross-fade hero art + ArtHero label overlay
 │   ├── about/
-│   │   ├── DocSection.tsx       Reusable doc section wrapper
-│   │   ├── OverviewPage.tsx     Plugin overview tab
-│   │   ├── HowToPage.tsx        Usage guide tab
-│   │   ├── ShelvesPage.tsx      Shelves documentation tab
-│   │   ├── FiltersPage.tsx      Filters documentation tab
-│   │   └── SupportPage.tsx      Support/links tab
+│   │   ├── DocSection.tsx
+│   │   ├── DocCallout.tsx
+│   │   ├── DocAccordion.tsx
+│   │   ├── OverviewPage.tsx / HowToPage.tsx / ShelvesPage.tsx / FiltersPage.tsx
+│   │   ├── SortPage.tsx / SmartShelvesPage.tsx / SupportPage.tsx
 │   └── styles/
-│       ├── DeckModalStyles.tsx  Modal dialog styles
-│       └── DeckQAMStyles.tsx    QAM panel styles
+│       ├── DeckModalStyles.tsx
+│       └── DeckQAMStyles.tsx
 │
 ├── steam/
 │   └── index.ts               Steam API access: app overviews, collections,
@@ -74,14 +79,18 @@ src/
 │   ├── shelfRefresh.ts         Global shelf refresh emitter
 │   ├── steamAssets.ts          Image URL generation (portrait, landscape, hero)
 │   ├── steamGameMenu.ts        Native game context menu extraction
-│   ├── webpackCompat.ts        Runtime class discovery (webpack hashed classes)
-│   ├── pluginApi.ts            Public inter-plugin API
+│   ├── webpackCompat.ts        Runtime class discovery (viewport + native shelf/card/section tokens)
+│   ├── reorder.ts              useContainerDragReorder + pure helpers (findReorderTargetIndex, moveInOrder)
+│   ├── cssLoaderDetect.ts      isCssLoaderActive(), isArtHeroActive(), getNativeRecentsClassName()
+│   ├── steamOSVersion.ts       getSteamOSVersion() helper
+│   ├── pluginApi.ts            Public inter-plugin API (v2)
 │   └── perf.ts                 Performance marks/measures
 │
 ├── domain/
 │   ├── settings.ts             Pure settings operations (patch, add, delete, move)
 │   ├── defaults.ts             Default shelf/settings/filter factories
-│   ├── templates.ts            Shelf preset templates
+│   ├── templates.ts            Shelf preset templates (11 entries)
+│   ├── shelfOrder.ts           pickFirstVisibleShelfId + interleaveSmartShelves (pure helpers)
 │   └── customfilters.ts        TabMaster filter conversion
 │
 ├── features/
@@ -109,12 +118,16 @@ src/
 │
 ├── shims/                     React/Decky UI shims for GamepadUI environment
 │
-└── test/                      Vitest test suites
+└── test/                      Vitest + Python test suites
+    ├── steam/                  applyManualOrder, evaluateFilterGroup, smartShelves
+    ├── components/             refreshableSmartModes
+    ├── core/                   reorder, webpackCompat
+    ├── domain/                 settings, customfilters, shelfOrder, templates, schemas
+    ├── qa/                     qam-visibility
+    ├── stubs/                  decky-api / decky-manifest stubs (vitest aliases)
     ├── steam.test.ts
-    ├── domain/settings.test.ts
-    ├── domain/customfilters.test.ts
-    ├── core/webpackCompat.test.ts
-    └── scrollUtils.test.ts
+    ├── scrollUtils.test.ts
+    └── test_main.py            Python sanitizer tests (pytest)
 
 main.py                        Python backend (settings read/write, atomic saves)
 plugin.json                    Decky plugin manifest
@@ -168,14 +181,16 @@ The native hero does **not** use linear gradients or pseudo-elements for the bot
 At runtime, the component discovers native classes from the recents section's sibling element and applies them for CSS Loader theme compatibility.
 
 ### Performance Strategy
-- `MutationObserver` replaces polling where possible (HomeInject, ShelvesContainer)
+- `MutationObserver` replaces polling where possible (HomeInject, ShelvesContainer, navPatches)
 - Single global timer for `ensureStyles()` shared by all shelf rows
 - Focus restore uses MutationObserver with 500ms→2s polling fallback
 - `logInfo()` is a no-op in production builds (`__DEV__` flag)
-- Collection cache uses 60s TTL
+- Collection cache uses 60s TTL; smart-shelf resolver cache TTL defaults to 60 min (per-shelf override via `refreshIntervalMinutes`)
 - Native dimension changes require 4px tolerance + 2-cycle confirmation
+- `Shelf` is `memo`ized + carries a generation-id token on each `resolveShelfAppIds` call; in-flight resolves drop their `then`/`catch` if a newer one started, so a slow previous resolve cannot overwrite a newer result
+- nav-tree reparent poll throttled from 750 ms → 3000 ms (relies on MutationObservers + focusin for fast paths)
 
-> **Note:** the API surface at `window.__DECK_SHELVES_API__` is currently v1 (shelf sources only). v2 will add `registerFilterType`, `registerSmartShelfSource`, and `getSavedFilters`. The signature will be frozen before the v2.0.0 release — do not depend on undocumented properties.
+> **Note:** the API surface at `window.__DECK_SHELVES_API__` is **v2** — registries (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter`) are wired and live; the consumer-side accessors (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeTo*`) are stubbed and connect to the live `settingsStore` in v2.0.0. See [`plugin-api.md`](./plugin-api.md).
 
 ### Recents Replace (`recentsReplace.tsx`)
 Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`). Instead of visually hiding the native "Recently Played" section, it patches the section's render output via `routerHook.addPatch("/library/home", ...)` + nested `afterPatch` calls to replace the `games` prop with the first visible shelf's app IDs. The native DOM, CSS, animations, hero background, and focus callbacks are preserved entirely. Safety mechanisms:
@@ -189,7 +204,7 @@ When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection 
 > **Note:** the hero does **not** use linear gradients or pseudo-elements for the bottom vignette. The fade is achieved entirely via `mask-image: radial-gradient(...)` on two nested wrapper divs — matching the native structure discovered via CDP. Replacing it with a CSS gradient would break CSS Loader theme compatibility.
 
 ### Plugin API (`pluginApi.ts`)
-External plugins can register custom shelf sources:
+External plugins can register custom shelf sources, filter types, sort options, smart-shelf modes, import formats, and pre-baked saved filters at runtime. The full API is documented in [`plugin-api.md`](./plugin-api.md). Quick example:
 ```ts
 const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
   id: "my-plugin-source",
@@ -197,3 +212,13 @@ const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
   resolve: async (limit) => [appid1, appid2, ...],
 });
 ```
+
+### CSS Loader / ArtHero / TiltedHome compat (`core/cssLoaderDetect.ts`)
+- `isCssLoaderActive()` / `isArtHeroActive()` read `<style class="css-loader-style">` tags in the active document.
+- `getNativeRecentsClassName(mountEl)` reads the live native-recents wrapper class from `mountEl.previousElementSibling` — never hardcoded.
+- When `hideRecents=true` and a CSS Loader theme is active, `HomeInject` adds `data-ds-recents-slot="true"` plus the live wrapper class to the first DS shelf — additively (existing `ds-*` classes are preserved). Invariants enforced by the guard chain are documented inline in `HomeInject.tsx`.
+- ArtHero label overlay (in `HeroBackground.tsx`) clones the focused card's `.ds-card-label` as a `position: fixed` overlay above the row; tracks the focused card horizontally on row scroll; reactive to runtime CSS Loader toggles via `MutationObserver` on the Big Picture document's `<head>`.
+- TiltedHome compat applies `skew(var(--ren-tilt-angle))` to the entire `.ds-card` (image + label + glow + MoreCard + RefreshCard). Focus state composes `skew + scale + translateZ` with `!important` to win over Steam's higher-specificity `.BasicUI .NATIVE.Focusable:focus { transform: translateZ(15px) }` rule. The selector intentionally omits `.gpfocuswithin` (Steam applies that to every card when any descendant of the row has focus — including it would scale every card and erase the focus indicator).
+
+### Refresh card on shelves (`shelf/RefreshCard.tsx` + `shelf/types.ts > REFRESHABLE_SMART_MODES`)
+Smart shelves whose result can change between two clicks (`random_pick` / `time_of_day` / `spare_time` / `recently_played`) get a Refresh card instead of the "view more in library" tile. Non-smart shelves with `sort === "random"` also get the Refresh card (it's the only non-smart case whose order can change between clicks; clicking clears the `ds-random-*` localStorage cache and re-resolves only that shelf). Spin animation is driven by a CSS keyframe via DOM class toggle (`.ds-refresh-spinning` on `iconRef`) — not React state, so `setAppIds()` reconciliation cannot cancel the animation mid-flight.

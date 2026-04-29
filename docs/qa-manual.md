@@ -62,6 +62,10 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 | 4.4 | `hideNewBadge=true` → "NEW" badge hidden on all shelf cards | No badge shown |
 | 4.5 | `hideCompatIcons=true` → Deck compat icons hidden on all cards | No compat indicator |
 | 4.6 | Global toggles hidden when `enabled=false` | Section gone from QAM |
+| 4.7 | `globalHideShelfTitle=true` → all shelf title rows hidden; cards row stays expanded | No collapsible title; cards always visible |
+| 4.8 | `globalHideGameNames=true` → game name labels hidden on every card | Card art only, no name beneath |
+| 4.9 | `globalHideInstallIndicator=true` → install/download/update/play icons hidden in status line; playtime still visible | Only the playtime text remains in `.ds-card-status` |
+| 4.10 | Per-shelf override: enable `hideShelfTitle` / `hideGameNames` / `hideInstallIndicator` on one shelf only → other shelves unaffected | Per-shelf toggle wins over global=false; global=true wins over per-shelf=false |
 
 ---
 
@@ -99,6 +103,12 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 | 7.7 | `surpriseMe=true` → manual list hidden, system picks templates | No manual list in QAM |
 | 7.8 | `surpriseMe=true` + count=0 → system decides count | Variable shelf count |
 | 7.9 | Daily Pick shelf → same result throughout the day | Stable within UTC day |
+| 7.10 | Edit smart shelf → sort override + filterGroup + smartParams + refreshIntervalMinutes round-trip after save/reload | Persisted; applied on next render |
+| 7.11 | Refreshable smart shelf (`random_pick`, `time_of_day`, `spare_time`, `recently_played`) shows Refresh card at end | Trailing card with refresh icon |
+| 7.12 | Click Refresh card → spin animation runs once + shelf re-resolves | New game order on `random_pick` / `recently_played` |
+| 7.13 | Deterministic smart shelf (e.g. `daily_pick`, `deck_picks`) → no trailing card at all | Row ends at last game |
+| 7.14 | Non-smart shelf with `sort=random` → Refresh card at end | Same as smart refreshable |
+| 7.15 | Click Refresh on `sort=random` shelf → cache cleared (`ds-random-*` keys), shelf re-resolves with new order | Order changes on click |
 
 ---
 
@@ -126,9 +136,20 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 
 ## 10. CSS Themes (CDP required)
 
-Deferred to Sprint 6 (ArtHero aprofundamento).
-
 | # | Scenario | Expected |
 |---|----------|----------|
 | 10.1 | ArtHero active + `hideRecents=false` → our shelves not affected by ArtHero | Own DS styling preserved |
-| 10.2 | ArtHero active + `hideRecents=true` + `recentsReplaceSource=false` → first shelf adopts ArtHero styles | Visual parity with native recents |
+| 10.2 | ArtHero active + `hideRecents=true` + `recentsReplaceSource=false` → first shelf adopts ArtHero styles, `HeroBackground` returns `null`, label overlay clones the focused card's `.ds-card-label` | Visual parity with native recents; label tracks focused card horizontally on row scroll |
+| 10.3 | TiltedHome theme active → entire `.ds-card` (image + label + glow + MoreCard + RefreshCard) tilts as a parallelogram; focused card composes `skew + scale + translateZ` | Cards visually overlap like native TiltedHome; focus indicator preserved |
+| 10.4 | Toggle ArtHero on/off at runtime via CSS Loader → label overlay appears/disappears without Steam restart | `MutationObserver` on `<head>` reacts immediately |
+
+---
+
+## 11. Saved Filters
+
+| # | Scenario | Expected |
+|---|----------|----------|
+| 11.1 | Save filter from `EditShelfModal > Filters > "Save current as filter"` → entry appears in QAM Saved Filters section | Section visible only when ≥1 filter saved |
+| 11.2 | Apply saved filter to another shelf via the dropdown → group is **copied** (spread), not referenced by id | Deleting the saved filter later does not break the shelf using it |
+| 11.3 | Rename saved filter inline → name updates in dropdown immediately | Persisted across reload |
+| 11.4 | Delete saved filter → entry gone from QAM and from the apply dropdown | Section hides when list becomes empty |

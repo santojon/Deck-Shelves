@@ -3,6 +3,7 @@ import { Field, DialogButton, Focusable } from '@decky/ui'
 import { useTranslation } from 'react-i18next'
 import pkg from '../../../package.json'
 import { DocSection } from './DocSection'
+import { flowChildrenProps } from '../../core/steamOSVersion'
 
 const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
 const GITHUB_URL = 'https://github.com/santojon/Deck-Shelves'
@@ -34,7 +35,7 @@ export function SupportPage() {
             it the buttons render side-by-side visually but D-pad navigates
             top-to-bottom (the default Focusable flow). */}
         <Focusable
-          flow-children="horizontal"
+          {...flowChildrenProps("horizontal")}
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
         >
           <DialogButton

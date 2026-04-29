@@ -114,6 +114,8 @@ export const SmartShelfSchema = z.object({
   hideCompatIcons: z.boolean().optional(),
   hideNonSteamBadge: z.boolean().optional(),
   hideShelfTitle: z.boolean().optional(),
+  hideGameNames: z.boolean().optional(),
+  hideInstallIndicator: z.boolean().optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
   // default 60-minute TTL; otherwise the cached result is reused for
   // `refreshIntervalMinutes * 60 * 1000` ms. Capped at 30 days.
@@ -156,6 +158,8 @@ export const ShelfSchema = z.object({
   hideCompatIcons: z.boolean().default(false),
   hideNonSteamBadge: z.boolean().default(false),
   hideShelfTitle: z.boolean().default(false),
+  hideGameNames: z.boolean().default(false),
+  hideInstallIndicator: z.boolean().default(false),
   source: ShelfSourceSchema
 });
 
@@ -175,6 +179,8 @@ export const SettingsSchema = z.object({
   globalHideCompatIcons: z.boolean().default(false),
   globalHideNonSteamBadge: z.boolean().default(false),
   globalHideShelfTitle: z.boolean().default(false),
+  globalHideGameNames: z.boolean().default(false),
+  globalHideInstallIndicator: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),

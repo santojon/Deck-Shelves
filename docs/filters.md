@@ -21,6 +21,8 @@ Deck Shelves supports advanced game filtering with AND/OR logic using filter gro
 | `developer` | Filter by developer name | `developers`: string[] |
 | `publisher` | Filter by publisher name | `publishers`: string[] |
 | `appIdList` | Explicit whitelist of app IDs | `appIds`: number[] |
+| `cloudAvailable` | Steam Cloud support | — |
+| `controllerSupport` | Native controller support | `min`: number (1 = partial or full, 2 = full only; default 1) |
 | `merge` | Combine multiple shelf sources | `sources`: ShelfSource[] |
 | `storeTag` | Has specific Steam store tags _(pass-through, not yet evaluated)_ | `tags`: string[] |
 | `achievements` | Achievement count range _(pass-through, not yet evaluated)_ | `min`, `max`: number |
@@ -66,6 +68,8 @@ Each item can be `inverted` to negate the condition:
 | `metacritic` | Metacritic score (highest first) |
 | `review_score` | Steam review score (highest first) |
 | `added` | Library acquisition date (newest first) |
+| `random` | Stable random shuffle, refreshes every 24 h |
+| `manual` | User-defined order (`manualOrder`); ids not in the list fall through to `manualBaseSort` |
 
 ## Legacy Filter Format
 

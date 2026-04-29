@@ -22,4 +22,6 @@ export type EditableShelfState = {
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
   hideShelfTitle: boolean
+  hideGameNames: boolean
+  hideInstallIndicator: boolean
 }
