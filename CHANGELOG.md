@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-04-29
+
 ### Added
 
 - **Refresh card on shelves with random sort.** Non-smart shelves whose effective sort is `random` now get a trailing refresh card (mirrors smart shelves with `random_pick`/`time_of_day`/`spare_time`/`recently_played`). Clicking it clears the 24h stable-shuffle cache (`ds-random-*` localStorage keys) and re-resolves only that shelf. New `invalidateRandomSortCache()` exported from `src/steam/index.ts`.

@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-04-29
+
 ### Added
 
 - **Refresh card on shelves with random sort.** Shelves you've set to **Random** order now get a Refresh tile at the end of the row — clicking it reshuffles only that shelf with a quick spin animation. Mirrors how smart shelves like Roleta and Hora do dia already work; the refresh tile only appears where the result can actually change between two clicks.
