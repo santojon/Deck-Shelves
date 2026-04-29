@@ -198,6 +198,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
           resolveRef.current();
         },
       });
+      base.push({
+        id: `${shelf.id}__more`,
+        name: t('view_more'),
+        isMoreLink: true,
+        onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
+      });
     } else if (!isSmart) {
       base.push({
         id: `${shelf.id}__more`,
