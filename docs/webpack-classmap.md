@@ -1,12 +1,28 @@
  # Webpack classmap — discovery & runtime mapping
 
- A short guide to discover Steam's webpack-hashed classes (viewport / shelf / cards) and inject a runtime mapping the plugin uses to locate scroll/focus elements.
+ A short guide to discover Steam's webpack-hashed classes (viewport / shelf / cards / native sections) and inject a runtime mapping the plugin uses to locate scroll/focus elements and to mirror native styling on injected shelves.
 
  ## Purpose
  - Make selector discovery deterministic across Steam versions and themes.
  - Allow `DeckRow` to use a runtime-provided `viewport` selector before falling back to heuristics.
+ - Allow injected shelves to inherit native classes (`nativeShelf`, `nativeShelfTitle`, `nativeShelfRow`, `nativeCard*`) so CSS Loader themes — including ArtHero and TiltedHome — apply automatically.
 
 > **Caution:** webpack-hashed class tokens change on every Steam update without notice. Never hardcode a token (e.g. `_3PhGYbMWIcIaZCfllWN19N`) in application logic — always go through the runtime map or the heuristic fallback chain.
+
+## Runtime tokens (current keys)
+
+The runtime map (`window.__DS_CLASS_MAP__` and the seed in `src/runtime/classmap.json`) carries these keys. New keys are filled in by `discoverClassMap()` on each mount; existing values from the seed win on conflicts so a partial discovery never erases a known-good token.
+
+| Key | Discovered from | Use |
+|---|---|---|
+| `viewport` | first ancestor with vertical overflow + meaningful height | `DeckRow` scroll-center math, focus restore |
+| `row` | shelf row container | (legacy; reserved) |
+| `card` | game card root | (legacy; reserved) |
+| `nativeShelf` | shelf-level wrapper around the title + row | additive promotion of the first DS shelf to the recents slot when CSS Loader is active |
+| `nativeShelfTitle` | sibling heading element (font-size ≥ 16px) | match native title typography |
+| `nativeShelfRow` | row sibling of the title | match native row spacing/transitions |
+| `nativeCard*` | native game card tokens (`Panel`, art, label, status, badge) | apply native styles to our `.ds-card` and friends |
+| `nativeSection*` | section-level tokens around the recents block | restore wrapper class on promoted first shelf |
 
  ## Discovery snippet (run in CDP/CEF console)
  Paste this into the page console (or run via `cdp_probe.py` if supported):
@@ -51,16 +67,24 @@
  Notes:
  - `DeckRow` searches, in order: (1) known hard-coded selector; (2) `window.__DS_CLASS_MAP` / `localStorage['ds_class_map']`; (3) hashed-token heuristic; (4) generic fallback.
  - Values in `__DS_CLASS_MAP` may include or omit the leading dot. If omitted, the plugin converts the token into a class selector.
+ - **Discovery + seed merge order:** on each mount `homePatch` calls `getRuntimeClassMap()` (existing) and `discoverClassMap()` (fresh), then merges with **existing wins on conflicts**. This protects manually-pinned tokens while still filling in missing keys after a SteamOS update.
 
- ## Verify using `cdp_probe.py`
- Use the probe to list ancestors or run `diff-focus` which captures the `viewport` and `scrollTop`:
+ ## Verify using the unified CDP CLI
+
+ The CDP CLI (`scripts/devtools/deck/cdp.py`, see [cdp.md](./cdp.md)) replaces the older `cdp_probe.py`. To inspect the live classmap on a running Deck:
 
  ```bash
- DECK_CDP_HOST=192.168.255.115 DECK_CDP_PORT=8081 python3 scripts/devtools/deck/tools/cdp_probe.py --mode ancestors
- DECK_CDP_HOST=192.168.255.115 DECK_CDP_PORT=8081 python3 scripts/devtools/deck/tools/cdp_probe.py --mode diff-focus
+ # List the current runtime classmap (after the plugin mounts)
+ python3 scripts/devtools/deck/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP__ || null)'
+
+ # Inspect a focused element's class chain
+ python3 scripts/devtools/deck/cdp.py eval bp 'document.activeElement?.className'
+
+ # Force a re-discovery (development helper)
+ python3 scripts/devtools/deck/cdp.py eval bp 'window.__DS_CLASS_MAP__ = null; location.reload()'
  ```
 
- Inspect the `cls` property in the output — tokens like `._3PhGYbMWIcIaZCfllWN19N` will appear there.
+ Tokens like `_3PhGYbMWIcIaZCfllWN19N` appear as values of the runtime map keys.
 
  ## Recommendations
  - Prefer injecting `window.__DS_CLASS_MAP` from a startup snippet (CDP) rather than relying solely on heuristics.

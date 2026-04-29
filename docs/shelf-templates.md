@@ -9,7 +9,7 @@ When the user clicks **Create default shelves** on the first-run banner, three s
 | Template | Source |
 |---|---|
 | Favorites | Library tab `favorites` |
-| Recently Played | Library tab `recent` |
+| Recently Played | Filter — sort by `recent` |
 | Recently Added | Filter — sort by `added` |
 
 ---
@@ -26,9 +26,9 @@ Shows games the user has marked as favorites in the Steam library. Ordering foll
 
 ### Recently Played — `recent`
 
-**Source:** library tab `recent`
+**Source:** filter — sort by `recent` (most recently played first)
 
-Shows the most recently played games. Ordering is provided by Steam's native recents tab.
+Shows the most recently played games. The template uses a filter source rather than the legacy `tab=recent` (which was never exposed by `listLibraryTabs()` and would silently fall back to the first tab in the dropdown). Existing shelves created from older versions are migrated automatically the first time the plugin loads.
 
 ---
 
@@ -80,13 +80,37 @@ Shows installed games where the user has put in more than 3 hours — the titles
 
 ---
 
+### Steam Cloud — `steam_cloud`
+
+**Source:** filter — `filterGroup` containing `cloudAvailable`, sort `alphabetical`
+
+Shows games with Steam Cloud support — saves sync across devices. Wraps `cloudAvailable` in a `filterGroup` because the field is not on the flat `ShelfFilter` schema.
+
+---
+
+### Deck Verified — `deck_verified`
+
+**Source:** filter — `filterGroup` containing `deckCompatibility=['verified']`, sort `alphabetical`
+
+Shows games rated Deck Verified by Valve — confirmed to work great on Steam Deck. Like Steam Cloud, wraps the condition in a `filterGroup`.
+
+---
+
+### Top Reviewed — `top_reviewed`
+
+**Source:** filter — `installed: true`, sort by `review_score` (highest first)
+
+Shows installed games with the highest user review scores on Steam.
+
+---
+
 ## Notes
 
 > **Tip:** if none of the templates fit your use case, choose **Start blank** — it opens the edit modal directly so you can configure the source and filters from scratch without any preset defaults getting in the way.
 
 > **Note:** tab-based templates (`favorites`, `recent`, `installed`) delegate ordering entirely to Steam. The sort option in the shelf editor has no effect on these — the order is determined by Steam's own internal list. Only the limit (max number of cards) applies.
 
-- The template picker shows **Start blank** first, followed by all templates in a 2-column grid. Starting blank opens the Edit modal immediately.
-- Tab-based templates (`favorites`, `recent`, `installed`) delegate ordering entirely to Steam. The shelf limit still applies — only the first N games from the tab are shown.
-- Filter-based templates (`most_played`, `recently_added`, `awaiting_update`, `non_steam`, `long_session`) use the plugin's own resolver and support all per-shelf display options (highlight first, match native size, etc.).
+- The template picker shows **Start blank** first, followed by all templates in a 2-column grid grouped by category (status / time / platform). Starting blank opens the Edit modal immediately.
+- Tab-based templates (`favorites`, `installed`) delegate ordering entirely to Steam. The shelf limit still applies — only the first N games from the tab are shown.
+- Filter-based templates (`recent`, `most_played`, `recently_added`, `awaiting_update`, `non_steam`, `long_session`, `steam_cloud`, `deck_verified`, `top_reviewed`) use the plugin's own resolver and support all per-shelf display options (highlight first, match native size, hide game names, etc.).
 - All templates produce fully editable shelves. Source type, sort order, limit, and display options can all be changed after creation.

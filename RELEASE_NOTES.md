@@ -5,6 +5,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Refresh card on shelves with random sort.** Shelves you've set to **Random** order now get a Refresh tile at the end of the row — clicking it reshuffles only that shelf with a quick spin animation. Mirrors how smart shelves like Roleta and Hora do dia already work; the refresh tile only appears where the result can actually change between two clicks.
+- **Hide game names (per shelf and global).** New toggle in each shelf's Display tab and in the QAM Visual section. When on, the game name disappears from cards — only the artwork (and optionally the playtime / status line) is shown. Useful for theme-heavy setups where the artwork already carries the title.
+- **Hide install indicator (per shelf and global).** New toggle that hides the install / download / update / play icons in the status line while keeping playtime visible. Use it together with **Hide status line** for a cleaner card grid, or alone to keep playtime but drop the install state icon.
+
 ## [1.6.2] - 2026-04-28
 
 ### Added

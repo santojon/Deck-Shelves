@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Refresh card on shelves with random sort.** Non-smart shelves whose effective sort is `random` now get a trailing refresh card (mirrors smart shelves with `random_pick`/`time_of_day`/`spare_time`/`recently_played`). Clicking it clears the 24h stable-shuffle cache (`ds-random-*` localStorage keys) and re-resolves only that shelf. New `invalidateRandomSortCache()` exported from `src/steam/index.ts`.
+- **Hide game names toggle (per-shelf + global).** New `hideGameNames` field on `ShelfSchema`/`SmartShelfSchema` (default `false`) and `globalHideGameNames` on `SettingsSchema`. Per-shelf toggle in the Display tab of both edit modals; global toggle in the QAM Visual section (`hide_game_names`). Render gate in `GameCard.tsx` skips the `.ds-card-label-name` element when active. Singular `hide_game_name` for per-shelf, plural `hide_game_names` for global. New controller action `setGlobalHideGameNames`. Translation keys shipped in all 16 locales.
+- **Hide install indicator toggle (per-shelf + global).** New `hideInstallIndicator` field on `ShelfSchema`/`SmartShelfSchema` (default `false`) and `globalHideInstallIndicator` on `SettingsSchema`. Hides the install/download/update/play icons within `.ds-card-status` while keeping playtime visible. Per-shelf toggle in the Display tab of both edit modals; global toggle in the QAM Visual section (`hide_install_indicators`). New controller action `setGlobalHideInstallIndicator`. Translation keys shipped in all 16 locales.
+
+### Changed
+
+- Backend Python sanitizer (`main.py`) preserves `hideGameNames` and `hideInstallIndicator` per-shelf and per-smart-shelf, plus their global counterparts in the settings root. Smart-shelf bool-key allowlist extended.
+
 ## [1.6.2] - 2026-04-28
 
 ### Added

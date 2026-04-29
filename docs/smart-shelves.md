@@ -6,10 +6,34 @@ Smart shelves are a shelf type whose content is generated automatically by libra
 
 - Controlled by the `smartShelvesEnabled` global toggle in the QAM.
 - Each smart shelf has `enabled` (active in the system) and `hidden` (manually hidden by the user). Both must be false for the shelf to render on home.
-- Results are **memoized per (mode, limit) for 5 minutes** to avoid re-running on every home render cycle.
-- Smart shelves are **not editable** — they have no source filter to configure. Only reordering, hiding, and deleting are supported.
+- Results are **memoized per (mode, limit, params, ttl)** to avoid re-running on every home render cycle. Default TTL is 60 minutes; per-shelf override via `refreshIntervalMinutes` (1 minute to 30 days).
+- Smart shelves **are editable** via the **Edit smart shelf** modal — sort override (`sort`), additional filters (`filterGroup`), per-mode tuning knobs (`smartParams`), refresh interval, and the same visual options as regular shelves (`matchNativeSize`, `highlightFirst`/`highlightAll`/`highlightedAppIds`, `hideStatusLine`, `hideNewBadge`, `hideCompatIcons`, `hideNonSteamBadge`, `hideShelfTitle`, `hideGameNames`, `hideInstallIndicator`).
 
 > **Tip:** if a smart shelf appears too rarely or never matches your library, prefer **hiding** it over deleting — a hidden shelf can be re-enabled later from the QAM without losing its position in the list.
+
+### Per-mode parameters (`smartParams`)
+
+Each heuristic exposes a small set of numeric tuning knobs editable in the smart-shelf edit modal. They are mode-specific and override the resolver's hardcoded defaults when set:
+
+| Mode | Param | Default | Effect |
+|---|---|---:|---|
+| `quick_play` | `maxPlaytimeMinutes` | 120 | Upper bound for "quick" — games above this are excluded |
+| `interrupted` | `minPlaytimeMinutes` | 30 | Lower bound of the "started but not committed" window |
+| `interrupted` | `maxPlaytimeMinutes` | 180 | Upper bound of the same window |
+| `recently_played` | `daysAgo` | 30 | Sliding cutoff for "recent" |
+| `long_session` | `minPlaytimeMinutes` | 180 | Threshold for "long" |
+| `rediscover` | `monthsAgo` | 6 | "Haven't touched it for at least this many months" |
+| `rediscover` | `minPlaytimeMinutes` | 60 | Minimum invested time to count as "rediscover-worthy" |
+| `forgotten` | `yearsAgo` | 3 | Library age threshold for "forgotten" |
+
+Missing entries always fall back to the defaults — partial overrides are valid.
+
+### Refresh card on the row
+
+Smart shelves whose result can change between two clicks of the trailing card get a **Refresh** card instead of "view more in library":
+
+- **`REFRESHABLE_SMART_MODES`** (in `src/components/shelf/types.ts`): `random_pick`, `time_of_day`, `spare_time`, `recently_played`. Clicking the refresh card invalidates the resolver cache and re-resolves only that shelf.
+- **Deterministic modes** (the remaining 11) drop the trailing card entirely — view-more would mislead (smart resolvers can't be opened in the library directly), and refresh would be a no-op against stable app data.
 
 ## Position
 

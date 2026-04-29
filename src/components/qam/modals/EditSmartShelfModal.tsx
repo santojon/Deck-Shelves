@@ -65,6 +65,8 @@ type EditState = {
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
   hideShelfTitle: boolean
+  hideGameNames: boolean
+  hideInstallIndicator: boolean
   refreshIntervalMinutes: number
   smartParams: Record<string, number>
 }
@@ -91,6 +93,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     hideCompatIcons: (shelf as any).hideCompatIcons ?? false,
     hideNonSteamBadge: (shelf as any).hideNonSteamBadge ?? false,
     hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
+    hideGameNames: (shelf as any).hideGameNames ?? false,
+    hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
     smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
   })
@@ -197,6 +201,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       ;(patch as any).hideCompatIcons = state.hideCompatIcons
       ;(patch as any).hideNonSteamBadge = state.hideNonSteamBadge
       ;(patch as any).hideShelfTitle = state.hideShelfTitle
+      ;(patch as any).hideGameNames = state.hideGameNames
+      ;(patch as any).hideInstallIndicator = state.hideInstallIndicator
       // Only persist when the user diverged from the default cadence; otherwise
       // omit so the shelf inherits whatever the resolver default ends up being.
       ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
@@ -375,7 +381,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                   content: (
                     <DisplayTabContent
                       t={t}
-                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle }}
+                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true }}
                       setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       hasNonSteamBadges={hasNonSteamBadges}
                     />

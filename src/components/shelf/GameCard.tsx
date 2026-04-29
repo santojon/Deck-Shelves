@@ -53,7 +53,7 @@ const xCircleSvg = (
   </svg>
 );
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -309,15 +309,18 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           flexDirection: "column",
         }}
       >
-        <div className="ds-card-label-name">
-          {item.name}
-        </div>
+        {!hideGameName && (
+          <div className="ds-card-label-name">
+            {item.name}
+          </div>
+        )}
         {!hideStatusLine && (() => {
           const hasUpdate = item.updatePending === true;
           const isInstalled = item.isInstalled === true;
           const hasPlaytime = !!playtime && item.playtimeMinutes && item.playtimeMinutes > 0;
 
           if (!isInstalled && !hasPlaytime) {
+            if (hideInstallIndicator) return null;
             return (
               <div className="ds-card-status">
                 {downloadIcon}
@@ -328,7 +331,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           if (!isInstalled && hasPlaytime) {
             return (
               <div className="ds-card-status">
-                {downloadIcon}
+                {!hideInstallIndicator && downloadIcon}
                 <span>{t('playtime_label', { time: playtime })}</span>
               </div>
             );
@@ -336,7 +339,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           if (isInstalled && hasUpdate) {
             return (
               <div className="ds-card-status">
-                {updateIcon}
+                {!hideInstallIndicator && updateIcon}
                 <span>{hasPlaytime ? t('playtime_label', { time: playtime }) : t('status_no_playtime')}</span>
               </div>
             );
@@ -344,7 +347,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           if (isInstalled && !hasPlaytime) {
             return (
               <div className="ds-card-status">
-                {playIcon}
+                {!hideInstallIndicator && playIcon}
                 <span>{t('status_no_playtime')}</span>
               </div>
             );
@@ -352,7 +355,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           if (isInstalled && hasPlaytime) {
             return (
               <div className="ds-card-status">
-                {playIcon}
+                {!hideInstallIndicator && playIcon}
                 <span>{t('playtime_label', { time: playtime })}</span>
               </div>
             );

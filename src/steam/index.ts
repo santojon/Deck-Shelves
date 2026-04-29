@@ -1799,6 +1799,17 @@ function stableShuffleIds(ids: number[], cacheKey: string): number[] {
   return shuffled;
 }
 
+export function invalidateRandomSortCache(): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('ds-random-')) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {}
+}
+
 export function applyManualOrder(ids: number[], manualOrder?: number[]): number[] {
   if (!manualOrder?.length) return ids;
   const idSet = new Set(ids);
