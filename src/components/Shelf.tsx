@@ -71,7 +71,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         if (isManual && shelf.source?.type === "filter") {
           resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: baseSort } };
         }
-        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort)
+        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id)
           .then((ids) => {
             if (cancelled || gen !== resolveGenRef.current) return;
             const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
@@ -184,7 +184,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         name: t('refresh'),
         isRefresh: true,
         onActivate: () => {
-          invalidateSmartShelfCache();
+          // Scoped to this shelf so refreshing one smart shelf does not
+          // bust the cache (or alter the next-resolve content) of others.
+          invalidateSmartShelfCache(shelf.id);
           resolveRef.current();
         },
       });
@@ -194,7 +196,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         name: t('refresh'),
         isRefresh: true,
         onActivate: () => {
-          invalidateRandomSortCache();
+          // Scoped per shelf — same reasoning as above.
+          invalidateRandomSortCache(shelf.id);
           resolveRef.current();
         },
       });

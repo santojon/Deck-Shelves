@@ -19,7 +19,9 @@
  */
 
 import type { ReactNode } from "react";
+import type { Settings } from "../types";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
+import { isTabMasterInstalled } from "../integrations/registry";
 
 // ---------------------------------------------------------------------------
 // 1. PUBLIC TYPES — frozen shape exposed to external plugins
@@ -63,6 +65,11 @@ export interface ExternalShelfSourceDescriptor {
    *  refresh. Returning fewer than `limit` ids is fine; returning duplicates
    *  is silently de-duplicated. Errors are caught — return `[]` on failure. */
   resolve: (limit: number) => Promise<number[]>;
+  /** Optional descriptor schema version. Plugins may bump this when they
+   *  introduce new optional fields specific to their descriptor type so that
+   *  internal handlers can branch (`if ((d.version ?? 1) >= 2) ...`).
+   *  Defaults to `1` when omitted. */
+  version?: number;
 }
 
 /**
@@ -74,6 +81,9 @@ export interface ExternalShelfSourceDescriptor {
 export interface SmartShelfSourceDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). See
+   *  `ExternalShelfSourceDescriptor.version`. */
+  version?: number;
   /** Optional category key for picker grouping (e.g. "status", "time"). */
   category?: string;
   /** Default values for every key in `paramMeta`. Required when `paramMeta`
@@ -107,6 +117,8 @@ export interface SmartShelfSourceDescriptor {
 export interface ExternalFilterTypeDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   /** Default `params` shape. Used when a shelf is constructed from a
    *  template that references the filter type without explicit params. */
   defaultParams?: Readonly<Record<string, unknown>>;
@@ -133,6 +145,8 @@ export interface ExternalFilterTypeDescriptor {
 export interface ExternalSortOptionDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   /** Returns a NEW array (do not mutate input) of appids in the desired
    *  order. Apps not present in the input are dropped silently. */
   sort: (appIds: ReadonlyArray<number>, apps: ReadonlyArray<PublicAppMeta>) => number[];
@@ -152,6 +166,8 @@ export interface ExternalSortOptionDescriptor {
 export interface ExternalImportTypeDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   /** Optional file-extension hint (e.g. ".json", ".csv"). UI-only. */
   fileExtension?: string;
   parse: (raw: string) => Promise<ParsedImport>;
@@ -186,6 +202,8 @@ export interface ParsedImport {
 export interface ExternalSavedFilterDescriptor {
   id: string;
   name: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   group: PublicFilterGroup;
 }
 
@@ -264,7 +282,13 @@ export interface DeckShelvesPublicAPI {
 
   registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
 
-  // --- v2 consumer contracts (Phase 2 — currently stubbed) ----------------
+  // --- v2 environment probes ---------------------------------------------
+  /** True iff TabMaster is installed and active. Plugins that mirror tab
+   *  data should skip their own injection when this returns `true` to avoid
+   *  duplicate sources in the picker. */
+  hasTabMaster(): boolean;
+
+  // --- v2 consumer contracts ---------------------------------------------
   getShelves(): ReadonlyArray<PublicShelf>;
   getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
   getSavedFilters(): ReadonlyArray<PublicSavedFilter>;
@@ -379,7 +403,61 @@ async function removeRegisteredSavedFilter(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 6. API CONSTRUCTOR
+// 6. CONSUMER PROJECTIONS — pure functions converting internal Settings to
+// the frozen Public* shapes. Kept narrow so we never leak internal fields.
+// ---------------------------------------------------------------------------
+
+function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
+  if (!s) return [];
+  const out: PublicShelf[] = [];
+  for (const sh of s.shelves) {
+    const src: any = sh.source;
+    let pub: PublicShelfSource | null = null;
+    if (src?.type === "collection") pub = { type: "collection", collectionId: String(src.collectionId ?? "") };
+    else if (src?.type === "tab") pub = { type: "tab", tab: String(src.tab ?? "") };
+    else if (src?.type === "filter") pub = { type: "filter", filter: { sort: src.filter?.sort, group: src.filter?.group as any } };
+    else if (src?.type === "external") pub = { type: "external", sourceId: String(src.sourceId ?? "") };
+    else if (src?.type === "smart") pub = { type: "smart", mode: String(src.mode ?? "") };
+    if (!pub) continue;
+    out.push({
+      id: sh.id,
+      title: sh.title,
+      enabled: sh.enabled !== false,
+      hidden: !!sh.hidden,
+      limit: sh.limit ?? 20,
+      sort: sh.sort,
+      source: pub,
+    });
+  }
+  return out;
+}
+
+function projectSmartShelves(s: Settings | null): ReadonlyArray<PublicSmartShelf> {
+  if (!s) return [];
+  const list = (s.smartShelves ?? []) as any[];
+  return list.map((sh: any) => ({
+    id: String(sh.id),
+    title: String(sh.title ?? ""),
+    mode: String(sh.mode),
+    enabled: sh.enabled !== false,
+    hidden: !!sh.hidden,
+    limit: typeof sh.limit === "number" ? sh.limit : undefined,
+    sort: typeof sh.sort === "string" ? sh.sort : undefined,
+  }));
+}
+
+function projectSavedFilters(s: Settings | null): ReadonlyArray<PublicSavedFilter> {
+  if (!s) return [];
+  const list = (s.savedFilters ?? []) as any[];
+  return list.map((f: any) => ({
+    id: String(f.id),
+    name: String(f.name ?? ""),
+    group: f.group as PublicFilterGroup,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// 7. API CONSTRUCTOR
 // ---------------------------------------------------------------------------
 
 function makeApi(): DeckShelvesPublicAPI {
@@ -427,24 +505,54 @@ function makeApi(): DeckShelvesPublicAPI {
       return () => { void removeRegisteredSavedFilter(d.id); };
     },
 
-    // ---- Consumer contracts (Phase 2 — stubbed for now) -------------------
-    // Shape is frozen; implementation will arrive in a later release. Until
-    // then, getters return `[]` and subscriptions never fire — callers can
-    // depend on the type signature, just not on receiving data yet.
-    getShelves() { return [] as ReadonlyArray<PublicShelf>; },
-    getSmartShelves() { return [] as ReadonlyArray<PublicSmartShelf>; },
-    getSavedFilters() { return [] as ReadonlyArray<PublicSavedFilter>; },
-    subscribeToShelves(_cb) { return () => {}; },
-    subscribeToSmartShelves(_cb) { return () => {}; },
-    subscribeToSavedFilters(_cb) { return () => {}; },
+    // Environment probe
+    hasTabMaster() { return isTabMasterInstalled(); },
+
+    // ---- Consumer contracts ------------------------------------------------
+    // Reads project from the live settings snapshot in `settingsStore`.
+    // Subscriptions are diff-gated by JSON identity so callers only fire on
+    // real change (the store itself already de-dupes via `isSameSettings`,
+    // but a downstream consumer that only watches shelves should not wake on
+    // unrelated settings flips).
+    getShelves() { return projectShelves(getCurrentSettings()); },
+    getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
+    getSavedFilters() { return projectSavedFilters(getCurrentSettings()); },
+    subscribeToShelves(cb) {
+      let last = JSON.stringify(projectShelves(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectShelves(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    subscribeToSmartShelves(cb) {
+      let last = JSON.stringify(projectSmartShelves(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectSmartShelves(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    subscribeToSavedFilters(cb) {
+      let last = JSON.stringify(projectSavedFilters(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectSavedFilters(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
   };
 }
 
 // ---------------------------------------------------------------------------
 // 7. INSTALL / UNINSTALL
 // ---------------------------------------------------------------------------
-
-let installedUnsub: (() => void) | null = null;
 
 /**
  * Event dispatched on `window` immediately after the API surface is installed.
@@ -467,15 +575,9 @@ export function installPluginApi(): () => void {
   try { (window as any).__DECK_SHELVES_API__ = api; } catch {}
   try { window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: api })); } catch {}
 
-  // Best-effort settings-changes hook; consumer subscriptions are stubbed
-  // for now, but the unsubscribe is set up so a future implementation can
-  // re-enable it without changing the install flow.
-  installedUnsub = subscribeSettings(() => { /* Phase 2 hook */ });
-
   return () => {
     try { window.dispatchEvent(new CustomEvent(TEARDOWN_EVENT)); } catch {}
     try { delete (window as any).__DECK_SHELVES_API__; } catch {}
-    if (installedUnsub) { try { installedUnsub(); } catch {} installedUnsub = null; }
     shelfSources.clear();
     smartSources.clear();
     filterTypes.clear();

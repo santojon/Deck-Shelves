@@ -142,7 +142,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(raw_smart, list):
         raw_smart = []
     sanitized_smart = []
-    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played", "long_session", "non_steam", "random_pick", "forgotten", "spare_time"}
+    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played", "long_session", "non_steam", "random_pick", "forgotten", "spare_time", "custom"}
     for ss in raw_smart:
         if not isinstance(ss, dict):
             continue
@@ -228,6 +228,48 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                     continue
             if cleaned:
                 entry["smartParams"] = cleaned
+        # visibleHours: optional list of { start, end } ranges (each int in [0, 23]).
+        # OR-combined at runtime — shelf is visible if current hour falls in ANY
+        # range. Wrap-around (start > end) supported per range. Backwards-compat:
+        # a single { start, end } object is migrated into a one-element list.
+        raw_window = ss.get("visibleHours")
+        ranges_in: list = []
+        if isinstance(raw_window, dict):
+            ranges_in = [raw_window]
+        elif isinstance(raw_window, list):
+            ranges_in = raw_window
+        if ranges_in:
+            cleaned_ranges: list = []
+            for r in ranges_in:
+                if not isinstance(r, dict):
+                    continue
+                try:
+                    ws = int(r.get("start"))
+                    we = int(r.get("end"))
+                    if 0 <= ws <= 23 and 0 <= we <= 23:
+                        cleaned_ranges.append({"start": ws, "end": we})
+                except Exception:
+                    continue
+            if cleaned_ranges:
+                entry["visibleHours"] = cleaned_ranges
+        # visibleDaysOfWeek: optional list of distinct ints in [0, 6]. The
+        # field is preserved verbatim when present (even empty list) — `[]`
+        # explicitly means "never visible". When the field is absent (None),
+        # the resolver applies no day restriction. Sanitizer dedupes / clamps
+        # / sorts; bad entries are silently skipped.
+        raw_days = ss.get("visibleDaysOfWeek")
+        if isinstance(raw_days, list):
+            cleaned_days: list = []
+            seen: set = set()
+            for v in raw_days:
+                try:
+                    n = int(v)
+                    if 0 <= n <= 6 and n not in seen:
+                        seen.add(n)
+                        cleaned_days.append(n)
+                except Exception:
+                    continue
+            entry["visibleDaysOfWeek"] = sorted(cleaned_days)
         sanitized_smart.append(entry)
 
     try:

@@ -20,7 +20,18 @@ export function createDefaultShelf(firstCollectionId = "", title = "New shelf"):
 }
 
 export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
-  return { id: randomShelfId(), title, mode, enabled: true, hidden: false };
+  const base: SmartShelf = { id: randomShelfId(), title, mode, enabled: true, hidden: false };
+  // Mirror the mode's hardcoded visibility window into `visibleHours` so the
+  // user sees and can edit the same constraint that the resolver applies
+  // internally. Other modes leave the field unset.
+  if (mode === "spare_time") {
+    (base as any).visibleHours = [
+      { start: 6, end: 9 },
+      { start: 12, end: 14 },
+      { start: 19, end: 22 },
+    ];
+  }
+  return base;
 }
 
 export function defaultSettings(): Settings {

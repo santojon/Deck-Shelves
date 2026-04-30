@@ -85,6 +85,7 @@ export const SmartShelfModeSchema = z.enum([
   "random_pick",
   "forgotten",
   "spare_time",
+  "custom",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
 
@@ -124,6 +125,20 @@ export const SmartShelfSchema = z.object({
   // (see `SMART_PARAM_META` in `src/steam/smartParams.ts`); values are
   // numbers. Missing entries fall back to the resolver's hardcoded defaults.
   smartParams: z.record(z.string(), z.number()).optional(),
+  // Optional visibility windows. When non-empty, the shelf only appears
+  // when the current local time falls inside ANY of the ranges (OR across
+  // the array). Each range has `start`/`end` hours in `[0, 23]`. Empty
+  // array = no window restriction (same as `undefined`). For backwards
+  // compatibility the sanitizer also accepts a single `{ start, end }`
+  // object and migrates it to a one-element array.
+  visibleHours: z.array(z.object({
+    start: z.number().int().min(0).max(23),
+    end: z.number().int().min(0).max(23),
+  })).optional(),
+  // Optional restriction to specific weekdays. 0 = Sunday … 6 = Saturday.
+  // Empty array is treated as "no restriction" (same as undefined). Duplicates
+  // are stripped by the sanitizer.
+  visibleDaysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
 });
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 

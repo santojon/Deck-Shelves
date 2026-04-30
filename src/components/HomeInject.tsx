@@ -19,6 +19,7 @@ import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
+import { isInVisibilityWindow, nextVisibilityBoundary } from "../steam/smartShelves";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isCssLoaderActive, getNativeRecentsClassName } from "../core/cssLoaderDetect";
@@ -320,6 +321,32 @@ export function HomeShelves() {
     applyHideHomeTabs(settings?.hideHomeTabs === true);
   }, [settings?.hideHomeTabs, mountEl]);
 
+  // Schedule a one-shot refresh at the next visibility-window boundary across
+  // all smart shelves. Picks the earliest boundary; on fire, triggers a
+  // shelf refresh so out-of-window shelves disappear / in-window shelves
+  // reappear without polling. Re-armed whenever the smart-shelf list or
+  // their windows change.
+  const smartList = settings?.smartShelves;
+  useEffect(() => {
+    if (!settings?.smartShelvesEnabled) return;
+    if (!Array.isArray(smartList) || smartList.length === 0) return;
+    const now = new Date();
+    let earliest: number | null = null;
+    for (const s of smartList) {
+      const w = (s as any).visibleHours;
+      const d = (s as any).visibleDaysOfWeek;
+      if (!w && (!d || d.length === 0)) continue;
+      const next = nextVisibilityBoundary(w, d, now);
+      if (next != null && (earliest == null || next < earliest)) earliest = next;
+    }
+    if (earliest == null) return;
+    const delay = Math.max(1000, earliest - now.getTime());
+    const t = window.setTimeout(() => {
+      try { triggerShelfRefresh(); } catch {}
+    }, delay);
+    return () => window.clearTimeout(t);
+  }, [settings?.smartShelvesEnabled, smartList]);
+
   if (!mountEl) return null;
   if (!settings) return null;
 
@@ -374,6 +401,9 @@ export function HomeShelves() {
     } else {
       smartShelves = (settings.smartShelves ?? [])
         .filter((s: SmartShelf) => s.enabled && !s.hidden)
+        .filter((s: SmartShelf) =>
+          isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek)
+        )
         .map((s: SmartShelf): Shelf => ({
           id: s.id,
           title: s.title,

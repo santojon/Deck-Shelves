@@ -76,6 +76,22 @@ export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal
         onCancel={() => closeModal?.()}
       >
         <Focusable style={{ padding: 8 }}>
+          <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <DialogButton
+              style={btnStyle}
+              onClick={() => {
+                closeModal?.()
+                ;(async () => { await actions.addSmartShelf("custom" as SmartShelfMode, t('smart_template_custom' as any)) })()
+              }}
+              onOKButton={() => {
+                closeModal?.()
+                ;(async () => { await actions.addSmartShelf("custom" as SmartShelfMode, t('smart_template_custom' as any)) })()
+              }}
+              onOKActionDescription={t('smart_template_custom' as any)}
+            >
+              <span style={btnInner}><span>{t('smart_template_custom' as any)}</span></span>
+            </DialogButton>
+          </div>
           {grouped.map(({ cat, items }) => (
             <div key={cat} style={{ marginBottom: 6 }}>
               <Focusable

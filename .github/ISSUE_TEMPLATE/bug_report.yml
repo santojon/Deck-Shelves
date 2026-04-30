@@ -40,17 +40,44 @@ body:
     id: version
     attributes:
       label: Plugin version
-      placeholder: "e.g. 1.5.0"
+      placeholder: "e.g. 1.6.3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      description: Which OS are you running?
+      options:
+        - SteamOS (Steam Deck)
+        - Bazzite
+        - HoloISO
+        - ChimeraOS
+        - Other Linux
+        - Windows
+        - macOS
+        - Other / Unknown
     validations:
       required: true
 
   - type: input
-    id: steamos
+    id: os_version
     attributes:
-      label: SteamOS version
-      placeholder: "e.g. 3.6.20"
+      label: OS version
+      description: Output of `cat /etc/os-release` (Linux) or "Settings → System" version. For SteamOS use the build number.
+      placeholder: "e.g. SteamOS 3.7.21, Bazzite 41, Windows 11 23H2"
     validations:
-      required: false
+      required: true
+
+  - type: input
+    id: steam_client
+    attributes:
+      label: Steam client version
+      description: Steam → top-left menu → Steam → "Check for Steam Client Updates..." (or "About Steam"). Look for the build date / version.
+      placeholder: "e.g. 1748993579 (Stable, Apr 21 2026)"
+    validations:
+      required: true
 
   - type: textarea
     id: context

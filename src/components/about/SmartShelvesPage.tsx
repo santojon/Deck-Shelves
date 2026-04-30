@@ -71,6 +71,12 @@ export function SmartShelvesPage() {
       ))}
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_surprise_me')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_surprise_me')}</span>} />
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('edit_tab_smart_filters' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_filters_overview' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_template_custom' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('smart_template_custom_desc' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_visible_hours_label' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_visibility_window' as any)}</span>} />
     </DocSection>
   )
 }
