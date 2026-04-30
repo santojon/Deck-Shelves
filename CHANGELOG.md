@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-30
+
 ### Added
 
 - **Plugin API v2 — import descriptors gain `target` + `icon` + `runImport`.** `ExternalImportTypeDescriptor` now declares which bucket it populates (`target: "shelves" | "smart_shelves"`, default `"shelves"`), surfaces an `icon` in the QAM action row, and may set `runImport` for custom UX (replacing the `parse` default-flow path when the import opens its own modal). `ParsedImport.shelves` is optional and a new `smartShelves` array lets parsers populate the smart-shelf bucket. New `getRegisteredImportTypesForTarget(target)` on the API surface and a matching internal `getExternalImportTypesForTarget` for the QAM. New `ImportMenuButton` ([src/components/qam/common/ImportMenuButton.tsx](src/components/qam/common/ImportMenuButton.tsx)) renders the registered entries: one entry → direct icon button (matches the legacy single-icon TabMaster slot); two or more → `…` overflow opens a list. Wired into both the regular shelves and smart shelves sections of [DeckQAMSettings](src/components/DeckQAMSettings.tsx).

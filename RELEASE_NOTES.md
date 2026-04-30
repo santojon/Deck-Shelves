@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-30
+
 ### Added
 
 - **Custom smart shelf.** New "Custom / Blank" entry at the top of the smart-shelf template picker. Build a smart shelf from scratch with your own filters and sort — same flexibility as a regular shelf, but it lives in the smart-shelf section.
