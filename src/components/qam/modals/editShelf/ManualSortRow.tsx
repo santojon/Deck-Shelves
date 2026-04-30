@@ -45,23 +45,29 @@ export function ManualSortRow({
     let throttleTimer: any = null
     let throttled = false
     let lastFocusedCard: HTMLElement | null = null
+    let lastScrolledOffsetLeft: number | null = null
     const doScroll = (card: HTMLElement) => {
       const final = computeCenteredScrollLeft(
         { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
         { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight }
       )
       try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
+      lastScrolledOffsetLeft = card.offsetLeft
       throttled = true
       if (throttleTimer) clearTimeout(throttleTimer)
       throttleTimer = setTimeout(() => {
         throttled = false
         throttleTimer = null
-        if (lastFocusedCard && lastFocusedCard !== card) doScroll(lastFocusedCard)
+        if (lastFocusedCard && (lastFocusedCard !== card || lastFocusedCard.offsetLeft !== lastScrolledOffsetLeft)) {
+          doScroll(lastFocusedCard)
+        }
       }, 100)
     }
     const handle = (card: HTMLElement) => {
       lastFocusedCard = card
-      if (throttled) return
+      // Re-scroll when the focused card's position changed (after a shift the
+      // same node moves to a new offsetLeft), even within the throttle window.
+      if (throttled && lastScrolledOffsetLeft === card.offsetLeft) return
       doScroll(card)
     }
     const onFocusIn = (e: Event) => {
@@ -98,8 +104,30 @@ export function ManualSortRow({
     if (to === from) return
     const [picked] = base.splice(from, 1)
     base.splice(to, 0, picked)
+    // Update orderRef synchronously so successive rapid presses operate
+    // on the latest order — without this, every press until React
+    // commits computes the same shift against stale state and the
+    // visible movement falls behind the keystrokes.
+    orderRef.current = base
     onReorder(base)
-    requestAnimationFrame(refocusGrabbed)
+    // Scroll synchronously so the row tracks the keystroke instead of
+    // animating after the focus already moved. The focusin handler also
+    // re-centers via its throttle, but that path runs one rAF later
+    // and uses smooth scroll, which felt lagged on rapid presses.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        refocusGrabbed()
+        const rowEl = rowRef.current
+        if (!rowEl) return
+        const target = rowEl.querySelector<HTMLElement>(`.ds-highlight-mini[data-appid="${picked}"]`)
+        if (!target) return
+        const final = computeCenteredScrollLeft(
+          { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
+          { left: target.offsetLeft, top: target.offsetTop, width: target.offsetWidth, height: target.offsetHeight }
+        )
+        try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
+      })
+    })
   }
 
   const toggleGrab = (appid: number) => {
@@ -223,17 +251,27 @@ export function ManualSortRow({
     if (to === idx) return
     const [picked] = base.splice(idx, 1)
     base.splice(to, 0, picked)
+    // Update orderRef synchronously so successive rapid clicks operate on
+    // the latest order rather than recomputing the same shift against the
+    // pre-commit state.
+    orderRef.current = base
     onReorder(base)
+    // Nested rAF: the first frame lets React commit the new order; the
+    // second guarantees layout has been recomputed before we read
+    // `offsetLeft`. Instant behavior so the row tracks the click without
+    // a smooth-scroll delay.
     requestAnimationFrame(() => {
-      const rowEl = rowRef.current
-      if (!rowEl) return
-      const target = rowEl.querySelector<HTMLElement>(`.ds-highlight-mini[data-appid="${picked}"]`)
-      if (!target) return
-      const final = computeCenteredScrollLeft(
-        { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
-        { left: target.offsetLeft, top: target.offsetTop, width: target.offsetWidth, height: target.offsetHeight }
-      )
-      try { rowEl.scrollTo({ left: final, behavior: 'smooth' }) } catch { rowEl.scrollLeft = final }
+      requestAnimationFrame(() => {
+        const rowEl = rowRef.current
+        if (!rowEl) return
+        const target = rowEl.querySelector<HTMLElement>(`.ds-highlight-mini[data-appid="${picked}"]`)
+        if (!target) return
+        const final = computeCenteredScrollLeft(
+          { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
+          { left: target.offsetLeft, top: target.offsetTop, width: target.offsetWidth, height: target.offsetHeight }
+        )
+        try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
+      })
     })
   }
 

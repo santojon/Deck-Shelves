@@ -71,6 +71,35 @@ export function SmartShelvesPage() {
       ))}
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_surprise_me')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_surprise_me')}</span>} />
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('edit_tab_smart_filters' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_filters_overview' as any)}</span>} />
+
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_template_custom' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('smart_template_custom_desc' as any)}</span>} />
+
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_smart_params_title' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_params_overview' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" label={
+        <span style={labelStyle}>• <b>{t('smart_param_min_deck_level' as any)}</b> — {t('docs_smart_param_min_deck_level' as any)}</span>
+      } />
+      <Field focusable={true} bottomSeparator="none" label={
+        <span style={labelStyle}>• <b>{t('smart_param_max_playtime' as any)}</b> / <b>{t('smart_param_min_playtime' as any)}</b> — {t('docs_smart_param_playtime' as any)}</span>
+      } />
+      <Field focusable={true} bottomSeparator="none" label={
+        <span style={labelStyle}>• <b>{t('smart_param_days_ago' as any)}</b> / <b>{t('smart_param_months_ago' as any)}</b> / <b>{t('smart_param_years_ago' as any)}</b> — {t('docs_smart_param_lookback' as any)}</span>
+      } />
+
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_refresh_interval' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_refresh_interval' as any)}</span>} />
+
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_visible_hours_label' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_visibility_window' as any)}</span>} />
+
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_visible_days_label' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_visibility_days' as any)}</span>} />
+
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_smart_time_of_day_rotation_title' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_time_of_day_rotation' as any)}</span>} />
     </DocSection>
   )
 }

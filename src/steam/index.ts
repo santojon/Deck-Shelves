@@ -1563,7 +1563,10 @@ async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOv
   }
   if (id === "hidden") return all.filter((a) => isHiddenOf(a));
   if (id === "nonsteam" || id === "epic" || id === "gog") return all.filter((a) => isNonSteamOf(a));
-  if (id === "installed" || id === "great_on_deck") return all.filter((a) => isInstalledOf(a));
+  // "installed" mirrors the native SteamOS library tab, which excludes
+  // non-Steam shortcuts even when they're locally available. Use the
+  // dedicated "nonsteam" tab to surface those.
+  if (id === "installed" || id === "great_on_deck") return all.filter((a) => isInstalledOf(a) && !isNonSteamOf(a));
   if (id === "recent") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
   const byTab = all.filter((a: any) => {
     const tags = [a?.tab, a?.tab_name, a?.collection_name, a?.category, ...(Array.isArray(a?.tags) ? a.tags : [])]
@@ -1778,8 +1781,13 @@ function hashIdSet(ids: number[]): string {
   return (h >>> 0).toString(16);
 }
 
-function stableShuffleIds(ids: number[], cacheKey: string): number[] {
-  const lsKey = `ds-random-${cacheKey}`;
+function stableShuffleIds(ids: number[], cacheKey: string, shelfId?: string): number[] {
+  // Per-shelf namespacing: when `shelfId` is given, the storage key is
+  // `ds-random-<shelfId>-<idHash>` so two shelves resolving the same id set
+  // get independent shuffles AND `invalidateRandomSortCache(shelfId)` only
+  // clears this shelf's entries. Falls back to the legacy global key when
+  // `shelfId` is omitted (preserves existing cached orderings).
+  const lsKey = shelfId ? `ds-random-${shelfId}-${cacheKey}` : `ds-random-${cacheKey}`;
   try {
     const raw = localStorage.getItem(lsKey);
     if (raw) {
@@ -1799,12 +1807,13 @@ function stableShuffleIds(ids: number[], cacheKey: string): number[] {
   return shuffled;
 }
 
-export function invalidateRandomSortCache(): void {
+export function invalidateRandomSortCache(shelfId?: string): void {
   try {
+    const prefix = shelfId ? `ds-random-${shelfId}-` : `ds-random-`;
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('ds-random-')) keys.push(k);
+      if (k && k.startsWith(prefix)) keys.push(k);
     }
     for (const k of keys) localStorage.removeItem(k);
   } catch {}
@@ -1820,7 +1829,7 @@ export function applyManualOrder(ids: number[], manualOrder?: number[]): number[
   return [...inOrder, ...rest];
 }
 
-function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number[] {
+function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId?: string): number[] {
   const byId = new Map<number, AppOverview>();
   for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
   let apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
@@ -1831,7 +1840,7 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number
   else if (sort === "metacritic") apps = apps.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
   else if (sort === "review_score") apps = apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
   else if (sort === "added") apps = apps.slice().sort(compareByAdded);
-  else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids)); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
+  else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids), shelfId); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
   else {
     // Plugin API: delegate to a registered external sort option when the
     // id is unknown internally. External sort returning `null` (not
@@ -1853,7 +1862,7 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[]): number
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
-export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string): Promise<number[]> {
+export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string): Promise<number[]> {
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
   if (!all.length) {
@@ -1919,7 +1928,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         count: ids.length,
       });
     }
-    if (sort) ids = applySortToIds(ids, sort, all);
+    if (sort) ids = applySortToIds(ids, sort, all, shelfId);
     ids = deduplicateNonSteam(ids, all);
     return ids.slice(0, limit);
   }
@@ -1959,7 +1968,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       try {
         logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length });
       } catch {}
-      const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all) : fromTabStore, all);
+      const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId) : fromTabStore, all);
       return tabStoreIds.slice(0, limit);
     }
     const filtered = await resolveDynamicTab(rawTab, all);
@@ -1972,7 +1981,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
     let tabIds = deduplicateNonSteam(tabApps.map((a) => appIdOf(a)).filter(Number.isFinite), all);
-    if (sort) tabIds = applySortToIds(tabIds, sort, all);
+    if (sort) tabIds = applySortToIds(tabIds, sort, all, shelfId);
     const ids = tabIds.slice(0, limit);
 
     // Migration fallback: existing shelves saved as UUID tab sources resolve via TabMaster's filters
@@ -1985,7 +1994,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         if (tmTab && tmTab.filters && tmTab.filters.length > 0) {
           const filterGroup = convertFiltersToGroup(tmTab.filters);
           try { logInfo("STEAM", "resolveShelfAppIds(tab): UUID fallback via TabMaster filters", { tab: rawTab, title: tmTab.title }); } catch {}
-          return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as any, limit);
+          return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as any, limit, undefined, shelfId);
         }
       } catch {}
     }
@@ -2029,7 +2038,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         const fIds = filtered.map(a => appIdOf(a)).filter(Number.isFinite);
         const fById = new Map<number, AppOverview>();
         for (const a of filtered) { const id = appIdOf(a); if (id) fById.set(id, a); }
-        filtered = stableShuffleIds(fIds, hashIdSet(fIds)).map(id => fById.get(id)).filter(Boolean) as AppOverview[];
+        filtered = stableShuffleIds(fIds, hashIdSet(fIds), shelfId).map(id => fById.get(id)).filter(Boolean) as AppOverview[];
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
@@ -2119,7 +2128,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       const { resolveExternalSource } = await import("../core/pluginApi");
       let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
-      if (sort) ids = applySortToIds(ids, sort, all);
+      if (sort) ids = applySortToIds(ids, sort, all, shelfId);
       ids = deduplicateNonSteam(ids, all);
       return ids.slice(0, limit);
     } catch {
@@ -2143,15 +2152,22 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // filters + sort + final limit below.
       const wantsPostProcess = !!smartFilterGroup || !!sort;
       const fetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
-      // Plugin API: when the mode is registered by an external plugin, hand
-      // off to its resolver instead of the built-in heuristic. Internal
-      // modes always take precedence to keep behavior deterministic when
-      // an external plugin happens to use the same id.
+      // Plugin API precedence: internal modes ALWAYS win. External plugins
+      // can register additional `mode` ids, but a registration that collides
+      // with one of our 15 built-ins is ignored at resolve time so behavior
+      // stays deterministic. Custom mode: no built-in candidate set — the
+      // user's filterGroup IS the candidate set; use the full app pool and
+      // let the post-process branch (filterGroup + sort + slice) do the work.
+      const { INTERNAL_SMART_MODES } = await import("./smartShelves");
       let rawIds: number[];
-      if (hasExternalSmartSource(source.mode)) {
+      if (source.mode === "custom") {
+        rawIds = apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+      } else if (INTERNAL_SMART_MODES.has(source.mode)) {
+        rawIds = resolveSmartShelf(source.mode, apps, fetchLimit, smartParams, ttlMs, shelfId);
+      } else if (hasExternalSmartSource(source.mode)) {
         rawIds = await resolveExternalSmartSource(source.mode, fetchLimit, smartParams ?? {});
       } else {
-        rawIds = resolveSmartShelf(source.mode, apps, fetchLimit, smartParams, ttlMs);
+        rawIds = [];
       }
       let ids = rawIds;
       if (smartFilterGroup && Array.isArray(smartFilterGroup.items) && smartFilterGroup.items.length > 0) {
@@ -2160,7 +2176,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         ids = evaluateFilterGroup(smartFilterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
       }
       if (sort && sort !== "manual") {
-        ids = applySortToIds(ids, sort, apps);
+        ids = applySortToIds(ids, sort, apps, shelfId);
       }
       ids = ids.slice(0, limit);
       logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });

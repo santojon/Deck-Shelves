@@ -20,20 +20,25 @@ describe('pickFirstVisibleShelfId', () => {
     expect(pickFirstVisibleShelfId(shelves, rendered)).toBe('b')
   })
 
-  it('skips smart shelves entirely', () => {
+  it('prefers a normal shelf over a smart shelf when both are rendering', () => {
     const shelves = [smart('s1'), smart('s2'), tab('a')]
     const rendered = new Set(['s1', 's2', 'a'])
     expect(pickFirstVisibleShelfId(shelves, rendered)).toBe('a')
   })
 
-  it('returns null when no normal shelf has rendered yet', () => {
+  it('returns null when no shelf has rendered yet', () => {
     const shelves = [tab('a'), tab('b')]
     expect(pickFirstVisibleShelfId(shelves, new Set())).toBeNull()
   })
 
-  it('returns null when only smart shelves are rendering', () => {
-    const shelves = [tab('a'), smart('s')]
-    expect(pickFirstVisibleShelfId(shelves, new Set(['s']))).toBeNull()
+  it('falls back to the first rendering smart shelf when no normal is rendering', () => {
+    const shelves = [tab('a'), smart('s1'), smart('s2')]
+    expect(pickFirstVisibleShelfId(shelves, new Set(['s1', 's2']))).toBe('s1')
+  })
+
+  it('falls back to the first rendering smart shelf when no normal shelf exists', () => {
+    const shelves = [smart('s1'), smart('s2')]
+    expect(pickFirstVisibleShelfId(shelves, new Set(['s1', 's2']))).toBe('s1')
   })
 
   it('handles empty shelves list', () => {
@@ -52,9 +57,15 @@ describe('interleaveSmartShelves', () => {
     expect(interleaveSmartShelves(shelves, null)).toBe(shelves)
   })
 
-  it('returns the original array when firstVisibleId is not in the normal shelves', () => {
+  it('returns the original array when firstVisibleId does not match any shelf', () => {
     const shelves = [tab('a'), smart('s'), tab('b')]
     expect(interleaveSmartShelves(shelves, 'missing')).toBe(shelves)
+  })
+
+  it('promotes a smart shelf when firstVisibleId points at one', () => {
+    const shelves = [tab('a'), smart('s1'), smart('s2'), tab('b')]
+    const out = interleaveSmartShelves(shelves, 's1')
+    expect(out.map((s: any) => s.id)).toEqual(['s1', 's2', 'a', 'b'])
   })
 
   it('moves smart shelves between the promoted shelf and the rest', () => {

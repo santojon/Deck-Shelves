@@ -104,8 +104,11 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 
 ## Tests
 
-- Run all tests (TypeScript + Python) locally with: `pnpm run test:all`
-- The CI now installs and runs `pytest` for Python tests in addition to Vitest for TypeScript tests. Ensure Python tests include `requirements-dev.txt` or that `pytest` is available in your environment when running locally.
+- Run unit tests (TypeScript + Python) locally with: `pnpm run test:all`
+- The CI installs and runs `pytest` for Python tests in addition to Vitest for TypeScript tests. Ensure `pytest` is available locally (`pip install pytest`).
+- **Local UI suite (optional, hardware needed):** `pnpm uitests` exercises higher-level user flows (home render, QAM panel, About route) against a real Deck or a SteamOS VM via CDP. Local-only — never on CI. Useful before submitting flow-affecting PRs. List individual tests with `pnpm uitests:list`; filter with `--only suite[,suite.test]`.
+- **Performance bench (optional):** `pnpm perf:bench` reports `mount p_avg / p_min / p_max` for the home cold-mount path so `[PERF]` PRs can include a measured before/after delta. See [docs/performance.md](docs/performance.md).
+- **QA harness flags** are documented in [docs/qa-manual.md §12](docs/qa-manual.md). Use `pnpm qa:<scenario>` scripts to deploy a build with a fixture pre-applied.
 
 ## Screenshots (optional)
 

@@ -70,7 +70,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 #### Plugin Settings
 
 <p align="center">
-  <img src="assets/screenshots/qam.png" alt="Deck Shelves — Quick Access Menu" width="314">
+  <img src="assets/screenshots/qam.png" alt="Deck Shelves — Quick Access Menu" width="768">
 </p>
 
 #### Game Actions
@@ -106,7 +106,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/shelf-hidden.png" alt="Deck Shelves — Hidden Shelf" width="314">
+  <img src="assets/screenshots/shelf-hidden.png" alt="Deck Shelves — Hidden Shelf" width="768">
 </p>
 
 <p align="center">
@@ -130,7 +130,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 #### Smart Shelves
 
 <p align="center">
-  <img src="assets/screenshots/smart-shelves-qam.png" alt="Deck Shelves — Smart Shelves in QAM" width="314">
+  <img src="assets/screenshots/smart-shelves-qam.png" alt="Deck Shelves — Smart Shelves in QAM" width="768">
 </p>
 
 <p align="center">
@@ -146,14 +146,25 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 Visible in the QAM when at least one filter has been saved from the **Edit shelf → Filters** tab. Hidden automatically when empty.
 
 <p align="center">
-  <img src="assets/screenshots/saved-filters-qam.png" alt="Deck Shelves — Saved Filters section in QAM" width="314">
+  <img src="assets/screenshots/saved-filters-qam.png" alt="Deck Shelves — Saved Filters section in QAM" width="768">
 </p>
 
 #### Global Toggles
 
 <p align="center">
-  <img src="assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="314">
+  <img src="assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="768">
 </p>
+
+#### Optional captures
+
+These are produced by the modular runner when the matching state is reachable; the validator treats them as optional.
+
+| File | When |
+|------|------|
+| `home-hero.png` | Home with a card focused (hero overlay visible) |
+| `home-hide-recents.png` | Home with native recents hidden and the first DS shelf promoted |
+| `import-overflow.png` | QAM with the import-options `…` overflow menu open (2+ import descriptors registered) |
+| `about-filters.png`, `about-smart.png`, `about-support.png` | Individual About-page tabs |
 
 ## Documentation
 
@@ -164,6 +175,8 @@ Visible in the QAM when at least one filter has been saved from the **Edit shelf
 - [Smart Shelves](docs/smart-shelves.md) — all 15 smart shelf templates, criteria, and reliability
 - [Development Guide](docs/development.md) — setup, build commands, testing, conventions
 - [Webpack Classmap](docs/webpack-classmap.md) — runtime CSS class discovery
+- [Performance audit](docs/performance.md) — measurement methodology, hot paths, applied wins
+- [QA manual](docs/qa-manual.md) — manual regression checklist + QA harness flag reference
 
 ## Installation
 
@@ -267,15 +280,55 @@ To capture screenshots for documentation:
     python3 scripts/devtools/deck/cli.py screenshot --locale en-US
     ```
 
-  - Directly:
+  - Directly (monolithic):
     ```bash
     python3 scripts/devtools/deck/screenshots/screenshot.py
+    ```
+
+  - Modular runner (preferred for new captures and future UI tests):
+    ```bash
+    python3 scripts/devtools/deck/screenshots/run.py
+    # or run a single scenario:
+    python3 scripts/devtools/deck/screenshots/run.py --only home,qam,about_overview
+    # list every registered scenario:
+    python3 scripts/devtools/deck/screenshots/run.py --list
     ```
 3. Screenshots are saved to `assets/screenshots/`.
 4. Validate the set (required files present, PNG magic header, >= 60 KB — catches blank popup frames):
    ```bash
    node scripts/build/validate-screenshots.mjs
    ```
+
+##### Local UI test suite
+
+```bash
+pnpm uitests             # run every registered suite against the Deck
+pnpm uitests:list        # list every suite + test name
+pnpm uitests --only home,qam_shelves   # subset
+```
+
+The suites live in `scripts/devtools/deck/uitests/suites/` and reuse the screenshot pipeline's `lib/` (CDP session, navigation, capture). Local-only — runs against a real Deck or a SteamOS VM via CDP, never on CI. Use it as the optional pre-PR check for flows the unit tests can't reach.
+
+##### Performance bench
+
+```bash
+pnpm perf:bench          # 3 runs, prints mount p_avg / p_min / p_max
+pnpm perf:bench --runs 10
+```
+
+Drops `performance.mark` / `performance.measure` calls into Big Picture, navigates to the home, reads the durations back. Pair with `[PERF]` PR tag and before/after numbers — see [docs/performance.md](docs/performance.md).
+
+##### Modular screenshot pipeline
+
+The new runner under `scripts/devtools/deck/screenshots/` is split into:
+
+- `lib/cdp.py` — minimal CDP `Session` (WebSocket + `Runtime.evaluate` + `Page.captureScreenshot`).
+- `lib/nav.py` — navigation primitives (`open_qam`, `close_qam`, `navigate_home`, `navigate_about`, `click_selector`, `await_selector`, `set_qa_override`).
+- `lib/capture.py` — `capture_bigpicture` and `capture_qam` (with auto-fallback when the popup returns a blank frame).
+- `scenarios/*.py` — each file groups related captures (`home.py`, `qam.py`, `about.py`, `modals.py`). Add a new scenario by writing one function decorated with `@register("name")` — it receives the SharedJS session, host, port and output dir, and returns a `{filename: Path}` map.
+- `run.py` — orchestrator. Iterates `ALL_SCENARIOS`, supports `--only`, `--list` and `--out`.
+
+The same surface helpers (`capture_bigpicture` / `capture_qam`) and navigation primitives feed directly into the local UI test suite planned for the next release; tests will reuse `lib/` and `scenarios/` to put the UI in a known state before asserting DOM/state.
 
 #### Screenshot set
 

@@ -19,6 +19,7 @@ import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
+import { isInVisibilityWindow, nextVisibilityBoundary } from "../steam/smartShelves";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isCssLoaderActive, getNativeRecentsClassName } from "../core/cssLoaderDetect";
@@ -286,11 +287,18 @@ export function HomeShelves() {
 
   useEffect(() => {
     const visibleShelves = (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden);
+    const visibleSmartCount = settings?.smartShelvesEnabled
+      ? (settings?.smartShelves ?? []).filter((s: any) =>
+          s.enabled !== false && !s.hidden &&
+          isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek)
+        ).length
+      : 0;
+    const hasAnyVisible = visibleShelves.length > 0 || visibleSmartCount > 0;
     const replaceActive = settings?.enabled && settings?.hideRecents === true
-      && settings?.recentsReplaceSource === true && visibleShelves.length > 0
+      && settings?.recentsReplaceSource === true && hasAnyVisible
       && !replaceKillSwitch;
     const canHide = settings?.enabled && settings?.hideRecents === true
-      && visibleShelves.length > 0 && !replaceActive;
+      && hasAnyVisible && !replaceActive;
     applyHideRecents(canHide === true);
     // When recents are hidden, remove them from the gamepad navigation tree so
     // the D-pad skips straight to our shelves.  We keep the DOM intact (visibility:
@@ -312,13 +320,39 @@ export function HomeShelves() {
         else recentsEl.removeAttribute('aria-hidden');
       }
     }
-  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, settings?.recentsReplaceSource, mountEl, replaceKillSwitch]);
+  }, [settings?.hideRecents, settings?.enabled, settings?.shelves, settings?.smartShelvesEnabled, settings?.smartShelves, settings?.recentsReplaceSource, mountEl, replaceKillSwitch]);
 
   // Apply hideHomeTabs — no suppression criteria, simple toggle. If no sibling
   // elements are found around the mount, the helper is a no-op.
   useEffect(() => {
     applyHideHomeTabs(settings?.hideHomeTabs === true);
   }, [settings?.hideHomeTabs, mountEl]);
+
+  // Schedule a one-shot refresh at the next visibility-window boundary across
+  // all smart shelves. Picks the earliest boundary; on fire, triggers a
+  // shelf refresh so out-of-window shelves disappear / in-window shelves
+  // reappear without polling. Re-armed whenever the smart-shelf list or
+  // their windows change.
+  const smartList = settings?.smartShelves;
+  useEffect(() => {
+    if (!settings?.smartShelvesEnabled) return;
+    if (!Array.isArray(smartList) || smartList.length === 0) return;
+    const now = new Date();
+    let earliest: number | null = null;
+    for (const s of smartList) {
+      const w = (s as any).visibleHours;
+      const d = (s as any).visibleDaysOfWeek;
+      if (!w && (!d || d.length === 0)) continue;
+      const next = nextVisibilityBoundary(w, d, now);
+      if (next != null && (earliest == null || next < earliest)) earliest = next;
+    }
+    if (earliest == null) return;
+    const delay = Math.max(1000, earliest - now.getTime());
+    const t = window.setTimeout(() => {
+      try { triggerShelfRefresh(); } catch {}
+    }, delay);
+    return () => window.clearTimeout(t);
+  }, [settings?.smartShelvesEnabled, smartList]);
 
   if (!mountEl) return null;
   if (!settings) return null;
@@ -374,6 +408,9 @@ export function HomeShelves() {
     } else {
       smartShelves = (settings.smartShelves ?? [])
         .filter((s: SmartShelf) => s.enabled && !s.hidden)
+        .filter((s: SmartShelf) =>
+          isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek)
+        )
         .map((s: SmartShelf): Shelf => ({
           id: s.id,
           title: s.title,

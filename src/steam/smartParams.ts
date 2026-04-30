@@ -18,32 +18,74 @@ import type { SmartShelfMode } from "../types";
 
 export type SmartParams = Record<string, number>;
 
+/**
+ * Default explicit sort per smart-shelf mode. These are the closest public
+ * sort enums to each mode's natural ordering — used to seed the sort
+ * dropdown when a shelf has no explicit `sort` set, so the UI never shows
+ * an empty selection for an existing or freshly-created smart shelf.
+ *
+ * The resolver itself still applies the mode's internal sort when no
+ * `sort` override is set; this map is purely for surfacing a sane
+ * default to the user.
+ */
+export const DEFAULT_SORT_FOR_MODE: Record<SmartShelfMode, string> = {
+  quick_play:      "recent",
+  not_started:     "alphabetical",
+  deck_picks:      "recent",
+  rediscover:      "playtime",
+  best_unplayed:   "alphabetical",
+  interrupted:     "recent",
+  time_of_day:     "recent",
+  daily_pick:      "random",
+  on_deck:         "recent",
+  recently_played: "recent",
+  long_session:    "playtime",
+  non_steam:       "recent",
+  random_pick:     "random",
+  forgotten:       "added",
+  spare_time:      "recent",
+  custom:          "alphabetical",
+};
+
 export const SMART_PARAM_DEFAULTS: Record<SmartShelfMode, SmartParams> = {
-  quick_play:      { maxPlaytimeMinutes: 120 },
-  not_started:     {},
-  deck_picks:      {},
-  rediscover:      { monthsAgo: 6, minPlaytimeMinutes: 60 },
-  best_unplayed:   {},
-  interrupted:     { minPlaytimeMinutes: 30, maxPlaytimeMinutes: 180 },
+  quick_play:      { maxPlaytimeMinutes: 120, minDeckLevel: 2 },
+  not_started:     { minDeckLevel: 0 },
+  deck_picks:      { minDeckLevel: 3 },
+  rediscover:      { monthsAgo: 6, minPlaytimeMinutes: 60, minDeckLevel: 2 },
+  best_unplayed:   { minDeckLevel: 0 },
+  interrupted:     { minPlaytimeMinutes: 30, maxPlaytimeMinutes: 180, minDeckLevel: 0 },
   time_of_day:     {},
   daily_pick:      {},
-  on_deck:         {},
+  on_deck:         { minDeckLevel: 2 },
   recently_played: { daysAgo: 30 },
-  long_session:    { minPlaytimeMinutes: 180 },
+  long_session:    { minPlaytimeMinutes: 180, minDeckLevel: 0 },
   non_steam:       {},
   random_pick:     {},
   forgotten:       { yearsAgo: 3 },
-  spare_time:      {},
+  spare_time:      { maxPlaytimeMinutes: 120, minDeckLevel: 0 },
+  custom:          {},
+};
+
+export type SmartParamKind = "slider" | "text" | "dropdown";
+
+export type SmartParamOption = {
+  value: number;
+  /** i18n key for this option's label. */
+  labelKey: string;
 };
 
 export type SmartParamMeta = {
-  /** i18n key for the slider label. */
+  /** i18n key for the field label. */
   labelKey: string;
   min: number;
   max: number;
   step: number;
   /** i18n key for the unit suffix shown after the value (e.g. "min", "days"). */
   unitKey?: string;
+  /** Render kind. Defaults to "slider" when omitted. */
+  kind?: SmartParamKind;
+  /** Discrete options when `kind === "dropdown"`. */
+  options?: ReadonlyArray<SmartParamOption>;
 };
 
 /**
@@ -51,11 +93,27 @@ export type SmartParamMeta = {
  * `maxPlaytimeMinutes`); the metadata is shared.
  */
 export const SMART_PARAM_META: Record<string, SmartParamMeta> = {
-  maxPlaytimeMinutes: { labelKey: "smart_param_max_playtime", min: 0,  max: 6000, step: 30, unitKey: "smart_unit_min" },
-  minPlaytimeMinutes: { labelKey: "smart_param_min_playtime", min: 0,  max: 6000, step: 30, unitKey: "smart_unit_min" },
+  // Playtime knobs as numeric text fields — sliders are too coarse for free-form
+  // minute values; users typically know the threshold they want.
+  maxPlaytimeMinutes: { labelKey: "smart_param_max_playtime", min: 0,  max: 6000, step: 30, unitKey: "smart_unit_min", kind: "text" },
+  minPlaytimeMinutes: { labelKey: "smart_param_min_playtime", min: 0,  max: 6000, step: 30, unitKey: "smart_unit_min", kind: "text" },
+  // Lookback knobs stay as sliders — small, capped ranges fit a slider naturally.
   monthsAgo:          { labelKey: "smart_param_months_ago",   min: 1,  max: 60,   step: 1,  unitKey: "smart_unit_months" },
   yearsAgo:           { labelKey: "smart_param_years_ago",    min: 1,  max: 10,   step: 1,  unitKey: "smart_unit_years" },
   daysAgo:            { labelKey: "smart_param_days_ago",     min: 1,  max: 365,  step: 7,  unitKey: "smart_unit_days" },
+  // Steam Deck compatibility threshold rendered as a dropdown with localized
+  // option labels (numbers `0..3` mirror Steam's `deck_compatibility_category`).
+  minDeckLevel: {
+    labelKey: "smart_param_min_deck_level",
+    min: 0, max: 3, step: 1,
+    kind: "dropdown",
+    options: [
+      { value: 0, labelKey: "smart_deck_level_any" },
+      { value: 1, labelKey: "smart_deck_level_unsupported" },
+      { value: 2, labelKey: "smart_deck_level_playable" },
+      { value: 3, labelKey: "smart_deck_level_verified" },
+    ],
+  },
 };
 
 /**

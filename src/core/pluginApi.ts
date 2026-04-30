@@ -1,25 +1,13 @@
 /**
- * Deck Shelves Public Plugin API — v2.
- *
- * External Decky plugins extend Deck Shelves at runtime via the global
- * surface `window.__DECK_SHELVES_API__`. The same object is preserved across
- * v1 → v2 (the existing `registerShelfSource` / `getRegisteredSources`
- * methods keep their v1 signatures); v2 adds new registries for smart shelf
- * sources, filter types, sort options, import formats, and saved filters,
- * plus consumer-side contracts for plugins that want to read Deck Shelves
- * state.
- *
- * Stability contract: every shape exported from this module is part of the
- * public ABI. Field names, descriptor parameters, and method signatures are
- * frozen for the lifetime of `version: 2`. Additive changes (new optional
- * fields, new methods) are backward-compatible; removals or renames bump
- * `version`.
- *
- * See `docs/plugin-api.md` for usage patterns and worked examples.
+ * Public Plugin API — v2. Exposed at `window.__DECK_SHELVES_API__`.
+ * Every shape here is part of the ABI: additive changes are safe,
+ * renames/removals bump `version`. Usage in `docs/plugin-api.md`.
  */
 
 import type { ReactNode } from "react";
+import type { Settings } from "../types";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
+import { isTabMasterInstalled } from "../integrations/registry";
 
 // ---------------------------------------------------------------------------
 // 1. PUBLIC TYPES — frozen shape exposed to external plugins
@@ -63,6 +51,11 @@ export interface ExternalShelfSourceDescriptor {
    *  refresh. Returning fewer than `limit` ids is fine; returning duplicates
    *  is silently de-duplicated. Errors are caught — return `[]` on failure. */
   resolve: (limit: number) => Promise<number[]>;
+  /** Optional descriptor schema version. Plugins may bump this when they
+   *  introduce new optional fields specific to their descriptor type so that
+   *  internal handlers can branch (`if ((d.version ?? 1) >= 2) ...`).
+   *  Defaults to `1` when omitted. */
+  version?: number;
 }
 
 /**
@@ -74,6 +67,9 @@ export interface ExternalShelfSourceDescriptor {
 export interface SmartShelfSourceDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). See
+   *  `ExternalShelfSourceDescriptor.version`. */
+  version?: number;
   /** Optional category key for picker grouping (e.g. "status", "time"). */
   category?: string;
   /** Default values for every key in `paramMeta`. Required when `paramMeta`
@@ -107,6 +103,8 @@ export interface SmartShelfSourceDescriptor {
 export interface ExternalFilterTypeDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   /** Default `params` shape. Used when a shelf is constructed from a
    *  template that references the filter type without explicit params. */
   defaultParams?: Readonly<Record<string, unknown>>;
@@ -133,6 +131,8 @@ export interface ExternalFilterTypeDescriptor {
 export interface ExternalSortOptionDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   /** Returns a NEW array (do not mutate input) of appids in the desired
    *  order. Apps not present in the input are dropped silently. */
   sort: (appIds: ReadonlyArray<number>, apps: ReadonlyArray<PublicAppMeta>) => number[];
@@ -141,24 +141,50 @@ export interface ExternalSortOptionDescriptor {
 // ---- 1d. Import type registry ---------------------------------------------
 
 /**
- * Import type — parses an arbitrary text payload (e.g. a Playnite JSON
- * dump) into a list of shelf descriptors that Deck Shelves can save.
+ * Import target: which shelf bucket a registered import populates.
+ *   - "shelves"        → regular shelves section in the QAM
+ *   - "smart_shelves"  → smart shelves section in the QAM
  *
- * Phase 1 limitation: the registry is exposed but not yet wired into the
- * ImportModal UI. Plugins can call import flows programmatically by reading
- * from `getRegisteredImportTypes()` and feeding the parser output into
- * their own UX.
+ * Defaults to "shelves" when omitted on a descriptor (back-compat with the
+ * v2 initial release).
+ */
+export type ImportTarget = "shelves" | "smart_shelves";
+
+/**
+ * Import type — parses a payload into shelves Deck Shelves can save.
+ * Each registered descriptor adds one button to the QAM action row;
+ * 2+ descriptors with the same `target` collapse into a `…` overflow.
+ * Provide `runImport` for custom UX (modal/picker), or `parse` to feed
+ * the default file-picker flow.
  */
 export interface ExternalImportTypeDescriptor {
   id: string;
   displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   /** Optional file-extension hint (e.g. ".json", ".csv"). UI-only. */
   fileExtension?: string;
-  parse: (raw: string) => Promise<ParsedImport>;
+  /** Default `"shelves"`. Pick `"smart_shelves"` to populate the smart
+   *  shelves bucket instead. A single descriptor targets one bucket;
+   *  register two descriptors with different targets if the source
+   *  contains both. */
+  target?: ImportTarget;
+  /** Optional icon shown next to the entry in the QAM action row / menu.
+   *  Mirrors the local `icons` shape used by built-in actions. */
+  icon?: ReactNode;
+  /** Parse a raw payload into structured shelves. Optional when
+   *  `runImport` is provided (custom flows skip the parse step). */
+  parse?: (raw: string) => Promise<ParsedImport>;
+  /** Optional custom action handler. When set, the QAM invokes this
+   *  instead of the default file-picker flow when the user activates
+   *  the entry. The handler is responsible for reading the source data
+   *  and calling the appropriate persistence action via the controller
+   *  it captured at registration time. */
+  runImport?: () => void | Promise<void>;
 }
 
 export interface ParsedImport {
-  shelves: Array<{
+  shelves?: Array<{
     title: string;
     /** Either an existing `ExternalShelfSourceDescriptor.id` (the source
      *  must be registered separately) or a built-in source descriptor in
@@ -166,26 +192,28 @@ export interface ParsedImport {
     source: { type: "external"; sourceId: string };
     limit?: number;
   }>;
+  /** Smart shelves to insert. The `mode` matches `SmartShelfMode` (built-in
+   *  or registered via `registerSmartShelfSource`). */
+  smartShelves?: Array<{
+    title: string;
+    mode: string;
+    limit?: number;
+  }>;
 }
 
 // ---- 1e. Saved filter registration ----------------------------------------
 
 /**
- * Saved filter — a named `FilterGroup` the user can apply across shelves.
- * Plugins may seed pre-baked filter combos (e.g. "Console-style RPGs",
- * "Couch co-op") that show up in the Saved Filters section of the QAM.
- *
- * Registration is idempotent: re-registering the same id replaces the
- * previous entry. Cleanup removes the entry from the user's settings.
- *
- * The `group` field has the same shape as the internal `FilterGroup` type
- * — `mode: "and" | "or"` plus an array of `{ type, params, inverted? }`
- * items. Use only filter types you know exist (built-in or another plugin's
- * `registerFilterType` call).
+ * Pre-baked named `FilterGroup` plugins can seed into the QAM Saved
+ * Filters section. Idempotent: same id replaces the previous entry.
+ * `group.items[].type` must reference an id that exists (built-in
+ * or another plugin's `registerFilterType`).
  */
 export interface ExternalSavedFilterDescriptor {
   id: string;
   name: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
   group: PublicFilterGroup;
 }
 
@@ -200,7 +228,7 @@ export interface PublicFilterItem {
   params?: Readonly<Record<string, unknown>>;
 }
 
-// ---- 1f. Consumer contracts (Phase 2 — currently stubbed) ------------------
+// ---- 1f. Consumer contracts ------------------------------------------------
 
 /** Read-only projection of a shelf, exposed to consumer plugins. */
 export interface PublicShelf {
@@ -261,10 +289,19 @@ export interface DeckShelvesPublicAPI {
 
   registerImportType(d: ExternalImportTypeDescriptor): Unsubscribe;
   getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>;
+  /** Returns import types whose `target` matches (default `"shelves"`).
+   *  The QAM uses this to populate per-section import menus. */
+  getRegisteredImportTypesForTarget(target: ImportTarget): ReadonlyArray<ExternalImportTypeDescriptor>;
 
   registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
 
-  // --- v2 consumer contracts (Phase 2 — currently stubbed) ----------------
+  // --- v2 environment probes ---------------------------------------------
+  /** True iff TabMaster is installed and active. Plugins that mirror tab
+   *  data should skip their own injection when this returns `true` to avoid
+   *  duplicate sources in the picker. */
+  hasTabMaster(): boolean;
+
+  // --- v2 consumer contracts ---------------------------------------------
   getShelves(): ReadonlyArray<PublicShelf>;
   getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
   getSavedFilters(): ReadonlyArray<PublicSavedFilter>;
@@ -353,6 +390,63 @@ export function getExternalImportTypes(): ExternalImportTypeDescriptor[] {
   return Array.from(importTypes.values());
 }
 
+export function getExternalImportTypesForTarget(target: ImportTarget): ExternalImportTypeDescriptor[] {
+  return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
+}
+
+/**
+ * Internal helper for registering import types from inside the plugin
+ * (e.g. the QAM registers TabMaster's custom flow at mount time). Equivalent
+ * to calling `__DECK_SHELVES_API__.registerImportType(d)` but without
+ * crossing the global window boundary — the unsubscribe is symmetric.
+ */
+export function registerInternalImportType(d: ExternalImportTypeDescriptor): () => void {
+  importTypes.set(d.id, d);
+  return () => { importTypes.delete(d.id); };
+}
+
+// First-party id tracking. Lets external code detect collisions with
+// built-ins via `isInternalSmartSource` / `isInternalFilterType` /
+// `isInternalSortOption`. Resolver precedence is enforced by the call
+// sites — registering an internal id twice is harmless.
+
+const internalSmartSourceIds = new Set<string>();
+const internalFilterTypeIds = new Set<string>();
+const internalSortOptionIds = new Set<string>();
+
+export function registerInternalSmartShelfSource(d: SmartShelfSourceDescriptor): () => void {
+  internalSmartSourceIds.add(d.id);
+  smartSources.set(d.id, d);
+  return () => { internalSmartSourceIds.delete(d.id); smartSources.delete(d.id); };
+}
+
+export function registerInternalFilterType(d: ExternalFilterTypeDescriptor): () => void {
+  internalFilterTypeIds.add(d.id);
+  filterTypes.set(d.id, d);
+  return () => { internalFilterTypeIds.delete(d.id); filterTypes.delete(d.id); };
+}
+
+export function registerInternalSortOption(d: ExternalSortOptionDescriptor): () => void {
+  internalSortOptionIds.add(d.id);
+  sortOptions.set(d.id, d);
+  return () => { internalSortOptionIds.delete(d.id); sortOptions.delete(d.id); };
+}
+
+/** Returns `true` when the id matches a built-in smart-shelf source. */
+export function isInternalSmartSource(id: string): boolean {
+  return internalSmartSourceIds.has(id);
+}
+
+/** Returns `true` when the id matches a built-in filter type. */
+export function isInternalFilterType(id: string): boolean {
+  return internalFilterTypeIds.has(id);
+}
+
+/** Returns `true` when the id matches a built-in sort option. */
+export function isInternalSortOption(id: string): boolean {
+  return internalSortOptionIds.has(id);
+}
+
 // ---------------------------------------------------------------------------
 // 5. SAVED-FILTER REGISTRATION — wires into the user settings store. A
 // plugin-registered saved filter is persisted with id prefix `ext:<id>` so
@@ -379,7 +473,61 @@ async function removeRegisteredSavedFilter(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 6. API CONSTRUCTOR
+// 6. CONSUMER PROJECTIONS — pure functions converting internal Settings to
+// the frozen Public* shapes. Kept narrow so we never leak internal fields.
+// ---------------------------------------------------------------------------
+
+function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
+  if (!s) return [];
+  const out: PublicShelf[] = [];
+  for (const sh of s.shelves) {
+    const src: any = sh.source;
+    let pub: PublicShelfSource | null = null;
+    if (src?.type === "collection") pub = { type: "collection", collectionId: String(src.collectionId ?? "") };
+    else if (src?.type === "tab") pub = { type: "tab", tab: String(src.tab ?? "") };
+    else if (src?.type === "filter") pub = { type: "filter", filter: { sort: src.filter?.sort, group: src.filter?.group as any } };
+    else if (src?.type === "external") pub = { type: "external", sourceId: String(src.sourceId ?? "") };
+    else if (src?.type === "smart") pub = { type: "smart", mode: String(src.mode ?? "") };
+    if (!pub) continue;
+    out.push({
+      id: sh.id,
+      title: sh.title,
+      enabled: sh.enabled !== false,
+      hidden: !!sh.hidden,
+      limit: sh.limit ?? 20,
+      sort: sh.sort,
+      source: pub,
+    });
+  }
+  return out;
+}
+
+function projectSmartShelves(s: Settings | null): ReadonlyArray<PublicSmartShelf> {
+  if (!s) return [];
+  const list = (s.smartShelves ?? []) as any[];
+  return list.map((sh: any) => ({
+    id: String(sh.id),
+    title: String(sh.title ?? ""),
+    mode: String(sh.mode),
+    enabled: sh.enabled !== false,
+    hidden: !!sh.hidden,
+    limit: typeof sh.limit === "number" ? sh.limit : undefined,
+    sort: typeof sh.sort === "string" ? sh.sort : undefined,
+  }));
+}
+
+function projectSavedFilters(s: Settings | null): ReadonlyArray<PublicSavedFilter> {
+  if (!s) return [];
+  const list = (s.savedFilters ?? []) as any[];
+  return list.map((f: any) => ({
+    id: String(f.id),
+    name: String(f.name ?? ""),
+    group: f.group as PublicFilterGroup,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// 7. API CONSTRUCTOR
 // ---------------------------------------------------------------------------
 
 function makeApi(): DeckShelvesPublicAPI {
@@ -420,6 +568,9 @@ function makeApi(): DeckShelvesPublicAPI {
       return () => { importTypes.delete(d.id); };
     },
     getRegisteredImportTypes() { return Array.from(importTypes.values()); },
+    getRegisteredImportTypesForTarget(target) {
+      return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
+    },
 
     // Saved filters — persisted in user settings under prefixed id
     registerSavedFilter(d) {
@@ -427,24 +578,54 @@ function makeApi(): DeckShelvesPublicAPI {
       return () => { void removeRegisteredSavedFilter(d.id); };
     },
 
-    // ---- Consumer contracts (Phase 2 — stubbed for now) -------------------
-    // Shape is frozen; implementation will arrive in a later release. Until
-    // then, getters return `[]` and subscriptions never fire — callers can
-    // depend on the type signature, just not on receiving data yet.
-    getShelves() { return [] as ReadonlyArray<PublicShelf>; },
-    getSmartShelves() { return [] as ReadonlyArray<PublicSmartShelf>; },
-    getSavedFilters() { return [] as ReadonlyArray<PublicSavedFilter>; },
-    subscribeToShelves(_cb) { return () => {}; },
-    subscribeToSmartShelves(_cb) { return () => {}; },
-    subscribeToSavedFilters(_cb) { return () => {}; },
+    // Environment probe
+    hasTabMaster() { return isTabMasterInstalled(); },
+
+    // ---- Consumer contracts ------------------------------------------------
+    // Reads project from the live settings snapshot in `settingsStore`.
+    // Subscriptions are diff-gated by JSON identity so callers only fire on
+    // real change (the store itself already de-dupes via `isSameSettings`,
+    // but a downstream consumer that only watches shelves should not wake on
+    // unrelated settings flips).
+    getShelves() { return projectShelves(getCurrentSettings()); },
+    getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
+    getSavedFilters() { return projectSavedFilters(getCurrentSettings()); },
+    subscribeToShelves(cb) {
+      let last = JSON.stringify(projectShelves(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectShelves(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    subscribeToSmartShelves(cb) {
+      let last = JSON.stringify(projectSmartShelves(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectSmartShelves(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    subscribeToSavedFilters(cb) {
+      let last = JSON.stringify(projectSavedFilters(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectSavedFilters(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
   };
 }
 
 // ---------------------------------------------------------------------------
 // 7. INSTALL / UNINSTALL
 // ---------------------------------------------------------------------------
-
-let installedUnsub: (() => void) | null = null;
 
 /**
  * Event dispatched on `window` immediately after the API surface is installed.
@@ -462,20 +643,28 @@ export const READY_EVENT = "deck-shelves-ready";
  */
 export const TEARDOWN_EVENT = "deck-shelves-teardown";
 
+/**
+ * Hook for the internal-registry bootstrap. The actual implementation lives
+ * in `core/internalRegistry.ts` (which imports the `register*` helpers from
+ * here) and registers itself by setting this slot at module-load time.
+ * Keeping the binding indirect avoids the import cycle that would result
+ * from this module importing `internalRegistry.ts` directly.
+ */
+let internalBootstrap: (() => () => void) | null = null;
+export function setInternalBootstrap(fn: () => () => void): void { internalBootstrap = fn; }
+
 export function installPluginApi(): () => void {
   const api = makeApi();
+  // Register every first-party id BEFORE dispatching ready so plugins
+  // listening for `deck-shelves-ready` see the full built-in surface.
+  const uninstallInternals = internalBootstrap ? internalBootstrap() : () => {};
   try { (window as any).__DECK_SHELVES_API__ = api; } catch {}
   try { window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: api })); } catch {}
-
-  // Best-effort settings-changes hook; consumer subscriptions are stubbed
-  // for now, but the unsubscribe is set up so a future implementation can
-  // re-enable it without changing the install flow.
-  installedUnsub = subscribeSettings(() => { /* Phase 2 hook */ });
 
   return () => {
     try { window.dispatchEvent(new CustomEvent(TEARDOWN_EVENT)); } catch {}
     try { delete (window as any).__DECK_SHELVES_API__; } catch {}
-    if (installedUnsub) { try { installedUnsub(); } catch {} installedUnsub = null; }
+    try { uninstallInternals(); } catch {}
     shelfSources.clear();
     smartSources.clear();
     filterTypes.clear();

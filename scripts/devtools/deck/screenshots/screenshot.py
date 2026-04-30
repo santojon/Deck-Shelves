@@ -732,6 +732,33 @@ def screenshot_home_shelves(host: str, port: int, bp: Dict) -> Optional[Path]:
         time.sleep(0.3)
     time.sleep(0.7)
 
+    # Park focus on the first DS card and move one slot to the right so
+    # the capture shows an intentional focus state instead of whatever
+    # the framework was settling onto. Two-stage so the focusin handler
+    # finishes centering before the right-move kicks in.
+    print("  Setting deterministic focus (first card + ArrowRight)...")
+    eval_target(host, port, bp_ws, """
+(function(){
+  const card = document.querySelector('.ds-shelf[data-shelfid] .ds-card');
+  if (card) try { card.focus(); } catch {}
+  return 'ok';
+})()
+""")
+    time.sleep(0.6)
+    eval_target(host, port, bp_ws, """
+(function(){
+  const evt = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+  (document.activeElement || document).dispatchEvent(evt);
+  document.dispatchEvent(evt);
+  return 'ok';
+})()
+""")
+    # Settle generously: the right-move triggers a smooth horizontal
+    # scroll, image swaps from the new focused card, and a focus-glow
+    # animation. Capturing too early leaves residual UI mid-animation
+    # in the frame.
+    time.sleep(3.0)
+
     result = capture_bigpicture(host, port, bp, "home-shelves.png")
 
     # Scroll back to top
@@ -742,13 +769,63 @@ def screenshot_home_shelves(host: str, port: int, bp: Dict) -> Optional[Path]:
     return result
 
 
+_QAM_PANEL_CLIP_EXPR = """
+(function(){
+  const sel = [
+    '[id^="quickaccess_content_"]',
+    '[class*="quickaccessmenu_PanelOuterNav"]',
+    '[class*="QuickAccess"][class*="Panel"]',
+    '#QuickAccess-Menu',
+    '#QuickAccess-NA',
+  ];
+  let el = null;
+  for (const s of sel) { const m = document.querySelector(s); if (m) { el = m; break; } }
+  if (!el) {
+    const candidates = Array.from(document.querySelectorAll('[class]'));
+    for (const c of candidates) {
+      const cls = String(c.className || '');
+      if (cls.includes('QuickAccess') || cls.includes('quickaccess')) { el = c; break; }
+    }
+  }
+  if (!el) return null;
+  let best = el;
+  let bestRect = el.getBoundingClientRect();
+  for (let p = el.parentElement, i = 0; p && i < 4; p = p.parentElement, i++) {
+    const pr = p.getBoundingClientRect();
+    if (pr.width <= 0 || pr.height <= 0) continue;
+    if (pr.width > bestRect.width * 1.15) break;
+    best = p; bestRect = pr;
+  }
+  return {
+    x: Math.max(0, Math.floor(bestRect.left)),
+    y: Math.max(0, Math.floor(bestRect.top)),
+    width: Math.max(1, Math.ceil(bestRect.width)),
+    height: Math.max(1, Math.ceil(bestRect.height)),
+    scale: 1,
+  };
+})()
+"""
+
+
 def capture_qam_target(host: str, port: int, qam_target: Dict, filename: str) -> Optional[Path]:
-    """Capture screenshot from QAM popup target using fromSurface=false."""
+    """Capture screenshot from QAM popup target, clipped to the panel
+    bounding box so the resulting PNG is the actual portrait QAM shape
+    instead of the wider popup viewport (which leaves a black band on
+    the right of the visible panel)."""
     ws_path = ws_path_for(qam_target, port)
     sock = ws_connect(host, port, ws_path)
     try:
         cdp_call(sock, "Page.enable", msg_id=1)
-        result = cdp_call(sock, "Page.captureScreenshot", {"format": "png", "fromSurface": False}, msg_id=2)
+        # Measure the panel rect first; fall back to full-viewport when it
+        # can't be located (e.g. popup hasn't rendered yet — earlier retry
+        # logic in capture_qam_with_fallback handles those blank frames).
+        clip_msg = cdp_call(sock, "Runtime.evaluate", {"expression": _QAM_PANEL_CLIP_EXPR, "returnByValue": True}, msg_id=2)
+        clip = (clip_msg.get("result", {}).get("result", {}) or {}).get("value")
+        params: Dict = {"format": "png", "fromSurface": False}
+        if isinstance(clip, dict) and clip.get("width", 0) >= 50 and clip.get("height", 0) >= 50:
+            params["clip"] = clip
+            params["captureBeyondViewport"] = False
+        result = cdp_call(sock, "Page.captureScreenshot", params, msg_id=3)
         data = result.get("result", {}).get("data", "")
         # Always write the file, even if data is empty (write empty file)
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

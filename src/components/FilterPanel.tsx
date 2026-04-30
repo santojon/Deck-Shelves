@@ -136,16 +136,14 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
           })}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginLeft: -42, marginRight: -42 }}>
-          {!canAddFilter ? (
-            <span style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.3 }}>
+        <div style={{ marginTop: 8, marginLeft: -42, marginRight: -42 }}>
+          {!canAddFilter && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.3, padding: "0 0 6px", textAlign: "left" }}>
               {t("filter_finish_before_adding")}
-            </span>
-          ) : (
-            <div style={{ flex: 1 }} />
+            </div>
           )}
           <Focusable>
-            <DialogButton onClick={addItem} disabled={!canAddFilter} style={{ padding: "8px 16px" }}>
+            <DialogButton onClick={addItem} disabled={!canAddFilter} style={{ width: "100%" }}>
               + {t("filter_add")}
             </DialogButton>
           </Focusable>

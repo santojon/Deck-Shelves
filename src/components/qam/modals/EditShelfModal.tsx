@@ -146,6 +146,19 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
   const tabOptions: SingleDropdownOption[] = platformTabs.map((item) => ({ data: item.id, label: item.name }))
   const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
   const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName }))
+  // Placeholder injection: when the current value isn't present in the
+  // option list (no items discovered yet OR orphan id), prepend a
+  // "Selecione" entry so the dropdown never renders blank. The placeholder
+  // has empty `data` and disappears on first real pick.
+  const placeholderOption: SingleDropdownOption = { data: '', label: t('select_placeholder' as any) }
+  const withPlaceholder = (opts: SingleDropdownOption[], current: string): SingleDropdownOption[] =>
+    !current || opts.some((o) => String(o.data) === current) ? opts : [placeholderOption, ...opts]
+  const collectionOptionsFinal = collectionOptions.length === 0 ? [placeholderOption] : withPlaceholder(collectionOptions, state.collectionId)
+  const tabOptionsFinal = tabOptions.length === 0 ? [placeholderOption] : withPlaceholder(tabOptions, state.tab)
+  const externalOptionsFinal = externalOptions.length === 0 ? [placeholderOption] : withPlaceholder(externalOptions, state.externalSourceId)
+  const collectionSelected = collectionOptions.some((o) => String(o.data) === state.collectionId) ? state.collectionId : ''
+  const tabSelected = tabOptions.some((o) => String(o.data) === state.tab) ? state.tab : ''
+  const externalSelected = externalOptions.some((o) => String(o.data) === state.externalSourceId) ? state.externalSourceId : ''
   const sortOptions = useMemo<SingleDropdownOption[]>(
     () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
     [t]
@@ -237,13 +250,13 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                   <FieldContainer scrollable>
                     <DropdownItem label={t('source')} rgOptions={sourceTypeOptions} selectedOption={state.sourceType} onChange={(opt: unknown) => changeSourceType(String(optionData(opt)) as SourceType)} bottomSeparator='thick' />
                     {state.sourceType === 'collection' && (
-                      <DropdownItem label={t('source_collection')} rgOptions={collectionOptions} selectedOption={state.collectionId} onChange={(opt: unknown) => setCollection(String(optionData(opt)))} bottomSeparator='thick' />
+                      <DropdownItem label={t('source_collection')} rgOptions={collectionOptionsFinal} selectedOption={collectionSelected} onChange={(opt: unknown) => setCollection(String(optionData(opt)))} bottomSeparator='thick' />
                     )}
                     {state.sourceType === 'tab' && (
-                      <DropdownItem label={t('source_tab')} rgOptions={tabOptions} selectedOption={state.tab} onChange={(opt: unknown) => setPlatformTab(String(optionData(opt)))} bottomSeparator='thick' />
+                      <DropdownItem label={t('source_tab')} rgOptions={tabOptionsFinal} selectedOption={tabSelected} onChange={(opt: unknown) => setPlatformTab(String(optionData(opt)))} bottomSeparator='thick' />
                     )}
                     {state.sourceType === 'external' && externalOptions.length > 0 && (
-                      <DropdownItem label={t('source_external')} rgOptions={externalOptions} selectedOption={state.externalSourceId} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
+                      <DropdownItem label={t('source_external')} rgOptions={externalOptionsFinal} selectedOption={externalSelected} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
                     )}
                     {state.sourceType === 'filter'
                       ? <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />

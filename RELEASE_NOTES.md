@@ -5,6 +5,16 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Custom smart shelf.** New "Custom / Blank" entry at the top of the smart-shelf template picker. Build a smart shelf from scratch with your own filters and sort — same flexibility as a regular shelf, but it lives in the smart-shelf section.
+- **Time-of-day visibility for smart shelves.** Each smart shelf can now restrict itself to one or more hour ranges (e.g. show "Spare Time picks" between 06–09, 12–14 and 19–22) and / or to specific days of the week. Add as many ranges as you like with the **+ Add range** button; remove individual ranges with the ✕ button. Day-of-week chips and range controls are fully gamepad-navigable (D-pad left/right between hour pickers and across the 7-day row). Spare Time shelves come pre-populated with their built-in windows; Time of Day shelves show the inner hour boundaries as informational context. Days default to all-checked — uncheck the ones you want to exclude (an empty selection means "never visible"). Visibility flips happen exactly at the boundary — no polling.
+- **More dials per smart-shelf template.** Every smart shelf that previously hardcoded a Steam Deck compatibility filter (Quick Play, Deck Picks, Rediscover, On Deck, Spare Time, Long Session, Best Unplayed, Not Started, Interrupted) now exposes a **Deck Compatibility** dropdown in the editor — pick "Any / Unsupported and above / Playable and above / Verified only" per shelf. Spare Time also gets a **Max playtime** field (was hardcoded at 120 min). Playtime values are now editable as numeric inputs instead of sliders for finer control.
+- **New "Smart filters" tab** in the smart-shelf editor groups the mode-specific tuning (params, visibility window, day filter, time-of-day boundaries) so the Source tab stays focused on the basics (title, sort, limit, refresh interval). The old "Filters" tab is now labeled "Additional filters" and the toggle that gated it was removed — adding filter rows is enough.
+- **Manual-sort preview centering fixed.** When you reordered a card to the left in the highlight/sort preview row, the card occasionally scrolled off the left edge. It now stays centered both ways.
+
+- **No more empty dropdowns.** Source pickers (collection / library tab / external) and the smart-shelf sort picker now always show a value: the matching one when there is one, or a localized "Select" placeholder when no options have loaded yet. The smart-shelf sort defaults to a sensible per-mode value (recent / playtime / random / alphabetical) instead of an opaque "use default".
+
 ## [1.6.3] - 2026-04-29
 
 ### Added

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
+  DialogButton,
+  Dropdown,
   DropdownItem,
   Field,
   Focusable,
@@ -9,6 +11,8 @@ import {
   TextField,
   ToggleField,
 } from '@decky/ui'
+import { flowChildrenProps } from '../../../core/steamOSVersion'
+import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS } from '../../../steam/smartShelves'
 import type { SingleDropdownOption } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, SmartShelf } from '../../../types'
@@ -24,7 +28,7 @@ import { ManualSortRow } from './editShelf/ManualSortRow'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { ModalHeader } from './editShelf/ModalHeader'
-import { FunnelIcon, EyeIcon } from '../../icons'
+import { FunnelIcon, EyeIcon, SparkleIcon } from '../../icons'
 
 // Same TabLabel pattern used by EditShelfModal — kept local rather than
 // shared because the two modals diverge enough that a tiny duplication
@@ -39,14 +43,14 @@ function TabLabel({ icon, text }: { icon?: React.ReactNode; text: string }) {
 }
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { textFromDeckyChange } from './modalUtils'
-import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode } from '../../../steam/smartParams'
+import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
 
 // Effective TTL when `refreshIntervalMinutes` is unset on a shelf — must
 // match `DEFAULT_SMART_TTL_MS` in `src/steam/smartShelves.ts`. Used to
 // pre-fill the edit field so users see the actual current cadence.
 const DEFAULT_REFRESH_MINUTES = 60
 
-type Tab = 'source' | 'filters' | 'visual' | 'display'
+type Tab = 'source' | 'smart_filters' | 'filters' | 'visual' | 'display'
 
 type EditState = {
   title: string
@@ -55,7 +59,6 @@ type EditState = {
   manualBaseSort: string
   manualOrder: number[]
   filterGroup: FilterGroup
-  filterEnabled: boolean
   matchNativeSize: boolean
   highlightFirst: boolean
   highlightAll: boolean
@@ -69,6 +72,9 @@ type EditState = {
   hideInstallIndicator: boolean
   refreshIntervalMinutes: number
   smartParams: Record<string, number>
+  visibleHoursEnabled: boolean
+  visibleHoursRanges: Array<{ start: number; end: number }>
+  visibleDaysOfWeek: number[]
 }
 
 export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf }) {
@@ -79,11 +85,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
   const [state, setState] = useState<EditState>({
     title: shelf.title,
     limit: shelf.limit ?? 20,
-    sort: (shelf as any).sort ?? '',
+    sort: (shelf as any).sort ?? DEFAULT_SORT_FOR_MODE[shelf.mode] ?? 'alphabetical',
     manualBaseSort: (shelf as any).manualBaseSort ?? 'alphabetical',
     manualOrder: (shelf as any).manualOrder ?? [],
     filterGroup: (shelf as any).filterGroup ?? { mode: 'and', items: [] },
-    filterEnabled: !!((shelf as any).filterGroup?.items?.length),
     matchNativeSize: (shelf as any).matchNativeSize ?? false,
     highlightFirst: (shelf as any).highlightFirst ?? false,
     highlightAll: (shelf as any).highlightAll ?? false,
@@ -97,6 +102,33 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
     smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
+    visibleHoursEnabled: (() => {
+      const v = (shelf as any).visibleHours
+      const has = Array.isArray(v) ? v.length > 0 : !!v
+      // For modes whose resolver applies hardcoded windows internally,
+      // default the toggle to ON so the user sees the constraint reflected.
+      if (!has && shelf.mode === 'spare_time') return true
+      return has
+    })(),
+    visibleHoursRanges: (() => {
+      const v = (shelf as any).visibleHours
+      if (Array.isArray(v) && v.length > 0) return v.map((r: any) => ({ start: Number(r.start) || 0, end: Number(r.end) || 0 }))
+      if (v && typeof v === 'object') return [{ start: Number(v.start) || 0, end: Number(v.end) || 0 }]
+      // Pre-fill with the resolver's hardcoded windows for spare_time so
+      // existing shelves (created before the field shipped) still show the
+      // built-in constraint.
+      if (shelf.mode === 'spare_time') return SPARE_TIME_WINDOWS.map((r) => ({ ...r }))
+      return [{ start: 9, end: 17 }]
+    })(),
+    visibleDaysOfWeek: (() => {
+      const v = (shelf as any).visibleDaysOfWeek
+      if (Array.isArray(v)) return v.slice()
+      // Undefined = no day restriction in the persisted model. Surface this
+      // in the UI as "all 7 marked" so the user starts from the everyday case
+      // and unchecks specific days. The save handler converts a fully-checked
+      // selection back into `undefined` so storage stays minimal.
+      return [0, 1, 2, 3, 4, 5, 6]
+    })(),
   })
   // Buffered text representation of the refresh-interval field — keeps the
   // user free to clear / partially edit the input without immediately
@@ -105,6 +137,16 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
 
   const paramKeys = useMemo(() => paramKeysForMode(shelf.mode), [shelf.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
+  // Buffered text representations of `kind === 'text'` params (e.g. playtime
+  // minutes). Kept separate from `state.smartParams` so the user can clear /
+  // partially edit the input without committing intermediate values.
+  const [paramDrafts, setParamDrafts] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {}
+    for (const k of paramKeys) {
+      out[k] = String(state.smartParams[k] ?? 0)
+    }
+    return out
+  })
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
@@ -124,10 +166,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
   const reorderManual = (nextOrder: number[]) => setState((prev) => ({ ...prev, manualOrder: nextOrder }))
 
   const sortOptions = useMemo<SingleDropdownOption[]>(
-    () => [
-      { data: '', label: t('smart_sort_default') },
-      ...SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
-    ],
+    () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
     [t],
   )
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
@@ -138,14 +177,14 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
   const smartParamsKey = JSON.stringify(state.smartParams)
   const previewSource = useMemo(() => {
     const base: any = { type: 'smart' as const, mode: shelf.mode }
-    if (state.filterEnabled && state.filterGroup.items.length > 0) base.filterGroup = state.filterGroup
+    if (state.filterGroup.items.length > 0) base.filterGroup = state.filterGroup
     if (paramKeys.length) base.smartParams = state.smartParams
     if (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES) {
       base.refreshIntervalMinutes = state.refreshIntervalMinutes
     }
     return base
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shelf.mode, state.filterEnabled, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length])
+  }, [shelf.mode, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length])
 
   useEffect(() => {
     let cancelled = false
@@ -191,7 +230,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       ;(patch as any).sort = state.sort || undefined
       ;(patch as any).manualBaseSort = (isManual && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined
       ;(patch as any).manualOrder = (isManual && state.manualOrder.length) ? state.manualOrder : undefined
-      ;(patch as any).filterGroup = (state.filterEnabled && state.filterGroup.items.length > 0) ? state.filterGroup : undefined
+      ;(patch as any).filterGroup = state.filterGroup.items.length > 0 ? state.filterGroup : undefined
       ;(patch as any).matchNativeSize = state.matchNativeSize
       ;(patch as any).highlightFirst = state.highlightFirst
       ;(patch as any).highlightAll = state.highlightAll
@@ -216,6 +255,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
         if (state.smartParams[k] !== defaults[k]) overrides[k] = state.smartParams[k]
       }
       ;(patch as any).smartParams = Object.keys(overrides).length ? overrides : undefined
+      ;(patch as any).visibleHours = (state.visibleHoursEnabled && state.visibleHoursRanges.length > 0)
+        ? state.visibleHoursRanges
+        : undefined
+      // Days: drop the field entirely when all 7 are selected (no restriction);
+      // otherwise persist the (possibly empty) array. Empty array = never
+      // visible, distinct from undefined = always visible.
+      ;(patch as any).visibleDaysOfWeek = state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort()
       const ok = await actions.patchSmartShelf(shelf.id, patch)
       logInfo('SETTINGS', 'smart shelf updated', { shelfId: shelf.id, success: ok })
     })()
@@ -296,24 +342,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                           <span style={{ opacity: 0.7, fontSize: 13, whiteSpace: 'nowrap' }}>{t('smart_unit_min')}</span>
                         </div>
                       </Field>
-                      {paramKeys.map((key) => {
-                        const meta = SMART_PARAM_META[key]
-                        if (!meta) return null
-                        const value = state.smartParams[key] ?? 0
-                        const unit = meta.unitKey ? t(meta.unitKey as any) : ''
-                        return (
-                          <SliderField
-                            key={key}
-                            label={`${t(meta.labelKey as any)} (${value}${unit ? ` ${unit}` : ''})`}
-                            value={value}
-                            min={meta.min}
-                            max={meta.max}
-                            step={meta.step}
-                            bottomSeparator='thick'
-                            onChange={(v: number) => setSmartParam(key, v)}
-                          />
-                        )
-                      })}
                       {isManual && (
                         resolvedIds.length === 0
                           ? <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
@@ -332,25 +360,209 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                   ),
                 },
                 {
-                  id: 'filters',
-                  title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_filters')} />) as unknown as string,
+                  id: 'smart_filters',
+                  title: (<TabLabel icon={<SparkleIcon />} text={t('edit_tab_smart_filters' as any)} />) as unknown as string,
                   content: (
                     <FieldContainer scrollable>
-                      <ToggleField
-                        label={t('smart_filter_enable')}
-                        checked={state.filterEnabled}
-                        onChange={(value: boolean) => setState((prev) => ({ ...prev, filterEnabled: value, filterGroup: value && prev.filterGroup.items.length === 0 ? { mode: 'and', items: [] } : prev.filterGroup }))}
-                      />
-                      {state.filterEnabled && (
-                        <>
-                          <SavedFiltersBar
-                            controller={controller}
-                            currentGroup={state.filterGroup}
-                            onApply={(group) => setState((prev) => ({ ...prev, filterGroup: { ...group } }))}
-                          />
-                          <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} />
-                        </>
+                      {shelf.mode === 'time_of_day' && (
+                        <Field
+                          label={t('smart_time_of_day_info_label' as any)}
+                          description={TIME_OF_DAY_WINDOWS.map((w) => `${String(w.start).padStart(2, '0')}–${String(w.end).padStart(2, '0')} → ${t(`smart_template_${w.subMode}` as any)}`).join('  ·  ')}
+                        />
                       )}
+                      {paramKeys.map((key) => {
+                        const meta = SMART_PARAM_META[key]
+                        if (!meta) return null
+                        const value = state.smartParams[key] ?? 0
+                        const unit = meta.unitKey ? t(meta.unitKey as any) : ''
+                        if (meta.kind === 'dropdown' && meta.options) {
+                          const opts = meta.options.map((o) => ({ data: o.value, label: t(o.labelKey as any) }))
+                          return (
+                            <DropdownItem
+                              key={key}
+                              label={t(meta.labelKey as any)}
+                              rgOptions={opts}
+                              selectedOption={value}
+                              onChange={(opt: unknown) => {
+                                const n = Number(optionData(opt) ?? meta.min)
+                                if (Number.isFinite(n)) setSmartParam(key, n)
+                              }}
+                              bottomSeparator='thick'
+                            />
+                          )
+                        }
+                        if (meta.kind === 'text') {
+                          const draft = paramDrafts[key] ?? String(value)
+                          return (
+                            <Field key={key} label={t(meta.labelKey as any)} bottomSeparator='thick'>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
+                                <div style={{ flex: 1, minWidth: 140 }}>
+                                  <TextField
+                                    value={draft}
+                                    onChange={(value: unknown) => {
+                                      const text = textFromDeckyChange(value)
+                                      const digits = text.replace(/[^0-9]/g, '')
+                                      setParamDrafts((prev) => ({ ...prev, [key]: digits }))
+                                      if (digits === '') return
+                                      const n = Math.max(meta.min, Math.min(meta.max, parseInt(digits, 10) || meta.min))
+                                      setSmartParam(key, n)
+                                    }}
+                                    onBlur={() => {
+                                      const n = parseInt(paramDrafts[key] ?? '', 10)
+                                      const clamped = Number.isFinite(n) ? Math.max(meta.min, Math.min(meta.max, n)) : meta.min
+                                      setParamDrafts((prev) => ({ ...prev, [key]: String(clamped) }))
+                                      setSmartParam(key, clamped)
+                                    }}
+                                  />
+                                </div>
+                                {unit && <span style={{ opacity: 0.7, fontSize: 13, whiteSpace: 'nowrap' }}>{unit}</span>}
+                              </div>
+                            </Field>
+                          )
+                        }
+                        return (
+                          <SliderField
+                            key={key}
+                            label={`${t(meta.labelKey as any)} (${value}${unit ? ` ${unit}` : ''})`}
+                            value={value}
+                            min={meta.min}
+                            max={meta.max}
+                            step={meta.step}
+                            bottomSeparator='thick'
+                            onChange={(v: number) => setSmartParam(key, v)}
+                          />
+                        )
+                      })}
+                      <ToggleField
+                        label={t('smart_visible_hours_label')}
+                        description={t('smart_visible_hours_desc')}
+                        checked={state.visibleHoursEnabled}
+                        onChange={(value: boolean) => setState((prev) => ({ ...prev, visibleHoursEnabled: value }))}
+                      />
+                      {state.visibleHoursEnabled && (
+                        <Focusable style={{ padding: '4px 0 8px' }}>
+                          {state.visibleHoursRanges.map((range, idx) => {
+                            const hourOptions = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
+                            const updateRange = (key: 'start' | 'end', value: number) => setState((prev) => ({
+                              ...prev,
+                              visibleHoursRanges: prev.visibleHoursRanges.map((r, i) => i === idx ? { ...r, [key]: value } : r),
+                            }))
+                            const removeRange = () => setState((prev) => ({
+                              ...prev,
+                              visibleHoursRanges: prev.visibleHoursRanges.filter((_, i) => i !== idx),
+                            }))
+                            return (
+                              <Focusable
+                                key={idx}
+                                {...flowChildrenProps('horizontal')}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}
+                              >
+                                <div style={{ width: 110 }}>
+                                  <Dropdown
+                                    rgOptions={hourOptions}
+                                    selectedOption={range.start}
+                                    onChange={(opt: unknown) => {
+                                      const n = Number(optionData(opt) ?? 0)
+                                      if (Number.isFinite(n)) updateRange('start', n)
+                                    }}
+                                  />
+                                </div>
+                                <span style={{ opacity: 0.6, fontSize: 13 }}>→</span>
+                                <div style={{ width: 110 }}>
+                                  <Dropdown
+                                    rgOptions={hourOptions}
+                                    selectedOption={range.end}
+                                    onChange={(opt: unknown) => {
+                                      const n = Number(optionData(opt) ?? 0)
+                                      if (Number.isFinite(n)) updateRange('end', n)
+                                    }}
+                                  />
+                                </div>
+                                <DialogButton
+                                  style={{ minWidth: 36, width: 36, height: 36, padding: 0, marginLeft: 'auto', flex: 'none' }}
+                                  onClick={removeRange}
+                                  onOKButton={removeRange}
+                                  disabled={state.visibleHoursRanges.length <= 1}
+                                >
+                                  ✕
+                                </DialogButton>
+                              </Focusable>
+                            )
+                          })}
+                          <DialogButton
+                            style={{ width: '100%', marginTop: 4 }}
+                            onClick={() => setState((prev) => ({
+                              ...prev,
+                              visibleHoursRanges: [...prev.visibleHoursRanges, { start: 9, end: 17 }],
+                            }))}
+                            onOKButton={() => setState((prev) => ({
+                              ...prev,
+                              visibleHoursRanges: [...prev.visibleHoursRanges, { start: 9, end: 17 }],
+                            }))}
+                          >
+                            + {t('smart_visible_hours_add' as any)}
+                          </DialogButton>
+                        </Focusable>
+                      )}
+                      <Field label={t('smart_visible_days_label')} description={t('smart_visible_days_desc')} />
+                      <Focusable
+                        {...flowChildrenProps('horizontal')}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(7, 1fr)',
+                          gap: 4,
+                          padding: '4px 0 8px',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+                          const active = state.visibleDaysOfWeek.includes(day)
+                          const labelKey = (`smart_visible_day_${day}` as any)
+                          const toggleDay = () => setState((prev) => ({
+                            ...prev,
+                            visibleDaysOfWeek: active
+                              ? prev.visibleDaysOfWeek.filter((d) => d !== day)
+                              : [...prev.visibleDaysOfWeek, day].sort(),
+                          }))
+                          return (
+                            <DialogButton
+                              key={day}
+                              onClick={toggleDay}
+                              onOKButton={toggleDay}
+                              style={{
+                                width: '100%',
+                                minWidth: 0,
+                                minHeight: 34,
+                                padding: '4px 2px',
+                                fontSize: 12,
+                                lineHeight: '14px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                                <span style={{ width: 10, textAlign: 'center', flexShrink: 0, color: active ? '#4caf50' : 'rgba(255,255,255,0.3)' }}>{active ? '✓' : '·'}</span>
+                                <span>{t(labelKey)}</span>
+                              </span>
+                            </DialogButton>
+                          )
+                        })}
+                      </Focusable>
+                    </FieldContainer>
+                  ),
+                },
+                {
+                  id: 'filters',
+                  title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_additional_filters' as any)} />) as unknown as string,
+                  content: (
+                    <FieldContainer scrollable>
+                      <SavedFiltersBar
+                        controller={controller}
+                        currentGroup={state.filterGroup}
+                        onApply={(group) => setState((prev) => ({ ...prev, filterGroup: { ...group } }))}
+                      />
+                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} />
                     </FieldContainer>
                   ),
                 },
