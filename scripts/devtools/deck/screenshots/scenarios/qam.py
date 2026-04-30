@@ -1,5 +1,7 @@
-"""QAM scenarios: panel itself, smart shelves section, saved filters,
-global toggles, hidden shelves view, reset confirm."""
+"""QAM scenarios. Each one opens the QAM, optionally scrolls the
+`.deck-shelves-qam-scope` to a target section by header text, then
+captures the QAM popup target clipped to the visible portrait panel
+(matching the legacy aspect-ratio validation in `validate-screenshots.mjs`)."""
 from __future__ import annotations
 
 import time
@@ -7,16 +9,45 @@ from pathlib import Path
 from typing import Dict
 
 from ..lib.cdp import Session
-from ..lib.nav import open_qam, close_qam, click_selector, await_selector
+from ..lib.nav import open_qam, close_qam
 from ..lib.capture import capture_qam
 from ._registry import register
 
 
+def _scroll_qam_to_text(sjc: Session, *needles: str) -> str:
+    """Scroll the QAM scope to the first text node containing any of the
+    `needles` (case-insensitive). Falls back to a 60% scroll position when
+    no match is found. Mirrors the legacy script's approach."""
+    needle_js = ", ".join(repr(n.lower()) for n in needles)
+    expr = f"""
+(function() {{
+  var scope = document.querySelector('.deck-shelves-qam-scope');
+  if (!scope) return 'no-scope';
+  var needles = [{needle_js}];
+  var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+  var node;
+  while (node = walker.nextNode()) {{
+    var txt = (node.textContent || '').trim().toLowerCase();
+    if (txt.length > 2 && txt.length < 80) {{
+      for (var i = 0; i < needles.length; i++) {{
+        if (txt.indexOf(needles[i]) !== -1) {{
+          var el = node.parentElement;
+          if (el) {{ el.scrollIntoView({{ behavior: 'instant', block: 'start' }}); return 'scrolled:' + txt.substring(0, 30); }}
+        }}
+      }}
+    }}
+  }}
+  scope.scrollTop = Math.floor(scope.scrollHeight * 0.6);
+  return 'fallback-scroll';
+}})()
+"""
+    return sjc.evaluate(expr) or "no-result"
+
+
 @register("qam")
 def qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """Plain QAM with the Deck Shelves panel visible."""
+    """QAM at the top of the panel (default scroll position)."""
     open_qam(sjc, settle_ms=2000)
-    await_selector(sjc, "[id^='quickaccess_content_']", timeout_ms=4000)
     out = out_dir / "qam.png"
     p = capture_qam(host, port, out)
     close_qam(sjc)
@@ -27,13 +58,7 @@ def qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
 def smart_shelves_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM scrolled to the Smart Shelves section."""
     open_qam(sjc, settle_ms=1500)
-    sjc.evaluate("""
-(function(){
-  const sec = document.querySelector('[data-ds-section="smart"]');
-  if (sec) sec.scrollIntoView({block:'center'});
-  return 'ok';
-})()
-""")
+    _scroll_qam_to_text(sjc, "smart", "prateleira")
     time.sleep(1.0)
     out = out_dir / "smart-shelves-qam.png"
     p = capture_qam(host, port, out)
@@ -43,16 +68,9 @@ def smart_shelves_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 
 @register("global_toggles")
 def global_toggles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM scrolled to the Apply globally section."""
+    """QAM scrolled to the Apply globally / Visual section."""
     open_qam(sjc, settle_ms=1500)
-    sjc.evaluate("""
-(function(){
-  const sec = document.querySelector('[data-ds-section="visual_global"]') ||
-              document.querySelector('[data-ds-section="apply_globally"]');
-  if (sec) sec.scrollIntoView({block:'center'});
-  return 'ok';
-})()
-""")
+    _scroll_qam_to_text(sjc, "apply globally", "aplicar globalmente", "visual global")
     time.sleep(1.0)
     out = out_dir / "global-toggles.png"
     p = capture_qam(host, port, out)
@@ -64,13 +82,7 @@ def global_toggles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[st
 def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM scrolled to Saved Filters (when at least one filter exists)."""
     open_qam(sjc, settle_ms=1500)
-    sjc.evaluate("""
-(function(){
-  const sec = document.querySelector('[data-ds-section="saved_filters"]');
-  if (sec) sec.scrollIntoView({block:'center'});
-  return 'ok';
-})()
-""")
+    _scroll_qam_to_text(sjc, "saved filter", "filtro salvo")
     time.sleep(1.0)
     out = out_dir / "saved-filters-qam.png"
     p = capture_qam(host, port, out)

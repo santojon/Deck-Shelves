@@ -1,14 +1,25 @@
 """Modal scenarios: shelf create/edit/import/export, smart-shelf editor,
-template picker, reset confirmations, game context menu."""
+template picker, reset confirmations, game context menu.
+
+These modals are rendered via the host's `showModal(...)`, which mounts
+them at the Big Picture root — captures use `capture_bigpicture` so the
+resulting PNG is landscape-shaped (matching the validator's expectation
+for files without an explicit `surface: 'qam-popup'` entry). The QAM
+popup is opened first so the user-flow that reveals the modal is
+exercised, but the capture itself is taken from the BP target where the
+modal portal actually paints.
+
+Captures kept on the QAM popup (portrait): the QAM-list states that
+don't open a modal, e.g. `shelf-hidden`."""
 from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 from ..lib.cdp import Session
 from ..lib.nav import open_qam, close_qam
-from ..lib.capture import capture_qam
+from ..lib.capture import capture_bigpicture, capture_qam
 from ._registry import register
 
 
@@ -38,17 +49,6 @@ def _click_action(sjc: Session, ok_description: str) -> bool:
 """) is True
 
 
-def _click_first_shelf_row(sjc: Session) -> bool:
-    return sjc.evaluate("""
-(function(){
-  const row = document.querySelector('[data-ds-shelf-row]');
-  if (!row) return false;
-  row.click();
-  return true;
-})()
-""") is True
-
-
 @register("shelf_create")
 def shelf_create(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Template picker modal opened from the QAM."""
@@ -56,7 +56,7 @@ def shelf_create(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     _click_action(sjc, "addshelf")
     time.sleep(1.2)
     out = out_dir / "shelf-create.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-create.png": p} if p else {}
 
@@ -67,7 +67,7 @@ def shelf_import(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     _click_action(sjc, "import_shelves")
     time.sleep(1.0)
     out = out_dir / "shelf-import.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-import.png": p} if p else {}
 
@@ -78,7 +78,7 @@ def shelf_export(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     _click_action(sjc, "export_shelves")
     time.sleep(1.0)
     out = out_dir / "shelf-export.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-export.png": p} if p else {}
 
@@ -95,7 +95,7 @@ def shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, P
 """)
     time.sleep(1.5)
     out = out_dir / "shelf-edit.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-edit.png": p} if p else {}
 
@@ -122,7 +122,7 @@ def shelf_edit_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dic
 """)
     time.sleep(0.8)
     out = out_dir / "shelf-edit-filters.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-edit-filters.png": p} if p else {}
 
@@ -149,7 +149,7 @@ def shelf_edit_visual(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 """)
     time.sleep(0.8)
     out = out_dir / "shelf-edit-visual.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-edit-visual.png": p} if p else {}
 
@@ -161,7 +161,7 @@ def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
     _click_action(sjc, "smart_add_shelf")
     time.sleep(1.2)
     out = out_dir / "smart-shelf-modal.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"smart-shelf-modal.png": p} if p else {}
 
@@ -179,7 +179,7 @@ def smart_shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[
 """)
     time.sleep(1.2)
     out = out_dir / "smart-shelf-edit.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"smart-shelf-edit.png": p} if p else {}
 
@@ -190,7 +190,7 @@ def reset_all(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
     _click_action(sjc, "reset_all")
     time.sleep(1.0)
     out = out_dir / "reset-all.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"reset-all.png": p} if p else {}
 
@@ -208,14 +208,15 @@ def shelf_actions(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
 """)
     time.sleep(0.7)
     out = out_dir / "shelf-actions.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-actions.png": p} if p else {}
 
 
 @register("shelf_hidden")
 def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM showing a hidden shelf row (eye-slash icon)."""
+    """QAM showing a hidden shelf row (eye-slash icon). This stays on the
+    QAM popup target (portrait) — no modal is opened."""
     open_qam(sjc, settle_ms=1500)
     sjc.evaluate("""
 (function(){
@@ -243,7 +244,7 @@ def shelf_delete(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 """)
     time.sleep(0.8)
     out = out_dir / "shelf-delete.png"
-    p = capture_qam(host, port, out)
+    p = capture_bigpicture(host, port, out)
     close_qam(sjc)
     return {"shelf-delete.png": p} if p else {}
 
@@ -261,7 +262,6 @@ def game_menu(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
 })()
 """)
     time.sleep(1.2)
-    from ..lib.capture import capture_bigpicture
     out = out_dir / "game-menu.png"
     p = capture_bigpicture(host, port, out)
     return {"game-menu.png": p} if p else {}

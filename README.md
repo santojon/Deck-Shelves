@@ -70,7 +70,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 #### Plugin Settings
 
 <p align="center">
-  <img src="assets/screenshots/qam.png" alt="Deck Shelves — Quick Access Menu" width="314">
+  <img src="assets/screenshots/qam.png" alt="Deck Shelves — Quick Access Menu" width="768">
 </p>
 
 #### Game Actions
@@ -106,7 +106,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/shelf-hidden.png" alt="Deck Shelves — Hidden Shelf" width="314">
+  <img src="assets/screenshots/shelf-hidden.png" alt="Deck Shelves — Hidden Shelf" width="768">
 </p>
 
 <p align="center">
@@ -130,7 +130,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 #### Smart Shelves
 
 <p align="center">
-  <img src="assets/screenshots/smart-shelves-qam.png" alt="Deck Shelves — Smart Shelves in QAM" width="314">
+  <img src="assets/screenshots/smart-shelves-qam.png" alt="Deck Shelves — Smart Shelves in QAM" width="768">
 </p>
 
 <p align="center">
@@ -146,13 +146,13 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 Visible in the QAM when at least one filter has been saved from the **Edit shelf → Filters** tab. Hidden automatically when empty.
 
 <p align="center">
-  <img src="assets/screenshots/saved-filters-qam.png" alt="Deck Shelves — Saved Filters section in QAM" width="314">
+  <img src="assets/screenshots/saved-filters-qam.png" alt="Deck Shelves — Saved Filters section in QAM" width="768">
 </p>
 
 #### Global Toggles
 
 <p align="center">
-  <img src="assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="314">
+  <img src="assets/screenshots/global-toggles.png" alt="Deck Shelves — Global Toggles" width="768">
 </p>
 
 #### Optional captures

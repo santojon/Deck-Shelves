@@ -22,10 +22,42 @@ def home(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
 
 @register("home_shelves")
 def home_shelves(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """Home with at least one Deck Shelves shelf rendered."""
+    """Home with at least one Deck Shelves shelf rendered.
+
+    Focus the first card and move one slot to the right before the
+    capture so the screenshot shows a stable, intentional focus state
+    rather than whatever the framework happened to land on while the
+    page was still settling.
+    """
     navigate_home(sjc, settle_ms=2500)
-    await_selector(sjc, ".ds-shelf[data-shelfid]", timeout_ms=4000)
-    time.sleep(1.0)
+    await_selector(sjc, ".ds-shelf[data-shelfid] .ds-card", timeout_ms=4000)
+    # Park focus on the first card and step right by one. Two-stage
+    # delay between focus and right-move so the focusin handler can
+    # finish centering before the second card takes over.
+    sjc.evaluate("""
+(function(){
+  const card = document.querySelector('.ds-shelf[data-shelfid] .ds-card');
+  if (card) try { card.focus(); } catch {}
+  return 'ok';
+})()
+""")
+    time.sleep(0.6)
+    sjc.evaluate("""
+(function(){
+  // Dispatch ArrowRight on the focused element and the document so the
+  // gamepad nav controller picks it up regardless of which surface
+  // owns the keydown listener.
+  const evt = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+  (document.activeElement || document).dispatchEvent(evt);
+  document.dispatchEvent(evt);
+  return 'ok';
+})()
+""")
+    # Settle generously: the right-move triggers a smooth horizontal
+    # scroll, image swaps from the new focused card, and a focus-glow
+    # animation. Capturing too early leaves residual UI mid-animation
+    # in the frame.
+    time.sleep(3.0)
     out = out_dir / "home-shelves.png"
     p = capture_bigpicture(host, port, out)
     return {"home-shelves.png": p} if p else {}
