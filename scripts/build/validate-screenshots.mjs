@@ -65,28 +65,27 @@ const OPTIONAL = [
 // (width / height) instead of raw dimensions. Steam BP and the QAM popup
 // can both shift surface size between releases (window chrome reshuffle,
 // DPR change, layout tweak); raw-dim allowlists drift constantly and
-// invalidate fresh captures whenever Steam ships an update. The aspect
-// window survives DPR scaling and minor viewport changes while still
-// catching the real failure mode this check exists to prevent: a QAM
-// popup capture (always portrait) accidentally getting saved into a
-// Big Picture slot (always landscape), or vice-versa. The two ranges
-// don't overlap, so a misfile-d capture flips clearly to the wrong bucket.
+// invalidate fresh captures whenever Steam ships an update.
 //
-// `minWidth` filters out tiny / cropped captures that happen to land in
-// the right aspect range by accident.
+// QAM popup captures now use the legacy parent-walker clip approach,
+// which lands at the popup's full viewport (~1281×681 at DPR 1.5 ≈ 1.88
+// aspect) — so both surfaces are landscape. The QAM/BP discriminator is
+// therefore byte-size: QAM popup PNGs of the dark, sparsely populated
+// panel compress to ~30-90 KB, while BP captures of full home/library
+// views are 60 KB–5 MB. `maxSize` on qam-popup catches BP captures
+// substituted into a QAM slot.
 //
-// QAM popup PNGs span a wide compression range: a panel with sparse
-// content on the dark theme background can land at ~38-40 KB, while a
-// fully-populated section sits at 90-150 KB. `minSize` catches truly-
-// empty PNGs (compressed dark uniform fill, well under 20 KB). Keep in
-// sync with `QAM_CAPTURE_BLANK_THRESHOLD` in
+// `minWidth` filters out tiny / cropped captures.
+//
+// `minSize` catches truly-empty PNGs (compressed dark uniform fill,
+// well under 20 KB). Keep in sync with `QAM_CAPTURE_BLANK_THRESHOLD` in
 // `scripts/devtools/deck/screenshots/screenshot.py`.
 const SURFACES = {
   "qam-popup": {
     minSize: 20_000,
     maxSize: 250_000,
-    aspectRange: [0.30, 0.85],  // portrait: 522×741 → 0.704 ; 597×1377 → 0.434
-    minWidth: 400,
+    aspectRange: [1.40, 2.20],  // landscape popup: 1281×681 → 1.881
+    minWidth: 1000,
   },
   "big-picture": {
     minSize: 60_000,
@@ -187,7 +186,7 @@ if (errors > 0) {
   console.error("  MISSING          → capture is absent. Rerun `python3 scripts/devtools/deck/screenshots/screenshot.py`.");
   console.error("  TOO SMALL        → QAM popup frame is blank (compositor not ready). Rerun; the capture script retries on blanks.");
   console.error("  WRONG SURFACE    → a Big Picture screenshot was saved for a file expected to be a QAM popup capture. Rerun with the current script.");
-  console.error("  WRONG ASPECT     → the PNG ratio is outside the expected window for this surface (BP=landscape, QAM=portrait). Likely the file was saved into the wrong slot.");
+  console.error("  WRONG ASPECT     → the PNG ratio is outside the expected window for this surface. Likely the file was saved into the wrong slot.");
   console.error("  TOO NARROW       → the capture is below the minimum width for this surface (cropped, scaled, or wrong context).");
   console.error("  UNREADABLE       → the PNG IHDR chunk is missing or malformed.");
   process.exit(1);
