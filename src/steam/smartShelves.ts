@@ -360,6 +360,32 @@ export function nextVisibilityBoundary(
   return null;
 }
 
+/**
+ * Set of every smart-shelf mode resolved by the built-in switch in
+ * `resolveSmartShelf`. Used by `resolveShelfAppIds` to enforce
+ * internal precedence: external plugins that happen to register the
+ * same id never override our heuristics — they only fill gaps for
+ * truly external mode ids.
+ */
+export const INTERNAL_SMART_MODES: ReadonlySet<string> = new Set([
+  "quick_play",
+  "not_started",
+  "deck_picks",
+  "rediscover",
+  "best_unplayed",
+  "interrupted",
+  "time_of_day",
+  "daily_pick",
+  "on_deck",
+  "recently_played",
+  "long_session",
+  "non_steam",
+  "random_pick",
+  "forgotten",
+  "spare_time",
+  "custom",
+]);
+
 export function invalidateSmartShelfCache(shelfId?: string): void {
   if (!shelfId) { resolverCache.clear(); return; }
   // Per-shelf scope: the namespaced cache key starts with `${shelfId}:`.

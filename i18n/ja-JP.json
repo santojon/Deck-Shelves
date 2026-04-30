@@ -267,6 +267,7 @@
   "import": "インポート",
   "import_from_tabmaster": "TabMasterからインポート",
   "import_from_tabmaster_desc": "TabMasterのライブラリタブをインポートしてシェルフに変換します。",
+  "import_more_options": "インポートオプション",
   "import_settings": "設定をインポート",
   "import_shelves": "棚をインポート",
   "import_smart_shelves": "スマート棚をインポート",

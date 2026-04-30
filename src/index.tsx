@@ -10,6 +10,9 @@ import { installRecentsReplace } from "./runtime/recentsReplace";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installPluginApi } from "./core/pluginApi";
+// Side-effect import: registers the internal-registry bootstrap on
+// pluginApi BEFORE installPluginApi() runs.
+import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { logError, logInfo } from "./runtime/logger";

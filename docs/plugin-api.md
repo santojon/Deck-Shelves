@@ -10,6 +10,7 @@ This document covers **API v2**. The v1 surface (`registerShelfSource` / `getReg
 
 - [Detection — the simple way](#detection--the-simple-way)
 - [Versioning](#versioning)
+  - [Built-in registry surface](#built-in-registry-surface)
 - [Registries](#registries)
   - [`registerShelfSource`](#registershelfsource)
   - [`registerSmartShelfSource`](#registersmartshelfsource)
@@ -93,9 +94,29 @@ The same `cleanups` array unifies registration cleanup, ready/teardown listener 
 | Surface | `window.__DECK_SHELVES_API__` | Same global object across versions. |
 | Lifetime | Lives until Deck Shelves unloads. | Cleared on plugin teardown — re-register on a fresh install via the `deck-shelves-ready` event. |
 
+Per-descriptor versioning: each `Register*Descriptor` shape accepts an optional `version?: number` field. Bump it independently of the API surface `version` when you add new optional fields specific to your descriptor type — internal handlers can branch on `(d.version ?? 1) >= 2` without forcing a global API bump.
+
 Events:
 - `deck-shelves-ready` — fired on `window`, `event.detail` is the API. Fires synchronously after install.
 - `deck-shelves-teardown` — fired before the API is removed from the global. Use to release cached references.
+
+### Built-in registry surface
+
+Sprint 8 registers every first-party id (16 smart-shelf modes, 21 filter types, 10 sort options) on the same registry external plugins write to. So `getRegisteredSmartSources()`, `getRegisteredFilterTypes()` and `getRegisteredSortOptions()` enumerate **built-ins + external entries**.
+
+Resolver precedence is fixed: built-in ids always win. An external descriptor that registers an id matching one of our built-ins never replaces it at resolve time. Use the helpers below to detect collisions:
+
+```ts
+import {
+  isInternalSmartSource,
+  isInternalFilterType,
+  isInternalSortOption,
+} from "deck-shelves";  // also reachable through the global if you don't bundle types
+
+if (isInternalSmartSource("random_pick")) {
+  // collision — pick a different id like "myplugin.weekend_picks"
+}
+```
 
 ---
 
@@ -185,24 +206,85 @@ api.registerSortOption({
 
 ### `registerImportType`
 
-A new import format the user can paste/load.
+A new import format that surfaces as a quick-action entry inside the QAM. Each registered descriptor adds one button to the right side of the action row in the chosen section (regular shelves or smart shelves). When **two or more** descriptors target the same section, the buttons collapse behind a `…` overflow that opens the full list — matches the existing TabMaster slot when it's the only entry, expands when more plugins join in.
+
+#### Descriptor shape
 
 ```ts
 api.registerImportType({
-  id: "playnite.csv",
-  displayName: "Playnite library (CSV)",
+  id: "myplugin.format",                 // unique id (recommend `pluginId.formatId`)
+  displayName: "Import from MyPlugin",   // shown in the icon's OK overlay AND in the overflow list
+  target: "shelves",                     // "shelves" (default) or "smart_shelves"
+  icon: <MyIcon />,                      // ReactNode rendered in the action button
+  // Either runImport (custom UX) OR parse (default file-picker flow).
+  runImport: () => openMyImportModal(),  // called when the user picks the entry
+  // — or —
   fileExtension: ".csv",
   parse: async (raw) => ({
     shelves: csvParse(raw).map((r) => ({
       title: r.shelf_name,
-      source: { type: "external" as const, sourceId: `playnite.${r.list_id}` },
+      source: { type: "external" as const, sourceId: `myplugin.${r.list_id}` },
       limit: 30,
     })),
+    // smartShelves entries land in the smart bucket when target = "smart_shelves":
+    smartShelves: [
+      { title: "Imported smart shelf", mode: "myplugin.weekend_picks", limit: 20 },
+    ],
   }),
 });
 ```
 
-> **Phase 1 limitation:** the registry is exposed but the ImportModal UI does not yet show external types. Plugins can read `getRegisteredImportTypes()` and drive their own import flow today.
+- `target` defaults to `"shelves"`. Set it to `"smart_shelves"` to add to the smart-shelf section.
+- `icon` is a `ReactNode`; it's reused as the icon inside the overflow menu.
+- `runImport` is invoked when the user activates the entry. Use it when your import needs a custom modal (e.g. a picker for which lists to import). When you provide it, `parse` is unused.
+- `parse` is reserved for the default file-picker flow (Phase 2 — currently logs a warning and is a no-op). For now, plugins with a custom UX should always set `runImport`.
+- A descriptor populates only one bucket. If your source covers both shelf types, register two descriptors with different `target` values.
+
+#### Worked example: register a smart-shelf importer
+
+```ts
+import { withDeckShelves } from "./your-deck-shelves-shim";
+import { MySmartIcon } from "./icons";
+
+withDeckShelves((api) => {
+  const unsubscribe = api.registerImportType({
+    id: "myplugin.smart-import",
+    displayName: "Import smart picks from MyPlugin",
+    target: "smart_shelves",
+    icon: <MySmartIcon />,
+    runImport: async () => {
+      // Open your own modal / file picker here. When the user confirms,
+      // call your plugin's persistence path; you do NOT need to call back
+      // into Deck Shelves for the basic case — your `runImport` owns the
+      // flow end-to-end.
+      const picked = await pickList();
+      if (!picked) return;
+      await myPlugin.persistImportedList(picked);
+      // Optional: surface a toast via Decky's toaster.
+    },
+  });
+  return unsubscribe;  // call on plugin teardown
+});
+```
+
+When `MyPlugin` is the only registered importer for `smart_shelves`, its icon shows directly next to **Reset** in the QAM smart-shelf section. When a second plugin registers another `smart_shelves` importer, both collapse into the `…` overflow that opens a list with each plugin's icon and `displayName`.
+
+#### Detection helpers
+
+External plugins can detect collisions with built-in ids before registering:
+
+```ts
+import type { DeckShelvesPublicAPI } from "deck-shelves";
+
+withDeckShelves((api: DeckShelvesPublicAPI) => {
+  // Built-in surface — these always win at resolve time, so prefer to
+  // register against fresh ids.
+  if (api.hasTabMaster()) {
+    // TabMaster's first-party importer is already in the registry under
+    // id "tabmaster". Avoid overriding it.
+  }
+});
+```
 
 ### `registerSavedFilter`
 
@@ -229,12 +311,11 @@ Idempotent: re-registering the same id replaces the previous entry. Cleanup remo
 
 ## Consumer usage
 
-Reading Deck Shelves state from another plugin is exposed as **stable type contracts** today. The methods exist on the API surface — write your code against them now and it starts receiving data automatically when the feed lights up in a follow-up release.
+Reading Deck Shelves state from another plugin is **wired and ready** as of `[Unreleased]` (next v2.0.0). The getters return live projections of the user's settings; the `subscribeTo*` methods fire on every relevant change and are diff-gated by JSON identity, so a consumer that only watches one feed (e.g. saved filters) doesn't wake up on unrelated shelf edits.
 
-Until then:
-- `getShelves()`, `getSmartShelves()`, `getSavedFilters()` return `[]`.
-- `subscribeToShelves()`, `subscribeToSmartShelves()`, `subscribeToSavedFilters()` register the callback but never fire.
-- Every `subscribe*` returns a no-op `Unsubscribe` — calling it is harmless.
+- `getShelves()`, `getSmartShelves()`, `getSavedFilters()` return the current snapshot.
+- `subscribeToShelves(cb)`, `subscribeToSmartShelves(cb)`, `subscribeToSavedFilters(cb)` invoke the callback with the new projection whenever it changes; the returned `Unsubscribe` removes the listener.
+- Every `Public*` shape is frozen — read-only fields, never mutated by the API.
 
 ### Reading shelves
 
@@ -541,6 +622,24 @@ withDeckShelves((api) => [
         { type: "controllerSupport", params: { min: 1 } },
       ],
     },
+  }),
+  // One regular-shelves importer (icon shows directly when alone, otherwise
+  // collapses behind `…` with TabMaster / other registered entries).
+  api.registerImportType({
+    id: "demo.json-import",
+    displayName: "Import demo lists (JSON)",
+    target: "shelves",
+    icon: <DemoIcon />,
+    runImport: () => openMyImportPicker(),
+  }),
+  // One smart-shelves importer (lights up the `…` slot in the smart section
+  // — currently empty, so it shows the direct icon).
+  api.registerImportType({
+    id: "demo.weekend-presets",
+    displayName: "Demo weekend presets",
+    target: "smart_shelves",
+    icon: <CalendarIcon />,
+    runImport: () => importWeekendPresets(),
   }),
   // Consumer side — react to user state.
   api.subscribeToShelves((shelves: ReadonlyArray<PublicShelf>) => {

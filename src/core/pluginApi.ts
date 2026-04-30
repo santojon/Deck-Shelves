@@ -155,13 +155,30 @@ export interface ExternalSortOptionDescriptor {
 // ---- 1d. Import type registry ---------------------------------------------
 
 /**
- * Import type — parses an arbitrary text payload (e.g. a Playnite JSON
- * dump) into a list of shelf descriptors that Deck Shelves can save.
+ * Import target: which shelf bucket a registered import populates.
+ *   - "shelves"        → regular shelves section in the QAM
+ *   - "smart_shelves"  → smart shelves section in the QAM
  *
- * Phase 1 limitation: the registry is exposed but not yet wired into the
- * ImportModal UI. Plugins can call import flows programmatically by reading
- * from `getRegisteredImportTypes()` and feeding the parser output into
- * their own UX.
+ * Defaults to "shelves" when omitted on a descriptor (back-compat with the
+ * v2 initial release).
+ */
+export type ImportTarget = "shelves" | "smart_shelves";
+
+/**
+ * Import type — parses an arbitrary text payload (e.g. a Playnite JSON
+ * dump or a TabMaster settings.json) into a list of shelf descriptors
+ * Deck Shelves can save into the user's settings.
+ *
+ * The QAM exposes one quick-action button per import type registered for
+ * the matching target. When more than one is registered for the same
+ * target (e.g. TabMaster + Playnite for `shelves`), the buttons collapse
+ * behind a `[…]` overflow menu so the action row stays compact.
+ *
+ * `runImport` is invoked when the user picks this entry from the menu.
+ * If unset, the default flow opens the standard file picker, hands the
+ * payload to `parse`, and persists the returned shelves. Provide
+ * `runImport` only when the import needs custom UX (e.g. a custom modal
+ * such as TabMaster's accordion picker).
  */
 export interface ExternalImportTypeDescriptor {
   id: string;
@@ -170,16 +187,39 @@ export interface ExternalImportTypeDescriptor {
   version?: number;
   /** Optional file-extension hint (e.g. ".json", ".csv"). UI-only. */
   fileExtension?: string;
-  parse: (raw: string) => Promise<ParsedImport>;
+  /** Default `"shelves"`. Pick `"smart_shelves"` to populate the smart
+   *  shelves bucket instead. A single descriptor targets one bucket;
+   *  register two descriptors with different targets if the source
+   *  contains both. */
+  target?: ImportTarget;
+  /** Optional icon shown next to the entry in the QAM action row / menu.
+   *  Mirrors the local `icons` shape used by built-in actions. */
+  icon?: ReactNode;
+  /** Parse a raw payload into structured shelves. Optional when
+   *  `runImport` is provided (custom flows skip the parse step). */
+  parse?: (raw: string) => Promise<ParsedImport>;
+  /** Optional custom action handler. When set, the QAM invokes this
+   *  instead of the default file-picker flow when the user activates
+   *  the entry. The handler is responsible for reading the source data
+   *  and calling the appropriate persistence action via the controller
+   *  it captured at registration time. */
+  runImport?: () => void | Promise<void>;
 }
 
 export interface ParsedImport {
-  shelves: Array<{
+  shelves?: Array<{
     title: string;
     /** Either an existing `ExternalShelfSourceDescriptor.id` (the source
      *  must be registered separately) or a built-in source descriptor in
      *  the same shape Deck Shelves uses internally. */
     source: { type: "external"; sourceId: string };
+    limit?: number;
+  }>;
+  /** Smart shelves to insert. The `mode` matches `SmartShelfMode` (built-in
+   *  or registered via `registerSmartShelfSource`). */
+  smartShelves?: Array<{
+    title: string;
+    mode: string;
     limit?: number;
   }>;
 }
@@ -279,6 +319,9 @@ export interface DeckShelvesPublicAPI {
 
   registerImportType(d: ExternalImportTypeDescriptor): Unsubscribe;
   getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>;
+  /** Returns import types whose `target` matches (default `"shelves"`).
+   *  The QAM uses this to populate per-section import menus. */
+  getRegisteredImportTypesForTarget(target: ImportTarget): ReadonlyArray<ExternalImportTypeDescriptor>;
 
   registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
 
@@ -375,6 +418,71 @@ export function applyExternalSort(
 
 export function getExternalImportTypes(): ExternalImportTypeDescriptor[] {
   return Array.from(importTypes.values());
+}
+
+export function getExternalImportTypesForTarget(target: ImportTarget): ExternalImportTypeDescriptor[] {
+  return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
+}
+
+/**
+ * Internal helper for registering import types from inside the plugin
+ * (e.g. the QAM registers TabMaster's custom flow at mount time). Equivalent
+ * to calling `__DECK_SHELVES_API__.registerImportType(d)` but without
+ * crossing the global window boundary — the unsubscribe is symmetric.
+ */
+export function registerInternalImportType(d: ExternalImportTypeDescriptor): () => void {
+  importTypes.set(d.id, d);
+  return () => { importTypes.delete(d.id); };
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 8 — internal-as-external surface tracking
+//
+// Track which descriptor ids are first-party so the registry can be queried
+// uniformly (`getRegisteredSmartSources()` etc.) and external plugin code
+// can detect collisions with built-ins via `isInternalSmartSource(id)` /
+// `isInternalFilterType(id)` / `isInternalSortOption(id)`. Resolver
+// precedence (internal-wins-on-collision) is enforced by the call sites
+// reading these sets, NOT by the registry shape — registering an internal
+// id twice is harmless because the resolver checks `INTERNAL_SMART_MODES`
+// (et al.) before consulting the external registry.
+// ---------------------------------------------------------------------------
+
+const internalSmartSourceIds = new Set<string>();
+const internalFilterTypeIds = new Set<string>();
+const internalSortOptionIds = new Set<string>();
+
+export function registerInternalSmartShelfSource(d: SmartShelfSourceDescriptor): () => void {
+  internalSmartSourceIds.add(d.id);
+  smartSources.set(d.id, d);
+  return () => { internalSmartSourceIds.delete(d.id); smartSources.delete(d.id); };
+}
+
+export function registerInternalFilterType(d: ExternalFilterTypeDescriptor): () => void {
+  internalFilterTypeIds.add(d.id);
+  filterTypes.set(d.id, d);
+  return () => { internalFilterTypeIds.delete(d.id); filterTypes.delete(d.id); };
+}
+
+export function registerInternalSortOption(d: ExternalSortOptionDescriptor): () => void {
+  internalSortOptionIds.add(d.id);
+  sortOptions.set(d.id, d);
+  return () => { internalSortOptionIds.delete(d.id); sortOptions.delete(d.id); };
+}
+
+/** Returns `true` when the id matches a built-in smart-shelf source. */
+export function isInternalSmartSource(id: string): boolean {
+  return internalSmartSourceIds.has(id);
+}
+
+/** Returns `true` when the id matches a built-in filter type. */
+export function isInternalFilterType(id: string): boolean {
+  return internalFilterTypeIds.has(id);
+}
+
+/** Returns `true` when the id matches a built-in sort option. */
+export function isInternalSortOption(id: string): boolean {
+  return internalSortOptionIds.has(id);
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +606,9 @@ function makeApi(): DeckShelvesPublicAPI {
       return () => { importTypes.delete(d.id); };
     },
     getRegisteredImportTypes() { return Array.from(importTypes.values()); },
+    getRegisteredImportTypesForTarget(target) {
+      return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
+    },
 
     // Saved filters — persisted in user settings under prefixed id
     registerSavedFilter(d) {
@@ -570,14 +681,29 @@ export const READY_EVENT = "deck-shelves-ready";
  */
 export const TEARDOWN_EVENT = "deck-shelves-teardown";
 
+/**
+ * Hook for the internal-registry bootstrap. The actual implementation lives
+ * in `core/internalRegistry.ts` (which imports the `register*` helpers from
+ * here) and registers itself by setting this slot at module-load time.
+ * Keeping the binding indirect avoids the import cycle that would result
+ * from this module importing `internalRegistry.ts` directly.
+ */
+let internalBootstrap: (() => () => void) | null = null;
+export function setInternalBootstrap(fn: () => () => void): void { internalBootstrap = fn; }
+
 export function installPluginApi(): () => void {
   const api = makeApi();
+  // Sprint 8 — register every first-party id in the public registry BEFORE
+  // dispatching the ready event so plugins listening for `deck-shelves-ready`
+  // see the full built-in surface immediately.
+  const uninstallInternals = internalBootstrap ? internalBootstrap() : () => {};
   try { (window as any).__DECK_SHELVES_API__ = api; } catch {}
   try { window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: api })); } catch {}
 
   return () => {
     try { window.dispatchEvent(new CustomEvent(TEARDOWN_EVENT)); } catch {}
     try { delete (window as any).__DECK_SHELVES_API__; } catch {}
+    try { uninstallInternals(); } catch {}
     shelfSources.clear();
     smartSources.clear();
     filterTypes.clear();

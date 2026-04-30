@@ -267,6 +267,7 @@
   "import": "Importer",
   "import_from_tabmaster": "Importer depuis TabMaster",
   "import_from_tabmaster_desc": "Importez vos onglets de bibliothèque TabMaster et convertissez-les en étagères.",
+  "import_more_options": "Options d'importation",
   "import_settings": "Importer les paramètres",
   "import_shelves": "Importer des étagères",
   "import_smart_shelves": "Importer des étagères intelligentes",

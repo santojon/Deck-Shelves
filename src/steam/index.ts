@@ -2152,20 +2152,22 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // filters + sort + final limit below.
       const wantsPostProcess = !!smartFilterGroup || !!sort;
       const fetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
-      // Plugin API: when the mode is registered by an external plugin, hand
-      // off to its resolver instead of the built-in heuristic. Internal
-      // modes always take precedence to keep behavior deterministic when
-      // an external plugin happens to use the same id.
-      // Custom mode: no built-in candidate set — the user's filterGroup IS
-      // the candidate set. Use all apps as the candidate pool and let the
-      // post-process branch (filterGroup + sort + slice) do the work.
+      // Plugin API precedence: internal modes ALWAYS win. External plugins
+      // can register additional `mode` ids, but a registration that collides
+      // with one of our 15 built-ins is ignored at resolve time so behavior
+      // stays deterministic. Custom mode: no built-in candidate set — the
+      // user's filterGroup IS the candidate set; use the full app pool and
+      // let the post-process branch (filterGroup + sort + slice) do the work.
+      const { INTERNAL_SMART_MODES } = await import("./smartShelves");
       let rawIds: number[];
       if (source.mode === "custom") {
         rawIds = apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+      } else if (INTERNAL_SMART_MODES.has(source.mode)) {
+        rawIds = resolveSmartShelf(source.mode, apps, fetchLimit, smartParams, ttlMs, shelfId);
       } else if (hasExternalSmartSource(source.mode)) {
         rawIds = await resolveExternalSmartSource(source.mode, fetchLimit, smartParams ?? {});
       } else {
-        rawIds = resolveSmartShelf(source.mode, apps, fetchLimit, smartParams, ttlMs, shelfId);
+        rawIds = [];
       }
       let ids = rawIds;
       if (smartFilterGroup && Array.isArray(smartFilterGroup.items) && smartFilterGroup.items.length > 0) {

@@ -15,6 +15,8 @@ import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations
 
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
+import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButton'
+import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
@@ -75,6 +77,63 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
+
+  // Register TabMaster import as a first-party entry on the public registry
+  // when TabMaster is installed. External plugins can register additional
+  // descriptors via `__DECK_SHELVES_API__.registerImportType(...)` with
+  // `target: "shelves"` (or `"smart_shelves"`) and they show up in the same
+  // ImportMenuButton overflow menu — single registered entry collapses to a
+  // direct icon, two or more collapse behind `[…]`.
+  useEffect(() => {
+    if (!hasTabMaster) return
+    const unsub = registerInternalImportType({
+      id: 'tabmaster',
+      displayName: t('import_from_tabmaster'),
+      target: 'shelves',
+      icon: icons.tabMaster,
+      runImport: () => { handleImportFromTabMaster() },
+    })
+    return unsub
+  // Re-register only when TabMaster availability or `t` (locale) changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasTabMaster, t])
+
+  // Force re-render when external plugins (un)register import descriptors
+  // so the ImportMenuButton picks up the change without a full QAM remount.
+  // Plugins fire `deck-shelves-ready`/teardown — listening cheaply via
+  // those plus a small bump counter is enough.
+  const [importsBump, setImportsBump] = useState(0)
+  useEffect(() => {
+    const bump = () => setImportsBump((v) => v + 1)
+    window.addEventListener('deck-shelves-ready', bump)
+    window.addEventListener('deck-shelves-teardown', bump)
+    return () => {
+      window.removeEventListener('deck-shelves-ready', bump)
+      window.removeEventListener('deck-shelves-teardown', bump)
+    }
+  }, [])
+
+  const buildImportEntries = (target: 'shelves' | 'smart_shelves'): ImportEntry[] => {
+    void importsBump // re-evaluate on registry changes
+    return getExternalImportTypesForTarget(target).map((d) => ({
+      id: d.id,
+      label: d.displayName,
+      icon: d.icon ?? icons.import,
+      okDescription: d.displayName,
+      onActivate: async () => {
+        if (typeof d.runImport === 'function') {
+          try { await d.runImport() } catch {}
+          return
+        }
+        // No `runImport` registered: descriptor must surface its own UX. The
+        // default file-picker flow (using `parse`) is reserved for a future
+        // pass once we have a generic format-aware picker.
+        if (typeof d.parse === 'function') {
+          logInfo('SETTINGS', 'import descriptor has parse() but no runImport()', { id: d.id })
+        }
+      },
+    }))
+  }
   const handleResetShelves = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='shelves' />)
   const handleResetSmart = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='smart' />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
@@ -160,8 +219,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_shelves')} /></div>
             </div>
             <div style={{ display: 'flex' }}>
-              {hasTabMaster ? <ActionButton iconNode={icons.tabMaster} onClick={handleImportFromTabMaster} okDescription={t('import_from_tabmaster')} /> : null}
-              <div style={{ marginLeft: hasTabMaster ? '10px' : 0 }}><ActionButton iconNode={icons.reset} onClick={handleResetShelves} okDescription={t('reset_shelves')} /></div>
+              {(() => {
+                const shelfImports = buildImportEntries('shelves')
+                if (shelfImports.length === 0) return null
+                return (
+                  <div style={{ marginRight: 10 }}>
+                    <ImportMenuButton entries={shelfImports} overflowDescription={t('import_more_options' as any)} />
+                  </div>
+                )
+              })()}
+              <ActionButton iconNode={icons.reset} onClick={handleResetShelves} okDescription={t('reset_shelves')} />
             </div>
           </Focusable>
         </Field>
@@ -224,7 +291,18 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
                   <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
                   <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportSmart} okDescription={t('export_smart_shelves')} /></div>
                 </div>
-                <ActionButton iconNode={icons.reset} onClick={handleResetSmart} okDescription={t('reset_smart_shelves')} />
+                <div style={{ display: 'flex' }}>
+                  {(() => {
+                    const smartImports = buildImportEntries('smart_shelves')
+                    if (smartImports.length === 0) return null
+                    return (
+                      <div style={{ marginRight: 10 }}>
+                        <ImportMenuButton entries={smartImports} overflowDescription={t('import_more_options' as any)} />
+                      </div>
+                    )
+                  })()}
+                  <ActionButton iconNode={icons.reset} onClick={handleResetSmart} okDescription={t('reset_smart_shelves')} />
+                </div>
               </Focusable>
             </Field>
             <div className='deck-shelves-separator' />

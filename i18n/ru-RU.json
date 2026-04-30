@@ -267,6 +267,7 @@
   "import": "Импорт",
   "import_from_tabmaster": "Импорт из TabMaster",
   "import_from_tabmaster_desc": "Импортируйте вкладки библиотеки TabMaster и преобразуйте их в полки.",
+  "import_more_options": "Параметры импорта",
   "import_settings": "Импорт настроек",
   "import_shelves": "Импорт полок",
   "import_smart_shelves": "Импорт умных полок",
