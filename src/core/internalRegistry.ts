@@ -1,19 +1,11 @@
 /**
- * Sprint 8 — register every first-party shelf source / filter type / sort
- * option / smart-shelf mode against the public Plugin API registry. This
- * makes our own data show up alongside external plugin contributions in
- * `getRegistered*` calls so consumers see a uniform list, and gives
- * plugins a way to discover the built-in id space (e.g. to avoid
- * registering a clashing id).
+ * Registers every first-party shelf source / filter type / sort option /
+ * smart-shelf mode on the public Plugin API registry, so plugins querying
+ * `getRegistered*` see a uniform list (built-in + external) and can
+ * detect collisions before registering.
  *
- * Resolver precedence is enforced **at the call sites** (resolveShelfAppIds
- * checks `INTERNAL_SMART_MODES` before delegating to external for smart;
- * `applySortToIds` and `evaluateFilterGroup` likewise prefer internal
- * branches). The registrations here are descriptive — they expose the
- * built-in surface, they do NOT change runtime behavior.
- *
- * Returns a single uninstall callback that removes every registration in
- * one shot, called from `installPluginApi`'s teardown.
+ * Resolver precedence is enforced at the call sites — these registrations
+ * are descriptive only, they don't change runtime behavior.
  */
 
 import {

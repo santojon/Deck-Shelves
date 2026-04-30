@@ -80,7 +80,7 @@ export function SavedFiltersBar({ controller, currentGroup, onApply }: { control
           >{icons.close}</DialogButton>
         </Focusable>
       ) : (
-        <DialogButton style={{ marginTop: 8 }} onClick={() => setSaving(true)}>{t('saved_filter_save_current')}</DialogButton>
+        <DialogButton style={{ marginTop: 8, width: '100%' }} onClick={() => setSaving(true)}>{t('saved_filter_save_current')}</DialogButton>
       )}
     </div>
   )

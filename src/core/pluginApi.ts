@@ -1,21 +1,7 @@
 /**
- * Deck Shelves Public Plugin API — v2.
- *
- * External Decky plugins extend Deck Shelves at runtime via the global
- * surface `window.__DECK_SHELVES_API__`. The same object is preserved across
- * v1 → v2 (the existing `registerShelfSource` / `getRegisteredSources`
- * methods keep their v1 signatures); v2 adds new registries for smart shelf
- * sources, filter types, sort options, import formats, and saved filters,
- * plus consumer-side contracts for plugins that want to read Deck Shelves
- * state.
- *
- * Stability contract: every shape exported from this module is part of the
- * public ABI. Field names, descriptor parameters, and method signatures are
- * frozen for the lifetime of `version: 2`. Additive changes (new optional
- * fields, new methods) are backward-compatible; removals or renames bump
- * `version`.
- *
- * See `docs/plugin-api.md` for usage patterns and worked examples.
+ * Public Plugin API — v2. Exposed at `window.__DECK_SHELVES_API__`.
+ * Every shape here is part of the ABI: additive changes are safe,
+ * renames/removals bump `version`. Usage in `docs/plugin-api.md`.
  */
 
 import type { ReactNode } from "react";
@@ -165,20 +151,11 @@ export interface ExternalSortOptionDescriptor {
 export type ImportTarget = "shelves" | "smart_shelves";
 
 /**
- * Import type — parses an arbitrary text payload (e.g. a Playnite JSON
- * dump or a TabMaster settings.json) into a list of shelf descriptors
- * Deck Shelves can save into the user's settings.
- *
- * The QAM exposes one quick-action button per import type registered for
- * the matching target. When more than one is registered for the same
- * target (e.g. TabMaster + Playnite for `shelves`), the buttons collapse
- * behind a `[…]` overflow menu so the action row stays compact.
- *
- * `runImport` is invoked when the user picks this entry from the menu.
- * If unset, the default flow opens the standard file picker, hands the
- * payload to `parse`, and persists the returned shelves. Provide
- * `runImport` only when the import needs custom UX (e.g. a custom modal
- * such as TabMaster's accordion picker).
+ * Import type — parses a payload into shelves Deck Shelves can save.
+ * Each registered descriptor adds one button to the QAM action row;
+ * 2+ descriptors with the same `target` collapse into a `…` overflow.
+ * Provide `runImport` for custom UX (modal/picker), or `parse` to feed
+ * the default file-picker flow.
  */
 export interface ExternalImportTypeDescriptor {
   id: string;
@@ -227,17 +204,10 @@ export interface ParsedImport {
 // ---- 1e. Saved filter registration ----------------------------------------
 
 /**
- * Saved filter — a named `FilterGroup` the user can apply across shelves.
- * Plugins may seed pre-baked filter combos (e.g. "Console-style RPGs",
- * "Couch co-op") that show up in the Saved Filters section of the QAM.
- *
- * Registration is idempotent: re-registering the same id replaces the
- * previous entry. Cleanup removes the entry from the user's settings.
- *
- * The `group` field has the same shape as the internal `FilterGroup` type
- * — `mode: "and" | "or"` plus an array of `{ type, params, inverted? }`
- * items. Use only filter types you know exist (built-in or another plugin's
- * `registerFilterType` call).
+ * Pre-baked named `FilterGroup` plugins can seed into the QAM Saved
+ * Filters section. Idempotent: same id replaces the previous entry.
+ * `group.items[].type` must reference an id that exists (built-in
+ * or another plugin's `registerFilterType`).
  */
 export interface ExternalSavedFilterDescriptor {
   id: string;
@@ -258,7 +228,7 @@ export interface PublicFilterItem {
   params?: Readonly<Record<string, unknown>>;
 }
 
-// ---- 1f. Consumer contracts (Phase 2 — currently stubbed) ------------------
+// ---- 1f. Consumer contracts ------------------------------------------------
 
 /** Read-only projection of a shelf, exposed to consumer plugins. */
 export interface PublicShelf {
@@ -435,18 +405,10 @@ export function registerInternalImportType(d: ExternalImportTypeDescriptor): () 
   return () => { importTypes.delete(d.id); };
 }
 
-// ---------------------------------------------------------------------------
-// Sprint 8 — internal-as-external surface tracking
-//
-// Track which descriptor ids are first-party so the registry can be queried
-// uniformly (`getRegisteredSmartSources()` etc.) and external plugin code
-// can detect collisions with built-ins via `isInternalSmartSource(id)` /
-// `isInternalFilterType(id)` / `isInternalSortOption(id)`. Resolver
-// precedence (internal-wins-on-collision) is enforced by the call sites
-// reading these sets, NOT by the registry shape — registering an internal
-// id twice is harmless because the resolver checks `INTERNAL_SMART_MODES`
-// (et al.) before consulting the external registry.
-// ---------------------------------------------------------------------------
+// First-party id tracking. Lets external code detect collisions with
+// built-ins via `isInternalSmartSource` / `isInternalFilterType` /
+// `isInternalSortOption`. Resolver precedence is enforced by the call
+// sites — registering an internal id twice is harmless.
 
 const internalSmartSourceIds = new Set<string>();
 const internalFilterTypeIds = new Set<string>();
@@ -693,9 +655,8 @@ export function setInternalBootstrap(fn: () => () => void): void { internalBoots
 
 export function installPluginApi(): () => void {
   const api = makeApi();
-  // Sprint 8 — register every first-party id in the public registry BEFORE
-  // dispatching the ready event so plugins listening for `deck-shelves-ready`
-  // see the full built-in surface immediately.
+  // Register every first-party id BEFORE dispatching ready so plugins
+  // listening for `deck-shelves-ready` see the full built-in surface.
   const uninstallInternals = internalBootstrap ? internalBootstrap() : () => {};
   try { (window as any).__DECK_SHELVES_API__ = api; } catch {}
   try { window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: api })); } catch {}

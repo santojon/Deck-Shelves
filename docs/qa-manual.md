@@ -153,3 +153,30 @@ Manual test checklist for regression testing on a real Steam Deck (SteamOS Stabl
 | 11.2 | Apply saved filter to another shelf via the dropdown → group is **copied** (spread), not referenced by id | Deleting the saved filter later does not break the shelf using it |
 | 11.3 | Rename saved filter inline → name updates in dropdown immediately | Persisted across reload |
 | 11.4 | Delete saved filter → entry gone from QAM and from the apply dropdown | Section hides when list becomes empty |
+
+---
+
+## 12. QA Harness Flags
+
+The build accepts environment flags that force specific UI states for repeatable testing. All flags are dev-only (`!isProd` in the Vite config). Each `pnpm qa:*` script wraps a `DS_QA_*` env var and runs the hard deploy.
+
+| Flag | Script | Effect |
+|------|--------|--------|
+| `DS_QA_FORCE_FIRST_RUN` | `pnpm qa:first-run` | Empty shelf list + plugin disabled — exercises the first-run banner |
+| `DS_QA_FORCE_QAM_ERROR` | `pnpm qa:qam-error` | Throws on QAM render — exercises the QAM ErrorBoundary |
+| `DS_QA_FORCE_SHELF_ERROR` | `pnpm qa:shelf-error` | Throws on shelf render — exercises `HomeBoundary` |
+| `DS_QA_FORCE_HOME_CRASH` | `pnpm qa:home-crash` | Same throw, distinct flag for capture scripts to disambiguate |
+| `DS_QA_FORCE_REPLACE_FAILED` | `pnpm qa:replace-failed` | Surfaces the `RecentsReplaceErrorBanner` (kill-switch UI) |
+| `DS_QA_FORCE_ALL_SHELVES_HIDE_RECENTS` | `pnpm qa:all-shelves-hide-recents` | Curated shelf fixture + `hideRecents=true` |
+| `DS_QA_FORCE_ALL_SHELVES_SHOW_RECENTS` | `pnpm qa:all-shelves-show-recents` | Curated shelf fixture + `hideRecents=false` |
+| `DS_QA_FORCE_ALL_SHELVES_HIDE_HOME_TABS` | `pnpm qa:all-shelves-hide-home-tabs` | Curated fixture + `hideHomeTabs=true` |
+| `DS_QA_FORCE_ALL_SHELVES_SHOW_HOME_TABS` | `pnpm qa:all-shelves-show-home-tabs` | Curated fixture + `hideHomeTabs=false` |
+| `DS_QA_SMART_SHELVES_FIXTURE` | `pnpm qa:smart-fixture` | Seeds 4 smart shelves so the smart section renders populated |
+| `DS_QA_SAVED_FILTERS_FIXTURE` | `pnpm qa:saved-filters-fixture` | Seeds saved filters so the QAM Saved Filters section is visible |
+| `DS_QA_FORCE_HIDDEN_SHELF` | `pnpm qa:hidden-shelf` | Adds one hidden shelf to the curated fixture (for the `shelf-hidden.png` capture) |
+| `DS_QA_SMART_SURPRISE_ME` | `pnpm qa:surprise-me` | Forces `smartSurpriseMe=true` so the daily-rotation logic runs |
+| `DS_QA_FORCE_TABMASTER` | — | `present` / `absent` overrides TabMaster detection |
+| `DS_QA_FORCE_UNIFIDECK` | — | `present` / `absent` overrides UnifiDeck detection |
+| `DS_QA_FORCE_NONSTEAMBADGES` | — | `present` / `absent` overrides Non-Steam Badges detection |
+
+Combine flags as needed (e.g. `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS_FIXTURE=1 pnpm run deploy:deck:hard`). Each one is independent and additive.

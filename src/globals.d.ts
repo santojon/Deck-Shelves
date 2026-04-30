@@ -10,6 +10,12 @@ declare const __QA_ALL_SHELVES_SHOW_HOME_TABS__: boolean;
 declare const __QA_FORCE_TABMASTER__: string;
 declare const __QA_FORCE_UNIFIDECK__: string;
 declare const __QA_FORCE_NONSTEAMBADGES__: string;
+declare const __QA_SMART_SHELVES_FIXTURE__: boolean;
+declare const __QA_SAVED_FILTERS_FIXTURE__: boolean;
+declare const __QA_FORCE_HIDDEN_SHELF__: boolean;
+declare const __QA_SMART_SURPRISE_ME__: boolean;
+declare const __QA_FORCE_HOME_CRASH__: boolean;
+declare const __QA_FORCE_REPLACE_FAILED__: boolean;
 
 interface Window {
   SP_REACT?: any;

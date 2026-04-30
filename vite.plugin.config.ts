@@ -20,6 +20,12 @@ export default defineConfig(({ mode }) => {
       __QA_FORCE_TABMASTER__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_TABMASTER ?? "") : ""),
       __QA_FORCE_UNIFIDECK__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_UNIFIDECK ?? "") : ""),
       __QA_FORCE_NONSTEAMBADGES__: JSON.stringify(!isProd ? (process.env.DS_QA_FORCE_NONSTEAMBADGES ?? "") : ""),
+      __QA_SMART_SHELVES_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_SMART_SHELVES_FIXTURE === "1"),
+      __QA_SAVED_FILTERS_FIXTURE__: JSON.stringify(!isProd && process.env.DS_QA_SAVED_FILTERS_FIXTURE === "1"),
+      __QA_FORCE_HIDDEN_SHELF__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_HIDDEN_SHELF === "1"),
+      __QA_SMART_SURPRISE_ME__: JSON.stringify(!isProd && process.env.DS_QA_SMART_SURPRISE_ME === "1"),
+      __QA_FORCE_HOME_CRASH__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_HOME_CRASH === "1"),
+      __QA_FORCE_REPLACE_FAILED__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_REPLACE_FAILED === "1"),
     },
     resolve: {
       alias: [

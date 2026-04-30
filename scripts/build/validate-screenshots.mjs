@@ -47,11 +47,18 @@ const EXPECTED = [
   { file: "global-toggles.png", surface: "qam-popup" },
 ];
 
-// Optional screenshots — validated when present but not required. Saved
-// Filters depends on user state (no filters saved → section hidden → no
-// screenshot possible).
+// Optional screenshots — validated when present but not required. These
+// depend on user state (e.g. "Saved Filters" disappears from the QAM
+// when the list is empty) or on optional scenarios produced by the
+// modular runner.
 const OPTIONAL = [
   { file: "saved-filters-qam.png", surface: "qam-popup" },
+  { file: "home-hero.png" },
+  { file: "home-hide-recents.png" },
+  { file: "import-overflow.png", surface: "qam-popup" },
+  { file: "about-filters.png" },
+  { file: "about-smart.png" },
+  { file: "about-support.png" },
 ];
 
 // Surface profiles — per-surface size bounds and an aspect-ratio window

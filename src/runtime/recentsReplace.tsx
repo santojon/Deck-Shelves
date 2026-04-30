@@ -23,6 +23,7 @@
 import type { ReactElement } from "react";
 import { afterPatch, findInReactTree } from "@decky/ui";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
+import { isInVisibilityWindow } from "../steam/smartShelves";
 import { getPlatform } from "./platformContext";
 import { logError, logInfo, logWarn } from "./logger";
 import { toaster } from "../shims/decky-api";
@@ -119,12 +120,56 @@ function filterKnownAppIds(ids: number[]): number[] {
   return out;
 }
 
+/** Convert a smart shelf entry into a shelf-shaped object the resolver path
+ *  understands. Source carries the smart mode + optional filter / params /
+ *  refresh-interval so `resolveShelfAppIds` dispatches correctly. */
+function smartShelfToCandidate(s: any) {
+  if (!s) return null;
+  return {
+    id: s.id,
+    title: s.title,
+    enabled: s.enabled !== false,
+    hidden: !!s.hidden,
+    limit: s.limit ?? 20,
+    source: {
+      type: "smart" as const,
+      mode: s.mode,
+      filterGroup: s.filterGroup,
+      smartParams: s.smartParams,
+      refreshIntervalMinutes: s.refreshIntervalMinutes,
+    } as any,
+    sort: s.sort,
+    manualOrder: s.manualOrder,
+    manualBaseSort: s.manualBaseSort,
+  };
+}
+
+/** Build the ordered list of replace-candidate shelves: visible normals
+ *  first, then visible smart shelves whose visibility window allows them
+ *  right now. Used by both `activeFirstShelf` (initial pick) and
+ *  `scheduleResolve`'s zero-app fallback (next candidate when the current
+ *  one resolves to nothing). Returns shelf-shaped objects only. */
+function visibleCandidateShelves(): any[] {
+  const s = getCurrentSettings();
+  if (!s) return [];
+  const normals = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
+  const smartEnabled = s.smartShelvesEnabled === true;
+  const smarts = !smartEnabled
+    ? []
+    : (s.smartShelves ?? [])
+        .filter((sm: any) => sm.enabled !== false && !sm.hidden)
+        .filter((sm: any) => isInVisibilityWindow(sm.visibleHours, sm.visibleDaysOfWeek))
+        .map(smartShelfToCandidate)
+        .filter(Boolean) as any[];
+  return [...normals, ...smarts];
+}
+
 function activeFirstShelf() {
   if (replaceFailed) return null;
   const s = getCurrentSettings();
   if (!s?.enabled || s.hideRecents !== true || s.recentsReplaceSource !== true) return null;
-  const visible = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
-  return visible[0] ?? null;
+  const candidates = visibleCandidateShelves();
+  return candidates[0] ?? null;
 }
 
 function shelfKey(shelf: any): string {
@@ -145,12 +190,12 @@ function scheduleResolve(shelf: any) {
       const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
       const known = filterKnownAppIds(valid);
       if (known.length === 0) {
-        // Shelf resolved to 0 native-renderable apps — try next visible shelf.
-        // setTimeout so resolvePromise is null before the next call.
-        const s = getCurrentSettings();
-        const visible = (s?.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
-        const currentIdx = visible.findIndex((sh: any) => sh.id === shelf.id);
-        const next = visible[currentIdx + 1];
+        // Shelf resolved to 0 native-renderable apps — try the next
+        // candidate (normals first, then visible smart shelves). setTimeout
+        // so resolvePromise is null before the next call.
+        const candidates = visibleCandidateShelves();
+        const currentIdx = candidates.findIndex((sh: any) => sh.id === shelf.id);
+        const next = candidates[currentIdx + 1];
         if (next) {
           lastResolveKey = "";
           setTimeout(() => scheduleResolve(next), 0);
