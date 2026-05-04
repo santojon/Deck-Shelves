@@ -33,7 +33,15 @@ function resolveQuickPlay(apps: AppOverview[], limit: number, params?: SmartPara
   const maxPt = getParam("quick_play", params, "maxPlaytimeMinutes");
   const minDeck = getParam("quick_play", params, "minDeckLevel");
   return apps
-    .filter((a) => a.installed && deckCompat(a) >= minDeck && playtimeMinutes(a) < maxPt)
+    .filter(
+      (a) =>
+        a.installed &&
+        // Exclude tools, Proton, runtimes, redistributables. app_type=1 is a
+        // game; absent/unknown is allowed through to avoid false negatives.
+        (a.app_type === undefined || a.app_type === 1) &&
+        deckCompat(a) >= minDeck &&
+        playtimeMinutes(a) < maxPt,
+    )
     .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -51,7 +59,7 @@ function resolveNotStarted(apps: AppOverview[], limit: number, params?: SmartPar
 function resolveDeckPicks(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minDeck = getParam("deck_picks", params, "minDeckLevel");
   return apps
-    .filter((a) => deckCompat(a) >= minDeck)
+    .filter((a) => (a.app_type === undefined || a.app_type === 1) && deckCompat(a) >= minDeck)
     .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -65,6 +73,7 @@ function resolveRediscover(apps: AppOverview[], limit: number, params?: SmartPar
   return apps
     .filter(
       (a) =>
+        (a.app_type === undefined || a.app_type === 1) &&
         lastPlayedSec(a) > 0 &&
         lastPlayedSec(a) < monthsAgoSec &&
         playtimeMinutes(a) > minPt &&
@@ -124,7 +133,12 @@ function resolveDailyPick(apps: AppOverview[], limit: number): number[] {
 function resolveOnDeck(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minDeck = getParam("on_deck", params, "minDeckLevel");
   return apps
-    .filter((a) => a.installed && deckCompat(a) >= minDeck)
+    .filter(
+      (a) =>
+        a.installed &&
+        (a.app_type === undefined || a.app_type === 1) &&
+        deckCompat(a) >= minDeck,
+    )
     .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);

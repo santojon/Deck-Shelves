@@ -23,10 +23,13 @@ import { resolveShelfAppIds } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { SORT_OPTIONS } from './editShelf/constants'
+import { SortDirectionButton } from './editShelf/SortDirectionButton'
 import { optionData } from './editShelf/utils'
 import { ManualSortRow } from './editShelf/ManualSortRow'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
+// SmartShelfModal also supports a modal-driven `create` mode that persists
+// only on Save (used by SmartShelfTemplateModal's custom button).
 import { ModalHeader } from './editShelf/ModalHeader'
 import { FunnelIcon, EyeIcon, SparkleIcon } from '../../icons'
 
@@ -56,7 +59,9 @@ type EditState = {
   title: string
   limit: number
   sort: string
+  sortReverse: boolean
   manualBaseSort: string
+  manualBaseSortReverse: boolean
   manualOrder: number[]
   filterGroup: FilterGroup
   matchNativeSize: boolean
@@ -70,6 +75,8 @@ type EditState = {
   hideShelfTitle: boolean
   hideGameNames: boolean
   hideInstallIndicator: boolean
+  hideSeeMore: boolean
+  hideRefreshCard: boolean
   refreshIntervalMinutes: number
   smartParams: Record<string, number>
   visibleHoursEnabled: boolean
@@ -77,7 +84,7 @@ type EditState = {
   visibleDaysOfWeek: number[]
 }
 
-export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf }) {
+export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
   const { t, actions } = controller
   const platform = usePlatform()
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
@@ -86,7 +93,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     title: shelf.title,
     limit: shelf.limit ?? 20,
     sort: (shelf as any).sort ?? DEFAULT_SORT_FOR_MODE[shelf.mode] ?? 'alphabetical',
+    sortReverse: (shelf as any).sortReverse ?? false,
     manualBaseSort: (shelf as any).manualBaseSort ?? 'alphabetical',
+    manualBaseSortReverse: (shelf as any).manualBaseSortReverse ?? false,
     manualOrder: (shelf as any).manualOrder ?? [],
     filterGroup: (shelf as any).filterGroup ?? { mode: 'and', items: [] },
     matchNativeSize: (shelf as any).matchNativeSize ?? false,
@@ -100,6 +109,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
     hideGameNames: (shelf as any).hideGameNames ?? false,
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
+    hideSeeMore: (shelf as any).hideSeeMore ?? false,
+    hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
     smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
     visibleHoursEnabled: (() => {
@@ -169,8 +180,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
     [t],
   )
+  // `random` is excluded under a manual sort: re-shuffling the manual order
+  // every render would defeat the user's explicit ordering. Persisted values
+  // stay intact — only the option is hidden from this dropdown.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS.filter((item) => item.value !== 'manual').map((item) => ({ data: item.value, label: t(item.labelKey) })),
+    () => SORT_OPTIONS.filter((item) => item.value !== 'manual' && item.value !== 'random').map((item) => ({ data: item.value, label: t(item.labelKey) })),
     [t],
   )
 
@@ -190,8 +204,17 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
     let cancelled = false
     setPreviewCount(null)
     const timer = setTimeout(() => {
-      const effectiveSort = state.sort === 'manual' ? state.manualBaseSort : (state.sort || undefined)
-      resolveShelfAppIds(previewSource, state.limit, effectiveSort)
+      // Mirror Shelf.tsx wiring: forward asc/desc inversion to the resolver
+      // and substitute `alphabetical` for an unset sort when reverse is on
+      // (so applySortToIds runs and the reverse flag has somewhere to apply).
+      const isManualSort = state.sort === 'manual'
+      const previewReverse = isManualSort
+        ? !!state.manualBaseSortReverse
+        : !!state.sortReverse
+      const previewSort = isManualSort
+        ? (state.manualBaseSort || 'alphabetical')
+        : (state.sort || (previewReverse ? 'alphabetical' : undefined))
+      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse)
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
@@ -204,7 +227,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sort, state.manualBaseSort])
+  }, [previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse])
 
   useEffect(() => {
     let cancelled = false
@@ -228,7 +251,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       const title = state.title.trim() || shelf.title
       const patch: Partial<SmartShelf> = { title, limit: state.limit }
       ;(patch as any).sort = state.sort || undefined
+      ;(patch as any).sortReverse = state.sortReverse || undefined
       ;(patch as any).manualBaseSort = (isManual && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined
+      ;(patch as any).manualBaseSortReverse = (isManual && state.manualBaseSortReverse) || undefined
       ;(patch as any).manualOrder = (isManual && state.manualOrder.length) ? state.manualOrder : undefined
       ;(patch as any).filterGroup = state.filterGroup.items.length > 0 ? state.filterGroup : undefined
       ;(patch as any).matchNativeSize = state.matchNativeSize
@@ -242,6 +267,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       ;(patch as any).hideShelfTitle = state.hideShelfTitle
       ;(patch as any).hideGameNames = state.hideGameNames
       ;(patch as any).hideInstallIndicator = state.hideInstallIndicator
+      ;(patch as any).hideSeeMore = state.hideSeeMore
+      ;(patch as any).hideRefreshCard = state.hideRefreshCard
       // Only persist when the user diverged from the default cadence; otherwise
       // omit so the shelf inherits whatever the resolver default ends up being.
       ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
@@ -262,8 +289,14 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
       // otherwise persist the (possibly empty) array. Empty array = never
       // visible, distinct from undefined = always visible.
       ;(patch as any).visibleDaysOfWeek = state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort()
-      const ok = await actions.patchSmartShelf(shelf.id, patch)
-      logInfo('SETTINGS', 'smart shelf updated', { shelfId: shelf.id, success: ok })
+      if (mode === 'create') {
+        const draft: SmartShelf = { ...shelf, ...(patch as Partial<SmartShelf>) } as SmartShelf
+        const created = await actions.commitSmartShelf(draft)
+        logInfo('SETTINGS', 'smart shelf created', { shelfId: created?.id })
+      } else {
+        const ok = await actions.patchSmartShelf(shelf.id, patch)
+        logInfo('SETTINGS', 'smart shelf updated', { shelfId: shelf.id, success: ok })
+      }
     })()
   }
 
@@ -301,14 +334,48 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                         label={`${t('limit')} (${state.limit})`}
                         value={state.limit}
                         min={1}
-                        max={40}
+                        max={50}
                         step={1}
                         bottomSeparator='thick'
                         onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
                       />
-                      <DropdownItem label={t('smart_sort_override')} rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt) ?? '') }))} bottomSeparator='thick' />
+                      <Field
+                        label={t('smart_sort_override')}
+                        childrenLayout="inline"
+                        childrenContainerWidth="min"
+                        inlineWrap="keep-inline"
+                        bottomSeparator='thick'
+                      >
+                        <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Focusable style={{ minWidth: 200 }}>
+                            <Dropdown rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt) ?? '') }))} focusable />
+                          </Focusable>
+                          <SortDirectionButton
+                            sort={state.sort}
+                            reverse={state.sortReverse}
+                            onChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
+                          />
+                        </Focusable>
+                      </Field>
                       {isManual && (
-                        <DropdownItem label={t('manual_base_sort')} rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} bottomSeparator='thick' />
+                        <Field
+                          label={t('manual_base_sort')}
+                          childrenLayout="inline"
+                          childrenContainerWidth="min"
+                          inlineWrap="keep-inline"
+                          bottomSeparator='thick'
+                        >
+                          <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Focusable style={{ minWidth: 200 }}>
+                              <Dropdown rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} focusable />
+                            </Focusable>
+                            <SortDirectionButton
+                              sort={state.manualBaseSort}
+                              reverse={state.manualBaseSortReverse}
+                              onChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
+                            />
+                          </Focusable>
+                        </Field>
                       )}
                       <Field
                         label={t('smart_refresh_interval')}
@@ -562,7 +629,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                         currentGroup={state.filterGroup}
                         onApply={(group) => setState((prev) => ({ ...prev, filterGroup: { ...group } }))}
                       />
-                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} />
+                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} controller={controller} />
                     </FieldContainer>
                   ),
                 },
@@ -593,7 +660,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf }: { closeMo
                   content: (
                     <DisplayTabContent
                       t={t}
-                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true }}
+                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                       setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       hasNonSteamBadges={hasNonSteamBadges}
                     />

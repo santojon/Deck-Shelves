@@ -1,8 +1,19 @@
 import { Focusable, Dropdown, DialogButton } from "@decky/ui";
-import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams } from "./utils";
+import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel } from "./utils";
 import type { FilterItem, FilterItemType } from "../../types";
 import type { SingleDropdownOption } from "@decky/ui";
 import i18n from "../../i18n";
+import { icons } from "../qam/icons";
+
+const iconButtonStyle = {
+  width: "100%",
+  height: 36,
+  minWidth: 0,
+  padding: 8,
+  display: "flex" as const,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+};
 
 export default function FilterEntry({ item, onChange, onDelete }: {
   index?: number;
@@ -14,15 +25,16 @@ export default function FilterEntry({ item, onChange, onDelete }: {
 }) {
   const invertible = canBeInverted(item.type);
 
-  const typeOptions: SingleDropdownOption[] = ALL_FILTER_TYPES.map((type) => ({ data: type, label: String(type) }));
+  // Localized labels (e.g. "Installed", "Favorites", "Combined", "Name contains")
+  // sorted alphabetically by display label so the dropdown is browsable.
+  const typeOptions: SingleDropdownOption[] = ALL_FILTER_TYPES
+    .map((type) => ({ data: type, label: getTypeLabel(type as FilterItemType) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const t = i18n.t.bind(i18n);
-  const invertOptions: SingleDropdownOption[] = [
-    { data: false, label: t("filter_invert_default") },
-    { data: true, label: t("filter_invert_label") },
-  ];
 
-  const typeWidth = invertible ? "calc(100% - 185px)" : "calc(100% - 55px)";
+  const typeWidth = invertible ? "calc(100% - 110px)" : "calc(100% - 55px)";
+  const inverted = !!item.inverted;
 
   return (
     <div>
@@ -41,18 +53,20 @@ export default function FilterEntry({ item, onChange, onDelete }: {
           />
         </Focusable>
         {invertible && (
-          <Focusable style={{ marginLeft: 10, width: 120 }}>
-            <Dropdown
-              rgOptions={invertOptions}
-              selectedOption={item.inverted ?? false}
-              onChange={(opt: any) => onChange({ ...item, inverted: (opt?.data ?? opt) as boolean })}
-              focusable
-            />
+          <Focusable style={{ marginLeft: 10, width: 45 }}>
+            <DialogButton
+              style={iconButtonStyle}
+              onClick={() => onChange({ ...item, inverted: !inverted })}
+              onOKButton={() => onChange({ ...item, inverted: !inverted })}
+              onOKActionDescription={t(inverted ? "filter_invert_label" : "filter_invert_default")}
+            >
+              {inverted ? icons.filterInvertOn : icons.filterInvertOff}
+            </DialogButton>
           </Focusable>
         )}
         <Focusable style={{ marginLeft: 10, width: 45 }}>
           <DialogButton
-            style={{ width: "100%", height: 36, minWidth: 0, padding: 8, display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={iconButtonStyle}
             onClick={onDelete}
             onOKButton={onDelete}
             onOKActionDescription={"Remove"}

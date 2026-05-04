@@ -62,6 +62,9 @@ export const FilterSchema = z.object({
     z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score"]),
     z.string(),
   ]).optional(),
+  // When true, reverse the sort result. Ignored for `manual` and `random`
+  // (re-orderings would be meaningless). Default false.
+  sortReverse: z.boolean().optional(),
   minPlaytimeMinutes: z.number().int().min(0).optional(),
   maxPlaytimeMinutes: z.number().int().min(0).optional(),
   updatePending: z.boolean().optional(),
@@ -101,8 +104,13 @@ export const SmartShelfSchema = z.object({
   // regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
   // `filterGroup` narrows the mode's candidate pool with additional filters.
   sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
+  // When true, reverse the sort result (asc/desc toggle). Ignored for
+  // `manual` and `random`. Default false.
+  sortReverse: z.boolean().optional(),
   manualOrder: z.array(z.number().int()).optional(),
   manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
+  // When true, reverse the manual base sort. Default false.
+  manualBaseSortReverse: z.boolean().optional(),
   filterGroup: FilterGroupSchema.optional(),
   // Visual overrides — mirrored from `ShelfSchema` so smart shelves can
   // share the regular-shelf visual customization surface.
@@ -117,6 +125,8 @@ export const SmartShelfSchema = z.object({
   hideShelfTitle: z.boolean().optional(),
   hideGameNames: z.boolean().optional(),
   hideInstallIndicator: z.boolean().optional(),
+  hideSeeMore: z.boolean().optional(),
+  hideRefreshCard: z.boolean().optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
   // default 60-minute TTL; otherwise the cached result is reused for
   // `refreshIntervalMinutes * 60 * 1000` ms. Capped at 30 days.
@@ -160,10 +170,15 @@ export const ShelfSchema = z.object({
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).default(20),
   sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
+  // When true, reverse the sort result (asc/desc toggle). Ignored for
+  // `manual` and `random`. Default false.
+  sortReverse: z.boolean().optional(),
   manualOrder: z.array(z.number().int()).optional(),
   // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
   // Defaults to "alphabetical" when absent; must not be "manual" itself.
   manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
+  // When true, reverse the manual base sort. Default false.
+  manualBaseSortReverse: z.boolean().optional(),
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),
@@ -175,6 +190,8 @@ export const ShelfSchema = z.object({
   hideShelfTitle: z.boolean().default(false),
   hideGameNames: z.boolean().default(false),
   hideInstallIndicator: z.boolean().default(false),
+  hideSeeMore: z.boolean().default(false),
+  hideRefreshCard: z.boolean().default(false),
   source: ShelfSourceSchema
 });
 
@@ -196,6 +213,8 @@ export const SettingsSchema = z.object({
   globalHideShelfTitle: z.boolean().default(false),
   globalHideGameNames: z.boolean().default(false),
   globalHideInstallIndicator: z.boolean().default(false),
+  globalHideSeeMore: z.boolean().default(false),
+  globalHideRefreshCard: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),

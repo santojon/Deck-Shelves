@@ -28,6 +28,12 @@ const Lightning = mk(<path d="M9.5 2L4 9h4.5L6.5 14l5.5-7H8L9.5 2z" stroke="curr
 const Pause = mk(<><rect x="4" y="3" width="3" height="10" rx="1" fill="currentColor"/><rect x="9" y="3" width="3" height="10" rx="1" fill="currentColor"/></>)
 const SunMoon = mk(<><circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M8 2v1M8 13v1M2 8h1M13 8h1M4.2 4.2l.7.7M11.1 11.1l.7.7M11.1 4.9l-.7.7M4.9 11.1l-.7.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></>)
 const Refresh = mk(<><path d="M13 8A5 5 0 103 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M3 4v4h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></>)
+// Cloud — Steam Cloud saves
+const Cloud = mk(<path d="M5 12a3 3 0 010-6 4 4 0 017.5-.5A3 3 0 1112 12H5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>)
+// Shield with checkmark — Deck Verified
+const ShieldCheck = mk(<><path d="M8 2L3 4.2v3.8C3 11 5.3 13.5 8 14c2.7-.5 5-3 5-6V4.2L8 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M5.5 8l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></>)
+// Thumbs up — top reviewed
+const ThumbsUp = mk(<><path d="M5 14V8h2l3-5a1.5 1.5 0 011.5 1.5V7h2.5a2 2 0 012 2.3l-1 5a2 2 0 01-2 1.7H7l-2-2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><rect x="2.5" y="8" width="2.5" height="6" rx="0.5" stroke="currentColor" strokeWidth="1.4"/></>)
 
 export const SHELF_TPL_ICON: Record<string, React.ReactElement> = {
   blank: Plus,
@@ -39,6 +45,9 @@ export const SHELF_TPL_ICON: Record<string, React.ReactElement> = {
   awaiting_update: ArrowUp,
   non_steam: Gamepad,
   long_session: Hourglass,
+  steam_cloud: Cloud,
+  deck_verified: ShieldCheck,
+  top_reviewed: ThumbsUp,
 }
 
 // Calendar with X — game sitting untouched for years

@@ -3,9 +3,10 @@ import type { FilterItem } from "../../types";
 import i18n from "../../i18n";
 import DeveloperFilterOptions from "./DeveloperFilterOptions";
 import PublisherFilterOptions from "./PublisherFilterOptions";
+import MergeFilterOptions from "./MergeFilterOptions";
 import { COMPAT_LEVELS } from "./utils";
 
-export default function FilterItemOptions({ item, onChange }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void }) {
+export default function FilterItemOptions({ item, onChange, controller }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: import("../../features/settings/controller").SettingsController }) {
   const t = i18n.t.bind(i18n);
   const p = item.params ?? {};
   const patchParams = (patch: Record<string, any>) => onChange({ params: { ...p, ...patch } });
@@ -219,17 +220,8 @@ export default function FilterItemOptions({ item, onChange }: { item: FilterItem
         </div>
       );
 
-    case "merge": {
-      const subItems: FilterItem[] = Array.isArray(p.items) ? (p.items as FilterItem[]) : [];
-      const subMode: string = p.mode ?? "and";
-      return (
-        <div>
-          <div style={{ padding: "4px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
-            {t("filter_merge_info", { count: subItems.length, mode: subMode.toUpperCase() })}
-          </div>
-        </div>
-      );
-    }
+    case "merge":
+      return <MergeFilterOptions item={item} onChange={onChange} controller={controller} />;
 
     default:
       return null;

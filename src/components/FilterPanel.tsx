@@ -34,9 +34,14 @@ import { isValidParams, defaultParams } from "./filter/utils";
 export type FilterPanelProps = {
   group: FilterGroup;
   onChange: (group: FilterGroup) => void;
+  /** When provided, nested `merge` filters render their own SavedFiltersBar
+   *  so users can apply saved filter groups to a merge's sub-filters. The
+   *  top-level SavedFiltersBar lives outside this component (it owns the
+   *  whole shelf's group) — this prop only enables the inner one. */
+  controller?: import("../features/settings/controller").SettingsController;
 };
 
-export function FilterPanel({ group, onChange }: FilterPanelProps) {
+export function FilterPanel({ group, onChange, controller }: FilterPanelProps) {
   const t = i18n.t.bind(i18n);
   const items = group.items ?? [];
   const mode = group.mode ?? "and";
@@ -123,6 +128,7 @@ export function FilterPanel({ group, onChange }: FilterPanelProps) {
                     <FilterItemOptions
                       item={item}
                       onChange={(patch) => updateItem(index, { ...item, ...patch })}
+                      controller={controller}
                     />
                   </div>
                 </FilterSectionAccordion>

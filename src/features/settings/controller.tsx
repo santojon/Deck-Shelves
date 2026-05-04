@@ -14,7 +14,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -171,6 +171,16 @@ export function useSettingsController() {
       if (!s || s.globalHideCompatIcons === globalHideCompatIcons) return;
       await persist({ ...s, globalHideCompatIcons });
     },
+    async setGlobalHideSeeMore(globalHideSeeMore: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHideSeeMore === globalHideSeeMore) return;
+      await persist({ ...s, globalHideSeeMore });
+    },
+    async setGlobalHideRefreshCard(globalHideRefreshCard: boolean) {
+      const s = liveSettings();
+      if (!s || s.globalHideRefreshCard === globalHideRefreshCard) return;
+      await persist({ ...s, globalHideRefreshCard });
+    },
     async setGlobalHideNonSteamBadge(globalHideNonSteamBadge: boolean) {
       const s = liveSettings();
       if (!s || s.globalHideNonSteamBadge === globalHideNonSteamBadge) return;
@@ -180,6 +190,20 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s) return;
       const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
+      await persist(addShelfToSettings(s, shelf));
+      setSelectedId(shelf.id);
+      return shelf;
+    },
+    /** Returns a default shelf object **without persisting** — for the
+     *  modal-driven create flow that should only commit on Save. */
+    createDraftShelf(): Shelf {
+      return { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
+    },
+    /** Persists a shelf object built locally (e.g. from `createDraftShelf`
+     *  + edits in the modal). Used by the modal-driven create flow on Save. */
+    async commitShelf(shelf: Shelf): Promise<Shelf | undefined> {
+      const s = liveSettings();
+      if (!s) return;
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       return shelf;
@@ -265,7 +289,7 @@ export function useSettingsController() {
       } catch { return false; }
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] };
       try {
         const ls = globalThis.localStorage;
         if (ls) {
@@ -372,6 +396,19 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s) return;
       const shelf = createDefaultSmartShelf(mode, title);
+      await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
+      return shelf;
+    },
+    /** Returns a default smart shelf object **without persisting** — for
+     *  the modal-driven create flow that should only commit on Save. */
+    createDraftSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
+      return createDefaultSmartShelf(mode, title);
+    },
+    /** Persists a smart shelf object built locally. Used by the modal-driven
+     *  create flow on Save. */
+    async commitSmartShelf(shelf: SmartShelf): Promise<SmartShelf | undefined> {
+      const s = liveSettings();
+      if (!s) return;
       await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
       return shelf;
     },

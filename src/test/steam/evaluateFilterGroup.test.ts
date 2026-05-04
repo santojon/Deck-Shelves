@@ -208,6 +208,125 @@ describe('evaluateFilterGroup — per filter type', () => {
     expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
   })
 
+  it('merge with empty children passes through (no exclusion)', () => {
+    const apps = [installed(1), notInstalled(2)]
+    const g = group([{ type: 'merge', params: { mode: 'and', items: [] } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 2])
+  })
+
+  it('merge "or" of installed + nonSteam selects either', () => {
+    const apps = [
+      app({ appid: 1, installed: true, is_non_steam: false } as any),
+      app({ appid: 2, installed: false, is_non_steam: true } as any),
+      app({ appid: 3, installed: false, is_non_steam: false } as any),
+    ]
+    const g = group([
+      {
+        type: 'merge',
+        params: {
+          mode: 'or',
+          items: [
+            { type: 'installed', params: {} },
+            { type: 'nonSteam', params: {} },
+          ],
+        },
+      },
+    ])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 2])
+  })
+
+  it('merge "and" of multiple predicates intersects', () => {
+    const apps = [
+      app({ appid: 1, installed: true, is_favorite: true } as any),
+      app({ appid: 2, installed: true, is_favorite: false } as any),
+      app({ appid: 3, installed: false, is_favorite: true } as any),
+    ]
+    const g = group([
+      {
+        type: 'merge',
+        params: {
+          mode: 'and',
+          items: [
+            { type: 'installed', params: {} },
+            { type: 'favorites', params: {} },
+          ],
+        },
+      },
+    ])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+
+  it('merge with inverted child negates that child only', () => {
+    const apps = [
+      app({ appid: 1, installed: true, is_favorite: true } as any),
+      app({ appid: 2, installed: true, is_favorite: false } as any),
+      app({ appid: 3, installed: false, is_favorite: false } as any),
+    ]
+    const g = group([
+      {
+        type: 'merge',
+        params: {
+          mode: 'and',
+          items: [
+            { type: 'installed', params: {} },
+            { type: 'favorites', inverted: true, params: {} },
+          ],
+        },
+      },
+    ])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([2])
+  })
+
+  it('nested merge inside merge evaluates recursively', () => {
+    const apps = [
+      app({ appid: 1, installed: true, is_favorite: true, is_non_steam: false } as any),
+      app({ appid: 2, installed: false, is_favorite: false, is_non_steam: true } as any),
+      app({ appid: 3, installed: false, is_favorite: false, is_non_steam: false } as any),
+    ]
+    const g = group([
+      {
+        type: 'merge',
+        params: {
+          mode: 'or',
+          items: [
+            {
+              type: 'merge',
+              params: {
+                mode: 'and',
+                items: [
+                  { type: 'installed', params: {} },
+                  { type: 'favorites', params: {} },
+                ],
+              },
+            },
+            { type: 'nonSteam', params: {} },
+          ],
+        },
+      },
+    ])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 2])
+  })
+
+  it('merge result has no duplicates because each app is tested once', () => {
+    const apps = [
+      app({ appid: 1, installed: true, is_favorite: true } as any),
+      app({ appid: 2, installed: true, is_favorite: true } as any),
+    ]
+    const g = group([
+      {
+        type: 'merge',
+        params: {
+          mode: 'or',
+          items: [
+            { type: 'installed', params: {} },
+            { type: 'favorites', params: {} },
+          ],
+        },
+      },
+    ])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 2])
+  })
+
   it('unknown filter type passes through (does not exclude apps)', () => {
     const apps = [app({ appid: 1 }), app({ appid: 2 })]
     const g = group([{ type: 'storeTag' as any, params: {} }])

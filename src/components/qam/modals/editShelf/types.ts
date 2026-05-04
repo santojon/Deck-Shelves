@@ -10,7 +10,9 @@ export type EditableShelfState = {
   filter: ShelfFilter
   filterGroup: FilterGroup
   sort: string
+  sortReverse: boolean
   manualBaseSort: string
+  manualBaseSortReverse: boolean
   limit: number
   matchNativeSize: boolean
   highlightFirst: boolean
@@ -24,4 +26,6 @@ export type EditableShelfState = {
   hideShelfTitle: boolean
   hideGameNames: boolean
   hideInstallIndicator: boolean
+  hideSeeMore: boolean
+  hideRefreshCard: boolean
 }
