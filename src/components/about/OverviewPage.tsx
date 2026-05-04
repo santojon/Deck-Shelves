@@ -58,6 +58,11 @@ export function OverviewPage() {
           ))}
         </DocAccordion>
       ))}
+      {/* Footer block — gives the user something below the last accordion to
+          scroll into focus when the Management & System group is expanded.
+          Avoids duplicating the Support tab's GitHub / issues / Ko-fi block. */}
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_overview_footer_explore')}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_overview_footer_support_hint')}</span>} />
     </DocSection>
   )
 }

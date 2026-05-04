@@ -34,12 +34,14 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
   - Played within N days
   - Update pending
   - Store tags, achievement count, friends who own
-- Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, or review score
+- Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, or review score — each direction (ascending or descending) togglable per shelf via an icon button next to the sort dropdown
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
 - **Dynamic card sizing** — shelves match native card dimensions and from themes
 - **Highlight first game** — first card renders as a landscape featured card
 - **Highlight all games** — toggle per-shelf or globally to render every card as a landscape featured card
 - **Hide status line** — toggle to hide the the play/install status of a game
+- **Hide trailing cards** — separate per-shelf and global toggles to hide the "See more" tile and / or the "Refresh" tile on shelves that emit them (random-sorted regular shelves and refreshable smart shelves)
+- **Per-shelf size** — limit slider goes up to 50 cards in the shelf and smart-shelf editors
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
 - **Hide home tabs** — toggle to hide the native home tab bar on te bottom of shelves
@@ -49,7 +51,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
 - **Smart Shelves** — fifteen heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match (Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten); ordered by probability of results in the picker
 - **Surprise Me** — sub-toggle that hides the manual smart shelf list and lets the system pick 1–5 templates each day automatically; configurable count slider (0 = system decides)
-- **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker; blank shelf option opens edit mode directly
+- **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker. Picking any template — Blank, regular preset, smart preset, or Custom — opens the edit modal first; **nothing is persisted until you press Save**, so cancelling discards the draft cleanly.
 - Reorder and toggle shelf visibility from the QAM
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls

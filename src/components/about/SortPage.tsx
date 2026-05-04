@@ -6,6 +6,7 @@ import { DocCallout } from './DocCallout'
 
 const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
 const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
+const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: '#dcdedf' }
 
 const sortRows: [string, string][] = [
   ['sort_alpha',        'docs_sort_alpha_desc'],
@@ -28,6 +29,9 @@ export function SortPage() {
         <Field key={k} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• <b>{t(k)}</b> — {t(desc)}</span>} />
       ))}
       <DocCallout variant="note">{t('docs_filters_sort_tab_note')}</DocCallout>
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_sort_direction_title')}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_sort_direction_body')}</span>} />
+      <DocCallout variant="tip">{t('docs_sort_direction_tip')}</DocCallout>
     </DocSection>
   )
 }
