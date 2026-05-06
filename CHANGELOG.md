@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-05-06
+
 ### Added
 
 - **Modal-driven shelf creation — applies to every template, not just blank/custom.** Picking **any** entry from the regular shelf template picker (Blank + 11 templates) **or** the smart shelf template picker (Custom + 15 modes) now opens the editor against an in-memory draft pre-populated with that template's source/mode/title. Nothing is persisted until **Save**. Cancelling or closing the modal discards the draft, eliminating every orphaned default-config shelf the previous flow could leave behind. New controller actions `createDraftShelf` / `commitShelf` and `createDraftSmartShelf` / `commitSmartShelf`, and a new `mode?: 'create' | 'edit'` prop on `EditShelfModal` and `EditSmartShelfModal` (default `'edit'`, so all existing edit paths are unchanged).

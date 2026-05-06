@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-05-06
+
 ### Added
 
 - **Cancel really cancels — for every template.** Adding a shelf from any picker entry (Blank, every regular template, every smart template, Custom) now opens the editor against a draft — nothing is created in your shelves list until you press **Save**. Closing the modal or pressing Cancel discards the draft, so the prior "empty New shelf" leftovers no longer show up after browsing the pickers.
