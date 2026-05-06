@@ -24,4 +24,12 @@ export const icons = {
   reset: icon(<><path d='M3 12a9 9 0 1 0 3-6.7' /><path d='M3 4v5h5' /></>),
   save: icon(<><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z' /><polyline points='17 21 17 13 7 13 7 21' /><polyline points='7 3 7 8 15 8' /></>),
   close: icon(<><path d='M18 6 6 18' /><path d='M6 6l12 12' /></>),
+  // Sort icons: stack of horizontal bars (longest at one end) plus a small
+  // arrow on the right indicating direction.
+  sortDesc: icon(<><path d='M3 6h13M3 12h9M3 18h5' /><path d='M19 6v12M16 15l3 3 3-3' /></>),
+  sortAsc: icon(<><path d='M3 6h5M3 12h9M3 18h13' /><path d='M19 18V6M16 9l3-3 3 3' /></>),
+  // Filter-invert icons: equals (matches) and not-equals (negated). Two
+  // horizontal bars; the inverted variant adds a diagonal slash.
+  filterInvertOff: icon(<path d='M4 9h16M4 15h16' />),
+  filterInvertOn: icon(<><path d='M4 9h16M4 15h16' /><path d='M5 4l14 16' /></>),
 };

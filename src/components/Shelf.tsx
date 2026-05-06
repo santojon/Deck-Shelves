@@ -17,10 +17,10 @@ import { invalidateSmartShelfCache } from "../steam/smartShelves";
 
 const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; forceExpanded?: boolean }) {
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; forceExpanded?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}`;
+  const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}-${(shelf as any).sortReverse ? 'r1' : 'r0'}-${(shelf as any).manualBaseSortReverse ? 'r1' : 'r0'}`;
   const effectiveSort = shelf.source?.type === "filter"
     ? (((shelf.source as any).filter?.sort as string | undefined) ?? shelf.sort)
     : shelf.sort;
@@ -66,12 +66,25 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         // so we clone the source and swap `filter.sort` to the base sort.
         const baseSort = (shelf as any).manualBaseSort ?? "alphabetical";
         const isManual = effectiveSort === "manual";
-        const resolveSort = isManual ? baseSort : shelf.sort;
+        // Asc/desc inversion. When manual, the base sort's reverse flag
+        // applies. Otherwise the top-level shelf flag applies. `manual` and
+        // `random` are skipped at the resolver level regardless.
+        const resolveReverse = isManual
+          ? !!(shelf as any).manualBaseSortReverse
+          : !!(shelf as any).sortReverse;
+        // When reverse is on but no explicit sort is persisted (regular shelf
+        // default = "alphabetical" stored as undefined), force `alphabetical`
+        // so the resolver actually calls `applySortToIds` and the reverse
+        // flag has somewhere to apply. Without this, no-sort + reverse leaves
+        // the source's natural order untouched.
+        const resolveSort = isManual
+          ? baseSort
+          : (shelf.sort ?? (resolveReverse ? "alphabetical" : undefined));
         let resolveSource: any = shelf.source;
         if (isManual && shelf.source?.type === "filter") {
           resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: baseSort } };
         }
-        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id)
+        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse)
           .then((ids) => {
             if (cancelled || gen !== resolveGenRef.current) return;
             const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
@@ -108,7 +121,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       unsubRefresh();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
     };
-  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? ""]);
+  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? "", (shelf as any).sortReverse === true, (shelf as any).manualBaseSortReverse === true]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,8 +191,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       shelf.sort === 'random' ||
       (src?.type === 'filter' && src?.filter?.sort === 'random')
     );
+    // Hide-affordances: hide if EITHER global OR per-shelf is true. Same
+    // OR pattern used by `globalHideStatusLine` etc. above. The flags only
+    // suppress the trailing card render; the shelf still recomputes /
+    // paginates on the normal cadence.
+    const hideRefresh = globalHideRefreshCard === true || (shelf as any).hideRefreshCard === true;
+    const hideMore = globalHideSeeMore === true || (shelf as any).hideSeeMore === true;
     if (isRefreshableSmart) {
-      base.push({
+      if (!hideRefresh) base.push({
         id: `${shelf.id}__refresh`,
         name: t('refresh'),
         isRefresh: true,
@@ -191,7 +210,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         },
       });
     } else if (sortIsRandom) {
-      base.push({
+      if (!hideRefresh) base.push({
         id: `${shelf.id}__refresh`,
         name: t('refresh'),
         isRefresh: true,
@@ -201,14 +220,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
           resolveRef.current();
         },
       });
-      base.push({
+      if (!hideMore) base.push({
         id: `${shelf.id}__more`,
         name: t('view_more'),
         isMoreLink: true,
         onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
       });
     } else if (!isSmart) {
-      base.push({
+      if (!hideMore) base.push({
         id: `${shelf.id}__more`,
         name: t('view_more'),
         isMoreLink: true,
@@ -216,7 +235,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       });
     }
     return base;
-  }, [appIds, items, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t]);
+  }, [appIds, items, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;

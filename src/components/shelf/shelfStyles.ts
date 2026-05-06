@@ -538,7 +538,13 @@ function buildStylesheet(): string {
       z-index: 20;
     }
     .ds-new-badge {
-      background: rgb(26, 159, 255); color: #fff;
+      /* Mirrors the native SteamOS "Novo" badge color resolution:
+         themes may override --ds-new-badge-bg directly; otherwise the
+         badge falls back to --colored-toggles-main-color (the same var
+         the native badge uses, set by themes like Colored Toggles), and
+         finally to the Steam-default blue when no theme is active. */
+      background: var(--ds-new-badge-bg, var(--colored-toggles-main-color, rgb(26, 159, 255)));
+      color: var(--ds-new-badge-color, #fff);
       font: 700 10px/20px "Motiva Sans", Helvetica, Arial, sans-serif;
       letter-spacing: 0.5px; text-transform: uppercase;
       padding: 2px 12px; border-radius: var(--ds-new-badge-radius, 0px);

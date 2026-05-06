@@ -317,7 +317,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         id='visual_global'
         icon={<WandIcon />}
         title={t('section_visual_global')}
-        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge].filter(Boolean).length}
+        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard].filter(Boolean).length}
       >
         <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
         <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
@@ -331,6 +331,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {hasNonSteamBadges && (
           <ToggleField label={t('hide_non_steam_badge')} checked={settings.globalHideNonSteamBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNonSteamBadge(value)} />
         )}
+        <ToggleField label={t('hide_see_more_card')} checked={settings.globalHideSeeMore === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideSeeMore(value)} />
+        <ToggleField label={t('hide_refresh_card')} checked={settings.globalHideRefreshCard === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideRefreshCard(value)} />
       </CollapsibleSection>
       )}
 

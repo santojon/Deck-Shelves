@@ -52,16 +52,18 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
   const [openCat, setOpenCat] = useState<Record<ShelfTemplateCategory, boolean>>({
     status: true, time: true, platform: true,
   })
-  const handleTemplate = async (tpl: typeof SHELF_TEMPLATES[0]) => {
+  const handleTemplate = (tpl: typeof SHELF_TEMPLATES[0]) => {
     closeModal?.()
-    await actions.addShelfWith(t(tpl.titleKey as any), tpl.source)
+    // Modal-driven create: build a draft pre-populated with the template's
+    // source and title, open the editor, persist only on Save. Cancel/close
+    // discards the draft.
+    const draft = { ...actions.createDraftShelf(), title: t(tpl.titleKey as any), source: tpl.source }
+    openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={draft} mode='create' />)
   }
-  const handleBlank = async () => {
+  const handleBlank = () => {
     closeModal?.()
-    const shelf = await actions.addShelf()
-    if (shelf) {
-      openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={shelf} />)
-    }
+    const draft = actions.createDraftShelf()
+    openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={draft} mode='create' />)
   }
   const grouped = TPL_CATEGORY_ORDER
     .map((cat) => ({ cat, items: SHELF_TEMPLATES.filter((x) => x.category === cat) }))

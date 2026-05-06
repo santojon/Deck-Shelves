@@ -13,8 +13,8 @@ export function DisplayTabContent({
   hasNonSteamBadges,
 }: {
   t: (k: any, opts?: any) => string;
-  display: { hideStatusLine: boolean; hideNewBadge: boolean; hideCompatIcons: boolean; hideNonSteamBadge: boolean; hideShelfTitle: boolean; hideGameNames: boolean; hideInstallIndicator: boolean };
-  setDisplay: (patch: Partial<{ hideStatusLine: boolean; hideNewBadge: boolean; hideCompatIcons: boolean; hideNonSteamBadge: boolean; hideShelfTitle: boolean; hideGameNames: boolean; hideInstallIndicator: boolean }>) => void;
+  display: { hideStatusLine: boolean; hideNewBadge: boolean; hideCompatIcons: boolean; hideNonSteamBadge: boolean; hideShelfTitle: boolean; hideGameNames: boolean; hideInstallIndicator: boolean; hideSeeMore: boolean; hideRefreshCard: boolean };
+  setDisplay: (patch: Partial<{ hideStatusLine: boolean; hideNewBadge: boolean; hideCompatIcons: boolean; hideNonSteamBadge: boolean; hideShelfTitle: boolean; hideGameNames: boolean; hideInstallIndicator: boolean; hideSeeMore: boolean; hideRefreshCard: boolean }>) => void;
   hasNonSteamBadges: boolean;
 }) {
   return (
@@ -28,6 +28,8 @@ export function DisplayTabContent({
       {hasNonSteamBadges && (
         <ToggleField label={t('hide_non_steam_badge')} checked={display.hideNonSteamBadge} onChange={(v: boolean) => setDisplay({ hideNonSteamBadge: v })} />
       )}
+      <ToggleField label={t('hide_see_more_card')} checked={display.hideSeeMore} onChange={(v: boolean) => setDisplay({ hideSeeMore: v })} />
+      <ToggleField label={t('hide_refresh_card')} checked={display.hideRefreshCard} onChange={(v: boolean) => setDisplay({ hideRefreshCard: v })} />
     </FieldContainer>
   )
 }

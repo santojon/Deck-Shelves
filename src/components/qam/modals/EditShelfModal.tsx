@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
+  Dropdown,
   DropdownItem,
+  Field,
   Focusable,
   SliderField,
   Tabs,
@@ -21,10 +23,12 @@ import { BASE_SOURCE_TYPES, SORT_OPTIONS, type SourceType, type EditTab } from '
 import type { EditableShelfState } from './editShelf/types'
 import { optionData } from './editShelf/utils'
 import { ManualSortRow } from './editShelf/ManualSortRow'
+import { SortDirectionButton } from './editShelf/SortDirectionButton'
+import { icons } from '../icons'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
-import { FunnelIcon, EyeIcon } from '../../icons'
+import { FunnelIcon, EyeIcon, SteamIcon } from '../../icons'
 
 // Tab title with optional leading icon — uses inline-flex so the icon
 // aligns vertically with the label text. Applied selectively (not every
@@ -40,7 +44,7 @@ function TabLabel({ icon, text }: { icon?: React.ReactNode; text: string }) {
 import { ModalHeader } from './editShelf/ModalHeader'
 
 
-export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf }) {
+export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf; mode?: 'create' | 'edit' }) {
   const { t, tabs: platformTabs, collections, actions } = controller
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
@@ -56,7 +60,9 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     filter: initialFilter,
     filterGroup: initialFilterGroup,
     sort: (shelf as any).sort ?? 'alphabetical',
+    sortReverse: (shelf as any).sortReverse ?? false,
     manualBaseSort: (shelf as any).manualBaseSort ?? 'alphabetical',
+    manualBaseSortReverse: (shelf as any).manualBaseSortReverse ?? false,
     limit: shelf.limit,
     matchNativeSize: shelf.matchNativeSize ?? false,
     highlightFirst: shelf.highlightFirst ?? false,
@@ -70,6 +76,8 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
     hideGameNames: (shelf as any).hideGameNames ?? false,
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
+    hideSeeMore: (shelf as any).hideSeeMore ?? false,
+    hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
   })
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [previewCount, setPreviewCount] = useState<number | null>(null)
@@ -107,7 +115,26 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     let cancelled = false
     setPreviewCount(null)
     const timer = setTimeout(() => {
-      resolveShelfAppIds(previewSource, state.limit)
+      // Mirror the resolver wiring used by Shelf.tsx so the preview reflects
+      // sort + asc/desc inversion the user is configuring. Filter sources
+      // carry their sort inside `state.filter.sort` (already embedded in
+      // `previewSource` via `filterGroupToFilter`), so no third-arg sort is
+      // needed for that branch — `previewSort` falls back to undefined.
+      // Other source types pass `state.sort` plus the alphabetical fallback
+      // when reverse is on but no explicit sort is set.
+      const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
+      const previewReverse = isManualSort
+        ? !!state.manualBaseSortReverse
+        : !!state.sortReverse
+      let previewSort: string | undefined
+      if (state.sourceType === 'filter') {
+        previewSort = undefined
+      } else if (isManualSort) {
+        previewSort = state.manualBaseSort || 'alphabetical'
+      } else {
+        previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
+      }
+      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse)
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
@@ -120,7 +147,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit])
+  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse])
 
   useEffect(() => {
     let cancelled = false
@@ -143,7 +170,70 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     data: value,
     label: value === 'collection' ? t('source_collection') : value === 'tab' ? t('source_tab') : value === 'external' ? t('source_external') : t('source_filter'),
   }))
-  const tabOptions: SingleDropdownOption[] = platformTabs.map((item) => ({ data: item.id, label: item.name }))
+  // Native library tabs get a localized label + a small library-grid icon.
+  // Detection by slugified ID OR slugified name OR slug-of-localized-name —
+  // covers both `listLibraryTabs` defaults (lowercase ids "all"/"installed"/…)
+  // AND TabMaster tabs whose IDs are UUIDs but whose display names match
+  // "Installed" / "Favorites" / etc. (in English or any of the locales below).
+  const slug = (s: string) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_')
+  // Per-native-id allowlist of display-name slugs across locales we ship.
+  // English form is always included (TabMaster's stock tabs ship in English
+  // even on non-English systems).
+  const NATIVE_TAB_NAME_SLUGS: Record<string, ReadonlySet<string>> = {
+    all: new Set(['all', 'all_games', 'todos_os_jogos', 'todos_los_juegos', 'tous_les_jeux', 'alle_spiele', 'tutti_i_giochi', 'alle_games', 'wszystkie_gry', 'vse_igry', 'usi_igri', 'tum_oyunlar', 'subete_no_geemu', 'modeun_geim', 'suoyou_youxi']),
+    favorites: new Set(['favorites', 'favoritos', 'favoris', 'favoriten', 'preferiti', 'favorieten', 'ulubione', 'izbrannoe', 'obrane', 'favoriler', 'okiniiri', 'jeulgyeochajgi', 'shoucangjia']),
+    installed: new Set(['installed', 'instalados', 'instalado', 'installes', 'installiert', 'installati', 'geinstalleerd', 'zainstalowane', 'ustanovlennye', 'vstanovleni', 'yuklu', 'insutoorudumi', 'seolchidoem', 'yianzhuang']),
+    hidden: new Set(['hidden', 'ocultos', 'oculto', 'masques', 'ausgeblendet', 'nascosti', 'verborgen', 'ukryte', 'skrytye', 'prikhovani', 'gizli', 'hihyouji', 'sumgim', 'yincang']),
+    nonsteam: new Set(['nonsteam', 'non_steam', 'nao_steam', 'no_steam', 'nicht_steam', 'niet_steam', 'spoza_steam', 'ne_iz_steam', 'ne_zi_steam', 'steam_disi', 'steam_iwai', 'steam_oe', 'feisteam']),
+  }
+  const NATIVE_TAB_I18N_KEY: Record<string, string> = {
+    all: 'tab_all',
+    favorites: 'tab_favorites',
+    installed: 'tab_installed',
+    hidden: 'tab_hidden',
+    nonsteam: 'tab_nonsteam',
+  }
+  const detectNativeKey = (item: { id: string; name: string }): string | null => {
+    const idSlug = slug(item.id)
+    const nameSlug = slug(item.name)
+    for (const native of Object.keys(NATIVE_TAB_I18N_KEY)) {
+      if (idSlug === native) return NATIVE_TAB_I18N_KEY[native]
+      const slugSet = NATIVE_TAB_NAME_SLUGS[native]
+      if (slugSet.has(idSlug) || slugSet.has(nameSlug)) return NATIVE_TAB_I18N_KEY[native]
+    }
+    return null
+  }
+  // Drop tabs that the plugin doesn't currently support as a shelf source.
+  // "Collections" is a native Steam library tab that exposes a flat list of
+  // collection groups — not an app set we can render as a row of cards.
+  // Reserved for the future stacks-by-collection feature (one stack per
+  // collection, see roadmap). Hide for now so users don't pick a tab that
+  // would resolve to nothing meaningful.
+  const UNSUPPORTED_TAB_SLUGS: ReadonlySet<string> = new Set([
+    'collections', 'collection', 'colecoes', 'colecao', 'colecciones', 'coleccion',
+    'collezioni', 'sammlungen', 'kolekcje', 'kollektsii', 'kolektsiyi', 'koleksiyonlar',
+    'korekushon', 'kolleksyeon', 'shoucang', 'shoucangji',
+  ])
+  const isUnsupportedTab = (item: { id: string; name: string }): boolean => {
+    return UNSUPPORTED_TAB_SLUGS.has(slug(item.id)) || UNSUPPORTED_TAB_SLUGS.has(slug(item.name))
+  }
+  const tabOptions: SingleDropdownOption[] = platformTabs
+    .filter((item) => !isUnsupportedTab(item))
+    .map((item) => {
+      const i18nKey = detectNativeKey(item)
+      if (i18nKey) {
+        return {
+          data: item.id,
+          label: (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ display: 'inline-flex', opacity: 0.9 }}><SteamIcon size={14} /></span>
+              <span>{t(i18nKey as any)}</span>
+            </span>
+          ),
+        }
+      }
+      return { data: item.id, label: item.name }
+    })
   const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
   const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName }))
   // Placeholder injection: when the current value isn't present in the
@@ -163,8 +253,11 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
     [t]
   )
+  // `random` is excluded under a manual sort: re-shuffling the manual order
+  // every render would defeat the user's explicit ordering. Persisted values
+  // stay intact — only the option is hidden from this dropdown.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS.filter((item) => item.value !== 'manual').map((item) => ({ data: item.value, label: t(item.labelKey) })),
+    () => SORT_OPTIONS.filter((item) => item.value !== 'manual' && item.value !== 'random').map((item) => ({ data: item.value, label: t(item.labelKey) })),
     [t]
   )
 
@@ -207,7 +300,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard };
       if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
@@ -216,8 +309,16 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
       }
       else if (state.sourceType === 'external') { patch.source = { type: 'external', sourceId: state.externalSourceId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
-      const ok = await actions.patchShelf(shelf.id, patch);
-      logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
+      if (mode === 'create') {
+        // Modal-driven create: nothing was persisted on open. Build the full
+        // shelf locally and commit only on Save. Cancel/close discards.
+        const draft: Shelf = { ...shelf, ...(patch as Partial<Shelf>) } as Shelf;
+        const created = await actions.commitShelf(draft);
+        logInfo("SETTINGS", "shelf created", { shelfId: created?.id });
+      } else {
+        const ok = await actions.patchShelf(shelf.id, patch);
+        logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
+      }
     })();
   }
 
@@ -258,18 +359,52 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                     {state.sourceType === 'external' && externalOptions.length > 0 && (
                       <DropdownItem label={t('source_external')} rgOptions={externalOptionsFinal} selectedOption={externalSelected} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
                     )}
-                    {state.sourceType === 'filter'
-                      ? <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} bottomSeparator='thick' />
-                      : <DropdownItem label={t('filter_mode')} rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt)) }))} bottomSeparator='thick' />
-                    }
+                    <Field
+                      label={t('filter_mode')}
+                      childrenLayout="inline"
+                      childrenContainerWidth="min"
+                      inlineWrap="keep-inline"
+                      bottomSeparator='thick'
+                    >
+                      <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Focusable style={{ minWidth: 200 }}>
+                          {state.sourceType === 'filter'
+                            ? <Dropdown rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} focusable />
+                            : <Dropdown rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt)) }))} focusable />
+                          }
+                        </Focusable>
+                        <SortDirectionButton
+                          sort={state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort}
+                          reverse={state.sortReverse}
+                          onChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
+                        />
+                      </Focusable>
+                    </Field>
                     {isManualSort && (
-                      <DropdownItem label={t('manual_base_sort')} rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} bottomSeparator='thick' />
+                      <Field
+                        label={t('manual_base_sort')}
+                        childrenLayout="inline"
+                        childrenContainerWidth="min"
+                        inlineWrap="keep-inline"
+                        bottomSeparator='thick'
+                      >
+                        <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Focusable style={{ minWidth: 200 }}>
+                            <Dropdown rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} focusable />
+                          </Focusable>
+                          <SortDirectionButton
+                            sort={state.manualBaseSort}
+                            reverse={state.manualBaseSortReverse}
+                            onChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
+                          />
+                        </Focusable>
+                      </Field>
                     )}
                     <SliderField
                       label={`${t('limit')} (${state.limit})`}
                       value={state.limit}
                       min={1}
-                      max={40}
+                      max={50}
                       step={1}
                       bottomSeparator='thick'
                       onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
@@ -304,7 +439,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                       currentGroup={state.filterGroup}
                       onApply={changeFilterGroup}
                     />
-                    <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} />
+                    <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} controller={controller} />
                   </FieldContainer>
                 ),
               }] : []),
@@ -335,7 +470,7 @@ export function EditShelfModal({ closeModal, controller, shelf }: { closeModal?:
                 content: (
                   <DisplayTabContent
                     t={t}
-                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true }}
+                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                     setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                     hasNonSteamBadges={hasNonSteamBadges}
                   />

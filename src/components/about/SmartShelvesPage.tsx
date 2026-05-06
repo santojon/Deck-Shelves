@@ -45,6 +45,7 @@ const SMART_GROUPS: { labelKey: string; items: SmartEntry[] }[] = [
       { labelKey: 'smart_template_random_pick',  descKey: 'docs_smart_template_random_pick',  sortKey: 'docs_smart_sort_random_pick' },
       { labelKey: 'smart_template_non_steam',    descKey: 'docs_smart_template_non_steam',    sortKey: 'docs_smart_sort_non_steam' },
       { labelKey: 'smart_template_long_session', descKey: 'docs_smart_template_long_session', sortKey: 'docs_smart_sort_long_session' },
+      { labelKey: 'smart_template_custom',       descKey: 'smart_template_custom_desc',       sortKey: 'docs_smart_sort_custom' },
     ],
   },
 ]

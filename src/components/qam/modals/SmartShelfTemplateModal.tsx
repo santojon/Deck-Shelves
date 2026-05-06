@@ -1,9 +1,25 @@
 import { useState } from 'react'
-import { ConfirmModal, DialogButton, Focusable } from '@decky/ui'
+import { ConfirmModal, DialogButton, Focusable, showModal } from '@decky/ui'
 import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelfMode } from '../../../types'
 import { SMART_TPL_ICON } from './templateIcons'
+import { EditSmartShelfModal } from './EditSmartShelfModal'
+import { logInfo } from '../../../runtime/logger'
+
+function openManagedModal(render: (close: () => void) => React.ReactElement) {
+  let handle: any = null
+  const close = () => {
+    try {
+      if (typeof handle === 'function') return handle()
+      if (handle?.Close) return handle.Close()
+      if (handle?.closeModal) return handle.closeModal()
+      if (handle?.props?.closeModal) return handle.props.closeModal()
+    } catch (e) { logInfo("SETTINGS", "modal close failed", String(e)) }
+  }
+  handle = showModal(render(close))
+  return close
+}
 
 type SmartTemplateCategory = "status" | "time" | "platform" | "compat" | "other"
 type SmartTemplate = { mode: SmartShelfMode; titleKey: string; category: SmartTemplateCategory }
@@ -59,9 +75,17 @@ export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal
   const [openCat, setOpenCat] = useState<Record<SmartTemplateCategory, boolean>>({
     time: true, status: true, compat: true, platform: true, other: true,
   })
-  const handleTemplate = async (tpl: SmartTemplate) => {
+  const handleTemplate = (tpl: SmartTemplate) => {
     closeModal?.()
-    await actions.addSmartShelf(tpl.mode, t(tpl.titleKey as any))
+    // Modal-driven create: pre-populate the draft from the template, open
+    // the editor, persist only on Save. Cancel/close discards the draft.
+    const draft = actions.createDraftSmartShelf(tpl.mode, t(tpl.titleKey as any))
+    openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={draft} mode='create' />)
+  }
+  const handleCustom = () => {
+    closeModal?.()
+    const draft = actions.createDraftSmartShelf("custom" as SmartShelfMode, t('smart_template_custom' as any))
+    openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={draft} mode='create' />)
   }
   const grouped = SMART_CATEGORY_ORDER
     .map((cat) => ({ cat, items: SMART_TEMPLATES.filter((x) => x.category === cat) }))
@@ -79,14 +103,8 @@ export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal
           <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <DialogButton
               style={btnStyle}
-              onClick={() => {
-                closeModal?.()
-                ;(async () => { await actions.addSmartShelf("custom" as SmartShelfMode, t('smart_template_custom' as any)) })()
-              }}
-              onOKButton={() => {
-                closeModal?.()
-                ;(async () => { await actions.addSmartShelf("custom" as SmartShelfMode, t('smart_template_custom' as any)) })()
-              }}
+              onClick={handleCustom}
+              onOKButton={handleCustom}
               onOKActionDescription={t('smart_template_custom' as any)}
             >
               <span style={btnInner}><span>{t('smart_template_custom' as any)}</span></span>

@@ -729,7 +729,11 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
     is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     installed: (() => {
-      // Check explicit field on the raw overview first
+      // Non-Steam shortcuts (notably Unifideck) advertise installed:true on
+      // the raw overview regardless of real state. Defer to isInstalledOf
+      // which consults the Unifideck collection, then size_on_disk and
+      // locally-played as fallbacks.
+      if (isNonSteamOf(node)) return isInstalledOf({ ...node, appid });
       const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
       if (explicit !== undefined) return explicit;
       try {
@@ -747,7 +751,6 @@ export function normalizeAppOverview(node: any): AppOverview | null {
         const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
         if (Number.isFinite(size) && size > 0) return true;
       } catch {}
-      if (isNonSteamOf(node)) return false;
       return undefined;
     })(),
     update_pending: (() => {
@@ -1564,9 +1567,16 @@ async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOv
   if (id === "hidden") return all.filter((a) => isHiddenOf(a));
   if (id === "nonsteam" || id === "epic" || id === "gog") return all.filter((a) => isNonSteamOf(a));
   // "installed" mirrors the native SteamOS library tab, which excludes
-  // non-Steam shortcuts even when they're locally available. Use the
-  // dedicated "nonsteam" tab to surface those.
-  if (id === "installed" || id === "great_on_deck") return all.filter((a) => isInstalledOf(a) && !isNonSteamOf(a));
+  // non-Steam shortcuts AND non-game app types (Proton, Steam Linux Runtime,
+  // redistributables, tools — all `app_type === 4` or other non-1 codes).
+  // Use the dedicated "nonsteam" tab to surface non-Steam shortcuts.
+  if (id === "installed" || id === "great_on_deck") {
+    return all.filter((a) =>
+      isInstalledOf(a) &&
+      !isNonSteamOf(a) &&
+      (a.app_type === undefined || a.app_type === 1)
+    );
+  }
   if (id === "recent") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
   const byTab = all.filter((a: any) => {
     const tags = [a?.tab, a?.tab_name, a?.collection_name, a?.category, ...(Array.isArray(a?.tags) ? a.tags : [])]
@@ -1829,7 +1839,7 @@ export function applyManualOrder(ids: number[], manualOrder?: number[]): number[
   return [...inOrder, ...rest];
 }
 
-function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId?: string): number[] {
+function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId?: string, reverse?: boolean): number[] {
   const byId = new Map<number, AppOverview>();
   for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
   let apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
@@ -1841,6 +1851,13 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId
   else if (sort === "review_score") apps = apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
   else if (sort === "added") apps = apps.slice().sort(compareByAdded);
   else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids), shelfId); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
+  else if (sort === "alphabetical") {
+    // Explicit branch: the internal registry registers "alphabetical" as a
+    // noop descriptor (so plugin authors can enumerate it), so falling into
+    // the external-sort dispatch below would call that noop and effectively
+    // skip sorting. Do the localeCompare sort here directly.
+    apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+  }
   else {
     // Plugin API: delegate to a registered external sort option when the
     // id is unknown internally. External sort returning `null` (not
@@ -1859,10 +1876,15 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId
       apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
   }
+  // Asc/desc inversion. Skipped for `manual` (would invalidate user order)
+  // and `random` (already non-deterministic; reversing the per-shelf shuffle
+  // adds no signal). All other sorts treat their natural order as desc and
+  // reverse to asc when requested.
+  if (reverse && sort !== "manual" && sort !== "random") apps = apps.reverse();
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
-export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string): Promise<number[]> {
+export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean): Promise<number[]> {
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
   if (!all.length) {
@@ -1928,19 +1950,45 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         count: ids.length,
       });
     }
-    if (sort) ids = applySortToIds(ids, sort, all, shelfId);
+    if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
     ids = deduplicateNonSteam(ids, all);
     return ids.slice(0, limit);
   }
 
   if (source.type === "tab") {
     const rawTab = String(source.tab ?? "").trim();
+    const tabSlug = slugifyTab(rawTab);
+    // The native SteamOS "Installed" / "Great on Deck" library tabs exclude
+    // non-Steam shortcuts AND non-game app types (Proton, Steam Linux Runtime,
+    // redistributables, tools). External tab providers (TabMaster, store-API
+    // tab definitions) often return the raw matching set without that filter,
+    // so we re-apply it here when the resolved tab id slugifies to one of
+    // those canonical names.
+    const matchesNativeInstalled = tabSlug === "installed" || tabSlug === "great_on_deck";
+    const filterToInstalledNative = (ids: number[]): number[] => {
+      if (!matchesNativeInstalled) return ids;
+      const byId = new Map<number, AppOverview>();
+      for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
+      return ids.filter((id) => {
+        const a = byId.get(id);
+        if (!a) return false;
+        if (isNonSteamOf(a)) return false;
+        return a.app_type === undefined || a.app_type === 1;
+      });
+    };
 
     // Forward-compat: fiber traversal in case TabMaster exposes a React context
     const customFiltersIds = getCustomFiltersAppsForContainer(rawTab);
-    if (customFiltersIds.length) return customFiltersIds.slice(0, limit);
+    if (customFiltersIds.length) {
+      const filtered = filterToInstalledNative(customFiltersIds);
+      const ordered = sort ? applySortToIds(filtered, sort, all, shelfId, sortReverse) : filtered;
+      return ordered.slice(0, limit);
+    }
 
     let fromTabStore = await getTabAppIdsFromStore(rawTab);
+    if (fromTabStore.length && matchesNativeInstalled) {
+      fromTabStore = filterToInstalledNative(fromTabStore);
+    }
     if (!fromTabStore.length && rawTab) {
       try {
         const tabs = await listLibraryTabs();
@@ -1968,7 +2016,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       try {
         logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length });
       } catch {}
-      const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId) : fromTabStore, all);
+      const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId, sortReverse) : fromTabStore, all);
       return tabStoreIds.slice(0, limit);
     }
     const filtered = await resolveDynamicTab(rawTab, all);
@@ -1981,7 +2029,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
     let tabIds = deduplicateNonSteam(tabApps.map((a) => appIdOf(a)).filter(Number.isFinite), all);
-    if (sort) tabIds = applySortToIds(tabIds, sort, all, shelfId);
+    if (sort) tabIds = applySortToIds(tabIds, sort, all, shelfId, sortReverse);
     const ids = tabIds.slice(0, limit);
 
     // Migration fallback: existing shelves saved as UUID tab sources resolve via TabMaster's filters
@@ -2042,6 +2090,9 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
+      // Asc/desc inversion. Skipped for `manual` and `random` (the parent
+      // shelf flag `sortReverse` only flips deterministic orderings).
+      if (sortReverse && fSort !== "manual" && fSort !== "random") filtered = filtered.slice().reverse();
       const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all).slice(0, limit);
       if (!ids.length) {
         logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
@@ -2107,6 +2158,9 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     } else {
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
+    // Legacy `f.sort` enum doesn't include "manual" or "random", so the
+    // reverse here is unconditional once `sortReverse` is set.
+    if (sortReverse) filtered = filtered.slice().reverse();
 
     const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all).slice(0, limit);
     if (!ids.length) {
@@ -2128,7 +2182,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       const { resolveExternalSource } = await import("../core/pluginApi");
       let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
-      if (sort) ids = applySortToIds(ids, sort, all, shelfId);
+      if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
       ids = deduplicateNonSteam(ids, all);
       return ids.slice(0, limit);
     } catch {
@@ -2176,7 +2230,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         ids = evaluateFilterGroup(smartFilterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
       }
       if (sort && sort !== "manual") {
-        ids = applySortToIds(ids, sort, apps, shelfId);
+        ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
       }
       ids = ids.slice(0, limit);
       logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });

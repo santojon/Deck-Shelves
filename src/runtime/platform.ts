@@ -19,7 +19,7 @@ export type PlatformAppMeta = {
 export interface PlatformApi {
   listCollections(): Promise<PlatformCollection[]>;
   listLibraryTabs(): Promise<PlatformTab[]>;
-  resolveShelfAppIds(source: ShelfSource, limit: number, sort?: string, shelfId?: string): Promise<number[]>;
+  resolveShelfAppIds(source: ShelfSource, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean): Promise<number[]>;
   getAppName(appid: number): Promise<string>;
   getAppMeta(appid: number): Promise<PlatformAppMeta>;
   navigateToApp(appid: number): void;

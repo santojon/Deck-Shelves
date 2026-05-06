@@ -5,6 +5,25 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Cancel really cancels — for every template.** Adding a shelf from any picker entry (Blank, every regular template, every smart template, Custom) now opens the editor against a draft — nothing is created in your shelves list until you press **Save**. Closing the modal or pressing Cancel discards the draft, so the prior "empty New shelf" leftovers no longer show up after browsing the pickers.
+- **Per-shelf hide toggles for "See more" and the refresh tile.** Two new toggles in each shelf's Display tab and global counterparts in the QAM Visual section. The shelf still recomputes / refreshes on its normal cadence; only the visible trailing card is suppressed.
+- **Sort direction toggle.** Each sort dropdown in the shelf and smart-shelf editors now has a small **↓ / ↑** button next to it that flips between descending (the natural order) and ascending. Hidden for **Manual** and **Random** where direction has no meaning.
+- **Icons on Steam Cloud and Deck Verified template buttons** in the shelf-template picker (☁️ and 🛡✓), matching the visual style of the other template entries.
+
+### Changed
+
+- **Up to 50 cards per shelf.** The per-shelf limit slider now goes to 50 in both the regular and smart shelf editors.
+- **"New" tag matches the native one.** Themes that recolor the native SteamOS "Novo / New" badge (Colored Toggles, Obsidian, Outrun, etc.) now tint our badge in the same color automatically — no extra setup. Without a theme it stays the native Steam blue.
+- **Random isn't offered as a base sort under manual order.** Manual order + random would re-shuffle the shelf on every render, defeating the explicit ordering. Existing shelves that had this pairing keep their stored value; the option is just hidden from the dropdown.
+- **Less Proton / runtime noise in smart shelves.** Quick Play, Deck Picks, Rediscover and On Deck now skip non-game entries (Proton, Steam Linux Runtime, redistributables, tools) so the shelves surface real games even when your library has a lot of system-managed installs.
+
+### Fixed
+
+- **Merge filter is editable again.** Picking **Merge** as a filter type now opens an inner panel where you can add, remove and reorder its child filters and pick its own AND/OR mode. Nesting Merge inside Merge works as well — useful for "Steam installed **or** any non-Steam shortcut" in a single shelf.
+- **Unifideck shortcuts no longer always count as installed.** Shortcuts registered by Unifideck used to report as installed even when the underlying app wasn't on disk. The plugin now checks the `[Unifideck] Installed` collection (with size-on-disk and last-played as fallbacks) so the **Installed** filter and indicators reflect reality.
+
 ## [2.0.0] - 2026-04-30
 
 ### Added
