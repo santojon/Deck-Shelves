@@ -24,10 +24,11 @@ import type { EditableShelfState } from './editShelf/types'
 import { optionData } from './editShelf/utils'
 import { ManualSortRow } from './editShelf/ManualSortRow'
 import { SortDirectionButton } from './editShelf/SortDirectionButton'
-import { icons } from '../icons'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
+import { HighlightRow } from './editShelf/HighlightRow'
+import { HighlightMiniCard } from './editShelf/HighlightMiniCard'
 import { FunnelIcon, EyeIcon, SteamIcon } from '../../icons'
 
 // Tab title with optional leading icon — uses inline-flex so the icon
@@ -95,7 +96,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
   const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
-  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string }>>(new Map())
+  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const activeSort = state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort
@@ -202,9 +203,9 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         .then(async (ids) => {
           if (cancelled) return
           setHiddenCandidateIds(ids)
-          const next = new Map<number, { name: string }>()
+          const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
           for (const id of ids) {
-            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}` }) }
+            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}`, portraitUrl: m?.portraitUrl, heroUrl: m?.heroUrl }) }
             catch { next.set(id, { name: `App ${id}` }) }
           }
           if (!cancelled) setHiddenCandidateMeta(next)
@@ -402,7 +403,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ position: 'relative', height: 'min(calc(100vh - 220px), 720px)', minHeight: 360, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 220px), 720px)', minHeight: 360 }}>
+          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
           <Tabs
             activeTab={activeTab}
             onShowTab={(id: string) => setActiveTab(id as EditTab)}
@@ -472,20 +474,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       bottomSeparator='thick'
                       onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
                     />
-                    {isManualSort && (
-                      resolvedIds.length === 0
-                        ? <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-                        : <ManualSortRow
-                            order={effectiveManualOrder}
-                            meta={resolvedMeta}
-                            onReorder={reorderManual}
-                            t={t}
-                            highlightFirst={state.highlightFirst}
-                            highlightAll={state.highlightAll}
-                            highlightedAppIds={state.highlightedAppIds}
-                            highlightPickerOpen={highlightPickerOpen}
-                          />
-                    )}
                   </FieldContainer>
                 ),
               },
@@ -536,8 +524,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     setAlternatingMode={setAlternatingMode}
                     prePatternHighlightsRef={prePatternHighlightsRef}
                     effectiveManualOrder={effectiveManualOrder}
-                    resolvedIds={resolvedIds}
-                    resolvedMeta={resolvedMeta}
                   />
                 ),
               },
@@ -552,20 +538,97 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     hasNonSteamBadges={hasNonSteamBadges}
                     dedupeByExactName={state.dedupeByExactName}
                     setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}
-                    hiddenAppIds={state.hiddenAppIds}
                     setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
                     hiddenPickerOpen={hiddenPickerOpen}
                     setHiddenPickerOpen={setHiddenPickerOpen}
-                    hiddenCandidateIds={effectiveHiddenCandidateIds}
-                    hiddenCandidateMeta={hiddenCandidateMeta}
-                    highlightedAppIds={state.highlightedAppIds}
-                    highlightFirst={state.highlightFirst}
-                    highlightAll={state.highlightAll}
                   />
                 ),
               },
             ]}
           />
+          </div>
+          <div style={{ flexShrink: 0, padding: '0 24px' }}>
+            {(activeTab === 'display' && hiddenPickerOpen) ? (
+              effectiveHiddenCandidateIds.length === 0 ? (
+                <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+              ) : (
+                <HighlightRow>
+                  {effectiveHiddenCandidateIds.map((id, idx) => {
+                    const isHidden = state.hiddenAppIds.includes(id)
+                    const inHighlighted = state.highlightedAppIds.includes(id)
+                    const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
+                    const meta = hiddenCandidateMeta.get(id)
+                    return (
+                      <HighlightMiniCard
+                        key={id}
+                        appid={id}
+                        name={meta?.name ?? `App ${id}`}
+                        portraitUrl={meta?.portraitUrl}
+                        heroUrl={meta?.heroUrl}
+                        featured={featured}
+                        selected={false}
+                        hiddenMark={isHidden}
+                        width={featured ? 210 : 68}
+                        height={100}
+                        onToggle={() => setState((prev) => ({
+                          ...prev,
+                          hiddenAppIds: isHidden
+                            ? prev.hiddenAppIds.filter((x) => x !== id)
+                            : [...prev.hiddenAppIds, id],
+                        }))}
+                      />
+                    )
+                  })}
+                </HighlightRow>
+              )
+            ) : resolvedIds.length === 0 ? (
+              <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+            ) : (isManualSort && activeTab === 'source') ? (
+              <ManualSortRow
+                order={effectiveManualOrder}
+                meta={resolvedMeta}
+                onReorder={reorderManual}
+                t={t}
+                highlightFirst={state.highlightFirst}
+                highlightAll={state.highlightAll}
+                highlightedAppIds={state.highlightedAppIds}
+                highlightPickerOpen={highlightPickerOpen}
+              />
+            ) : (
+              <HighlightRow>
+                {effectiveManualOrder.map((id, idx) => {
+                  const inHighlighted = state.highlightedAppIds.includes(id)
+                  const selected = highlightPickerOpen && inHighlighted
+                  const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
+                  const meta = resolvedMeta.get(id)
+                  const toggle = (activeTab === 'visual' && highlightPickerOpen) ? () => {
+                    setAlternatingMode(null)
+                    prePatternHighlightsRef.current = null
+                    setState((prev) => ({
+                      ...prev,
+                      highlightedAppIds: prev.highlightedAppIds.includes(id)
+                        ? prev.highlightedAppIds.filter((x) => x !== id)
+                        : [...prev.highlightedAppIds, id],
+                    }))
+                  } : null
+                  return (
+                    <HighlightMiniCard
+                      key={id}
+                      appid={id}
+                      name={meta?.name ?? `App ${id}`}
+                      portraitUrl={meta?.portraitUrl}
+                      heroUrl={meta?.heroUrl}
+                      featured={featured}
+                      selected={selected}
+                      width={featured ? 210 : 68}
+                      height={100}
+                      onToggle={toggle}
+                    />
+                  )
+                })}
+              </HighlightRow>
+            )}
+          </div>
           </div>
         </Focusable>
       </ConfirmModal>

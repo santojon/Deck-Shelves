@@ -53,6 +53,7 @@ export function defaultSettings(): Settings {
     globalHideInstallIndicator: false,
     globalHideSeeMore: false,
     globalHideRefreshCard: false,
+    globalDedupeByName: false,
     shelves: [],
     smartShelvesEnabled: false,
     smartShelvesAtBottom: false,

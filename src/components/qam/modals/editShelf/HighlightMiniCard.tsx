@@ -13,10 +13,10 @@ import { getLandscapeUrls, getPortraitFallbacks } from '../../../../core/steamAs
  * - Optional left/right shift chevrons (Source tab only).
  */
 export function HighlightMiniCard({
-  appid, name, portraitUrl, heroUrl, featured, selected, grabbed, width, height, onToggle, onShiftLeft, onShiftRight, onPointerDown,
+  appid, name, portraitUrl, heroUrl, featured, selected, grabbed, hiddenMark, width, height, onToggle, onShiftLeft, onShiftRight, onPointerDown,
 }: {
   appid: number; name: string; portraitUrl?: string; heroUrl?: string;
-  featured: boolean; selected: boolean; grabbed?: boolean;
+  featured: boolean; selected: boolean; grabbed?: boolean; hiddenMark?: boolean;
   width: number; height: number; onToggle: (() => void) | null;
   onShiftLeft?: (() => void) | null; onShiftRight?: (() => void) | null;
   onPointerDown?: (e: React.PointerEvent) => void;
@@ -69,8 +69,8 @@ export function HighlightMiniCard({
         width, minWidth: width, height, flexShrink: 0,
         overflow: 'hidden', cursor: interactive ? 'pointer' : 'default',
         background: 'linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))',
-        outline: grabbed ? '2px solid #ffd54f' : (selected ? '2px solid #4caf50' : '1px solid rgba(255,255,255,0.12)'),
-        boxShadow: grabbed ? '0 0 0 3px rgba(255, 213, 79, 0.35)' : undefined,
+        outline: grabbed ? '2px solid #ffd54f' : hiddenMark ? '2px solid #ef5350' : (selected ? '2px solid #4caf50' : '1px solid rgba(255,255,255,0.12)'),
+        boxShadow: grabbed ? '0 0 0 3px rgba(255, 213, 79, 0.35)' : hiddenMark ? '0 0 0 3px rgba(239, 83, 80, 0.25)' : undefined,
         transition: 'width 0.15s ease, outline 0.1s ease, box-shadow 0.1s ease',
         position: 'relative',
         borderRadius: 0,
@@ -92,9 +92,20 @@ export function HighlightMiniCard({
       ) : (
         <img ref={imgRef} src={urls[0]} alt={name} loading='lazy' onError={onErr} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       )}
+      {hiddenMark && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', pointerEvents: 'none' }} aria-hidden='true' />
+      )}
       {selected && (
         <div style={{ position: 'absolute', top: 4, left: 4, lineHeight: 0 }} aria-hidden='true'>
           <CheckIcon />
+        </div>
+      )}
+      {hiddenMark && (
+        <div style={{ position: 'absolute', top: 4, left: 4, lineHeight: 0 }} aria-hidden='true'>
+          <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
+            <circle cx='6' cy='6' r='6' fill='#ef5350' />
+            <path d='M4 4 L8 8 M8 4 L4 8' stroke='#fff' strokeWidth='1.5' strokeLinecap='round' />
+          </svg>
         </div>
       )}
       {(onShiftLeft !== undefined || onShiftRight !== undefined) && (

@@ -1,8 +1,6 @@
 import { useMemo, type MutableRefObject } from 'react'
 import { DialogButton, Focusable, ToggleField } from '@decky/ui'
 import { FieldContainer } from '../../../ui'
-import { HighlightRow } from './HighlightRow'
-import { HighlightMiniCard } from './HighlightMiniCard'
 
 /**
  * Shared Visual tab body rendered by both `EditShelfModal` and
@@ -28,8 +26,6 @@ export function VisualTabContent({
   setAlternatingMode,
   prePatternHighlightsRef,
   effectiveManualOrder,
-  resolvedIds,
-  resolvedMeta,
 }: {
   t: (k: any, opts?: any) => string;
   flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean };
@@ -42,8 +38,6 @@ export function VisualTabContent({
   setAlternatingMode: (m: 'odd' | 'even' | null) => void;
   prePatternHighlightsRef: MutableRefObject<number[] | null>;
   effectiveManualOrder: number[];
-  resolvedIds: number[];
-  resolvedMeta: Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>;
 }) {
   const cards = useMemo(() => effectiveManualOrder, [effectiveManualOrder])
   return (
@@ -96,45 +90,6 @@ export function VisualTabContent({
             )
           })}
         </Focusable>
-      )}
-      {resolvedIds.length === 0 ? (
-        <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-      ) : (
-        <HighlightRow>
-          {cards.map((id, idx) => {
-            const inHighlighted = highlightedAppIds.includes(id)
-            const selected = highlightPickerOpen && inHighlighted
-            const featured = flags.highlightAll || (flags.highlightFirst && idx === 0) || inHighlighted
-            const h = 100
-            const w = featured ? 210 : 68
-            const meta = resolvedMeta.get(id)
-            const toggle = highlightPickerOpen
-              ? () => {
-                  setAlternatingMode(null)
-                  prePatternHighlightsRef.current = null
-                  setHighlightedAppIds(
-                    highlightedAppIds.includes(id)
-                      ? highlightedAppIds.filter((x) => x !== id)
-                      : [...highlightedAppIds, id],
-                  )
-                }
-              : null
-            return (
-              <HighlightMiniCard
-                key={id}
-                appid={id}
-                name={meta?.name ?? `App ${id}`}
-                portraitUrl={meta?.portraitUrl}
-                heroUrl={meta?.heroUrl}
-                featured={featured}
-                selected={selected}
-                width={w}
-                height={h}
-                onToggle={toggle}
-              />
-            )
-          })}
-        </HighlightRow>
       )}
     </FieldContainer>
   )
