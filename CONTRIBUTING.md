@@ -123,13 +123,14 @@ Follow these steps to regenerate the canonical screenshots:
 1. **Set the Steam Deck language to English** — open Settings → System → Language → English. This ensures all UI labels in the screenshots are in English.
 2. **Import the screenshot configuration** — in the plugin QAM, click the import button and import `assets/import/screenshots-en.json`. This sets up the exact shelf configuration used for automation (3 standard shelves, 1 hidden shelf, 3 smart shelves).
 3. **Adjust if needed** — if the implementation being captured adds new UI elements or changes behavior, verify that the import still reflects the current feature set. Edit the JSON if needed.
-4. **Open the Steam main menu** — press the Steam button to open the main menu, then navigate to Home. This ensures the plugin is mounted and the home screen is fully rendered.
-5. **Run the script**:
+4. **Ensure QAM sections have data and are expanded** — open the QAM and navigate to the Deck Shelves plugin tab. All sections (Behavior, Shelves, Smart Shelves, Visual / Global, Saved Filters) must have data populated and must be manually expanded before running the script. Collapsed sections will not be captured correctly. The Saved Filters section only appears when at least one saved filter exists — create one if needed.
+5. **Open the Steam main menu** — press the Steam button to open the main menu before running the script. This ensures Steam's UI state is initialized and the home screen will render without overlays after the script navigates away from the menu.
+6. **Run the script**:
    ```bash
    pnpm run screenshots
    ```
    The script connects via CDP, validates at least 2 shelves and 1 game card are present, then captures all scenarios automatically.
-6. **Verify output** — screenshots are saved to `assets/screenshots/`. Review each PNG before committing.
+7. **Verify output** — screenshots are saved to `assets/screenshots/`. Review each PNG before committing.
 
 ## Submitting Changes
 
