@@ -460,5 +460,13 @@
   "toast_shelves_reset": "书架已重置",
   "toast_smart_shelves_reset": "智能书架已重置",
   "view_more": "在库中\n查看更多",
-  "visibility": "可见性"
+  "visibility": "可见性",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "软件",
+  "shortcut_kind_tool": "工具",
+  "shortcut_kind_link": "非Steam链接",
+  "edit_dedupe_by_name": "按名称去重",
+  "edit_hidden_games": "隐藏特定游戏",
+  "global_dedupe_by_name": "按名称去重（全局）"
 }

@@ -460,5 +460,13 @@
   "toast_shelves_reset": "Estanterías restablecidas",
   "toast_smart_shelves_reset": "Estanterías inteligentes restablecidas",
   "view_more": "Ver más\nen tu\nbiblioteca",
-  "visibility": "Visibilidad"
+  "visibility": "Visibilidad",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "Software",
+  "shortcut_kind_tool": "Herramientas",
+  "shortcut_kind_link": "Accesos directos no Steam",
+  "edit_dedupe_by_name": "Deduplicar por nombre",
+  "edit_hidden_games": "Ocultar juegos específicos",
+  "global_dedupe_by_name": "Deduplicar por nombre (global)"
 }

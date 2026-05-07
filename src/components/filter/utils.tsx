@@ -8,6 +8,7 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "hidden",
   "updatePending",
   "deckCompatibility",
+  "shortcutType",
   "playedWithinDays",
   "playtimeRange",
   "nameIncludes",
@@ -29,6 +30,7 @@ export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] 
 const INVERTIBLE_SET = new Set<FilterItemType>([
   "favorites",
   "deckCompatibility",
+  "shortcutType",
   "playedWithinDays",
   "playtimeRange",
   "nameIncludes",
@@ -61,6 +63,7 @@ export function defaultParams(type: FilterItemType): Record<string, any> {
     case "cloudAvailable": return {};
     case "controllerSupport": return { min: 1 };
     case "merge": return { mode: "and", items: [] };
+    case "shortcutType": return { kinds: ["game"] };
     default: return {};
   }
 }
@@ -107,6 +110,8 @@ export function isValidParams(item: FilterItem): boolean {
       return Array.isArray(p.appIds) && p.appIds.length > 0;
     case "merge":
       return Array.isArray(p.items) && p.items.length > 0;
+    case "shortcutType":
+      return Array.isArray(p.kinds) && p.kinds.length > 0;
     default:
       return true;
   }
@@ -136,6 +141,7 @@ export function getTypeLabel(type: FilterItemType): string {
     cloudAvailable: t("filter_type_cloudAvailable"),
     controllerSupport: t("filter_type_controllerSupport"),
     merge: t("filter_type_merge"),
+    shortcutType: t("filter_type_shortcutType"),
   };
   return map[type] ?? type;
 }

@@ -460,5 +460,13 @@
   "toast_shelves_reset": "Prateleiras redefinidas",
   "toast_smart_shelves_reset": "Prateleiras inteligentes redefinidas",
   "view_more": "Veja mais\nna sua\nbiblioteca",
-  "visibility": "Visibilidade"
+  "visibility": "Visibilidade",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "Software",
+  "shortcut_kind_tool": "Tools",
+  "shortcut_kind_link": "Non-Steam links",
+  "edit_dedupe_by_name": "Deduplicar por nome",
+  "edit_hidden_games": "Ocultar jogos específicos",
+  "global_dedupe_by_name": "Deduplicar por nome (global)"
 }

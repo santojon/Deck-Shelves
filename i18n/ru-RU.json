@@ -460,5 +460,13 @@
   "toast_shelves_reset": "Полки сброшены",
   "toast_smart_shelves_reset": "Умные полки сброшены",
   "view_more": "Ещё\nв вашей\nбиблиотеке",
-  "visibility": "Видимость"
+  "visibility": "Видимость",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "Программное обеспечение",
+  "shortcut_kind_tool": "Инструменты",
+  "shortcut_kind_link": "Не-Steam ссылки",
+  "edit_dedupe_by_name": "Удалить дубликаты по имени",
+  "edit_hidden_games": "Скрыть определённые игры",
+  "global_dedupe_by_name": "Удалить дубликаты по имени (глобально)"
 }

@@ -5,6 +5,18 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Filter by shortcut type.** New filter type in the shelf editor: pick which kinds of library entries to include — **Games** (Steam games), **Software** (Steam apps like Streaming apps), **Tools** (Proton, runtimes, redistributables), or **Non-Steam links** (shortcuts added outside Steam). Mix and match; each kind has its own toggle.
+- **Deduplicate by exact name.** New toggle in each shelf's Display tab (and a global counterpart in settings). When on, if two entries share an exact name, only one is kept — Steam wins over non-Steam shortcuts.
+- **Manually hide games per shelf.** New "Hide specific games" toggle in each shelf's Display tab. Turning it on reveals a mini-card picker where you tap a game to exclude it from that shelf. The shelf still targets the configured number of visible games — extras are fetched automatically to fill the gap.
+- **Narrow collection and tab sources with filters.** When a shelf's source is a collection or library tab, a new inline filter panel in the Source tab lets you add further filter criteria (e.g. source = Favorites collection, refine to installed only).
+- **Per-range weekday overrides for smart shelf time windows.** Each time range in a smart shelf's visibility schedule can now specify which days it applies to, independently from the shelf-level day filter.
+
+### Fixed
+
+- **Shelves with time windows now disappear on time.** A combination of a 60-min resolve cache and a missing re-render step could keep a shelf visible up to an hour after its configured window ended. Visibility is now re-checked immediately at the boundary, caches are flushed, and modes with built-in time logic (e.g. Spare Time) are also covered even when no explicit schedule is set.
+
 ## [2.0.1] - 2026-05-06
 
 ### Added

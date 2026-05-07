@@ -460,5 +460,13 @@
   "toast_shelves_reset": "Planken gereset",
   "toast_smart_shelves_reset": "Slimme planken gereset",
   "view_more": "Meer bekijken\nin je\nbibliotheek",
-  "visibility": "Zichtbaarheid"
+  "visibility": "Zichtbaarheid",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "Software",
+  "shortcut_kind_tool": "Tools",
+  "shortcut_kind_link": "Niet-Steam-koppelingen",
+  "edit_dedupe_by_name": "Dedupliceren op naam",
+  "edit_hidden_games": "Specifieke games verbergen",
+  "global_dedupe_by_name": "Dedupliceren op naam (globaal)"
 }

@@ -109,6 +109,17 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                         highlighted_ids.append(n)
                 except Exception:
                     continue
+        raw_hidden = s.get("hiddenAppIds")
+        hidden_ids: list = []
+        if isinstance(raw_hidden, list):
+            for v in raw_hidden:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        hidden_ids.append(n)
+                except Exception:
+                    continue
+        dedupe_by_exact_name = bool(s.get("dedupeByExactName", False))
         if not sid:
             continue
         shelf_entry: Dict[str, Any] = {
@@ -135,6 +146,10 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             shelf_entry["sort"] = shelf_sort
         if highlighted_ids:
             shelf_entry["highlightedAppIds"] = highlighted_ids
+        if hidden_ids:
+            shelf_entry["hiddenAppIds"] = hidden_ids
+        if dedupe_by_exact_name:
+            shelf_entry["dedupeByExactName"] = True
         if manual_ids:
             shelf_entry["manualOrder"] = manual_ids
         manual_base_sort = str(s.get("manualBaseSort") or "")

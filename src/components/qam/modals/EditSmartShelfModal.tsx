@@ -77,6 +77,8 @@ type EditState = {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+  dedupeByExactName: boolean
+  hiddenAppIds: number[]
   refreshIntervalMinutes: number
   smartParams: Record<string, number>
   visibleHoursEnabled: boolean
@@ -111,6 +113,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
     hideSeeMore: (shelf as any).hideSeeMore ?? false,
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
+    dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
+    hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
     smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
     visibleHoursEnabled: (() => {
@@ -162,6 +166,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf as any).highlightedAppIds?.length > 0)
+  const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
+  const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
+  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
 
@@ -245,6 +252,30 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
 
+  useEffect(() => {
+    if (!hiddenPickerOpen) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      const isManualSort = state.sort === 'manual'
+      const previewSort = isManualSort
+        ? (state.manualBaseSort || 'alphabetical')
+        : (state.sort || undefined)
+      resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
+        .then(async (ids) => {
+          if (cancelled) return
+          setHiddenCandidateIds(ids)
+          const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
+          for (const id of ids) {
+            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}`, portraitUrl: m?.portraitUrl, heroUrl: m?.heroUrl }) }
+            catch { next.set(id, { name: `App ${id}` }) }
+          }
+          if (!cancelled) setHiddenCandidateMeta(next)
+        })
+        .catch(() => { if (!cancelled) setHiddenCandidateIds([]) })
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [hiddenPickerOpen, previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.hiddenAppIds.join(',')])
+
   const handleSave = () => {
     closeModal?.()
     ;(async () => {
@@ -269,6 +300,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).hideInstallIndicator = state.hideInstallIndicator
       ;(patch as any).hideSeeMore = state.hideSeeMore
       ;(patch as any).hideRefreshCard = state.hideRefreshCard
+      ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
+      ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       // Only persist when the user diverged from the default cadence; otherwise
       // omit so the shelf inherits whatever the resolver default ends up being.
       ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
@@ -663,6 +696,14 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                       setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       hasNonSteamBadges={hasNonSteamBadges}
+                      dedupeByExactName={state.dedupeByExactName}
+                      setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}
+                      hiddenAppIds={state.hiddenAppIds}
+                      setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
+                      hiddenPickerOpen={hiddenPickerOpen}
+                      setHiddenPickerOpen={setHiddenPickerOpen}
+                      hiddenCandidateIds={hiddenCandidateIds}
+                      hiddenCandidateMeta={hiddenCandidateMeta}
                     />
                   ),
                 },

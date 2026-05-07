@@ -460,5 +460,13 @@
   "toast_shelves_reset": "선반이 초기화되었습니다",
   "toast_smart_shelves_reset": "스마트 선반이 초기화되었습니다",
   "view_more": "라이브러리에서\n더 보기",
-  "visibility": "표시 설정"
+  "visibility": "표시 설정",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "소프트웨어",
+  "shortcut_kind_tool": "도구",
+  "shortcut_kind_link": "Steam 외 링크",
+  "edit_dedupe_by_name": "이름으로 중복 제거",
+  "edit_hidden_games": "특정 게임 숨기기",
+  "global_dedupe_by_name": "이름으로 중복 제거 (전체)"
 }

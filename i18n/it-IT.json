@@ -460,5 +460,13 @@
   "toast_shelves_reset": "Scaffali reimpostati",
   "toast_smart_shelves_reset": "Scaffali intelligenti reimpostati",
   "view_more": "Vedi altro\nnella tua\nlibreria",
-  "visibility": "Visibilità"
+  "visibility": "Visibilità",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "Software",
+  "shortcut_kind_tool": "Strumenti",
+  "shortcut_kind_link": "Collegamento non Steam",
+  "edit_dedupe_by_name": "Deduplica per nome",
+  "edit_hidden_games": "Nascondi giochi specifici",
+  "global_dedupe_by_name": "Deduplica per nome (globale)"
 }

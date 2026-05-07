@@ -460,5 +460,13 @@
   "toast_shelves_reset": "Półki zresetowane",
   "toast_smart_shelves_reset": "Inteligentne półki zresetowane",
   "view_more": "Zobacz więcej\nw swojej\nbibliotece",
-  "visibility": "Widoczność"
+  "visibility": "Widoczność",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "Oprogramowanie",
+  "shortcut_kind_tool": "Narzędzia",
+  "shortcut_kind_link": "Skróty spoza Steam",
+  "edit_dedupe_by_name": "Deduplikuj według nazwy",
+  "edit_hidden_games": "Ukryj określone gry",
+  "global_dedupe_by_name": "Deduplikuj według nazwy (globalnie)"
 }

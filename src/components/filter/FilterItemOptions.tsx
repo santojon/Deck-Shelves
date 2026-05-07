@@ -63,6 +63,30 @@ export default function FilterItemOptions({ item, onChange, controller }: { item
       );
     }
 
+    case "shortcutType": {
+      const KINDS = ["game", "software", "tool", "link"] as const;
+      const kinds: string[] = Array.isArray(p.kinds) ? p.kinds : ["game"];
+      const kindSet = new Set(kinds);
+      return (
+        <>
+          {KINDS.map((k) => (
+            <div key={k}>
+              <ToggleField
+                label={t(`shortcut_kind_${k}` as any)}
+                checked={kindSet.has(k)}
+                onChange={(val: boolean) => {
+                  const next = new Set(kindSet);
+                  if (val) next.add(k); else next.delete(k);
+                  patchParams({ kinds: Array.from(next) });
+                }}
+                bottomSeparator="none"
+              />
+            </div>
+          ))}
+        </>
+      );
+    }
+
     case "playedWithinDays": {
       const days = Number(p.days ?? 30);
       return (

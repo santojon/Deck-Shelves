@@ -1,5 +1,5 @@
 export type SourceType = 'collection' | 'tab' | 'filter' | 'external'
-export type EditTab = 'source' | 'filters' | 'visual' | 'display'
+export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display'
 
 export const BASE_SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']
 

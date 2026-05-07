@@ -104,7 +104,7 @@ export function VisualTabContent({
           {cards.map((id, idx) => {
             const inHighlighted = highlightedAppIds.includes(id)
             const selected = highlightPickerOpen && inHighlighted
-            const featured = flags.highlightAll || (flags.highlightFirst && idx === 0) || selected
+            const featured = flags.highlightAll || (flags.highlightFirst && idx === 0) || inHighlighted
             const h = 100
             const w = featured ? 210 : 68
             const meta = resolvedMeta.get(id)

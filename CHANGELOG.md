@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`shortcutType` filter — games, software, tools, non-Steam links.** New filter type with a multi-select of four mutually-exclusive kinds: `game` (Steam `app_type === 1` or unknown), `software` (Steam `app_type === 2`, standalone apps), `tool` (Steam `app_type` ≥ 4: redistributables, runtimes, Proton), `link` (non-Steam shortcuts). Default = `["game"]`. Invertible. Per-shelf and global usage; UI in `FilterItemOptions` as individual toggles per kind.
+- **`dedupeByExactName` — per-shelf exact-name deduplication.** New optional boolean on `ShelfSchema` and `SmartShelfSchema` (default `false`). Post-resolution, games with the same exact name (trim, case-sensitive) are collapsed to one entry; Steam wins over non-Steam within a group. O(n) pass via `Map<name, appid>`. Global counterpart `globalDedupeByName` in settings. Toggle in Display tab of both edit modals.
+- **`hiddenAppIds` — manual game exclusion list per shelf.** New optional `number[]` on both shelf schemas. The resolver overshoots (`Math.min(limit + hiddenSet.size * 2, limit * 3)`) to compensate, then filters and slices to `limit`. Display tab gains a "Hide specific games" toggle that opens an app picker (same mini-card row pattern as the highlight picker); candidates are fetched with `limit * 3` and refresh with 300ms debounce when the hidden set changes.
+- **`childFilter` on collection / tab sources.** Optional `FilterGroup` on the `collection` and `tab` source variants. Applied after source resolution, before sort/slice. UI: when the source type is `collection` or `tab`, an inline `FilterPanel` appears in the Source tab.
+- **Per-range `days` in `visibleHours`.** Each `{ start, end }` range in a smart shelf's `visibleHours` array now accepts an optional `days?: number[]` (0 = Sunday … 6 = Saturday). When set, that range applies only on the listed weekdays; ranges without `days` fall back to the global `visibleDaysOfWeek`. Fully backwards-compatible.
+- **`getModeVisibilityWindows(mode)` — generic time-window hook.** New export from `src/steam/smartShelves.ts`. Returns hardcoded visibility windows for modes with built-in time-conditional logic (currently `spare_time` → `SPARE_TIME_WINDOWS`). Used by `HomeInject` to schedule boundary timers for shelves that have no explicit `visibleHours` but whose mode has an internal time check. Add new modes here as they acquire internal time checks.
+
+### Fixed
+
+- **Smart shelf visibility boundary — stale-cache and missed re-render.** Three bugs combined to keep a shelf visible up to 60 min after its window closed: (1) `triggerShelfRefresh()` at the boundary notified `ShelfView` components but did not cause `HomeInject` to re-render, so `isInVisibilityWindow` was never re-evaluated to remove the shelf from the array; (2) the 60-min `resolveSmartShelf` cache could stay valid after the window ended, returning stale game IDs on the next resolve; (3) shelves without explicit `visibleHours` (e.g. `spare_time` relying on its internal `isSpareTimeWindow` check) had no boundary timer at all. Fixed by: adding `visibilityTick` state that increments on each boundary fire (forcing `HomeInject` re-render and re-evaluation of `isInVisibilityWindow`), calling `invalidateSmartShelfCache` for all time-aware shelf IDs before `triggerShelfRefresh`, and using `getModeVisibilityWindows` as fallback when `visibleHours` is absent so modes with internal time checks also get a boundary timer. The effect re-arms via `visibilityTick` in its deps so subsequent boundaries are also caught.
+
 ## [2.0.1] - 2026-05-06
 
 ### Added

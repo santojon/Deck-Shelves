@@ -22,6 +22,7 @@ export const FilterItemTypeSchema = z.enum([
   "cloudAvailable",
   "controllerSupport",
   "merge",
+  "shortcutType",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
@@ -127,6 +128,8 @@ export const SmartShelfSchema = z.object({
   hideInstallIndicator: z.boolean().optional(),
   hideSeeMore: z.boolean().optional(),
   hideRefreshCard: z.boolean().optional(),
+  dedupeByExactName: z.boolean().optional(),
+  hiddenAppIds: z.array(z.number().int()).optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
   // default 60-minute TTL; otherwise the cached result is reused for
   // `refreshIntervalMinutes * 60 * 1000` ms. Capped at 30 days.
@@ -144,6 +147,7 @@ export const SmartShelfSchema = z.object({
   visibleHours: z.array(z.object({
     start: z.number().int().min(0).max(23),
     end: z.number().int().min(0).max(23),
+    days: z.array(z.number().int().min(0).max(6)).optional(),
   })).optional(),
   // Optional restriction to specific weekdays. 0 = Sunday … 6 = Saturday.
   // Empty array is treated as "no restriction" (same as undefined). Duplicates
@@ -153,8 +157,8 @@ export const SmartShelfSchema = z.object({
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
 export const ShelfSourceSchema = z.union([
-  z.object({ type: z.literal("collection"), collectionId: z.string() }),
-  z.object({ type: z.literal("tab"), tab: z.string().min(1) }),
+  z.object({ type: z.literal("collection"), collectionId: z.string(), childFilter: FilterGroupSchema.optional() }),
+  z.object({ type: z.literal("tab"), tab: z.string().min(1), childFilter: FilterGroupSchema.optional() }),
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
@@ -192,6 +196,8 @@ export const ShelfSchema = z.object({
   hideInstallIndicator: z.boolean().default(false),
   hideSeeMore: z.boolean().default(false),
   hideRefreshCard: z.boolean().default(false),
+  dedupeByExactName: z.boolean().optional(),
+  hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema
 });
 
@@ -215,6 +221,7 @@ export const SettingsSchema = z.object({
   globalHideInstallIndicator: z.boolean().default(false),
   globalHideSeeMore: z.boolean().default(false),
   globalHideRefreshCard: z.boolean().default(false),
+  globalDedupeByName: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),

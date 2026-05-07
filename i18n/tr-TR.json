@@ -460,5 +460,13 @@
   "toast_shelves_reset": "Raflar sıfırlandı",
   "toast_smart_shelves_reset": "Akıllı raflar sıfırlandı",
   "view_more": "Kütüphanenizde\ndaha fazlasını\ngörün",
-  "visibility": "Görünürlük"
+  "visibility": "Görünürlük",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "Yazılım",
+  "shortcut_kind_tool": "Araçlar",
+  "shortcut_kind_link": "Steam dışı kısayollar",
+  "edit_dedupe_by_name": "İsme göre tekrarları kaldır",
+  "edit_hidden_games": "Belirli oyunları gizle",
+  "global_dedupe_by_name": "İsme göre tekrarları kaldır (genel)"
 }

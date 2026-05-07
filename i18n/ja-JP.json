@@ -460,5 +460,13 @@
   "toast_shelves_reset": "棚をリセットしました",
   "toast_smart_shelves_reset": "スマート棚をリセットしました",
   "view_more": "ライブラリで\nもっと見る",
-  "visibility": "表示設定"
+  "visibility": "表示設定",
+  "filter_type_shortcutType": "Shortcut type",
+  "shortcut_kind_game": "Games",
+  "shortcut_kind_software": "ソフトウェア",
+  "shortcut_kind_tool": "ツール",
+  "shortcut_kind_link": "Steam以外のリンク",
+  "edit_dedupe_by_name": "名前で重複を除外",
+  "edit_hidden_games": "特定のゲームを非表示",
+  "global_dedupe_by_name": "名前で重複を除外（グローバル）"
 }
