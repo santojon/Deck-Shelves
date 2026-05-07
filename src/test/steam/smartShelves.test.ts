@@ -53,6 +53,18 @@ describe('resolveSmartShelf', () => {
     expect(ids).toEqual([1])
   })
 
+  it('best_unplayed excludes non-game app types (tools, Proton, runtimes)', () => {
+    const apps: AppOverview[] = [
+      app({ appid: 1, installed: true, playtime_forever: 0, last_played: 0, deck_compatibility_category: 3, app_type: 1 }),
+      app({ appid: 2, installed: true, playtime_forever: 0, last_played: 0, deck_compatibility_category: 3, app_type: 4 }),
+      app({ appid: 3, installed: true, playtime_forever: 0, last_played: 0, deck_compatibility_category: 3, app_type: undefined }),
+    ]
+    const ids = resolveSmartShelf('best_unplayed', apps, 10)
+    expect(ids).toContain(1)
+    expect(ids).not.toContain(2)
+    expect(ids).toContain(3)
+  })
+
   it('non_steam returns is_non_steam apps', () => {
     const apps: AppOverview[] = [
       app({ appid: 1, is_non_steam: true }),

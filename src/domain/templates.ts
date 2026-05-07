@@ -37,7 +37,7 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     id: "most_played",
     titleKey: "template_most_played",
     category: "time",
-    source: { type: "filter", filter: { installed: true, sort: "playtime" } },
+    source: { type: "filter", filter: { sort: "playtime" } },
   },
   {
     id: "recently_added",
@@ -95,7 +95,7 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     id: "top_reviewed",
     titleKey: "template_top_reviewed",
     category: "status",
-    source: { type: "filter", filter: { installed: true, sort: "review_score" } },
+    source: { type: "filter", filter: { sort: "review_score" } },
   },
 ];
 

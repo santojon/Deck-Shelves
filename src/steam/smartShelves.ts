@@ -87,7 +87,7 @@ function resolveRediscover(apps: AppOverview[], limit: number, params?: SmartPar
 function resolveBestUnplayed(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minDeck = getParam("best_unplayed", params, "minDeckLevel");
   return apps
-    .filter((a) => a.installed && playtimeMinutes(a) === 0 && lastPlayedSec(a) === 0 && deckCompat(a) >= minDeck)
+    .filter((a) => a.installed && (a.app_type === undefined || a.app_type === 1) && playtimeMinutes(a) === 0 && lastPlayedSec(a) === 0 && deckCompat(a) >= minDeck)
     .sort((a, b) => deckCompat(b) - deckCompat(a))
     .slice(0, limit)
     .map((a) => a.appid);
