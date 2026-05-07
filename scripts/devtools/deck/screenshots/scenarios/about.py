@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import Dict
 
 from ..lib.cdp import Session
-from ..lib.nav import navigate_about, click_selector, await_selector
+from ..lib.nav import navigate_about, click_selector, await_selector, _bp_eval
 from ..lib.capture import capture_bigpicture
 from ._registry import register
 
 
-def _switch_tab(sjc: Session, label_substring: str) -> None:
-    sjc.evaluate(f"""
+def _switch_tab(host: str, port: int, label_substring: str) -> None:
+    _bp_eval(host, port, f"""
 (function(){{
   const tabs = document.querySelectorAll('[role="tab"]');
   for (const t of tabs) {{
@@ -38,7 +38,7 @@ def about_overview(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[st
 @register("about_filters")
 def about_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     navigate_about(sjc, settle_ms=2500)
-    _switch_tab(sjc, "filter")
+    _switch_tab(host, port, "filter")
     out = out_dir / "about-filters.png"
     p = capture_bigpicture(host, port, out)
     return {"about-filters.png": p} if p else {}
@@ -47,7 +47,7 @@ def about_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
 @register("about_smart")
 def about_smart(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     navigate_about(sjc, settle_ms=2500)
-    _switch_tab(sjc, "smart")
+    _switch_tab(host, port, "smart")
     out = out_dir / "about-smart.png"
     p = capture_bigpicture(host, port, out)
     return {"about-smart.png": p} if p else {}
@@ -56,7 +56,7 @@ def about_smart(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, 
 @register("about_support")
 def about_support(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     navigate_about(sjc, settle_ms=2500)
-    _switch_tab(sjc, "support")
+    _switch_tab(host, port, "support")
     out = out_dir / "about-support.png"
     p = capture_bigpicture(host, port, out)
     return {"about-support.png": p} if p else {}

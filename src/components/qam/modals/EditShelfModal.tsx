@@ -234,6 +234,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       }
       return { data: item.id, label: item.name }
     })
+  // Separate plain-text labels for tab options so that title auto-fill never
+  // stringifies a JSX element to "[object Object]".
+  const tabTextLabels = new Map<string, string>(
+    platformTabs
+      .filter((item) => !isUnsupportedTab(item))
+      .map((item) => {
+        const i18nKey = detectNativeKey(item)
+        return [item.id, i18nKey ? t(i18nKey as any) : item.name]
+      })
+  )
   const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
   const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName }))
   // Placeholder injection: when the current value isn't present in the
@@ -270,7 +280,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       }
       if (type === 'tab') {
         const first = tabOptions[0]
-        const nextTitle = String(first?.label ?? t('newShelf'))
+        const nextTitle = first ? (tabTextLabels.get(String(first.data)) ?? t('newShelf')) : t('newShelf')
         return { ...prev, sourceType: type, title: nextTitle, tab: String(first?.data ?? 'all') }
       }
       if (type === 'external') {
@@ -292,8 +302,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     setState((prev) => ({ ...prev, collectionId: value, title: String(selected?.label ?? prev.title) }))
   }
   const setPlatformTab = (value: string) => {
-    const selected = tabOptions.find((item) => String(item.data) === value)
-    setState((prev) => ({ ...prev, tab: value, title: String(selected?.label ?? prev.title) }))
+    setState((prev) => ({ ...prev, tab: value, title: tabTextLabels.get(value) ?? prev.title }))
   }
   const handleSave = () => {
     closeModal?.();

@@ -94,6 +94,7 @@ def main() -> int:
     print(f"Available targets: {[t.get('title', '?') for t in list_targets(host, port)]}")
 
     sjc = open_session(host, port, "SharedJSContext")
+
     captured: list[Path] = []
     failed: list[tuple[str, str]] = []
     try:

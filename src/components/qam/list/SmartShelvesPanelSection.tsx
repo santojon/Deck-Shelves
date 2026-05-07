@@ -36,6 +36,7 @@ function SmartShelfActionsButton({ controller, shelf }: { controller: SettingsCo
   const onClick = () => showContextMenu(<SmartShelfActionsContextMenu controller={controller} shelf={shelf} />)
   return (
     <DialogButton
+      data-ds-smart-actions='true'
       style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }}
       onClick={onClick}
       onOKButton={onClick}

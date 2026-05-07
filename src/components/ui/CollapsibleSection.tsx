@@ -49,7 +49,7 @@ export function CollapsibleSection({
   return (
     <>
       <div style={{ marginTop: 8 }}>
-        <Focusable className='ds-collapsible-header' onClick={toggle} onOKButton={toggle}>
+        <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             {icon}
             {title}

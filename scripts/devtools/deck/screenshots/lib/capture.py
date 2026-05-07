@@ -12,10 +12,13 @@ Surfaces:
 from __future__ import annotations
 
 import base64
+import time
 from pathlib import Path
 from typing import Optional
 
 from .cdp import Session, list_targets, find_target, _normalize_host
+
+QAM_CAPTURE_BLANK_THRESHOLD = 20_000  # bytes — retry if compositor returns black frame
 
 
 # Surfaces that the QAM popup typically renders inside.
@@ -24,34 +27,37 @@ BIGPICTURE_TITLE_SUBSTRING = "Big Picture"
 SHARED_JS_TITLE_SUBSTRING = "SharedJSContext"
 
 
-# Legacy clip expression — locates the QAM panel and walks up at most 4
-# parents while each parent is <=15% wider, then returns its bounding
-# rect. Mirrors the approach used in the legacy monolithic
-# `screenshot.py` so captures match the validator's portrait
-# aspect-ratio expectation for QAM popups.
+# QAM panel clip expression. Anchors on Steam's own QuickAccess panel
+# selectors first (most reliable bounding rect), falling back to our
+# own scope element. Parent walker stops when a significantly wider
+# ancestor is reached. No landscape rejection — the caller decides
+# what to do with the rect (blank-frame retry handles bad captures).
 _QAM_PANEL_CLIP_EXPR = """
 (function(){
-  const sel = [
+  var el = null;
+  // Primary: Steam QuickAccess panel selectors (match legacy script).
+  var sel = [
     '[id^="quickaccess_content_"]',
     '[class*="quickaccessmenu_PanelOuterNav"]',
     '[class*="QuickAccess"][class*="Panel"]',
     '#QuickAccess-Menu',
     '#QuickAccess-NA',
   ];
-  let el = null;
-  for (const s of sel) { const m = document.querySelector(s); if (m) { el = m; break; } }
+  for (var s of sel) { var m = document.querySelector(s); if (m) { el = m; break; } }
+  // Fallback: our own scope element.
+  if (!el) el = document.querySelector('.deck-shelves-qam-scope');
   if (!el) {
-    const candidates = Array.from(document.querySelectorAll('[class]'));
-    for (const c of candidates) {
-      const cls = String(c.className || '');
+    var cands = Array.from(document.querySelectorAll('[class]'));
+    for (var c of cands) {
+      var cls = String(c.className || '');
       if (cls.includes('QuickAccess') || cls.includes('quickaccess')) { el = c; break; }
     }
   }
   if (!el) return null;
-  let best = el;
-  let bestRect = el.getBoundingClientRect();
-  for (let p = el.parentElement, i = 0; p && i < 4; p = p.parentElement, i++) {
-    const pr = p.getBoundingClientRect();
+  var best = el;
+  var bestRect = el.getBoundingClientRect();
+  for (var p = el.parentElement, i = 0; p && i < 4; p = p.parentElement, i++) {
+    var pr = p.getBoundingClientRect();
     if (pr.width <= 0 || pr.height <= 0) continue;
     if (pr.width > bestRect.width * 1.15) break;
     best = p; bestRect = pr;
@@ -67,19 +73,21 @@ _QAM_PANEL_CLIP_EXPR = """
 """
 
 
-def _capture(session: Session, out_path: Path, clip: Optional[dict] = None) -> Path:
+def _capture(session: Session, out_path: Path, clip: Optional[dict] = None, from_surface: bool = True) -> Path:
     """Run Page.captureScreenshot on the given session and write the PNG.
 
-    `clip` (optional) forwards a CDP `Page.captureScreenshot` clip rect
-    `{ x, y, width, height, scale }` so callers can crop to a specific
-    element instead of capturing the whole target viewport.
+    `from_surface=True` (default) uses the window's own rendering surface —
+    correct for Big Picture captures (no compositor bleed from other windows).
+    `from_surface=False` uses the system compositor surface — required for QAM
+    popup captures to get correct portrait proportions.
     """
     session.call("Page.enable")
     params: dict = {"format": "png"}
+    if not from_surface:
+        params["fromSurface"] = False
     if clip:
         params["clip"] = clip
         params["captureBeyondViewport"] = False
-        params["fromSurface"] = False
     msg = session.call("Page.captureScreenshot", params)
     data = msg.get("result", {}).get("data", "")
     raw = base64.b64decode(data) if data else b""
@@ -110,35 +118,59 @@ def capture_bigpicture(host: str, port: int, out_path: Path) -> Optional[Path]:
         return None
     sess = Session.open(host, port, target)
     try:
-        return _capture(sess, out_path)
+        return _capture(sess, out_path, from_surface=True)
     finally:
         sess.close()
 
 
-def capture_qam(host: str, port: int, out_path: Path, fallback_to_bp: bool = True, min_bytes: int = 60_000) -> Optional[Path]:
+def capture_qam(host: str, port: int, out_path: Path, fallback_to_bp: bool = True) -> Optional[Path]:
     """Capture the QAM popup, clipped to the panel rect (legacy
     parent-walker approach) so the resulting PNG is portrait-shaped.
-    Falls back to the Big Picture target when the QAM popup is missing
-    or the compositor returns a blank frame."""
+
+    Retries up to 5 times when the compositor returns a blank/black frame
+    (size < QAM_CAPTURE_BLANK_THRESHOLD). Only falls back to Big Picture
+    when the QAM popup target is entirely absent.
+    """
     targets = list_targets(host, port)
     target = find_target(targets, QAM_TITLE_SUBSTRING)
     if not target:
         if fallback_to_bp:
             return capture_bigpicture(host, port, out_path)
         return None
-    sess = Session.open(host, port, target)
-    try:
-        clip = _qam_panel_clip(sess)
-        result = _capture(sess, out_path, clip=clip)
-        if fallback_to_bp and result and result.stat().st_size < min_bytes:
-            sess.close()
-            return capture_bigpicture(host, port, out_path)
-        return result
-    finally:
+    for attempt in range(5):
+        sess = Session.open(host, port, target)
         try:
-            sess.close()
-        except Exception:
-            pass
+            clip = _qam_panel_clip(sess)
+            # Use the popup's own rendering surface (fromSurface=True/default).
+            # fromSurface=False (compositor) was returning a 1280px-wide frame
+            # with the panel clipped incorrectly — causing a black band on the right.
+            p = _capture(sess, out_path, clip=clip, from_surface=True)
+        finally:
+            try:
+                sess.close()
+            except Exception:
+                pass
+        if p and p.exists() and p.stat().st_size > QAM_CAPTURE_BLANK_THRESHOLD:
+            return p
+        if attempt < 4:
+            # Nudge compositor to repaint (same strategy as legacy script)
+            try:
+                from .cdp import Session as _S
+                ns = _S.open(host, port, target)
+                try:
+                    ns.evaluate("""(function(){
+  var s = document.querySelector('.deck-shelves-qam-scope') || document.body;
+  if (s) { s.scrollTop += 1; s.scrollTop -= 1; }
+  var f = document.activeElement;
+  if (f && f.blur) f.blur();
+  if (f && f.focus) f.focus();
+})()""")
+                finally:
+                    ns.close()
+            except Exception:
+                pass
+            time.sleep(0.8)
+    return out_path if out_path.exists() else None
 
 
 def capture(host: str, port: int, surface: str, out_path: Path) -> Optional[Path]:

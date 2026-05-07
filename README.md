@@ -1,6 +1,7 @@
 # Deck Shelves
 
-<p align="center">
+<div align="center">
+<p>
   <img src="assets/logo.png" alt="Deck Shelves" width="352">
 </p>
 
@@ -14,6 +15,8 @@
 [![Plugin](https://img.shields.io/badge/plugin%20for-Decky-purple.svg)](https://decky.xyz)
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon)
 [![Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/santojon)
+
+</div>
 
 A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable shelves into the Home screen with a built-in Quick Access Menu editor.
 
