@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-05-08
+
 ### Added
 
 - **`shortcutType` filter — games, software, tools, non-Steam links.** New filter type with a multi-select of four mutually-exclusive kinds: `game` (Steam `app_type === 1` or unknown), `software` (Steam `app_type === 2`, standalone apps), `tool` (Steam `app_type` ≥ 4: redistributables, runtimes, Proton), `link` (non-Steam shortcuts). Default = `["game"]`. Invertible. Per-shelf and global usage; UI in `FilterItemOptions` as individual toggles per kind.

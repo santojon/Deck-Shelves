@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-05-08
+
 ### Added
 
 - **Filter by shortcut type.** New filter type in the shelf editor: pick which kinds of library entries to include — **Games** (Steam games), **Software** (Steam apps like Streaming apps), **Tools** (Proton, runtimes, redistributables), or **Non-Steam links** (shortcuts added outside Steam). Mix and match; each kind has its own toggle.
