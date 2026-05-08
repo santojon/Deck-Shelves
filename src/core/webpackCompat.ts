@@ -271,8 +271,24 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
         }
         if (fallbackRoot && !visited.has(fallbackRoot)) {
           visited.add(fallbackRoot);
-          // Skip focused/hovered cards — their getBoundingClientRect may include scale transforms
+          // Skip focused/hovered cards — their getBoundingClientRect includes scale transforms
           if (fallbackRoot.classList.contains('gpfocus') || fallbackRoot.matches(':focus') || fallbackRoot.matches(':hover')) continue;
+          // Also skip cards that are mid-scale-transition (Steam's focus rule applies
+          // a 1.02× scale on focus and CSS animates the transition out for ~200ms; a
+          // poll catching that tail measures e.g. 1.01× and pollutes the cached dims,
+          // which then briefly shrinks every shelf card on the home until the next
+          // stable poll. Reads computed `transform` and bails if the x-scale isn't ~1.
+          try {
+            const t = getComputedStyle(fallbackRoot).transform;
+            if (t && t !== 'none') {
+              const m = t.match(/matrix(?:3d)?\(([^)]+)\)/);
+              if (m) {
+                const parts = m[1].split(',').map((p) => parseFloat(p.trim()));
+                const sx = parts[0];
+                if (Number.isFinite(sx) && Math.abs(sx - 1) > 0.005) continue;
+              }
+            }
+          } catch { /* ignore — fall through to default measurement */ }
           const cr = fallbackRoot.getBoundingClientRect();
           if (cr.width > 220) {
             wideRoots.push(fallbackRoot);

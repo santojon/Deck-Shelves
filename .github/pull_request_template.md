@@ -25,13 +25,23 @@
 ## Changelog
 
 <!-- AUTOFILL:CHANGELOG:START -->
-<!-- Add your changes under ## [Unreleased] in CHANGELOG.md (technical detail) -->
-<!-- AND in RELEASE_NOTES.md (user-facing, less jargon). Release bodies prefer -->
-<!-- RELEASE_NOTES.md and fall back to CHANGELOG.md if a version is missing there. -->
-<!-- Example entry: "- Fixed shelf disappearing after reboot." -->
+<!-- Required. Add entries under ## [Unreleased] in CHANGELOG.md (technical detail). -->
+<!-- Example: "- Fixed shelf disappearing after reboot." -->
 <!-- AUTOFILL:CHANGELOG:END -->
 
+## Release Notes
+
+<!-- AUTOFILL:RELEASE_NOTES:START -->
+<!-- Required. Add entries under ## [Unreleased] in RELEASE_NOTES.md (user-facing, less jargon). -->
+<!-- Release bodies are extracted from this file at tag time. -->
+<!-- Example: "- Shelves no longer disappear after a reboot." -->
+<!-- AUTOFILL:RELEASE_NOTES:END -->
+
 ## Type of Change
+
+<!-- At least ONE of the first three rows MUST be checked. The CI validator
+     enforces this — a PR with none of the main categories selected fails the
+     `pr-checklist` check. -->
 
 - [ ] Refactor / restructure (`[REFACTOR]`)
 - [ ] New feature / Code cleanup (`[FEATURE]`, `[CLEANUP]`)
@@ -41,6 +51,10 @@
 - [ ] Build / CI change
 
 ## Checklist
+
+<!-- ALL items must be checked. The "i18n keys" line is required only when the
+     "i18n / localization" Type of Change is checked above; otherwise it can be
+     left unchecked and the validator will skip it. -->
 
 - [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`.
 - [ ] I added my changes to `CHANGELOG.md` and `RELEASE_NOTES.md` under `## [Unreleased]`.

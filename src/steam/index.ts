@@ -53,6 +53,11 @@ function uniqApps(list: AppOverview[]): AppOverview[] {
 
 let lastNoAppsWarnAt = 0;
 let appOverviewCache: { ts: number; items: AppOverview[] } | null = null;
+// In-flight de-duplication: when many shelves resolve concurrently before the
+// 10s cache is populated (typical on cold mount / resume), each used to fire
+// its own GetAllAppOverviews chain. Now the second-and-later concurrent
+// callers await the first call's promise instead of duplicating the work.
+let appOverviewPending: Promise<AppOverview[]> | null = null;
 
 export function invalidateAppOverviewCache(): void {
   appOverviewCache = null;
@@ -1204,7 +1209,22 @@ export async function getAllAppOverviews(): Promise<AppOverview[]> {
   if (appOverviewCache && now - appOverviewCache.ts < 10000) {
     return appOverviewCache.items;
   }
+  // De-dupe in-flight calls. Several shelves resolving concurrently before
+  // the first call lands would otherwise each trigger their own
+  // GetAllAppOverviews chain (multiple Steam IPC round-trips, fallback walks
+  // through every window/client). Now they all await a single shared promise.
+  if (appOverviewPending) return appOverviewPending;
+  appOverviewPending = (async () => {
+    try {
+      return await fetchAllAppOverviews(now);
+    } finally {
+      appOverviewPending = null;
+    }
+  })();
+  return appOverviewPending;
+}
 
+async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
   const out: AppOverview[] = [];
   for (const sc of getSteamClients()) {
     try {

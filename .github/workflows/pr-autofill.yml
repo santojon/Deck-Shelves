@@ -60,8 +60,12 @@ jobs:
                   body, count=1, flags=re.DOTALL,
               )
 
-          desc = extract_unreleased('RELEASE_NOTES.md')
-          chg  = extract_unreleased('CHANGELOG.md')
+          # Description is the author's own narrative — don't autofill.
+          # Changelog comes from CHANGELOG.md (technical detail) and Release
+          # Notes from RELEASE_NOTES.md (user-facing). Both must be filled
+          # before merge — pr-checklist.yml enforces non-empty content.
+          notes = extract_unreleased('RELEASE_NOTES.md')
+          chg   = extract_unreleased('CHANGELOG.md')
 
           pr_number = os.environ['PR_NUMBER']
           repo      = os.environ['REPO']
@@ -71,8 +75,8 @@ jobs:
               text=True,
           )
 
-          new_body = replace_between(body, 'DESCRIPTION', desc)
-          new_body = replace_between(new_body, 'CHANGELOG',   chg)
+          new_body = replace_between(body, 'CHANGELOG',     chg)
+          new_body = replace_between(new_body, 'RELEASE_NOTES', notes)
 
           if new_body == body:
               print('No autofill changes (markers missing, Unreleased empty, or already synced).')

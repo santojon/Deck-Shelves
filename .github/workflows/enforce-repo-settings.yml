@@ -38,6 +38,11 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const branch = (context.payload.repository && context.payload.repository.default_branch) || 'main';
+            // Required status checks: CI's `validate` job + the PR-body
+            // checklist validator. The owner / admin can still bypass via
+            // the lock-main ruleset's bypass_actors entry; this just blocks
+            // accidental merges of PRs that haven't filled the checklist
+            // or run CI to green.
             try {
               await github.rest.repos.updateBranchProtection({
                 owner,
@@ -45,7 +50,7 @@ jobs:
                 branch,
                 required_status_checks: {
                   strict: true,
-                  contexts: []
+                  contexts: ['validate', 'PR Checklist / validate']
                 },
                 enforce_admins: false,
                 required_pull_request_reviews: null,
