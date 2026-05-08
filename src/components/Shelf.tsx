@@ -132,15 +132,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       return;
     }
     (async () => {
-      const next = new Map<number, PlatformAppMeta>();
-      for (const appid of appIds) {
-        try {
-          next.set(appid, await platform.getAppMeta(appid));
-        } catch {
-          next.set(appid, { appid, name: `App ${appid}` });
-        }
-      }
-      if (!cancelled) setItems(next);
+      // Parallelize metadata lookups so cold-start (Steam restart) populates
+      // the shelf in roughly one round-trip per shelf instead of N. Each
+      // getAppMeta is independent and the underlying GetAllAppOverviews
+      // fallback is already memoized for 10s, so concurrent callers share
+      // work rather than duplicating it.
+      const results = await Promise.all(appIds.map(async (appid): Promise<[number, PlatformAppMeta]> => {
+        try { return [appid, await platform.getAppMeta(appid)]; }
+        catch { return [appid, { appid, name: `App ${appid}` }]; }
+      }));
+      if (!cancelled) setItems(new Map(results));
     })();
     return () => { cancelled = true; };
   }, [platform, appIds?.join(","), metaVersion]);

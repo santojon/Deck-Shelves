@@ -30,6 +30,8 @@ import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { HighlightRow } from './editShelf/HighlightRow'
 import { HighlightMiniCard } from './editShelf/HighlightMiniCard'
 import { FunnelIcon, EyeIcon, SteamIcon } from '../../icons'
+import type { PlatformAppMeta } from '../../../runtime/platform'
+import { ShelfPreview } from './editShelf/ShelfPreview'
 
 // Tab title with optional leading icon — uses inline-flex so the icon
 // aligns vertically with the label text. Applied selectively (not every
@@ -92,7 +94,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<EditTab>('source')
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
-  const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
+  const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
   const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
@@ -177,14 +179,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     let cancelled = false
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
     ;(async () => {
-      const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
-      for (const id of resolvedIds) {
-        try {
-          const meta = await platform.getAppMeta(id)
-          next.set(id, { name: meta?.name || `App ${id}`, portraitUrl: meta?.portraitUrl, heroUrl: meta?.heroUrl })
-        } catch { next.set(id, { name: `App ${id}` }) }
-      }
-      if (!cancelled) setResolvedMeta(next)
+      const results = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
+        try { const m = await platform.getAppMeta(id); return [id, m ?? { appid: id, name: `App ${id}` }] }
+        catch { return [id, { appid: id, name: `App ${id}` }] }
+      }))
+      if (!cancelled) setResolvedMeta(new Map(results))
     })()
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
@@ -403,7 +402,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 220px), 720px)', minHeight: 360 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 160px), 800px)', minHeight: 360 }}>
           <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
           <Tabs
             activeTab={activeTab}
@@ -548,6 +547,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
           />
           </div>
           <div style={{ flexShrink: 0, padding: '0 24px' }}>
+            {!state.hideShelfTitle && (
+              <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {state.title || t('newShelf')}
+              </div>
+            )}
             {(activeTab === 'display' && hiddenPickerOpen) ? (
               effectiveHiddenCandidateIds.length === 0 ? (
                 <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
@@ -586,7 +590,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             ) : (isManualSort && activeTab === 'source') ? (
               <ManualSortRow
                 order={effectiveManualOrder}
-                meta={resolvedMeta}
+                meta={resolvedMeta as any}
                 onReorder={reorderManual}
                 t={t}
                 highlightFirst={state.highlightFirst}
@@ -594,14 +598,14 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 highlightedAppIds={state.highlightedAppIds}
                 highlightPickerOpen={highlightPickerOpen}
               />
-            ) : (
+            ) : (activeTab === 'visual' && highlightPickerOpen) ? (
               <HighlightRow>
                 {effectiveManualOrder.map((id, idx) => {
                   const inHighlighted = state.highlightedAppIds.includes(id)
-                  const selected = highlightPickerOpen && inHighlighted
+                  const selected = inHighlighted
                   const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
                   const meta = resolvedMeta.get(id)
-                  const toggle = (activeTab === 'visual' && highlightPickerOpen) ? () => {
+                  const toggle = () => {
                     setAlternatingMode(null)
                     prePatternHighlightsRef.current = null
                     setState((prev) => ({
@@ -610,7 +614,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                         ? prev.highlightedAppIds.filter((x) => x !== id)
                         : [...prev.highlightedAppIds, id],
                     }))
-                  } : null
+                  }
                   return (
                     <HighlightMiniCard
                       key={id}
@@ -627,6 +631,23 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                   )
                 })}
               </HighlightRow>
+            ) : (
+              <ShelfPreview
+                t={t}
+                ids={effectiveManualOrder}
+                meta={resolvedMeta}
+                hideStatusLine={state.hideStatusLine}
+                hideNewBadge={state.hideNewBadge}
+                hideCompatIcons={state.hideCompatIcons}
+                hideNonSteamBadge={state.hideNonSteamBadge}
+                hideGameNames={state.hideGameNames === true}
+                hideInstallIndicator={state.hideInstallIndicator === true}
+                hideSeeMore={state.hideSeeMore === true}
+                hideRefreshCard={state.hideRefreshCard === true}
+                highlightFirst={state.highlightFirst}
+                highlightAll={state.highlightAll}
+                highlightedAppIds={state.highlightedAppIds}
+              />
             )}
           </div>
           </div>

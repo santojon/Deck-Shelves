@@ -41,21 +41,29 @@ function getMainNavTree(): any {
 }
 
 function findNavNodeForElement(el: HTMLElement): any {
-  const tree = getMainNavTree();
-  if (!tree) return null;
-  const root = tree.m_Root || tree.Root;
-  if (!root) return null;
+  const ctrl = getFocusNavController();
+  if (!ctrl) return null;
+  const ctx = ctrl.m_ActiveContext || ctrl.m_LastActiveContext;
+  const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
 
-  let found: any = null;
-  const walk = (node: any) => {
-    if (found) return;
+  const walk = (node: any, target: HTMLElement): any => {
     const nodeEl = node.m_element || node.Element;
-    if (nodeEl === el) { found = node; return; }
+    if (nodeEl === target) return node;
     const children = node.m_rgChildren || [];
-    for (let i = 0; i < children.length; i++) walk(children[i]);
+    for (let i = 0; i < children.length; i++) {
+      const found = walk(children[i], target);
+      if (found) return found;
+    }
+    return null;
   };
-  walk(root);
-  return found;
+
+  for (const tree of trees) {
+    const root = tree.m_Root || tree.Root;
+    if (!root) continue;
+    const found = walk(root, el);
+    if (found) return found;
+  }
+  return null;
 }
 
 /** Move gamepad focus to a specific DOM element using the Steam nav tree API.
