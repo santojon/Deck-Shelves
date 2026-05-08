@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "Źródła",
   "docs_shelves_template_tip": "Wszystkie szablony tworza w pelni edytowalne polki -- zrodlo, sortowanie, limit i opcje wyswietlania mozna zmienic po utworzeniu.",
   "docs_shelves_title": "Półki",
+  "docs_smart_day_overrides": "Przełącznik na karcie Filtry inteligentne. Po włączeniu pojawia się karta Nadpisania, na której możesz dać konkretnym dniom tygodnia własne przedziały godzinowe — nadpisując domyślne godziny tylko dla tych dni.",
   "docs_smart_filters_overview": "Karta Inteligentne filtry zbiera wszystko specyficzne dla wybranego trybu: precyzyjne suwaki, okno widoczności z jednym lub wieloma zakresami godzin oraz dniami tygodnia. Karta Źródło zachowuje podstawy (tytuł, sortowanie, limit, interwał odświeżania).",
   "docs_smart_group_anything_goes": "Różnorodne",
   "docs_smart_group_daily": "Codzienne",

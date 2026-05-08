@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "Sources",
   "docs_shelves_template_tip": "Tous les modeles creent des rayons entierement modifiables -- la source, le tri, la limite et les options d'affichage peuvent etre modifies apres la creation.",
   "docs_shelves_title": "Étagères",
+  "docs_smart_day_overrides": "Bascule dans l'onglet Filtres intelligents. Activée, un onglet Remplacements apparaît où vous pouvez donner à des jours spécifiques leurs propres plages horaires, remplaçant les heures par défaut uniquement pour ces jours.",
   "docs_smart_filters_overview": "L'onglet Filtres intelligents regroupe tout ce qui est propre au mode choisi : réglages fins, fenêtre de visibilité avec un ou plusieurs créneaux horaires et jours de la semaine. L'onglet Source garde l'essentiel (titre, tri, limite, intervalle d'actualisation).",
   "docs_smart_group_anything_goes": "Au hasard",
   "docs_smart_group_daily": "Quotidien",

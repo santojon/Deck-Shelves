@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "Источники",
   "docs_shelves_template_tip": "Vse shablony sozdayut polnost'yu redaktiruemye polki -- istochnik, sortirovku, limit i parametry otobrazheniya mozhno izmenit' posle sozdaniya.",
   "docs_shelves_title": "Полки",
+  "docs_smart_day_overrides": "Переключатель на вкладке Умные фильтры. Когда включён, появляется вкладка Переопределения, где конкретным дням недели можно задать свои часовые диапазоны — переопределяя часы по умолчанию только для этих дней.",
   "docs_smart_filters_overview": "Вкладка \"Умные фильтры\" собирает всё, что относится к выбранному режиму: точные настройки, окно видимости с одним или несколькими временными интервалами, а также дни недели. Вкладка \"Источник\" остаётся для основ (название, сортировка, лимит, интервал обновления).",
   "docs_smart_group_anything_goes": "Разное",
   "docs_smart_group_daily": "Ежедневно",

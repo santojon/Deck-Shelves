@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "来源",
   "docs_shelves_template_tip": "所有模板都创建完全可编辑的书架 — 来源、排序、数量限制和显示选项均可在创建后更改。",
   "docs_shelves_title": "书架",
+  "docs_smart_day_overrides": "智能过滤器选项卡中的开关。开启后会出现覆盖设置选项卡，可为特定星期几设置自己的时间范围 — 仅对这些天覆盖默认时间。",
   "docs_smart_filters_overview": "智能筛选选项卡集中所选模式的所有特定设置:微调滑块、含一个或多个小时段的显示窗口和星期几。来源选项卡保留基础项(标题、排序、上限、刷新间隔)。",
   "docs_smart_group_anything_goes": "随心选择",
   "docs_smart_group_daily": "每日",

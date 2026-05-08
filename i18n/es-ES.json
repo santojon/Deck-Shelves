@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "Fuentes",
   "docs_shelves_template_tip": "Todas las plantillas crean estantes completamente editables -- la fuente, el orden, el limite y las opciones de visualizacion se pueden cambiar despues de la creacion.",
   "docs_shelves_title": "Estanterías",
+  "docs_smart_day_overrides": "Interruptor en la pestaña Filtros inteligentes. Cuando está activo, aparece una pestaña Anulaciones donde puedes dar a días específicos sus propias franjas horarias, anulando las horas predeterminadas solo para esos días.",
   "docs_smart_filters_overview": "La pestaña Filtros inteligentes agrupa todo lo específico del modo elegido: ajustes finos, la ventana de visibilidad con uno o más rangos horarios y los días de la semana en que aparece la estantería. La pestaña Fuente conserva lo básico (título, orden, límite, intervalo de actualización).",
   "docs_smart_group_anything_goes": "Variado",
   "docs_smart_group_daily": "Diario",

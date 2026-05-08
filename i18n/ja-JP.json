@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "ソース",
   "docs_shelves_template_tip": "すべてのテンプレートは完全に編集可能なシェルフを作成します — ソース、並び替え、上限、表示オプションはすべて作成後に変更できます。",
   "docs_shelves_title": "シェルフ",
+  "docs_smart_day_overrides": "スマートフィルタータブのトグル。有効にすると、上書きタブが表示され、特定の曜日に独自の時間帯を設定できます — その曜日のみデフォルト時間が上書きされます。",
   "docs_smart_filters_overview": "スマートフィルタータブには、選択したモード固有の項目がまとめられています:微調整、1つ以上の時間範囲を持つ表示ウィンドウ、曜日制限。ソースタブは基本(タイトル、ソート、上限、更新間隔)を保持します。",
   "docs_smart_group_anything_goes": "なんでもあり",
   "docs_smart_group_daily": "デイリー",

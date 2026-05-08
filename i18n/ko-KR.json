@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "소스",
   "docs_shelves_template_tip": "모든 템플릿은 완전히 편집 가능한 선반을 만듭니다 — 소스, 정렬, 한도, 표시 옵션 모두 생성 후 변경할 수 있습니다.",
   "docs_shelves_title": "선반",
+  "docs_smart_day_overrides": "스마트 필터 탭의 토글. 활성화하면 재정의 탭이 나타나 특정 요일에 자체 시간대를 설정할 수 있습니다 — 해당 요일에만 기본 시간을 재정의합니다.",
   "docs_smart_filters_overview": "스마트 필터 탭은 선택한 모드에 특화된 항목을 모읍니다: 세부 조정, 하나 이상의 시간 범위가 있는 표시 창, 요일 제한. 소스 탭은 기본 사항(제목, 정렬, 제한, 새로 고침 간격)을 유지합니다.",
   "docs_smart_group_anything_goes": "다양한 선택",
   "docs_smart_group_daily": "일일",

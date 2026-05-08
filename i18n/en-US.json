@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "Sources",
   "docs_shelves_template_tip": "All templates produce fully editable shelves — source, sort, limit, and display options can all be changed after creation.",
   "docs_shelves_title": "Shelves",
+  "docs_smart_day_overrides": "Toggle in the Smart filters tab. When on, an Overrides tab appears where you can give specific weekdays their own hour ranges — overriding the default hours for those days only.",
   "docs_smart_filters_overview": "The Smart filters tab gathers everything that's specific to the chosen mode: tuning sliders, the visibility window with one or more hour ranges, and the days of the week the shelf is visible. The Source tab keeps the basics (title, sort, limit, refresh interval).",
   "docs_smart_group_anything_goes": "Anything Goes",
   "docs_smart_group_daily": "Daily",

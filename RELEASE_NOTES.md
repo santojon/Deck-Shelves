@@ -9,13 +9,20 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Filter by shortcut type.** New filter type in the shelf editor: pick which kinds of library entries to include — **Games** (Steam games), **Software** (Steam apps like Streaming apps), **Tools** (Proton, runtimes, redistributables), or **Non-Steam links** (shortcuts added outside Steam). Mix and match; each kind has its own toggle.
 - **Deduplicate by exact name.** New toggle in each shelf's Display tab (and a global counterpart in settings). When on, if two entries share an exact name, only one is kept — Steam wins over non-Steam shortcuts.
-- **Manually hide games per shelf.** New "Hide specific games" toggle in each shelf's Display tab. Turning it on reveals a mini-card picker where you tap a game to exclude it from that shelf. The shelf still targets the configured number of visible games — extras are fetched automatically to fill the gap.
+- **Manually hide games per shelf.** New "Hide specific games" toggle (last entry in the Display tab) reveals a mini-card picker where you tap a game to exclude it from that shelf. The shelf still targets the configured number of visible games — extras are fetched automatically to fill the gap.
 - **Narrow collection and tab sources with filters.** When a shelf's source is a collection or library tab, a dedicated **Additional Filters** tab appears in the shelf editor with a full filter panel — same options as the regular Filters tab, applied on top of the source results (e.g. source = Favorites collection, refine to installed only).
-- **Per-range weekday overrides for smart shelf time windows.** Each time range in a smart shelf's visibility schedule can now specify which days it applies to, independently from the shelf-level day filter.
+- **Per-day schedule for smart shelves.** A new **Allow per-day schedule** toggle in the Smart Filters tab opens a dedicated **Overrides** tab where you can set different hour ranges for specific weekdays — e.g. "10:00–12:00 on Mon/Wed/Fri but 18:00–22:00 on weekends". The Overrides tab shows a summary of the configured days/hours at the top and per-weekday hour-range editors below. The basic visibility settings (restrict by hour, default hour ranges, days of the week) now live at the bottom of the Smart Filters tab itself.
+- **Live preview of how each shelf renders.** The preview area in both shelf editors now shows real cards as they appear on the home: cover art, **game name**, **status line** (playtime / install / update), **compat tier badges** (Verified / Playable / Unsupported), and the **New** badge — with the **shelf title** above and the **See more** / **Refresh** trailing tiles where applicable. Every Display-tab toggle updates the preview instantly, so you can see the effect of "hide compat icons" / "hide game names" / etc. as you flip them.
+
+### Changed
+
+- **Edit modals — taller content area.** The edit modals are ~60–80px taller and the scrollable tab content has matching extra room, so configuring a shelf with many filters or smart-shelf params no longer feels cramped.
+- **Faster shelf load after a Steam restart.** Each shelf's per-game metadata lookups now run in parallel instead of sequentially. On a cold cache (typical right after Steam restart) this collapses populate-time from "N games × per-call latency" to roughly "the slowest single call", so artwork / playtime / status appears with much less staircase.
 
 ### Fixed
 
 - **Shelves with time windows now disappear on time.** A combination of a 60-min resolve cache and a missing re-render step could keep a shelf visible up to an hour after its configured window ended. Visibility is now re-checked immediately at the boundary, caches are flushed, and modes with built-in time logic (e.g. Spare Time) are also covered even when no explicit schedule is set.
+- **Days of week — empty selection now warns instead of silently meaning "every day".** When you uncheck all 7 weekday chips, the picker shows an orange warning that the shelf will not appear. The default for new shelves is still all 7 days checked.
 
 ## [2.0.1] - 2026-05-06
 

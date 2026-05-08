@@ -119,6 +119,7 @@
   "docs_shelves_sources_title": "Fonti",
   "docs_shelves_template_tip": "Tutti i modelli creano scaffali completamente modificabili -- fonte, ordinamento, limite e opzioni di visualizzazione possono essere cambiati dopo la creazione.",
   "docs_shelves_title": "Scaffali",
+  "docs_smart_day_overrides": "Interruttore nella scheda Filtri intelligenti. Quando attivo, appare una scheda Sovrascritture dove puoi dare a giorni specifici le loro fasce orarie, sovrascrivendo le ore predefinite solo per quei giorni.",
   "docs_smart_filters_overview": "La scheda Filtri intelligenti raccoglie tutto ciò che è specifico della modalità scelta: regolazioni fini, finestra di visibilità con uno o più intervalli orari e giorni della settimana. La scheda Origine mantiene l'essenziale (titolo, ordinamento, limite, intervallo di aggiornamento).",
   "docs_smart_group_anything_goes": "Variato",
   "docs_smart_group_daily": "Giornaliero",
