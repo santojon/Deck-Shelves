@@ -23,6 +23,7 @@ Deck Shelves supports advanced game filtering with AND/OR logic using filter gro
 | `appIdList` | Explicit whitelist of app IDs | `appIds`: number[] |
 | `cloudAvailable` | Steam Cloud support | — |
 | `controllerSupport` | Native controller support | `min`: number (1 = partial or full, 2 = full only; default 1) |
+| `shortcutType` | Filter by entry kind: game (Steam app_type 1 or unknown), software (app_type 2), tool (any other Steam app_type), link (non-Steam shortcut) | `kinds`: `("game" \| "software" \| "tool" \| "link")[]` (default `["game"]`) |
 | `merge` | Nested predicate group with its own `and`/`or` mode (per-app boolean) | `mode`: `"and"` \| `"or"`, `items`: FilterItem[] |
 | `storeTag` | Has specific Steam store tags _(pass-through, not yet evaluated)_ | `tags`: string[] |
 | `achievements` | Achievement count range _(pass-through, not yet evaluated)_ | `min`, `max`: number |

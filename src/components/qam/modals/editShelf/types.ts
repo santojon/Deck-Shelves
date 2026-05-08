@@ -28,4 +28,7 @@ export type EditableShelfState = {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+  dedupeByExactName: boolean
+  hiddenAppIds: number[]
+  childFilterGroup: FilterGroup
 }

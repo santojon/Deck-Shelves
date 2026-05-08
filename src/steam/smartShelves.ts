@@ -87,7 +87,7 @@ function resolveRediscover(apps: AppOverview[], limit: number, params?: SmartPar
 function resolveBestUnplayed(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minDeck = getParam("best_unplayed", params, "minDeckLevel");
   return apps
-    .filter((a) => a.installed && playtimeMinutes(a) === 0 && lastPlayedSec(a) === 0 && deckCompat(a) >= minDeck)
+    .filter((a) => a.installed && (a.app_type === undefined || a.app_type === 1) && playtimeMinutes(a) === 0 && lastPlayedSec(a) === 0 && deckCompat(a) >= minDeck)
     .sort((a, b) => deckCompat(b) - deckCompat(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -205,23 +205,17 @@ function resolveForgotten(apps: AppOverview[], limit: number, params?: SmartPara
     .map((a) => a.appid);
 }
 
-/** Hardcoded windows for the legacy "spare_time" mode. Exposed so the
- *  EditSmartShelfModal can pre-populate `visibleHours` when a user creates
- *  a shelf in this mode and so `addSmartShelf` defaults match the
- *  resolver's natural behavior. */
+/** Default visibility windows for the "spare_time" mode. Pre-populated
+ *  into `visibleHours` when a new spare_time shelf is created so the
+ *  user can edit them. Also returned by `getModeVisibilityWindows` as
+ *  a fallback for shelves created before `visibleHours` was introduced. */
 export const SPARE_TIME_WINDOWS: ReadonlyArray<{ start: number; end: number }> = [
   { start: 6, end: 9 },
   { start: 12, end: 14 },
   { start: 19, end: 22 },
 ];
 
-function isSpareTimeWindow(): boolean {
-  const h = new Date().getHours();
-  return (h >= 6 && h < 9) || (h >= 12 && h < 14) || (h >= 19 && h < 22);
-}
-
 function resolveSpareTime(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  if (!isSpareTimeWindow()) return [];
   const maxPt = getParam("spare_time", params, "maxPlaytimeMinutes");
   const minDeck = getParam("spare_time", params, "minDeckLevel");
   return apps
@@ -290,7 +284,7 @@ export function resolveSmartShelf(
   });
 }
 
-type VisibilityRange = { start: number; end: number };
+type VisibilityRange = { start: number; end: number; days?: number[] };
 type VisibilityWindowInput = VisibilityRange | ReadonlyArray<VisibilityRange> | undefined;
 
 function normalizeWindow(input: VisibilityWindowInput): VisibilityRange[] {
@@ -329,15 +323,25 @@ export function isInVisibilityWindow(
   daysOfWeek: number[] | undefined,
   now: Date = new Date(),
 ): boolean {
-  if (Array.isArray(daysOfWeek)) {
-    // Defined array — even empty — means the user picked specific days.
-    // Empty therefore yields "no allowed days" → never visible.
-    if (!daysOfWeek.includes(now.getDay())) return false;
-  }
   const ranges = normalizeWindow(window);
-  if (ranges.length === 0) return true;
+  if (ranges.length === 0) {
+    // No hour restriction — apply only the global day filter.
+    if (Array.isArray(daysOfWeek)) {
+      if (!daysOfWeek.includes(now.getDay())) return false;
+    }
+    return true;
+  }
   const h = now.getHours();
-  for (const r of ranges) if (inSingleRange(r, h)) return true;
+  const today = now.getDay();
+  for (const r of ranges) {
+    // Per-range days override the global daysOfWeek for this range only.
+    if (Array.isArray(r.days)) {
+      if (!r.days.includes(today)) continue;
+    } else if (Array.isArray(daysOfWeek)) {
+      if (!daysOfWeek.includes(today)) return false;
+    }
+    if (inSingleRange(r, h)) return true;
+  }
   return false;
 }
 
@@ -372,6 +376,17 @@ export function nextVisibilityBoundary(
     }
   }
   return null;
+}
+
+/**
+ * Returns the hardcoded visibility windows for modes that have built-in
+ * time-conditional logic (e.g. spare_time). Used by HomeInject to schedule
+ * boundary timers even when the user hasn't set explicit `visibleHours`.
+ * Add new modes here as they acquire internal time checks.
+ */
+export function getModeVisibilityWindows(mode: SmartShelfMode): ReadonlyArray<{ start: number; end: number }> | undefined {
+  if (mode === 'spare_time') return SPARE_TIME_WINDOWS;
+  return undefined;
 }
 
 /**

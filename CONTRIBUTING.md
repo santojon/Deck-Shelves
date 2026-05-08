@@ -136,7 +136,7 @@ Follow these steps to regenerate the canonical screenshots:
 
 1. Create a feature branch from `main`
 2. Make your changes in focused, atomic commits
-3. Add your changes to `CHANGELOG.md` under the `## [Unreleased]` section (use `### Added`, `### Fixed`, `### Changed`, or `### Removed` as appropriate)
+3. Add entries under `## [Unreleased]` in **both** `CHANGELOG.md` (technical detail) and `RELEASE_NOTES.md` (user-facing language). Use `### Added`, `### Fixed`, `### Changed`, `### Removed`, or `### Performance` as appropriate.
 4. Run `bash scripts/build/validate-compat.sh` and ensure all checks pass
 5. Build with `pnpm run build:plugin` and verify no errors
 6. Test on a real Steam Deck if possible
@@ -152,27 +152,42 @@ Follow these steps to regenerate the canonical screenshots:
 | `[FEATURE]` | minor (0.1.0 → 0.2.0) | `[FEATURE] Add drag-and-drop shelf reordering` |
 | `[REFACTOR]` | major (0.1.0 → 1.0.0) | `[REFACTOR] Simplify settings persistence layer` |
 
-When a PR is merged to `main`, the version bump and tag creation happen automatically based on the title tag.
+When a PR is merged to `main`, the version bump and tag creation happen automatically based on the title tag. The `release.yml` workflow extracts the user-facing release body from `RELEASE_NOTES.md` (and falls back to `CHANGELOG.md` if a section is missing) — release notes are **not** auto-generated from commit messages, so the entries you add are exactly what ships.
 
-> **Important:** Do not manually edit version numbers in `package.json`. Do not add version headers to `CHANGELOG.md` — only add entries under `## [Unreleased]`. The bump automation handles versioning.
+> **Important:** Do not manually edit version numbers in `package.json`. Do not add version headers to `CHANGELOG.md` / `RELEASE_NOTES.md` — only add entries under `## [Unreleased]`. The bump automation handles versioning.
 
 ### Pull Request Format
 
-Your PR should follow the template provided. Each section:
+Your PR must follow the template. The `pr-checklist` GitHub Actions workflow validates the body on every push and **blocks merge** if any of the rules below fail; the `pr-autofill` workflow mirrors `## [Unreleased]` from `CHANGELOG.md` and `RELEASE_NOTES.md` into the PR body, so editing those files is enough to populate the corresponding sections.
+
+**Required sections:**
 
 - **Description** — What this PR does and why. Link related issues with `Closes #123`.
-- **Changelog** — Add your changes under `## [Unreleased]` in `CHANGELOG.md`.
-- **Type of Change** — Check the box that matches your change type.
-- **Checklist** — Verify all items before requesting review:
-  - PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`
-  - Changes added to `CHANGELOG.md` under `## [Unreleased]`
-  - Code follows project style (2 spaces, semicolons, double quotes)
-  - `pnpm run build:plugin` passes with no errors
-  - `bash scripts/build/validate-compat.sh` passes
-  - Tested on Steam Deck (or explained why not needed)
-  - New i18n keys added to **all** locale files
-- **Screenshots / Videos** — If applicable, show the change on Steam Deck.
-- **Additional Notes** — Anything else reviewers should know.
+- **Changelog** — must be non-empty. Add entries under `## [Unreleased]` in `CHANGELOG.md` (technical level: file paths, internal mechanics, regressions covered).
+- **Release Notes** — must be non-empty. Add entries under `## [Unreleased]` in `RELEASE_NOTES.md` (user-facing wording, no jargon — this is what ships in the GitHub release body and the Decky store description).
+
+**Type of Change** — at least **one** of the first three rows must be checked:
+
+- [ ] Refactor / restructure (`[REFACTOR]`)
+- [ ] New feature / Code cleanup (`[FEATURE]`, `[CLEANUP]`)
+- [ ] Bug fix / Enhancement / QA / Performance update (`[FIX]`, `[ENHANCEMENT]`, `[QA]`, `[PERF]`)
+
+The remaining rows (Documentation update / i18n / Build / CI) are additive — check them in addition to one of the three above when applicable.
+
+**Checklist** — every item must be checked. The "i18n keys" line is required only when the **i18n / localization** Type-of-Change row above is also checked; otherwise it can stay unchecked and the validator will skip it.
+
+- [ ] My PR title starts with `[FIX]`, `[ENHANCEMENT]`, `[PERF]`, `[QA]`, `[REFACTOR]`, `[CLEANUP]`, or `[FEATURE]`
+- [ ] I added my changes to `CHANGELOG.md` and `RELEASE_NOTES.md` under `## [Unreleased]`
+- [ ] I have read [CONTRIBUTING.md](CONTRIBUTING.md)
+- [ ] My code follows the project's code style (2 spaces, semicolons, double quotes)
+- [ ] I ran `pnpm run build:plugin` with no errors
+- [ ] I ran `bash scripts/build/validate-compat.sh` and all checks pass
+- [ ] I tested on a Steam Deck (or explained why this isn't needed)
+- [ ] **(only if i18n / localization is checked above)** New i18n keys added to **all** 16 locale files
+
+**Other sections** — Screenshots / Videos and Additional Notes are optional but encouraged for UI changes and non-obvious decisions.
+
+> The `pr-checklist` validator runs on every PR push (including from forks) and is a required status check on `main` — the PR cannot merge with red. The repository owner can bypass via the `lock-main` ruleset's bypass-actor entry, but everyone else must satisfy the rules above.
 
 ## Reporting Issues
 

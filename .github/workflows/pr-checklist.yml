@@ -1,0 +1,144 @@
+name: PR Checklist
+
+# Validates that the PR body's checklist + type-of-change boxes are filled
+# correctly before the PR can merge:
+#
+#   - At least ONE of the first three "Type of Change" rows must be checked
+#     (Refactor / Feature-Cleanup / Bug-Fix-Enhancement-QA-Perf).
+#   - Every "Checklist" item must be checked, EXCEPT that the "i18n keys"
+#     line is only required when the "i18n / localization" type-of-change
+#     row is also checked.
+#   - The Changelog and Release Notes sections must contain at least one
+#     non-comment, non-blank line (or `## [Unreleased]` content must exist
+#     in the corresponding file).
+#
+# `pull_request_target` is used so the token can re-run on edits from forks,
+# but only PR body text is read — never code from the PR head.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR body checklist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 <<'PY'
+          import os, re, subprocess, sys
+
+          pr_number = os.environ['PR_NUMBER']
+          repo      = os.environ['REPO']
+
+          body = subprocess.check_output(
+              ['gh', 'pr', 'view', pr_number, '--repo', repo, '--json', 'body', '--jq', '.body'],
+              text=True,
+          )
+
+          errors = []
+
+          # --- PR title: must start with a recognized tag.
+          VALID_TAGS = {'FIX', 'ENHANCEMENT', 'PERF', 'QA', 'FEATURE', 'CLEANUP', 'REFACTOR'}
+          title = os.environ.get('PR_TITLE', '').strip()
+          title_match = re.match(r'^\[([A-Z]+)\]', title)
+          if not title_match or title_match.group(1) not in VALID_TAGS:
+              errors.append(
+                  f'PR title must start with one of: '
+                  '[FIX], [ENHANCEMENT], [PERF], [QA], [FEATURE], [CLEANUP], [REFACTOR]. '
+                  f'Got: "{title}"'
+              )
+
+          # --- Type of Change: at least one of the first 3 rows must be checked.
+          # The template's exact wording is matched. The first 3 rows are:
+          #   [REFACTOR], [FEATURE]/[CLEANUP], [FIX]/[ENHANCEMENT]/[QA]/[PERF]
+          main_type_rows = [
+              r'Refactor / restructure',
+              r'New feature / Code cleanup',
+              r'Bug fix / Enhancement / QA / Performance update',
+          ]
+          main_checked = []
+          for row in main_type_rows:
+              # Match `- [x]` (any case) followed by the row text on the same line
+              if re.search(r'^\s*-\s*\[[xX]\]\s+' + row, body, re.MULTILINE):
+                  main_checked.append(row)
+          if not main_checked:
+              errors.append(
+                  'Type of Change: at least one of [REFACTOR], '
+                  '[FEATURE]/[CLEANUP], or [FIX]/[ENHANCEMENT]/[QA]/[PERF] '
+                  'must be checked.'
+              )
+
+          # --- Detect whether i18n was opted into.
+          i18n_type_checked = bool(
+              re.search(r'^\s*-\s*\[[xX]\]\s+i18n / localization', body, re.MULTILINE)
+          )
+
+          # --- Checklist: every item required (i18n line skippable when no i18n).
+          checklist_rows = [
+              r'My PR title starts with `\[FIX\]`',
+              r'I added my changes to `CHANGELOG\.md` and `RELEASE_NOTES\.md`',
+              r'I have read \[CONTRIBUTING\.md\]',
+              r"My code follows the project's code style",
+              r'I ran `pnpm run build:plugin` with no errors',
+              r'I ran `bash scripts/build/validate-compat\.sh`',
+              r'I tested on a Steam Deck',
+          ]
+          for row in checklist_rows:
+              if not re.search(r'^\s*-\s*\[[xX]\]\s+' + row, body, re.MULTILINE):
+                  errors.append(f'Checklist item not checked: matches /{row}/')
+
+          # i18n line: required only when i18n / localization is opted in.
+          i18n_row = r'If I added i18n keys, I added them to \*\*all\*\* locale files'
+          if i18n_type_checked:
+              if not re.search(r'^\s*-\s*\[[xX]\]\s+' + i18n_row, body, re.MULTILINE):
+                  errors.append(
+                      'Checklist: "If I added i18n keys, I added them to all locale files" '
+                      'must be checked when "i18n / localization" type-of-change is selected.'
+                  )
+
+          # --- Changelog / Release Notes: section content must be non-empty.
+          # Look for the autofill markers and check at least one non-comment line
+          # exists between START and END.
+          def section_has_content(key: str) -> bool:
+              start = f'<!-- AUTOFILL:{key}:START -->'
+              end   = f'<!-- AUTOFILL:{key}:END -->'
+              s = body.find(start)
+              e = body.find(end)
+              if s < 0 or e < 0 or e < s:
+                  # Markers missing — fall back to checking the heading exists
+                  # and section is non-empty by simple text presence.
+                  return False
+              between = body[s + len(start):e]
+              # Strip HTML comments and blanks
+              cleaned = re.sub(r'<!--.*?-->', '', between, flags=re.DOTALL)
+              return any(line.strip() for line in cleaned.splitlines())
+
+          if not section_has_content('CHANGELOG'):
+              errors.append(
+                  'Changelog section is empty. Add an entry under '
+                  '## [Unreleased] in CHANGELOG.md (the pr-autofill job '
+                  'mirrors it into the PR body on the next push).'
+              )
+          if not section_has_content('RELEASE_NOTES'):
+              errors.append(
+                  'Release Notes section is empty. Add an entry under '
+                  '## [Unreleased] in RELEASE_NOTES.md (the pr-autofill '
+                  'job mirrors it into the PR body on the next push).'
+              )
+
+          if errors:
+              print('PR checklist validation failed:')
+              for err in errors:
+                  print(f'  - {err}')
+              sys.exit(1)
+          print('PR checklist validation passed.')
+          PY

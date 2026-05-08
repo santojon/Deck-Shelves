@@ -26,8 +26,12 @@ import { SORT_OPTIONS } from './editShelf/constants'
 import { SortDirectionButton } from './editShelf/SortDirectionButton'
 import { optionData } from './editShelf/utils'
 import { ManualSortRow } from './editShelf/ManualSortRow'
+import { HighlightRow } from './editShelf/HighlightRow'
+import { HighlightMiniCard } from './editShelf/HighlightMiniCard'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
+import type { PlatformAppMeta } from '../../../runtime/platform'
+import { ShelfPreview } from './editShelf/ShelfPreview'
 // SmartShelfModal also supports a modal-driven `create` mode that persists
 // only on Save (used by SmartShelfTemplateModal's custom button).
 import { ModalHeader } from './editShelf/ModalHeader'
@@ -53,7 +57,7 @@ import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_
 // pre-fill the edit field so users see the actual current cadence.
 const DEFAULT_REFRESH_MINUTES = 60
 
-type Tab = 'source' | 'smart_filters' | 'filters' | 'visual' | 'display'
+type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display'
 
 type EditState = {
   title: string
@@ -77,11 +81,15 @@ type EditState = {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+  dedupeByExactName: boolean
+  hiddenAppIds: number[]
   refreshIntervalMinutes: number
   smartParams: Record<string, number>
   visibleHoursEnabled: boolean
-  visibleHoursRanges: Array<{ start: number; end: number }>
+  defaultHours: Array<{ start: number; end: number }>
+  dayOverrides: Record<string, Array<{ start: number; end: number }>>
   visibleDaysOfWeek: number[]
+  allowDayOverrides: boolean
 }
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
@@ -111,6 +119,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
     hideSeeMore: (shelf as any).hideSeeMore ?? false,
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
+    dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
+    hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
     smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
     visibleHoursEnabled: (() => {
@@ -121,15 +131,29 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       if (!has && shelf.mode === 'spare_time') return true
       return has
     })(),
-    visibleHoursRanges: (() => {
+    defaultHours: (() => {
       const v = (shelf as any).visibleHours
-      if (Array.isArray(v) && v.length > 0) return v.map((r: any) => ({ start: Number(r.start) || 0, end: Number(r.end) || 0 }))
-      if (v && typeof v === 'object') return [{ start: Number(v.start) || 0, end: Number(v.end) || 0 }]
-      // Pre-fill with the resolver's hardcoded windows for spare_time so
-      // existing shelves (created before the field shipped) still show the
-      // built-in constraint.
+      if (Array.isArray(v) && v.length > 0) {
+        const defaults = v.filter((r: any) => !Array.isArray(r.days) || r.days.length === 0).map((r: any) => ({ start: Number(r.start) || 0, end: Number(r.end) || 0 }))
+        if (defaults.length > 0) return defaults
+      }
       if (shelf.mode === 'spare_time') return SPARE_TIME_WINDOWS.map((r) => ({ ...r }))
       return [{ start: 9, end: 17 }]
+    })(),
+    dayOverrides: (() => {
+      const v = (shelf as any).visibleHours
+      if (!Array.isArray(v)) return {}
+      const out: Record<string, Array<{ start: number; end: number }>> = {}
+      for (const r of v) {
+        if (Array.isArray(r.days) && r.days.length > 0) {
+          for (const day of r.days) {
+            const k = String(day)
+            if (!out[k]) out[k] = []
+            out[k].push({ start: Number(r.start) || 0, end: Number(r.end) || 0 })
+          }
+        }
+      }
+      return out
     })(),
     visibleDaysOfWeek: (() => {
       const v = (shelf as any).visibleDaysOfWeek
@@ -139,6 +163,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       // and unchecks specific days. The save handler converts a fully-checked
       // selection back into `undefined` so storage stays minimal.
       return [0, 1, 2, 3, 4, 5, 6]
+    })(),
+    allowDayOverrides: (() => {
+      const v = (shelf as any).visibleHours
+      if (!Array.isArray(v)) return false
+      return v.some((r: any) => Array.isArray(r.days) && r.days.length > 0)
     })(),
   })
   // Buffered text representation of the refresh-interval field — keeps the
@@ -160,8 +189,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   })
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
-  const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
+  const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf as any).highlightedAppIds?.length > 0)
+  const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
+  const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
+  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
 
@@ -233,17 +265,38 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     let cancelled = false
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
     ;(async () => {
-      const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
-      for (const id of resolvedIds) {
-        try {
-          const meta = await platform.getAppMeta(id)
-          next.set(id, { name: meta?.name || `App ${id}`, portraitUrl: meta?.portraitUrl, heroUrl: meta?.heroUrl })
-        } catch { next.set(id, { name: `App ${id}` }) }
-      }
-      if (!cancelled) setResolvedMeta(next)
+      const results = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
+        try { const m = await platform.getAppMeta(id); return [id, m ?? { appid: id, name: `App ${id}` }] }
+        catch { return [id, { appid: id, name: `App ${id}` }] }
+      }))
+      if (!cancelled) setResolvedMeta(new Map(results))
     })()
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
+
+  useEffect(() => {
+    if (!hiddenPickerOpen) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      const isManualSort = state.sort === 'manual'
+      const previewSort = isManualSort
+        ? (state.manualBaseSort || 'alphabetical')
+        : (state.sort || undefined)
+      resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
+        .then(async (ids) => {
+          if (cancelled) return
+          setHiddenCandidateIds(ids)
+          const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
+          for (const id of ids) {
+            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}`, portraitUrl: m?.portraitUrl, heroUrl: m?.heroUrl }) }
+            catch { next.set(id, { name: `App ${id}` }) }
+          }
+          if (!cancelled) setHiddenCandidateMeta(next)
+        })
+        .catch(() => { if (!cancelled) setHiddenCandidateIds([]) })
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [hiddenPickerOpen, previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.hiddenAppIds.join(',')])
 
   const handleSave = () => {
     closeModal?.()
@@ -269,6 +322,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).hideInstallIndicator = state.hideInstallIndicator
       ;(patch as any).hideSeeMore = state.hideSeeMore
       ;(patch as any).hideRefreshCard = state.hideRefreshCard
+      ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
+      ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       // Only persist when the user diverged from the default cadence; otherwise
       // omit so the shelf inherits whatever the resolver default ends up being.
       ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
@@ -282,9 +337,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
         if (state.smartParams[k] !== defaults[k]) overrides[k] = state.smartParams[k]
       }
       ;(patch as any).smartParams = Object.keys(overrides).length ? overrides : undefined
-      ;(patch as any).visibleHours = (state.visibleHoursEnabled && state.visibleHoursRanges.length > 0)
-        ? state.visibleHoursRanges
-        : undefined
+      const allRanges = [
+        ...state.defaultHours,
+        ...Object.entries(state.dayOverrides).flatMap(([dayStr, ranges]) =>
+          ranges.map((r) => ({ ...r, days: [Number(dayStr)] }))
+        ),
+      ]
+      ;(patch as any).visibleHours = (state.visibleHoursEnabled && allRanges.length > 0) ? allRanges : undefined
       // Days: drop the field entirely when all 7 are selected (no restriction);
       // otherwise persist the (possibly empty) array. Empty array = never
       // visible, distinct from undefined = always visible.
@@ -299,6 +358,20 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       }
     })()
   }
+
+  const hourOptions = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
+  const HourRange = ({ range, onUpdate, onRemove, canRemove }: { range: { start: number; end: number }; onUpdate: (k: 'start' | 'end', v: number) => void; onRemove: () => void; canRemove: boolean }) => (
+    <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+      <div style={{ width: 110 }}>
+        <Dropdown rgOptions={hourOptions} selectedOption={range.start} onChange={(opt: unknown) => { const n = Number(optionData(opt) ?? 0); if (Number.isFinite(n)) onUpdate('start', n) }} />
+      </div>
+      <span style={{ opacity: 0.6, fontSize: 13 }}>→</span>
+      <div style={{ width: 110 }}>
+        <Dropdown rgOptions={hourOptions} selectedOption={range.end} onChange={(opt: unknown) => { const n = Number(optionData(opt) ?? 0); if (Number.isFinite(n)) onUpdate('end', n) }} />
+      </div>
+      <DialogButton style={{ minWidth: 36, width: 36, height: 36, padding: 0, marginLeft: 'auto', flex: 'none' }} onClick={onRemove} onOKButton={onRemove} disabled={!canRemove}>✕</DialogButton>
+    </Focusable>
+  )
 
   return (
     <ModalShell>
@@ -317,7 +390,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ position: 'relative', height: 'min(calc(100vh - 220px), 720px)', minHeight: 360, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 160px), 800px)', minHeight: 360 }}>
+          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
             <Tabs
               activeTab={activeTab}
               onShowTab={(id: string) => setActiveTab(id as Tab)}
@@ -504,121 +578,117 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         label={t('smart_visible_hours_label')}
                         description={t('smart_visible_hours_desc')}
                         checked={state.visibleHoursEnabled}
-                        onChange={(value: boolean) => setState((prev) => ({ ...prev, visibleHoursEnabled: value }))}
+                        onChange={(v: boolean) => setState((prev) => ({ ...prev, visibleHoursEnabled: v }))}
                       />
                       {state.visibleHoursEnabled && (
                         <Focusable style={{ padding: '4px 0 8px' }}>
-                          {state.visibleHoursRanges.map((range, idx) => {
-                            const hourOptions = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
-                            const updateRange = (key: 'start' | 'end', value: number) => setState((prev) => ({
-                              ...prev,
-                              visibleHoursRanges: prev.visibleHoursRanges.map((r, i) => i === idx ? { ...r, [key]: value } : r),
-                            }))
-                            const removeRange = () => setState((prev) => ({
-                              ...prev,
-                              visibleHoursRanges: prev.visibleHoursRanges.filter((_, i) => i !== idx),
-                            }))
-                            return (
-                              <Focusable
-                                key={idx}
-                                {...flowChildrenProps('horizontal')}
-                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}
-                              >
-                                <div style={{ width: 110 }}>
-                                  <Dropdown
-                                    rgOptions={hourOptions}
-                                    selectedOption={range.start}
-                                    onChange={(opt: unknown) => {
-                                      const n = Number(optionData(opt) ?? 0)
-                                      if (Number.isFinite(n)) updateRange('start', n)
-                                    }}
-                                  />
-                                </div>
-                                <span style={{ opacity: 0.6, fontSize: 13 }}>→</span>
-                                <div style={{ width: 110 }}>
-                                  <Dropdown
-                                    rgOptions={hourOptions}
-                                    selectedOption={range.end}
-                                    onChange={(opt: unknown) => {
-                                      const n = Number(optionData(opt) ?? 0)
-                                      if (Number.isFinite(n)) updateRange('end', n)
-                                    }}
-                                  />
-                                </div>
-                                <DialogButton
-                                  style={{ minWidth: 36, width: 36, height: 36, padding: 0, marginLeft: 'auto', flex: 'none' }}
-                                  onClick={removeRange}
-                                  onOKButton={removeRange}
-                                  disabled={state.visibleHoursRanges.length <= 1}
-                                >
-                                  ✕
-                                </DialogButton>
-                              </Focusable>
-                            )
-                          })}
-                          <DialogButton
-                            style={{ width: '100%', marginTop: 4 }}
-                            onClick={() => setState((prev) => ({
-                              ...prev,
-                              visibleHoursRanges: [...prev.visibleHoursRanges, { start: 9, end: 17 }],
-                            }))}
-                            onOKButton={() => setState((prev) => ({
-                              ...prev,
-                              visibleHoursRanges: [...prev.visibleHoursRanges, { start: 9, end: 17 }],
-                            }))}
-                          >
+                          <div style={{ padding: '4px 0 2px', fontSize: 12, opacity: 0.7, fontWeight: 600 }}>{t('smart_schedule_default_hours' as any)}</div>
+                          {state.defaultHours.map((range, idx) => (
+                            <HourRange
+                              key={idx}
+                              range={range}
+                              onUpdate={(k, v) => setState((prev) => ({ ...prev, defaultHours: prev.defaultHours.map((r, i) => i === idx ? { ...r, [k]: v } : r) }))}
+                              onRemove={() => setState((prev) => ({ ...prev, defaultHours: prev.defaultHours.filter((_, i) => i !== idx) }))}
+                              canRemove={state.defaultHours.length > 1}
+                            />
+                          ))}
+                          <DialogButton style={{ width: '100%', marginTop: 4 }} onClick={() => setState((prev) => ({ ...prev, defaultHours: [...prev.defaultHours, { start: 9, end: 17 }] }))} onOKButton={() => setState((prev) => ({ ...prev, defaultHours: [...prev.defaultHours, { start: 9, end: 17 }] }))}>
                             + {t('smart_visible_hours_add' as any)}
                           </DialogButton>
                         </Focusable>
                       )}
-                      <Field label={t('smart_visible_days_label')} description={t('smart_visible_days_desc')} />
-                      <Focusable
-                        {...flowChildrenProps('horizontal')}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(7, 1fr)',
-                          gap: 4,
-                          padding: '4px 0 8px',
-                          width: '100%',
-                          boxSizing: 'border-box',
-                        }}
-                      >
+                      <Field label={t('smart_visible_days_label')} />
+                      {state.visibleDaysOfWeek.length === 0 && (
+                        <div style={{ padding: '4px 8px 8px', fontSize: 12, color: '#ff9800' }}>{t('smart_visible_days_empty_warning' as any)}</div>
+                      )}
+                      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '4px 0 8px', width: '100%', boxSizing: 'border-box' }}>
                         {[0, 1, 2, 3, 4, 5, 6].map((day) => {
                           const active = state.visibleDaysOfWeek.includes(day)
-                          const labelKey = (`smart_visible_day_${day}` as any)
-                          const toggleDay = () => setState((prev) => ({
-                            ...prev,
-                            visibleDaysOfWeek: active
-                              ? prev.visibleDaysOfWeek.filter((d) => d !== day)
-                              : [...prev.visibleDaysOfWeek, day].sort(),
-                          }))
+                          const toggleDay = () => setState((prev) => ({ ...prev, visibleDaysOfWeek: active ? prev.visibleDaysOfWeek.filter((d) => d !== day) : [...prev.visibleDaysOfWeek, day].sort() }))
                           return (
-                            <DialogButton
-                              key={day}
-                              onClick={toggleDay}
-                              onOKButton={toggleDay}
-                              style={{
-                                width: '100%',
-                                minWidth: 0,
-                                minHeight: 34,
-                                padding: '4px 2px',
-                                fontSize: 12,
-                                lineHeight: '14px',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                              }}
-                            >
+                            <DialogButton key={day} onClick={toggleDay} onOKButton={toggleDay} style={{ width: '100%', minWidth: 0, minHeight: 34, padding: '4px 2px', fontSize: 12, lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                                 <span style={{ width: 10, textAlign: 'center', flexShrink: 0, color: active ? '#4caf50' : 'rgba(255,255,255,0.3)' }}>{active ? '✓' : '·'}</span>
-                                <span>{t(labelKey)}</span>
+                                <span>{t((`smart_visible_day_${day}`) as any)}</span>
                               </span>
                             </DialogButton>
                           )
                         })}
                       </Focusable>
+                      {state.visibleHoursEnabled && (
+                        <ToggleField
+                          label={t('smart_allow_day_overrides' as any)}
+                          description={t('smart_allow_day_overrides_desc' as any)}
+                          checked={state.allowDayOverrides}
+                          onChange={(v: boolean) => {
+                            setState((prev) => ({ ...prev, allowDayOverrides: v, dayOverrides: v ? prev.dayOverrides : {} }))
+                            if (!v && activeTab === 'overrides') setActiveTab('smart_filters')
+                          }}
+                        />
+                      )}
                     </FieldContainer>
                   ),
                 },
+                ...(state.allowDayOverrides ? [{
+                  id: 'overrides',
+                  title: t('edit_tab_overrides' as any),
+                  content: (() => {
+                    const infoLines: string[] = []
+                    if (state.visibleDaysOfWeek.length > 0 && state.visibleDaysOfWeek.length < 7)
+                      infoLines.push(`${t('smart_visible_days_label')}: ${state.visibleDaysOfWeek.map((d) => t(`smart_visible_day_${d}` as any)).join(', ')}`)
+                    if (state.visibleHoursEnabled && state.defaultHours.length > 0)
+                      infoLines.push(`${t('smart_schedule_default_hours' as any)}: ${state.defaultHours.map((r) => `${String(r.start).padStart(2, '0')}:00–${String(r.end).padStart(2, '0')}:00`).join(', ')}`)
+                    return (
+                      <FieldContainer scrollable>
+                        {infoLines.length > 0 && (
+                          <Field label={t('smart_overrides_info_label' as any)} description={infoLines.join('  ·  ')} />
+                        )}
+                        {state.visibleDaysOfWeek.length === 0 && (
+                          <div style={{ padding: '4px 8px 8px', fontSize: 12, color: '#ff9800' }}>{t('smart_visible_days_empty_warning' as any)}</div>
+                        )}
+                        <div style={{ padding: '10px 0 2px', fontSize: 12, opacity: 0.7, fontWeight: 600 }}>{t('smart_schedule_day_overrides' as any)}</div>
+                        <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '4px 0 8px', width: '100%', boxSizing: 'border-box' }}>
+                          {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+                            const hasOverride = !!state.dayOverrides[String(day)]
+                            const toggle = () => setState((prev) => {
+                              const next = { ...prev.dayOverrides }
+                              if (hasOverride) { delete next[String(day)] } else { next[String(day)] = [{ start: 9, end: 17 }] }
+                              return { ...prev, dayOverrides: next }
+                            })
+                            return (
+                              <DialogButton key={day} onClick={toggle} onOKButton={toggle} style={{ width: '100%', minWidth: 0, minHeight: 34, padding: '4px 2px', fontSize: 12, lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                                  <span style={{ width: 10, textAlign: 'center', flexShrink: 0, color: hasOverride ? '#4caf50' : 'rgba(255,255,255,0.3)' }}>{hasOverride ? '✓' : '·'}</span>
+                                  <span>{t((`smart_visible_day_${day}`) as any)}</span>
+                                </span>
+                              </DialogButton>
+                            )
+                          })}
+                        </Focusable>
+                        {[0, 1, 2, 3, 4, 5, 6].filter((d) => !!state.dayOverrides[String(d)]).map((day) => {
+                          const ranges = state.dayOverrides[String(day)]
+                          return (
+                            <Focusable key={day} style={{ padding: '4px 0 8px', borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 4 }}>
+                              <div style={{ fontSize: 12, opacity: 0.8, padding: '2px 0 4px' }}>{t((`smart_visible_day_${day}`) as any)}</div>
+                              {ranges.map((range, idx) => (
+                                <HourRange
+                                  key={idx}
+                                  range={range}
+                                  onUpdate={(k, v) => setState((prev) => ({ ...prev, dayOverrides: { ...prev.dayOverrides, [String(day)]: prev.dayOverrides[String(day)].map((r, i) => i === idx ? { ...r, [k]: v } : r) } }))}
+                                  onRemove={() => setState((prev) => ({ ...prev, dayOverrides: { ...prev.dayOverrides, [String(day)]: prev.dayOverrides[String(day)].filter((_, i) => i !== idx) } }))}
+                                  canRemove={ranges.length > 1}
+                                />
+                              ))}
+                              <DialogButton style={{ width: '100%', marginTop: 4 }} onClick={() => setState((prev) => ({ ...prev, dayOverrides: { ...prev.dayOverrides, [String(day)]: [...prev.dayOverrides[String(day)], { start: 9, end: 17 }] } }))} onOKButton={() => setState((prev) => ({ ...prev, dayOverrides: { ...prev.dayOverrides, [String(day)]: [...prev.dayOverrides[String(day)], { start: 9, end: 17 }] } }))}>
+                                + {t('smart_visible_hours_add' as any)}
+                              </DialogButton>
+                            </Focusable>
+                          )
+                        })}
+                      </FieldContainer>
+                    )
+                  })(),
+                }] as any[] : []),
                 {
                   id: 'filters',
                   title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_additional_filters' as any)} />) as unknown as string,
@@ -649,8 +719,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       setAlternatingMode={setAlternatingMode}
                       prePatternHighlightsRef={prePatternHighlightsRef}
                       effectiveManualOrder={effectiveManualOrder}
-                      resolvedIds={resolvedIds}
-                      resolvedMeta={resolvedMeta}
                     />
                   ),
                 },
@@ -663,11 +731,111 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                       setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       hasNonSteamBadges={hasNonSteamBadges}
+                      dedupeByExactName={state.dedupeByExactName}
+                      setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}
+                      setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
+                      hiddenPickerOpen={hiddenPickerOpen}
+                      setHiddenPickerOpen={setHiddenPickerOpen}
                     />
                   ),
                 },
               ]}
             />
+          </div>
+          <div style={{ flexShrink: 0, padding: '0 24px' }}>
+            {!state.hideShelfTitle && (
+              <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {state.title || t('newShelf')}
+              </div>
+            )}
+            {(activeTab === 'display' && hiddenPickerOpen) ? (
+              hiddenCandidateIds.length === 0 ? (
+                <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+              ) : (
+                <HighlightRow>
+                  {hiddenCandidateIds.map((id, idx) => {
+                    const isHidden = state.hiddenAppIds.includes(id)
+                    const inHighlighted = state.highlightedAppIds.includes(id)
+                    const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
+                    const meta = hiddenCandidateMeta.get(id)
+                    return (
+                      <HighlightMiniCard
+                        key={id}
+                        appid={id}
+                        name={meta?.name ?? `App ${id}`}
+                        portraitUrl={meta?.portraitUrl}
+                        heroUrl={meta?.heroUrl}
+                        featured={featured}
+                        selected={false}
+                        hiddenMark={isHidden}
+                        width={featured ? 210 : 68}
+                        height={100}
+                        onToggle={() => setState((prev) => ({ ...prev, hiddenAppIds: isHidden ? prev.hiddenAppIds.filter((x) => x !== id) : [...prev.hiddenAppIds, id] }))}
+                      />
+                    )
+                  })}
+                </HighlightRow>
+              )
+            ) : resolvedIds.length === 0 ? (
+              <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+            ) : (isManual && activeTab === 'source') ? (
+              <ManualSortRow
+                order={effectiveManualOrder}
+                meta={resolvedMeta as any}
+                onReorder={reorderManual}
+                t={t}
+                highlightFirst={state.highlightFirst}
+                highlightAll={state.highlightAll}
+                highlightedAppIds={state.highlightedAppIds}
+                highlightPickerOpen={highlightPickerOpen}
+              />
+            ) : (activeTab === 'visual' && highlightPickerOpen) ? (
+              <HighlightRow>
+                {effectiveManualOrder.map((id, idx) => {
+                  const inHighlighted = state.highlightedAppIds.includes(id)
+                  const selected = inHighlighted
+                  const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
+                  const meta = resolvedMeta.get(id)
+                  const toggle = () => {
+                    setAlternatingMode(null)
+                    prePatternHighlightsRef.current = null
+                    setState((prev) => ({ ...prev, highlightedAppIds: prev.highlightedAppIds.includes(id) ? prev.highlightedAppIds.filter((x) => x !== id) : [...prev.highlightedAppIds, id] }))
+                  }
+                  return (
+                    <HighlightMiniCard
+                      key={id}
+                      appid={id}
+                      name={meta?.name ?? `App ${id}`}
+                      portraitUrl={meta?.portraitUrl}
+                      heroUrl={meta?.heroUrl}
+                      featured={featured}
+                      selected={selected}
+                      width={featured ? 210 : 68}
+                      height={100}
+                      onToggle={toggle}
+                    />
+                  )
+                })}
+              </HighlightRow>
+            ) : (
+              <ShelfPreview
+                t={t}
+                ids={effectiveManualOrder}
+                meta={resolvedMeta}
+                hideStatusLine={state.hideStatusLine}
+                hideNewBadge={state.hideNewBadge}
+                hideCompatIcons={state.hideCompatIcons}
+                hideNonSteamBadge={state.hideNonSteamBadge}
+                hideGameNames={state.hideGameNames === true}
+                hideInstallIndicator={state.hideInstallIndicator === true}
+                hideSeeMore={state.hideSeeMore === true}
+                hideRefreshCard={state.hideRefreshCard === true}
+                highlightFirst={state.highlightFirst}
+                highlightAll={state.highlightAll}
+                highlightedAppIds={state.highlightedAppIds}
+              />
+            )}
+          </div>
           </div>
         </Focusable>
       </ConfirmModal>

@@ -1,4 +1,5 @@
 import type { FilterGroup, FilterItem } from "../types";
+import { dedupeAppIdsByName } from "./dedupe";
 import { mark, measure } from "../core/perf";
 import {
   hasExternalSortOption, applyExternalSort,
@@ -52,6 +53,11 @@ function uniqApps(list: AppOverview[]): AppOverview[] {
 
 let lastNoAppsWarnAt = 0;
 let appOverviewCache: { ts: number; items: AppOverview[] } | null = null;
+// In-flight de-duplication: when many shelves resolve concurrently before the
+// 10s cache is populated (typical on cold mount / resume), each used to fire
+// its own GetAllAppOverviews chain. Now the second-and-later concurrent
+// callers await the first call's promise instead of duplicating the work.
+let appOverviewPending: Promise<AppOverview[]> | null = null;
 
 export function invalidateAppOverviewCache(): void {
   appOverviewCache = null;
@@ -1203,7 +1209,22 @@ export async function getAllAppOverviews(): Promise<AppOverview[]> {
   if (appOverviewCache && now - appOverviewCache.ts < 10000) {
     return appOverviewCache.items;
   }
+  // De-dupe in-flight calls. Several shelves resolving concurrently before
+  // the first call lands would otherwise each trigger their own
+  // GetAllAppOverviews chain (multiple Steam IPC round-trips, fallback walks
+  // through every window/client). Now they all await a single shared promise.
+  if (appOverviewPending) return appOverviewPending;
+  appOverviewPending = (async () => {
+    try {
+      return await fetchAllAppOverviews(now);
+    } finally {
+      appOverviewPending = null;
+    }
+  })();
+  return appOverviewPending;
+}
 
+async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
   const out: AppOverview[] = [];
   for (const sc of getSteamClients()) {
     try {
@@ -1715,6 +1736,25 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       result = Number.isFinite(n) && n >= min;
       break;
     }
+    case "shortcutType": {
+      const kinds: string[] = Array.isArray(item.params?.kinds) ? item.params.kinds : ["game"];
+      // link     = non-Steam shortcut (app_type 1073741824 / is_non_steam)
+      // game     = Steam game (app_type 1 or unknown)
+      // software = Steam application (app_type 2)
+      // tool     = Steam tool / redistributable (app_type 4 or other non-1/2)
+      const nonSteam = isNonSteamOf(app);
+      let matched = false;
+      for (const k of kinds) {
+        if (k === "link" && nonSteam) { matched = true; break; }
+        if (!nonSteam) {
+          if (k === "game" && (app.app_type === undefined || app.app_type === 1)) { matched = true; break; }
+          if (k === "software" && app.app_type === 2) { matched = true; break; }
+          if (k === "tool" && app.app_type !== undefined && app.app_type !== 1 && app.app_type !== 2) { matched = true; break; }
+        }
+      }
+      result = matched;
+      break;
+    }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
     default: {
       // Plugin API: delegate to a registered external filter type when the
@@ -1884,12 +1924,23 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
-export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean): Promise<number[]> {
+export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean, options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }): Promise<number[]> {
+  const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
+  // Overshoot: fetch more candidates to compensate for hidden app filtering.
+  const overShootLimit = hiddenSet ? Math.min(limit + hiddenSet.size * 2, limit * 3) : limit;
+
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
   if (!all.length) {
     await new Promise((r) => setTimeout(r, 2000));
     all = await getAllAppOverviews();
+  }
+
+  function finish(ids: number[]): number[] {
+    let result = ids;
+    if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
+    if (options?.dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
+    return result.slice(0, limit);
   }
 
   if (source.type === "collection") {
@@ -1950,9 +2001,16 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         count: ids.length,
       });
     }
+    const childFilter = source.childFilter as FilterGroup | undefined;
+    if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
+      const byId = new Map<number, AppOverview>();
+      for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
+      const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+      ids = evaluateFilterGroup(childFilter, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+    }
     if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
     ids = deduplicateNonSteam(ids, all);
-    return ids.slice(0, limit);
+    return finish(ids.slice(0, overShootLimit));
   }
 
   if (source.type === "tab") {
@@ -1977,12 +2035,21 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       });
     };
 
+    const childFilterTab = source.childFilter as FilterGroup | undefined;
+    function applyChildFilterTab(ids: number[]): number[] {
+      if (!childFilterTab || !Array.isArray(childFilterTab.items) || !childFilterTab.items.length) return ids;
+      const byId = new Map<number, AppOverview>();
+      for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
+      const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+      return evaluateFilterGroup(childFilterTab, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+    }
+
     // Forward-compat: fiber traversal in case TabMaster exposes a React context
     const customFiltersIds = getCustomFiltersAppsForContainer(rawTab);
     if (customFiltersIds.length) {
       const filtered = filterToInstalledNative(customFiltersIds);
       const ordered = sort ? applySortToIds(filtered, sort, all, shelfId, sortReverse) : filtered;
-      return ordered.slice(0, limit);
+      return finish(applyChildFilterTab(ordered).slice(0, overShootLimit));
     }
 
     let fromTabStore = await getTabAppIdsFromStore(rawTab);
@@ -2017,7 +2084,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length });
       } catch {}
       const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId, sortReverse) : fromTabStore, all);
-      return tabStoreIds.slice(0, limit);
+      return finish(applyChildFilterTab(tabStoreIds).slice(0, overShootLimit));
     }
     const filtered = await resolveDynamicTab(rawTab, all);
     let tabApps: AppOverview[];
@@ -2050,7 +2117,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     if (!ids.length) {
       logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
     }
-    return ids;
+    return finish(applyChildFilterTab(ids.slice(0, overShootLimit)));
   }
 
   if (source.type === "filter") {
@@ -2093,13 +2160,13 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // Asc/desc inversion. Skipped for `manual` and `random` (the parent
       // shelf flag `sortReverse` only flips deterministic orderings).
       if (sortReverse && fSort !== "manual" && fSort !== "random") filtered = filtered.slice().reverse();
-      const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all).slice(0, limit);
+      const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
       if (!ids.length) {
         logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
       } else {
         logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
       }
-      return ids;
+      return finish(ids.slice(0, overShootLimit));
     }
 
     // Legacy flat filter fields
@@ -2162,7 +2229,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     // reverse here is unconditional once `sortReverse` is set.
     if (sortReverse) filtered = filtered.slice().reverse();
 
-    const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all).slice(0, limit);
+    const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
     if (!ids.length) {
       logWarn("STEAM", "resolveShelfAppIds(filter) empty", {
         filter: f,
@@ -2174,7 +2241,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     } else {
       logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
     }
-    return ids;
+    return finish(ids.slice(0, overShootLimit));
   }
 
   if (source.type === "external") {
@@ -2184,7 +2251,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
       if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
       ids = deduplicateNonSteam(ids, all);
-      return ids.slice(0, limit);
+      return finish(ids.slice(0, overShootLimit));
     } catch {
       return [];
     }
@@ -2205,7 +2272,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // so filtering doesn't prematurely truncate candidates, then apply the
       // filters + sort + final limit below.
       const wantsPostProcess = !!smartFilterGroup || !!sort;
-      const fetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
+      const smartFetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
       // Plugin API precedence: internal modes ALWAYS win. External plugins
       // can register additional `mode` ids, but a registration that collides
       // with one of our 15 built-ins is ignored at resolve time so behavior
@@ -2217,9 +2284,9 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       if (source.mode === "custom") {
         rawIds = apps.map((a) => appIdOf(a)).filter(Number.isFinite);
       } else if (INTERNAL_SMART_MODES.has(source.mode)) {
-        rawIds = resolveSmartShelf(source.mode, apps, fetchLimit, smartParams, ttlMs, shelfId);
+        rawIds = resolveSmartShelf(source.mode, apps, smartFetchLimit, smartParams, ttlMs, shelfId);
       } else if (hasExternalSmartSource(source.mode)) {
-        rawIds = await resolveExternalSmartSource(source.mode, fetchLimit, smartParams ?? {});
+        rawIds = await resolveExternalSmartSource(source.mode, smartFetchLimit, smartParams ?? {});
       } else {
         rawIds = [];
       }
@@ -2232,9 +2299,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       if (sort && sort !== "manual") {
         ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
       }
-      ids = ids.slice(0, limit);
       logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
-      return ids;
+      return finish(ids.slice(0, overShootLimit));
     } catch {
       return [];
     }

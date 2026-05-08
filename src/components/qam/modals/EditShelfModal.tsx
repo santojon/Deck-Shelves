@@ -24,11 +24,14 @@ import type { EditableShelfState } from './editShelf/types'
 import { optionData } from './editShelf/utils'
 import { ManualSortRow } from './editShelf/ManualSortRow'
 import { SortDirectionButton } from './editShelf/SortDirectionButton'
-import { icons } from '../icons'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
+import { HighlightRow } from './editShelf/HighlightRow'
+import { HighlightMiniCard } from './editShelf/HighlightMiniCard'
 import { FunnelIcon, EyeIcon, SteamIcon } from '../../icons'
+import type { PlatformAppMeta } from '../../../runtime/platform'
+import { ShelfPreview } from './editShelf/ShelfPreview'
 
 // Tab title with optional leading icon — uses inline-flex so the icon
 // aligns vertically with the label text. Applied selectively (not every
@@ -78,13 +81,24 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
     hideSeeMore: (shelf as any).hideSeeMore ?? false,
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
+    dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
+    hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
+    childFilterGroup: (() => {
+      if (shelf.source.type === 'collection' || shelf.source.type === 'tab') {
+        return (shelf.source as any).childFilter ?? { mode: 'and', items: [] }
+      }
+      return { mode: 'and', items: [] }
+    })(),
   })
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<EditTab>('source')
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
-  const [resolvedMeta, setResolvedMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
+  const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
+  const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
+  const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
+  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const activeSort = state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort
@@ -98,10 +112,19 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     return out
   }, [isManualSort, resolvedIds, state.manualOrder])
   const reorderManual = (nextOrder: number[]) => setState((prev) => ({ ...prev, manualOrder: nextOrder }))
+  const effectiveHiddenCandidateIds = useMemo(() => {
+    if (!isManualSort || !hiddenCandidateIds.length) return hiddenCandidateIds
+    const idSet = new Set(hiddenCandidateIds)
+    const out: number[] = []
+    for (const id of state.manualOrder) if (idSet.has(id) && !out.includes(id)) out.push(id)
+    for (const id of hiddenCandidateIds) if (!out.includes(id)) out.push(id)
+    return out
+  }, [isManualSort, hiddenCandidateIds, state.manualOrder])
 
   const previewSource = useMemo(() => {
-    if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId }
-    if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab }
+    const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+    if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
+    if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(childFilter ? { childFilter } : {}) }
     if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
     // When manual sort is active, use the configured base sort for the
     // preview so the mini-card row reflects the actual order of non-manual
@@ -109,7 +132,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
     const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
     return { type: 'filter' as const, filter: effectiveFilter }
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup])
 
   useEffect(() => {
     let cancelled = false
@@ -134,7 +157,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
       }
-      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse)
+      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse, {
+        hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
+        dedupeByName: state.dedupeByExactName || undefined,
+      })
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
@@ -147,23 +173,46 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse])
+  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen])
 
   useEffect(() => {
     let cancelled = false
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
     ;(async () => {
-      const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
-      for (const id of resolvedIds) {
-        try {
-          const meta = await platform.getAppMeta(id)
-          next.set(id, { name: meta?.name || `App ${id}`, portraitUrl: meta?.portraitUrl, heroUrl: meta?.heroUrl })
-        } catch { next.set(id, { name: `App ${id}` }) }
-      }
-      if (!cancelled) setResolvedMeta(next)
+      const results = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
+        try { const m = await platform.getAppMeta(id); return [id, m ?? { appid: id, name: `App ${id}` }] }
+        catch { return [id, { appid: id, name: `App ${id}` }] }
+      }))
+      if (!cancelled) setResolvedMeta(new Map(results))
     })()
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
+
+  // Fetch overshoot candidates for hidden-games picker: uses limit*3 without
+  // hiddenAppIds applied, so the user sees all slots they can fill/hide.
+  useEffect(() => {
+    if (!hiddenPickerOpen) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      const isManualS = state.sort === 'manual' || state.filter.sort === 'manual'
+      const previewSort = state.sourceType === 'filter'
+        ? undefined
+        : (isManualS ? (state.manualBaseSort || 'alphabetical') : (state.sort || undefined))
+      resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
+        .then(async (ids) => {
+          if (cancelled) return
+          setHiddenCandidateIds(ids)
+          const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
+          for (const id of ids) {
+            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}`, portraitUrl: m?.portraitUrl, heroUrl: m?.heroUrl }) }
+            catch { next.set(id, { name: `App ${id}` }) }
+          }
+          if (!cancelled) setHiddenCandidateMeta(next)
+        })
+        .catch(() => { if (!cancelled) setHiddenCandidateIds([]) })
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [hiddenPickerOpen, previewSource, state.limit, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.hiddenAppIds.join(',')])
 
   const allSourceTypes: SourceType[] = externalSources.length > 0 ? [...BASE_SOURCE_TYPES, 'external'] : BASE_SOURCE_TYPES
   const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
@@ -291,6 +340,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }) }
     })
     if (type !== 'filter' && activeTab === 'filters') setActiveTab('source')
+    if (type !== 'collection' && type !== 'tab' && activeTab === 'childFilters') setActiveTab('source')
   }
 
   const changeFilterGroup = (group: FilterGroup) => {
@@ -309,11 +359,15 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
+      const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
       const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard };
-      if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
+      ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
+      if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
-        patch.source = selectedTab?.source ?? { type: 'tab', tab: state.tab };
+        const baseSource = selectedTab?.source ?? { type: 'tab', tab: state.tab }
+        patch.source = (childFilter ? { ...baseSource, childFilter } : baseSource) as any;
         patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined;
       }
       else if (state.sourceType === 'external') { patch.source = { type: 'external', sourceId: state.externalSourceId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
@@ -348,7 +402,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ position: 'relative', height: 'min(calc(100vh - 220px), 720px)', minHeight: 360, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 160px), 800px)', minHeight: 360 }}>
+          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
           <Tabs
             activeTab={activeTab}
             onShowTab={(id: string) => setActiveTab(id as EditTab)}
@@ -418,20 +473,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       bottomSeparator='thick'
                       onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
                     />
-                    {isManualSort && (
-                      resolvedIds.length === 0
-                        ? <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-                        : <ManualSortRow
-                            order={effectiveManualOrder}
-                            meta={resolvedMeta}
-                            onReorder={reorderManual}
-                            t={t}
-                            highlightFirst={state.highlightFirst}
-                            highlightAll={state.highlightAll}
-                            highlightedAppIds={state.highlightedAppIds}
-                            highlightPickerOpen={highlightPickerOpen}
-                          />
-                    )}
                   </FieldContainer>
                 ),
               },
@@ -452,6 +493,20 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                   </FieldContainer>
                 ),
               }] : []),
+              ...((state.sourceType === 'collection' || state.sourceType === 'tab') ? [{
+                id: 'childFilters',
+                title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_additional_filters')} />) as unknown as string,
+                content: (
+                  <FieldContainer>
+                    <SavedFiltersBar
+                      controller={controller}
+                      currentGroup={state.childFilterGroup}
+                      onApply={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))}
+                    />
+                    <FilterPanel group={state.childFilterGroup} onChange={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))} controller={controller} />
+                  </FieldContainer>
+                ),
+              }] : []),
               {
                 id: 'visual',
                 title: t('edit_tab_visual'),
@@ -468,8 +523,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     setAlternatingMode={setAlternatingMode}
                     prePatternHighlightsRef={prePatternHighlightsRef}
                     effectiveManualOrder={effectiveManualOrder}
-                    resolvedIds={resolvedIds}
-                    resolvedMeta={resolvedMeta}
                   />
                 ),
               },
@@ -482,11 +535,121 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                     setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                     hasNonSteamBadges={hasNonSteamBadges}
+                    dedupeByExactName={state.dedupeByExactName}
+                    setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}
+                    setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
+                    hiddenPickerOpen={hiddenPickerOpen}
+                    setHiddenPickerOpen={setHiddenPickerOpen}
                   />
                 ),
               },
             ]}
           />
+          </div>
+          <div style={{ flexShrink: 0, padding: '0 24px' }}>
+            {!state.hideShelfTitle && (
+              <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {state.title || t('newShelf')}
+              </div>
+            )}
+            {(activeTab === 'display' && hiddenPickerOpen) ? (
+              effectiveHiddenCandidateIds.length === 0 ? (
+                <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+              ) : (
+                <HighlightRow>
+                  {effectiveHiddenCandidateIds.map((id, idx) => {
+                    const isHidden = state.hiddenAppIds.includes(id)
+                    const inHighlighted = state.highlightedAppIds.includes(id)
+                    const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
+                    const meta = hiddenCandidateMeta.get(id)
+                    return (
+                      <HighlightMiniCard
+                        key={id}
+                        appid={id}
+                        name={meta?.name ?? `App ${id}`}
+                        portraitUrl={meta?.portraitUrl}
+                        heroUrl={meta?.heroUrl}
+                        featured={featured}
+                        selected={false}
+                        hiddenMark={isHidden}
+                        width={featured ? 210 : 68}
+                        height={100}
+                        onToggle={() => setState((prev) => ({
+                          ...prev,
+                          hiddenAppIds: isHidden
+                            ? prev.hiddenAppIds.filter((x) => x !== id)
+                            : [...prev.hiddenAppIds, id],
+                        }))}
+                      />
+                    )
+                  })}
+                </HighlightRow>
+              )
+            ) : resolvedIds.length === 0 ? (
+              <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
+            ) : (isManualSort && activeTab === 'source') ? (
+              <ManualSortRow
+                order={effectiveManualOrder}
+                meta={resolvedMeta as any}
+                onReorder={reorderManual}
+                t={t}
+                highlightFirst={state.highlightFirst}
+                highlightAll={state.highlightAll}
+                highlightedAppIds={state.highlightedAppIds}
+                highlightPickerOpen={highlightPickerOpen}
+              />
+            ) : (activeTab === 'visual' && highlightPickerOpen) ? (
+              <HighlightRow>
+                {effectiveManualOrder.map((id, idx) => {
+                  const inHighlighted = state.highlightedAppIds.includes(id)
+                  const selected = inHighlighted
+                  const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
+                  const meta = resolvedMeta.get(id)
+                  const toggle = () => {
+                    setAlternatingMode(null)
+                    prePatternHighlightsRef.current = null
+                    setState((prev) => ({
+                      ...prev,
+                      highlightedAppIds: prev.highlightedAppIds.includes(id)
+                        ? prev.highlightedAppIds.filter((x) => x !== id)
+                        : [...prev.highlightedAppIds, id],
+                    }))
+                  }
+                  return (
+                    <HighlightMiniCard
+                      key={id}
+                      appid={id}
+                      name={meta?.name ?? `App ${id}`}
+                      portraitUrl={meta?.portraitUrl}
+                      heroUrl={meta?.heroUrl}
+                      featured={featured}
+                      selected={selected}
+                      width={featured ? 210 : 68}
+                      height={100}
+                      onToggle={toggle}
+                    />
+                  )
+                })}
+              </HighlightRow>
+            ) : (
+              <ShelfPreview
+                t={t}
+                ids={effectiveManualOrder}
+                meta={resolvedMeta}
+                hideStatusLine={state.hideStatusLine}
+                hideNewBadge={state.hideNewBadge}
+                hideCompatIcons={state.hideCompatIcons}
+                hideNonSteamBadge={state.hideNonSteamBadge}
+                hideGameNames={state.hideGameNames === true}
+                hideInstallIndicator={state.hideInstallIndicator === true}
+                hideSeeMore={state.hideSeeMore === true}
+                hideRefreshCard={state.hideRefreshCard === true}
+                highlightFirst={state.highlightFirst}
+                highlightAll={state.highlightAll}
+                highlightedAppIds={state.highlightedAppIds}
+              />
+            )}
+          </div>
           </div>
         </Focusable>
       </ConfirmModal>

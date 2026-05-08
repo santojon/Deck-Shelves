@@ -51,11 +51,11 @@ describe('SHELF_TEMPLATES', () => {
     }
   })
 
-  it('top_reviewed template sorts by review_score on installed games', () => {
+  it('top_reviewed template sorts by review_score across all library games', () => {
     const top = SHELF_TEMPLATES.find((t) => t.id === 'top_reviewed')
     expect(top).toBeDefined()
     if (top!.source.type === 'filter') {
-      expect(top!.source.filter.installed).toBe(true)
+      expect(top!.source.filter.installed).toBeUndefined()
       expect(top!.source.filter.sort).toBe('review_score')
     }
   })

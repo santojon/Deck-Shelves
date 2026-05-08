@@ -297,7 +297,7 @@ export function ManualSortRow({
         const grabbed = grabbedAppid === id
         const inHighlighted = highlightedAppIds.includes(id)
         const selected = highlightPickerOpen && inHighlighted
-        const featured = highlightAll || (highlightFirst && idx === 0) || selected
+        const featured = highlightAll || (highlightFirst && idx === 0) || inHighlighted
         const h = 100
         const w = featured ? 210 : 68
         return (

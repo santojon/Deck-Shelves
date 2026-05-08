@@ -35,6 +35,37 @@ Smart shelves whose result can change between two clicks of the trailing card ge
 - **`REFRESHABLE_SMART_MODES`** (in `src/components/shelf/types.ts`): `random_pick`, `time_of_day`, `spare_time`, `recently_played`. Clicking the refresh card invalidates the resolver cache and re-resolves only that shelf.
 - **Deterministic modes** (the remaining 11) drop the trailing card entirely — view-more would mislead (smart resolvers can't be opened in the library directly), and refresh would be a no-op against stable app data.
 
+### Visibility window
+
+A smart shelf can constrain itself to a time window. Two persisted fields drive
+this — both optional, both fully backwards-compatible:
+
+- **`visibleHours`** — array of `{ start, end }` ranges (each `0–23`, wrap-around
+  supported per range). The shelf is visible if **any** range matches the
+  current hour (OR-combined). Each range may also carry an optional
+  `days?: number[]` (`0` = Sunday … `6` = Saturday) — when present, the range
+  applies **only** on those weekdays.
+- **`visibleDaysOfWeek`** — array of `0..6`. When set, restricts the shelf to
+  those weekdays at the **shelf level** (intersected with any per-range `days`).
+  Empty array = never visible. Undefined = no day restriction.
+
+**Editor layout** (smart shelf modal):
+
+- The visibility-hours toggle, default hour ranges and weekday picker live in
+  the **Smart filters** tab.
+- An **Allow per-day schedule** toggle in the same tab gates a separate
+  **Overrides** tab. When on, the Overrides tab shows the configured days/hours
+  as an info summary, then per-weekday hour-range editors below — each weekday
+  with at least one override range gets its own hours, **overriding** the
+  shared default hours for that day. Days without overrides still use the
+  default hours.
+
+**Boundary handling:** `HomeInject` schedules a one-shot `setTimeout` to the
+next visibility boundary so the shelf appears / disappears exactly when the
+window flips, with no polling. Modes with **internal** time logic (currently
+`spare_time`) get a boundary timer too via `getModeVisibilityWindows(mode)`,
+even when no explicit `visibleHours` is configured.
+
 ## Position
 
 By default, smart shelves appear **before** normal shelves. The `smartShelvesAtBottom` toggle moves them after. Exception: when `hideRecents` is active and `smartShelvesAtBottom` is off, smart shelves are inserted after the **first** normal shelf (which replaces the native recents slot).

@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-188%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/tests-190%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![Compatibility](https://img.shields.io/badge/checks-37%2F37-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -27,6 +27,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Advanced filter groups** with AND/OR logic for complex game queries
 - Filter games by:
   - Favorites, installed, hidden, non-Steam
+  - **Shortcut type** — filter by entry kind: Games, Software, Tools, or Non-Steam links
   - Name (substring or regex)
   - Deck compatibility level
   - Playtime range (min / max minutes)
@@ -41,6 +42,9 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Hide status line** — toggle to hide the the play/install status of a game
 - **Hide trailing cards** — separate per-shelf and global toggles to hide the "See more" tile and / or the "Refresh" tile on shelves that emit them (random-sorted regular shelves and refreshable smart shelves)
 - **Per-shelf size** — limit slider goes up to 50 cards in the shelf and smart-shelf editors
+- **Sub-filters for collection and tab sources** — when a shelf's source is a collection or library tab, an Additional Filters tab in the editor lets you add further filter criteria on top of the source
+- **Manually hide games per shelf** — "Hide specific games" toggle in the Display tab opens a mini-card picker; the shelf automatically fetches extra candidates to keep the configured number of visible cards filled
+- **Deduplicate by name** — per-shelf and global toggle that collapses entries sharing an exact name (Steam wins over non-Steam)
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
 - **Hide home tabs** — toggle to hide the native home tab bar on te bottom of shelves
@@ -48,6 +52,8 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - **Developer / Publisher filter** — filter games by developer or publisher with automatic batch discovery
 - **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
+- **Per-day time-window overrides for smart shelves** — a Smart Filters toggle opens a dedicated Overrides tab where each weekday can have its own hour ranges, on top of the shelf-level default hours and day filter
+- **Live shelf preview in the editor** — the preview area shows real cards as they appear on the home (title, name, status line, compat / new / non-Steam badges, See more / Refresh tiles) and reflects every Display-tab toggle in real time
 - **Smart Shelves** — fifteen heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match (Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten); ordered by probability of results in the picker
 - **Surprise Me** — sub-toggle that hides the manual smart shelf list and lets the system pick 1–5 templates each day automatically; configurable count slider (0 = system decides)
 - **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker. Picking any template — Blank, regular preset, smart preset, or Custom — opens the edit modal first; **nothing is persisted until you press Save**, so cancelling discards the draft cleanly.

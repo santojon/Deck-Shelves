@@ -17,7 +17,7 @@ import { invalidateSmartShelfCache } from "../steam/smartShelves";
 
 const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; forceExpanded?: boolean }) {
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalDedupeByName = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalDedupeByName?: boolean; forceExpanded?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}-${(shelf as any).sortReverse ? 'r1' : 'r0'}-${(shelf as any).manualBaseSortReverse ? 'r1' : 'r0'}`;
@@ -84,7 +84,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         if (isManual && shelf.source?.type === "filter") {
           resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: baseSort } };
         }
-        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse)
+        const dedupeByName = (shelf as any).dedupeByExactName === true || globalDedupeByName
+        const hiddenAppIds: number[] | undefined = (shelf as any).hiddenAppIds?.length ? (shelf as any).hiddenAppIds : undefined
+        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined })
           .then((ids) => {
             if (cancelled || gen !== resolveGenRef.current) return;
             const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
@@ -130,15 +132,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       return;
     }
     (async () => {
-      const next = new Map<number, PlatformAppMeta>();
-      for (const appid of appIds) {
-        try {
-          next.set(appid, await platform.getAppMeta(appid));
-        } catch {
-          next.set(appid, { appid, name: `App ${appid}` });
-        }
-      }
-      if (!cancelled) setItems(next);
+      // Parallelize metadata lookups so cold-start (Steam restart) populates
+      // the shelf in roughly one round-trip per shelf instead of N. Each
+      // getAppMeta is independent and the underlying GetAllAppOverviews
+      // fallback is already memoized for 10s, so concurrent callers share
+      // work rather than duplicating it.
+      const results = await Promise.all(appIds.map(async (appid): Promise<[number, PlatformAppMeta]> => {
+        try { return [appid, await platform.getAppMeta(appid)]; }
+        catch { return [appid, { appid, name: `App ${appid}` }]; }
+      }));
+      if (!cancelled) setItems(new Map(results));
     })();
     return () => { cancelled = true; };
   }, [platform, appIds?.join(","), metaVersion]);

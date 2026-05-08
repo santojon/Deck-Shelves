@@ -82,7 +82,7 @@ export function FieldContainer({
     // (2px) and any external glow get clipped by the overflow:auto cut-off.
     padding: scrollable ? '0 42px 36px' : '0 42px',
     boxSizing: 'border-box',
-    ...(scrollable ? { maxHeight: 'min(calc(100vh - 280px), 660px)', overflowY: 'auto', overflowX: 'hidden' } : {}),
+    ...(scrollable ? { maxHeight: 'min(calc(100vh - 220px), 720px)', overflowY: 'auto', overflowX: 'hidden' } : {}),
     ...style,
   }
   return <div ref={ref} className='field-item-container' style={base}>{children}</div>
