@@ -31,6 +31,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           python3 <<'PY'
           import os, re, subprocess, sys
@@ -44,6 +45,17 @@ jobs:
           )
 
           errors = []
+
+          # --- PR title: must start with a recognized tag.
+          VALID_TAGS = {'FIX', 'ENHANCEMENT', 'PERF', 'QA', 'FEATURE', 'CLEANUP', 'REFACTOR'}
+          title = os.environ.get('PR_TITLE', '').strip()
+          title_match = re.match(r'^\[([A-Z]+)\]', title)
+          if not title_match or title_match.group(1) not in VALID_TAGS:
+              errors.append(
+                  f'PR title must start with one of: '
+                  '[FIX], [ENHANCEMENT], [PERF], [QA], [FEATURE], [CLEANUP], [REFACTOR]. '
+                  f'Got: "{title}"'
+              )
 
           # --- Type of Change: at least one of the first 3 rows must be checked.
           # The template's exact wording is matched. The first 3 rows are:

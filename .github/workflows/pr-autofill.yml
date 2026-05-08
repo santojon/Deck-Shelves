@@ -1,7 +1,8 @@
 name: PR Autofill
 
-# Fills the PR body's Description / Changelog sections from the PR branch's
-# `## [Unreleased]` entries in RELEASE_NOTES.md and CHANGELOG.md.
+# Fills the PR body's Changelog / Release Notes sections from the PR branch's
+# `## [Unreleased]` entries in CHANGELOG.md and RELEASE_NOTES.md.
+# Also auto-checks the Type-of-Change row that matches the PR title tag.
 #
 # Uses `pull_request_target` so the token has `pull-requests: write` even on
 # PRs opened from forks. The workflow only READS text files from the PR head
@@ -70,13 +71,37 @@ jobs:
           pr_number = os.environ['PR_NUMBER']
           repo      = os.environ['REPO']
 
-          body = subprocess.check_output(
-              ['gh', 'pr', 'view', pr_number, '--repo', repo, '--json', 'body', '--jq', '.body'],
+          import json
+
+          pr_json = subprocess.check_output(
+              ['gh', 'pr', 'view', pr_number, '--repo', repo,
+               '--json', 'body,title', '--jq', '[.body, .title]'],
               text=True,
           )
+          body, title = json.loads(pr_json)
 
           new_body = replace_between(body, 'CHANGELOG',     chg)
           new_body = replace_between(new_body, 'RELEASE_NOTES', notes)
+
+          # Auto-check the Type-of-Change row matching the PR title tag.
+          TAG_TO_TYPE_ROW = {
+              'FIX':         'Bug fix / Enhancement / QA / Performance update',
+              'ENHANCEMENT': 'Bug fix / Enhancement / QA / Performance update',
+              'PERF':        'Bug fix / Enhancement / QA / Performance update',
+              'QA':          'Bug fix / Enhancement / QA / Performance update',
+              'FEATURE':     'New feature / Code cleanup',
+              'CLEANUP':     'New feature / Code cleanup',
+              'REFACTOR':    'Refactor / restructure',
+          }
+          m = re.match(r'^\[([A-Z]+)\]', (title or '').strip())
+          if m:
+              row = TAG_TO_TYPE_ROW.get(m.group(1))
+              if row:
+                  new_body = re.sub(
+                      r'^(\s*-\s*)\[ \](\s+' + re.escape(row) + r')',
+                      r'\1[x]\2',
+                      new_body, count=1, flags=re.MULTILINE,
+                  )
 
           if new_body == body:
               print('No autofill changes (markers missing, Unreleased empty, or already synced).')
