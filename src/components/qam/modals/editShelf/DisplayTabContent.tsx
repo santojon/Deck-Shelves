@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { ToggleField, Focusable } from '@decky/ui'
 import { FieldContainer } from '../../../ui'
-import { DIR_UP, DIR_DOWN } from '../../../home/navPatches/constants'
+import { DIR_UP, DIR_DOWN, DIR_LEFT, DIR_RIGHT } from '../../../home/navPatches/constants'
 
 export function DisplayTabContent({
   t,
@@ -47,12 +47,26 @@ export function DisplayTabContent({
   }
 
   // col: 0=left 1=right; row: 0-indexed
+  // All 4 directions are intercepted:
+  //   UP/DOWN: stay in same column, adjacent row.
+  //   LEFT/RIGHT: jump to other column, same row.
+  //   UP at row 0 or DOWN past last row: let Steam exit the grid naturally
+  //   (DOWN past last row also tries to land on the first preview card).
   const onDir = (col: 0 | 1, row: number) => (evt: any) => {
     const btn = evt.detail?.button
     if (btn === DIR_UP) {
       if (row > 0 && focusCell(`${col}:${row - 1}`)) evt.preventDefault()
     } else if (btn === DIR_DOWN) {
-      if (focusCell(`${col}:${row + 1}`)) evt.preventDefault()
+      if (focusCell(`${col}:${row + 1}`)) {
+        evt.preventDefault()
+      } else {
+        const preview = document.querySelector<HTMLElement>('.ds-highlight-mini [tabindex="0"], .ds-highlight-mini')
+        if (preview) { preview.focus(); evt.preventDefault() }
+      }
+    } else if (btn === DIR_LEFT) {
+      if (col === 1 && focusCell(`0:${row}`)) evt.preventDefault()
+    } else if (btn === DIR_RIGHT) {
+      if (col === 0 && focusCell(`1:${row}`)) evt.preventDefault()
     }
   }
 

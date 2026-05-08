@@ -95,6 +95,7 @@ export function SmartShelvesPage() {
 
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_visible_hours_label' as any)}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_visibility_window' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_visibility_per_day' as any)}</span>} />
 
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('smart_visible_days_label' as any)}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_smart_visibility_days' as any)}</span>} />
