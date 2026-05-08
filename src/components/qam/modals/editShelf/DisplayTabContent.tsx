@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { ToggleField, Focusable } from '@decky/ui'
 import { FieldContainer } from '../../../ui'
 import { DIR_UP, DIR_DOWN, DIR_LEFT, DIR_RIGHT } from '../../../home/navPatches/constants'
+import { focusElement } from '../../../../core/focusRestore'
 
 export function DisplayTabContent({
   t,
@@ -42,7 +43,7 @@ export function DisplayTabContent({
     const cell = cellRefs.current.get(key)
     if (!cell) return false
     const inner = cell.querySelector<HTMLElement>('[tabindex="0"], button') ?? cell
-    inner.focus()
+    focusElement(inner)
     return true
   }
 
@@ -61,7 +62,7 @@ export function DisplayTabContent({
         evt.preventDefault()
       } else {
         const preview = document.querySelector<HTMLElement>('.ds-highlight-mini [tabindex="0"], .ds-highlight-mini')
-        if (preview) { preview.focus(); evt.preventDefault() }
+        if (preview) { focusElement(preview); evt.preventDefault() }
       }
     } else if (btn === DIR_LEFT) {
       if (col === 1 && focusCell(`0:${row}`)) evt.preventDefault()
