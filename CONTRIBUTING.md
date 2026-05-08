@@ -63,7 +63,7 @@ src/features/            Feature controllers (settings)
 src/integrations/        Third-party plugin integration (TabMaster, UnifiDeck)
 src/shims/               React/Decky GamepadUI shims
 src/test/                Vitest test suites
-i18n/                    16 locale files
+i18n/                    17 locale files
 docs/                    Architecture, API, filter, and development docs
 scripts/                 Build, deploy, devtools, and screenshot automation
 ```

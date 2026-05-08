@@ -5,6 +5,10 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- Traditional Chinese (`zh-TW`) translation.
+
 ## [2.1.0] - 2026-05-08
 
 ### Added
