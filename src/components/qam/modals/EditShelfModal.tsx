@@ -22,16 +22,13 @@ import { usePlatform } from '../../../runtime/platformContext'
 import { BASE_SOURCE_TYPES, SORT_OPTIONS, type SourceType, type EditTab } from './editShelf/constants'
 import type { EditableShelfState } from './editShelf/types'
 import { optionData } from './editShelf/utils'
-import { ManualSortRow } from './editShelf/ManualSortRow'
 import { SortDirectionButton } from './editShelf/SortDirectionButton'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
-import { HighlightRow } from './editShelf/HighlightRow'
-import { HighlightMiniCard } from './editShelf/HighlightMiniCard'
 import { FunnelIcon, EyeIcon, SteamIcon } from '../../icons'
 import type { PlatformAppMeta } from '../../../runtime/platform'
-import { ShelfPreview } from './editShelf/ShelfPreview'
+import { PreviewPanel } from './editShelf/PreviewPanel'
 
 // Tab title with optional leading icon — uses inline-flex so the icon
 // aligns vertically with the label text. Applied selectively (not every
@@ -546,110 +543,38 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             ]}
           />
           </div>
-          <div style={{ flexShrink: 0, padding: '0 24px' }}>
-            {!state.hideShelfTitle && (
-              <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {state.title || t('newShelf')}
-              </div>
-            )}
-            {(activeTab === 'display' && hiddenPickerOpen) ? (
-              effectiveHiddenCandidateIds.length === 0 ? (
-                <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-              ) : (
-                <HighlightRow>
-                  {effectiveHiddenCandidateIds.map((id, idx) => {
-                    const isHidden = state.hiddenAppIds.includes(id)
-                    const inHighlighted = state.highlightedAppIds.includes(id)
-                    const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
-                    const meta = hiddenCandidateMeta.get(id)
-                    return (
-                      <HighlightMiniCard
-                        key={id}
-                        appid={id}
-                        name={meta?.name ?? `App ${id}`}
-                        portraitUrl={meta?.portraitUrl}
-                        heroUrl={meta?.heroUrl}
-                        featured={featured}
-                        selected={false}
-                        hiddenMark={isHidden}
-                        width={featured ? 210 : 68}
-                        height={100}
-                        onToggle={() => setState((prev) => ({
-                          ...prev,
-                          hiddenAppIds: isHidden
-                            ? prev.hiddenAppIds.filter((x) => x !== id)
-                            : [...prev.hiddenAppIds, id],
-                        }))}
-                      />
-                    )
-                  })}
-                </HighlightRow>
-              )
-            ) : resolvedIds.length === 0 ? (
-              <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-            ) : (isManualSort && activeTab === 'source') ? (
-              <ManualSortRow
-                order={effectiveManualOrder}
-                meta={resolvedMeta as any}
-                onReorder={reorderManual}
-                t={t}
-                highlightFirst={state.highlightFirst}
-                highlightAll={state.highlightAll}
-                highlightedAppIds={state.highlightedAppIds}
-                highlightPickerOpen={highlightPickerOpen}
-              />
-            ) : (activeTab === 'visual' && highlightPickerOpen) ? (
-              <HighlightRow>
-                {effectiveManualOrder.map((id, idx) => {
-                  const inHighlighted = state.highlightedAppIds.includes(id)
-                  const selected = inHighlighted
-                  const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
-                  const meta = resolvedMeta.get(id)
-                  const toggle = () => {
-                    setAlternatingMode(null)
-                    prePatternHighlightsRef.current = null
-                    setState((prev) => ({
-                      ...prev,
-                      highlightedAppIds: prev.highlightedAppIds.includes(id)
-                        ? prev.highlightedAppIds.filter((x) => x !== id)
-                        : [...prev.highlightedAppIds, id],
-                    }))
-                  }
-                  return (
-                    <HighlightMiniCard
-                      key={id}
-                      appid={id}
-                      name={meta?.name ?? `App ${id}`}
-                      portraitUrl={meta?.portraitUrl}
-                      heroUrl={meta?.heroUrl}
-                      featured={featured}
-                      selected={selected}
-                      width={featured ? 210 : 68}
-                      height={100}
-                      onToggle={toggle}
-                    />
-                  )
-                })}
-              </HighlightRow>
-            ) : (
-              <ShelfPreview
-                t={t}
-                ids={effectiveManualOrder}
-                meta={resolvedMeta}
-                hideStatusLine={state.hideStatusLine}
-                hideNewBadge={state.hideNewBadge}
-                hideCompatIcons={state.hideCompatIcons}
-                hideNonSteamBadge={state.hideNonSteamBadge}
-                hideGameNames={state.hideGameNames === true}
-                hideInstallIndicator={state.hideInstallIndicator === true}
-                hideSeeMore={state.hideSeeMore === true}
-                hideRefreshCard={state.hideRefreshCard === true}
-                highlightFirst={state.highlightFirst}
-                highlightAll={state.highlightAll}
-                highlightedAppIds={state.highlightedAppIds}
-              />
-            )}
-          </div>
+          <PreviewPanel
+            t={t}
+            title={state.title}
+            hideShelfTitle={state.hideShelfTitle}
+            activeTab={activeTab}
+            resolvedIds={resolvedIds}
+            effectiveManualOrder={effectiveManualOrder}
+            resolvedMeta={resolvedMeta}
+            isManualSort={isManualSort}
+            onReorderManual={reorderManual}
+            highlightFirst={state.highlightFirst}
+            highlightAll={state.highlightAll}
+            highlightedAppIds={state.highlightedAppIds}
+            highlightPickerOpen={highlightPickerOpen}
+            setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
+            alternatingMode={alternatingMode}
+            setAlternatingMode={setAlternatingMode}
+            prePatternHighlightsRef={prePatternHighlightsRef}
+            hiddenPickerOpen={hiddenPickerOpen}
+            hiddenAppIds={state.hiddenAppIds}
+            setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
+            hiddenCandidateIds={effectiveHiddenCandidateIds}
+            hiddenCandidateMeta={hiddenCandidateMeta}
+            hideStatusLine={state.hideStatusLine}
+            hideNewBadge={state.hideNewBadge}
+            hideCompatIcons={state.hideCompatIcons}
+            hideNonSteamBadge={state.hideNonSteamBadge}
+            hideGameNames={state.hideGameNames === true}
+            hideInstallIndicator={state.hideInstallIndicator === true}
+            hideSeeMore={state.hideSeeMore === true}
+            hideRefreshCard={state.hideRefreshCard === true}
+          />
           </div>
         </Focusable>
       </ConfirmModal>
