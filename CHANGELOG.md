@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-05-09
+
 ### Added
 
 - **Collapsed-shelf title is now gamepad-focusable.** Vertical D-pad navigation now stops on the `+ Title` line of a collapsed shelf; pressing A (or clicking) expands the shelf. Expanded shelves keep the existing click-to-collapse title behavior unchanged.

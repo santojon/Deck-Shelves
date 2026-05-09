@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-05-09
+
 ### Added
 
 - **D-pad now stops on collapsed shelves.** Vertical navigation with the D-pad now lands focus on the `+ Title` line of a collapsed shelf instead of skipping over it. Press A to expand. Mouse / touch click still toggles as before.
