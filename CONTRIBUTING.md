@@ -184,7 +184,7 @@ The remaining rows (Documentation update / i18n / Build / CI) are additive — c
 - [ ] I ran `pnpm run build:plugin` with no errors
 - [ ] I ran `bash scripts/build/validate-compat.sh` and all checks pass
 - [ ] I tested on a Steam Deck (or explained why this isn't needed)
-- [ ] **(only if i18n / localization is checked above)** New i18n keys added to **all** 18 locale files
+- [ ] **(only if i18n / localization is checked above)** New i18n keys added to **all** 19 locale files
 
 **Other sections** — Screenshots / Videos and Additional Notes are optional but encouraged for UI changes and non-obvious decisions.
 
