@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import decky
 
@@ -400,7 +400,7 @@ class Plugin:
     async def get_settings(self, *args, **kwargs) -> Dict[str, Any]:
         return self._read_state()
 
-    async def set_settings(self, settings: Dict[str, Any] | None = None, *args, **kwargs) -> bool:
+    async def set_settings(self, settings: Optional[Dict[str, Any]] = None, *args, **kwargs) -> bool:
         data = self._extract_settings(settings, *args, **kwargs)
         try:
             decky.logger.info(f"Deck Shelves set_settings called with: {data}")

@@ -7,6 +7,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
+- **D-pad now stops on collapsed shelves.** Vertical navigation with the D-pad now lands focus on the `+ Title` line of a collapsed shelf instead of skipping over it. Press A to expand. Mouse / touch click still toggles as before.
 - **British English and Canadian French.** The plugin now supports `en-GB` (British English — "Favourites", etc.) and `fr-CA` (Canadian French — corrected accents and Canadian vocabulary). Both are selected automatically based on the Steam Deck's system language.
 - **Traditional Chinese** (`zh-TW`) translations added.
 - **Filter by app status.** New filter type with four toggles: **Downloading / Updating** (update actively in progress), **Queued / Paused** (update pending but not yet running), **Installing** (first-time install), **Running** (currently launching or playing). Default selection is both download states, enabling a "Download Queue" shelf out of the box. Extends the existing boolean "Update Pending" filter with per-state granularity.

@@ -23,7 +23,6 @@ import { resolveShelfAppIds } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { SORT_OPTIONS } from './editShelf/constants'
-import { SortDirectionButton } from './editShelf/SortDirectionButton'
 import { optionData } from './editShelf/utils'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
@@ -33,18 +32,8 @@ import { PreviewPanel } from './editShelf/PreviewPanel'
 // only on Save (used by SmartShelfTemplateModal's custom button).
 import { ModalHeader } from './editShelf/ModalHeader'
 import { FunnelIcon, EyeIcon, SparkleIcon } from '../../icons'
-
-// Same TabLabel pattern used by EditShelfModal — kept local rather than
-// shared because the two modals diverge enough that a tiny duplication
-// is cheaper than a new shared file.
-function TabLabel({ icon, text }: { icon?: React.ReactNode; text: string }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      {icon}
-      {text}
-    </span>
-  )
-}
+import { TabLabel } from './editShelf/TabLabel'
+import { SortField } from './editShelf/SortField'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
@@ -418,43 +407,23 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         bottomSeparator='thick'
                         onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
                       />
-                      <Field
+                      <SortField
                         label={t('smart_sort_override')}
-                        childrenLayout="inline"
-                        childrenContainerWidth="min"
-                        inlineWrap="keep-inline"
-                        bottomSeparator='thick'
-                      >
-                        <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Focusable style={{ minWidth: 200 }}>
-                            <Dropdown rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt) ?? '') }))} focusable />
-                          </Focusable>
-                          <SortDirectionButton
-                            sort={state.sort}
-                            reverse={state.sortReverse}
-                            onChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
-                          />
-                        </Focusable>
-                      </Field>
+                        options={sortOptions}
+                        sort={state.sort}
+                        onSortChange={(next) => setState((prev) => ({ ...prev, sort: next }))}
+                        reverse={state.sortReverse}
+                        onReverseChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
+                      />
                       {isManual && (
-                        <Field
+                        <SortField
                           label={t('manual_base_sort')}
-                          childrenLayout="inline"
-                          childrenContainerWidth="min"
-                          inlineWrap="keep-inline"
-                          bottomSeparator='thick'
-                        >
-                          <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Focusable style={{ minWidth: 200 }}>
-                              <Dropdown rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} focusable />
-                            </Focusable>
-                            <SortDirectionButton
-                              sort={state.manualBaseSort}
-                              reverse={state.manualBaseSortReverse}
-                              onChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
-                            />
-                          </Focusable>
-                        </Field>
+                          options={baseSortOptions}
+                          sort={state.manualBaseSort}
+                          onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: next }))}
+                          reverse={state.manualBaseSortReverse}
+                          onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
+                        />
                       )}
                       <Field
                         label={t('smart_refresh_interval')}
