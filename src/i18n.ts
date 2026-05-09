@@ -63,6 +63,8 @@ export function initI18n() {
       "ja-JP": { translation: jaJP },
       "ko-KR": { translation: koKR },
       "zh-CN": { translation: zhCN },
+      "en-GB": { translation: enGB },
+      "fr-CA": { translation: frCA },
     },
     lng: pick(lang),
     fallbackLng: "en-US",
