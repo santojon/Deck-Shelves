@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- British English (`en-GB`) localization. Derived from `en-US` with UK spelling (`Favourites`, etc.). Auto-selected when the system language is `en-GB` or any `en-GB-*` variant.
+- Canadian French (`fr-CA`) localization. Derived from `fr-FR` with corrected accents throughout (`étagère`, `être`, `installé`, `bibliothèque`, `paramètres`, etc.), translated `shortcut_kind_game` ("Jeux"), and minor Canadian French vocabulary adjustments. Auto-selected when the system language is `fr-CA` or any `fr-CA-*` variant.
+
 ## [2.1.0] - 2026-05-08
 
 ### Added

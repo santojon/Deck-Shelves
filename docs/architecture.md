@@ -8,7 +8,7 @@ Deck Shelves is a [Decky Loader](https://decky.xyz) plugin that injects custom g
 src/
 ├── index.tsx                  Plugin entry point (Decky lifecycle)
 ├── types.ts                   Zod schemas: Shelf, Settings, FilterGroup
-├── i18n.ts                    i18next initialization (16 locales)
+├── i18n.ts                    i18next initialization (18 locales)
 │
 ├── components/                React UI
 │   ├── HomeInject.tsx          Portal renderer for home screen shelves
