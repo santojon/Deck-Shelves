@@ -96,7 +96,7 @@ python3 scripts/devtools/deck/tools/inject_classmap.py
 
 > **Caution:** every new i18n key must be added to all 18 locale files simultaneously — `validate-compat.sh` will fail CI if any file is missing a key. Use the English string as the value in non-English locales when a translation is not yet available; do not leave the key undefined or the runtime will fall back silently and log a warning.
 
-- Base locale: `i18n/en-US.json` (18 locales total)
+- Base locale: `i18n/en-US.json` (19 locales total)
 - New keys must be added to ALL locale files
 - `validate-compat.sh` checks key consistency
 

@@ -8,6 +8,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 ### Added
 
 - **British English and Canadian French.** The plugin now supports `en-GB` (British English — "Favourites", etc.) and `fr-CA` (Canadian French — corrected accents and Canadian vocabulary). Both are selected automatically based on the Steam Deck's system language.
+- **Traditional Chinese** (`zh-TW`) translations added.
 
 ## [2.1.0] - 2026-05-08
 
