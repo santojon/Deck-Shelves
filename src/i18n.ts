@@ -17,6 +17,7 @@ import ukUA from "../i18n/uk-UA.json";
 import jaJP from "../i18n/ja-JP.json";
 import koKR from "../i18n/ko-KR.json";
 import zhCN from "../i18n/zh-CN.json";
+import zhTW from "../i18n/zh-TW.json";
 import enGB from "../i18n/en-GB.json";
 import frCA from "../i18n/fr-CA.json";
 
@@ -40,6 +41,7 @@ export function initI18n() {
     if (l.startsWith("uk")) return "uk-UA";
     if (l.startsWith("ja")) return "ja-JP";
     if (l.startsWith("ko")) return "ko-KR";
+    if (l.startsWith("zh-tw") || l.startsWith("zh-hant")) return "zh-TW";
     if (l.startsWith("zh")) return "zh-CN";
     if (l.startsWith("en-gb")) return "en-GB";
     return "en-US";
@@ -63,6 +65,7 @@ export function initI18n() {
       "ja-JP": { translation: jaJP },
       "ko-KR": { translation: koKR },
       "zh-CN": { translation: zhCN },
+      "zh-TW": { translation: zhTW },
       "en-GB": { translation: enGB },
       "fr-CA": { translation: frCA },
     },
