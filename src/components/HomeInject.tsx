@@ -528,6 +528,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     };
 
     applyPatches();
+    if (hasPendingFocus()) beginFocusRestoreLoop();
     // Proactive extraction via `prewarmMenuExtraction` was removed: it
     // invoked the native `onMenuButton` handler on mount, which briefly
     // opened a real Steam context menu on the home screen — users saw

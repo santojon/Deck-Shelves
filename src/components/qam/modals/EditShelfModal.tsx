@@ -402,7 +402,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 160px), 800px)', minHeight: 360 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 680px)', minHeight: 360 }}>
           <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
           <Tabs
             activeTab={activeTab}

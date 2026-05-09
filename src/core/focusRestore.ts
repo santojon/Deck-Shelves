@@ -47,9 +47,10 @@ function findNavNodeForElement(el: HTMLElement): any {
   const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
 
   const walk = (node: any, target: HTMLElement): any => {
-    const nodeEl = node.m_element || node.Element;
+    // Cover property name variations across SteamOS versions
+    const nodeEl = node.m_element ?? node.Element ?? node.m_pElement ?? node.element;
     if (nodeEl === target) return node;
-    const children = node.m_rgChildren || [];
+    const children: any[] = node.m_rgChildren ?? node.m_children ?? node.children ?? [];
     for (let i = 0; i < children.length; i++) {
       const found = walk(children[i], target);
       if (found) return found;
@@ -58,7 +59,7 @@ function findNavNodeForElement(el: HTMLElement): any {
   };
 
   for (const tree of trees) {
-    const root = tree.m_Root || tree.Root;
+    const root = tree.m_Root ?? tree.Root ?? tree.m_root;
     if (!root) continue;
     const found = walk(root, el);
     if (found) return found;
@@ -185,9 +186,18 @@ export function beginFocusRestoreLoop(): void {
     if (!card) return false;
     if (card.classList.contains("gpfocus")) { succeed(); return true; }
     const navNode = findNavNodeForElement(card);
-    // Require nav node — otherwise el.focus() won't sync gamepad tree and
-    // Steam's first-shelf default wins. Wait for the rebuilt tree via rAF.
-    if (!navNode) return false;
+    if (!navNode) {
+      // If the nav tree walk consistently returns nothing (property name mismatch
+      // on older SteamOS), fall back to DOM focus after most retries are spent.
+      // DOM focus won't sync the gamepad tree but is better than Steam defaulting
+      // to the first card — the restore window is already nearly exhausted.
+      if (Date.now() >= DEADLINE - 200) {
+        try { card.focus?.(); card.scrollIntoView?.({ block: 'nearest' }); } catch {}
+        succeed();
+        return true;
+      }
+      return false;
+    }
     tryRestoreFocus();
     return !!pendingAppid ? false : true;
   };

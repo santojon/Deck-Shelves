@@ -415,7 +415,16 @@ function buildStylesheet(): string {
       bottom: auto !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
     }
-    #deck-shelves-home-root .ds-card .ds-card-shimmer { display: none !important; }
+    #deck-shelves-home-root .ds-card .ds-card-shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: ds-shelf-shimmer 1.8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
     /* Refresh icon spin — driven by class added on click via DOM (not React
        state) so the animation survives the upstream setAppIds() that may
        reconcile the row while playing. The class is re-added each click via

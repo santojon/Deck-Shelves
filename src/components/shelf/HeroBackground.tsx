@@ -330,8 +330,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     if (next) {
       if (slot === 'A') setSlotA(next); else setSlotB(next);
     } else {
-      // No fallback left — hide this slot. If the previous slot still holds
-      // a valid image, flip back to it instead of going blank.
+      // No fallback left — hide this slot.
       setVisible(false);
     }
   };
