@@ -764,6 +764,8 @@ export function normalizeAppOverview(node: any): AppOverview | null {
       const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
       if (clientData) {
         const ds = Number(clientData?.display_status ?? 0);
+        // EAppDisplayStatus values that indicate an update is pending or in progress:
+        // 3=Reconfiguring, 6=Validating, 7=Queued, 8=Waiting, 12=Staging, 13=Committing, 19=Downloading
         if (ds === 19 || ds === 6 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 3) return true;
         const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
         const bytesStage = Number(clientData?.bytes_to_stage ?? clientData?.m_nBytesToStage ?? 0);
@@ -2316,6 +2318,8 @@ function checkUpdatePendingRaw(raw: any): boolean {
     const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
     if (clientData) {
       const ds = Number(clientData?.display_status ?? 0);
+      // EAppDisplayStatus values that indicate an update is pending or in progress:
+      // 3=Reconfiguring, 6=Validating, 7=Queued, 8=Waiting, 12=Staging, 13=Committing, 19=Downloading
       if (ds === 19 || ds === 6 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 3) return true;
       const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
       if (bytesDown > 0) return true;

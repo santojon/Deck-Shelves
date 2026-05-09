@@ -423,7 +423,7 @@ src/core/                Focus, scroll, refresh, assets, webpack compat, plugin 
 src/shims/               React/Decky runtime shims for GamepadUI
 src/features/settings/   Settings controller
 src/integrations/        TabMaster, UnifiDeck, DOM tab discovery
-i18n/                    Locale files (19 languages)
+i18n/                    Locale files
 checks/                  Compatibility validation scripts (36 checks)
 scripts/                 Build, deploy, watch, package, devtools helpers
 ```
