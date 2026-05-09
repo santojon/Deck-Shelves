@@ -271,7 +271,7 @@
   "first_run_create_defaults": "デフォルトのシェルフを作成",
   "first_run_desc": "ホーム画面にカスタムゲームシェルフを作成しましょう。デフォルトで始めるか、手動でシェルフを追加できます。",
   "first_run_title": "Deck Shelvesへようこそ！",
-  "global_dedupe_by_name": "名前で重複を除外（グローバル）",
+  "global_dedupe_by_name": "名前で重複を除外",
   "hide_compat_icons": "互換性アイコンを非表示",
   "hide_game_name": "ゲーム名を隠す",
   "hide_game_names": "ゲーム名を隠す",

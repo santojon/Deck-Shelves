@@ -271,7 +271,7 @@
   "first_run_create_defaults": "Crear estanterías predeterminadas",
   "first_run_desc": "Crea estanterías de juegos personalizadas en tu pantalla de inicio. Empieza con las predeterminadas o agrega estanterías manualmente.",
   "first_run_title": "¡Bienvenido a Deck Shelves!",
-  "global_dedupe_by_name": "Deduplicar por nombre (global)",
+  "global_dedupe_by_name": "Deduplicar por nombre",
   "hide_compat_icons": "Ocultar iconos de compatibilidad",
   "hide_game_name": "Ocultar nombre del juego",
   "hide_game_names": "Ocultar nombres de los juegos",

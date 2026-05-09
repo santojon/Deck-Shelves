@@ -6,7 +6,7 @@ import { RefreshCard } from '../../../shelf/RefreshCard'
 import type { DeckRowItem } from '../../../shelf/types'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 
-const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 // Portrait card. Featured cards are 3.21× wider — same ratio the home shelf
 // uses to keep landscape hero art at the right ~2.14:1 aspect.
 const PREVIEW_CARD_W = 78

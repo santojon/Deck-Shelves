@@ -287,6 +287,11 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     const observer = new MutationObserver(() => updateHero());
     observer.observe(mountEl, { subtree: true, attributes: true, attributeFilter: ['class'] });
     mountEl.addEventListener('focusin', updateHero);
+    // Capture any already-focused card on mount or dep change. After back
+    // navigation, Steam restores focus via BTakeFocus before React's useEffect
+    // runs — the focusin event fires into the void. Calling updateHero() here
+    // catches that case without waiting for the next user input.
+    updateHero();
     // No focusout hide: native ArtHero keeps the last focused game's hero
     // visible until another card takes focus. During gamepad navigation
     // between rows, Steam can briefly emit focusout with relatedTarget=null

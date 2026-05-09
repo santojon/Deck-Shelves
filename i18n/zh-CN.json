@@ -271,7 +271,7 @@
   "first_run_create_defaults": "创建默认书架",
   "first_run_desc": "在主页上创建自定义游戏书架。使用默认设置开始，或手动添加书架。",
   "first_run_title": "欢迎使用Deck Shelves！",
-  "global_dedupe_by_name": "按名称去重（全局）",
+  "global_dedupe_by_name": "按名称去重",
   "hide_compat_icons": "隐藏兼容性图标",
   "hide_game_name": "隐藏游戏名称",
   "hide_game_names": "隐藏游戏名称",
