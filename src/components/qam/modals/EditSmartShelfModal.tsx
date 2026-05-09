@@ -390,7 +390,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 680px)', minHeight: 360 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
           <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
             <Tabs
               activeTab={activeTab}
@@ -454,7 +454,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       <Field
                         label={t('smart_refresh_interval')}
                         description={t('smart_refresh_interval_desc')}
-                        bottomSeparator='thick'
+                        bottomSeparator='none'
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ flex: 1 }}>
