@@ -23,7 +23,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  validate:
+  pr-checklist:
     runs-on: ubuntu-latest
     steps:
       - name: Validate PR body checklist
