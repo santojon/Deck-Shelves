@@ -64,6 +64,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   const [nativeCardClass, setNativeCardClass] = useState('');
   const [imgFailed, setImgFailed] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   // Dedupe activation: Focusable fires onActivate + onOKButton + dispatches
   // vgp_onok (listened below), so a single A-press can invoke item.onActivate
@@ -100,15 +101,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             if (animDur) cardRef.current.style.setProperty('--ds-native-after-duration', animDur);
             if (animTiming) cardRef.current.style.setProperty('--ds-native-after-timing', animTiming);
             if (animIter) cardRef.current.style.setProperty('--ds-native-after-iteration', animIter);
-            try {
-              const shimmer = cardRef.current.querySelector('.ds-card-shimmer') as HTMLElement | null;
-              if (shimmer) {
-                shimmer.style.display = 'none';
-                shimmer.style.animation = 'none';
-              }
-            } catch (e) {
-              logInfo("HOME", "injectNativeClasses: shimmer cleanup failed", String(e));
-            }
           }
         } catch (e) {
           logInfo("HOME", "injectNativeClasses: animation read failed", String(e));
@@ -203,6 +195,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   useEffect(() => {
     fallbackIdx.current = 0;
     setImgFailed(false);
+    setImgLoaded(false);
     if (imgRef.current && allUrls[0]) {
       imgRef.current.src = allUrls[0];
     }
@@ -216,6 +209,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       setImgFailed(true);
     }
   }, [allUrls]);
+
+  const onImgLoad = useCallback(() => {
+    setImgLoaded(true);
+  }, []);
 
   const firstUrl = allUrls[0] ?? "";
 
@@ -280,10 +277,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           src={firstUrl}
           alt={item.name}
           onError={onImgError}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          onLoad={onImgLoad}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
           loading="lazy"
         />
-        <div className="ds-card-shimmer" aria-hidden="true" />
+        <div className={`ds-card-shimmer${imgLoaded ? ' ds-card-shimmer--loaded' : ''}`} aria-hidden="true" />
         {compatClass && (
           <div className={compatClass}>
             {deckLogoSvg}

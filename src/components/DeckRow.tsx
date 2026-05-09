@@ -405,23 +405,44 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
         style={{ marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'var(--ds-shell-bg)' }}
     >
       {title && !hideShelfTitle ? (
-        <div
-          ref={titleRef}
-          className={`ds-shelf-title${forceExpanded ? ' ds-shelf-title--locked' : ''}`}
-          onClick={forceExpanded ? undefined : toggleCollapse}
-          style={{
-            marginBottom: 8,
-            paddingLeft: "2.8vw",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            cursor: forceExpanded ? "default" : "pointer",
-            userSelect: "none",
-            pointerEvents: forceExpanded ? "none" : undefined,
-          }}
-        >
-          <span style={{ flex: 1 }}>{collapsed ? `+ ${title}` : title}</span>
-        </div>
+        collapsed ? (
+          <Focusable
+            ref={titleRef as any}
+            className="ds-shelf-title"
+            onClick={toggleCollapse}
+            onOKButton={toggleCollapse}
+            onActivate={toggleCollapse}
+            style={{
+              marginBottom: 8,
+              paddingLeft: "2.8vw",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            <span style={{ flex: 1 }}>{`+ ${title}`}</span>
+          </Focusable>
+        ) : (
+          <div
+            ref={titleRef}
+            className={`ds-shelf-title${forceExpanded ? ' ds-shelf-title--locked' : ''}`}
+            onClick={forceExpanded ? undefined : toggleCollapse}
+            style={{
+              marginBottom: 8,
+              paddingLeft: "2.8vw",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: forceExpanded ? "default" : "pointer",
+              userSelect: "none",
+              pointerEvents: forceExpanded ? "none" : undefined,
+            }}
+          >
+            <span style={{ flex: 1 }}>{title}</span>
+          </div>
+        )
       ) : null}
       {(!collapsed || hideShelfTitle) && (
         <Focusable

@@ -15,7 +15,7 @@ import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
 
-const NEW_GAME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalDedupeByName = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalDedupeByName?: boolean; forceExpanded?: boolean }) {
   const { t } = useTranslation();

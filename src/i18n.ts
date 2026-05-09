@@ -18,6 +18,8 @@ import jaJP from "../i18n/ja-JP.json";
 import koKR from "../i18n/ko-KR.json";
 import zhCN from "../i18n/zh-CN.json";
 import zhTW from "../i18n/zh-TW.json";
+import enGB from "../i18n/en-GB.json";
+import frCA from "../i18n/fr-CA.json";
 
 export function initI18n() {
   if (i18n.isInitialized) return i18n;
@@ -29,6 +31,7 @@ export function initI18n() {
     if (l === "es-es" || l.startsWith("es-es")) return "es-ES";
     if (l.startsWith("es")) return "es-419";
     if (l.startsWith("it")) return "it-IT";
+    if (l === "fr-ca" || l.startsWith("fr-ca")) return "fr-CA";
     if (l.startsWith("fr")) return "fr-FR";
     if (l.startsWith("de")) return "de-DE";
     if (l.startsWith("ru")) return "ru-RU";
@@ -40,6 +43,7 @@ export function initI18n() {
     if (l.startsWith("ko")) return "ko-KR";
     if (l.startsWith("zh-tw") || l.startsWith("zh-hant")) return "zh-TW";
     if (l.startsWith("zh")) return "zh-CN";
+    if (l.startsWith("en-gb")) return "en-GB";
     return "en-US";
   };
 
@@ -62,6 +66,8 @@ export function initI18n() {
       "ko-KR": { translation: koKR },
       "zh-CN": { translation: zhCN },
       "zh-TW": { translation: zhTW },
+      "en-GB": { translation: enGB },
+      "fr-CA": { translation: frCA },
     },
     lng: pick(lang),
     fallbackLng: "en-US",

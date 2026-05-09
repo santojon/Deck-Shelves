@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
-  Dropdown,
   DropdownItem,
-  Field,
   Focusable,
   SliderField,
   Tabs,
@@ -22,28 +20,14 @@ import { usePlatform } from '../../../runtime/platformContext'
 import { BASE_SOURCE_TYPES, SORT_OPTIONS, type SourceType, type EditTab } from './editShelf/constants'
 import type { EditableShelfState } from './editShelf/types'
 import { optionData } from './editShelf/utils'
-import { ManualSortRow } from './editShelf/ManualSortRow'
-import { SortDirectionButton } from './editShelf/SortDirectionButton'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
-import { HighlightRow } from './editShelf/HighlightRow'
-import { HighlightMiniCard } from './editShelf/HighlightMiniCard'
 import { FunnelIcon, EyeIcon, SteamIcon } from '../../icons'
 import type { PlatformAppMeta } from '../../../runtime/platform'
-import { ShelfPreview } from './editShelf/ShelfPreview'
-
-// Tab title with optional leading icon — uses inline-flex so the icon
-// aligns vertically with the label text. Applied selectively (not every
-// tab) so the strip stays uncluttered.
-function TabLabel({ icon, text }: { icon?: React.ReactNode; text: string }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      {icon}
-      {text}
-    </span>
-  )
-}
+import { PreviewPanel } from './editShelf/PreviewPanel'
+import { TabLabel } from './editShelf/TabLabel'
+import { SortField } from './editShelf/SortField'
 import { ModalHeader } from './editShelf/ModalHeader'
 
 
@@ -402,7 +386,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             onTitleChange={(next) => setState((prev) => ({ ...prev, title: next }))}
             previewCount={previewCount}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 160px), 800px)', minHeight: 360 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
           <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
           <Tabs
             activeTab={activeTab}
@@ -423,46 +407,25 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     {state.sourceType === 'external' && externalOptions.length > 0 && (
                       <DropdownItem label={t('source_external')} rgOptions={externalOptionsFinal} selectedOption={externalSelected} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
                     )}
-                    <Field
+                    <SortField
                       label={t('filter_mode')}
-                      childrenLayout="inline"
-                      childrenContainerWidth="min"
-                      inlineWrap="keep-inline"
-                      bottomSeparator='thick'
-                    >
-                      <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Focusable style={{ minWidth: 200 }}>
-                          {state.sourceType === 'filter'
-                            ? <Dropdown rgOptions={sortOptions} selectedOption={state.filter.sort ?? 'alphabetical'} onChange={(opt: unknown) => setState((prev) => ({ ...prev, filter: { ...prev.filter, sort: String(optionData(opt)) as ShelfFilter['sort'] } }))} focusable />
-                            : <Dropdown rgOptions={sortOptions} selectedOption={state.sort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, sort: String(optionData(opt)) }))} focusable />
-                          }
-                        </Focusable>
-                        <SortDirectionButton
-                          sort={state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort}
-                          reverse={state.sortReverse}
-                          onChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
-                        />
-                      </Focusable>
-                    </Field>
+                      options={sortOptions}
+                      sort={state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort}
+                      onSortChange={(next) => setState((prev) => prev.sourceType === 'filter'
+                        ? { ...prev, filter: { ...prev.filter, sort: next as ShelfFilter['sort'] } }
+                        : { ...prev, sort: next })}
+                      reverse={state.sortReverse}
+                      onReverseChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
+                    />
                     {isManualSort && (
-                      <Field
+                      <SortField
                         label={t('manual_base_sort')}
-                        childrenLayout="inline"
-                        childrenContainerWidth="min"
-                        inlineWrap="keep-inline"
-                        bottomSeparator='thick'
-                      >
-                        <Focusable style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Focusable style={{ minWidth: 200 }}>
-                            <Dropdown rgOptions={baseSortOptions} selectedOption={state.manualBaseSort} onChange={(opt: unknown) => setState((prev) => ({ ...prev, manualBaseSort: String(optionData(opt)) }))} focusable />
-                          </Focusable>
-                          <SortDirectionButton
-                            sort={state.manualBaseSort}
-                            reverse={state.manualBaseSortReverse}
-                            onChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
-                          />
-                        </Focusable>
-                      </Field>
+                        options={baseSortOptions}
+                        sort={state.manualBaseSort}
+                        onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: next }))}
+                        reverse={state.manualBaseSortReverse}
+                        onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
+                      />
                     )}
                     <SliderField
                       label={`${t('limit')} (${state.limit})`}
@@ -470,7 +433,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       min={1}
                       max={50}
                       step={1}
-                      bottomSeparator='thick'
+                      bottomSeparator='none'
                       onChange={(value: number) => setState((prev) => ({ ...prev, limit: value }))}
                     />
                   </FieldContainer>
@@ -546,110 +509,38 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             ]}
           />
           </div>
-          <div style={{ flexShrink: 0, padding: '0 24px' }}>
-            {!state.hideShelfTitle && (
-              <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {state.title || t('newShelf')}
-              </div>
-            )}
-            {(activeTab === 'display' && hiddenPickerOpen) ? (
-              effectiveHiddenCandidateIds.length === 0 ? (
-                <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-              ) : (
-                <HighlightRow>
-                  {effectiveHiddenCandidateIds.map((id, idx) => {
-                    const isHidden = state.hiddenAppIds.includes(id)
-                    const inHighlighted = state.highlightedAppIds.includes(id)
-                    const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
-                    const meta = hiddenCandidateMeta.get(id)
-                    return (
-                      <HighlightMiniCard
-                        key={id}
-                        appid={id}
-                        name={meta?.name ?? `App ${id}`}
-                        portraitUrl={meta?.portraitUrl}
-                        heroUrl={meta?.heroUrl}
-                        featured={featured}
-                        selected={false}
-                        hiddenMark={isHidden}
-                        width={featured ? 210 : 68}
-                        height={100}
-                        onToggle={() => setState((prev) => ({
-                          ...prev,
-                          hiddenAppIds: isHidden
-                            ? prev.hiddenAppIds.filter((x) => x !== id)
-                            : [...prev.hiddenAppIds, id],
-                        }))}
-                      />
-                    )
-                  })}
-                </HighlightRow>
-              )
-            ) : resolvedIds.length === 0 ? (
-              <div style={{ padding: '6px 0', fontSize: 12, opacity: 0.6 }}>{t('preview_loading')}</div>
-            ) : (isManualSort && activeTab === 'source') ? (
-              <ManualSortRow
-                order={effectiveManualOrder}
-                meta={resolvedMeta as any}
-                onReorder={reorderManual}
-                t={t}
-                highlightFirst={state.highlightFirst}
-                highlightAll={state.highlightAll}
-                highlightedAppIds={state.highlightedAppIds}
-                highlightPickerOpen={highlightPickerOpen}
-              />
-            ) : (activeTab === 'visual' && highlightPickerOpen) ? (
-              <HighlightRow>
-                {effectiveManualOrder.map((id, idx) => {
-                  const inHighlighted = state.highlightedAppIds.includes(id)
-                  const selected = inHighlighted
-                  const featured = state.highlightAll || (state.highlightFirst && idx === 0) || inHighlighted
-                  const meta = resolvedMeta.get(id)
-                  const toggle = () => {
-                    setAlternatingMode(null)
-                    prePatternHighlightsRef.current = null
-                    setState((prev) => ({
-                      ...prev,
-                      highlightedAppIds: prev.highlightedAppIds.includes(id)
-                        ? prev.highlightedAppIds.filter((x) => x !== id)
-                        : [...prev.highlightedAppIds, id],
-                    }))
-                  }
-                  return (
-                    <HighlightMiniCard
-                      key={id}
-                      appid={id}
-                      name={meta?.name ?? `App ${id}`}
-                      portraitUrl={meta?.portraitUrl}
-                      heroUrl={meta?.heroUrl}
-                      featured={featured}
-                      selected={selected}
-                      width={featured ? 210 : 68}
-                      height={100}
-                      onToggle={toggle}
-                    />
-                  )
-                })}
-              </HighlightRow>
-            ) : (
-              <ShelfPreview
-                t={t}
-                ids={effectiveManualOrder}
-                meta={resolvedMeta}
-                hideStatusLine={state.hideStatusLine}
-                hideNewBadge={state.hideNewBadge}
-                hideCompatIcons={state.hideCompatIcons}
-                hideNonSteamBadge={state.hideNonSteamBadge}
-                hideGameNames={state.hideGameNames === true}
-                hideInstallIndicator={state.hideInstallIndicator === true}
-                hideSeeMore={state.hideSeeMore === true}
-                hideRefreshCard={state.hideRefreshCard === true}
-                highlightFirst={state.highlightFirst}
-                highlightAll={state.highlightAll}
-                highlightedAppIds={state.highlightedAppIds}
-              />
-            )}
-          </div>
+          <PreviewPanel
+            t={t}
+            title={state.title}
+            hideShelfTitle={state.hideShelfTitle}
+            activeTab={activeTab}
+            resolvedIds={resolvedIds}
+            effectiveManualOrder={effectiveManualOrder}
+            resolvedMeta={resolvedMeta}
+            isManualSort={isManualSort}
+            onReorderManual={reorderManual}
+            highlightFirst={state.highlightFirst}
+            highlightAll={state.highlightAll}
+            highlightedAppIds={state.highlightedAppIds}
+            highlightPickerOpen={highlightPickerOpen}
+            setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
+            alternatingMode={alternatingMode}
+            setAlternatingMode={setAlternatingMode}
+            prePatternHighlightsRef={prePatternHighlightsRef}
+            hiddenPickerOpen={hiddenPickerOpen}
+            hiddenAppIds={state.hiddenAppIds}
+            setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
+            hiddenCandidateIds={effectiveHiddenCandidateIds}
+            hiddenCandidateMeta={hiddenCandidateMeta}
+            hideStatusLine={state.hideStatusLine}
+            hideNewBadge={state.hideNewBadge}
+            hideCompatIcons={state.hideCompatIcons}
+            hideNonSteamBadge={state.hideNonSteamBadge}
+            hideGameNames={state.hideGameNames === true}
+            hideInstallIndicator={state.hideInstallIndicator === true}
+            hideSeeMore={state.hideSeeMore === true}
+            hideRefreshCard={state.hideRefreshCard === true}
+          />
           </div>
         </Focusable>
       </ConfirmModal>

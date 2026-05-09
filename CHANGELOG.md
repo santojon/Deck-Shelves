@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Collapsed-shelf title is now gamepad-focusable.** Vertical D-pad navigation now stops on the `+ Title` line of a collapsed shelf; pressing A (or clicking) expands the shelf. Expanded shelves keep the existing click-to-collapse title behavior unchanged.
+- British English (`en-GB`) localization. Derived from `en-US` with UK spelling (`Favourites`, etc.). Auto-selected when the system language is `en-GB` or any `en-GB-*` variant.
+- Canadian French (`fr-CA`) localization. Derived from `fr-FR` with corrected accents throughout (`étagère`, `être`, `installé`, `bibliothèque`, `paramètres`, etc.), translated `shortcut_kind_game` ("Jeux"), and minor Canadian French vocabulary adjustments. Auto-selected when the system language is `fr-CA` or any `fr-CA-*` variant.
 - Traditional Chinese (`zh-TW`) translation.
+- **`appStatus` filter — granular app state matching.** New filter type backed by `EAppDisplayStatus` (Steam's `per_client_data[0].display_status`). Four toggle groups: `downloading` (actively transferring/staging/committing/validating: ds 19/12/13/6), `queued` (update pending but idle: ds 7/8/3), `installing` (first-time install: ds 4), `running` (currently launching or playing: ds 5/2). Default selection: `[downloading, queued]`. Invertible. Enables a "Download Queue" shelf and other status-aware filters beyond the boolean `updatePending`. New i18n keys: `filter_type_appStatus`, `app_status_downloading`, `app_status_queued`, `app_status_installing`, `app_status_running`, `docs_filter_appStatus_desc`.
+- **`EAppDisplayStatus` enum** (`src/steam/appDisplayStatus.ts`). Named constants for all confirmed `display_status` values observed in Steam's `per_client_data`. Replaces bare magic numbers in `update_pending` detection and `checkUpdatePendingRaw`. Exports `UPDATE_PENDING_STATUSES`, `UPDATE_ACTIVE_STATUSES`, `UPDATE_QUEUED_STATUSES`, and `APP_STATUS_GROUPS` for use by the filter evaluator and UI layer.
+
+### Changed
+
+- **Edit modal duplication reduced.** Extracted shared `PreviewPanel`, `TabLabel`, and `SortField` components used by both `EditShelfModal` and `EditSmartShelfModal`. The bottom preview region (loading / hidden picker / manual sort / highlight picker / shelf preview) is now a single component; both modals also use the same parameterized sort + reverse-direction row for primary and manual-base sorts. `EditSmartShelfModal` now applies manual ordering to the hidden-games picker (parity with `EditShelfModal`) and no longer renders the manual-sort row twice when on the source tab.
+
+### Fixed
+
+- **`isNew` badge window aligned to 14 days** — `evaluateFilterItem` ("isNew" case) was using 30 days while `Shelf.tsx` and `ShelfPreview.tsx` were already using 14. All three now use the same 14-day constant, matching native Steam's "new to library" badge behavior.
+- **Hero art not restoring after back navigation.** When Steam restores focus via `BTakeFocus` after returning from a game, the `focusin` event fires before React's `useEffect` attaches the listener — leaving the hero stuck on the previously visible art. Fixed by calling `updateHero()` immediately on effect mount to capture any card that is already focused at attach time.
 
 ## [2.1.0] - 2026-05-08
 

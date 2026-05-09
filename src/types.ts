@@ -23,6 +23,7 @@ export const FilterItemTypeSchema = z.enum([
   "controllerSupport",
   "merge",
   "shortcutType",
+  "appStatus",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 

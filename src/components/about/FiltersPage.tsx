@@ -25,6 +25,7 @@ const filterRows: [string, string][] = [
   ['filter_type_appIdList',       'docs_filter_appidlist_desc'],
   ['filter_type_collection',      'docs_filter_collection_desc'],
   ['filter_type_shortcutType',    'docs_filter_shortcutType_desc'],
+  ['filter_type_appStatus',       'docs_filter_appStatus_desc'],
   ['filter_type_storeTag',        'docs_filter_store_tag_desc'],
   ['filter_type_friends',         'docs_filter_friends_desc'],
   ['filter_type_achievements',    'docs_filter_achievements_desc'],

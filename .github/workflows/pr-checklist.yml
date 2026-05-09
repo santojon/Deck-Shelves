@@ -15,8 +15,9 @@ name: PR Checklist
 # `pull_request_target` is used so the token can re-run on edits from forks,
 # but only PR body text is read — never code from the PR head.
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, edited, ready_for_review]
+  workflow_run:
+    workflows: ["PR Autofill"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -26,13 +27,35 @@ jobs:
   pr-checklist:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate PR body checklist
+      - name: Resolve PR number
+        id: pr
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
+          PULL_REQUESTS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          PR_NUM=$(echo "$PULL_REQUESTS" | python3 -c "
+          import json, sys
+          prs = json.load(sys.stdin)
+          print(prs[0]['number'] if prs else '')
+          " 2>/dev/null || echo "")
+          if [ -z "$PR_NUM" ]; then
+            PR_NUM=$(gh pr list \
+              --repo "${{ github.repository }}" \
+              --state open \
+              --json number,headRefOid \
+              --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" | head -1)
+          fi
+          echo "number=$PR_NUM" >> $GITHUB_OUTPUT
+
+      - name: Validate PR body checklist
+        if: steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          export PR_TITLE=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title --jq '.title')
           python3 <<'PY'
           import os, re, subprocess, sys
 
