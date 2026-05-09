@@ -139,8 +139,9 @@ Follow these steps to regenerate the canonical screenshots:
 3. Add entries under `## [Unreleased]` in **both** `CHANGELOG.md` (technical detail) and `RELEASE_NOTES.md` (user-facing language). Use `### Added`, `### Fixed`, `### Changed`, `### Removed`, or `### Performance` as appropriate.
 4. Run `bash scripts/build/validate-compat.sh` and ensure all checks pass
 5. Build with `pnpm run build:plugin` and verify no errors
-6. Test on a real Steam Deck if possible
-7. Open a Pull Request with a title starting with one of these tags:
+6. Run `pnpm run precommit` and verify no errors
+7. Test on a real Steam Deck if possible
+8. Open a Pull Request with a title starting with one of these tags:
 
 | Tag | Bump | Example |
 |---|---|---|
