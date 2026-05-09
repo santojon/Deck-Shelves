@@ -1,5 +1,6 @@
 import type { FilterGroup, FilterItem } from "../types";
 import { dedupeAppIdsByName } from "./dedupe";
+import { EAppDisplayStatus, UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS } from "./appDisplayStatus";
 import { mark, measure } from "../core/perf";
 import {
   hasExternalSortOption, applyExternalSort,
@@ -715,6 +716,7 @@ export type AppOverview = {
   header?: string;
   icon_hash?: string;
   update_pending?: boolean;
+  display_status?: number;
   app_type?: number;
   cloud_available?: boolean;
   controller_support?: number;
@@ -764,9 +766,7 @@ export function normalizeAppOverview(node: any): AppOverview | null {
       const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
       if (clientData) {
         const ds = Number(clientData?.display_status ?? 0);
-        // EAppDisplayStatus values that indicate an update is pending or in progress:
-        // 3=Reconfiguring, 6=Validating, 7=Queued, 8=Waiting, 12=Staging, 13=Committing, 19=Downloading
-        if (ds === 19 || ds === 6 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 3) return true;
+        if (UPDATE_PENDING_STATUSES.includes(ds)) return true;
         const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
         const bytesStage = Number(clientData?.bytes_to_stage ?? clientData?.m_nBytesToStage ?? 0);
         if (bytesDown > 0 || bytesStage > 0) return true;
@@ -778,6 +778,17 @@ export function normalizeAppOverview(node: any): AppOverview | null {
       ]);
       if (explicit === true) return true;
       return explicit;
+    })(),
+    display_status: (() => {
+      try {
+        const pcd = node?.per_client_data;
+        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
+        if (clientData) {
+          const ds = Number(clientData?.display_status ?? 0);
+          return ds > 0 ? ds : undefined;
+        }
+      } catch {}
+      return undefined;
     })(),
     deck_compatibility_category: Number(node?.deck_compatibility_category ?? node?.m_eDeckCompatibilityCategory ?? ((Number(node?.steam_hw_compat_category_packed ?? 0) & 0xF) || 0)),
     library_capsule: String(node?.library_capsule ?? node?.libraryCapsule ?? node?.vertical_capsule ?? ""),
@@ -1652,12 +1663,21 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
     case "updatePending":
       result = app.update_pending === true;
       break;
+    case "appStatus": {
+      const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
+      const ds = (app as any).display_status as number | undefined;
+      result = groups.some((g) => {
+        const statuses = APP_STATUS_GROUPS[g as keyof typeof APP_STATUS_GROUPS];
+        return statuses ? statuses.includes(ds as number) : false;
+      });
+      break;
+    }
     case "isNew": {
       const a = app as any;
       const added = Number(a.rt_purchased_time ?? a.rt_recent_activity_time ?? a.user_added_ts ?? a.rt_store_asset_mtime ?? 0);
       if (!added || !Number.isFinite(added)) { result = false; break; }
       const addedMs = added < 1e12 ? added * 1000 : added;
-      result = (Date.now() - addedMs) < 30 * 24 * 60 * 60 * 1000;
+      result = (Date.now() - addedMs) < 14 * 24 * 60 * 60 * 1000;
       break;
     }
     case "deckCompatibility": {
@@ -2318,9 +2338,7 @@ function checkUpdatePendingRaw(raw: any): boolean {
     const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
     if (clientData) {
       const ds = Number(clientData?.display_status ?? 0);
-      // EAppDisplayStatus values that indicate an update is pending or in progress:
-      // 3=Reconfiguring, 6=Validating, 7=Queued, 8=Waiting, 12=Staging, 13=Committing, 19=Downloading
-      if (ds === 19 || ds === 6 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 3) return true;
+      if (UPDATE_PENDING_STATUSES.includes(ds)) return true;
       const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
       if (bytesDown > 0) return true;
     }

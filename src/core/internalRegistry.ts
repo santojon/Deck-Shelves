@@ -51,7 +51,7 @@ const INTERNAL_FILTER_TYPES: ExternalFilterTypeDescriptor[] = [
   "deckCompatibility", "playedWithinDays", "playtimeRange", "nameIncludes",
   "nameRegex", "friends", "storeTag", "achievements", "collection",
   "developer", "publisher", "appIdList", "cloudAvailable",
-  "controllerSupport", "merge",
+  "controllerSupport", "merge", "appStatus",
 ].map<ExternalFilterTypeDescriptor>((id) => ({
   id,
   displayName: id,

@@ -5,6 +5,7 @@ import DeveloperFilterOptions from "./DeveloperFilterOptions";
 import PublisherFilterOptions from "./PublisherFilterOptions";
 import MergeFilterOptions from "./MergeFilterOptions";
 import { COMPAT_LEVELS } from "./utils";
+import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 
 export default function FilterItemOptions({ item, onChange, controller }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: import("../../features/settings/controller").SettingsController }) {
   const t = i18n.t.bind(i18n);
@@ -78,6 +79,29 @@ export default function FilterItemOptions({ item, onChange, controller }: { item
                   const next = new Set(kindSet);
                   if (val) next.add(k); else next.delete(k);
                   patchParams({ kinds: Array.from(next) });
+                }}
+                bottomSeparator="none"
+              />
+            </div>
+          ))}
+        </>
+      );
+    }
+
+    case "appStatus": {
+      const groups: string[] = Array.isArray(p.groups) ? p.groups : ["downloading", "queued"];
+      const groupSet = new Set(groups);
+      return (
+        <>
+          {APP_STATUS_GROUP_KEYS.map((g) => (
+            <div key={g}>
+              <ToggleField
+                label={t(`app_status_${g}` as any)}
+                checked={groupSet.has(g)}
+                onChange={(val: boolean) => {
+                  const next = new Set(groupSet);
+                  if (val) next.add(g); else next.delete(g);
+                  patchParams({ groups: Array.from(next) });
                 }}
                 bottomSeparator="none"
               />

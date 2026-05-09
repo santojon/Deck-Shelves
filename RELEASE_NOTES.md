@@ -9,6 +9,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **British English and Canadian French.** The plugin now supports `en-GB` (British English — "Favourites", etc.) and `fr-CA` (Canadian French — corrected accents and Canadian vocabulary). Both are selected automatically based on the Steam Deck's system language.
 - **Traditional Chinese** (`zh-TW`) translations added.
+- **Filter by app status.** New filter type with four toggles: **Downloading / Updating** (update actively in progress), **Queued / Paused** (update pending but not yet running), **Installing** (first-time install), **Running** (currently launching or playing). Default selection is both download states, enabling a "Download Queue" shelf out of the box. Extends the existing boolean "Update Pending" filter with per-state granularity.
+
+### Fixed
+
+- **"New" badge window corrected to 14 days.** The badge filter was using 30 days internally while the shelf renderer already used 14 — now both match, consistent with Steam's native "new to library" badge.
+- **Hero art not restoring after returning from a game.** Cover art could get stuck showing the last-played game instead of updating when you returned to the home screen. Fixed.
 
 ## [2.1.0] - 2026-05-08
 
