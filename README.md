@@ -61,7 +61,7 @@ A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable she
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry
-- Multi-language support (EN, PT-BR, PT-PT, FR, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN)
+- Multi-language support (EN, PT-BR, PT-PT, FR, DE, ES, ES-419, IT, RU, PL, NL, TR, UK, JA, KO, ZH-CN, ZH-TW)
 
 ### Screenshots
 #### Home
@@ -423,7 +423,7 @@ src/core/                Focus, scroll, refresh, assets, webpack compat, plugin 
 src/shims/               React/Decky runtime shims for GamepadUI
 src/features/settings/   Settings controller
 src/integrations/        TabMaster, UnifiDeck, DOM tab discovery
-i18n/                    Locale files (16 languages)
+i18n/                    Locale files (17 languages)
 checks/                  Compatibility validation scripts (36 checks)
 scripts/                 Build, deploy, watch, package, devtools helpers
 ```
