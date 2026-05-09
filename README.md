@@ -20,6 +20,8 @@
 
 A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable shelves into the Home screen with a built-in Quick Access Menu editor.
 
+Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
+
 ## Features
 
 - Inject custom shelves into `library/home`
