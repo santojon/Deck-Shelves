@@ -20,27 +20,29 @@ jobs:
   autofill:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR head (read-only text files)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          persist-credentials: false
-
       - name: Autofill PR body from Unreleased sections
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           REPO: ${{ github.repository }}
         run: |
           python3 <<'PY'
-          import os, re, subprocess, sys
+          import os, re, subprocess, sys, base64
 
-          def extract_unreleased(path: str) -> str:
-              if not os.path.exists(path):
+          def fetch_file(repo, path, sha):
+              try:
+                  result = subprocess.check_output(
+                      ['gh', 'api', f'repos/{repo}/contents/{path}?ref={sha}',
+                       '--jq', '.content'],
+                      text=True, stderr=subprocess.DEVNULL,
+                  )
+                  return base64.b64decode(result.replace('\n', '')).decode('utf-8')
+              except subprocess.CalledProcessError:
                   return ''
-              with open(path, 'r', encoding='utf-8') as f:
-                  text = f.read()
+
+          def extract_unreleased(text: str) -> str:
               m = re.search(
                   r'^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[|\Z)',
                   text, re.MULTILINE | re.DOTALL,
@@ -65,8 +67,11 @@ jobs:
           # Changelog comes from CHANGELOG.md (technical detail) and Release
           # Notes from RELEASE_NOTES.md (user-facing). Both must be filled
           # before merge — pr-checklist.yml enforces non-empty content.
-          notes = extract_unreleased('RELEASE_NOTES.md')
-          chg   = extract_unreleased('CHANGELOG.md')
+          pr_head_repo = os.environ['PR_HEAD_REPO']
+          pr_head_sha  = os.environ['PR_HEAD_SHA']
+
+          notes = extract_unreleased(fetch_file(pr_head_repo, 'RELEASE_NOTES.md', pr_head_sha))
+          chg   = extract_unreleased(fetch_file(pr_head_repo, 'CHANGELOG.md',     pr_head_sha))
 
           pr_number = os.environ['PR_NUMBER']
           repo      = os.environ['REPO']

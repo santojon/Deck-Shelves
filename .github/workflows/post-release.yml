@@ -9,6 +9,9 @@ on:
         description: 'Release tag to post (defaults to latest published release)'
         required: false
 
+permissions:
+  contents: read
+
 jobs:
   post-discord:
     name: Post to Discord
