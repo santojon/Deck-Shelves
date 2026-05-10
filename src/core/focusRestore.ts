@@ -174,10 +174,41 @@ export function beginFocusRestoreLoop(): void {
 
   const isDone = () => abort.signal.aborted || !pendingAppid || pendingAppid !== targetAppid;
 
+  // After a successful initial restore, Steam's native "focus first card on
+  // home mount" can fire later and steal back to the first game (issue #38).
+  // Re-take focus once if we observe it land on a DIFFERENT card within the
+  // confirmation window — bounded to one re-take so legitimate user nav is
+  // never hijacked. With hero art mounted, the extra DOM activity coincidentally
+  // delays Steam's restore past our window, masking the bug.
+  const scheduleConfirmation = () => {
+    if (abort.signal.aborted) return;
+    let reTaken = false;
+    const retake = (): boolean => {
+      if (reTaken) return true;
+      const card = findCard();
+      if (!card) return false;
+      // If our card is still focused, confirmation succeeded — nothing to do.
+      if (card.classList.contains("gpfocus")) return true;
+      const navNode = findNavNodeForElement(card);
+      if (!navNode) return false;
+      try {
+        if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); reTaken = true; return true; }
+        const tree = navNode.m_Tree;
+        if (tree?.TakeFocus) { tree.TakeFocus(2, navNode); reTaken = true; return true; }
+      } catch {}
+      return false;
+    };
+    // Two checkpoints: ~150ms (catches synchronous post-mount focus) and
+    // ~400ms (catches deferred focus that runs after Steam's home-init layout).
+    setTimeout(retake, 150);
+    setTimeout(retake, 400);
+  };
+
   const succeed = () => {
     pendingAppid = null;
     pendingShelfId = null;
     abort.abort();
+    scheduleConfirmation();
   };
 
   const attempt = (): boolean => {

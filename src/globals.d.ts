@@ -16,6 +16,11 @@ declare const __QA_FORCE_HIDDEN_SHELF__: boolean;
 declare const __QA_SMART_SURPRISE_ME__: boolean;
 declare const __QA_FORCE_HOME_CRASH__: boolean;
 declare const __QA_FORCE_REPLACE_FAILED__: boolean;
+declare const __QA_UPDATE_AVAILABLE__: boolean;
+declare const __QA_UPDATE_DISMISSED__: boolean;
+declare const __QA_UPDATE_OFFLINE__: boolean;
+declare const __QA_COLLECTION_EMPTY__: boolean;
+declare const __QA_COLLECTION_INVERTED__: boolean;
 
 interface Window {
   SP_REACT?: any;

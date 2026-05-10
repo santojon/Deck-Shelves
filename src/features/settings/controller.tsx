@@ -86,6 +86,16 @@ export function useSettingsController() {
       if (!s || s.enabled === enabled) return;
       await persist({ ...s, enabled });
     },
+    async setUpdateNotifyEnabled(updateNotifyEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s.updateNotifyEnabled ?? true) === updateNotifyEnabled) return;
+      await persist({ ...s, updateNotifyEnabled });
+    },
+    async dismissUpdateNotice(version: string) {
+      const s = liveSettings();
+      if (!s || s.updateNotifyDismissedVersion === version) return;
+      await persist({ ...s, updateNotifyDismissedVersion: version });
+    },
     async setHideRecents(hideRecents: boolean) {
       const s = liveSettings();
       if (!s || s.hideRecents === hideRecents) return;

@@ -19,7 +19,8 @@ import type { FilterGroup, SmartShelf } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
-import { resolveShelfAppIds } from '../../../steam'
+import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
+import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { SORT_OPTIONS } from './editShelf/constants'
@@ -176,6 +177,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
+  const [previewRefreshNonce, setPreviewRefreshNonce] = useState(0)
+  const previewShelfId = `${shelf.id}-preview`
+  const refreshPreview = () => {
+    invalidateSmartShelfCache(previewShelfId)
+    invalidateRandomSortCache(previewShelfId)
+    setPreviewRefreshNonce((n) => n + 1)
+  }
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf as any).highlightedAppIds?.length > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
   const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
@@ -240,7 +248,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       const previewSort = isManualSort
         ? (state.manualBaseSort || 'alphabetical')
         : (state.sort || (previewReverse ? 'alphabetical' : undefined))
-      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse)
+      resolveShelfAppIds(previewSource, state.limit, previewSort, previewShelfId, previewReverse)
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
@@ -253,7 +261,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse])
+  }, [previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, previewRefreshNonce])
 
   useEffect(() => {
     let cancelled = false
@@ -733,6 +741,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             hideInstallIndicator={state.hideInstallIndicator === true}
             hideSeeMore={state.hideSeeMore === true}
             hideRefreshCard={state.hideRefreshCard === true}
+            limit={state.limit}
+            shelfSource={previewSource}
+            shelfSort={state.sort}
+            onRefresh={refreshPreview}
           />
           </div>
         </Focusable>

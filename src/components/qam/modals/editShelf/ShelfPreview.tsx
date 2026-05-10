@@ -4,32 +4,66 @@ import { GameCard } from '../../../shelf/GameCard'
 import { MoreCard } from '../../../shelf/MoreCard'
 import { RefreshCard } from '../../../shelf/RefreshCard'
 import type { DeckRowItem } from '../../../shelf/types'
+import { shouldShowMoreCard, shouldShowRefreshCard } from '../../../shelf/trailingCards'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 // Portrait card. Featured cards are 3.21× wider — same ratio the home shelf
 // uses to keep landscape hero art at the right ~2.14:1 aspect.
 const PREVIEW_CARD_W = 78
-const PREVIEW_CARD_H = 168
 const PREVIEW_ART_H = 110
 const FEATURED_CARD_W = Math.round(PREVIEW_CARD_W * 3.21)
 
-// Scoped overrides — shrink MoreCard/RefreshCard text and the refresh icon to
-// match the smaller preview footprint without touching the home-screen
-// originals (which need their full sizes).
+// Scoped overrides — keep the modal preview visually flat (no native scale,
+// no theme accent ring, no animated glow) while preserving the focus drop
+// shadow + label fade behaviour the home shelf uses. Padding is gated to the
+// text-only cards (More/Refresh share the `ds-more-card-text` child); game
+// cards stay at zero padding so the image fills the focus area edge-to-edge.
 const PREVIEW_STYLE_TAG = `
-[data-ds-preview-row="1"] .ds-card-art { padding: 6px !important; }
+[data-ds-preview-row="1"] .ds-card-art:has(> .ds-more-card-text) { padding: 6px !important; }
 [data-ds-preview-row="1"] .ds-more-card-text { font-size: 10px !important; line-height: 1.2 !important; }
 [data-ds-preview-row="1"] .ds-refresh-card svg { width: 22px !important; height: 22px !important; }
 [data-ds-preview-row="1"] .ds-card-status-icon svg { width: 11px !important; height: 11px !important; }
 [data-ds-preview-row="1"] .ds-card-status { font-size: 11px !important; }
 [data-ds-preview-row="1"] .ds-card-label-name { font-size: 12px !important; line-height: 1.2 !important; }
+/* Strip every native/theme border + outline + scale on every state, on the
+   card itself AND any nested element (the native landscape class draws its
+   accent border on a child of the focused card, so the parent-only selector
+   wasn't reaching it). */
+[data-ds-preview-row="1"] .ds-card,
+[data-ds-preview-row="1"] .ds-card *,
+[data-ds-preview-row="1"] .ds-card.ds-card--featured,
+[data-ds-preview-row="1"] .ds-card.ds-card--featured *,
+[data-ds-preview-row="1"] .ds-card.is-selected,
+[data-ds-preview-row="1"] .ds-card:hover,
+[data-ds-preview-row="1"] .ds-card:focus,
+[data-ds-preview-row="1"] .ds-card.gpfocus {
+  outline: 0 !important;
+  outline-color: transparent !important;
+  border: 0 !important;
+  border-color: transparent !important;
+  transform: none !important;
+}
+[data-ds-preview-row="1"] .ds-card:hover,
+[data-ds-preview-row="1"] .ds-card:focus,
+[data-ds-preview-row="1"] .ds-card.gpfocus { box-shadow: rgba(0, 0, 0, 0.5) 0px 8px 16px 0px !important; filter: brightness(1) !important; z-index: 12; }
+[data-ds-preview-row="1"] .ds-card::after,
+[data-ds-preview-row="1"] .ds-card:hover::after,
+[data-ds-preview-row="1"] .ds-card:focus::after,
+[data-ds-preview-row="1"] .ds-card.gpfocus::after { animation: none !important; opacity: 0 !important; }
 `
 
 export interface ShelfPreviewProps {
   t: (k: any, opts?: any) => string
   ids: number[]
   meta: Map<number, PlatformAppMeta>
+  // Cap shown cards to the configured shelf limit. Without it the preview
+  // outpaces the resolver on `state.limit` changes between tabs.
+  limit?: number
+  // Source + sort drive whether the trailing MoreCard / RefreshCard render
+  // (refreshable smart, random non-smart, etc.) — same rules as Shelf.tsx.
+  shelfSource?: any
+  shelfSort?: string
   hideStatusLine: boolean
   hideNewBadge: boolean
   hideCompatIcons: boolean
@@ -41,16 +75,24 @@ export interface ShelfPreviewProps {
   highlightFirst: boolean
   highlightAll: boolean
   highlightedAppIds: number[]
+  // When provided, the trailing RefreshCard is focusable + clickable and
+  // invokes this callback to re-resolve the preview's app ids (matches the
+  // behaviour the home shelf gives the user).
+  onRefresh?: () => void
 }
 
 export function ShelfPreview({
-  t, ids, meta,
+  t, ids, meta, limit, shelfSource, shelfSort,
   hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
   hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
-  highlightFirst, highlightAll, highlightedAppIds,
+  highlightFirst, highlightAll, highlightedAppIds, onRefresh,
 }: ShelfPreviewProps) {
   const rowRef = useRef<HTMLDivElement>(null)
   const highlightedSet = new Set(highlightedAppIds)
+  const cappedIds = (typeof limit === 'number' && limit >= 0) ? ids.slice(0, limit) : ids
+  const trailingInput = { source: shelfSource, sort: shelfSort, hideSeeMore, hideRefreshCard }
+  const showRefresh = shelfSource ? shouldShowRefreshCard(trailingInput) : !hideRefreshCard
+  const showMore = shelfSource ? shouldShowMoreCard(trailingInput) : !hideSeeMore
 
   // Keep the focused card in view as the user navigates horizontally — same
   // pattern HighlightRow uses on the home shelf. Without this, fast L/R input
@@ -103,13 +145,15 @@ export function ShelfPreview({
           flexDirection: 'row',
           gap: 8,
           overflowX: 'auto',
-          overflowY: 'hidden',
+          overflowY: 'visible',
           scrollbarWidth: 'none',
-          padding: '8px 0 16px',
+          // Extra padding-bottom so labels (which sit absolutely below each
+          // 110px-tall wrapper at top:100%) aren't clipped by the modal.
+          padding: '8px 0 56px',
           alignItems: 'flex-start',
         }}
       >
-        {ids.map((id, idx) => {
+        {cappedIds.map((id, idx) => {
           // Always render — fall back to a minimal record if meta hasn't
           // landed yet (shelf type / cold cache) so the user still sees the
           // card slot rather than nothing.
@@ -134,8 +178,9 @@ export function ShelfPreview({
               key={id}
               item={item}
               cardW={isFeatured ? FEATURED_CARD_W : PREVIEW_CARD_W}
-              cardH={PREVIEW_CARD_H}
-              artH={PREVIEW_ART_H}
+              // Wrapper = image only; label sits absolutely at top:100% so the
+              // focus ring stays on the image (matches home shelf behaviour).
+              cardH={PREVIEW_ART_H}
               featured={isFeatured}
               hideStatusLine={hideStatusLine}
               hideNewBadge={hideNewBadge}
@@ -146,20 +191,22 @@ export function ShelfPreview({
             />
           )
         })}
-        {!hideSeeMore && (
+        {showRefresh && (
+          <RefreshCard
+            key="__refresh"
+            item={{ id: '__refresh', name: t('refresh'), onActivate: onRefresh }}
+            cardW={PREVIEW_CARD_W}
+            cardH={PREVIEW_ART_H}
+            interactive={!!onRefresh}
+          />
+        )}
+        {showMore && (
           <MoreCard
             key="__more"
             item={{ id: '__more', name: t('view_more') }}
             cardW={PREVIEW_CARD_W}
             cardH={PREVIEW_ART_H}
-          />
-        )}
-        {!hideRefreshCard && (
-          <RefreshCard
-            key="__refresh"
-            item={{ id: '__refresh', name: t('refresh') }}
-            cardW={PREVIEW_CARD_W}
-            cardH={PREVIEW_ART_H}
+            interactive={false}
           />
         )}
       </Focusable>

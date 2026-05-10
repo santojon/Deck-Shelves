@@ -1715,9 +1715,20 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
     }
     case "collection": {
       const colId = String(item.params?.collectionId ?? "").trim();
-      const appSet = ctx?.collectionAppIds.get(colId);
-      // If not pre-fetched, pass-through so we don't incorrectly exclude everything
-      result = appSet ? appSet.has(app.appid) : true;
+      if (!colId) {
+        // No collection picked yet (UI half-configured) — leave the item
+        // as a no-op so the user keeps seeing their library.
+        result = true;
+      } else {
+        // Lookup is always attempted in the prefetch pass; if the entry is
+        // missing here, the lookup either failed or returned 0 apps. Issue
+        // #55 (filter shelf showed apps the user does not own) was caused
+        // by the previous pass-through, which silently leaked the entire
+        // library when a Bazzite-shaped collectionStore returned no matches.
+        // Excluding makes the misconfig visible (empty shelf) instead.
+        const appSet = ctx?.collectionAppIds.get(colId);
+        result = appSet ? appSet.has(app.appid) : false;
+      }
       break;
     }
     case "merge": {
@@ -2152,7 +2163,9 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       await Promise.all(colIds.map(async (colId) => {
         try {
           const ids = await getCollectionApps(colId);
-          if (ids.length) ctx.collectionAppIds.set(colId, new Set(ids));
+          // Always set, even on empty result, so the evaluator can tell
+          // "lookup completed with 0 apps" from "lookup never attempted".
+          ctx.collectionAppIds.set(colId, new Set(ids));
         } catch {}
       }));
       let filtered = evaluateFilterGroup(filterGroup, all, ctx);

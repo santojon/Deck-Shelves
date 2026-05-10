@@ -13,7 +13,8 @@ import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '.
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
-import { resolveShelfAppIds } from '../../../steam'
+import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
+import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
@@ -79,6 +80,17 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [activeTab, setActiveTab] = useState<EditTab>('source')
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
+  // Bumped by the preview's RefreshCard to force a re-resolve in any tab.
+  const [previewRefreshNonce, setPreviewRefreshNonce] = useState(0)
+  // Preview-isolated cache namespace so refreshing the modal doesn't poison
+  // the home shelf cache with unsaved edits, and so invalidating only wipes
+  // the preview's own entries.
+  const previewShelfId = `${shelf.id}-preview`
+  const refreshPreview = () => {
+    invalidateSmartShelfCache(previewShelfId)
+    invalidateRandomSortCache(previewShelfId)
+    setPreviewRefreshNonce((n) => n + 1)
+  }
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
   const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
@@ -141,7 +153,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
       }
-      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse, {
+      resolveShelfAppIds(previewSource, state.limit, previewSort, previewShelfId, previewReverse, {
         hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
         dedupeByName: state.dedupeByExactName || undefined,
       })
@@ -157,7 +169,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen])
+  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce])
 
   useEffect(() => {
     let cancelled = false
@@ -540,6 +552,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             hideInstallIndicator={state.hideInstallIndicator === true}
             hideSeeMore={state.hideSeeMore === true}
             hideRefreshCard={state.hideRefreshCard === true}
+            limit={state.limit}
+            shelfSource={previewSource}
+            shelfSort={state.sort}
+            onRefresh={refreshPreview}
           />
           </div>
         </Focusable>

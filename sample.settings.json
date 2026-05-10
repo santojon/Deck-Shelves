@@ -1,75 +1,225 @@
 {
-  "enabled": true,
-  "shelves": [
-    {
-      "id": "shelf-1",
-      "title": "Favoritos",
-      "source": { "type": "tab", "tab": "favorites" },
-      "limit": 12,
-      "hidden": false
-    },
-    {
-      "id": "shelf-2",
-      "title": "Jogos Recentes",
-      "source": { "type": "tab", "tab": "recent" },
-      "limit": 12,
-      "hidden": false
-    },
-    {
-      "id": "shelf-3",
-      "title": "Jogos Instalados",
-      "source": { "type": "filter", "filter": { "installed": true, "sort": "alphabetical" } },
-      "limit": 20,
-      "hidden": false
-    },
-    {
-      "id": "shelf-4",
-      "title": "Favoritos Não-Steam",
-      "source": { "type": "filter", "filter": { "favorites": true, "nonSteam": true, "sort": "recent" } },
-      "limit": 10,
-      "hidden": false
-    },
-    {
-      "id": "shelf-5",
-      "title": "Compatíveis Steam Deck",
-      "source": { "type": "filter", "filter": { "deckCompatibility": ["verified", "playable"] } },
-      "limit": 8,
-      "hidden": false
-    },
-    {
-      "id": "shelf-6",
-      "title": "Coleção RPG",
-      "source": { "type": "collection", "collectionId": "rpg-collection-123" },
-      "limit": 15,
-      "hidden": false
-    },
-    {
-      "id": "shelf-7",
-      "title": "Coleção Multiplayer",
-      "source": { "type": "collection", "collectionId": "multiplayer-collection-456" },
-      "limit": 10,
-      "hidden": false
-    },
-    {
-      "id": "shelf-8",
-      "title": "Jogos com nome 'Portal'",
-      "source": { "type": "filter", "filter": { "nameIncludes": "Portal", "sort": "alphabetical" } },
-      "limit": 5,
-      "hidden": false
-    },
-    {
-      "id": "shelf-9",
-      "title": "Jogos jogados nos últimos 30 dias",
-      "source": { "type": "filter", "filter": { "playedWithinDays": 30, "sort": "recent" } },
-      "limit": 10,
-      "hidden": false
-    },
-    {
-      "id": "shelf-10",
-      "title": "Jogos ocultos",
-      "source": { "type": "filter", "filter": { "hidden": true } },
-      "limit": 10,
-      "hidden": false
-    }
-  ]
+  "state": {
+    "enabled": true,
+    "hideRecents": false,
+    "recentsReplaceSource": false,
+    "hideHomeTabs": false,
+    "shelfHeroBackground": false,
+    "globalMatchNativeSize": false,
+    "globalHighlightFirst": false,
+    "globalHighlightAll": false,
+    "globalHideStatusLine": false,
+    "globalHideNewBadge": false,
+    "globalHideCompatIcons": false,
+    "globalHideNonSteamBadge": false,
+    "globalHideShelfTitle": false,
+    "globalHideGameNames": false,
+    "globalHideInstallIndicator": false,
+    "globalHideSeeMore": false,
+    "globalHideRefreshCard": false,
+    "globalDedupeByName": false,
+    "shelves": [
+      {
+        "id": "shelf-favorites",
+        "title": "Favorites",
+        "enabled": true,
+        "hidden": false,
+        "limit": 12,
+        "source": { "type": "tab", "tab": "favorites" }
+      },
+      {
+        "id": "shelf-installed-games",
+        "title": "Installed games",
+        "enabled": true,
+        "hidden": false,
+        "limit": 20,
+        "sort": "alphabetical",
+        "source": {
+          "type": "filter",
+          "filter": {
+            "sort": "alphabetical",
+            "filterGroup": {
+              "mode": "and",
+              "items": [
+                { "type": "installed", "inverted": false, "params": {} },
+                { "type": "shortcutType", "inverted": false, "params": { "kinds": ["game"] } }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "shelf-deck-verified",
+        "title": "Steam Deck Verified",
+        "enabled": true,
+        "hidden": false,
+        "limit": 10,
+        "source": {
+          "type": "filter",
+          "filter": {
+            "sort": "alphabetical",
+            "filterGroup": {
+              "mode": "and",
+              "items": [
+                { "type": "deckCompatibility", "inverted": false, "params": { "levels": ["verified", "playable"] } }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "shelf-collection-rpg",
+        "title": "RPG collection (Steam only)",
+        "enabled": true,
+        "hidden": false,
+        "limit": 15,
+        "source": {
+          "type": "collection",
+          "collectionId": "uc-collection-rpg",
+          "childFilter": {
+            "mode": "and",
+            "items": [
+              { "type": "nonSteam", "inverted": true, "params": {} }
+            ]
+          }
+        }
+      },
+      {
+        "id": "shelf-tabmaster-handhelds",
+        "title": "Handheld picks (TabMaster)",
+        "enabled": true,
+        "hidden": false,
+        "limit": 12,
+        "source": { "type": "external", "sourceId": "tabmaster:handhelds" }
+      },
+      {
+        "id": "shelf-download-queue",
+        "title": "Download queue",
+        "enabled": true,
+        "hidden": false,
+        "limit": 10,
+        "source": {
+          "type": "filter",
+          "filter": {
+            "sort": "alphabetical",
+            "filterGroup": {
+              "mode": "and",
+              "items": [
+                { "type": "appStatus", "inverted": false, "params": { "groups": ["downloading", "queued"] } }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "shelf-not-collection-rpg",
+        "title": "Everything except RPG collection",
+        "enabled": true,
+        "hidden": false,
+        "limit": 20,
+        "source": {
+          "type": "filter",
+          "filter": {
+            "sort": "alphabetical",
+            "filterGroup": {
+              "mode": "and",
+              "items": [
+                { "type": "installed", "inverted": false, "params": {} },
+                { "type": "collection", "inverted": true, "params": { "collectionId": "uc-collection-rpg" } }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "shelf-recently-played",
+        "title": "Recently played (custom hide cards)",
+        "enabled": true,
+        "hidden": false,
+        "limit": 12,
+        "matchNativeSize": false,
+        "highlightFirst": true,
+        "hideStatusLine": true,
+        "hideSeeMore": false,
+        "hideRefreshCard": false,
+        "dedupeByExactName": true,
+        "source": {
+          "type": "filter",
+          "filter": {
+            "sort": "recent",
+            "filterGroup": {
+              "mode": "and",
+              "items": [
+                { "type": "playedWithinDays", "inverted": false, "params": { "days": 30 } }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "smartShelvesEnabled": true,
+    "smartShelvesAtBottom": false,
+    "smartShelves": [
+      {
+        "id": "smart-quick-play",
+        "title": "Quick play",
+        "mode": "quick_play",
+        "enabled": true,
+        "hidden": false,
+        "limit": 10
+      },
+      {
+        "id": "smart-best-unplayed",
+        "title": "Best unplayed",
+        "mode": "best_unplayed",
+        "enabled": true,
+        "hidden": false,
+        "limit": 12,
+        "filterGroup": {
+          "mode": "and",
+          "items": [
+            { "type": "shortcutType", "inverted": false, "params": { "kinds": ["game"] } }
+          ]
+        }
+      },
+      {
+        "id": "smart-spare-time-evening",
+        "title": "Got 30 minutes? (evenings only)",
+        "mode": "spare_time",
+        "enabled": true,
+        "hidden": false,
+        "limit": 10,
+        "smartParams": { "minMinutes": 15, "maxMinutes": 45 },
+        "visibleHours": [
+          { "start": 18, "end": 23, "days": [1, 2, 3, 4, 5] },
+          { "start": 14, "end": 23, "days": [0, 6] }
+        ]
+      },
+      {
+        "id": "smart-random-pick",
+        "title": "Surprise me",
+        "mode": "random_pick",
+        "enabled": true,
+        "hidden": false,
+        "limit": 6,
+        "refreshIntervalMinutes": 60
+      }
+    ],
+    "smartSurpriseMe": false,
+    "smartSurpriseMeCount": 0,
+    "savedFilters": [
+      {
+        "id": "saved-filter-installed-games",
+        "name": "Installed games (Steam)",
+        "group": {
+          "mode": "and",
+          "items": [
+            { "type": "installed", "inverted": false, "params": {} },
+            { "type": "shortcutType", "inverted": false, "params": { "kinds": ["game"] } }
+          ]
+        }
+      }
+    ],
+    "updateNotifyEnabled": true
+  }
 }

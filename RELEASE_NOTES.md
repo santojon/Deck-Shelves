@@ -5,6 +5,24 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Update notifications inside the QAM.** Deck Shelves now checks GitHub once a day for a new release and shows a small banner at the top of the QAM panel when one is available, with quick links to view the release or dismiss it for that version. The check runs only when you have it enabled (toggle in Behavior; on by default), only when you are online, and never gets in the way.
+- **Right-click / Menu shortcut on shelf cards — `Deck Shelves > Shelf > …`.** Long-press or press the menu button on any card in your shelves to get a Deck Shelves submenu with **Edit · Duplicate · Collapse / Expand shelf · Hide / Show · Move up / Move down · Delete** — the same actions you already have in the QAM list, available right where you are.
+
+### Fixed
+
+- **Edit modal preview now matches the home shelf.** Switching tabs no longer leaves the preview showing the old game count after you change the limit. The "See more" and refresh tiles now follow the same rules as the home shelf — they appear only on shelf types that actually support them, in the right order (refresh first, then "See more").
+- **Focus returns to the right game when leaving a game's page.** The home screen no longer snaps focus back to the first game when you exit a game's view — it stays on the card you came from, even when "Show first shelf background art" is off (which used to be a workaround).
+- **Filter by collection no longer mixes in games you don't own.** A shelf with a Collection filter could occasionally show random library entries when the collection name didn't resolve to any games (reported on Bazzite). The filter now correctly returns nothing in that case, making the misconfiguration visible instead of silently leaking unrelated apps.
+- **You can now negate a Collection filter.** The invert toggle (already available on most filters) is now exposed for the Collection filter type — useful for "everything except this collection" shelves.
+- **Settings save reliability hotfix.** A regression in this update could cause shelves to "disappear" on the next load (in fact they were silently reset to defaults because the new update-notifier settings were rejected by the loader). Fixed before release; existing shelves are preserved.
+- **Native game menu now includes Deck Shelves actions (no more loss of native entries).** Long-press / menu-button on a shelf card still opens the full native Steam menu (Play, Properties, achievements, friends playing, etc.) — the Deck Shelves submenu is appended to it instead of replacing it. Also applies to the fallback menu when the native one cannot be extracted.
+- **Menu labels now translate.** The new shelf-card menu entries showed up in English regardless of system language because the menu was reading from the wrong i18next instance. Fixed — labels now appear in your selected language (all 19 supported locales).
+- **Edit-modal preview — name-only placeholder cards no longer overshoot.** Cards with no portrait/hero art (showing just the game name on the gradient background) now match the height of the surrounding cards' art region.
+- **Edit-modal preview — "See more" and refresh tiles no longer steal focus.** Gamepad navigation skips them in the preview, matching the expectation that a card with no real action shouldn't be a focus stop. Home behavior is unchanged.
+- **Smart shelves now respect "Match native size" on first appearance.** Previously, a smart shelf could render at the default card size when it mounted later than the rest (e.g. smart shelves gated by visibility windows), even with the global "Match native size" toggle on. They now pick up the native dimensions on the first frame.
+
 ## [2.1.1] - 2026-05-09
 
 ### Added

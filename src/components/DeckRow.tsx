@@ -50,6 +50,19 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   const outerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const [collapsedState, setCollapsed] = useState(() => shelfId ? readCollapsed(shelfId) : false);
+  // Sync local collapse state when the game-capsule menu (Collapse action)
+  // mutates ds-collapsed-{shelfId} from outside the React tree. Cleanup is
+  // mandatory — DeckRow remounts per shelf.
+  useEffect(() => {
+    if (!shelfId) return;
+    const onCollapsed = (e: Event) => {
+      const ev = e as CustomEvent<{ shelfId: string; collapsed: boolean }>;
+      if (ev.detail?.shelfId !== shelfId) return;
+      setCollapsed(!!ev.detail.collapsed);
+    };
+    window.addEventListener('ds-shelf-collapsed', onCollapsed as EventListener);
+    return () => window.removeEventListener('ds-shelf-collapsed', onCollapsed as EventListener);
+  }, [shelfId]);
   // When our shelf takes the native-recents slot (`forceExpanded=true`),
   // render it expanded but preserve the user's original collapsed status
   // untouched — if it later loses the slot (becomes second/third/etc.),
@@ -87,6 +100,13 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     globalStylesStart();
     try { requestAnimationFrame(() => { try { measure?.(`deckRow.render:${shelfId ?? 'unknown'}`, `deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "measure failed", String(e)); } }); } catch (e) { logInfo("HOME", "rAF measure failed", String(e)); }
     const unsub = onNativeDimsChange(() => setDimsVersion(n => n + 1));
+    // Race-condition guard: dims may have been cached between the render
+    // that captured `nd === null` and this effect's listener registration —
+    // typical for shelves that mount in a later commit (smart shelves with
+    // visibility windows, or any shelf that appears after `globalStylesStart`
+    // triggers measurement). Without this, the row stays at the default
+    // `CARD_W` even with `matchNativeSize: true` because no listener fires.
+    if (matchNativeSize && getCachedNativeDims()) setDimsVersion(n => n + 1);
     return () => {
       globalStylesStop();
       unsub();

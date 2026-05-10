@@ -41,6 +41,10 @@ const INVERTIBLE_SET = new Set<FilterItemType>([
   "publisher",
   "cloudAvailable",
   "controllerSupport",
+  // Collection negation requested in #56 — schema already supports the
+  // `inverted` flag on every item; this just exposes the toggle in the
+  // editor for the collection type. Evaluator path is unchanged.
+  "collection",
 ]);
 
 export function canBeInverted(type: FilterItemType): boolean {

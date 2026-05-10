@@ -6,7 +6,7 @@ import type { Shelf } from "../types";
 import { usePlatform } from "../runtime/platformContext";
 import type { PlatformAppMeta } from "../runtime/platform";
 import { DeckRow, type DeckRowItem } from "./DeckRow";
-import { REFRESHABLE_SMART_MODES } from "./shelf/types";
+import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards";
 import { showGameMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
@@ -151,7 +151,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     const base = appIds.flatMap((appid): DeckRowItem[] => {
       const item = items.get(appid) ?? { appid, name: `App ${appid}` };
       if (/^App \d+$/.test(item.name)) return [];
-      const onMenuButton = () => showGameMenu(appid);
+      // Pass `shelf.id` so the captured native menu (and the DFL fallback)
+      // gain a `Deck Shelves > Shelf > […]` submenu — same afterPatch / HOC
+      // seam used by HLTB / cheatdeck. Non-shelf game cards still get the
+      // unmodified native menu via `showGameMenu(appid)`.
+      const onMenuButton = () => showGameMenu(appid, shelf.id);
       const addedTs = (item as any).addedTimestamp;
       const addedMs = typeof addedTs === 'number' && addedTs > 0 ? (addedTs < 1e12 ? addedTs * 1000 : addedTs) : 0;
       const isNew = addedMs > 0 ? (Date.now() - addedMs) < NEW_GAME_WINDOW_MS : false;
@@ -174,63 +178,32 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       }];
     });
     if (!base.length) return base;
-    // Trailing card rules:
-    //   - Smart shelf with a refreshable mode → refresh card (resolver result
-    //     can actually change between clicks: random shuffle, time-window
-    //     modes, recently_played cutoff sliding).
-    //   - Smart shelf with a deterministic mode → no trailing card. Adding
-    //     view-more would mislead (the smart resolver can't be opened in the
-    //     library directly), and refresh would be a no-op against stable
-    //     app data.
-    //   - Non-smart shelf → view-more-in-library card pointing at the source.
-    const src: any = shelf.source;
-    const isSmart = src?.type === 'smart';
-    const isRefreshableSmart = isSmart && REFRESHABLE_SMART_MODES.includes(src.mode);
-    // Non-smart shelf with `sort === "random"` is the only other case whose
-    // result can change between two clicks (24h-stable shuffle keyed by app
-    // set hash). Filter sources keep their sort under `source.filter.sort`,
-    // so check both.
-    const sortIsRandom = !isSmart && (
-      shelf.sort === 'random' ||
-      (src?.type === 'filter' && src?.filter?.sort === 'random')
-    );
-    // Hide-affordances: hide if EITHER global OR per-shelf is true. Same
-    // OR pattern used by `globalHideStatusLine` etc. above. The flags only
-    // suppress the trailing card render; the shelf still recomputes /
-    // paginates on the normal cadence.
-    const hideRefresh = globalHideRefreshCard === true || (shelf as any).hideRefreshCard === true;
-    const hideMore = globalHideSeeMore === true || (shelf as any).hideSeeMore === true;
-    if (isRefreshableSmart) {
-      if (!hideRefresh) base.push({
+    // Trailing card rules live in `shelf/trailingCards.ts` so the modal
+    // preview renders the same set as the home shelf. Cache-invalidation
+    // handler picks the right path based on smart vs random-sort.
+    const trailingInput = {
+      source: shelf.source,
+      sort: shelf.sort,
+      hideSeeMore: (shelf as any).hideSeeMore === true,
+      hideRefreshCard: (shelf as any).hideRefreshCard === true,
+      globalHideSeeMore,
+      globalHideRefreshCard,
+    };
+    if (shouldShowRefreshCard(trailingInput)) {
+      const isSmart = (shelf.source as any)?.type === 'smart';
+      base.push({
         id: `${shelf.id}__refresh`,
         name: t('refresh'),
         isRefresh: true,
         onActivate: () => {
-          // Scoped to this shelf so refreshing one smart shelf does not
-          // bust the cache (or alter the next-resolve content) of others.
-          invalidateSmartShelfCache(shelf.id);
+          if (isSmart) invalidateSmartShelfCache(shelf.id);
+          else invalidateRandomSortCache(shelf.id);
           resolveRef.current();
         },
       });
-    } else if (sortIsRandom) {
-      if (!hideRefresh) base.push({
-        id: `${shelf.id}__refresh`,
-        name: t('refresh'),
-        isRefresh: true,
-        onActivate: () => {
-          // Scoped per shelf — same reasoning as above.
-          invalidateRandomSortCache(shelf.id);
-          resolveRef.current();
-        },
-      });
-      if (!hideMore) base.push({
-        id: `${shelf.id}__more`,
-        name: t('view_more'),
-        isMoreLink: true,
-        onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
-      });
-    } else if (!isSmart) {
-      if (!hideMore) base.push({
+    }
+    if (shouldShowMoreCard(trailingInput)) {
+      base.push({
         id: `${shelf.id}__more`,
         name: t('view_more'),
         isMoreLink: true,

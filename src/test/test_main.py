@@ -182,3 +182,51 @@ def test_normalize_path_non_string_non_dict_returns_empty():
     assert _normalize_path(12345) == ""
     assert _normalize_path(None) == ""
     assert _normalize_path([]) == ""
+
+
+# ─── updateNotify* sanitizer (regression for null-on-load bug) ────────────────
+
+def test_sanitize_settings_updateNotifyEnabled_default_true():
+    result = _sanitize_settings({})
+    assert result["updateNotifyEnabled"] is True
+
+
+def test_sanitize_settings_updateNotifyEnabled_preserved():
+    result = _sanitize_settings({"updateNotifyEnabled": False})
+    assert result["updateNotifyEnabled"] is False
+
+
+def test_sanitize_settings_updateNotifyDismissedVersion_unset_returns_null():
+    # The frontend Zod schema must accept null here (covered separately in
+    # the TS regression suite); this just pins the sanitizer's contract.
+    result = _sanitize_settings({})
+    assert result["updateNotifyDismissedVersion"] is None
+
+
+def test_sanitize_settings_updateNotifyDismissedVersion_string_truncated():
+    long = "v" + "9" * 200
+    result = _sanitize_settings({"updateNotifyDismissedVersion": long})
+    assert isinstance(result["updateNotifyDismissedVersion"], str)
+    assert len(result["updateNotifyDismissedVersion"]) <= 64
+
+
+def test_sanitize_settings_updateNotifyDismissedVersion_non_string_returns_null():
+    result = _sanitize_settings({"updateNotifyDismissedVersion": 123})
+    assert result["updateNotifyDismissedVersion"] is None
+
+
+def test_sanitize_settings_round_trip_preserves_shelves_with_updateNotify_null():
+    # Reproduces the user-reported regression: shelves were silently wiped
+    # because the frontend Zod schema rejected the sanitizer's null fields.
+    initial = {
+        "enabled": True,
+        "shelves": [
+            {"id": "s1", "title": "T", "limit": 10, "source": {"type": "tab", "tab": "favorites"}}
+        ],
+    }
+    sanitized = _sanitize_settings(initial)
+    assert len(sanitized["shelves"]) == 1
+    assert sanitized["shelves"][0]["id"] == "s1"
+    # Both new fields appear in output and either include real values or null.
+    assert "updateNotifyEnabled" in sanitized
+    assert "updateNotifyDismissedVersion" in sanitized

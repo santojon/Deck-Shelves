@@ -15,6 +15,8 @@ import { installPluginApi } from "./core/pluginApi";
 import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
+import { checkForUpdate } from "./core/updateNotifier";
+import { getCurrentSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
 import { AboutPage } from "./components/AboutPage";
@@ -91,6 +93,16 @@ export default definePlugin((serverAPI?: any) => {
   void prefetchSteamOSVersion().then((v) => {
     logDiagnostic("info", "SteamOS version", v ?? "unknown");
   }).catch(() => {});
+
+  // Update notifier — single demand probe at boot, gated by the persisted
+  // toggle (default ON). The 24h cache lives in localStorage so subsequent
+  // boots short-circuit; failures are silent.
+  try {
+    const s = getCurrentSettings();
+    if (s?.updateNotifyEnabled !== false) {
+      void checkForUpdate().catch(() => {});
+    }
+  } catch {}
 
   // Log system environment for easier support debugging
   try {

@@ -33,6 +33,7 @@ import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBan
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 import { CollapsibleSection } from './ui'
 import { GearIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon } from './icons'
+import { UpdateBanner } from './qam/UpdateBanner'
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
@@ -193,6 +194,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
 
+      <UpdateBanner controller={controller} />
+
       <CollapsibleSection id='behavior' icon={<GearIcon />} title={t('section_behavior')} count={[settings.hideRecents, settings.hideHomeTabs].filter(Boolean).length}>
         {settings.enabled && (
           <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
@@ -204,6 +207,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           </div>
         )}
         <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
+        <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
       </CollapsibleSection>
 
       {replaceFailed && (

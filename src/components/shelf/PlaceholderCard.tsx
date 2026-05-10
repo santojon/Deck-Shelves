@@ -5,7 +5,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 
-export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; featured?: boolean }) {
+export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
 
@@ -43,6 +43,14 @@ export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, feat
         background: "transparent",
         cursor: "pointer",
         overflow: "visible",
+        // Pass `artH` through the same `--ds-card-art-h` variable GameCard
+        // uses, so the art region fills the right height in the modal preview
+        // (where cardH includes the label strip and artH is shorter).
+        // Without this the CSS falls back to 100% of cardH and the
+        // placeholder ends up taller than neighbouring game cards' art.
+        ...(typeof artH === "number" && artH < cardH
+          ? { ["--ds-card-art-h" as string]: `${artH}px` }
+          : {}),
       }}
     >
       <div

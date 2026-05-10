@@ -230,6 +230,12 @@ export const SettingsSchema = z.object({
   smartSurpriseMe: z.boolean().default(false),
   smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
   savedFilters: z.array(SavedFilterSchema).default([]),
+  // `nullable()` is mandatory: the Python sanitizer in `main.py` returns `null`
+  // for these when the user hasn't set them, and Zod's `optional()` alone
+  // rejects null — which previously failed `safeParse` on the entire Settings
+  // object and silently reset every shelf to defaults on the next load.
+  updateNotifyEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  updateNotifyDismissedVersion: z.string().nullable().optional(),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

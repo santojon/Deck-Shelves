@@ -55,6 +55,16 @@ export type PreviewPanelProps = {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+
+  // Forwarded to ShelfPreview so it caps the rendered count to the active
+  // limit and applies the same trailing-card rules as Shelf.tsx (refreshable
+  // smart, random non-smart, deterministic smart, etc.).
+  limit?: number
+  shelfSource?: any
+  shelfSort?: string
+  // When provided, the preview's RefreshCard becomes focusable and clicking
+  // it re-resolves the preview's app ids (parent owns the resolver).
+  onRefresh?: () => void
 }
 
 export function PreviewPanel(props: PreviewPanelProps) {
@@ -69,6 +79,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
     hiddenCandidateIds, hiddenCandidateMeta,
     hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
     hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
+    limit, shelfSource, shelfSort, onRefresh,
   } = props
 
   const loading = (
@@ -161,6 +172,9 @@ export function PreviewPanel(props: PreviewPanelProps) {
         t={t}
         ids={effectiveManualOrder}
         meta={resolvedMeta}
+        limit={limit}
+        shelfSource={shelfSource}
+        shelfSort={shelfSort}
         hideStatusLine={hideStatusLine}
         hideNewBadge={hideNewBadge}
         hideCompatIcons={hideCompatIcons}
@@ -172,6 +186,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
         highlightFirst={highlightFirst}
         highlightAll={highlightAll}
         highlightedAppIds={highlightedAppIds}
+        onRefresh={onRefresh}
       />
     )
   }

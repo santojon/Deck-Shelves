@@ -218,7 +218,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   // If all image URLs failed, render PlaceholderCard instead
   if (imgFailed || !firstUrl) {
-    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} featured={featured} />;
+    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} artH={artH} featured={featured} />;
   }
 
   const compat = item.deckCompatCategory ?? 0;
