@@ -105,8 +105,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
               featured={featured}
               selected={false}
               hiddenMark={isHidden}
-              width={featured ? 210 : 68}
-              height={100}
+              width={featured ? 250 : 78}
+              height={110}
               onToggle={() => setHiddenAppIds(
                 isHidden
                   ? hiddenAppIds.filter((x) => x !== id)
@@ -158,8 +158,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
               heroUrl={meta?.heroUrl}
               featured={featured}
               selected={selected}
-              width={featured ? 210 : 68}
-              height={100}
+              width={featured ? 250 : 78}
+              height={110}
               onToggle={toggle}
             />
           )

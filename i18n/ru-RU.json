@@ -221,7 +221,7 @@
   "filter_achievements_info": "Фильтрует по достижениям (требуется совместимый плагин)",
   "filter_add": "Добавить фильтр",
   "filter_appIdList_hint": "App ID через запятую",
-  "filter_collection_label": "ID или название коллекции",
+  "filter_collection_label": "Выберите коллекцию",
   "filter_days": "Запускались за последние дни",
   "filter_developer_empty": "Данные о разработчиках не найдены",
   "filter_developer_loading": "Сканирование разработчиков…",

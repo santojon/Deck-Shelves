@@ -2,6 +2,8 @@ import { showContextMenu } from "@decky/ui";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
+import { getCurrentSettings } from "../store/settingsStore";
+import * as shelfActions from "./shelfActions";
 
 /**
  * Returns `true` when this device should use the pre-3.8 (v1.4.0-style) menu
@@ -59,13 +61,10 @@ const wrappedComponents = new WeakMap<any, any>();
  */
 function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
   if (!dfl?.MenuItem || !R?.createElement) return [];
-  let getCurrentSettings: any, actions: any;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    getCurrentSettings = require("../store/settingsStore").getCurrentSettings;
-    actions = require("./shelfActions");
-  } catch { return []; }
-
+  // Static ESM imports — runtime `require()` is undefined in the prod bundle
+  // (vite emits pure ESM), so the previous lazy-require fell into the catch
+  // and silently returned an empty submenu.
+  const actions: any = shelfActions;
   const settings = getCurrentSettings?.();
   if (!settings) return [];
   const idx = (settings.shelves ?? []).findIndex((sh: any) => sh.id === shelfId);
@@ -171,6 +170,12 @@ function injectDeckShelvesIntoTree(rendered: any, shelfId: string): any {
  * forwardRef (afterPatch on `.render`), plain function (HOC wrapper that
  * calls the inner function and patches its result tree).
  */
+// React internal type tags. These are stable string symbols (Symbol.for) so
+// they survive bundling and match across realms — same approach Decky's
+// `findInReactTree` uses to detect memo/forwardRef wrappers.
+const REACT_MEMO_TYPE = typeof Symbol === "function" ? Symbol.for("react.memo") : 0xead3;
+const REACT_FORWARD_REF_TYPE = typeof Symbol === "function" ? Symbol.for("react.forward_ref") : 0xead0;
+
 function getInjectedMenuComponent(inner: any): any {
   if (!inner) return inner;
   const dfl = getDFL();
@@ -179,9 +184,46 @@ function getInjectedMenuComponent(inner: any): any {
     return inner;
   }
 
-  // Class component path — afterPatch on prototype.render preserves the
-  // original component identity so React's reconciliation isn't disturbed.
+  // memo wrapper — Steam frequently wraps AppContextMenu in React.memo to
+  // skip re-renders. The wrapper is a plain object `{$$typeof, type, compare}`
+  // with no `render`, so the class/forwardRef/function branches all miss it
+  // and the previous code returned the unpatched memo as-is. Patch the
+  // wrapped `.type` recursively (one of the branches below will match it).
+  // For class / forwardRef branches the recursive call mutates the inner in
+  // place via afterPatch, so we just return the memo wrapper. For the
+  // function-component branch the recursive call returns a NEW wrapper —
+  // when that happens we need to swap `inner.type` so React renders the
+  // patched function instead of the original one.
+  if (typeof inner === "object" && inner.$$typeof === REACT_MEMO_TYPE && inner.type) {
+    const patched = getInjectedMenuComponent(inner.type);
+    if (patched && patched !== inner.type) {
+      try { inner.type = patched; } catch {}
+    }
+    if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] memo unwrapped — patched inner type", { wrappedKind: typeof inner.type, swapped: patched !== inner.type ? "no" : "(in place)" }); } catch {}
+    return inner;
+  }
+
   if (typeof dfl.afterPatch === "function") {
+    // forwardRef wrapper — `{$$typeof: react.forward_ref, render: fn}`. Patch
+    // `.render`; React calls it with `(props, ref)` so args[0] holds the props.
+    if (typeof inner === "object" && inner.$$typeof === REACT_FORWARD_REF_TYPE && typeof inner.render === "function") {
+      if (!patchedComponents.has(inner)) {
+        try {
+          dfl.afterPatch(inner, "render", function (_args: any[], result: any) {
+            const props = _args?.[0];
+            const shelfId = props?._dsShelfId;
+            if (shelfId) return injectDeckShelvesIntoTree(result, shelfId);
+            return result;
+          });
+          patchedComponents.add(inner);
+          if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] afterPatch installed (forwardRef via $$typeof)", { name: inner.displayName ?? "<forwardRef>" }); } catch {}
+        } catch (e) { try { (globalThis as any).console?.warn?.("[DS][menu] afterPatch forwardRef failed", e); } catch {} }
+      }
+      return inner;
+    }
+
+    // Class component — afterPatch on prototype.render preserves the
+    // original component identity so React's reconciliation isn't disturbed.
     if (inner?.prototype && typeof inner.prototype.render === "function") {
       if (!patchedComponents.has(inner)) {
         try {
@@ -196,8 +238,10 @@ function getInjectedMenuComponent(inner: any): any {
       }
       return inner;
     }
+
+    // Duck-typed forwardRef fallback (no $$typeof but has a `.render` distinct
+    // from itself). Same patch shape as the $$typeof branch above.
     if (typeof inner.render === "function" && inner.render !== inner) {
-      // forwardRef shape
       if (!patchedComponents.has(inner)) {
         try {
           dfl.afterPatch(inner, "render", function (_args: any[], result: any) {
@@ -207,17 +251,17 @@ function getInjectedMenuComponent(inner: any): any {
             return result;
           });
           patchedComponents.add(inner);
-          if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] afterPatch installed (forwardRef)", { name: inner.displayName ?? "<forwardRef>" }); } catch {}
-        } catch (e) { try { (globalThis as any).console?.warn?.("[DS][menu] afterPatch forwardRef failed", e); } catch {} }
+          if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] afterPatch installed (forwardRef duck)", { name: inner.displayName ?? "<forwardRef>" }); } catch {}
+        } catch (e) { try { (globalThis as any).console?.warn?.("[DS][menu] afterPatch forwardRef-duck failed", e); } catch {} }
       }
       return inner;
     }
   }
 
-  // Plain function component fallback — wrap and call directly. AppContextMenu
-  // is typically pure (no hooks), so calling it outside the React reconciler
-  // is safe; if the inner ever starts using hooks we'd see immediate React
-  // warnings and can switch to a different seam.
+  // Plain function component fallback — wrap and call directly. The wrapper
+  // is itself a function component, so React calls it inside its normal
+  // reconciler, and `inner(props)` therefore inherits a valid hook context
+  // (the wrapper's). Inner may use hooks safely under this seam.
   if (typeof inner === "function") {
     const cached = wrappedComponents.get(inner);
     if (cached) return cached;
@@ -232,7 +276,7 @@ function getInjectedMenuComponent(inner: any): any {
     return wrapped;
   }
 
-  if ((globalThis as any).__DEV__) try { (globalThis as any).console?.warn?.("[DS][menu] no patch path matched — captured component is neither class/forwardRef/function", { kind: typeof inner, name: inner?.name ?? inner?.displayName }); } catch {}
+  if ((globalThis as any).__DEV__) try { (globalThis as any).console?.warn?.("[DS][menu] no patch path matched — captured component is neither memo/forwardRef/class/function", { kind: typeof inner, $$typeof: inner?.$$typeof?.toString?.(), name: inner?.name ?? inner?.displayName }); } catch {}
   return inner;
 }
 

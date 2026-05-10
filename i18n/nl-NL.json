@@ -221,7 +221,7 @@
   "filter_achievements_info": "Filtert op prestaties (vereist een compatibele plugin)",
   "filter_add": "Filter toevoegen",
   "filter_appIdList_hint": "App-ID's, kommagescheiden",
-  "filter_collection_label": "Collectie-ID of naam",
+  "filter_collection_label": "Selecteer een collectie",
   "filter_days": "Gespeeld binnen dagen",
   "filter_developer_empty": "Geen ontwikkelaarsgegevens gevonden",
   "filter_developer_loading": "Ontwikkelaars scannen…",

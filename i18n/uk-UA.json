@@ -221,7 +221,7 @@
   "filter_achievements_info": "Фільтрує за досягненнями (потрібен сумісний плагін)",
   "filter_add": "Додати фільтр",
   "filter_appIdList_hint": "App ID через кому",
-  "filter_collection_label": "ID або назва колекції",
+  "filter_collection_label": "Виберіть колекцію",
   "filter_days": "Грали протягом днів",
   "filter_developer_empty": "Дані розробників не знайдено",
   "filter_developer_loading": "Сканування розробників…",

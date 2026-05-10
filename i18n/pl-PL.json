@@ -221,7 +221,7 @@
   "filter_achievements_info": "Filtruje według osiągnięć (wymaga kompatybilnego pluginu)",
   "filter_add": "Dodaj filtr",
   "filter_appIdList_hint": "App ID oddzielone przecinkami",
-  "filter_collection_label": "ID lub nazwa kolekcji",
+  "filter_collection_label": "Wybierz kolekcję",
   "filter_days": "Grane w ciągu dni",
   "filter_developer_empty": "Nie znaleziono danych deweloperów",
   "filter_developer_loading": "Skanowanie deweloperów…",

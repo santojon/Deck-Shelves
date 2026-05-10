@@ -221,7 +221,7 @@
   "filter_achievements_info": "Filtert nach Errungenschaften (erfordert kompatibles Plugin)",
   "filter_add": "Filter Hinzufügen",
   "filter_appIdList_hint": "App-IDs, kommagetrennt",
-  "filter_collection_label": "Sammlungs-ID oder Name",
+  "filter_collection_label": "Sammlung auswählen",
   "filter_days": "Gespielt in den letzten Tagen",
   "filter_developer_empty": "Keine Entwicklerdaten gefunden",
   "filter_developer_loading": "Entwickler werden gescannt…",

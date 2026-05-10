@@ -221,7 +221,7 @@
   "filter_achievements_info": "도전과제로 필터링합니다(호환 플러그인 필요)",
   "filter_add": "필터 추가",
   "filter_appIdList_hint": "쉼표로 구분된 앱 ID",
-  "filter_collection_label": "컬렉션 ID 또는 이름",
+  "filter_collection_label": "컬렉션 선택",
   "filter_days": "플레이한 일수 이내",
   "filter_developer_empty": "개발사 데이터를 찾을 수 없습니다",
   "filter_developer_loading": "개발사 검색 중…",

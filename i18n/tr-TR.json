@@ -221,7 +221,7 @@
   "filter_achievements_info": "Başarımlara göre filtreler (uyumlu bir eklenti gerektirir)",
   "filter_add": "Filtre ekle",
   "filter_appIdList_hint": "Virgülle ayrılmış App ID'ler",
-  "filter_collection_label": "Koleksiyon kimliği veya adı",
+  "filter_collection_label": "Bir koleksiyon seçin",
   "filter_days": "Son gün içinde oynanan",
   "filter_developer_empty": "Geliştirici verisi bulunamadı",
   "filter_developer_loading": "Geliştiriciler taranıyor…",

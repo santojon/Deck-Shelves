@@ -221,7 +221,7 @@
   "filter_achievements_info": "Filtra per obiettivi (richiede un plugin compatibile)",
   "filter_add": "Aggiungi Filtro",
   "filter_appIdList_hint": "App ID separati da virgola",
-  "filter_collection_label": "ID o nome della collezione",
+  "filter_collection_label": "Seleziona una collezione",
   "filter_days": "Giocato negli ultimi giorni",
   "filter_developer_empty": "Nessun dato sviluppatore trovato",
   "filter_developer_loading": "Scansione degli sviluppatori…",

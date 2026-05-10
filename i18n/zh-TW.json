@@ -221,7 +221,7 @@
   "filter_achievements_info": "依成就篩選 (需要相容的外掛)",
   "filter_add": "新增篩選器",
   "filter_appIdList_hint": "以逗號分隔的 App ID",
-  "filter_collection_label": "收藏集 ID 或名稱",
+  "filter_collection_label": "選擇收藏集",
   "filter_days": "最近遊玩天數",
   "filter_developer_empty": "找不到開發者資料",
   "filter_developer_loading": "正在掃描開發者…",

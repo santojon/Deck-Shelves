@@ -221,7 +221,7 @@
   "filter_achievements_info": "按成就筛选（需要兼容插件）",
   "filter_add": "添加筛选器",
   "filter_appIdList_hint": "逗号分隔的 App ID",
-  "filter_collection_label": "收藏集ID或名称",
+  "filter_collection_label": "选择收藏集",
   "filter_days": "最近游玩天数",
   "filter_developer_empty": "未找到开发商数据",
   "filter_developer_loading": "正在扫描开发商…",

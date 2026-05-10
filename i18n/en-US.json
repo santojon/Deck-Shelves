@@ -221,7 +221,7 @@
   "filter_achievements_info": "Filters by achievements (requires a compatible plugin)",
   "filter_add": "Add Filter",
   "filter_appIdList_hint": "Comma-separated app IDs",
-  "filter_collection_label": "Collection ID or name",
+  "filter_collection_label": "Select a collection",
   "filter_days": "Played within days",
   "filter_developer_empty": "No developer data found",
   "filter_developer_loading": "Scanning developers…",

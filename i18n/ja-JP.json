@@ -221,7 +221,7 @@
   "filter_achievements_info": "実績でフィルタリング（互換プラグインが必要）",
   "filter_add": "フィルターを追加",
   "filter_appIdList_hint": "カンマ区切りのアプリID",
-  "filter_collection_label": "コレクションIDまたは名前",
+  "filter_collection_label": "コレクションを選択",
   "filter_days": "プレイした日数以内",
   "filter_developer_empty": "デベロッパーデータが見つかりません",
   "filter_developer_loading": "デベロッパーをスキャン中…",

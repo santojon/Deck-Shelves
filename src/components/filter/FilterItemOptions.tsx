@@ -196,22 +196,39 @@ export default function FilterItemOptions({ item, onChange, controller }: { item
         </div>
       );
 
-    case "collection":
+    case "collection": {
+      // Dropdown sourced from the same `controller.collections` the source
+      // picker uses — id-based matching so name lookups (which are unreliable
+      // across SteamOS / Bazzite collectionStore shapes) are bypassed entirely.
+      // Inversion still flows through `item.inverted` in the evaluator, and
+      // the prefetch pass keys on `params.collectionId` — both untouched here.
+      // Uses DropdownItem's own `label` slot (same pattern as the `hidden`
+      // filter above) instead of wrapping in a Field — Field adds extra
+      // gutter between the label and the control.
+      const collections = controller?.collections ?? [];
+      const currentId = String(p.collectionId ?? "");
+      const collectionOptions = collections.map((c) => ({ data: String(c.id), label: c.name }));
+      const placeholder = { data: "", label: t("select_placeholder" as any) };
+      const hasCurrent = currentId !== "" && collectionOptions.some((o) => o.data === currentId);
+      const rgOptions = collectionOptions.length === 0
+        ? [placeholder]
+        : (currentId === "" || hasCurrent ? collectionOptions : [placeholder, ...collectionOptions]);
+      const selected = hasCurrent ? currentId : "";
       return (
         <div>
-          <Field label={t("filter_collection_label")} bottomSeparator="none">
-            <div style={{ minWidth: 250 }}>
-              <TextField
-                value={String(p.collectionId ?? "")}
-                onChange={(val: any) => {
-                  const collectionId = typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "";
-                  patchParams({ collectionId });
-                }}
-              />
-            </div>
-          </Field>
+          <DropdownItem
+            label={t("filter_collection_label")}
+            rgOptions={rgOptions}
+            selectedOption={selected}
+            onChange={(opt: any) => {
+              const collectionId = String(opt?.data ?? opt ?? "");
+              patchParams({ collectionId });
+            }}
+            bottomSeparator="none"
+          />
         </div>
       );
+    }
 
     case "storeTag": {
       const tags: string[] = Array.isArray(p.tags) ? p.tags : [];
