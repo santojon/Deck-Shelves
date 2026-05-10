@@ -1,0 +1,74 @@
+name: Auto-label PRs
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false || github.event.action == 'ready_for_review'
+    steps:
+      - name: Apply type + area labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            const num   = pr.number;
+
+            // ── 1. TYPE: parsed from PR title prefix (Conventional Commits-style)
+            //     Falls through to PR labels already set by the author / template.
+            const title = (pr.title ?? "").toLowerCase();
+            const titleType =
+              /^(\[?\s*)?(fix|bug|hotfix)\b/.test(title)            ? "type::bug" :
+              /^(\[?\s*)?(feat|feature)\b/.test(title)              ? "type::feature" :
+              /^(\[?\s*)?(enh|enhance|enhancement|improve)\b/.test(title) ? "type::enhancement" :
+              null;
+
+            // ── 2. AREA: from changed file paths
+            const filesResp = await github.paginate(
+              github.rest.pulls.listFiles,
+              { owner, repo, pull_number: num, per_page: 100 }
+            );
+            const paths = filesResp.map(f => f.filename);
+
+            const areaRules = [
+              { label: "area::core",         test: p => p.startsWith("src/core/") },
+              { label: "area::runtime",      test: p => p.startsWith("src/runtime/") },
+              { label: "area::ui",           test: p => p.startsWith("src/components/") },
+              { label: "area::store",        test: p => p.startsWith("src/store/") },
+              { label: "area::integrations", test: p => p.startsWith("src/integrations/") },
+              { label: "area::domain",       test: p => p.startsWith("src/domain/") },
+              { label: "area::steam",        test: p => p.startsWith("src/steam/") },
+              { label: "area::tests",        test: p => p.startsWith("src/test/") || p.startsWith("tests/") },
+              { label: "area::i18n",         test: p => p.startsWith("i18n/") },
+              { label: "area::docs",         test: p => p.startsWith("docs/") || p === "README.md" || p === "CONTRIBUTING.md" || p === "SECURITY.md" },
+              { label: "area::ci",           test: p => p.startsWith(".github/") || p.startsWith("scripts/build/") || p.startsWith("scripts/devtools/") },
+              { label: "area::backend",      test: p => p === "main.py" || p.endsWith("/main.py") },
+            ];
+            const areaLabels = new Set();
+            for (const path of paths) {
+              for (const { label, test } of areaRules) {
+                if (test(path)) areaLabels.add(label);
+              }
+            }
+
+            // ── 3. Compute final label set
+            // Pre-existing labels on the PR are preserved as-is. We only ADD
+            // missing labels; never remove anything the author / template set.
+            const wanted = new Set([...areaLabels]);
+            if (titleType) wanted.add(titleType);
+
+            const current = (pr.labels ?? []).map(l => l.name);
+            const missing = [...wanted].filter(l => !current.includes(l));
+            if (missing.length === 0) return;
+
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number: num, labels: missing,
+            });

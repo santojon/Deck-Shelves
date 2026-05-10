@@ -318,6 +318,10 @@
   "menu_properties": "속성",
   "menu_shelf": "선반",
   "menu_view_details": "세부 정보 보기",
+  "menu_uninstall": "설치 제거",
+  "menu_verify_integrity": "게임 파일 무결성 확인",
+  "menu_browse_screenshots": "스크린샷 찾아보기",
+  
   "mount_crash_banner_desc": "셸프 렌더링 오류가 감지되었습니다. 홈에서 일시적으로 숨겨졌지만 계속해서 만들고 편집할 수 있습니다 — 초기화 후 다시 표시됩니다.",
   "mount_crash_export_and_reset": "선반 내보내기 및 데이터 지우기",
   "mount_crash_reset": "다시 시도",

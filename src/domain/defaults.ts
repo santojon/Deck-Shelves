@@ -61,5 +61,6 @@ export function defaultSettings(): Settings {
     smartSurpriseMe: false,
     smartSurpriseMeCount: 0,
     savedFilters: [],
+    updateNotifyEnabled: true,
   };
 }

@@ -318,6 +318,10 @@
   "menu_properties": "Właściwości",
   "menu_shelf": "Półka",
   "menu_view_details": "Zobacz szczegóły",
+  "menu_uninstall": "Odinstaluj",
+  "menu_verify_integrity": "Sprawdź integralność plików gry",
+  "menu_browse_screenshots": "Przeglądaj zrzuty ekranu",
+  
   "mount_crash_banner_desc": "Wykryto błąd renderowania półek. Są tymczasowo ukryte na ekranie głównym, ale nadal możesz je tworzyć i edytować — pojawią się ponownie po zresetowaniu.",
   "mount_crash_export_and_reset": "Eksportuj półki i wyczyść dane",
   "mount_crash_reset": "Spróbuj ponownie",

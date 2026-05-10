@@ -318,6 +318,10 @@
   "menu_properties": "Eigenschappen",
   "menu_shelf": "Schap",
   "menu_view_details": "Details bekijken",
+  "menu_uninstall": "Verwijderen",
+  "menu_verify_integrity": "Integriteit van bestanden controleren",
+  "menu_browse_screenshots": "Schermafbeeldingen verkennen",
+  
   "mount_crash_banner_desc": "Er is een renderfout gedetecteerd. Je schappen zijn tijdelijk verborgen op Home, maar je kunt ze blijven maken en bewerken — ze verschijnen weer na een reset.",
   "mount_crash_export_and_reset": "Planken exporteren en gegevens wissen",
   "mount_crash_reset": "Opnieuw proberen",

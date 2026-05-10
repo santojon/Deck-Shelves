@@ -318,6 +318,10 @@
   "menu_properties": "Eigenschaften",
   "menu_shelf": "Regal",
   "menu_view_details": "Details anzeigen",
+  "menu_uninstall": "Deinstallieren",
+  "menu_verify_integrity": "Spieldateien überprüfen",
+  "menu_browse_screenshots": "Screenshots durchsuchen",
+  
   "mount_crash_banner_desc": "Beim Rendern der Regale wurde ein Fehler festgestellt. Sie sind vorübergehend auf dem Home-Bildschirm ausgeblendet, aber du kannst sie weiterhin erstellen und bearbeiten — nach einem Reset erscheinen sie wieder.",
   "mount_crash_export_and_reset": "Regale exportieren und Daten löschen",
   "mount_crash_reset": "Erneut versuchen",

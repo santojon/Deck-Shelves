@@ -1,5 +1,10 @@
 declare const __DECK_SHELVES_ENABLE_HOME_PATCH__: boolean;
 declare const __DEV__: boolean;
+// Vite ships an ESM bundle, so `require` is undefined at runtime — but a
+// handful of dev-only QA harness loaders use `try { require(...) } catch {}`
+// as a guarded import that's silently no-op'd in production. The ambient
+// declaration keeps `tsc --noEmit` happy without pulling in `@types/node`.
+declare const require: any;
 declare const __QA_FIRST_RUN__: boolean;
 declare const __QA_QAM_ERROR__: boolean;
 declare const __QA_SHELF_ERROR__: boolean;

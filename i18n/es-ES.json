@@ -318,6 +318,10 @@
   "menu_properties": "Propiedades",
   "menu_shelf": "Estante",
   "menu_view_details": "Ver detalles",
+  "menu_uninstall": "Desinstalar",
+  "menu_verify_integrity": "Verificar integridad de los archivos",
+  "menu_browse_screenshots": "Examinar capturas",
+  
   "mount_crash_banner_desc": "Se detectó un error al renderizar las estanterías. Están ocultas temporalmente en Inicio, pero puedes seguir creándolas y editándolas — reaparecerán tras restablecer.",
   "mount_crash_export_and_reset": "Exportar estantes y borrar datos",
   "mount_crash_reset": "Reintentar",

@@ -318,6 +318,10 @@
   "menu_properties": "內容",
   "menu_shelf": "書架",
   "menu_view_details": "檢視詳細資料",
+  "menu_uninstall": "解除安裝",
+  "menu_verify_integrity": "驗證遊戲檔案完整性",
+  "menu_browse_screenshots": "瀏覽螢幕擷圖",
+  
   "mount_crash_banner_desc": "偵測到書架渲染錯誤。你的書架已暫時從首頁隱藏，但仍可建立與編輯；重設後會再次顯示。",
   "mount_crash_export_and_reset": "匯出書架並清除資料",
   "mount_crash_reset": "重試",

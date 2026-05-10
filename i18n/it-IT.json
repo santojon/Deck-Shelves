@@ -318,6 +318,10 @@
   "menu_properties": "Proprietà",
   "menu_shelf": "Scaffale",
   "menu_view_details": "Visualizza dettagli",
+  "menu_uninstall": "Disinstalla",
+  "menu_verify_integrity": "Verifica integrità dei file di gioco",
+  "menu_browse_screenshots": "Sfoglia screenshot",
+  
   "mount_crash_banner_desc": "È stato rilevato un errore nel rendering degli scaffali. Sono temporaneamente nascosti dalla Home, ma puoi continuare a crearli e modificarli — ricompariranno dopo il reset.",
   "mount_crash_export_and_reset": "Esporta scaffali e cancella i dati",
   "mount_crash_reset": "Riprova",

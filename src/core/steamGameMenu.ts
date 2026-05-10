@@ -1,4 +1,4 @@
-import { showContextMenu } from "@decky/ui";
+import { showContextMenu, findModuleChild, fakeRenderComponent, afterPatch as dflAfterPatch } from "@decky/ui";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
@@ -43,6 +43,125 @@ function getAppStore(): any {
 // at most once and can dedupe across showGameMenu calls.
 const patchedComponents = new WeakSet<any>();
 const wrappedComponents = new WeakMap<any, any>();
+
+// HLTB-style direct webpack discovery: find Steam's `LibraryContextMenu`
+// class at module load and patch its `prototype.render` once. The patch
+// fires for EVERY render of that class — so even when our React.createElement
+// capture misses (memo / forwardRef variants on newer SteamOS), the DS
+// submenu still injects. Gated on a per-call shelfId stash (set right
+// before `dfl.showContextMenu` is invoked, cleared a tick later) so the
+// patch only injects when triggered from a DS shelf card; native game cards
+// are unaffected.
+let _libraryContextMenuClass: any = null;
+let _libraryContextMenuPatched = false;
+let _hltbDiscoveryAttempted = false;
+let _activeShelfIdForMenu: string | null = null;
+function setActiveShelfIdForMenu(id: string | null): void {
+  _activeShelfIdForMenu = id;
+  // Auto-clear shortly after — the menu is rendered synchronously, so a
+  // single tick is enough. Prevents stale state if a follow-up unrelated
+  // menu fires before the next showGameMenu call.
+  if (id !== null) {
+    try {
+      setTimeout(() => { if (_activeShelfIdForMenu === id) _activeShelfIdForMenu = null; }, 250);
+    } catch {}
+  }
+}
+
+function discoverLibraryContextMenuClass(): any {
+  if (_libraryContextMenuClass || _hltbDiscoveryAttempted) return _libraryContextMenuClass;
+  _hltbDiscoveryAttempted = true;
+  try {
+    const wrapper = findModuleChild((m: any) => {
+      if (typeof m !== "object" || !m) return undefined;
+      for (const prop in m) {
+        const v = m[prop];
+        if (v && typeof v.toString === "function" && v.toString().includes("().LibraryContextMenu")) {
+          return Object.values(m).find((sibling: any) =>
+            typeof sibling === "function" &&
+            typeof sibling.toString === "function" &&
+            sibling.toString().includes("createElement") &&
+            sibling.toString().includes("navigator:")
+          );
+        }
+      }
+      return undefined;
+    });
+    const rendered = wrapper ? fakeRenderComponent(wrapper) : null;
+    _libraryContextMenuClass = rendered?.type ?? null;
+  } catch {
+    _libraryContextMenuClass = null;
+  }
+  return _libraryContextMenuClass;
+}
+
+/**
+ * Installs the HLTB-style boot patch on Steam's `LibraryContextMenu` class.
+ * Idempotent. Safe no-op when discovery fails (e.g. SteamOS build that
+ * renames the module). The capture/wrap path in `getInjectedMenuComponent`
+ * stays as a parallel safety net.
+ */
+export function installLibraryContextMenuPatch(): void {
+  if (_libraryContextMenuPatched) return;
+  const cls = discoverLibraryContextMenuClass();
+  if (!cls?.prototype?.render || typeof dflAfterPatch !== "function") return;
+  try {
+    dflAfterPatch(cls.prototype, "render", function (this: any, _args: any[], result: any) {
+      try {
+        // Resolve the shelf id from one of three sources, in order of
+        // robustness: (1) per-call stash (set by showGameMenu before invoking
+        // the captured menu); (2) live DOM lookup of the focused/clicked
+        // `.ds-card[data-appid][data-shelfid]` for this menu's appid;
+        // (3) shelfId injected as a prop. The DOM lookup is what makes the
+        // boot-patch resilient to timing races where the per-call stash has
+        // already cleared by the time React commits the render.
+        let shelfId: string | null = _activeShelfIdForMenu;
+        if (!shelfId) {
+          try {
+            const appid = this?.props?.overview?.appid;
+            if (appid) {
+              for (const d of getAllSteamDocuments()) {
+                const card = d.querySelector(`.ds-card[data-appid="${appid}"][data-shelfid]`) as HTMLElement | null;
+                const sid = card?.getAttribute?.("data-shelfid") ?? null;
+                if (sid) { shelfId = sid; break; }
+              }
+            }
+          } catch {}
+        }
+        if (!shelfId) shelfId = this?.props?._dsShelfId ?? null;
+        if (!shelfId) return result;
+        // Avoid double-injecting when both the capture path and the boot
+        // patch fire on the same render cycle.
+        const existing = result?.props?.children;
+        if (Array.isArray(existing) && existing.some((c: any) => c?.key === "ds-submenu-deckshelves" || c?.key === "ds-edit")) {
+          return result;
+        }
+        const dfl = getDFL();
+        const R = getSteamReact();
+        if (!dfl || !R) return result;
+        const items = buildDeckShelvesMenuItems(shelfId, dfl, R);
+        if (!items.length) return result;
+        if (Array.isArray(existing)) {
+          if (dfl.MenuSeparator) existing.push(R.createElement(dfl.MenuSeparator, { key: "ds-sep-boot" }));
+          for (const it of items) existing.push(it);
+        } else if (existing != null) {
+          const sep = dfl.MenuSeparator ? [R.createElement(dfl.MenuSeparator, { key: "ds-sep-boot" })] : [];
+          result.props.children = [existing, ...sep, ...items];
+        } else {
+          result.props.children = items;
+        }
+        if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] boot-patch injected", { shelfId, added: items.length }); } catch {}
+      } catch (e) {
+        try { (globalThis as any).console?.warn?.("[DS][menu] boot-patch render handler threw", e); } catch {}
+      }
+      return result;
+    });
+    _libraryContextMenuPatched = true;
+    if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] LibraryContextMenu boot-patch installed"); } catch {}
+  } catch (e) {
+    try { (globalThis as any).console?.warn?.("[DS][menu] boot-patch install failed", e); } catch {}
+  }
+}
 
 /**
  * Builds the Deck Shelves > Shelf submenu items as DFL `MenuItem` elements.
@@ -258,11 +377,34 @@ function getInjectedMenuComponent(inner: any): any {
     }
   }
 
-  // Plain function component fallback — wrap and call directly. The wrapper
-  // is itself a function component, so React calls it inside its normal
-  // reconciler, and `inner(props)` therefore inherits a valid hook context
-  // (the wrapper's). Inner may use hooks safely under this seam.
+  // Plain function component path. Steam's modern AppContextMenu capture
+  // returns a *thin wrapper* — a function that pulls `navigator` + `instance`
+  // from custom hooks and forwards to the real menu CLASS via JSX (verified
+  // via CDP: `function xe(e) { ... return jsx(Re, {...}); }`). The wrapper
+  // returns a single React element whose `.type` is the class we actually
+  // need to patch. So we try to unwrap first via `fakeRenderComponent`:
+  // if it gives us back a different inner type, recurse on it (typically
+  // matches the class-component branch above and patches `prototype.render`).
+  // The HOC fallback below stays as a safety net for genuinely flat function
+  // components.
   if (typeof inner === "function") {
+    if (typeof fakeRenderComponent === "function") {
+      try {
+        const fake = fakeRenderComponent(inner);
+        const innerType = fake?.type;
+        if (innerType && innerType !== inner) {
+          // Recurse — patches the real class / forwardRef behind the wrapper.
+          getInjectedMenuComponent(innerType);
+          if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] thin wrapper unwrapped — patched inner type", { wrapperName: inner.name ?? "<anon>", innerKind: typeof innerType, innerHasProtoRender: !!innerType?.prototype?.render }); } catch {}
+          // Return inner unchanged. Steam keeps creating React elements of
+          // `inner` (the wrapper); the wrapper still calls into the real
+          // type, which is now patched and fires the injection at render.
+          return inner;
+        }
+      } catch (e) {
+        try { (globalThis as any).console?.warn?.("[DS][menu] thin-wrapper unwrap failed", e); } catch {}
+      }
+    }
     const cached = wrappedComponents.get(inner);
     if (cached) return cached;
     const wrapped = function DSPatchedAppContextMenu(props: any) {
@@ -318,7 +460,13 @@ function installCaptureHooks(): {
 
   const captureFromArgs = (type: any, props: any) => {
     if (captured) return;
-    if (typeof type !== "function") return;
+    // Accept any component type — modern Steam wraps `AppContextMenu` in
+    // `React.memo` (an object with `$$typeof === Symbol.for('react.memo')`)
+    // or `React.forwardRef`, so the previous `typeof type !== "function"`
+    // gate silently rejected the real captures and forced every shelf-card
+    // menu into the DFL fallback. The `overview + client` props signature is
+    // unique to `AppContextMenu`, so it's a sufficient filter on its own.
+    if (!type) return;
     if (!props || !("overview" in props) || !("client" in props)) return;
     const tProps = { ...props };
     delete tProps.overview;
@@ -617,6 +765,11 @@ function showGameMenuLegacy(appid: number, shelfId?: string): boolean {
         });
 
         const dfl = getDFL();
+        // Stash the shelfId so the boot-time `LibraryContextMenu` patch can
+        // recognise the call as ours and append the DS submenu, even when
+        // the captured-component wrap path doesn't fire (memo / forwardRef
+        // mismatch). Auto-cleared after a tick.
+        if (shelfId) setActiveShelfIdForMenu(shelfId);
         if (dfl?.showContextMenu) {
           dfl.showContextMenu(menuElement, cardEl);
         } else {
@@ -785,6 +938,7 @@ export function showGameMenu(appid: number, shelfId?: string): void {
                 });
 
                 const dfl = getDFL();
+                if (shelfId) setActiveShelfIdForMenu(shelfId);
                 if (dfl?.showContextMenu) {
                   dfl.showContextMenu(menuElement, cardEl);
                 } else {
@@ -842,17 +996,44 @@ export function showGameMenu(appid: number, shelfId?: string): void {
             onSelected: () => { try { nav.NavigateToAppProperties(appid); } catch {} },
           }, lbl("menu_properties", "Properties")));
         }
+        // Verify integrity + Uninstall — both gated on installed && API present.
+        // Same SteamClient calls Steam itself uses, so behaviour matches the
+        // discovered native menu when those entries are picked.
+        if (installed && typeof sc?.Apps?.VerifyApp === "function") {
+          items.push(R.createElement(dfl.MenuItem, {
+            key: "verify",
+            onSelected: () => { try { sc?.Apps?.VerifyApp?.(appid); } catch {} },
+          }, lbl("menu_verify_integrity", "Verify integrity of installed files")));
+        }
+        if (installed && typeof sc?.Apps?.UninstallApps === "function") {
+          items.push(R.createElement(dfl.MenuItem, {
+            key: "uninstall",
+            tone: "destructive",
+            onSelected: () => { try { sc?.Apps?.UninstallApps?.([appid], false); } catch {} },
+          }, lbl("menu_uninstall", "Uninstall")));
+        }
+        // Browse local screenshots — works even when the game is uninstalled
+        // as long as Steam still has them indexed.
+        if (typeof sc?.Apps?.BrowseScreenshotsForApp === "function") {
+          items.push(R.createElement(dfl.MenuItem, {
+            key: "screenshots",
+            onSelected: () => { try { sc?.Apps?.BrowseScreenshotsForApp?.(String(appid)); } catch {} },
+          }, lbl("menu_browse_screenshots", "Browse screenshots")));
+        }
         items.push(R.createElement(dfl.MenuItem, {
           key: "details",
           onSelected: () => {
             try { (nav?.Navigate ?? sc?.Browser?.Navigate)?.(`/library/app/${appid}`); } catch {}
           },
         }, lbl("menu_view_details", "View Details")));
-        // Append the Deck Shelves submenu when this fallback runs from a
-        // shelf-card press — gives the user the same actions even if the
-        // captured-menu path failed for any reason.
+        // Append the Deck Shelves submenu (with a separator) when this
+        // fallback runs from a shelf-card press — same actions appear here
+        // and on the discovered native menu via the afterPatch seam.
         if (shelfId) {
           const dsItems = buildDeckShelvesMenuItems(shelfId, dfl, R);
+          if (dsItems.length && dfl.MenuSeparator) {
+            items.push(R.createElement(dfl.MenuSeparator, { key: "ds-sep" }));
+          }
           for (const it of dsItems) items.push(it);
         }
         const menu = R.createElement(dfl.Menu, { label: overview?.display_name ?? "Game" }, ...items);

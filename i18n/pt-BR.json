@@ -318,6 +318,10 @@
   "menu_properties": "Propriedades",
   "menu_shelf": "Prateleira",
   "menu_view_details": "Ver detalhes",
+  "menu_uninstall": "Desinstalar",
+  "menu_verify_integrity": "Verificar integridade dos arquivos",
+  "menu_browse_screenshots": "Explorar capturas de tela",
+  
   "mount_crash_banner_desc": "Um erro foi detectado ao exibir as prateleiras. Elas estão temporariamente ocultas da Home, mas você pode continuar criando e editando — reaparecerão após o reset.",
   "mount_crash_export_and_reset": "Exportar prateleiras e limpar dados",
   "mount_crash_reset": "Tentar novamente",

@@ -217,7 +217,15 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
   if (!appIds.length) return null;
 
-  if (!rowItems.length && items.size > 0 && metaVersion < 5) {
+  // Spinner during the meta-fetch transition is gated to first load only.
+  // Without this gate, every refresh that updates `appIds` faster than the
+  // meta lookup briefly empties `rowItems` (new ids haven't landed in the
+  // `items` map yet) and the shelf flashes a 30 px spinner band — visible
+  // as a loading-space gap between shelves whenever the global refresh
+  // emitter fires (game launch, install/uninstall, 30 s poll). After the
+  // first successful render, transitions just keep the prior content
+  // visible until the new meta lands.
+  if (!rowItems.length && items.size > 0 && metaVersion < 5 && firstLoad.current) {
     return <div style={{ padding: 10 }}><Spinner /></div>;
   }
   if (!rowItems.length) return null;

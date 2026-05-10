@@ -77,6 +77,38 @@ export function installShelfRefreshEmitter(): () => void {
     }
   } catch {}
 
+  // Subscribe to game launches so the `appStatus = running` filter picks up
+  // the new state without waiting for the 30s fallback poll. Steam fires
+  // multiple events per launch (initiated → process started → ready), so
+  // the work is debounced — coalescing the burst into a single invalidate +
+  // emit. Without the debounce, every event triggered a full re-resolve and
+  // every shelf briefly showed the cold-load spinner (visible to the user
+  // as an empty gap between shelves on each launch).
+  try {
+    const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
+    let gameActionTimer: ReturnType<typeof setTimeout> | null = null;
+    const onGameAction = () => {
+      if (gameActionTimer !== null) clearTimeout(gameActionTimer);
+      gameActionTimer = setTimeout(() => {
+        gameActionTimer = null;
+        // Lazy-import keeps shelfRefresh.ts decoupled from the resolver
+        // module (avoids a circular dep between core/ and steam/). Cache
+        // invalidation is required so the next overview read sees the live
+        // `display_status` (Running / Launching) instead of the 10s-stale
+        // snapshot.
+        import("../steam").then(({ invalidateAppOverviewCache }) => {
+          try { invalidateAppOverviewCache(); } catch {}
+          emit();
+        }).catch(() => emit());
+      }, 1500);
+    };
+    const reg = client?.Apps?.RegisterForGameActionStart?.(onGameAction);
+    if (typeof reg?.unregister === 'function') {
+      cleanups.push(() => { try { reg.unregister(); } catch {} });
+    }
+    cleanups.push(() => { if (gameActionTimer !== null) { clearTimeout(gameActionTimer); gameActionTimer = null; } });
+  } catch {}
+
   // Subscribe to collection store changes (favorites, user collections)
   try {
     const hostWindows: any[] = [

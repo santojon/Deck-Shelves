@@ -318,6 +318,10 @@
   "menu_properties": "Özellikler",
   "menu_shelf": "Raf",
   "menu_view_details": "Ayrıntıları gör",
+  "menu_uninstall": "Kaldır",
+  "menu_verify_integrity": "Oyun dosyalarının bütünlüğünü doğrula",
+  "menu_browse_screenshots": "Ekran görüntülerine göz at",
+  
   "mount_crash_banner_desc": "Raflar çizilirken bir hata algılandı. Ana ekranda geçici olarak gizlendiler, ancak oluşturmaya ve düzenlemeye devam edebilirsin — sıfırladıktan sonra tekrar görünecekler.",
   "mount_crash_export_and_reset": "Rafları dışa aktar ve verileri temizle",
   "mount_crash_reset": "Yeniden dene",

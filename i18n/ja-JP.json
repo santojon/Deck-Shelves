@@ -318,6 +318,10 @@
   "menu_properties": "プロパティ",
   "menu_shelf": "棚",
   "menu_view_details": "詳細を表示",
+  "menu_uninstall": "アンインストール",
+  "menu_verify_integrity": "ゲームファイルの整合性を確認",
+  "menu_browse_screenshots": "スクリーンショットを参照",
+  
   "mount_crash_banner_desc": "棚の描画エラーを検出しました。ホームでは一時的に非表示ですが、作成・編集は続けられます — リセット後に再表示されます。",
   "mount_crash_export_and_reset": "シェルフをエクスポートしてデータを消去",
   "mount_crash_reset": "再試行",

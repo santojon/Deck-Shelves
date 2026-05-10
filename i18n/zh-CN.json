@@ -318,6 +318,10 @@
   "menu_properties": "属性",
   "menu_shelf": "书架",
   "menu_view_details": "查看详情",
+  "menu_uninstall": "卸载",
+  "menu_verify_integrity": "验证游戏文件完整性",
+  "menu_browse_screenshots": "浏览屏幕截图",
+  
   "mount_crash_banner_desc": "检测到货架渲染错误。它们已在主页上暂时隐藏，但你仍可继续创建和编辑 — 重置后会再次显示。",
   "mount_crash_export_and_reset": "导出货架并清除数据",
   "mount_crash_reset": "重试",

@@ -318,6 +318,10 @@
   "menu_properties": "Properties",
   "menu_shelf": "Shelf",
   "menu_view_details": "View Details",
+  "menu_uninstall": "Uninstall",
+  "menu_verify_integrity": "Verify integrity of installed files",
+  "menu_browse_screenshots": "Browse screenshots",
+  
   "mount_crash_banner_desc": "A shelf render error was detected. Your shelves are temporarily hidden from Home, but you can still create and edit them — they will appear again after you reset.",
   "mount_crash_export_and_reset": "Export shelves and clear data",
   "mount_crash_reset": "Retry",

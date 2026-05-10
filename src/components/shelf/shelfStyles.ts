@@ -233,6 +233,19 @@ function ensureStyles() {
         else doc.documentElement.style.setProperty('--ds-page-bg', 'rgb(0, 0, 0)');
       } catch {}
 
+      // SLH theme defense — that CSS Loader theme locks the home page to
+      // viewport height with absolutely-positioned containers, so our
+      // shelves below the visible area become unreachable (no native page
+      // scroll). Detected via the theme's `--SLH-lift-hero-px` custom
+      // property; when present, mark the documentElement so the stylesheet
+      // applies the layout overrides on the affected ancestor classes.
+      // Marker is removed when the theme is no longer active.
+      try {
+        const slh = getComputedStyle(doc.documentElement).getPropertyValue('--SLH-lift-hero-px').trim();
+        if (slh !== '') doc.documentElement.setAttribute('data-ds-slh', '1');
+        else doc.documentElement.removeAttribute('data-ds-slh');
+      } catch {}
+
       try {
         doc.documentElement.style.removeProperty('--ds-native-heading-color');
         const headings = doc.querySelectorAll('h2[class], h3[class]');
@@ -276,6 +289,25 @@ function buildStylesheet(): string {
       --ds-row-base-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
     #deck-shelves-home-root { margin-top: -32px !important; }
+    /* SLH theme defense: that theme locks the home page to viewport
+       height with absolutely-positioned containers (recents grid is glued
+       to the bottom + height 221px important), so the natural page scroll
+       that normally lets the user reach DS shelves below the fold cannot
+       run. Strategy: detach the absolute positioning from the recents
+       grid only when DS is mounted, and let the page flow take over.
+       Opt-in via the data-ds-slh marker so the non-themed layout stays
+       untouched. */
+    html[data-ds-slh="1"] ._3MdH5Czolhh5rC_nofUlcQ {
+      position: static !important;
+      height: auto !important;
+    }
+    html[data-ds-slh="1"] ._3MdH5Czolhh5rC_nofUlcQ > .ReactVirtualized__Grid__innerScrollContainer {
+      height: auto !important;
+    }
+    html[data-ds-slh="1"] ._282X0J4BtrSF1IXctmOe-X {
+      height: auto !important;
+      min-height: calc(100vh - 152px);
+    }
     .deck-shelves-root { background: transparent; }
     .Panel.ds-shelf { background: transparent !important; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
