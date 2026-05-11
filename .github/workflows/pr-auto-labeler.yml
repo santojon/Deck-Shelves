@@ -59,10 +59,21 @@ jobs:
               }
             }
 
+            // ── 2b. MODE: from changed file paths (Game Mode and Big Picture only)
+            const modeRules = [
+              { label: "mode::GameMode", test: p => p.startsWith("src/runtime/") || p.includes("homePatch") || p.includes("recentsReplace") },
+            ];
+            const modeLabels = new Set();
+            for (const path of paths) {
+              for (const { label, test } of modeRules) {
+                if (test(path)) modeLabels.add(label);
+              }
+            }
+
             // ── 3. Compute final label set
             // Pre-existing labels on the PR are preserved as-is. We only ADD
             // missing labels; never remove anything the author / template set.
-            const wanted = new Set([...areaLabels]);
+            const wanted = new Set([...areaLabels, ...modeLabels]);
             if (titleType) wanted.add(titleType);
 
             const current = (pr.labels ?? []).map(l => l.name);

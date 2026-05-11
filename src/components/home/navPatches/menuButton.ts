@@ -32,7 +32,8 @@ function interceptMenuBtn(button: number): boolean {
     const focused = findFocusedDsCard();
     if (focused) {
       const appid = Number(focused.getAttribute("data-appid") ?? 0);
-      if (appid > 0) { showGameMenu(appid); return true; }
+      const shelfId = focused.getAttribute("data-shelfid") ?? undefined;
+      if (appid > 0) { showGameMenu(appid, shelfId || undefined); return true; }
     }
     // Overlay: native recents cards — intercept unconditionally to prevent native crash.
     // Use tracked focused appid, falling back to first cached appid.
@@ -69,10 +70,11 @@ export function patchMenuButton(): void {
       const focused = findFocusedDsCard();
       if (focused) {
         const appid = Number(focused.getAttribute("data-appid") ?? 0);
+        const shelfId = focused.getAttribute("data-shelfid") ?? undefined;
         if (appid > 0) {
           evt.stopImmediatePropagation();
           evt.preventDefault();
-          showGameMenu(appid);
+          showGameMenu(appid, shelfId || undefined);
           return;
         }
       }

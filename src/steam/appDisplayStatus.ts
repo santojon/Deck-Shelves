@@ -1,14 +1,16 @@
 /**
  * Steam's EAppDisplayStatus enum — values observed in `per_client_data[0].display_status`.
- * Not all values are confirmed; unknown gaps (1, 10, 14–18) are omitted.
+ * Confirmed: Running=4, Installing=3 (user-verified: games showed under the "installing"
+ * group filter while actually running, proving the previous Running=5/Installing=4 mapping
+ * was shifted by 1 for values in the 2–6 range).
  */
 export const EAppDisplayStatus = {
   Invalid:        0,
-  Launching:      2,
-  Reconfiguring:  3,  // update-related housekeeping; seen with pending updates
-  Installing:     4,
-  Running:        5,
-  Validating:     6,  // verifying file integrity after update
+  Launching:      1,  // pre-launch transition
+  Reconfiguring:  2,  // update-related housekeeping
+  Installing:     3,
+  Running:        4,
+  Validating:     5,  // verifying file integrity after update
   UpdateQueued:   7,
   UpdatePaused:   8,  // waiting on disk space or dependency
   NotInstalled:   9,  // available on remote / cloud-only

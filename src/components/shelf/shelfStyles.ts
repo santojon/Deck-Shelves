@@ -289,25 +289,6 @@ function buildStylesheet(): string {
       --ds-row-base-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
     #deck-shelves-home-root { margin-top: -32px !important; }
-    /* SLH theme defense: that theme locks the home page to viewport
-       height with absolutely-positioned containers (recents grid is glued
-       to the bottom + height 221px important), so the natural page scroll
-       that normally lets the user reach DS shelves below the fold cannot
-       run. Strategy: detach the absolute positioning from the recents
-       grid only when DS is mounted, and let the page flow take over.
-       Opt-in via the data-ds-slh marker so the non-themed layout stays
-       untouched. */
-    html[data-ds-slh="1"] ._3MdH5Czolhh5rC_nofUlcQ {
-      position: static !important;
-      height: auto !important;
-    }
-    html[data-ds-slh="1"] ._3MdH5Czolhh5rC_nofUlcQ > .ReactVirtualized__Grid__innerScrollContainer {
-      height: auto !important;
-    }
-    html[data-ds-slh="1"] ._282X0J4BtrSF1IXctmOe-X {
-      height: auto !important;
-      min-height: calc(100vh - 152px);
-    }
     .deck-shelves-root { background: transparent; }
     .Panel.ds-shelf { background: transparent !important; }
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }

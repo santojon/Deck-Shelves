@@ -50,6 +50,9 @@ jobs:
                 ],
               },
               { label: "OS::OtherHoloISO",  patterns: [/\bholoiso\b/i, /\bholoiso[-_ ]?derived\b/i] },
+              // Steam UI mode detection (Deck Shelves supports Game Mode and Big Picture only)
+              { label: "mode::BigPicture",  patterns: [/\bbig\s*picture\b/i, /\bbpbm\b/i, /\bbig\s*picture\s*mode\b/i] },
+              { label: "mode::GameMode",    patterns: [/\bgame\s*mode\b/i, /\bgamepad\s*ui\b/i, /\bsteam\s*deck\s*(home|ui)\b/i] },
             ];
 
             const toAdd = new Set();

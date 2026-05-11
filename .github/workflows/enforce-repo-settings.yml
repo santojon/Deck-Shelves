@@ -33,6 +33,59 @@ jobs:
               core.info('Updated repository settings: ' + JSON.stringify(updates));
             }
 
+      - name: Sync labels (create required, delete deprecated)
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.ADMIN_GH_TOKEN || github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+
+            const required = [
+              // OS labels
+              { name: "OS::SteamOS",      color: "1d76db", description: "Reported on SteamOS (stable)" },
+              { name: "OS::SteamOSBeta",  color: "0075ca", description: "Reported on SteamOS beta/preview" },
+              { name: "OS::Bazzite",      color: "e4e669", description: "Reported on Bazzite" },
+              { name: "OS::Chimera",      color: "d93f0b", description: "Reported on ChimeraOS" },
+              { name: "OS::MacOS",        color: "555555", description: "Reported on macOS" },
+              { name: "OS::Windows",      color: "0052cc", description: "Reported on Windows" },
+              { name: "OS::OtherHoloISO", color: "bfd4f2", description: "Reported on HoloISO or similar" },
+              // Mode labels (Deck Shelves supports Game Mode and Big Picture only)
+              { name: "mode::GameMode",    color: "0e8a16", description: "Affects Game Mode / GamepadUI" },
+              { name: "mode::BigPicture",  color: "006b75", description: "Affects Big Picture mode" },
+              // Release labels
+              { name: "release::stable",  color: "0e8a16", description: "Present in a stable release" },
+              { name: "release::beta",    color: "e4e669", description: "Present in a beta/pre-release" },
+              // Type labels
+              { name: "type::bug",         color: "d73a4a", description: "Something isn't working" },
+              { name: "type::feature",     color: "a2eeef", description: "New feature request" },
+              { name: "type::enhancement", color: "84b6eb", description: "Enhancement to existing feature" },
+            ];
+
+            const deprecated = ["mode desktop"];
+
+            const existing = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
+            const existingMap = new Map(existing.map(l => [l.name, l]));
+
+            for (const label of required) {
+              if (existingMap.has(label.name)) {
+                const cur = existingMap.get(label.name);
+                if (cur.color !== label.color || cur.description !== label.description) {
+                  await github.rest.issues.updateLabel({ owner, repo, name: label.name, color: label.color, description: label.description });
+                  core.info(`Updated label: ${label.name}`);
+                }
+              } else {
+                await github.rest.issues.createLabel({ owner, repo, ...label });
+                core.info(`Created label: ${label.name}`);
+              }
+            }
+
+            for (const name of deprecated) {
+              if (existingMap.has(name)) {
+                await github.rest.issues.deleteLabel({ owner, repo, name });
+                core.info(`Deleted deprecated label: ${name}`);
+              }
+            }
+
       - name: Ensure branch protection defaults
         uses: actions/github-script@v6
         with:
