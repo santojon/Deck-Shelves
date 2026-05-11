@@ -1923,6 +1923,9 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId
   else if (sort === "metacritic") apps = apps.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
   else if (sort === "review_score") apps = apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
   else if (sort === "added") apps = apps.slice().sort(compareByAdded);
+  else if (sort === "app_status") apps = apps.slice().sort((a, b) => ((a as any).display_status ?? 0) - ((b as any).display_status ?? 0));
+  else if (sort === "deck_compat") apps = apps.slice().sort((a, b) => ((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0));
+  else if (sort === "controller_support") apps = apps.slice().sort((a, b) => ((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0));
   else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids), shelfId); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
   else if (sort === "alphabetical") {
     // Explicit branch: the internal registry registers "alphabetical" as a

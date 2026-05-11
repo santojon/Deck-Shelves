@@ -12,6 +12,9 @@ export const SORT_OPTIONS = [
   { value: 'metacritic', labelKey: 'sort_metacritic' },
   { value: 'review_score', labelKey: 'sort_review_score' },
   { value: 'added', labelKey: 'sort_added' },
+  { value: 'app_status', labelKey: 'sort_app_status' },
+  { value: 'deck_compat', labelKey: 'sort_deck_compat' },
+  { value: 'controller_support', labelKey: 'sort_controller_support' },
   { value: 'random', labelKey: 'sort_random' },
   { value: 'manual', labelKey: 'sort_manual' },
 ] as const

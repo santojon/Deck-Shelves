@@ -10,6 +10,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Update notifications inside the QAM.** Deck Shelves now checks GitHub once a day for a new release and shows a small banner at the top of the QAM panel when one is available, with quick links to view the release or dismiss it for that version. The check runs only when you have it enabled (toggle in Behavior; on by default), only when you are online, and never gets in the way.
 - **Right-click / Menu shortcut on shelf cards — `Deck Shelves > Shelf > …`.** Long-press or press the menu button on any card in your shelves to get a Deck Shelves submenu with **Edit · Duplicate · Collapse / Expand shelf · Hide / Show · Move up / Move down · Delete** — the same actions you already have in the QAM list, available right where you are.
 - **More native-style entries in the fallback menu.** When Deck Shelves can't extract Steam's full native menu (older builds, unusual configs), the fallback now also shows **Verify integrity of installed files**, **Uninstall** and **Browse screenshots** alongside Play / Properties / View Details — same `SteamClient` calls Steam uses, so the behaviour matches the native menu.
+- **Three new "Sort by" options.** The sort picker in the shelf editor now includes **App Status** (Running / Installing / Downloading first), **Deck Compatibility** (Verified → Playable → Unsupported → Unknown) and **Controller Support** (Full → Partial → None). All three support the ascending / descending toggle already available for other sorts.
 
 ### Fixed
 
