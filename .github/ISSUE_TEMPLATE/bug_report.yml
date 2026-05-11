@@ -45,6 +45,30 @@ body:
       required: true
 
   - type: dropdown
+    id: release_channel
+    attributes:
+      label: Release channel
+      description: Are you on a stable release or a beta/pre-release?
+      options:
+        - Stable
+        - Beta / Pre-release
+        - Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: steam_mode
+    attributes:
+      label: Steam UI mode
+      description: Which UI mode were you using when the bug occurred? (Deck Shelves does not support Desktop Mode)
+      options:
+        - Game Mode (Steam Deck home / GamepadUI)
+        - Big Picture Mode
+        - Both / Not sure
+    validations:
+      required: true
+
+  - type: dropdown
     id: os
     attributes:
       label: Operating system

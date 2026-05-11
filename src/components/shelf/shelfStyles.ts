@@ -153,6 +153,7 @@ function ensureStyles() {
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
     if (dimsChanged && newDims) {
+      const hadDims = cachedNativeDims !== null;
       // Fast path: when the cache has no featuredWidth but the new measurement does,
       // accept immediately. The featured card would otherwise render at the fallback
       // landscape ratio for 6+ seconds (2 × poll interval) before resizing — visible
@@ -163,10 +164,11 @@ function ensureStyles() {
         persistDims(newDims);
         pendingDims = null;
         pendingDimsCount = 0;
-        // Synchronous notification — the 500ms debounce delays the featured
-        // card resize noticeably when it's finally discovered. Acquiring
-        // featured for the first time is a one-shot event; no debounce needed.
-        notifyDimsNow();
+        // If portrait dims were already cached (override mode on reload), debounce to
+        // avoid a resize flash when early polls fire before the layout stabilises.
+        // On a true cold boot (no prior dims), snap immediately — no visible card exists yet.
+        if (hadDims) debouncedNotifyDims(newDims);
+        else notifyDimsNow();
       } else {
       // Require 2 consecutive polls showing the same new values before accepting
       const matchesPending = pendingDims &&

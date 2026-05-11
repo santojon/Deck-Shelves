@@ -53,6 +53,9 @@ jobs:
               // Steam UI mode detection (Deck Shelves supports Game Mode and Big Picture only)
               { label: "mode::BigPicture",  patterns: [/\bbig\s*picture\b/i, /\bbpbm\b/i, /\bbig\s*picture\s*mode\b/i] },
               { label: "mode::GameMode",    patterns: [/\bgame\s*mode\b/i, /\bgamepad\s*ui\b/i, /\bsteam\s*deck\s*(home|ui)\b/i] },
+              // Release channel (matched from bug report form dropdown answer)
+              { label: "release::beta",   patterns: [/\bbeta\s*[/\/]\s*pre[-\s]?release\b/i, /\bpre[-\s]?release\b/i] },
+              { label: "release::stable", patterns: [/release\s+channel[\s\S]{0,120}\bstable\b/i] },
             ];
 
             const toAdd = new Set();
