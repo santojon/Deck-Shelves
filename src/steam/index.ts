@@ -1,6 +1,6 @@
 import type { FilterGroup, FilterItem } from "../types";
 import { dedupeAppIdsByName } from "./dedupe";
-import { EAppDisplayStatus, UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS } from "./appDisplayStatus";
+import { UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS } from "./appDisplayStatus";
 import { mark, measure } from "../core/perf";
 import {
   hasExternalSortOption, applyExternalSort,
@@ -1788,6 +1788,26 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       result = matched;
       break;
     }
+    case "discount": {
+      // Reads discount % synchronously from the price cache populated by
+      // onlineStore.ts. Games without cached data pass through (inclusive) so
+      // an uncached library doesn't empty the shelf when the feature is first
+      // enabled. Cache is warmed lazily on wishlist/price-sort shelf loads.
+      try {
+        const appid = appIdOf(app);
+        if (!appid) { result = true; break; }
+        const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
+        if (!raw) { result = true; break; }
+        const cache: Record<number, { ts: number; data: { discount: number; isFree?: boolean } }> = JSON.parse(raw);
+        const entry = cache[appid];
+        if (!entry?.data) { result = true; break; }
+        const disc = entry.data.discount ?? 0;
+        const min = Number(item.params?.minDiscount ?? 0);
+        const max = Number(item.params?.maxDiscount ?? 100);
+        result = disc >= min && disc <= max;
+      } catch { result = true; }
+      break;
+    }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
     default: {
       // Plugin API: delegate to a registered external filter type when the
@@ -1927,6 +1947,13 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId
   else if (sort === "deck_compat") apps = apps.slice().sort((a, b) => ((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0));
   else if (sort === "controller_support") apps = apps.slice().sort((a, b) => ((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0));
   else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids), shelfId); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
+  // price_low / discount_high / original_price_high require async price
+  // fetching — resolved by applyPriceSort() at the resolveShelfAppIds call
+  // site for wishlist source. For other source types, fall through to
+  // alphabetical as a stable fallback.
+  else if (sort === "price_low" || sort === "discount_high" || sort === "original_price_high") {
+    apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+  }
   else if (sort === "alphabetical") {
     // Explicit branch: the internal registry registers "alphabetical" as a
     // noop descriptor (so plugin authors can enumerate it), so falling into
@@ -1958,6 +1985,33 @@ function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId
   // reverse to asc when requested.
   if (reverse && sort !== "manual" && sort !== "random") apps = apps.reverse();
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+}
+
+async function applyPriceSort(ids: number[], sort: "price_low" | "discount_high" | "original_price_high", reverse?: boolean): Promise<number[]> {
+  try {
+    const { getPriceMap } = await import("../core/onlineStore");
+    const priceMap = await getPriceMap(ids);
+    const sorted = ids.slice().sort((a, b) => {
+      const pa = priceMap.get(a);
+      const pb = priceMap.get(b);
+      if (sort === "price_low") {
+        const va = pa ? pa.price : 999999;
+        const vb = pb ? pb.price : 999999;
+        return va - vb;
+      } else if (sort === "original_price_high") {
+        const va = pa ? pa.originalPrice : 0;
+        const vb = pb ? pb.originalPrice : 0;
+        return vb - va;
+      } else {
+        const va = pa ? pa.discount : 0;
+        const vb = pb ? pb.discount : 0;
+        return vb - va;
+      }
+    });
+    return reverse ? sorted.reverse() : sorted;
+  } catch {
+    return ids;
+  }
 }
 
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean, options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }): Promise<number[]> {
@@ -2295,6 +2349,40 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     }
   }
 
+  if (source.type === "wishlist") {
+    try {
+      const { getCurrentSettings } = await import("../store/settingsStore");
+      const { getWishlistIds } = await import("../core/onlineStore");
+      const s = getCurrentSettings();
+      if (!s?.onlineFeaturesEnabled || !s?.onlineWishlistEnabled) return [];
+      const wishlistIds = await getWishlistIds();
+      if (!wishlistIds) return [];
+      // Intersect with installed/owned appIds so we only surface owned games.
+      const ownedSet = new Set(all.map((a) => appIdOf(a)));
+      let ids = wishlistIds.filter((id) => ownedSet.has(id));
+      // Apply childFilter before sort — narrows the candidate pool.
+      const childFilter = (source as any).childFilter;
+      if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
+        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+        const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+        ids = evaluateFilterGroup(childFilter, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+      }
+      const isPriceSort = sort === "price_low" || sort === "discount_high" || sort === "original_price_high";
+      if (sort && !isPriceSort) {
+        ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
+      }
+      ids = deduplicateNonSteam(ids, all);
+      if (isPriceSort) {
+        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", sortReverse);
+      }
+      logInfo("STEAM", "resolveShelfAppIds(wishlist) resolved", { count: ids.length });
+      return finish(ids.slice(0, overShootLimit));
+    } catch (e) {
+      logWarn("STEAM", "resolveShelfAppIds(wishlist) failed", String(e));
+      return [];
+    }
+  }
+
   if (source.type === "smart") {
     try {
       const { resolveSmartShelf } = await import("./smartShelves");
@@ -2447,7 +2535,7 @@ export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
   try { /* perf markers */ } catch {}
   // Instrumentation
   try { await Promise.resolve(); } catch {}
-  importPerf: {
+  {
     /* placeholder for perf import resolution at build time */
   }
   refreshPendingUpdateAppIds().catch(() => {});

@@ -285,6 +285,39 @@ export default function FilterItemOptions({ item, onChange, controller }: { item
         </div>
       );
 
+    case "discount": {
+      const minDisc = Number(p.minDiscount ?? 10);
+      const maxDisc = Number(p.maxDiscount ?? 100);
+      return (
+        <>
+          <div>
+            <Field label={`${t("filter_discount_min")}: ${minDisc}%`} bottomSeparator="none">
+              <SliderField
+                label=""
+                value={minDisc}
+                min={0}
+                max={100}
+                step={5}
+                onChange={(v: number) => patchParams({ minDiscount: v })}
+              />
+            </Field>
+          </div>
+          <div>
+            <Field label={`${t("filter_discount_max")}: ${maxDisc === 100 ? t("filter_discount_max_any") : maxDisc + "%"}`} bottomSeparator="none">
+              <SliderField
+                label=""
+                value={maxDisc}
+                min={0}
+                max={100}
+                step={5}
+                onChange={(v: number) => patchParams({ maxDiscount: v })}
+              />
+            </Field>
+          </div>
+        </>
+      );
+    }
+
     case "merge":
       return <MergeFilterOptions item={item} onChange={onChange} controller={controller} />;
 

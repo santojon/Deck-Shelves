@@ -7,7 +7,6 @@ import {
   Focusable,
   PanelSection,
   PanelSectionRow,
-  ScrollPanelGroup,
 } from "@decky/ui";
 import { useSettingsController } from "../features/settings/controller";
 import { PlatformProvider, getPlatform } from "../runtime/platformContext";
@@ -61,7 +60,7 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
 
   return (
     <Focusable>
-      <ScrollPanelGroup focusable={false} style={{ padding: 24 }}>
+      <div style={{ padding: 24, overflowY: 'auto' }}>
         <DialogBody>
           <DialogControlsSection>
             <h1 style={{ marginTop: 0, marginBottom: 4 }}>{t("menu_deck_shelves") ?? "Deck Shelves"}</h1>
@@ -99,7 +98,7 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
             </PanelSection>
           </DialogControlsSection>
         </DialogBody>
-      </ScrollPanelGroup>
+      </div>
     </Focusable>
   );
 }

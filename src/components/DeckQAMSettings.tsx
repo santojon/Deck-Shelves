@@ -35,6 +35,21 @@ import { CollapsibleSection } from './ui'
 import { GearIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 
+function OnlinePrivacyBanner({ t, onAccept }: { t: (k: string) => string; onAccept: () => void }) {
+  return (
+    <div style={{ padding: '16px 20px', maxWidth: 420 }}>
+      <div style={{ fontWeight: 'bold', marginBottom: 8, fontSize: 14 }}>{t('online_privacy_title')}</div>
+      <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 12, lineHeight: 1.5 }}>{t('online_privacy_body')}</div>
+      <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 16, lineHeight: 1.4 }}>
+        <div>· store.steampowered.com/wishlist — {t('online_privacy_freq_wishlist')}</div>
+        <div>· store.steampowered.com/api/appdetails — {t('online_privacy_freq_price')}</div>
+        <div>· store.steampowered.com/favicon.ico — {t('online_privacy_freq_ping')}</div>
+      </div>
+      <button style={{ padding: '6px 16px', background: '#4c7fff', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13 }} onClick={onAccept}>{t('online_privacy_accept')}</button>
+    </div>
+  );
+}
+
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
   const close = () => {
@@ -208,6 +223,29 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
         <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
+        <ToggleField
+          label={t('online_features')}
+          description={t('online_features_desc')}
+          checked={settings.onlineFeaturesEnabled === true}
+          onChange={(value: boolean) => {
+            if (value && !settings.onlinePrivacyAccepted) {
+              showModal(
+                <OnlinePrivacyBanner
+                  t={t}
+                  onAccept={() => { void actions.acceptOnlinePrivacy(); void actions.setOnlineFeaturesEnabled(true); }}
+                />
+              );
+            } else {
+              void actions.setOnlineFeaturesEnabled(value);
+            }
+          }}
+        />
+        {settings.onlineFeaturesEnabled === true && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />
+            <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(value: boolean) => void actions.setOnlinePriceSortEnabled(value)} />
+          </div>
+        )}
       </CollapsibleSection>
 
       {replaceFailed && (

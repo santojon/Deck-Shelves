@@ -435,6 +435,71 @@ export function installLibraryContextMenuPatch(): void {
 }
 
 /**
+ * Deep injection: replaces `cls.prototype.render` (the lazy-bootstrap) with a
+ * wrapper that intercepts the per-instance `Object.defineProperty(this,"render",
+ * {writable:false, value:X})` call made by the original bootstrap. The interceptor
+ * wraps `X` before it is locked, so EVERY render of EVERY instance — including
+ * re-renders after the lock — includes DS items.
+ *
+ * Root cause: the bootstrap locks `this.render = X` with `writable:false`. On
+ * every re-render React calls `this.render()` directly (instance beats prototype),
+ * bypassing the prototype-level `afterPatch`. For uninstalled/non-Steam games a
+ * re-render fires immediately after mount (internal state update in AppContextMenu),
+ * removing our injected items before the first DOM commit lands.
+ *
+ * Fix timeline per instance:
+ *   1. React mounts cls instance → calls `instance.render()` → finds our bootstrap wrapper.
+ *   2. Our wrapper temporarily patches `Object.defineProperty`.
+ *   3. Original bootstrap runs → calls patched defineProperty → we wrap X → restore global.
+ *   4. Bootstrap calls `this.render()` → this.render is now `wrappedX`.
+ *   5. `wrappedX` returns original render output + injected DS items.
+ *   6. All subsequent re-renders of this instance call `this.render = wrappedX` → items persist.
+ *
+ * Object.defineProperty is patched only for the synchronous duration of the bootstrap
+ * call for a single instance — the `try/finally` ensures immediate restore.
+ */
+let _ctxMenuPatchInstalled = false;
+
+export function installCreateContextMenuPatch(): void {
+  if (_ctxMenuPatchInstalled) return;
+
+  const cls = discoverLibraryContextMenuClass();
+  if (!cls?.prototype?.render) return;
+
+  try {
+    const origBootstrap = cls.prototype.render;
+    cls.prototype.render = function (this: any) {
+      const self = this;
+      const origDP = Object.defineProperty;
+      let intercepted = false;
+      (Object.defineProperty as any) = function (target: any, prop: PropertyKey, desc: PropertyDescriptor) {
+        if (!intercepted && prop === "render" && target === self && typeof desc?.value === "function") {
+          intercepted = true;
+          Object.defineProperty = origDP;
+          const X = desc.value;
+          const wrappedX = function (this: any) {
+            const ret = X.apply(this, arguments as any);
+            try {
+              const shelfId = resolveShelfIdFromProps(this?.props);
+              if (shelfId) return injectDeckShelvesIntoTree(ret, shelfId);
+            } catch {}
+            return ret;
+          };
+          return origDP.call(Object, target, prop, { ...desc, value: wrappedX });
+        }
+        return origDP.apply(Object, [target, prop, desc] as any);
+      };
+      try {
+        return origBootstrap.apply(this, arguments as any);
+      } finally {
+        Object.defineProperty = origDP;
+      }
+    };
+    _ctxMenuPatchInstalled = true;
+  } catch {}
+}
+
+/**
  * Builds a `Deck Shelves` nested submenu (MenuGroup) containing the seven
  * per-shelf actions: Edit, Duplicate, Collapse/Expand, Hide/Show, Move up,
  * Move down, Delete. Returned as a single MenuGroup so the parent menu

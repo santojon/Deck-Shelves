@@ -13,7 +13,7 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
-import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch } from "../core/steamGameMenu";
+import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { HeroBackground } from "./shelf/HeroBackground";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
@@ -528,6 +528,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       try { installPassiveMenuHook(); } catch (e) { logInfo("HOME", "installPassiveMenuHook failed", String(e)); }
       try { installPassiveShowContextMenuHook(); } catch (e) { logInfo("HOME", "installPassiveShowContextMenuHook failed", String(e)); }
       try { installLibraryContextMenuPatch(); } catch (e) { logInfo("HOME", "installLibraryContextMenuPatch failed", String(e)); }
+      try { installCreateContextMenuPatch(); } catch (e) { logInfo("HOME", "installCreateContextMenuPatch failed", String(e)); }
       try { tryRestoreFocus(); } catch (e) { logInfo("HOME", "tryRestoreFocus failed", String(e)); }
     };
     const reparentOnly = () => {

@@ -62,5 +62,9 @@ export function defaultSettings(): Settings {
     smartSurpriseMeCount: 0,
     savedFilters: [],
     updateNotifyEnabled: true,
+    onlineFeaturesEnabled: false,
+    onlineWishlistEnabled: true,
+    onlinePriceSortEnabled: true,
+    onlinePrivacyAccepted: false,
   };
 }

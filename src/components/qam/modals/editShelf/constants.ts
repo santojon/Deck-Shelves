@@ -15,6 +15,9 @@ export const SORT_OPTIONS = [
   { value: 'app_status', labelKey: 'sort_app_status' },
   { value: 'deck_compat', labelKey: 'sort_deck_compat' },
   { value: 'controller_support', labelKey: 'sort_controller_support' },
+  { value: 'price_low', labelKey: 'sort_price_low', requiresOnline: true },
+  { value: 'discount_high', labelKey: 'sort_discount_high', requiresOnline: true },
+  { value: 'original_price_high', labelKey: 'sort_original_price_high', requiresOnline: true },
   { value: 'random', labelKey: 'sort_random' },
   { value: 'manual', labelKey: 'sort_manual' },
 ] as const
