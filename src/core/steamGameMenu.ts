@@ -3,7 +3,13 @@ import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocument
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
 import { getCurrentSettings } from "../store/settingsStore";
-import * as shelfActions from "./shelfActions";
+import {
+  toggleShelfHiddenById,
+  moveShelfById,
+  duplicateShelfById,
+  setShelfCollapsed,
+  dispatchShelfModal,
+} from "./shelfActions";
 
 /**
  * Returns `true` when this device should use the pre-3.8 (v1.4.0-style) menu
@@ -116,11 +122,14 @@ function discoverLibraryContextMenuClass(): any {
     const m = findModuleByExport((e: any) =>
       e?.toString && typeof e.toString === "function" && e.toString().includes("().LibraryContextMenu"));
     if (m) {
+      // Sibling that contains `navigator:` is the LibraryContextMenu
+      // wrapper factory. The extra `createElement` filter the previous
+      // version added matched a different sibling in some bundle layouts
+      // and made the find return undefined — discovery would silently
+      // fail with no fallback firing. Match SGDB/CheatDeck-equivalent
+      // signature exactly.
       const wrapper = Object.values(m).find((sibling: any) =>
-        typeof sibling === "function" &&
-        typeof sibling.toString === "function" &&
-        sibling.toString().includes("createElement") &&
-        sibling.toString().includes("navigator:")
+        sibling?.toString && sibling.toString().includes("navigator:")
       );
       const rendered = wrapper ? fakeRenderComponent(wrapper as any) : null;
       _libraryContextMenuClass = rendered?.type ?? null;
@@ -206,10 +215,7 @@ function dedupDsMenuItems(items: any[]): void {
   if (!Array.isArray(items)) return;
   for (let i = items.length - 1; i >= 0; i--) {
     const key = items[i]?.key;
-    if (key === "ds-submenu-deckshelves" || key === "ds-sep-boot" ||
-        key === "ds-edit" || key === "ds-duplicate" || key === "ds-collapse" ||
-        key === "ds-hide" || key === "ds-move-up" || key === "ds-move-down" ||
-        key === "ds-delete") {
+    if (key === "ds-deck-shelves" || key === "ds-sep-boot") {
       items.splice(i, 1);
     }
   }
@@ -304,6 +310,11 @@ function patchDeepestRender(prototype: any): void {
         const R = getSteamReact();
         if (!dfl || !R) return ret2;
         if (!isGameContextMenuItems(menuItems, dfl)) return ret2;
+        // Skip when the outer LibraryContextMenu mutation already inserted
+        // a DS item into the children array — this patch is only the
+        // fallback for the very first menu open in a session, before the
+        // outer's else branch starts running.
+        if (menuItems.some((c: any) => c?.key === "ds-deck-shelves")) return ret2;
         let curAppid: number = 0;
         try {
           const parent = menuItems.find((x: any) =>
@@ -315,7 +326,6 @@ function patchDeepestRender(prototype: any): void {
         }
         const curShelfId = resolveShelfIdByAppid(curAppid);
         if (!curShelfId) return ret2;
-        dedupDsMenuItems(menuItems);
         const items = buildDeckShelvesMenuItems(curShelfId, dfl, R);
         if (!items.length) return ret2;
         spliceDsItems(menuItems, items, dfl, R);
@@ -364,6 +374,7 @@ export function installLibraryContextMenuPatch(): void {
   if (_libraryContextMenuPatched) return;
   const cls = discoverLibraryContextMenuClass();
   if (!cls?.prototype?.render || typeof dflAfterPatch !== "function") return;
+  let innerInstalled = false;
   try {
     dflAfterPatch(cls.prototype, "render", function (this: any, _args: any[], component: any) {
       try {
@@ -380,40 +391,42 @@ export function installLibraryContextMenuPatch(): void {
         const shelfId = resolveShelfIdByAppid(appid);
         if (!shelfId) return component;
 
-        // Middle layer: patch `component.type` on every render. Each unique
-        // inner class gets its prototype.render patched at the deepest level
-        // via the `_patchedInnerTypes` WeakSet guard (idempotent).
-        try {
-          dflAfterPatch(component, "type", (_a: any, ret: any) => {
-            try {
-              if (ret?.type?.prototype && typeof ret.type.prototype.render === "function" && !_patchedInnerTypes.has(ret.type)) {
-                _patchedInnerTypes.add(ret.type);
-                patchDeepestRender(ret.type.prototype);
-              }
-            } catch {}
-            return ret;
-          });
-        } catch {}
+        const dfl = getDFL();
+        const R = getSteamReact();
+        if (!dfl || !R) return component;
 
-        // ALSO mutate `component.props.children` directly at the OUTER
-        // LibraryContextMenu level — make subsequent renders commit to
-        // the DOM. The deepest-render
-        // patch mutates `ret2.props.children[0]` (the inner class's
-        // children), which React doesn't always pick up across renders.
-        // Mutating the OUTER component's children IS what React reads to
-        // diff and commit. Dedup keeps the two paths from doubling up.
-        try {
-          const dfl = getDFL();
-          const R = getSteamReact();
-          if (dfl && R) {
+        // First render in this session: install the deeper patches via
+        // component.type → ret.type.prototype.render. The deepest patch
+        // injects on the inner class's render output so the very first
+        // menu open shows DS items. From the SECOND render onward, the
+        // else branch below mutates component.props.children directly —
+        // that's the only level React reconciles reliably across the
+        // sequence of native context menus Steam re-uses for each card,
+        // because the OUTER component element is recreated fresh per
+        // render so its props.children diff truly compares old vs new.
+        if (!innerInstalled) {
+          innerInstalled = true;
+          try {
+            dflAfterPatch(component, "type", (_a: any, ret: any) => {
+              try {
+                if (ret?.type?.prototype && typeof ret.type.prototype.render === "function" && !_patchedInnerTypes.has(ret.type)) {
+                  _patchedInnerTypes.add(ret.type);
+                  patchDeepestRender(ret.type.prototype);
+                }
+              } catch {}
+              return ret;
+            });
+          } catch {}
+        } else {
+          try {
             const outerChildren = component?.props?.children;
             if (Array.isArray(outerChildren) && isGameContextMenuItems(outerChildren, dfl)) {
               dedupDsMenuItems(outerChildren);
               const items = buildDeckShelvesMenuItems(shelfId, dfl, R);
               if (items.length) spliceDsItems(outerChildren, items, dfl, R);
             }
-          }
-        } catch {}
+          } catch {}
+        }
       } catch {}
       return component;
     });
@@ -422,69 +435,65 @@ export function installLibraryContextMenuPatch(): void {
 }
 
 /**
- * Builds the Deck Shelves > Shelf submenu items as DFL `MenuItem` elements.
- * Reads live shelf state from `settingsStore` so labels (Hide vs Show, dirs
- * disabled at boundaries) reflect the current configuration.
+ * Builds a `Deck Shelves` nested submenu (MenuGroup) containing the seven
+ * per-shelf actions: Edit, Duplicate, Collapse/Expand, Hide/Show, Move up,
+ * Move down, Delete. Returned as a single MenuGroup so the parent menu
+ * shows "Deck Shelves" as one entry that expands into the action list.
  *
- * Returns an array of items meant to be appended to either:
- *  - the captured native menu (after we located its `Menu` element via
- *    `findInReactTree`), or
- *  - the DFL fallback menu (rebuilt from scratch).
+ * Edit and Delete navigate to routes that mount a standalone settings
+ * controller and open the modal via DFL.showModal — no QAM dependency.
+ * The other actions call the standalone helpers in `shelfActions.ts`.
  *
- * Lazy-imports the action handlers so this module stays Decky-only and free
- * of cross-cutting React imports — handlers go through `core/shelfActions.ts`
- * which talks to `settingsStore` directly + dispatches Edit / Delete to the
- * QAM-mounted modal handler.
+ * Returns an empty array when the shelf cannot be located (silent no-op
+ * — the native menu renders unchanged).
  */
 function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
-  if (!dfl?.MenuItem || !R?.createElement) return [];
-  // Static ESM imports — runtime `require()` is undefined in the prod bundle
-  // (vite emits pure ESM), so the previous lazy-require fell into the catch
-  // and silently returned an empty submenu.
-  const actions: any = shelfActions;
+  if (!dfl?.MenuItem || !dfl?.MenuGroup || !R?.createElement) return [];
   const settings = getCurrentSettings?.();
   if (!settings) return [];
-  const idx = (settings.shelves ?? []).findIndex((sh: any) => sh.id === shelfId);
+  const shelves = settings.shelves ?? [];
+  const idx = shelves.findIndex((sh: any) => sh.id === shelfId);
   if (idx < 0) return [];
-  const shelf = settings.shelves[idx];
-  const lastIdx = settings.shelves.length - 1;
-  const isHidden = !!shelf.hidden;
+  const shelf = shelves[idx];
+  const isHidden = !!shelf?.hidden;
   let isCollapsed = false;
   try { isCollapsed = (globalThis as any).localStorage?.getItem?.(`ds-collapsed-${shelfId}`) === "1"; } catch {}
 
-  // The bundle owns its own i18next instance — `globalThis.i18next` is the
-  // host's, which doesn't have our keys. Always call our local `i18n.t`.
   const lbl = (key: string, fallback: string): string => {
     try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
   };
-  const copySuffix = lbl("copySuffix", "(copy)");
 
-  const mk = (key: string, label: string, onSelect: () => void, disabled = false): any =>
-    R.createElement(dfl.MenuItem, { key, disabled, onSelected: onSelect }, label);
+  const item = (key: string, label: string, onSelected: () => void, disabled?: boolean) =>
+    R.createElement(dfl.MenuItem, { key, onSelected, disabled }, label);
 
-  const items: any[] = [
-    mk("ds-edit", lbl("editShelf", "Edit"), () => actions.dispatchShelfModal("edit", shelfId)),
-    mk("ds-duplicate", lbl("duplicateShelf", "Duplicate"), () => { actions.duplicateShelfById(shelfId, copySuffix); }),
-    mk("ds-collapse",
+  const children = [
+    item("ds-edit", lbl("editShelf", "Edit"), () => dispatchShelfModal("edit", shelfId)),
+    item("ds-duplicate", lbl("duplicateShelf", "Duplicate"), () => {
+      const suffix = lbl("copySuffix", "(Copy)");
+      void duplicateShelfById(shelfId, suffix);
+    }),
+    item(
+      "ds-collapse",
       isCollapsed ? lbl("expand_shelf", "Expand shelf") : lbl("collapse_shelf", "Collapse shelf"),
-      () => { actions.setShelfCollapsed(shelfId, !isCollapsed); }),
-    mk("ds-hide",
+      () => setShelfCollapsed(shelfId, !isCollapsed),
+    ),
+    item(
+      "ds-hide",
       isHidden ? lbl("show_shelf", "Show shelf") : lbl("hide_shelf", "Hide shelf"),
-      () => { actions.toggleShelfHiddenById(shelfId); }),
-    mk("ds-move-up", lbl("move_up", "Move up"), () => { actions.moveShelfById(shelfId, -1); }, idx <= 0),
-    mk("ds-move-down", lbl("move_down", "Move down"), () => { actions.moveShelfById(shelfId, 1); }, idx >= lastIdx),
-    mk("ds-delete", lbl("deleteShelf", "Delete"), () => actions.dispatchShelfModal("delete", shelfId)),
+      () => { void toggleShelfHiddenById(shelfId); },
+    ),
+    item("ds-move-up", lbl("move_up", "Move up"), () => { void moveShelfById(shelfId, -1); }, idx <= 0),
+    item("ds-move-down", lbl("move_down", "Move down"), () => { void moveShelfById(shelfId, 1); }, idx >= shelves.length - 1),
+    item("ds-delete", lbl("deleteShelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
   ];
 
-  // Wrap inside `Deck Shelves > Prateleira` submenu when MenuGroup is
-  // available (preferred UX — keeps the native menu clean). Falls back to
-  // flat items only if MenuGroup is absent (legacy DFL).
-  if (dfl.MenuGroup) {
-    const inner = R.createElement(dfl.MenuGroup, { key: "ds-submenu-shelf", label: lbl("menu_shelf", "Shelf") }, ...items);
-    const outer = R.createElement(dfl.MenuGroup, { key: "ds-submenu-deckshelves", label: lbl("menu_deck_shelves", "Deck Shelves") }, inner);
-    return [outer];
-  }
-  return items;
+  return [
+    R.createElement(
+      dfl.MenuGroup,
+      { key: "ds-deck-shelves", label: lbl("menu_deck_shelves", "Deck Shelves") },
+      ...children,
+    ),
+  ];
 }
 
 /**
@@ -507,12 +516,11 @@ function injectDeckShelvesIntoTree(rendered: any, shelfId: string): any {
     if ((globalThis as any).__DEV__) try { (globalThis as any).console?.warn?.("[DS][menu] inject skipped — dfl.findInReactTree unavailable"); } catch {}
     return rendered;
   }
-  // Dedup helper — covers both the wrapping MenuGroup key and individual
-  // flat-mode item keys. Prevents double-injection when both the boot-patch
-  // and the HOC wrap fire on the same render cycle.
+  // Dedup helper — prevents double-injection when both the boot-patch and
+  // the HOC wrap fire on the same render cycle.
   const containsDsItems = (children: any): boolean => {
     if (!Array.isArray(children)) return false;
-    return children.some((c: any) => c?.key === "ds-submenu-deckshelves" || c?.key === "ds-edit");
+    return children.some((c: any) => c?.key === "ds-deck-shelves");
   };
   try {
     // Broader Menu detection — the captured AppContextMenu may render the
@@ -700,17 +708,15 @@ function getInjectedMenuComponent(inner: any): any {
         try { (globalThis as any).console?.warn?.("[DS][menu] thin-wrapper unwrap failed", e); } catch {}
       }
     }
+    // No-op HOC — the LibraryContextMenu prototype patch installed by
+    // `installLibraryContextMenuPatch` is the sole injection path now.
+    // The HOC used to also patch the inner class's render, but the
+    // double-patching conflicted with the outer chain (both mutating
+    // the same prototype) and broke commits across menu re-opens.
     const cached = wrappedComponents.get(inner);
     if (cached) return cached;
     const wrapped = function DSPatchedAppContextMenu(props: any) {
-      const result = (inner as any)(props);
-      try {
-        if (result?.type?.prototype && typeof result.type.prototype.render === "function" && !_patchedInnerTypes.has(result.type)) {
-          _patchedInnerTypes.add(result.type);
-          patchDeepestRender(result.type.prototype);
-        }
-      } catch {}
-      return result;
+      return (inner as any)(props);
     };
     wrappedComponents.set(inner, wrapped);
     if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] HOC wrapper created (function)", { name: inner.name ?? inner?.displayName ?? "<anon>" }); } catch {}
@@ -1052,9 +1058,18 @@ function showGameMenuLegacy(appid: number, shelfId?: string): boolean {
           ?? (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow
           ?? window;
 
-        const renderTarget = shelfId
+        // Wrap in a fresh function each call so React treats this menu
+        // as a brand-new component type (not a re-render of the previous
+        // menu's type). Without this, Steam's `CreateContextMenuInstance`
+        // sees the same component identity across menu opens and React's
+        // reconciliation reuses the previous instance — props.children
+        // mutations performed by our `cls.prototype.render` patch end up
+        // in the React tree but never commit to the DOM. A fresh function
+        // identity forces a full mount per menu open.
+        const baseTarget = shelfId
           ? getInjectedMenuComponent(legacyCachedComponent)
           : legacyCachedComponent;
+        const renderTarget = function DsFreshMenuLegacy(props: any) { return (baseTarget as any)(props); };
         const menuElement = React.createElement(renderTarget, {
           ...legacyCachedTemplateProps,
           overview,
@@ -1222,15 +1237,16 @@ export function showGameMenu(appid: number, shelfId?: string): void {
                   ?? (getPreferredSteamWindow() as any)
                   ?? window;
 
-                // When the press came from one of our shelf cards, route the
-                // component through `getInjectedMenuComponent` so its rendered
-                // tree gains the `Deck Shelves > Shelf > […]` submenu — same
-                // afterPatch / HOC seam used to wrap the native
-                // game menu. Non-shelf cards continue to render the captured
-                // component unchanged.
-                const renderTarget = shelfId
+                // Wrap in a fresh function per call (see legacy path above
+                // for the rationale): forces React + Steam's context menu
+                // manager to mount the menu fresh instead of reusing the
+                // previous instance, so afterPatch mutations on
+                // `prototype.render`'s output reach the DOM for every menu
+                // open, not just the first.
+                const baseTarget = shelfId
                   ? getInjectedMenuComponent(cachedMenuComponent)
                   : cachedMenuComponent;
+                const renderTarget = function DsFreshMenu(props: any) { return (baseTarget as any)(props); };
                 const menuElement = React.createElement(renderTarget, {
                   ...cachedMenuTemplateProps,
                   overview,

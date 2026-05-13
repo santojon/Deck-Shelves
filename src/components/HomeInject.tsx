@@ -513,16 +513,22 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     // Steam can rebuild our nav node's parent without touching our DOM
     // subtree (e.g. when native home re-registers focusables around us).
     const applyPatches = () => {
-      try {
-        reparentNavTreeNodes(mountEl);
-        patchShelfEdgeNavigation(mountEl);
-        patchMenuButton();
-        installVerticalFocusBridge(mountEl);
-        installPassiveMenuHook();
-        installPassiveShowContextMenuHook();
-        installLibraryContextMenuPatch();
-        tryRestoreFocus();
-      } catch (e) { logInfo("HOME", "applyPatches failed", String(e)); }
+      // Each install runs in its own try so a throw inside one doesn't
+      // skip the rest. Several of these patches install module-level
+      // hooks on shared DFL/Steam objects (e.g. `dfl.showContextMenu` is
+      // reassigned), and one of those reassignments can fail intermittently
+      // — when the chain was wrapped in a single try/catch, that one
+      // failure silently dropped every subsequent install, including
+      // `installLibraryContextMenuPatch`, which is the entry point for
+      // injecting DS items into game menus across all game types.
+      try { reparentNavTreeNodes(mountEl); } catch (e) { logInfo("HOME", "reparentNavTreeNodes failed", String(e)); }
+      try { patchShelfEdgeNavigation(mountEl); } catch (e) { logInfo("HOME", "patchShelfEdgeNavigation failed", String(e)); }
+      try { patchMenuButton(); } catch (e) { logInfo("HOME", "patchMenuButton failed", String(e)); }
+      try { installVerticalFocusBridge(mountEl); } catch (e) { logInfo("HOME", "installVerticalFocusBridge failed", String(e)); }
+      try { installPassiveMenuHook(); } catch (e) { logInfo("HOME", "installPassiveMenuHook failed", String(e)); }
+      try { installPassiveShowContextMenuHook(); } catch (e) { logInfo("HOME", "installPassiveShowContextMenuHook failed", String(e)); }
+      try { installLibraryContextMenuPatch(); } catch (e) { logInfo("HOME", "installLibraryContextMenuPatch failed", String(e)); }
+      try { tryRestoreFocus(); } catch (e) { logInfo("HOME", "tryRestoreFocus failed", String(e)); }
     };
     const reparentOnly = () => {
       try { reparentNavTreeNodes(mountEl); } catch (e) { logInfo("HOME", "reparentOnly failed", String(e)); }

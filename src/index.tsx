@@ -21,11 +21,13 @@ import { toaster } from "./shims/decky-api";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
 import { AboutPage } from "./components/AboutPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
+import { ShelfManageRoute } from "./components/ShelfManageRoute";
 initI18n();
 
 const ABOUT_ROUTE = "/deck-shelves/about";
 const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
 const DELETE_ROUTE = "/deck-shelves/delete/:shelfId";
+const MANAGE_ROUTE = "/deck-shelves/manage/:shelfId";
 
 function DeckShelvesIcon() {
   return (
@@ -100,6 +102,17 @@ export default definePlugin((serverAPI?: any) => {
     routerHook?.addRoute?.(DELETE_ROUTE, () => (
       <ShelfDeleteRoute shelfId="" />
     ), { exact: true });
+    // Manage page — full-screen UI with all per-shelf actions (Edit /
+    // Duplicate / Hide / Move / Delete). The native game context menu
+    // shows a single "Deck Shelves" item that navigates here. Using a
+    // flat MenuItem + route navigation is the only injection shape that
+    // reliably survives React reconciliation across menu opens for every
+    // game type; a nested MenuGroup wrapper only commits to the DOM for
+    // the very first menu of the session and silently disappears on
+    // every subsequent open.
+    routerHook?.addRoute?.(MANAGE_ROUTE, () => (
+      <ShelfManageRoute shelfId="" />
+    ), { exact: true });
   } catch (e) { console.warn("shelf modal route addRoute failed", e); }
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
@@ -168,6 +181,7 @@ export default definePlugin((serverAPI?: any) => {
         routerHook?.removeRoute?.(ABOUT_ROUTE);
         routerHook?.removeRoute?.(EDIT_ROUTE);
         routerHook?.removeRoute?.(DELETE_ROUTE);
+        routerHook?.removeRoute?.(MANAGE_ROUTE);
         uninstallRefresh();
         uninstallSystemEvents();
         uninstallPluginApi();

@@ -2,7 +2,7 @@
 
 <div align="center">
 <p>
-  <img src="assets/logo.png" alt="Deck Shelves" width="352">
+  <img src="assets/logo.svg" alt="Deck Shelves" width="352">
 </p>
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
