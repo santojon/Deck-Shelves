@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState, useMemo } from "react";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
-import { getPreferredSteamDocument } from "../runtime/steamHost";
+import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { logInfo } from "../runtime/logger";
 import { focusElement } from "../core/focusRestore";
@@ -99,7 +99,29 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   useEffect(() => {
     globalStylesStart();
     try { requestAnimationFrame(() => { try { measure?.(`deckRow.render:${shelfId ?? 'unknown'}`, `deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "measure failed", String(e)); } }); } catch (e) { logInfo("HOME", "rAF measure failed", String(e)); }
-    const unsub = onNativeDimsChange(() => setDimsVersion(n => n + 1));
+    const unsub = onNativeDimsChange(() => {
+      setDimsVersion(n => n + 1);
+      // After dims change the focused card's offsetLeft shifts because
+      // preceding cards resized — the row's scrollLeft (set for the old
+      // layout) leaves the focused card off-center, making the focus look
+      // misplaced. Re-center on the next frame, only if a card in THIS row
+      // currently holds the tracker.
+      try {
+        const focused = (globalThis as any).__ds_last_focused_card as HTMLElement | null;
+        const row = rowRef.current;
+        if (focused && row?.contains(focused)) {
+          requestAnimationFrame(() => {
+            try {
+              const final = computeCenteredScrollLeft(
+                { width: row.clientWidth, scrollWidth: row.scrollWidth },
+                { left: focused.offsetLeft, top: focused.offsetTop, width: focused.offsetWidth, height: focused.offsetHeight }
+              );
+              row.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior });
+            } catch {}
+          });
+        }
+      } catch {}
+    });
     // Race-condition guard: dims may have been cached between the render
     // that captured `nd === null` and this effect's listener registration —
     // typical for shelves that mount in a later commit (smart shelves with
@@ -360,7 +382,6 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     };
 
     const observer = new MutationObserver((mutations) => {
-      if (rafPending !== null) return;
       let detected: HTMLElement | null = null;
       for (const m of mutations) {
         const el = m.target as HTMLElement;
@@ -371,12 +392,27 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       }
       if (!detected) return;
       const c = detected;
+      // GLOBAL sync cleanup — remove gpfocus from all DS cards in all known
+      // Steam documents EXCEPT the one we just observed gaining it. Each
+      // DeckRow's MutationObserver only watches its own row, so without this
+      // cross-row pass, gpfocus from a card in a previously-visited shelf
+      // persists and `findFocusedDsCard` (queries .ds-card.gpfocus across
+      // documents) returns the wrong card in DOM order. Synchronous so the
+      // OPTIONS-button intercept sees a single focused card immediately.
+      try {
+        for (const doc of getAllSteamDocuments()) {
+          const all = doc.querySelectorAll<HTMLElement>('.ds-card.gpfocus');
+          for (const it of all) { if (it !== c) it.classList.remove('gpfocus'); }
+        }
+      } catch {}
+      if (rafPending !== null) return;
       rafPending = requestAnimationFrame(() => { rafPending = null; handleFocusedCard(c); });
     });
 
     const onCardFocus = (e: FocusEvent) => {
       const card = (e.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
       if (card) {
+        (globalThis as any).__ds_last_focused_card = card;
         if (rafPending !== null) { cancelAnimationFrame(rafPending); rafPending = null; }
         rafPending = requestAnimationFrame(() => { rafPending = null; handleFocusedCard(card); });
       }

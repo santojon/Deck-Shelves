@@ -27,7 +27,13 @@ let pendingDims: NativeCardDims | null = null;
 let pendingDimsCount = 0;
 
 function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
-  const w: any = globalThis as any;
+  // SharedJSContext has window.innerWidth/Height = 1, so reading from
+  // globalThis blocks persistence (the < 100 check below). Prefer the
+  // GamepadUI BrowserWindow which has the real viewport. Fall back to
+  // globalThis only when the GPU window isn't reachable.
+  let w: any = null;
+  try { w = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow; } catch {}
+  if (!w?.innerWidth) w = globalThis as any;
   return {
     vw: Math.round(Number(w?.innerWidth ?? 0)),
     vh: Math.round(Number(w?.innerHeight ?? 0)),
@@ -375,8 +381,7 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       overflow: hidden;
       filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease, transform 0.4s;
-      will-change: width, height;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), transform 0.4s;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;

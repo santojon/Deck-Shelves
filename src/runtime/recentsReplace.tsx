@@ -189,6 +189,14 @@ function scheduleResolve(shelf: any) {
       const prev = cachedAppIds;
       const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
       const known = filterKnownAppIds(valid);
+      if (known.length === 0 && valid.length > 0) {
+        cachedAppIds = valid;
+        cachedShelfId = shelf.id;
+        cachedTitle = shelf.title ?? cachedTitle;
+        const changed = prev?.length !== cachedAppIds.length || prev?.some((v, i) => v !== cachedAppIds![i]);
+        if (changed) { notifyInjectingChange(); forceRemountRecents(); }
+        return;
+      }
       if (known.length === 0) {
         // Shelf resolved to 0 native-renderable apps — try the next
         // candidate (normals first, then visible smart shelves). setTimeout
@@ -246,7 +254,7 @@ function mutateRecentsElement(ret3: any, shelf: any, appIds: number[]): boolean 
       return origOnItemFocus?.(overview, ...args);
     };
     try {
-      const titleText = shelf.title ?? cachedTitle ?? "";
+      const titleText = cachedTitle ?? shelf.title ?? "";
       if (titleText) {
         ret3.props.children[1].props.children[0].props.children[0].props.children = titleText;
       }

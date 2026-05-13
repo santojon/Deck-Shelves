@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DialogButton, Focusable } from "@decky/ui";
 import type { SettingsController } from "../../features/settings/controller";
 import { checkForUpdate, type UpdateCheckResult } from "../../core/updateNotifier";
 import { logInfo } from "../../runtime/logger";
@@ -43,8 +44,9 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
     <div
       data-ds-update-banner="1"
       style={{
-        margin: "6px 0 10px",
+        margin: "6px 8px 10px",
         padding: "8px 10px",
+        boxSizing: "border-box",
         borderRadius: 6,
         background: "rgba(74, 144, 226, 0.12)",
         border: "1px solid rgba(74, 144, 226, 0.5)",
@@ -56,20 +58,20 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
       <div style={{ fontSize: 12, opacity: 0.92 }}>
         {t("update_available", { version: result.latestVersion })}
       </div>
-      <div style={{ display: "flex", gap: 6 }}>
-        <button
+      <Focusable style={{ display: "flex", gap: 6 }} flow-children="horizontal">
+        <DialogButton
           onClick={open}
-          style={{ flex: 1, padding: "4px 8px", fontSize: 12, cursor: "pointer", background: "transparent", color: "inherit", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 4 }}
+          style={{ flex: 1, padding: "4px 8px", fontSize: 12, minWidth: 0 }}
         >
           {t("view_release")}
-        </button>
-        <button
+        </DialogButton>
+        <DialogButton
           onClick={dismiss}
-          style={{ flex: 1, padding: "4px 8px", fontSize: 12, cursor: "pointer", background: "transparent", color: "inherit", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 4 }}
+          style={{ flex: 1, padding: "4px 8px", fontSize: 12, minWidth: 0 }}
         >
           {t("dismiss")}
-        </button>
-      </div>
+        </DialogButton>
+      </Focusable>
     </div>
   );
 }

@@ -79,9 +79,38 @@ type ShelfModalKind = "edit" | "delete";
 type ShelfModalHandler = (kind: ShelfModalKind, shelfId: string) => void;
 
 let modalHandler: ShelfModalHandler | null = null;
+let pendingModal: { kind: ShelfModalKind; shelfId: string } | null = null;
+
 export function registerShelfModalHandler(h: ShelfModalHandler | null): void {
   modalHandler = h;
+  if (h && pendingModal) {
+    const p = pendingModal;
+    pendingModal = null;
+    // Defer one tick so SettingsView finishes mounting before opening the modal.
+    try { setTimeout(() => { try { h(p.kind, p.shelfId); } catch {} }, 0); } catch {}
+  }
 }
+
 export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string): void {
-  try { modalHandler?.(kind, shelfId); } catch {}
+  // Primary path: navigate to a dedicated route that mounts a standalone
+  // SettingsController and opens the modal via DFL.showModal — no QAM
+  // dependency. Mirrors SGDB / CheatDeck's `Navigation.Navigate('/route/:id')`
+  // pattern. The route handlers are registered in src/index.tsx at boot.
+  try {
+    const nav: any = (globalThis as any).DFL?.Navigation
+      ?? (globalThis as any).Navigation
+      ?? (globalThis as any).window?.Navigation;
+    if (typeof nav?.Navigate === "function") {
+      try { nav?.CloseSideMenus?.(); } catch {}
+      nav.Navigate(`/deck-shelves/${kind}/${encodeURIComponent(shelfId)}`);
+      return;
+    }
+  } catch {}
+  // Fallback: if Navigation.Navigate isn't available (very old build),
+  // queue the action and try the QAM modalHandler when it registers.
+  if (modalHandler) {
+    try { modalHandler(kind, shelfId); } catch {}
+    return;
+  }
+  pendingModal = { kind, shelfId };
 }

@@ -11,18 +11,17 @@ import { OPTIONS_BUTTON } from "./constants";
 const patchedMenuControllers = new WeakSet<object>();
 
 function findFocusedDsCard(): HTMLElement | null {
-  // DispatchVirtualButtonClick runs from SharedJSContext, but ds-cards live in
-  // the popup (GamepadUI) window. Scan every known Steam document — preferred
-  // first, then all candidates — so we find the focused card regardless of
-  // which window holds it.
   for (const d of getAllSteamDocuments()) {
     const el = (
       d.querySelector(".ds-card.gpfocus") ??
-      d.querySelector(".ds-card:focus") ??
-      (d.activeElement?.closest?.(".ds-card") as HTMLElement | null)
+      d.querySelector(".ds-card:focus")
     ) as HTMLElement | null;
     if (el) return el;
   }
+  try {
+    const el = (globalThis as any).__ds_last_focused_card as HTMLElement | null;
+    if (el?.isConnected) return el;
+  } catch {}
   return null;
 }
 
@@ -35,12 +34,12 @@ function interceptMenuBtn(button: number): boolean {
       const shelfId = focused.getAttribute("data-shelfid") ?? undefined;
       if (appid > 0) { showGameMenu(appid, shelfId || undefined); return true; }
     }
-    // Overlay: native recents cards — intercept unconditionally to prevent native crash.
-    // Use tracked focused appid, falling back to first cached appid.
+    // Recents overlay: intercept unconditionally — native handler crashes on
+    // replaced cards. Use tracked focused appid, falling back to first cached.
     if (isRecentsReplaceInjecting()) {
       const appid = getOverlayFocusedAppId() || getOverlayFirstCachedAppId();
       if (appid > 0) { showGameMenu(appid); return true; }
-      return true; // still intercept even if no appid yet — prevents native crash
+      return true;
     }
   } catch { return false; }
   return false;
@@ -67,7 +66,14 @@ export function patchMenuButton(): void {
   // Event listeners must live on the document that actually hosts the card.
   const handleMenu = (evt: Event) => {
     try {
-      const focused = findFocusedDsCard();
+      // vgp_onmenubutton / contextmenu fire on the focused element — read the
+      // target directly before falling back to the focus-based queries. This
+      // handles cases where __ds_last_focused_card is briefly stale (e.g.
+      // DispatchVirtualButtonClick intercepted for the wrong card) because the
+      // document-level capture listener fires once the event IS dispatched on
+      // the correct element.
+      const fromTarget = (evt.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
+      const focused = fromTarget ?? findFocusedDsCard();
       if (focused) {
         const appid = Number(focused.getAttribute("data-appid") ?? 0);
         const shelfId = focused.getAttribute("data-shelfid") ?? undefined;
