@@ -44,9 +44,9 @@ function getAppStore(): any {
 const patchedComponents = new WeakSet<any>();
 const wrappedComponents = new WeakMap<any, any>();
 
-// HLTB-style direct webpack discovery: find Steam's `LibraryContextMenu`
-// class at module load and patch its `prototype.render` once. The patch
-// fires for EVERY render of that class — so even when our React.createElement
+// Direct webpack discovery: find Steam's `LibraryContextMenu` class at
+// module load and patch its `prototype.render` once. The patch fires for
+// EVERY render of that class — so even when our React.createElement
 // capture misses (memo / forwardRef variants on newer SteamOS), the DS
 // submenu still injects. Gated on a per-call shelfId stash (set right
 // before `dfl.showContextMenu` is invoked, cleared a tick later) so the
@@ -107,11 +107,11 @@ function resolveShelfIdFromProps(props: any): string | null {
 function discoverLibraryContextMenuClass(): any {
   if (_libraryContextMenuClass || _hltbDiscoveryAttempted) return _libraryContextMenuClass;
   _hltbDiscoveryAttempted = true;
-  // Primary: SGDB/CheatDeck-style discovery via findModuleByExport. Searches
-  // module EXPORTS (not just direct children) for the LibraryContextMenu
-  // factory function, then picks the sibling export whose source includes
-  // `navigator:` (the LibraryContextMenu wrapper) and fakeRenders it to get
-  // the class.
+  // Primary: discovery via findModuleByExport. Searches module EXPORTS
+  // (not just direct children) for the LibraryContextMenu factory
+  // function, then picks the sibling export whose source includes
+  // `navigator:` (the LibraryContextMenu wrapper) and fakeRenders it
+  // to get the class.
   try {
     const m = findModuleByExport((e: any) =>
       e?.toString && typeof e.toString === "function" && e.toString().includes("().LibraryContextMenu"));
@@ -153,7 +153,7 @@ function discoverLibraryContextMenuClass(): any {
 }
 
 /**
- * Installs the HLTB-style boot patch on Steam's `LibraryContextMenu` class.
+ * Installs the boot patch on Steam's `LibraryContextMenu` class.
  * Idempotent. Safe no-op when discovery fails (e.g. SteamOS build that
  * renames the module). The capture/wrap path in `getInjectedMenuComponent`
  * stays as a parallel safety net.
@@ -182,8 +182,7 @@ function resolveShelfIdByAppid(appid: number): string | null {
  *   - `launchSource` in onSelected (installed Steam game's Play action), OR
  *   - `AppProperties` in onSelected (Properties... item — UNIVERSAL across
  *     installed/uninstalled/shortcut, so it correctly identifies game menus
- *     for non-installed games which SGDB/CheatDeck's launchSource-only
- *     check would miss).
+ *     for non-installed games which a `launchSource`-only check would miss).
  */
 function isGameContextMenuItems(items: any[], dfl: any): boolean {
   if (!Array.isArray(items) || !items.length) return false;
@@ -219,7 +218,7 @@ function dedupDsMenuItems(items: any[]): void {
 /**
  * Inserts DS items into a children array immediately before the "Properties..."
  * item when present (so DS actions sit near the bottom of the menu, next to
- * Properties — same placement SGDB/CheatDeck use). Falls back to appending
+ * Properties. Falls back to appending
  * when Properties can't be located.
  */
 function spliceDsItems(items: any[], dsItems: any[], dfl: any, R: any): void {
@@ -244,7 +243,7 @@ function spliceDsItems(items: any[], dsItems: any[], dfl: any, R: any): void {
 
 /**
  * Installs a 3-layer afterPatch chain on LibraryContextMenu — same technique
- * SteamGridDB and CheatDeck use to inject items reliably for EVERY game type
+ * to inject items reliably for EVERY game type
  * (installed, uninstalled, non-Steam shortcut). The chain navigates through
  * React's component hierarchy to reach the actual menu items array:
  *
@@ -395,6 +394,26 @@ export function installLibraryContextMenuPatch(): void {
             return ret;
           });
         } catch {}
+
+        // ALSO mutate `component.props.children` directly at the OUTER
+        // LibraryContextMenu level — make subsequent renders commit to
+        // the DOM. The deepest-render
+        // patch mutates `ret2.props.children[0]` (the inner class's
+        // children), which React doesn't always pick up across renders.
+        // Mutating the OUTER component's children IS what React reads to
+        // diff and commit. Dedup keeps the two paths from doubling up.
+        try {
+          const dfl = getDFL();
+          const R = getSteamReact();
+          if (dfl && R) {
+            const outerChildren = component?.props?.children;
+            if (Array.isArray(outerChildren) && isGameContextMenuItems(outerChildren, dfl)) {
+              dedupDsMenuItems(outerChildren);
+              const items = buildDeckShelvesMenuItems(shelfId, dfl, R);
+              if (items.length) spliceDsItems(outerChildren, items, dfl, R);
+            }
+          }
+        } catch {}
       } catch {}
       return component;
     });
@@ -471,7 +490,8 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
 /**
  * Locates the outermost `Menu` element in the rendered tree and appends the
  * Deck Shelves submenu as additional children. Same shape as the seam used
- * by HLTB / cheatdeck / SDH-PauseGames to extend the native game menu.
+ * to extend the native game menu via the same Menu-element seam used to
+ * append items to the rendered context-menu tree.
  *
  * Mutates the existing element's `props.children` rather than replacing the
  * element so React's reconciliation key flow stays consistent.
@@ -1205,7 +1225,7 @@ export function showGameMenu(appid: number, shelfId?: string): void {
                 // When the press came from one of our shelf cards, route the
                 // component through `getInjectedMenuComponent` so its rendered
                 // tree gains the `Deck Shelves > Shelf > […]` submenu — same
-                // afterPatch / HOC seam used by HLTB / cheatdeck on the native
+                // afterPatch / HOC seam used to wrap the native
                 // game menu. Non-shelf cards continue to render the captured
                 // component unchanged.
                 const renderTarget = shelfId

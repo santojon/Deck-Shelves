@@ -91,8 +91,8 @@ export default definePlugin((serverAPI?: any) => {
   // selects "Edit" or "Delete" on a DS shelf card. The route mounts a
   // SettingsController standalone (no QAM required), shows the modal via
   // DFL.showModal (renders in a portal independent of the route), then
-  // navigates back. Path uses :shelfId parameter just like SGDB's
-  // /steamgriddb/:appid.
+  // navigates back. Path uses :shelfId parameter so the route handler can
+  // load the correct shelf from the location pathname.
   try {
     routerHook?.addRoute?.(EDIT_ROUTE, () => (
       <ShelfEditRoute shelfId="" />

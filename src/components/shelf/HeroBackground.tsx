@@ -448,13 +448,13 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       }} />
       {/* Game info overlay — clones the focused card's `.ds-card-label`
           DOM (all classes preserved) so the hero label is identical to
-          the regular card label, only positioned above the row instead of
-          below. The wrapper div carries `ds-promoted-hero-label` which the
-          stylesheet uses to override the cloned label's own absolute
-          positioning back to static (it was originally `position: absolute;
-          top: artH` inside its card). The in-card label is hidden via CSS
-          on the promoted shelf so we don't render two copies of the same
-          label. pointerEvents:none so it never intercepts focus. */}
+          the regular card label, only positioned above the row instead
+          of below. The wrapper div carries `ds-promoted-hero-label`
+          which the stylesheet uses to override the cloned label's own
+          absolute positioning back to static. The in-card label is
+          hidden via CSS on the promoted shelf so we don't render two
+          copies of the same label. pointerEvents:none so it never
+          intercepts focus. */}
       {needsHeroLabel && labelHtml && (
         <div
           className="ds-promoted-hero-label"

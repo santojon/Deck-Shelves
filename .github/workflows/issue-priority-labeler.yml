@@ -1,0 +1,49 @@
+name: Auto-priority labels for issues
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled, unlabeled]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute + apply priority label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            if (!issue) return;
+            const labels = (issue.labels ?? []).map(l => (l.name || "").toLowerCase());
+            const has = (...names) => names.some(n => labels.includes(n.toLowerCase()));
+            const hasAnyMatching = (rx) => labels.some(l => rx.test(l));
+
+            // Skip when a priority::* is already present (manual override).
+            if (hasAnyMatching(/^priority::/)) return;
+
+            let priority = null;
+            if (has("type::bug") && (has("os::steamos") || has("os::steamosbeta"))) {
+              priority = "priority::high";
+            } else if (has("type::bug")) {
+              priority = "priority::medium";
+            } else if (has("type::enhancement", "type::feature", "documentation", "area::docs")) {
+              priority = "priority::low";
+            }
+
+            if (!priority) return;
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [priority],
+              });
+              core.info(`Applied ${priority} to issue #${issue.number}`);
+            } catch (e) {
+              core.warning(`addLabels failed: ${e?.message ?? e}`);
+            }

@@ -94,8 +94,8 @@ export function registerShelfModalHandler(h: ShelfModalHandler | null): void {
 export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string): void {
   // Primary path: navigate to a dedicated route that mounts a standalone
   // SettingsController and opens the modal via DFL.showModal — no QAM
-  // dependency. Mirrors SGDB / CheatDeck's `Navigation.Navigate('/route/:id')`
-  // pattern. The route handlers are registered in src/index.tsx at boot.
+  // dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The
+  // route handlers are registered in src/index.tsx at boot.
   try {
     const nav: any = (globalThis as any).DFL?.Navigation
       ?? (globalThis as any).Navigation

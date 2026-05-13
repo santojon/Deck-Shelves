@@ -1,10 +1,5 @@
 name: RC Label → Store Submission
 
-# Dispara o workflow `store.yml` automaticamente quando um PR rotulado com
-# `rc` é mergeado na branch principal. Toda a lógica de submissão (clonar
-# fork, montar plugin, abrir/atualizar PR em decky-plugin-database) fica em
-# `store.yml` — este workflow só faz o trigger.
-
 on:
   pull_request:
     types: [closed]

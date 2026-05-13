@@ -153,7 +153,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       if (/^App \d+$/.test(item.name)) return [];
       // Pass `shelf.id` so the captured native menu (and the DFL fallback)
       // gain a `Deck Shelves > Shelf > […]` submenu — same afterPatch / HOC
-      // seam used by HLTB / cheatdeck. Non-shelf game cards still get the
+      // afterPatch / HOC seam. Non-shelf game cards still get the
       // unmodified native menu via `showGameMenu(appid)`.
       const onMenuButton = () => showGameMenu(appid, shelf.id);
       const addedTs = (item as any).addedTimestamp;
