@@ -256,10 +256,18 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />
             <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(value: boolean) => void actions.setOnlinePriceSortEnabled(value)} />
-            <ToggleField label={t('online_hide_owned')} checked={settings.onlineHideOwnedGames !== false} onChange={(value: boolean) => void actions.setOnlineHideOwnedGames(value)} />
+            <ToggleField label={t('online_hide_owned')} checked={settings.onlineHideOwnedGames !== false} onChange={(value: boolean) => { void actions.setOnlineHideOwnedGames(value); if (!value) void actions.setOnlineHideOwnedNonSteam(false); }} />
             <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
               {t('online_hide_owned_desc')}
             </div>
+            {settings.onlineHideOwnedGames !== false && (
+              <div style={{ paddingLeft: 16 }}>
+                <ToggleField label={t('hide_owned_non_steam')} checked={settings.onlineHideOwnedNonSteam === true} onChange={(value: boolean) => void actions.setOnlineHideOwnedNonSteam(value)} />
+                <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+                  {t('hide_owned_non_steam_desc')}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CollapsibleSection>

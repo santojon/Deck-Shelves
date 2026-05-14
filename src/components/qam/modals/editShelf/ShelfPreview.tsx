@@ -153,11 +153,9 @@ export function ShelfPreview({
           alignItems: 'flex-start',
         }}
       >
-        {cappedIds.map((id, idx) => {
-          // Always render — fall back to a minimal record if meta hasn't
-          // landed yet (shelf type / cold cache) so the user still sees the
-          // card slot rather than nothing.
-          const m: PlatformAppMeta = meta.get(id) ?? { appid: id, name: `App ${id}` }
+        {cappedIds.flatMap((id, idx) => {
+          const m: PlatformAppMeta | undefined = meta.get(id)
+          if (!m) return []
           const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
           const item: DeckRowItem = {
             id,

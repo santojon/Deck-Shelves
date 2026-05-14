@@ -14,7 +14,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: true });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -108,8 +108,13 @@ export function useSettingsController() {
     },
     async setOnlineHideOwnedGames(onlineHideOwnedGames: boolean) {
       const s = liveSettings();
-      if (!s || (s.onlineHideOwnedGames ?? true) === onlineHideOwnedGames) return;
+      if (!s || (s.onlineHideOwnedGames ?? false) === onlineHideOwnedGames) return;
       await persist({ ...s, onlineHideOwnedGames });
+    },
+    async setOnlineHideOwnedNonSteam(onlineHideOwnedNonSteam: boolean) {
+      const s = liveSettings();
+      if (!s || (s.onlineHideOwnedNonSteam ?? false) === onlineHideOwnedNonSteam) return;
+      await persist({ ...s, onlineHideOwnedNonSteam });
     },
     async setOnlinePriceSortEnabled(onlinePriceSortEnabled: boolean) {
       const s = liveSettings();
@@ -329,7 +334,7 @@ export function useSettingsController() {
       } catch { return false; }
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: true };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false };
       try {
         const ls = globalThis.localStorage;
         if (ls) {
