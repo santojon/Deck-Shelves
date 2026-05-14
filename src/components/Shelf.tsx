@@ -15,6 +15,7 @@ import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
 import { clearOnlineShelfCache, dispatchShelfModal, toggleShelfHiddenById, moveShelfById, duplicateShelfById } from "../core/shelfActions";
+import { fetchGameNames } from "../core/onlineStore";
 
 /** Opens the Steam Store page for an appid using the best available method.
  *  Tries the steam:// protocol first since it is the only path that works
@@ -246,34 +247,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     let cancelled = false;
     (async () => {
       try {
-        // Use a small batch (10) so each request stays fast (~50KB vs ~500KB for 50 games).
-        // Fetch only the first 60 IDs to stay under the 8s total resolver budget.
-        const limited = toFetch.slice(0, 60);
-        const BATCH = 10;
-        const deadline = Date.now() + 10000;
-        const names = new Map<number, string>();
-        for (let i = 0; i < limited.length && Date.now() < deadline; i += BATCH) {
-          const batch = limited.slice(i, i + BATCH);
-          const ac = new AbortController();
-          const tid = setTimeout(() => ac.abort(), 4000);
-          try {
-            // Note: &filters=basic is rejected by some Steam Store endpoints;
-            // omitting the filters parameter returns the full response including name.
-            const resp = await fetch(
-              `https://store.steampowered.com/api/appdetails?appids=${batch.join(',')}`,
-              { signal: ac.signal },
-            );
-            clearTimeout(tid);
-            if (!resp.ok) continue;
-            const json = await resp.json();
-            for (const id of batch) {
-              const n = json?.[id]?.data?.name;
-              if (n) names.set(id, n);
-            }
-          } catch { clearTimeout(tid); }
-        }
+        const names = await fetchGameNames(toFetch);
         if (!cancelled && names.size) {
-          // Persist to localStorage cache for instant display on next render.
           try {
             const merged = { ...nameCache };
             names.forEach((v, k) => { merged[k] = v; });

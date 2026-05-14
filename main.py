@@ -4,7 +4,7 @@ import os
 import re
 import sqlite3
 import ssl
-import subprocess
+from subprocess import run as _sp_run
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional
@@ -592,7 +592,7 @@ class Plugin:
                     return ev.decode("utf-8", errors="replace")
                 key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
                 iv = b" " * 16
-                result = subprocess.run(
+                result = _sp_run(
                     ["openssl", "enc", "-aes-128-cbc", "-d",
                      "-K", key.hex(), "-iv", iv.hex(), "-nopad"],
                     input=ev[3:], capture_output=True, timeout=5,

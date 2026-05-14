@@ -301,3 +301,32 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
 
   return result;
 }
+
+const NAME_BATCH = 10;
+const NAME_DEADLINE_MS = 10000;
+const NAME_TIMEOUT_MS = 4000;
+
+export async function fetchGameNames(ids: number[]): Promise<Map<number, string>> {
+  const limited = ids.slice(0, 60);
+  const deadline = Date.now() + NAME_DEADLINE_MS;
+  const names = new Map<number, string>();
+  for (let i = 0; i < limited.length && Date.now() < deadline; i += NAME_BATCH) {
+    const batch = limited.slice(i, i + NAME_BATCH);
+    const ac = new AbortController();
+    const tid = setTimeout(() => ac.abort(), NAME_TIMEOUT_MS);
+    try {
+      const resp = await fetch(
+        `https://store.steampowered.com/api/appdetails?appids=${batch.join(',')}`,
+        { signal: ac.signal },
+      );
+      clearTimeout(tid);
+      if (!resp.ok) continue;
+      const json = await resp.json();
+      for (const id of batch) {
+        const n = json?.[id]?.data?.name;
+        if (n) names.set(id, n);
+      }
+    } catch { clearTimeout(tid); }
+  }
+  return names;
+}
