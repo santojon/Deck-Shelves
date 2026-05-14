@@ -93,6 +93,32 @@ export function applyHideRecents(hidden: boolean): void {
   if (cachedRecentsEl) {
     try { cachedRecentsEl.style.visibility = hidden ? "hidden" : ""; cachedRecentsEl.style.height = hidden ? "0px" : ""; cachedRecentsEl.style.overflow = hidden ? "hidden" : ""; } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
   }
+
+  // CSS-based fallback: aria-label-based discovery doesn't find modern
+  // Steam's recents container (no localized label in BP). Use the runtime
+  // class map's `nativeRecentsContainer` token to inject a high-specificity
+  // CSS rule that survives theme overrides (SLH/ArtHero/etc).
+  try {
+    const { doc } = getHostContext();
+    const STYLE_ID = "deck-shelves-hide-recents-style";
+    let style = doc.getElementById(STYLE_ID) as HTMLStyleElement | null;
+    const map = getRuntimeClassMap(doc as Document);
+    const tokens: string[] = [];
+    if (map?.nativeRecentsContainer) tokens.push(map.nativeRecentsContainer.split(/\s+/)[0]);
+    if (map?.nativeRecentsSection) tokens.push(map.nativeRecentsSection.split(/\s+/)[0]);
+    if (map?.nativeRecentsInner) tokens.push(map.nativeRecentsInner.split(/\s+/)[0]);
+    if (hidden && tokens.length) {
+      if (!style) {
+        style = doc.createElement("style");
+        style.id = STYLE_ID;
+        doc.head.appendChild(style);
+      }
+      const selectors = tokens.map((t) => `.${t}`).join(", ");
+      style.textContent = `${selectors} { height: 0 !important; min-height: 0 !important; overflow: hidden !important; visibility: hidden !important; }`;
+    } else if (style) {
+      style.textContent = "";
+    }
+  } catch (e) { logInfo("HOME", "applyHideRecents: css fallback failed", String(e)); }
   // Adjust mount margin-top: add breathing room at top when recents are hidden
   try {
     const { doc } = getHostContext();

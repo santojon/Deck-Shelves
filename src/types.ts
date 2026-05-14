@@ -245,6 +245,7 @@ export const SettingsSchema = z.object({
   onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedNonSteam: z.boolean().nullable().optional().transform((v) => v ?? false),
+  forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

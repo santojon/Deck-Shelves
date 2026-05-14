@@ -136,36 +136,62 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   }, []);
 
   useEffect(() => {
-    // Add a class from the runtime map (space-joined values supported) to an
-    // element idempotently. No-ops when the key isn't present.
     function addMapClasses(el: HTMLElement | null, key: string, map: Record<string, string> | null) {
       if (!el || !map?.[key]) return;
       for (const c of map[key].split(/\s+/)) {
         if (c && !el.classList.contains(c)) el.classList.add(c);
       }
     }
+    function readForceThemes(): boolean {
+      try {
+        const w = globalThis as any;
+        const raw = w.localStorage?.getItem?.('deck-shelves-settings-cache-v3');
+        if (!raw) return false;
+        const s = JSON.parse(raw);
+        return s?.forceCssLoaderThemes === true;
+      } catch { return false; }
+    }
     function injectShelfNativeClasses() {
       const doc = getPreferredSteamDocument();
       const map = doc ? getRuntimeClassMap(doc) : null;
       if (!map) return;
-      // Legacy heuristic-derived classes (existing behavior).
       addMapClasses(outerRef.current, 'nativeShelf', map);
       addMapClasses(titleRef.current, 'nativeShelfTitle', map);
       if (map.nativeShelfRow) setNativeRowClass(map.nativeShelfRow);
-      // DFL-derived semantic layout classes (additive — themes targeting these
-      // semantic names reach DS shelves via the same translation that runs on
-      // native shelves). Safe set: container / header wrappers only. State
-      // classes (focus, hover) intentionally excluded to avoid conflicting
-      // with DS's own focus handling.
+      // Curated safe set (always applied): recents container / header tokens.
       addMapClasses(outerRef.current, 'nativeRecentsContainer', map);
       addMapClasses(outerRef.current, 'nativeRecentsInner', map);
       addMapClasses(outerRef.current, 'nativeRecentsSection', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeader', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeaderLabel', map);
+      // Experimental: when `forceCssLoaderThemes` is on, apply the full set
+      // of DFL semantic tokens so themes targeting Title/Section/Collection/
+      // GameRow/Library variants also reach DS shelves. Focus/hover state
+      // classes stay excluded to avoid conflicts with DS focus handling.
+      if (readForceThemes()) {
+        const outerExtras = [
+          'nativeSemanticGameRow', 'nativeSection', 'nativeSectionContainer',
+          'nativeLibraryHomeSection', 'nativeCollection', 'nativeCollectionContents',
+          'nativeCardsSection',
+        ];
+        for (const k of outerExtras) addMapClasses(outerRef.current, k, map);
+        const titleExtras = [
+          'nativeTitle', 'nativeTitleText', 'nativeTitleLabel', 'nativeTitleContainer',
+          'nativeSectionTitle', 'nativeSectionHeader', 'nativeSectionHeaderContent',
+          'nativeSectionName', 'nativeCollectionHeader', 'nativeCollectionName',
+          'nativeCollectionLabel',
+        ];
+        for (const k of titleExtras) addMapClasses(titleRef.current, k, map);
+      }
     }
     injectShelfNativeClasses();
     const t = setTimeout(injectShelfNativeClasses, 500);
-    return () => clearTimeout(t);
+    const onSettings = () => injectShelfNativeClasses();
+    globalThis.addEventListener('deck-shelves-settings-changed', onSettings);
+    return () => {
+      clearTimeout(t);
+      globalThis.removeEventListener('deck-shelves-settings-changed', onSettings);
+    };
   }, []);
 
   // Keep `forceExpanded` readable inside the focus-scroll effect without

@@ -68,5 +68,6 @@ export function defaultSettings(): Settings {
     onlinePrivacyAccepted: false,
     onlineHideOwnedGames: false,
     onlineHideOwnedNonSteam: false,
+    forceCssLoaderThemes: false,
   };
 }

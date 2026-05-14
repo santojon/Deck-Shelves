@@ -1,36 +1,18 @@
 /**
- * Online Steam Store data — wishlist + price/discount.
- *
- * All fetches are opt-in (gated by onlineFeaturesEnabled in settings), demand-
- * driven (never polled), single-flight per feature type, and locally cached in
- * localStorage with explicit TTLs.
- *
- * Offline degradation: functions return null when the device is offline and the
- * cache is empty or expired. Callers treat null as "hidden" — the shelf is
- * omitted from the home screen rather than rendered broken.
+ * Online Steam Store data — wishlist + price/discount. Opt-in, demand-driven,
+ * single-flight per feature, cached in localStorage with explicit TTLs.
+ * Returns null when offline + cache empty; callers treat null as "hidden".
  */
 
 import { call } from "../shims/decky-api";
-import { isOnline } from "./connectivity";
 import { logInfo, logWarn } from "../runtime/logger";
 
-// Cache keys and TTLs
 const WISHLIST_KEY = "ds-wishlist-cache-v1";
 const PRICE_KEY = "ds-price-cache-v1";
 const WISHLIST_TTL = 24 * 60 * 60 * 1000;
 const PRICE_TTL = 6 * 60 * 60 * 1000;
 
-// Backoff state for rate-limit handling
 const backoffUntil: Record<string, number> = {};
-
-function getSteamId(): string | null {
-  try {
-    const id = (globalThis as any).SteamClient?.User?.GetSteamID?.()
-      ?? (globalThis as any).App?.GetCurrentUser?.()?.strSteamID
-      ?? (globalThis as any).SteamClient?.User?.GetLoginUsers?.()[0]?.strSteamLogin;
-    return id ? String(id) : null;
-  } catch { return null; }
-}
 
 function readCache<T>(key: string, ttl: number): T | null {
   try {
@@ -207,8 +189,6 @@ export interface PriceData {
 }
 
 type PriceCache = Record<number, { ts: number; data: PriceData }>;
-
-let priceInFlight = new Map<number, Promise<PriceData | null>>();
 
 function readPriceCache(appid: number): PriceData | null {
   try {

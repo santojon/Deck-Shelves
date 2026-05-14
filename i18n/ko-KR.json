@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "라이브러리의 Steam 게임만 온라인 선반에서 숨깁니다.",
   "hide_owned_non_steam": "Steam 외 바로 가기 포함",
   "hide_owned_non_steam_desc": "라이브러리의 Steam 외 바로 가기도 숨깁니다.",
+  "force_themes_label": "CSS Loader 테마 강제 적용 (실험적)",
+  "force_themes_desc": "Steam의 네이티브 클래스를 DS 셸프 전체에 적용하여 CSS Loader 테마가 네이티브 셸프처럼 스타일을 적용하도록 합니다. 일부 테마는 레이아웃이 깨질 수 있습니다.",
   "refresh_cache": "캐시 새로고침",
   "badge_discount": "{{count}}% 할인",
   "section_additional_features": "추가 기능",

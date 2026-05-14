@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "Blendet nur Steam-Spiele aus, die sich bereits in deiner Bibliothek befinden.",
   "hide_owned_non_steam": "Nicht-Steam-Verknüpfungen einschließen",
   "hide_owned_non_steam_desc": "Blendet auch Nicht-Steam-Verknüpfungen aus deiner Bibliothek aus.",
+  "force_themes_label": "Themes des CSS Loader erzwingen (experimentell)",
+  "force_themes_desc": "Wendet das vollständige Set nativer Steam-Klassen auf DS-Regale an, damit CSS-Loader-Themes sie wie native Regale stylen. Einige Themes können Layouts beschädigen.",
   "refresh_cache": "Cache aktualisieren",
   "badge_discount": "{{count}}% Rabatt",
   "section_additional_features": "Zusätzliche Funktionen",

@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "Ukrywa tylko gry Steam już znajdujące się w Twojej bibliotece.",
   "hide_owned_non_steam": "Uwzględnij skróty spoza Steam",
   "hide_owned_non_steam_desc": "Ukrywa również skróty spoza Steam z Twojej biblioteki.",
+  "force_themes_label": "Wymuś motywy CSS Loadera (eksperymentalne)",
+  "force_themes_desc": "Stosuje pełen zestaw natywnych klas Steam do półek DS, aby motywy CSS Loadera stylizowały je jak natywne. Niektóre motywy mogą zepsuć układ.",
   "refresh_cache": "Odśwież cache",
   "badge_discount": "{{count}}% zniżki",
   "section_additional_features": "Dodatkowe funkcje",

@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "Nasconde solo i giochi Steam già presenti nella tua libreria.",
   "hide_owned_non_steam": "Includi scorciatoie non-Steam",
   "hide_owned_non_steam_desc": "Nasconde anche le scorciatoie non-Steam dalla tua libreria.",
+  "force_themes_label": "Forza temi del CSS Loader (sperimentale)",
+  "force_themes_desc": "Applica l'intero set di classi native di Steam agli scaffali DS in modo che i temi del CSS Loader li stilizzino come gli scaffali nativi. Alcuni temi possono rompere il layout.",
   "refresh_cache": "Aggiorna cache",
   "badge_discount": "{{count}}% sconto",
   "section_additional_features": "Funzionalità aggiuntive",

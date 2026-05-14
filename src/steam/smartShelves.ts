@@ -2,10 +2,6 @@ import type { AppOverview } from "./index";
 import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
 
-// Deck compatibility categories: verified=3, playable=2, unsupported=1, unknown=0
-const DECK_VERIFIED = 3;
-const DECK_PLAYABLE = 2;
-
 const resolverCache = new Map<string, { ts: number; ids: number[] }>();
 const DEFAULT_SMART_TTL_MS = 60 * 60 * 1000;
 

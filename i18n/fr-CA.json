@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "Masque uniquement les jeux Steam déjà présents dans votre bibliothèque.",
   "hide_owned_non_steam": "Inclure les raccourcis non-Steam",
   "hide_owned_non_steam_desc": "Masque également les raccourcis non-Steam de votre bibliothèque.",
+  "force_themes_label": "Forcer les thèmes CSS Loader (expérimental)",
+  "force_themes_desc": "Applique l'ensemble complet des classes natives de Steam aux étagères DS afin que les thèmes CSS Loader les stylent comme les étagères natives. Certains thèmes peuvent casser la mise en page.",
   "refresh_cache": "Actualiser le cache",
   "badge_discount": "{{count}}%",
   "section_additional_features": "Fonctionnalités supplémentaires",

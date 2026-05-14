@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "Verbergt alleen Steam-spellen die al in je bibliotheek staan.",
   "hide_owned_non_steam": "Niet-Steam-snelkoppelingen opnemen",
   "hide_owned_non_steam_desc": "Verbergt ook niet-Steam-snelkoppelingen uit je bibliotheek.",
+  "force_themes_label": "CSS Loader-thema's forceren (experimenteel)",
+  "force_themes_desc": "Past de volledige set native Steam-klassen toe op DS-rekken zodat CSS Loader-thema's deze stylen als native rekken. Sommige thema's kunnen de lay-out breken.",
   "refresh_cache": "Cache vernieuwen",
   "badge_discount": "{{count}}% korting",
   "section_additional_features": "Aanvullende functies",

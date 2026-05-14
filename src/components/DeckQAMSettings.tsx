@@ -270,6 +270,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             )}
           </div>
         )}
+        <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
+        <div style={{ paddingLeft: 14, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+          {t('force_themes_desc')}
+        </div>
       </CollapsibleSection>
 
       {replaceFailed && (

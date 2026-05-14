@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "Oculta solo los juegos de Steam que ya tienes en tu biblioteca.",
   "hide_owned_non_steam": "Incluir accesos directos no-Steam",
   "hide_owned_non_steam_desc": "También oculta accesos directos no-Steam de tu biblioteca.",
+  "force_themes_label": "Forzar temas de CSS Loader (experimental)",
+  "force_themes_desc": "Aplica el conjunto completo de clases nativas de Steam a las estanterías de DS para que los temas de CSS Loader las estilicen como las nativas. Algunos temas pueden romper el diseño.",
   "refresh_cache": "Actualizar caché",
   "badge_discount": "{{count}}% dto",
   "section_additional_features": "Funciones adicionales",

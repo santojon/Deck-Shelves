@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "ライブラリ内のSteamゲームのみをオンライン棚から非表示にします。",
   "hide_owned_non_steam": "非Steamショートカットを含める",
   "hide_owned_non_steam_desc": "ライブラリの非Steamショートカットも非表示にします。",
+  "force_themes_label": "CSS Loader テーマを強制適用 (試験的)",
+  "force_themes_desc": "Steam ネイティブのクラスを DS シェルフ全体に適用し、CSS Loader のテーマがネイティブと同じように装飾されるようにします。一部のテーマでレイアウトが崩れる可能性があります。",
   "refresh_cache": "キャッシュ更新",
   "badge_discount": "{{count}}%引き",
   "section_additional_features": "追加機能",

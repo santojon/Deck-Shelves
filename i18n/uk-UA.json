@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "Приховує лише ігри Steam, що вже є у вашій бібліотеці.",
   "hide_owned_non_steam": "Включити ярлики поза Steam",
   "hide_owned_non_steam_desc": "Також приховує ярлики поза Steam з вашої бібліотеки.",
+  "force_themes_label": "Примусово застосовувати теми CSS Loader (експериментально)",
+  "force_themes_desc": "Застосовує повний набір нативних класів Steam до поличок DS, щоб теми CSS Loader стилізували їх як нативні. Деякі теми можуть зламати макет.",
   "refresh_cache": "Оновити кеш",
   "badge_discount": "{{count}}%",
   "section_additional_features": "Додаткові функції",

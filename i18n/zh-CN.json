@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "从在线书架中仅隐藏库中已有的 Steam 游戏。",
   "hide_owned_non_steam": "包含非 Steam 快捷方式",
   "hide_owned_non_steam_desc": "同时隐藏库中的非 Steam 快捷方式。",
+  "force_themes_label": "强制使用 CSS Loader 主题 (实验性)",
+  "force_themes_desc": "在 DS 货架上应用所有原生 Steam 类,使 CSS Loader 主题像原生货架一样装饰它们。某些主题可能会破坏布局。",
   "refresh_cache": "刷新缓存",
   "badge_discount": "{{count}}%折",
   "section_additional_features": "附加功能",

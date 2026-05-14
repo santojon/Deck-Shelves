@@ -537,6 +537,8 @@
   "online_hide_owned_desc": "從線上書架中僅隱藏庫中已有的 Steam 遊戲。",
   "hide_owned_non_steam": "包含非 Steam 捷徑",
   "hide_owned_non_steam_desc": "同時隱藏庫中的非 Steam 捷徑。",
+  "force_themes_label": "強制使用 CSS Loader 主題 (實驗性)",
+  "force_themes_desc": "在 DS 貨架上套用所有原生 Steam 類別,讓 CSS Loader 主題像原生貨架一樣裝飾它們。某些主題可能會破壞版面。",
   "refresh_cache": "重新整理快取",
   "badge_discount": "{{count}}%折",
   "section_additional_features": "額外功能",
