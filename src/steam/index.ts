@@ -2374,14 +2374,26 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
       const wishlistIds = await getWishlistIds();
       if (!wishlistIds) return [];
-      // Optionally exclude games already in the local library (owned/installed).
-      const ownedSet = new Set(all.map((a) => appIdOf(a)));
+      // Optionally exclude games already in the local library.
+      // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
       const hideOwned = s?.onlineHideOwnedGames !== false;
+      const hideOwnedNonSteam = hideOwned && (s?.onlineHideOwnedNonSteam === true);
+      const ownedSet = new Set(
+        hideOwned
+          ? all.filter((a) => hideOwnedNonSteam || !isNonSteamOf(a)).map((a) => appIdOf(a))
+          : []
+      );
       let ids = hideOwned ? wishlistIds.filter((id) => !ownedSet.has(id)) : [...wishlistIds];
       // Apply childFilter: discount filter uses price cache and works for every
       // wishlist item; AppOverview-dependent filters only apply to games already
       // in the local library (others pass through so they're not hidden).
       const childFilter = (source as any).childFilter;
+      const hasDiscountFilter = Array.isArray(childFilter?.items) &&
+        childFilter.items.some((item: any) => item.type === "discount");
+      if (hasDiscountFilter) {
+        const { getPriceMap } = await import("../core/onlineStore");
+        await getPriceMap(ids);
+      }
       if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
         const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
         ids = ids.filter((id) => {
@@ -2435,9 +2447,15 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
 
       // Apply childFilter (discount uses price cache; others use AppOverview).
       // Optionally exclude owned games from the store shelf.
-      const ownedSetStore = new Set(all.map((a) => appIdOf(a)));
+      // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
       const hideOwnedStore = s?.onlineHideOwnedGames !== false;
-      if (hideOwnedStore) ids = ids.filter((id) => !ownedSetStore.has(id));
+      const hideOwnedStoreNonSteam = hideOwnedStore && (s?.onlineHideOwnedNonSteam === true);
+      if (hideOwnedStore) {
+        const ownedSetStore = new Set(
+          all.filter((a) => hideOwnedStoreNonSteam || !isNonSteamOf(a)).map((a) => appIdOf(a))
+        );
+        ids = ids.filter((id) => !ownedSetStore.has(id));
+      }
 
       if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
         const byId = new Map(all.map((a) => [appIdOf(a), a] as const));

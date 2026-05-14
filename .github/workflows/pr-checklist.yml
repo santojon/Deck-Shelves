@@ -35,18 +35,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PULL_REQUESTS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          PR_NUM=$(echo "$PULL_REQUESTS" | python3 -c "
+          # pull_request_target events carry the PR number directly on the event.
+          PR_NUM="${EVENT_PR_NUMBER:-}"
+          # workflow_run events: try the associated pull_requests list first,
+          # then fall back to looking up by HEAD SHA among open PRs.
+          if [ -z "$PR_NUM" ]; then
+            PR_NUM=$(echo "$PULL_REQUESTS" | python3 -c "
           import json, sys
           prs = json.load(sys.stdin)
           print(prs[0]['number'] if prs else '')
-          " 2>/dev/null || echo "")
-          if [ -z "$PR_NUM" ]; then
+            " 2>/dev/null || echo "")
+          fi
+          if [ -z "$PR_NUM" ] && [ -n "$HEAD_SHA" ]; then
             PR_NUM=$(gh pr list \
               --repo "${{ github.repository }}" \
               --state open \
               --json number,headRefOid \
               --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" | head -1)
+          fi
+          # pull_request_target always has a PR — fail loudly if resolution failed.
+          if [ -z "$PR_NUM" ] && [ "$EVENT_NAME" = "pull_request_target" ]; then
+            echo "::error::pull_request_target event but PR number could not be resolved."
+            exit 1
           fi
           echo "number=$PR_NUM" >> $GITHUB_OUTPUT
 

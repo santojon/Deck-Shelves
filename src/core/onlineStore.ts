@@ -303,30 +303,50 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
 }
 
 const NAME_BATCH = 10;
-const NAME_DEADLINE_MS = 10000;
 const NAME_TIMEOUT_MS = 4000;
+const NAME_CONCURRENCY = 3;
+
+async function fetchBatch(batch: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), NAME_TIMEOUT_MS);
+  try {
+    const url = `https://store.steampowered.com/api/appdetails?appids=${batch.join(',')}&l=english`;
+    const resp = await fetch(url, { credentials: 'include', signal: ac.signal });
+    clearTimeout(tid);
+    if (!resp.ok) return out;
+    const json = await resp.json();
+    for (const id of batch) {
+      const n = json?.[id]?.data?.name;
+      if (typeof n === 'string' && n) out.set(id, n);
+    }
+  } catch { clearTimeout(tid); }
+  return out;
+}
 
 export async function fetchGameNames(ids: number[]): Promise<Map<number, string>> {
   const limited = ids.slice(0, 60);
-  const deadline = Date.now() + NAME_DEADLINE_MS;
   const names = new Map<number, string>();
-  for (let i = 0; i < limited.length && Date.now() < deadline; i += NAME_BATCH) {
-    const batch = limited.slice(i, i + NAME_BATCH);
-    const ac = new AbortController();
-    const tid = setTimeout(() => ac.abort(), NAME_TIMEOUT_MS);
-    try {
-      const resp = await fetch(
-        `https://store.steampowered.com/api/appdetails?appids=${batch.join(',')}`,
-        { signal: ac.signal },
-      );
-      clearTimeout(tid);
-      if (!resp.ok) continue;
-      const json = await resp.json();
-      for (const id of batch) {
-        const n = json?.[id]?.data?.name;
-        if (n) names.set(id, n);
-      }
-    } catch { clearTimeout(tid); }
+  const batches: number[][] = [];
+  for (let i = 0; i < limited.length; i += NAME_BATCH) batches.push(limited.slice(i, i + NAME_BATCH));
+
+  // First pass: fetch in groups of NAME_CONCURRENCY
+  const missed: number[] = [];
+  for (let i = 0; i < batches.length; i += NAME_CONCURRENCY) {
+    const results = await Promise.all(batches.slice(i, i + NAME_CONCURRENCY).map(fetchBatch));
+    for (const r of results) r.forEach((v, k) => names.set(k, v));
+    for (const batch of batches.slice(i, i + NAME_CONCURRENCY)) {
+      for (const id of batch) if (!names.has(id)) missed.push(id);
+    }
   }
+
+  // Second pass: retry missed IDs individually (success:false in batch can be transient)
+  if (missed.length) {
+    await Promise.all(missed.map(async (id) => {
+      const r = await fetchBatch([id]);
+      r.forEach((v, k) => names.set(k, v));
+    }));
+  }
+
   return names;
 }

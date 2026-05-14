@@ -5,6 +5,19 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Two-step "Hide owned games" — Steam first, non-Steam optional.** Both the global toggle (in the QAM, under Additional Features) and the per-shelf toggle (on each wishlist / store shelf) now reveal a sub-option when turned on: the main toggle hides games you own on Steam, and the sub-toggle also hides non-Steam shortcuts (games you added manually that share a name with a store entry). Useful when you want a clean wishlist without losing track of games you only run via a launcher.
+
+### Changed
+
+- **Wishlist / store shelves now show owned games by default.** The "Hide owned games" toggles (global and per-shelf) start off — you'll see your full wishlist or store list, including games you already have, unless you opt in to filtering. Existing users who already enabled the toggle keep their setting.
+
+### Fixed
+
+- **Global "Hide owned games" toggle now does what it says.** Turning it on in the QAM correctly hides owned games across every wishlist / store shelf, and turning it off shows them. Previously the global toggle had no visible effect — owned games were always hidden regardless. The sub-toggle for non-Steam shortcuts also works correctly now and no longer turns itself off after saving.
+- **Per-shelf "Include non-Steam shortcuts" sub-toggle reflects in the preview.** Toggling it on in the shelf editor now updates the preview immediately, matching what the home shelf will show.
+
 ## [2.2.0] - 2026-05-14
 
 ### Added

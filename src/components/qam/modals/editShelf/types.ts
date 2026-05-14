@@ -32,4 +32,5 @@ export type EditableShelfState = {
   hiddenAppIds: number[]
   childFilterGroup: FilterGroup
   excludeOwned: boolean
+  excludeOwnedNonSteam: boolean
 }

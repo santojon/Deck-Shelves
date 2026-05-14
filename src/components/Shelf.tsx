@@ -16,6 +16,7 @@ import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews } from 
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
 import { clearOnlineShelfCache, dispatchShelfModal, toggleShelfHiddenById, moveShelfById, duplicateShelfById } from "../core/shelfActions";
 import { fetchGameNames } from "../core/onlineStore";
+import { getCurrentSettings } from "../store/settingsStore";
 
 /** Opens the Steam Store page for an appid using the best available method.
  *  Tries the steam:// protocol first since it is the only path that works
@@ -207,24 +208,44 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // from the browser without authentication.
   const isOnlineShelf = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
   const excludeOwned = isOnlineShelf && (shelf.source as any).excludeOwned === true;
+  const excludeOwnedNonSteam = excludeOwned && (shelf.source as any).excludeOwnedNonSteam === true;
 
-  // Build a Set of locally-owned game names (Steam + non-Steam shortcuts),
-  // lowercased and trimmed, for the excludeOwned filter on online shelves.
-  // Only fetched when the toggle is on for this shelf.
+  const [globalHideOwned, setGlobalHideOwned] = useState(() => getCurrentSettings()?.onlineHideOwnedGames === true);
+  const [globalHideOwnedNonSteam, setGlobalHideOwnedNonSteam] = useState(() => getCurrentSettings()?.onlineHideOwnedNonSteam === true);
+
   useEffect(() => {
-    if (!excludeOwned) { setOwnedNames(null); return; }
+    const handler = () => {
+      const s = getCurrentSettings();
+      setGlobalHideOwned(s?.onlineHideOwnedGames === true);
+      setGlobalHideOwnedNonSteam(s?.onlineHideOwnedNonSteam === true);
+    };
+    globalThis.addEventListener("deck-shelves-settings-changed", handler);
+    return () => globalThis.removeEventListener("deck-shelves-settings-changed", handler);
+  }, []);
+
+  // Effective filter flags: true if either global or per-shelf toggle is active.
+  const shouldHideOwned = isOnlineShelf && (globalHideOwned || excludeOwned);
+  const effectiveNonSteam = (globalHideOwned && globalHideOwnedNonSteam) || (excludeOwned && excludeOwnedNonSteam);
+
+  // Build a Set of locally-owned game names. Active when either filter is on.
+  // Non-Steam shortcuts are included when the corresponding sub-toggle is on.
+  useEffect(() => {
+    if (!shouldHideOwned) { setOwnedNames(null); return; }
     let cancelled = false;
     getAllAppOverviews().then((apps) => {
       if (cancelled) return;
       const names = new Set<string>();
       for (const a of apps) {
+        const nonSteam = !!(a as any)?.is_non_steam || (a as any)?.is_steam === false ||
+          (a as any)?.m_eAppType === 1073741824 || (a as any)?.app_type === 1073741824;
+        if (!effectiveNonSteam && nonSteam) continue;
         const n = (a as any)?.display_name ?? (a as any)?.name;
         if (typeof n === 'string' && n) names.add(n.trim().toLowerCase());
       }
       setOwnedNames(names);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [excludeOwned]);
+  }, [shouldHideOwned, effectiveNonSteam]);
   useEffect(() => {
     if (!isOnlineShelf || !appIds?.length) return;
     // Read previously-fetched names from localStorage cache to show instantly.
@@ -268,16 +289,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       const isStoreFallback = /^App \d+$/.test(item.name);
       const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
 
-      // Online shelves (wishlist/store) only show non-owned games.
-      // Owned games are excluded so the shelf acts as a discovery surface.
-      if (!isStoreFallback && isOnlineSource) return [];
+      // Hide library games from online shelves when either the global or per-shelf toggle is on.
+      if (!isStoreFallback && isOnlineSource && shouldHideOwned) return [];
       if (isStoreFallback && !isOnlineSource) return [];
 
-      // excludeOwned (online sources only): drop games whose name matches a
-      // locally-owned title — covers non-Steam shortcuts that share a name
-      // with a Steam Store entry (different appid, so the appStore check
-      // above misses them). Only filters once storeNames has loaded.
-      if (excludeOwned && ownedNames && isOnlineSource) {
+      // Name-based filter: drops games whose name matches a locally-owned title.
+      // Covers non-Steam shortcuts that share a name with a store entry (different
+      // appid, so the appid check above misses them). Applies when either toggle is on.
+      if (shouldHideOwned && ownedNames && isOnlineSource) {
         const n = (storeNames.get(appid) ?? '').trim().toLowerCase();
         if (n && ownedNames.has(n)) return [];
       }
@@ -405,7 +424,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       });
     }
     return base;
-  }, [appIds, items, storeNames, ownedNames, excludeOwned, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
+  }, [appIds, items, storeNames, ownedNames, shouldHideOwned, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
