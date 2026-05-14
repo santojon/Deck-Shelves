@@ -31,4 +31,5 @@ export type EditableShelfState = {
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   childFilterGroup: FilterGroup
+  excludeOwned: boolean
 }

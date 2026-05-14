@@ -2,12 +2,12 @@
 
 <div align="center">
 <p>
-  <img src="assets/logo.png" alt="Deck Shelves" width="352">
+  <img src="assets/logo.svg" alt="Deck Shelves" width="352">
 </p>
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-190%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/tests-237%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![Compatibility](https://img.shields.io/badge/checks-37%2F37-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -60,6 +60,10 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - **Surprise Me** — sub-toggle that hides the manual smart shelf list and lets the system pick 1–5 templates each day automatically; configurable count slider (0 = system decides)
 - **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker. Picking any template — Blank, regular preset, smart preset, or Custom — opens the edit modal first; **nothing is persisted until you press Save**, so cancelling discards the draft cleanly.
 - Reorder and toggle shelf visibility from the QAM
+- **Online shelf sources (opt-in)** — wishlist and Steam Store shelves with `price_low`, `discount_high`, `original_price_high` sorts; four ready-made templates (Wishlist, Wishlist on sale, Free wishlist, Free now); cached locally so the home keeps working offline
+- **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose exact name matches a title in your local library (including non-Steam shortcuts)
+- **Discount badges** — cards on online shelves show a green "% off" badge (mirrors the NEW badge slot, shown even on placeholder cards while artwork is still loading)
+- **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
 - Import / export all shelves and smart shelf configuration as JSON
 - Persistent settings across plugin reinstalls
 - Crash protection with automatic retry

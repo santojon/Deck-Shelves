@@ -46,8 +46,8 @@ export function FiltersPage() {
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_filters_groups_title')}</span>} />
       <DocCallout variant="tip">{t('docs_filters_and_or_tip')}</DocCallout>
       <DocCallout variant="tip">{t('docs_filters_invert_tip')}</DocCallout>
-      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_filters_groups_desc')}</span>} />
       <DocCallout variant="note">{t('docs_filters_pending_note')}</DocCallout>
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_filters_groups_desc')}</span>} />
     </DocSection>
   )
 }

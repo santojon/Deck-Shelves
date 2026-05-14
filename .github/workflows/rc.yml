@@ -1,0 +1,26 @@
+name: RC Label → Store Submission
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  trigger-store:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'rc')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Decky Store Submission workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "PR #${{ github.event.pull_request.number }} mergeado com label 'rc' — disparando store.yml"
+          gh workflow run store.yml \
+            --repo "${{ github.repository }}" \
+            --ref main
+          echo "store.yml triggered on main"

@@ -1,4 +1,4 @@
-export type SourceType = 'collection' | 'tab' | 'filter' | 'external'
+export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store'
 export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display'
 
 export const BASE_SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']
@@ -12,6 +12,12 @@ export const SORT_OPTIONS = [
   { value: 'metacritic', labelKey: 'sort_metacritic' },
   { value: 'review_score', labelKey: 'sort_review_score' },
   { value: 'added', labelKey: 'sort_added' },
+  { value: 'app_status', labelKey: 'sort_app_status' },
+  { value: 'deck_compat', labelKey: 'sort_deck_compat' },
+  { value: 'controller_support', labelKey: 'sort_controller_support' },
+  { value: 'price_low', labelKey: 'sort_price_low', requiresOnline: true },
+  { value: 'discount_high', labelKey: 'sort_discount_high', requiresOnline: true },
+  { value: 'original_price_high', labelKey: 'sort_original_price_high', requiresOnline: true },
   { value: 'random', labelKey: 'sort_random' },
   { value: 'manual', labelKey: 'sort_manual' },
 ] as const

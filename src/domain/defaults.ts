@@ -61,5 +61,11 @@ export function defaultSettings(): Settings {
     smartSurpriseMe: false,
     smartSurpriseMeCount: 0,
     savedFilters: [],
+    updateNotifyEnabled: true,
+    onlineFeaturesEnabled: false,
+    onlineWishlistEnabled: true,
+    onlinePriceSortEnabled: true,
+    onlinePrivacyAccepted: false,
+    onlineHideOwnedGames: true,
   };
 }

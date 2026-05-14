@@ -2,17 +2,18 @@ import { useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable, showModal } from '@decky/ui'
 import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
-import { SHELF_TEMPLATES } from '../../../domain/templates'
+import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES } from '../../../domain/templates'
 import type { ShelfTemplateCategory } from '../../../domain/templates'
 import { EditShelfModal } from './EditShelfModal'
 import { logInfo } from '../../../runtime/logger'
 import { SHELF_TPL_ICON } from './templateIcons'
 
-const TPL_CATEGORY_ORDER: ShelfTemplateCategory[] = ["status", "time", "platform"]
+const TPL_CATEGORY_ORDER: ShelfTemplateCategory[] = ["status", "time", "platform", "online"]
 const TPL_CATEGORY_KEY: Record<ShelfTemplateCategory, string> = {
   status: "template_category_status",
   time: "template_category_time",
   platform: "template_category_platform",
+  online: "template_category_online",
 }
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
@@ -49,15 +50,20 @@ const btnInner: React.CSSProperties = {
 
 export function TemplatePickerModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
   const { t, actions } = controller
+  const { settings } = controller
+  const allTemplates = [
+    ...SHELF_TEMPLATES,
+    ...(settings?.onlineFeaturesEnabled ? ONLINE_SHELF_TEMPLATES : []),
+  ]
   const [openCat, setOpenCat] = useState<Record<ShelfTemplateCategory, boolean>>({
-    status: true, time: true, platform: true,
+    status: true, time: true, platform: true, online: true,
   })
   const handleTemplate = (tpl: typeof SHELF_TEMPLATES[0]) => {
     closeModal?.()
     // Modal-driven create: build a draft pre-populated with the template's
     // source and title, open the editor, persist only on Save. Cancel/close
     // discards the draft.
-    const draft = { ...actions.createDraftShelf(), title: t(tpl.titleKey as any), source: tpl.source }
+    const draft = { ...actions.createDraftShelf(), title: t(tpl.titleKey as any), source: tpl.source, ...(tpl.defaultSort ? { sort: tpl.defaultSort } : {}) }
     openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={draft} mode='create' />)
   }
   const handleBlank = () => {
@@ -66,7 +72,7 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
     openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={draft} mode='create' />)
   }
   const grouped = TPL_CATEGORY_ORDER
-    .map((cat) => ({ cat, items: SHELF_TEMPLATES.filter((x) => x.category === cat) }))
+    .map((cat) => ({ cat, items: allTemplates.filter((x) => x.category === cat) }))
     .filter((g) => g.items.length > 0)
   return (
     <ModalShell>

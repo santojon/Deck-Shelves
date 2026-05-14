@@ -1,5 +1,5 @@
 export type DeckLogLevel = "INFO" | "WARN" | "ERROR";
-export type DeckLogScope = "HOME" | "STORAGE" | "SETTINGS" | "STEAM" | "RUNTIME";
+export type DeckLogScope = "HOME" | "STORAGE" | "SETTINGS" | "STEAM" | "RUNTIME" | "UPDATE" | "ONLINE";
 
 const SCOPE_COLOR: Record<DeckLogScope, string> = {
   HOME: "#22c55e",
@@ -7,6 +7,8 @@ const SCOPE_COLOR: Record<DeckLogScope, string> = {
   SETTINGS: "#a78bfa",
   STEAM: "#f59e0b",
   RUNTIME: "#ec4899",
+  UPDATE: "#06b6d4",
+  ONLINE: "#0ea5e9",
 };
 
 const LEVEL_BG: Record<DeckLogLevel, string> = {

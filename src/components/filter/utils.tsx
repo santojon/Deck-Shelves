@@ -24,6 +24,7 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "collection",
   "merge",
   "appStatus",
+  "discount",
 ];
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
@@ -41,6 +42,11 @@ const INVERTIBLE_SET = new Set<FilterItemType>([
   "publisher",
   "cloudAvailable",
   "controllerSupport",
+  // Collection negation requested in #56 — schema already supports the
+  // `inverted` flag on every item; this just exposes the toggle in the
+  // editor for the collection type. Evaluator path is unchanged.
+  "collection",
+  "discount",
 ]);
 
 export function canBeInverted(type: FilterItemType): boolean {
@@ -67,6 +73,7 @@ export function defaultParams(type: FilterItemType): Record<string, any> {
     case "merge": return { mode: "and", items: [] };
     case "shortcutType": return { kinds: ["game"] };
     case "appStatus": return { groups: ["downloading", "queued"] };
+    case "discount": return { minDiscount: 10, maxDiscount: 100 };
     default: return {};
   }
 }
@@ -117,6 +124,8 @@ export function isValidParams(item: FilterItem): boolean {
       return Array.isArray(p.kinds) && p.kinds.length > 0;
     case "appStatus":
       return Array.isArray(p.groups) && p.groups.length > 0;
+    case "discount":
+      return Number(p.minDiscount ?? 0) >= 0 && Number(p.minDiscount ?? 0) <= 100;
     default:
       return true;
   }
@@ -148,8 +157,14 @@ export function getTypeLabel(type: FilterItemType): string {
     merge: t("filter_type_merge"),
     shortcutType: t("filter_type_shortcutType"),
     appStatus: t("filter_type_appStatus"),
+    discount: t("filter_type_discount"),
   };
   return map[type] ?? type;
+}
+
+/** Returns true when this filter type requires online features (price cache). */
+export function isOnlineFilterType(type: FilterItemType): boolean {
+  return type === "discount";
 }
 
 export function capitalizeFirst(s: string): string {

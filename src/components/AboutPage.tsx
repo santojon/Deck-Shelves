@@ -7,8 +7,9 @@ import { ShelvesPage } from './about/ShelvesPage'
 import { SmartShelvesPage } from './about/SmartShelvesPage'
 import { FiltersPage } from './about/FiltersPage'
 import { SortPage } from './about/SortPage'
+import { OnlinePage } from './about/OnlinePage'
 import { SupportPage } from './about/SupportPage'
-import { FunnelIcon, SortIcon, SparkleIcon, InfoCircleIcon } from './icons'
+import { FunnelIcon, SortIcon, SparkleIcon, InfoCircleIcon, OnlineIcon } from './icons'
 
 // Decky's `Tab.title` is typed as `string` but the runtime renders any
 // ReactNode. The cast lets us inline a leading icon next to the label
@@ -38,6 +39,7 @@ export function AboutPage() {
           { id: 'smart', title: tabLabel(<SparkleIcon />, t('docs_smart_shelves_title')), content: <SmartShelvesPage /> },
           { id: 'filters', title: tabLabel(<FunnelIcon />, t('docs_filters_title')), content: <FiltersPage /> },
           { id: 'sort', title: tabLabel(<SortIcon />, t('docs_sort_title')), content: <SortPage /> },
+          { id: 'online', title: tabLabel(<OnlineIcon size={14} />, t('docs_online_title')), content: <OnlinePage /> },
           { id: 'support', title: tabLabel(<InfoCircleIcon />, t('about')), content: <SupportPage /> },
         ]}
       />

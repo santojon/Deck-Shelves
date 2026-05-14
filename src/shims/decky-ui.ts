@@ -45,6 +45,10 @@ export const showContextMenu = decky.showContextMenu ?? noop;
 export const showModal = decky.showModal ?? noop;
 export const afterPatch = decky.afterPatch ?? ((_target: any, _method: any, _cb: any, _options?: any) => noop);
 export const findInReactTree = decky.findInReactTree ?? ((_node: any, _cb: any) => null);
+export const findInTree = decky.findInTree ?? ((_node: any, _cb: any, _opts?: any) => null);
+export const findModuleChild = decky.findModuleChild ?? ((_filter: any) => undefined);
+export const findModuleByExport = decky.findModuleByExport ?? ((_filter: any, _minExports?: number) => undefined);
+export const fakeRenderComponent = decky.fakeRenderComponent ?? ((_fn: any, _customHooks?: any) => null);
 export const staticClasses = decky.staticClasses ?? {};
 
 export const gamepadDialogClasses =

@@ -5,6 +5,7 @@ import {
   Focusable,
   SliderField,
   Tabs,
+  ToggleField,
 } from '@decky/ui'
 import type { SingleDropdownOption } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
@@ -13,7 +14,8 @@ import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '.
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
-import { resolveShelfAppIds } from '../../../steam'
+import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
+import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
@@ -23,7 +25,7 @@ import { optionData } from './editShelf/utils'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
-import { FunnelIcon, EyeIcon, SteamIcon } from '../../icons'
+import { FunnelIcon, EyeIcon, SteamIcon, OnlineIcon } from '../../icons'
 import type { PlatformAppMeta } from '../../../runtime/platform'
 import { PreviewPanel } from './editShelf/PreviewPanel'
 import { TabLabel } from './editShelf/TabLabel'
@@ -67,8 +69,9 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
     dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
+    excludeOwned: (shelf.source as any).excludeOwned ?? false,
     childFilterGroup: (() => {
-      if (shelf.source.type === 'collection' || shelf.source.type === 'tab') {
+      if (shelf.source.type === 'collection' || shelf.source.type === 'tab' || shelf.source.type === 'wishlist' || shelf.source.type === 'store') {
         return (shelf.source as any).childFilter ?? { mode: 'and', items: [] }
       }
       return { mode: 'and', items: [] }
@@ -79,6 +82,17 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [activeTab, setActiveTab] = useState<EditTab>('source')
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
+  // Bumped by the preview's RefreshCard to force a re-resolve in any tab.
+  const [previewRefreshNonce, setPreviewRefreshNonce] = useState(0)
+  // Preview-isolated cache namespace so refreshing the modal doesn't poison
+  // the home shelf cache with unsaved edits, and so invalidating only wipes
+  // the preview's own entries.
+  const previewShelfId = `${shelf.id}-preview`
+  const refreshPreview = () => {
+    invalidateSmartShelfCache(previewShelfId)
+    invalidateRandomSortCache(previewShelfId)
+    setPreviewRefreshNonce((n) => n + 1)
+  }
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
   const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
@@ -110,13 +124,15 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
     if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(childFilter ? { childFilter } : {}) }
     if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
+    if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}) } as any
+    if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}) } as any }
     // When manual sort is active, use the configured base sort for the
     // preview so the mini-card row reflects the actual order of non-manual
     // positions at runtime (matches what Shelf.tsx resolves on home).
     const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
     const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
     return { type: 'filter' as const, filter: effectiveFilter }
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned])
 
   useEffect(() => {
     let cancelled = false
@@ -141,7 +157,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
       }
-      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse, {
+      resolveShelfAppIds(previewSource, state.limit, previewSort, previewShelfId, previewReverse, {
         hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
         dedupeByName: state.dedupeByExactName || undefined,
       })
@@ -157,7 +173,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen])
+  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce])
 
   useEffect(() => {
     let cancelled = false
@@ -198,10 +214,20 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     return () => { cancelled = true; clearTimeout(timer) }
   }, [hiddenPickerOpen, previewSource, state.limit, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.hiddenAppIds.join(',')])
 
-  const allSourceTypes: SourceType[] = externalSources.length > 0 ? [...BASE_SOURCE_TYPES, 'external'] : BASE_SOURCE_TYPES
+  const { settings } = controller
+  const allSourceTypes: SourceType[] = [
+    ...BASE_SOURCE_TYPES,
+    ...(externalSources.length > 0 ? ['external' as SourceType] : []),
+    ...(settings?.onlineFeaturesEnabled ? ['wishlist' as SourceType, 'store' as SourceType] : []),
+  ]
   const sourceTypeOptions: SingleDropdownOption[] = allSourceTypes.map((value) => ({
     data: value,
-    label: value === 'collection' ? t('source_collection') : value === 'tab' ? t('source_tab') : value === 'external' ? t('source_external') : t('source_filter'),
+    label: value === 'collection' ? t('source_collection') :
+           value === 'tab' ? t('source_tab') :
+           value === 'external' ? t('source_external') :
+           value === 'wishlist' ? <span style={{ display:'inline-flex',alignItems:'center',gap:4 }}><OnlineIcon size={14} style={{ opacity:0.7 }} />{t('source_wishlist')}</span> as any :
+           value === 'store' ? <span style={{ display:'inline-flex',alignItems:'center',gap:4 }}><OnlineIcon size={14} style={{ opacity:0.7 }} />{t('source_store')}</span> as any :
+           t('source_filter'),
   }))
   // Native library tabs get a localized label + a small library-grid icon.
   // Detection by slugified ID OR slugified name OR slug-of-localized-name —
@@ -239,9 +265,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   // Drop tabs that the plugin doesn't currently support as a shelf source.
   // "Collections" is a native Steam library tab that exposes a flat list of
   // collection groups — not an app set we can render as a row of cards.
-  // Reserved for the future stacks-by-collection feature (one stack per
-  // collection, see roadmap). Hide for now so users don't pick a tab that
-  // would resolve to nothing meaningful.
+  // Hide for now so users don't pick a tab that would resolve to nothing
+  // meaningful.
   const UNSUPPORTED_TAB_SLUGS: ReadonlySet<string> = new Set([
     'collections', 'collection', 'colecoes', 'colecao', 'colecciones', 'coleccion',
     'collezioni', 'sammlungen', 'kolekcje', 'kollektsii', 'kolektsiyi', 'koleksiyonlar',
@@ -292,16 +317,31 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const collectionSelected = collectionOptions.some((o) => String(o.data) === state.collectionId) ? state.collectionId : ''
   const tabSelected = tabOptions.some((o) => String(o.data) === state.tab) ? state.tab : ''
   const externalSelected = externalOptions.some((o) => String(o.data) === state.externalSourceId) ? state.externalSourceId : ''
+  const sortLabel = (item: typeof SORT_OPTIONS[number]) => (
+    (item as any).requiresOnline
+      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><OnlineIcon size={14} style={{ opacity: 0.7 }} />{t(item.labelKey)}</span>
+      : t(item.labelKey)
+  ) as any
+  // Online-only sorts (price_low, discount_high, original_price_high) rely
+  // on the price cache populated by online sources — hide them when the
+  // current source can't populate it. Filter sources fall through to the
+  // local library, where no price data exists, so they're treated as
+  // non-online too.
+  const isOnlineSourceType = state.sourceType === 'wishlist' || state.sourceType === 'store'
   const sortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
-    [t]
+    () => SORT_OPTIONS
+      .filter((item) => isOnlineSourceType || !(item as any).requiresOnline)
+      .map((item) => ({ data: item.value, label: sortLabel(item) })),
+    [t, isOnlineSourceType]
   )
   // `random` is excluded under a manual sort: re-shuffling the manual order
   // every render would defeat the user's explicit ordering. Persisted values
   // stay intact — only the option is hidden from this dropdown.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS.filter((item) => item.value !== 'manual' && item.value !== 'random').map((item) => ({ data: item.value, label: t(item.labelKey) })),
-    [t]
+    () => SORT_OPTIONS
+      .filter((item) => item.value !== 'manual' && item.value !== 'random' && (isOnlineSourceType || !(item as any).requiresOnline))
+      .map((item) => ({ data: item.value, label: sortLabel(item) })),
+    [t, isOnlineSourceType]
   )
 
   const changeSourceType = (type: SourceType) => {
@@ -321,10 +361,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         const nextTitle = String(first?.label ?? t('newShelf'))
         return { ...prev, sourceType: type, title: nextTitle, externalSourceId: String(first?.data ?? '') }
       }
+      if (type === 'wishlist') {
+        return { ...prev, sourceType: type, childFilterGroup: { mode: 'and', items: [] } }
+      }
+      if (type === 'store') {
+        return { ...prev, sourceType: type }
+      }
       return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }) }
     })
     if (type !== 'filter' && activeTab === 'filters') setActiveTab('source')
-    if (type !== 'collection' && type !== 'tab' && activeTab === 'childFilters') setActiveTab('source')
+    if (type !== 'collection' && type !== 'tab' && type !== 'wishlist' && type !== 'store' && activeTab === 'childFilters') setActiveTab('source')
   }
 
   const changeFilterGroup = (group: FilterGroup) => {
@@ -355,6 +401,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined;
       }
       else if (state.sourceType === 'external') { patch.source = { type: 'external', sourceId: state.externalSourceId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      else if (state.sourceType === 'wishlist') { patch.source = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      else if (state.sourceType === 'store') { const cf = childFilter; patch.source = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
       if (mode === 'create') {
         // Modal-driven create: nothing was persisted on open. Build the full
@@ -387,7 +435,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             previewCount={previewCount}
           />
           <div style={{ display: 'flex', flexDirection: 'column', height: 'min(calc(100vh - 130px), 540px)', minHeight: 400 }}>
-          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'auto' }}>
           <Tabs
             activeTab={activeTab}
             onShowTab={(id: string) => setActiveTab(id as EditTab)}
@@ -406,6 +454,24 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     )}
                     {state.sourceType === 'external' && externalOptions.length > 0 && (
                       <DropdownItem label={t('source_external')} rgOptions={externalOptionsFinal} selectedOption={externalSelected} onChange={(opt: unknown) => setState((prev) => ({ ...prev, externalSourceId: String(optionData(opt)) }))} bottomSeparator='thick' />
+                    )}
+                    {state.sourceType === 'wishlist' && (
+                      <div style={{ padding: '8px 2px 4px', fontSize: 12, opacity: 0.75, lineHeight: 1.5 }}>
+                        {t('source_wishlist_hint')}
+                      </div>
+                    )}
+                    {state.sourceType === 'store' && (
+                      <div style={{ padding: '8px 2px 4px', fontSize: 12, opacity: 0.75, lineHeight: 1.5 }}>
+                        {t('source_store_hint')}
+                      </div>
+                    )}
+                    {(state.sourceType === 'wishlist' || state.sourceType === 'store') && (
+                      <ToggleField
+                        label={t('exclude_owned_label')}
+                        description={t('exclude_owned_desc')}
+                        checked={state.excludeOwned}
+                        onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwned: v }))}
+                      />
                     )}
                     <SortField
                       label={t('filter_mode')}
@@ -452,11 +518,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       currentGroup={state.filterGroup}
                       onApply={changeFilterGroup}
                     />
-                    <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} controller={controller} />
+                    <FilterPanel group={state.filterGroup} onChange={changeFilterGroup} controller={controller} allowOnlineFilters={false} />
                   </FieldContainer>
                 ),
               }] : []),
-              ...((state.sourceType === 'collection' || state.sourceType === 'tab') ? [{
+              ...((state.sourceType === 'collection' || state.sourceType === 'tab' || state.sourceType === 'wishlist' || state.sourceType === 'store') ? [{
                 id: 'childFilters',
                 title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_additional_filters')} />) as unknown as string,
                 content: (
@@ -466,7 +532,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       currentGroup={state.childFilterGroup}
                       onApply={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))}
                     />
-                    <FilterPanel group={state.childFilterGroup} onChange={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))} controller={controller} />
+                    <FilterPanel group={state.childFilterGroup} onChange={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))} controller={controller} allowOnlineFilters={state.sourceType === 'wishlist' || state.sourceType === 'store'} />
                   </FieldContainer>
                 ),
               }] : []),
@@ -540,6 +606,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             hideInstallIndicator={state.hideInstallIndicator === true}
             hideSeeMore={state.hideSeeMore === true}
             hideRefreshCard={state.hideRefreshCard === true}
+            limit={state.limit}
+            shelfSource={previewSource}
+            shelfSort={state.sort}
+            onRefresh={refreshPreview}
           />
           </div>
         </Focusable>

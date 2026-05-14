@@ -108,13 +108,8 @@ assert re.match(r'^\d+\.\d+\.\d+', d['version']), 'invalid version'
     ((fail++))
   fi
 
-  if [[ -f "$root/assets/icon.png" ]]; then
-    echo "  ✅ assets/icon.png exists"
-    ((pass++))
-  else
-    echo "  ⚠️  assets/icon.png missing (recommended for store)"
-    ((pass++))
-  fi
+  echo "  ✅ assets/icon.png not required (store uses publish.image)"
+  ((pass++))
 
   if python3 -c "
 import json

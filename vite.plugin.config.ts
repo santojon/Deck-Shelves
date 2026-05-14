@@ -26,6 +26,11 @@ export default defineConfig(({ mode }) => {
       __QA_SMART_SURPRISE_ME__: JSON.stringify(!isProd && process.env.DS_QA_SMART_SURPRISE_ME === "1"),
       __QA_FORCE_HOME_CRASH__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_HOME_CRASH === "1"),
       __QA_FORCE_REPLACE_FAILED__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_REPLACE_FAILED === "1"),
+      __QA_UPDATE_AVAILABLE__: JSON.stringify(!isProd && process.env.DS_QA_UPDATE_AVAILABLE === "1"),
+      __QA_UPDATE_DISMISSED__: JSON.stringify(!isProd && process.env.DS_QA_UPDATE_DISMISSED === "1"),
+      __QA_UPDATE_OFFLINE__: JSON.stringify(!isProd && process.env.DS_QA_UPDATE_OFFLINE === "1"),
+      __QA_COLLECTION_EMPTY__: JSON.stringify(!isProd && process.env.DS_QA_COLLECTION_EMPTY === "1"),
+      __QA_COLLECTION_INVERTED__: JSON.stringify(!isProd && process.env.DS_QA_COLLECTION_INVERTED === "1"),
     },
     resolve: {
       alias: [

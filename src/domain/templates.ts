@@ -1,12 +1,14 @@
 import type { ShelfSource } from "../types";
 
-export type ShelfTemplateCategory = "status" | "time" | "platform";
+export type ShelfTemplateCategory = "status" | "time" | "platform" | "online";
 
 export type ShelfTemplate = {
   id: string;
   titleKey: string;
   category: ShelfTemplateCategory;
   source: ShelfSource;
+  requiresOnline?: boolean;
+  defaultSort?: string;
 };
 
 export const SHELF_TEMPLATES: ShelfTemplate[] = [
@@ -96,6 +98,53 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     titleKey: "template_top_reviewed",
     category: "status",
     source: { type: "filter", filter: { sort: "review_score" } },
+  },
+];
+
+/** Gated templates — only shown in the picker when onlineFeaturesEnabled is on. */
+export const ONLINE_SHELF_TEMPLATES: ShelfTemplate[] = [
+  {
+    id: "wishlist",
+    titleKey: "template_wishlist",
+    category: "online",
+    requiresOnline: true,
+    source: { type: "wishlist" },
+  },
+  {
+    id: "wishlist_on_sale",
+    titleKey: "template_wishlist_on_sale",
+    category: "online",
+    requiresOnline: true,
+    source: {
+      type: "wishlist",
+      childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 1, maxDiscount: 99 } }] },
+    } as any,
+    defaultSort: "discount_high",
+  },
+  {
+    id: "free_wishlist",
+    titleKey: "template_free_wishlist",
+    category: "online",
+    requiresOnline: true,
+    source: {
+      type: "wishlist",
+      childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] },
+    } as any,
+    defaultSort: "original_price_high",
+  },
+  {
+    id: "free_now",
+    titleKey: "template_free_now",
+    category: "online",
+    requiresOnline: true,
+    source: {
+      type: "store",
+      childFilter: {
+        mode: "and",
+        items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }],
+      },
+    } as any,
+    defaultSort: "original_price_high",
   },
 ];
 

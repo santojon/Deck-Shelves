@@ -1,5 +1,6 @@
 import { Focusable, Dropdown, DialogButton } from "@decky/ui";
-import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel } from "./utils";
+import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel, isOnlineFilterType } from "./utils";
+import { OnlineIcon } from '../icons';
 import type { FilterItem, FilterItemType } from "../../types";
 import type { SingleDropdownOption } from "@decky/ui";
 import i18n from "../../i18n";
@@ -15,21 +16,35 @@ const iconButtonStyle = {
   justifyContent: "center" as const,
 };
 
-export default function FilterEntry({ item, onChange, onDelete }: {
+export default function FilterEntry({ item, onChange, onDelete, allowOnlineFilters = false }: {
   index?: number;
   item: FilterItem;
   allItems?: FilterItem[];
   onChange: (updated: FilterItem) => void;
   onDelete: () => void;
   shouldFocus?: boolean;
+  /** When false, online-only filter types (e.g. discount) are excluded from
+   *  the picker — they rely on the price cache populated by online sources
+   *  and have nothing to evaluate against in non-online contexts. */
+  allowOnlineFilters?: boolean;
 }) {
   const invertible = canBeInverted(item.type);
 
   // Localized labels (e.g. "Installed", "Favorites", "Combined", "Name contains")
   // sorted alphabetically by display label so the dropdown is browsable.
   const typeOptions: SingleDropdownOption[] = ALL_FILTER_TYPES
-    .map((type) => ({ data: type, label: getTypeLabel(type as FilterItemType) }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .filter((type) => allowOnlineFilters || !isOnlineFilterType(type as FilterItemType))
+    .map((type) => ({
+      data: type,
+      label: isOnlineFilterType(type as FilterItemType)
+        ? (<span style={{ display:'inline-flex', alignItems:'center', gap:4 }}><OnlineIcon size={13} style={{ opacity:0.7 }} />{getTypeLabel(type as FilterItemType)}</span>) as any
+        : getTypeLabel(type as FilterItemType),
+    }))
+    .sort((a, b) => {
+      const la = typeof a.label === 'string' ? a.label : getTypeLabel(a.data as FilterItemType);
+      const lb = typeof b.label === 'string' ? b.label : getTypeLabel(b.data as FilterItemType);
+      return la.localeCompare(lb);
+    });
 
   const t = i18n.t.bind(i18n);
 

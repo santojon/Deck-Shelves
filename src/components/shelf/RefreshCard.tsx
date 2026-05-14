@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -25,7 +25,7 @@ const refreshIconSvg = (
   </svg>
 );
 
-export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item: DeckRowItem; cardW?: number; cardH?: number }) {
+export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive = true }: { item: DeckRowItem; cardW?: number; cardH?: number; interactive?: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const iconRef = useRef<HTMLSpanElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
@@ -55,6 +55,57 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item
     item.onActivate?.();
   };
 
+  const containerStyle: React.CSSProperties = {
+    position: "relative",
+    width: cardW,
+    minWidth: cardW,
+    height: cardH,
+    flexShrink: 0,
+    padding: 0,
+    margin: 0,
+    background: "transparent",
+    cursor: interactive ? "pointer" : "default",
+    overflow: "visible",
+  };
+  const innerArt = (
+    <div
+      className="ds-card-art ds-refresh-card"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: cardW,
+        height: cardH,
+        overflow: "hidden",
+        background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
+        borderRadius: cachedCardRadius,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 16,
+        padding: 20,
+        boxSizing: "border-box",
+        color: "rgba(255,255,255,0.92)",
+      }}
+    >
+      <span ref={iconRef} className="ds-refresh-icon" style={{ display: "inline-flex" }}>
+        {refreshIconSvg}
+      </span>
+      <span className="ds-more-card-text">{item.name}</span>
+    </div>
+  );
+
+  // Non-interactive — same intent as MoreCard: skip Focusable so the modal
+  // preview shows the card without it stealing gamepad focus or wasting an
+  // A press on a no-op handler.
+  if (!interactive) {
+    return (
+      <div ref={cardRef as any} className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`} style={containerStyle}>
+        {innerArt}
+      </div>
+    );
+  }
+
   return (
     <Focusable
       ref={cardRef}
@@ -62,44 +113,9 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H }: { item
       focusClassName="gpfocus"
       onActivate={handleActivate}
       onOKButton={handleActivate}
-      style={{
-        position: "relative",
-        width: cardW,
-        minWidth: cardW,
-        height: cardH,
-        flexShrink: 0,
-        padding: 0,
-        margin: 0,
-        background: "transparent",
-        cursor: "pointer",
-        overflow: "visible",
-      }}
+      style={containerStyle}
     >
-      <div
-        className="ds-card-art ds-refresh-card"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: cardW,
-          height: cardH,
-          overflow: "hidden",
-          background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
-          borderRadius: cachedCardRadius,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          padding: 20,
-          boxSizing: "border-box",
-          color: "rgba(255,255,255,0.92)",
-        }}
-      >
-        <span ref={iconRef} className="ds-refresh-icon" style={{ display: "inline-flex" }}>
-          {refreshIconSvg}
-        </span>
-        <span className="ds-more-card-text">{item.name}</span>
-      </div>
+      {innerArt}
     </Focusable>
   );
 }

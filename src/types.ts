@@ -24,6 +24,7 @@ export const FilterItemTypeSchema = z.enum([
   "merge",
   "shortcutType",
   "appStatus",
+  "discount",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
@@ -105,7 +106,7 @@ export const SmartShelfSchema = z.object({
   // `sort` overrides the mode's default ordering (supports the same values as
   // regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
   // `filterGroup` narrows the mode's candidate pool with additional filters.
-  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
+  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]), z.string()]).optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
   // `manual` and `random`. Default false.
   sortReverse: z.boolean().optional(),
@@ -163,6 +164,8 @@ export const ShelfSourceSchema = z.union([
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
+  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional() }),
+  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional() }),
 ]);
 
 export type ShelfSource = z.infer<typeof ShelfSourceSchema>;
@@ -174,7 +177,7 @@ export const ShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).default(20),
-  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"]), z.string()]).optional(),
+  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]), z.string()]).optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
   // `manual` and `random`. Default false.
   sortReverse: z.boolean().optional(),
@@ -230,6 +233,17 @@ export const SettingsSchema = z.object({
   smartSurpriseMe: z.boolean().default(false),
   smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
   savedFilters: z.array(SavedFilterSchema).default([]),
+  // `nullable()` is mandatory: the Python sanitizer in `main.py` returns `null`
+  // for these when the user hasn't set them, and Zod's `optional()` alone
+  // rejects null — which previously failed `safeParse` on the entire Settings
+  // object and silently reset every shelf to defaults on the next load.
+  updateNotifyEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  updateNotifyDismissedVersion: z.string().nullable().optional(),
+  onlineFeaturesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  onlineWishlistEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  onlinePriceSortEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
+  onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? true),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

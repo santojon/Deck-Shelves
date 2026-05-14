@@ -39,9 +39,14 @@ export type FilterPanelProps = {
    *  top-level SavedFiltersBar lives outside this component (it owns the
    *  whole shelf's group) — this prop only enables the inner one. */
   controller?: import("../features/settings/controller").SettingsController;
+  /** Allow online-only filter types (e.g. discount) in the picker. Only
+   *  meaningful for wishlist/store child filters where the price cache
+   *  actually has data; defaults to false elsewhere. Propagates to nested
+   *  merge groups via MergeFilterOptions → FilterPanel. */
+  allowOnlineFilters?: boolean;
 };
 
-export function FilterPanel({ group, onChange, controller }: FilterPanelProps) {
+export function FilterPanel({ group, onChange, controller, allowOnlineFilters = false }: FilterPanelProps) {
   const t = i18n.t.bind(i18n);
   const items = group.items ?? [];
   const mode = group.mode ?? "and";
@@ -124,11 +129,13 @@ export function FilterPanel({ group, onChange, controller }: FilterPanelProps) {
                       onChange={(updated) => updateItem(index, updated)}
                       onDelete={() => removeItem(index)}
                       shouldFocus={isNewlyAdded || isRestoredFocus}
+                      allowOnlineFilters={allowOnlineFilters}
                     />
                     <FilterItemOptions
                       item={item}
                       onChange={(patch) => updateItem(index, { ...item, ...patch })}
                       controller={controller}
+                      allowOnlineFilters={allowOnlineFilters}
                     />
                   </div>
                 </FilterSectionAccordion>

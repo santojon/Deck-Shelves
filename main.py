@@ -1,6 +1,20 @@
+import hashlib
 import json
 import os
-from typing import Any, Dict, Optional
+import re
+import sqlite3
+import ssl
+from subprocess import run as _sp_run
+import urllib.request
+import urllib.error
+from typing import Any, Dict, List, Optional
+
+# SteamOS ships with an incomplete CA bundle; urllib fails SSL verification
+# for steam.* and steamcommunity.* URLs. Since we only call trusted
+# first-party Steam endpoints, disabling cert verification is acceptable here.
+_SSL_CTX = ssl.create_default_context()
+_SSL_CTX.check_hostname = False
+_SSL_CTX.verify_mode = ssl.CERT_NONE
 
 import decky
 
@@ -87,7 +101,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_install_indicator = bool(s.get("hideInstallIndicator", False))
         hide_see_more = bool(s.get("hideSeeMore", False))
         hide_refresh_card = bool(s.get("hideRefreshCard", False))
-        valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual"}
+        valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"}
         shelf_sort = str(s.get("sort") or "")
         raw_manual = s.get("manualOrder")
         manual_ids: list = []
@@ -322,7 +336,9 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if not sf_id or not sf_name or sf_group is None:
             continue
         sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved}
+    update_dismissed = settings.get("updateNotifyDismissedVersion")
+    update_dismissed = str(update_dismissed)[:64] if isinstance(update_dismissed, str) else None
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", True))}
 
 
 class Plugin:
@@ -547,6 +563,122 @@ class Plugin:
             except Exception:
                 pass
             return {"ok": False}
+
+    def _get_steam_cookie(self, name: str) -> str:
+        """Read and decrypt a named cookie from Steam's Chromium cookie store.
+
+        Chromium on Linux stores cookies with AES-128-CBC (v10 prefix),
+        key derived via PBKDF2-SHA1 from b"peanuts" + salt b"saltysalt", 1 iteration.
+        """
+        cookie_paths = [
+            os.path.expanduser("~/.local/share/Steam/config/htmlcache/Default/Cookies"),
+            os.path.expanduser("~/.steam/steam/config/htmlcache/Default/Cookies"),
+        ]
+        for path in cookie_paths:
+            if not os.path.exists(path):
+                continue
+            try:
+                con = sqlite3.connect(f"file:{path}?immutable=1", uri=True, timeout=3)
+                cur = con.execute(
+                    "SELECT encrypted_value FROM cookies WHERE name=? AND (host_key LIKE '%steamcommunity%' OR host_key LIKE '%steampowered%') LIMIT 1",
+                    (name,),
+                )
+                row = cur.fetchone()
+                con.close()
+                if not row or not row[0]:
+                    continue
+                ev = bytes(row[0])
+                if ev[:3] != b"v10":
+                    return ev.decode("utf-8", errors="replace")
+                key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
+                iv = b" " * 16
+                result = _sp_run(
+                    ["openssl", "enc", "-aes-128-cbc", "-d",
+                     "-K", key.hex(), "-iv", iv.hex(), "-nopad"],
+                    input=ev[3:], capture_output=True, timeout=5,
+                )
+                if result.returncode == 0:
+                    dec = result.stdout
+                    pad = dec[-1] if dec else 0
+                    if 0 < pad <= 16:
+                        dec = dec[:-pad]
+                    return dec.decode("utf-8", errors="replace")
+            except Exception:
+                pass
+        return ""
+
+    def _get_steam_id64(self) -> Optional[str]:
+        """Derive the user's SteamID64 from the Steam userdata directory.
+
+        Steam creates a per-user directory under userdata/ named by SteamID3
+        (the lower 32 bits of SteamID64). SteamID64 = SteamID3 + 76561197960265728.
+        No cookie or authentication needed — just a directory listing.
+        """
+        try:
+            userdata = os.path.expanduser("~/.local/share/Steam/userdata")
+            if not os.path.isdir(userdata):
+                return None
+            candidates = [
+                d for d in os.listdir(userdata)
+                if d.isdigit() and d != "0" and os.path.isdir(os.path.join(userdata, d))
+            ]
+            if not candidates:
+                return None
+            steam_id3 = int(candidates[0])
+            return str(76561197960265728 + steam_id3)
+        except Exception:
+            return None
+
+    async def get_wishlist(self, community_url: str = "", *args, **kwargs) -> Dict[str, Any]:
+        """Fetch the current user's Steam wishlist appids.
+
+        Uses IWishlistService/GetWishlist/v1/ with the SteamID64 derived from the
+        local userdata/ directory — no cookie or login required for public profiles.
+        Falls back to the JWT from the Chromium cookie store if the public call fails.
+        """
+        try:
+            steam_id64 = self._get_steam_id64()
+            if not steam_id64:
+                return {"ok": False, "error": "could not determine SteamID64 from userdata"}
+
+            base_url = f"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steam_id64}"
+
+            for attempt, url in enumerate([base_url, None]):
+                if attempt == 1:
+                    # Second attempt: try with JWT from cookie (for private wishlists)
+                    raw_cookie = self._get_steam_cookie("steamLoginSecure")
+                    if not raw_cookie:
+                        break
+                    parts = raw_cookie.split("||", 1)
+                    jwt = parts[1].strip() if len(parts) > 1 else ""
+                    if not jwt:
+                        break
+                    url = f"{base_url}&access_token={jwt}"
+
+                req = urllib.request.Request(
+                    url,
+                    headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
+                )
+                with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
+                    if resp.status != 200:
+                        continue
+                    body = resp.read().decode("utf-8")
+                    data = json.loads(body)
+                    items = data.get("response", {}).get("items", [])
+                    if not items and attempt == 0:
+                        continue  # might be private, try with auth
+                    ids: List[int] = [int(it["appid"]) for it in items if it.get("appid")]
+                    return {"ok": True, "ids": ids, "count": len(ids), "authed": attempt > 0}
+
+            return {"ok": False, "error": "wishlist empty or private (no auth)"}
+        except urllib.error.HTTPError as e:
+            return {"ok": False, "error": f"HTTP {e.code}"}
+        except Exception as e:
+            try:
+                decky.logger.error(f"get_wishlist failed: {e}")
+            except Exception:
+                pass
+            return {"ok": False, "error": str(e)}
 
     async def _main(self):
         self._ensure_dirs()

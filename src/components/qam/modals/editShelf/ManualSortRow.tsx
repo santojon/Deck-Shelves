@@ -298,8 +298,10 @@ export function ManualSortRow({
         const inHighlighted = highlightedAppIds.includes(id)
         const selected = highlightPickerOpen && inHighlighted
         const featured = highlightAll || (highlightFirst && idx === 0) || inHighlighted
-        const h = 100
-        const w = featured ? 210 : 68
+        // Match the ShelfPreview dimensions (PREVIEW_ART_H + FEATURED_CARD_W)
+        // so the manual-sort row reads at the same scale as every other tab.
+        const h = 110
+        const w = featured ? 250 : 78
         return (
           <HighlightMiniCard
             key={id}

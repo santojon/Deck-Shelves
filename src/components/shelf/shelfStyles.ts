@@ -27,7 +27,13 @@ let pendingDims: NativeCardDims | null = null;
 let pendingDimsCount = 0;
 
 function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
-  const w: any = globalThis as any;
+  // SharedJSContext has window.innerWidth/Height = 1, so reading from
+  // globalThis blocks persistence (the < 100 check below). Prefer the
+  // GamepadUI BrowserWindow which has the real viewport. Fall back to
+  // globalThis only when the GPU window isn't reachable.
+  let w: any = null;
+  try { w = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow; } catch {}
+  if (!w?.innerWidth) w = globalThis as any;
   return {
     vw: Math.round(Number(w?.innerWidth ?? 0)),
     vh: Math.round(Number(w?.innerHeight ?? 0)),
@@ -153,6 +159,7 @@ function ensureStyles() {
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
     if (dimsChanged && newDims) {
+      const hadDims = cachedNativeDims !== null;
       // Fast path: when the cache has no featuredWidth but the new measurement does,
       // accept immediately. The featured card would otherwise render at the fallback
       // landscape ratio for 6+ seconds (2 × poll interval) before resizing — visible
@@ -163,10 +170,11 @@ function ensureStyles() {
         persistDims(newDims);
         pendingDims = null;
         pendingDimsCount = 0;
-        // Synchronous notification — the 500ms debounce delays the featured
-        // card resize noticeably when it's finally discovered. Acquiring
-        // featured for the first time is a one-shot event; no debounce needed.
-        notifyDimsNow();
+        // If portrait dims were already cached (override mode on reload), debounce to
+        // avoid a resize flash when early polls fire before the layout stabilises.
+        // On a true cold boot (no prior dims), snap immediately — no visible card exists yet.
+        if (hadDims) debouncedNotifyDims(newDims);
+        else notifyDimsNow();
       } else {
       // Require 2 consecutive polls showing the same new values before accepting
       const matchesPending = pendingDims &&
@@ -233,6 +241,19 @@ function ensureStyles() {
         else doc.documentElement.style.setProperty('--ds-page-bg', 'rgb(0, 0, 0)');
       } catch {}
 
+      // SLH theme defense — that CSS Loader theme locks the home page to
+      // viewport height with absolutely-positioned containers, so our
+      // shelves below the visible area become unreachable (no native page
+      // scroll). Detected via the theme's `--SLH-lift-hero-px` custom
+      // property; when present, mark the documentElement so the stylesheet
+      // applies the layout overrides on the affected ancestor classes.
+      // Marker is removed when the theme is no longer active.
+      try {
+        const slh = getComputedStyle(doc.documentElement).getPropertyValue('--SLH-lift-hero-px').trim();
+        if (slh !== '') doc.documentElement.setAttribute('data-ds-slh', '1');
+        else doc.documentElement.removeAttribute('data-ds-slh');
+      } catch {}
+
       try {
         doc.documentElement.style.removeProperty('--ds-native-heading-color');
         const headings = doc.querySelectorAll('h2[class], h3[class]');
@@ -266,7 +287,7 @@ function buildStylesheet(): string {
     :root {
       --ds-card-radius: ${cachedCardRadius};
       --ds-card-dim: 0.9;
-      --ds-card-bg: rgba(3, 10, 30, 0.92);
+      --ds-card-bg: rgba(55, 55, 58, 0.52);
       --ds-shell-bg: transparent;
       --ds-page-bg: rgb(0, 0, 0);
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
@@ -360,8 +381,7 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       overflow: hidden;
       filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), width 0.12s ease, height 0.12s ease, min-width 0.12s ease, transform 0.4s;
-      will-change: width, height;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), transform 0.4s;
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
@@ -418,11 +438,12 @@ function buildStylesheet(): string {
     #deck-shelves-home-root .ds-card .ds-card-shimmer {
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+      background: linear-gradient(90deg, rgba(90,90,90,0.18) 0%, rgba(160,160,160,0.32) 50%, rgba(90,90,90,0.18) 100%);
       background-size: 200% 100%;
-      animation: ds-shelf-shimmer 1.8s ease-in-out infinite;
+      animation: ds-shelf-shimmer 2s ease-in-out infinite;
       pointer-events: none;
       z-index: 1;
+      border-radius: var(--ds-card-radius, 4px);
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
     /* Refresh icon spin — driven by class added on click via DOM (not React

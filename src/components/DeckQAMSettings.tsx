@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  ConfirmModal,
   Field,
   Focusable,
   SliderField,
@@ -32,7 +33,27 @@ import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 import { CollapsibleSection } from './ui'
-import { GearIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon } from './icons'
+import { GearIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon } from './icons'
+import { UpdateBanner } from './qam/UpdateBanner'
+
+function OnlinePrivacyModal({ closeModal, t, onAccept }: { closeModal?: () => void; t: (k: string) => string; onAccept: () => void }) {
+  return (
+    <ConfirmModal
+      strTitle={t('online_privacy_title')}
+      strOKButtonText={t('online_privacy_accept')}
+      strCancelButtonText={t('close')}
+      onOK={() => { closeModal?.(); onAccept(); }}
+      onCancel={() => closeModal?.()}
+    >
+      <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>{t('online_privacy_body')}</div>
+      <div style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.6, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+        <div style={{ marginBottom: 4 }}>📋 {t('online_privacy_item_wishlist')}</div>
+        <div style={{ marginBottom: 4 }}>💰 {t('online_privacy_item_price')}</div>
+        <div>🌐 {t('online_privacy_item_ping')}</div>
+      </div>
+    </ConfirmModal>
+  );
+}
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {
   let handle: any = null
@@ -182,6 +203,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   return (
     <div className='deck-shelves-qam-scope'>
       <DeckQAMStyles />
+
+      <UpdateBanner controller={controller} />
+
       <ToggleField
         label={t('enabled')}
         checked={settings.enabled && !mountCrashed}
@@ -204,6 +228,40 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           </div>
         )}
         <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
+      </CollapsibleSection>
+
+      <CollapsibleSection id='additional' icon={<PlusCircleIcon />} title={t('section_additional_features')} count={[settings.updateNotifyEnabled !== false, settings.onlineFeaturesEnabled === true].filter(Boolean).length}>
+        <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
+        <ToggleField
+          label={t('online_features')}
+          checked={settings.onlineFeaturesEnabled === true}
+          onChange={(value: boolean) => {
+            if (value && !settings.onlinePrivacyAccepted) {
+              openManagedModal((close) => (
+                <OnlinePrivacyModal
+                  closeModal={close}
+                  t={t}
+                  onAccept={() => { void actions.acceptOnlinePrivacy().then(() => actions.setOnlineFeaturesEnabled(true)); }}
+                />
+              ));
+            } else {
+              void actions.setOnlineFeaturesEnabled(value);
+            }
+          }}
+        />
+        <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+          {t('online_features_desc')}
+        </div>
+        {settings.onlineFeaturesEnabled === true && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />
+            <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(value: boolean) => void actions.setOnlinePriceSortEnabled(value)} />
+            <ToggleField label={t('online_hide_owned')} checked={settings.onlineHideOwnedGames !== false} onChange={(value: boolean) => void actions.setOnlineHideOwnedGames(value)} />
+            <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+              {t('online_hide_owned_desc')}
+            </div>
+          </div>
+        )}
       </CollapsibleSection>
 
       {replaceFailed && (

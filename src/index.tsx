@@ -1,4 +1,5 @@
 import { definePlugin } from "@decky/api";
+import i18next from "i18next";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -10,17 +11,23 @@ import { installRecentsReplace } from "./runtime/recentsReplace";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installPluginApi } from "./core/pluginApi";
-// Side-effect import: registers the internal-registry bootstrap on
-// pluginApi BEFORE installPluginApi() runs.
 import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
+import { checkForUpdate } from "./core/updateNotifier";
+import { getCurrentSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
+import { toaster } from "./shims/decky-api";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
 import { AboutPage } from "./components/AboutPage";
+import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
+import { ShelfManageRoute } from "./components/ShelfManageRoute";
 initI18n();
 
 const ABOUT_ROUTE = "/deck-shelves/about";
+const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
+const DELETE_ROUTE = "/deck-shelves/delete/:shelfId";
+const MANAGE_ROUTE = "/deck-shelves/manage/:shelfId";
 
 function DeckShelvesIcon() {
   return (
@@ -82,6 +89,32 @@ export default definePlugin((serverAPI?: any) => {
     <AboutPage />
   )); } catch (e) { console.warn("addRoute failed", e); }
 
+  // Edit / Delete routes — opened by the game context menu when the user
+  // selects "Edit" or "Delete" on a DS shelf card. The route mounts a
+  // SettingsController standalone (no QAM required), shows the modal via
+  // DFL.showModal (renders in a portal independent of the route), then
+  // navigates back. Path uses :shelfId parameter so the route handler can
+  // load the correct shelf from the location pathname.
+  try {
+    routerHook?.addRoute?.(EDIT_ROUTE, () => (
+      <ShelfEditRoute shelfId="" />
+    ), { exact: true });
+    routerHook?.addRoute?.(DELETE_ROUTE, () => (
+      <ShelfDeleteRoute shelfId="" />
+    ), { exact: true });
+    // Manage page — full-screen UI with all per-shelf actions (Edit /
+    // Duplicate / Hide / Move / Delete). The native game context menu
+    // shows a single "Deck Shelves" item that navigates here. Using a
+    // flat MenuItem + route navigation is the only injection shape that
+    // reliably survives React reconciliation across menu opens for every
+    // game type; a nested MenuGroup wrapper only commits to the DOM for
+    // the very first menu of the session and silently disappears on
+    // every subsequent open.
+    routerHook?.addRoute?.(MANAGE_ROUTE, () => (
+      <ShelfManageRoute shelfId="" />
+    ), { exact: true });
+  } catch (e) { console.warn("shelf modal route addRoute failed", e); }
+
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
 
   // Prefetch SteamOS version asynchronously so synchronous version-gated
@@ -91,6 +124,28 @@ export default definePlugin((serverAPI?: any) => {
   void prefetchSteamOSVersion().then((v) => {
     logDiagnostic("info", "SteamOS version", v ?? "unknown");
   }).catch(() => {});
+
+  // Update notifier — single demand probe at boot, gated by the persisted
+  // toggle (default ON). The 24h cache lives in localStorage so subsequent
+  // boots short-circuit; failures are silent. On a positive result, fire a
+  // toast so the user sees the notification even without opening QAM.
+  try {
+    const s = getCurrentSettings();
+    if (s?.updateNotifyEnabled !== false) {
+      void checkForUpdate().then((r) => {
+        if (
+          r.hasUpdate &&
+          r.latestVersion &&
+          r.latestVersion !== s?.updateNotifyDismissedVersion
+        ) {
+          toaster.toast({
+            title: i18next.t("pluginName"),
+            body: i18next.t("update_available", { version: r.latestVersion }),
+          });
+        }
+      }).catch(() => {});
+    }
+  } catch {}
 
   // Log system environment for easier support debugging
   try {
@@ -124,6 +179,9 @@ export default definePlugin((serverAPI?: any) => {
         patch?.uninstall?.();
         recentsReplacePatch?.uninstall?.();
         routerHook?.removeRoute?.(ABOUT_ROUTE);
+        routerHook?.removeRoute?.(EDIT_ROUTE);
+        routerHook?.removeRoute?.(DELETE_ROUTE);
+        routerHook?.removeRoute?.(MANAGE_ROUTE);
         uninstallRefresh();
         uninstallSystemEvents();
         uninstallPluginApi();

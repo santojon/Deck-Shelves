@@ -218,7 +218,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   // If all image URLs failed, render PlaceholderCard instead
   if (imgFailed || !firstUrl) {
-    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} featured={featured} />;
+    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} artH={artH} featured={featured} />;
   }
 
   const compat = item.deckCompatCategory ?? 0;
@@ -232,6 +232,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     : compat === 1 ? "ds-compat ds-compat-unsupported"
     : "";
   const showNewBadge = !hideNewBadge && item.isNew === true;
+  const discount = item.discountPercent;
+  const showDiscountBadge = typeof discount === 'number' && discount > 0;
 
   return (
     <Focusable
@@ -268,7 +270,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       <div
         className="ds-card-art"
         style={{
-          background: "var(--ds-card-bg, rgba(3, 10, 30, 0.92))",
+          background: "var(--ds-card-bg, rgba(50, 50, 55, 0.55))",
           overflow: "hidden",
         }}
       >
@@ -279,7 +281,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           onError={onImgError}
           onLoad={onImgLoad}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
-          loading="lazy"
+          loading="eager"
+          fetchPriority="high"
         />
         <div className={`ds-card-shimmer${imgLoaded ? ' ds-card-shimmer--loaded' : ''}`} aria-hidden="true" />
         {compatClass && (
@@ -288,7 +291,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
           </div>
         )}
-        {showNewBadge && (
+        {showDiscountBadge && (
+          <div className="ds-new-badge-band">
+            <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
+              {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+            </div>
+          </div>
+        )}
+        {showNewBadge && !showDiscountBadge && (
           <div className="ds-new-badge-band">
             <div className="ds-new-badge">{t('badge_new')}</div>
           </div>

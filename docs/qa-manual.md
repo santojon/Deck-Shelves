@@ -178,5 +178,10 @@ The build accepts environment flags that force specific UI states for repeatable
 | `DS_QA_FORCE_TABMASTER` | — | `present` / `absent` overrides TabMaster detection |
 | `DS_QA_FORCE_UNIFIDECK` | — | `present` / `absent` overrides UnifiDeck detection |
 | `DS_QA_FORCE_NONSTEAMBADGES` | — | `present` / `absent` overrides Non-Steam Badges detection |
+| `DS_QA_UPDATE_AVAILABLE` | `pnpm qa:update-available` | Short-circuits `checkForUpdate` with a fake `99.0.0` release so the QAM update banner renders without a network round trip |
+| `DS_QA_UPDATE_DISMISSED` | `pnpm qa:update-dismissed` | Sets `updateNotifyDismissedVersion = "99.0.0"` while keeping `qa:update-available` on — banner stays hidden because the user dismissed this exact version |
+| `DS_QA_UPDATE_OFFLINE` | `pnpm qa:update-offline` | Forces `isOnline()` to return `false` so the offline-skip path runs without unplugging the Deck |
+| `DS_QA_COLLECTION_EMPTY` | `pnpm qa:collection-empty` | Seeds a shelf whose collection-filter points at a non-existent collection — pre-#55 fix this leaked the entire library; now it renders empty (regression smoke) |
+| `DS_QA_COLLECTION_INVERTED` | `pnpm qa:collection-inverted` | Seeds two side-by-side shelves: "In Favorites" + "Installed but NOT in Favorites" (inverted) — visually verifies #56 |
 
 Combine flags as needed (e.g. `DS_QA_SMART_SHELVES_FIXTURE=1 DS_QA_SAVED_FILTERS_FIXTURE=1 pnpm run deploy:deck:hard`). Each one is independent and additive.

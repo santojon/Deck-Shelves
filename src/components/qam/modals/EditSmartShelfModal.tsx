@@ -19,7 +19,8 @@ import type { FilterGroup, SmartShelf } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
-import { resolveShelfAppIds } from '../../../steam'
+import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
+import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { SORT_OPTIONS } from './editShelf/constants'
@@ -31,7 +32,7 @@ import { PreviewPanel } from './editShelf/PreviewPanel'
 // SmartShelfModal also supports a modal-driven `create` mode that persists
 // only on Save (used by SmartShelfTemplateModal's custom button).
 import { ModalHeader } from './editShelf/ModalHeader'
-import { FunnelIcon, EyeIcon, SparkleIcon } from '../../icons'
+import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
@@ -176,6 +177,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
+  const [previewRefreshNonce, setPreviewRefreshNonce] = useState(0)
+  const previewShelfId = `${shelf.id}-preview`
+  const refreshPreview = () => {
+    invalidateSmartShelfCache(previewShelfId)
+    invalidateRandomSortCache(previewShelfId)
+    setPreviewRefreshNonce((n) => n + 1)
+  }
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf as any).highlightedAppIds?.length > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
   const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
@@ -202,15 +210,27 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   }, [isManual, hiddenCandidateIds, state.manualOrder])
   const reorderManual = (nextOrder: number[]) => setState((prev) => ({ ...prev, manualOrder: nextOrder }))
 
+  const sortLabel = (item: typeof SORT_OPTIONS[number]) => (
+    (item as any).requiresOnline
+      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><OnlineIcon size={14} style={{ opacity: 0.7 }} />{t(item.labelKey)}</span>
+      : t(item.labelKey)
+  ) as any
+  // Smart shelves resolve against the local library — no price cache, so
+  // online-only sorts (price_low, discount_high, original_price_high) are
+  // excluded from both pickers.
   const sortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS.map((item) => ({ data: item.value, label: t(item.labelKey) })),
+    () => SORT_OPTIONS
+      .filter((item) => !(item as any).requiresOnline)
+      .map((item) => ({ data: item.value, label: sortLabel(item) })),
     [t],
   )
   // `random` is excluded under a manual sort: re-shuffling the manual order
   // every render would defeat the user's explicit ordering. Persisted values
   // stay intact — only the option is hidden from this dropdown.
   const baseSortOptions = useMemo<SingleDropdownOption[]>(
-    () => SORT_OPTIONS.filter((item) => item.value !== 'manual' && item.value !== 'random').map((item) => ({ data: item.value, label: t(item.labelKey) })),
+    () => SORT_OPTIONS
+      .filter((item) => item.value !== 'manual' && item.value !== 'random' && !(item as any).requiresOnline)
+      .map((item) => ({ data: item.value, label: sortLabel(item) })),
     [t],
   )
 
@@ -240,7 +260,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       const previewSort = isManualSort
         ? (state.manualBaseSort || 'alphabetical')
         : (state.sort || (previewReverse ? 'alphabetical' : undefined))
-      resolveShelfAppIds(previewSource, state.limit, previewSort, undefined, previewReverse)
+      resolveShelfAppIds(previewSource, state.limit, previewSort, previewShelfId, previewReverse)
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
@@ -253,7 +273,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
         })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse])
+  }, [previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, previewRefreshNonce])
 
   useEffect(() => {
     let cancelled = false
@@ -659,7 +679,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         currentGroup={state.filterGroup}
                         onApply={(group) => setState((prev) => ({ ...prev, filterGroup: { ...group } }))}
                       />
-                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} controller={controller} />
+                      <FilterPanel group={state.filterGroup} onChange={(group) => setState((prev) => ({ ...prev, filterGroup: group }))} controller={controller} allowOnlineFilters={false} />
                     </FieldContainer>
                   ),
                 },
@@ -733,6 +753,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             hideInstallIndicator={state.hideInstallIndicator === true}
             hideSeeMore={state.hideSeeMore === true}
             hideRefreshCard={state.hideRefreshCard === true}
+            limit={state.limit}
+            shelfSource={previewSource}
+            shelfSort={state.sort}
+            onRefresh={refreshPreview}
           />
           </div>
         </Focusable>
