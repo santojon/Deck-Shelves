@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-05-14
+
 ### Added
 
 - **Two-level "Hide owned games" toggles (global + per-shelf).** Both the global `onlineHideOwnedGames` (QAM Additional Features) and the per-shelf `excludeOwned` (edit modal Source tab) now expose a sub-toggle (`onlineHideOwnedNonSteam` / `excludeOwnedNonSteam`) visible only when the parent is on. Main toggle hides games owned on Steam (appid match); sub-toggle also hides non-Steam shortcuts (name match via `getAllAppOverviews()`). New schema fields, new sanitizer whitelist entries in `main.py`, new i18n keys `hide_owned_non_steam` / `hide_owned_non_steam_desc` across all 19 locales. Existing `online_hide_owned*` / `exclude_owned*` strings reworded to clarify Steam-only scope of the main toggle.
