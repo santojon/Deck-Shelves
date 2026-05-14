@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SettingsSchema } from "../types";
+import { SettingsSchema, ShelfSourceSchema } from "../types";
 import { canBeInverted } from "../components/filter/utils";
 import { evaluateFilterGroup, type AppOverview } from "../steam";
 
@@ -184,6 +184,60 @@ describe("Connectivity helper — TTL cache", () => {
     } finally {
       (globalThis as any).fetch = realFetch;
       mod.__resetConnectivityCache();
+    }
+  });
+});
+
+describe("Online sort/filter gating", () => {
+  // Pins the `requiresOnline` flag on price/discount sorts so they can be
+  // hidden from non-online source pickers (EditShelfModal switches the
+  // dropdown contents based on this flag).
+  it("price/discount sorts carry requiresOnline=true", async () => {
+    const { SORT_OPTIONS } = await import("../components/qam/modals/editShelf/constants");
+    const online = SORT_OPTIONS.filter((o) => (o as any).requiresOnline).map((o) => o.value).sort();
+    expect(online).toEqual(["discount_high", "original_price_high", "price_low"]);
+  });
+
+  // Mirror check for the filter side — only `discount` is gated as online.
+  it("isOnlineFilterType returns true only for discount", async () => {
+    const { isOnlineFilterType } = await import("../components/filter/utils");
+    expect(isOnlineFilterType("discount" as any)).toBe(true);
+    expect(isOnlineFilterType("installed" as any)).toBe(false);
+    expect(isOnlineFilterType("favorites" as any)).toBe(false);
+    expect(isOnlineFilterType("playtimeRange" as any)).toBe(false);
+  });
+});
+
+describe("ShelfSourceSchema — online sources accept excludeOwned", () => {
+  // Pins the per-shelf "exclude owned games" toggle for wishlist/store
+  // sources. The flag is optional; absent/false fields are interchangeable.
+  it("wishlist source accepts excludeOwned=true", () => {
+    const parsed = ShelfSourceSchema.safeParse({ type: "wishlist", excludeOwned: true });
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === "wishlist") {
+      expect((parsed.data as any).excludeOwned).toBe(true);
+    }
+  });
+
+  it("store source accepts excludeOwned=true alongside childFilter", () => {
+    const parsed = ShelfSourceSchema.safeParse({
+      type: "store",
+      excludeOwned: true,
+      childFilter: { mode: "and", items: [] },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("wishlist source without excludeOwned still parses (back-compat)", () => {
+    const parsed = ShelfSourceSchema.safeParse({ type: "wishlist" });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("non-online sources are unaffected by excludeOwned (extra fields stripped)", () => {
+    const parsed = ShelfSourceSchema.safeParse({ type: "tab", tab: "favorites" });
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === "tab") {
+      expect((parsed.data as any).excludeOwned).toBeUndefined();
     }
   });
 });

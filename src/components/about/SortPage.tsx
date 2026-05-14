@@ -30,8 +30,8 @@ export function SortPage() {
       ))}
       <DocCallout variant="note">{t('docs_filters_sort_tab_note')}</DocCallout>
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_sort_direction_title')}</span>} />
-      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_sort_direction_body')}</span>} />
       <DocCallout variant="tip">{t('docs_sort_direction_tip')}</DocCallout>
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_sort_direction_body')}</span>} />
     </DocSection>
   )
 }

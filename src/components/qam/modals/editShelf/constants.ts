@@ -1,4 +1,4 @@
-export type SourceType = 'collection' | 'tab' | 'filter' | 'external'
+export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store'
 export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display'
 
 export const BASE_SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']

@@ -34,6 +34,16 @@ describe('shouldShowRefreshCard', () => {
   it('global hideRefreshCard suppresses', () => {
     expect(shouldShowRefreshCard({ source: { type: 'smart', mode: 'random_pick' }, globalHideRefreshCard: true })).toBe(false);
   });
+
+  it('online sources (wishlist/store) always show refresh card', () => {
+    expect(shouldShowRefreshCard({ source: { type: 'wishlist' } })).toBe(true);
+    expect(shouldShowRefreshCard({ source: { type: 'store' } })).toBe(true);
+  });
+
+  it('online sources still respect hideRefreshCard toggle', () => {
+    expect(shouldShowRefreshCard({ source: { type: 'wishlist' }, hideRefreshCard: true })).toBe(false);
+    expect(shouldShowRefreshCard({ source: { type: 'store' }, globalHideRefreshCard: true })).toBe(false);
+  });
 });
 
 describe('shouldShowMoreCard', () => {

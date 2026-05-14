@@ -12,8 +12,61 @@ import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
-import { applyManualOrder, invalidateRandomSortCache } from "../steam";
+import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
+import { clearOnlineShelfCache, dispatchShelfModal, toggleShelfHiddenById, moveShelfById, duplicateShelfById } from "../core/shelfActions";
+
+/** Opens the Steam Store page for an appid using the best available method.
+ *  Tries the steam:// protocol first since it is the only path that works
+ *  reliably in Big Picture / Gaming Mode — WebChat.OpenURLInClient exists in
+ *  Gaming Mode but silently routes to the (hidden) chat window. */
+function openSteamStorePage(appid: number) {
+  try {
+    const sc = (globalThis as any).SteamClient;
+    if (typeof sc?.URL?.ExecuteSteamURL === 'function') {
+      sc.URL.ExecuteSteamURL(`steam://store/${appid}`);
+      return;
+    }
+    if (typeof sc?.System?.OpenInSystemBrowser === 'function') {
+      sc.System.OpenInSystemBrowser(`https://store.steampowered.com/app/${appid}/`);
+      return;
+    }
+    if (typeof sc?.WebChat?.OpenURLInClient === 'function') {
+      sc.WebChat.OpenURLInClient(`https://store.steampowered.com/app/${appid}/`);
+      return;
+    }
+  } catch {}
+}
+
+/** Opens an arbitrary Steam Store URL. Same precedence as openSteamStorePage. */
+function openSteamStoreUrl(url: string, steamUrl?: string) {
+  try {
+    const sc = (globalThis as any).SteamClient;
+    if (steamUrl && typeof sc?.URL?.ExecuteSteamURL === 'function') {
+      sc.URL.ExecuteSteamURL(steamUrl);
+      return;
+    }
+    if (typeof sc?.System?.OpenInSystemBrowser === 'function') {
+      sc.System.OpenInSystemBrowser(url);
+      return;
+    }
+    if (typeof sc?.WebChat?.OpenURLInClient === 'function') {
+      sc.WebChat.OpenURLInClient(url);
+      return;
+    }
+  } catch {}
+}
+
+/** Reads discount% from the price cache for a given appid, or null. */
+function getCachedDiscount(appid: number): number | null {
+  try {
+    const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1');
+    if (!raw) return null;
+    const cache = JSON.parse(raw);
+    const d = cache[appid]?.data?.discount;
+    return typeof d === 'number' ? d : null;
+  } catch { return null; }
+}
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -35,6 +88,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     return null;
   });
   const [items, setItems] = useState<Map<number, PlatformAppMeta>>(new Map());
+  const [storeNames, setStoreNames] = useState<Map<number, string>>(new Map());
+  const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null);
   const firstLoad = useRef(true);
   const [metaVersion, setMetaVersion] = useState(0);
   // Increments on every `resolve()` call; each in-flight promise captures
@@ -146,11 +201,155 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     return () => { cancelled = true; };
   }, [platform, appIds?.join(","), metaVersion]);
 
+  // Async name fetch for online-source items not in the local appStore.
+  // Uses the public Steam Store API (appdetails?filters=basic) which works
+  // from the browser without authentication.
+  const isOnlineShelf = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
+  const excludeOwned = isOnlineShelf && (shelf.source as any).excludeOwned === true;
+
+  // Build a Set of locally-owned game names (Steam + non-Steam shortcuts),
+  // lowercased and trimmed, for the excludeOwned filter on online shelves.
+  // Only fetched when the toggle is on for this shelf.
+  useEffect(() => {
+    if (!excludeOwned) { setOwnedNames(null); return; }
+    let cancelled = false;
+    getAllAppOverviews().then((apps) => {
+      if (cancelled) return;
+      const names = new Set<string>();
+      for (const a of apps) {
+        const n = (a as any)?.display_name ?? (a as any)?.name;
+        if (typeof n === 'string' && n) names.add(n.trim().toLowerCase());
+      }
+      setOwnedNames(names);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [excludeOwned]);
+  useEffect(() => {
+    if (!isOnlineShelf || !appIds?.length) return;
+    // Read previously-fetched names from localStorage cache to show instantly.
+    const NAME_CACHE_KEY = 'ds-game-name-cache-v1';
+    const nameCache: Record<number, string> = (() => {
+      try { return JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}'); } catch { return {}; }
+    })();
+    // Pre-populate storeNames from cache immediately — no async needed.
+    const cached = new Map<number, string>();
+    for (const id of appIds) {
+      if (nameCache[id]) cached.set(id, nameCache[id]);
+    }
+    if (cached.size) setStoreNames(prev => { const n = new Map(prev); cached.forEach((v, k) => n.set(k, v)); return n; });
+    // Fetch names for IDs not yet cached.
+    const toFetch = appIds.filter((id) => {
+      const meta = items.get(id);
+      return (!meta || /^App \d+$/.test(meta.name)) && !nameCache[id];
+    });
+    if (!toFetch.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        // Use a small batch (10) so each request stays fast (~50KB vs ~500KB for 50 games).
+        // Fetch only the first 60 IDs to stay under the 8s total resolver budget.
+        const limited = toFetch.slice(0, 60);
+        const BATCH = 10;
+        const deadline = Date.now() + 10000;
+        const names = new Map<number, string>();
+        for (let i = 0; i < limited.length && Date.now() < deadline; i += BATCH) {
+          const batch = limited.slice(i, i + BATCH);
+          const ac = new AbortController();
+          const tid = setTimeout(() => ac.abort(), 4000);
+          try {
+            // Note: &filters=basic is rejected by some Steam Store endpoints;
+            // omitting the filters parameter returns the full response including name.
+            const resp = await fetch(
+              `https://store.steampowered.com/api/appdetails?appids=${batch.join(',')}`,
+              { signal: ac.signal },
+            );
+            clearTimeout(tid);
+            if (!resp.ok) continue;
+            const json = await resp.json();
+            for (const id of batch) {
+              const n = json?.[id]?.data?.name;
+              if (n) names.set(id, n);
+            }
+          } catch { clearTimeout(tid); }
+        }
+        if (!cancelled && names.size) {
+          // Persist to localStorage cache for instant display on next render.
+          try {
+            const merged = { ...nameCache };
+            names.forEach((v, k) => { merged[k] = v; });
+            localStorage.setItem(NAME_CACHE_KEY, JSON.stringify(merged));
+          } catch {}
+          setStoreNames(prev => { const n = new Map(prev); names.forEach((v, k) => n.set(k, v)); return n; });
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [isOnlineShelf, appIds?.join(','), items]);
+
   const rowItems = useMemo((): DeckRowItem[] => {
     if (!appIds?.length) return [];
     const base = appIds.flatMap((appid): DeckRowItem[] => {
       const item = items.get(appid) ?? { appid, name: `App ${appid}` };
-      if (/^App \d+$/.test(item.name)) return [];
+      const isStoreFallback = /^App \d+$/.test(item.name);
+      const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
+
+      // Online shelves (wishlist/store) only show non-owned games.
+      // Owned games are excluded so the shelf acts as a discovery surface.
+      if (!isStoreFallback && isOnlineSource) return [];
+      if (isStoreFallback && !isOnlineSource) return [];
+
+      // excludeOwned (online sources only): drop games whose name matches a
+      // locally-owned title — covers non-Steam shortcuts that share a name
+      // with a Steam Store entry (different appid, so the appStore check
+      // above misses them). Only filters once storeNames has loaded.
+      if (excludeOwned && ownedNames && isOnlineSource) {
+        const n = (storeNames.get(appid) ?? '').trim().toLowerCase();
+        if (n && ownedNames.has(n)) return [];
+      }
+
+      // Non-owned game from an online source: decorative card with CDN artwork.
+      // Artwork URL: use the public Akamai CDN which has better global availability
+      // than the Cloudflare edge for in-client requests. Clicking opens the Steam
+      // Store page for the game (works natively in Big Picture via /library/app/).
+      if (isStoreFallback && isOnlineSource) {
+        const cdnPortrait = `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/library_600x900.jpg`;
+        const cdnHero = `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`;
+        const gameName = storeNames.get(appid) ?? `#${appid}`;
+        const discountPct = getCachedDiscount(appid);
+        // Online card menu: show ONLY DS shelf actions — no native Steam menu.
+        const showOnlineMenu = () => {
+          try {
+            const dfl = (globalThis as any).DFL ?? (globalThis as any).deckyFrontendLib;
+            const R = (globalThis as any).SP_REACT;
+            if (!dfl?.showContextMenu || !R || !dfl.MenuItem || !dfl.Menu) return;
+            const mk = (key: string, label: string, fn: () => void) =>
+              R.createElement(dfl.MenuItem, { key, onSelected: fn }, label);
+            const items = [
+              mk('edit', t('editShelf'), () => dispatchShelfModal('edit', shelf.id)),
+              mk('dup', t('duplicateShelf'), () => void duplicateShelfById(shelf.id, t('copySuffix'))),
+              mk('hide', t('hide_shelf'), () => void toggleShelfHiddenById(shelf.id)),
+              mk('up', t('move_up'), () => void moveShelfById(shelf.id, -1)),
+              mk('down', t('move_down'), () => void moveShelfById(shelf.id, 1)),
+              mk('refresh', t('refresh_cache'), () => { clearOnlineShelfCache(); resolveRef.current(); }),
+              mk('del', t('deleteShelf'), () => dispatchShelfModal('delete', shelf.id)),
+            ];
+            const menu = R.createElement(dfl.Menu, { label: t('menu_deck_shelves'), cancelText: t('cancel') }, ...items);
+            dfl.showContextMenu(menu, null);
+          } catch {}
+        };
+        return [{
+          id: appid,
+          appid,
+          name: gameName,
+          portraitUrl: cdnPortrait,
+          heroUrl: cdnHero,
+          onActivate: () => openSteamStorePage(appid),
+          onMenuButton: showOnlineMenu,
+          discountPercent: discountPct ?? undefined,
+          shelfId: shelf.id,
+        }];
+      }
+
       // Pass `shelf.id` so the captured native menu (and the DFL fallback)
       // gain a `Deck Shelves > Shelf > […]` submenu — same afterPatch / HOC
       // afterPatch / HOC seam. Non-shelf game cards still get the
@@ -174,6 +373,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         isSteam: item.isSteam,
         isNew,
         statusText: item.installed != true ? t('status_not_installed') : undefined,
+        discountPercent: getCachedDiscount(appid) ?? undefined,
         shelfId: shelf.id,
       }];
     });
@@ -191,27 +391,46 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     };
     if (shouldShowRefreshCard(trailingInput)) {
       const isSmart = (shelf.source as any)?.type === 'smart';
+      const refreshName = isOnlineShelf ? t('refresh_cache') : t('refresh');
       base.push({
         id: `${shelf.id}__refresh`,
-        name: t('refresh'),
+        name: refreshName,
         isRefresh: true,
         onActivate: () => {
-          if (isSmart) invalidateSmartShelfCache(shelf.id);
-          else invalidateRandomSortCache(shelf.id);
+          if (isOnlineShelf) {
+            clearOnlineShelfCache();
+          } else if (isSmart) {
+            invalidateSmartShelfCache(shelf.id);
+          } else {
+            invalidateRandomSortCache(shelf.id);
+          }
           resolveRef.current();
         },
       });
     }
     if (shouldShowMoreCard(trailingInput)) {
+      const moreLabel = isOnlineShelf
+        ? (shelf.source.type === 'wishlist' ? t('view_more_wishlist') : t('view_more_store'))
+        : t('view_more');
+      // Online "see more": open the wishlist or Steam Store browse page.
+      const moreActivate = isOnlineShelf
+        ? () => {
+            const url = shelf.source.type === 'wishlist'
+              ? ((globalThis as any).urlStore?.m_steamUrls?.userwishlist?.url
+                  ?? 'https://store.steampowered.com/wishlist/')
+              : 'https://store.steampowered.com/specials/';
+            openSteamStoreUrl(url, `steam://openurl/${url}`);
+          }
+        : () => platform.navigateToShelfSource?.(shelf.source, shelf.title);
       base.push({
         id: `${shelf.id}__more`,
-        name: t('view_more'),
+        name: moreLabel,
         isMoreLink: true,
-        onActivate: () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
+        onActivate: moreActivate,
       });
     }
     return base;
-  }, [appIds, items, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
+  }, [appIds, items, storeNames, ownedNames, excludeOwned, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
@@ -230,13 +449,13 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   }
   if (!rowItems.length) return null;
 
-  const effectiveHide = globalHideStatusLine === true ? true : (shelf.hideStatusLine === true);
+  const effectiveHide = globalHideStatusLine === true ? true : (shelf.hideStatusLine === true) || isOnlineShelf;
   const effectiveHideNewBadge = globalHideNewBadge === true ? true : (shelf.hideNewBadge === true);
   const effectiveHideCompatIcons = globalHideCompatIcons === true ? true : (shelf.hideCompatIcons === true);
   const effectiveHideNonSteamBadge = globalHideNonSteamBadge === true ? true : (shelf.hideNonSteamBadge === true);
   const effectiveHideShelfTitle = globalHideShelfTitle === true ? true : ((shelf as any).hideShelfTitle === true);
   const effectiveHideGameNames = globalHideGameNames === true ? true : ((shelf as any).hideGameNames === true);
-  const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true);
+  const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
   return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} />;
 }
 

@@ -16,6 +16,20 @@ import type { Shelf } from "../types";
  * the same persistence path as the QAM controller — no diverging state.
  */
 
+/** Clears online feature caches (store, wishlist, price, name). */
+export function clearOnlineShelfCache(): void {
+  const keys = [
+    "ds-store-cache-v1",
+    "ds-wishlist-cache-v1",
+    "ds-price-cache-v1",
+    "ds-game-name-cache-v1",
+  ];
+  try {
+    for (const k of keys) (globalThis as any).localStorage?.removeItem?.(k);
+    (globalThis as any).window?.dispatchEvent?.(new CustomEvent("ds-shelf-refresh"));
+  } catch {}
+}
+
 export async function patchShelfById(id: string, patch: Partial<Shelf>): Promise<void> {
   const s = getCurrentSettings();
   if (!s) return;

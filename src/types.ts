@@ -164,7 +164,8 @@ export const ShelfSourceSchema = z.union([
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
-  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional() }),
+  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional() }),
+  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional() }),
 ]);
 
 export type ShelfSource = z.infer<typeof ShelfSourceSchema>;
@@ -242,6 +243,7 @@ export const SettingsSchema = z.object({
   onlineWishlistEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   onlinePriceSortEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
+  onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? true),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

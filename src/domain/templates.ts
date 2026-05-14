@@ -115,7 +115,10 @@ export const ONLINE_SHELF_TEMPLATES: ShelfTemplate[] = [
     titleKey: "template_wishlist_on_sale",
     category: "online",
     requiresOnline: true,
-    source: { type: "wishlist" },
+    source: {
+      type: "wishlist",
+      childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 1, maxDiscount: 99 } }] },
+    } as any,
     defaultSort: "discount_high",
   },
   {
@@ -123,8 +126,11 @@ export const ONLINE_SHELF_TEMPLATES: ShelfTemplate[] = [
     titleKey: "template_free_wishlist",
     category: "online",
     requiresOnline: true,
-    source: { type: "wishlist" },
-    defaultSort: "price_low",
+    source: {
+      type: "wishlist",
+      childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] },
+    } as any,
+    defaultSort: "original_price_high",
   },
   {
     id: "free_now",
@@ -132,7 +138,7 @@ export const ONLINE_SHELF_TEMPLATES: ShelfTemplate[] = [
     category: "online",
     requiresOnline: true,
     source: {
-      type: "wishlist",
+      type: "store",
       childFilter: {
         mode: "and",
         items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }],

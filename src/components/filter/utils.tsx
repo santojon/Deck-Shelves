@@ -162,6 +162,11 @@ export function getTypeLabel(type: FilterItemType): string {
   return map[type] ?? type;
 }
 
+/** Returns true when this filter type requires online features (price cache). */
+export function isOnlineFilterType(type: FilterItemType): boolean {
+  return type === "discount";
+}
+
 export function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

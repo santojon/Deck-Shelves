@@ -13,7 +13,7 @@ const TPL_CATEGORY_KEY: Record<ShelfTemplateCategory, string> = {
   status: "template_category_status",
   time: "template_category_time",
   platform: "template_category_platform",
-  online: "online_features",
+  online: "template_category_online",
 }
 
 function openManagedModal(render: (close: () => void) => React.ReactElement) {

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Focusable } from "@decky/ui";
+import { useTranslation } from "react-i18next";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 
 export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean }) {
+  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
 
@@ -19,6 +21,9 @@ export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH
   }, []);
 
   const cachedCardRadius = getCachedCardRadius();
+  const discount = item.discountPercent;
+  const showDiscountBadge = typeof discount === 'number' && discount > 0;
+  const showNewBadge = item.isNew === true && !showDiscountBadge;
 
   return (
     <Focusable
@@ -75,6 +80,18 @@ export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH
         }}>
           {item.name}
         </span>
+        {showDiscountBadge && (
+          <div className="ds-new-badge-band">
+            <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
+              {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+            </div>
+          </div>
+        )}
+        {showNewBadge && (
+          <div className="ds-new-badge-band">
+            <div className="ds-new-badge">{t('badge_new')}</div>
+          </div>
+        )}
       </div>
     </Focusable>
   );

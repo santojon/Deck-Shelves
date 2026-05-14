@@ -11,6 +11,9 @@ import {
 import { useSettingsController } from "../features/settings/controller";
 import { PlatformProvider, getPlatform } from "../runtime/platformContext";
 import { showEditShelfModal, showDeleteConfirm } from "./qam/list/ShelfActions";
+import { clearOnlineShelfCache } from "../core/shelfActions";
+import { invalidateRandomSortCache } from "../steam";
+import { subscribeShelfRefresh } from "../core/shelfRefresh";
 
 /** Parses the shelfId out of the current URL path. Route is registered as
  *  /deck-shelves/manage/:shelfId. */
@@ -55,8 +58,26 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
   const onMoveDown = () => { actions.moveShelf(shelf.id, 1); closeRoute(); };
   const onDelete = () => { showDeleteConfirm(controller, shelf); closeRoute(); };
 
+  const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
+  const isRandomSource = shelf.sort === 'random' ||
+    (shelf.source.type === 'filter' && (shelf.source as any).filter?.sort === 'random') ||
+    shelf.source.type === 'smart';
+  const showRefreshOption = isOnlineSource || isRandomSource;
+  const onRefreshCache = () => {
+    if (isOnlineSource) {
+      clearOnlineShelfCache();
+    } else {
+      invalidateRandomSortCache(shelf.id);
+    }
+    try {
+      (globalThis as any).window?.dispatchEvent?.(new CustomEvent('ds-shelf-refresh'));
+    } catch {}
+    closeRoute();
+  };
+
   // Suppress unused-var TS hint — needed to force re-render after collapse toggle.
   void collapsedTick;
+  void subscribeShelfRefresh; // imported for type-checking only
 
   return (
     <Focusable>
@@ -92,6 +113,13 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
                   {t("move_down") ?? "Move down"}
                 </DialogButton>
               </PanelSectionRow>
+              {showRefreshOption && (
+                <PanelSectionRow>
+                  <DialogButton onClick={onRefreshCache} onOKButton={onRefreshCache}>
+                    {isOnlineSource ? (t("refresh_cache") ?? "Refresh cache") : (t("refresh") ?? "Refresh")}
+                  </DialogButton>
+                </PanelSectionRow>
+              )}
               <PanelSectionRow>
                 <DialogButton onClick={onDelete} onOKButton={onDelete}>{t("deleteShelf") ?? "Delete"}</DialogButton>
               </PanelSectionRow>

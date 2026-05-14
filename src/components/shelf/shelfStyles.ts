@@ -287,7 +287,7 @@ function buildStylesheet(): string {
     :root {
       --ds-card-radius: ${cachedCardRadius};
       --ds-card-dim: 0.9;
-      --ds-card-bg: rgba(3, 10, 30, 0.92);
+      --ds-card-bg: rgba(55, 55, 58, 0.52);
       --ds-shell-bg: transparent;
       --ds-page-bg: rgb(0, 0, 0);
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
@@ -438,11 +438,12 @@ function buildStylesheet(): string {
     #deck-shelves-home-root .ds-card .ds-card-shimmer {
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+      background: linear-gradient(90deg, rgba(90,90,90,0.18) 0%, rgba(160,160,160,0.32) 50%, rgba(90,90,90,0.18) 100%);
       background-size: 200% 100%;
-      animation: ds-shelf-shimmer 1.8s ease-in-out infinite;
+      animation: ds-shelf-shimmer 2s ease-in-out infinite;
       pointer-events: none;
       z-index: 1;
+      border-radius: var(--ds-card-radius, 4px);
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
     /* Refresh icon spin — driven by class added on click via DOM (not React

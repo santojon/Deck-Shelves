@@ -102,7 +102,7 @@ Events:
 
 ### Built-in registry surface
 
-Sprint 8 registers every first-party id (16 smart-shelf modes, 21 filter types, 10 sort options) on the same registry external plugins write to. So `getRegisteredSmartSources()`, `getRegisteredFilterTypes()` and `getRegisteredSortOptions()` enumerate **built-ins + external entries**.
+Every first-party id (16 smart-shelf modes, 21 filter types, 10 sort options) is registered on the same registry external plugins write to. So `getRegisteredSmartSources()`, `getRegisteredFilterTypes()` and `getRegisteredSortOptions()` enumerate **built-ins + external entries**.
 
 Resolver precedence is fixed: built-in ids always win. An external descriptor that registers an id matching one of our built-ins never replaces it at resolve time. Use the helpers below to detect collisions:
 

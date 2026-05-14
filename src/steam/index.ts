@@ -13,6 +13,21 @@ import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/s
 
 export type SteamCollection = { id: string; name: string };
 
+/**
+ * Reads `onlineFeaturesEnabled` directly from the settings localStorage cache
+ * without Zod validation. Used as a resilient fallback when `getCurrentSettings()`
+ * returns null (e.g., when the schema rejects a stored filter type that was added
+ * after the settings were persisted — parse fails, current = null, resolver stalls).
+ */
+function isOnlineFeaturesEnabledRaw(): boolean {
+  try {
+    const raw = (globalThis as any).localStorage?.getItem?.("deck-shelves-settings-cache-v3");
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    return data?.onlineFeaturesEnabled === true;
+  } catch { return false; }
+}
+
 const COLLECTION_CACHE_TTL = 60_000;
 const collectionRawCache = new Map<string, { data: any; ts: number }>();
 
@@ -1789,23 +1804,24 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       break;
     }
     case "discount": {
-      // Reads discount % synchronously from the price cache populated by
-      // onlineStore.ts. Games without cached data pass through (inclusive) so
-      // an uncached library doesn't empty the shelf when the feature is first
-      // enabled. Cache is warmed lazily on wishlist/price-sort shelf loads.
+      // Reads discount % from the price cache (populated by onlineStore.ts).
+      // Games without price data (F2P, no price_overview) return FALSE so
+      // they are excluded — discount is only meaningful for priced games.
+      // If the entire cache is missing (feature just enabled, no data yet)
+      // pass through so the shelf isn't completely empty on first load.
       try {
         const appid = appIdOf(app);
-        if (!appid) { result = true; break; }
+        if (!appid) { result = false; break; }
         const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
-        if (!raw) { result = true; break; }
-        const cache: Record<number, { ts: number; data: { discount: number; isFree?: boolean } }> = JSON.parse(raw);
+        if (!raw) { result = true; break; } // no cache yet → pass through
+        const cache: Record<number, { ts: number; data: { discount: number } }> = JSON.parse(raw);
         const entry = cache[appid];
-        if (!entry?.data) { result = true; break; }
+        if (!entry?.data) { result = false; break; } // not in cache = no price = F2P → exclude
         const disc = entry.data.discount ?? 0;
         const min = Number(item.params?.minDiscount ?? 0);
         const max = Number(item.params?.maxDiscount ?? 100);
         result = disc >= min && disc <= max;
-      } catch { result = true; }
+      } catch { result = false; }
       break;
     }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
@@ -2354,24 +2370,41 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       const { getCurrentSettings } = await import("../store/settingsStore");
       const { getWishlistIds } = await import("../core/onlineStore");
       const s = getCurrentSettings();
-      if (!s?.onlineFeaturesEnabled || !s?.onlineWishlistEnabled) return [];
+      const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+      if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
       const wishlistIds = await getWishlistIds();
       if (!wishlistIds) return [];
-      // Intersect with installed/owned appIds so we only surface owned games.
+      // Optionally exclude games already in the local library (owned/installed).
       const ownedSet = new Set(all.map((a) => appIdOf(a)));
-      let ids = wishlistIds.filter((id) => ownedSet.has(id));
-      // Apply childFilter before sort — narrows the candidate pool.
+      const hideOwned = s?.onlineHideOwnedGames !== false;
+      let ids = hideOwned ? wishlistIds.filter((id) => !ownedSet.has(id)) : [...wishlistIds];
+      // Apply childFilter: discount filter uses price cache and works for every
+      // wishlist item; AppOverview-dependent filters only apply to games already
+      // in the local library (others pass through so they're not hidden).
       const childFilter = (source as any).childFilter;
       if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
         const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
-        const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
-        ids = evaluateFilterGroup(childFilter, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+        ids = ids.filter((id) => {
+          const app = byId.get(id);
+          return childFilter.items.every((item: any) => {
+            if (item.type === "discount") {
+              return evaluateFilterItem(item, { appid: id } as any, undefined);
+            }
+            if (!app) return true;
+            return evaluateFilterItem(item, app, undefined);
+          });
+        });
       }
       const isPriceSort = sort === "price_low" || sort === "discount_high" || sort === "original_price_high";
       if (sort && !isPriceSort) {
-        ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
+        // AppOverview-based sort: sort the subset in local library first,
+        // then append remaining wishlist-only games in their original order.
+        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+        const localIds = ids.filter((id) => byId.has(id));
+        const remoteIds = ids.filter((id) => !byId.has(id));
+        const sortedLocal = applySortToIds(localIds, sort, all, shelfId, sortReverse);
+        ids = [...sortedLocal, ...remoteIds];
       }
-      ids = deduplicateNonSteam(ids, all);
       if (isPriceSort) {
         ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", sortReverse);
       }
@@ -2379,6 +2412,59 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       return finish(ids.slice(0, overShootLimit));
     } catch (e) {
       logWarn("STEAM", "resolveShelfAppIds(wishlist) failed", String(e));
+      return [];
+    }
+  }
+
+  if (source.type === "store") {
+    try {
+      const { getCurrentSettings } = await import("../store/settingsStore");
+      const { getStoreGameIds, getPriceMap } = await import("../core/onlineStore");
+      const s = getCurrentSettings();
+      const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+      if (!onlineEnabled) return [];
+      let ids = await getStoreGameIds();
+      if (!ids) return [];
+
+      // If there's a discount childFilter, pre-fetch prices so the filter
+      // can evaluate against real data rather than passing through everything.
+      const childFilter = (source as any).childFilter;
+      const hasDiscountFilter = Array.isArray(childFilter?.items) &&
+        childFilter.items.some((item: any) => item.type === "discount");
+      if (hasDiscountFilter) await getPriceMap(ids);
+
+      // Apply childFilter (discount uses price cache; others use AppOverview).
+      // Optionally exclude owned games from the store shelf.
+      const ownedSetStore = new Set(all.map((a) => appIdOf(a)));
+      const hideOwnedStore = s?.onlineHideOwnedGames !== false;
+      if (hideOwnedStore) ids = ids.filter((id) => !ownedSetStore.has(id));
+
+      if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
+        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+        ids = ids.filter((id) =>
+          childFilter.items.every((item: any) => {
+            if (item.type === "discount") return evaluateFilterItem(item, { appid: id } as any, undefined);
+            const app = byId.get(id);
+            if (!app) return true;
+            return evaluateFilterItem(item, app, undefined);
+          })
+        );
+      }
+
+      const isPriceSort = sort === "price_low" || sort === "discount_high" || sort === "original_price_high";
+      if (sort && !isPriceSort) {
+        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+        const localIds = ids.filter((id) => byId.has(id));
+        const remoteIds = ids.filter((id) => !byId.has(id));
+        const sortedLocal = applySortToIds(localIds, sort, all, shelfId, sortReverse);
+        ids = [...sortedLocal, ...remoteIds];
+      } else if (isPriceSort) {
+        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", sortReverse);
+      }
+      logInfo("STEAM", "resolveShelfAppIds(store) resolved", { count: ids.length });
+      return finish(ids.slice(0, overShootLimit));
+    } catch (e) {
+      logWarn("STEAM", "resolveShelfAppIds(store) failed", String(e));
       return [];
     }
   }

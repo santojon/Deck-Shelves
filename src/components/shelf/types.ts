@@ -16,6 +16,7 @@ export type DeckRowItem = {
   updatePending?: boolean;
   isSteam?: boolean;
   isNew?: boolean;
+  discountPercent?: number;
 };
 
 export const CARD_W = 134;

@@ -85,6 +85,16 @@ export function GearIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function PlusCircleIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </svg>
+  );
+}
+
 export function StackIcon({ size = 14, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)}>
@@ -167,6 +177,18 @@ export function TrashIcon({ size = 16, style }: IconProps) {
 }
 
 // Steam logo — used to mark Steam-native entries in import lists.
+export function OnlineIcon({ size = 12, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
 // Filled style breaks the Feather aesthetic of the rest of the set, but
 // the brand mark is a standard recognition cue and a stroke version
 // would be unrecognizable.

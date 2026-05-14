@@ -7,7 +7,7 @@ import MergeFilterOptions from "./MergeFilterOptions";
 import { COMPAT_LEVELS } from "./utils";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
 
-export default function FilterItemOptions({ item, onChange, controller }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: import("../../features/settings/controller").SettingsController }) {
+export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: import("../../features/settings/controller").SettingsController; allowOnlineFilters?: boolean }) {
   const t = i18n.t.bind(i18n);
   const p = item.params ?? {};
   const patchParams = (patch: Record<string, any>) => onChange({ params: { ...p, ...patch } });
@@ -290,36 +290,29 @@ export default function FilterItemOptions({ item, onChange, controller }: { item
       const maxDisc = Number(p.maxDiscount ?? 100);
       return (
         <>
-          <div>
-            <Field label={`${t("filter_discount_min")}: ${minDisc}%`} bottomSeparator="none">
-              <SliderField
-                label=""
-                value={minDisc}
-                min={0}
-                max={100}
-                step={5}
-                onChange={(v: number) => patchParams({ minDiscount: v })}
-              />
-            </Field>
-          </div>
-          <div>
-            <Field label={`${t("filter_discount_max")}: ${maxDisc === 100 ? t("filter_discount_max_any") : maxDisc + "%"}`} bottomSeparator="none">
-              <SliderField
-                label=""
-                value={maxDisc}
-                min={0}
-                max={100}
-                step={5}
-                onChange={(v: number) => patchParams({ maxDiscount: v })}
-              />
-            </Field>
-          </div>
+          <SliderField
+            label={`${t("filter_discount_min")}: ${minDisc}%`}
+            value={minDisc}
+            min={0}
+            max={100}
+            step={5}
+            onChange={(v: number) => patchParams({ minDiscount: v, maxDiscount: Math.max(v, maxDisc) })}
+            bottomSeparator="none"
+          />
+          <SliderField
+            label={`${t("filter_discount_max")}: ${maxDisc}%`}
+            value={maxDisc}
+            min={0}
+            max={100}
+            step={5}
+            onChange={(v: number) => patchParams({ maxDiscount: v, minDiscount: Math.min(v, minDisc) })}
+            bottomSeparator="none"
+          />
         </>
       );
     }
-
     case "merge":
-      return <MergeFilterOptions item={item} onChange={onChange} controller={controller} />;
+      return <MergeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />;
 
     default:
       return null;

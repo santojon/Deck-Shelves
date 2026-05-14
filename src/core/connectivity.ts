@@ -11,7 +11,7 @@
  */
 const PROBE_URL = "https://store.steampowered.com/favicon.ico";
 const PROBE_TIMEOUT_MS = 3000;
-const TTL_MS = 30 * 1000;
+const TTL_MS = 10 * 1000; // 10s — short enough to recover from startup false-negative
 
 let cachedResult: boolean | null = null;
 let cachedAt = 0;
@@ -46,7 +46,8 @@ async function probe(): Promise<boolean> {
     const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch {} }, PROBE_TIMEOUT_MS) : null;
     try {
       const res = await fetch(PROBE_URL, { method: "HEAD", cache: "no-store", signal: ctrl?.signal });
-      return res.ok;
+      // Opaque responses (CORS-blocked) indicate the server was reachable — count as online.
+      return res.ok || res.type === "opaque";
     } finally {
       if (timer) clearTimeout(timer);
     }

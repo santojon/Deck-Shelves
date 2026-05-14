@@ -34,6 +34,10 @@ const Cloud = mk(<path d="M5 12a3 3 0 010-6 4 4 0 017.5-.5A3 3 0 1112 12H5z" str
 const ShieldCheck = mk(<><path d="M8 2L3 4.2v3.8C3 11 5.3 13.5 8 14c2.7-.5 5-3 5-6V4.2L8 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M5.5 8l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></>)
 // Thumbs up — top reviewed
 const ThumbsUp = mk(<><path d="M5 14V8h2l3-5a1.5 1.5 0 011.5 1.5V7h2.5a2 2 0 012 2.3l-1 5a2 2 0 01-2 1.7H7l-2-2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><rect x="2.5" y="8" width="2.5" height="6" rx="0.5" stroke="currentColor" strokeWidth="1.4"/></>)
+const Bookmark = mk(<><path d="M4 2h8a1 1 0 011 1v10l-5-3-5 3V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></>)
+const Tag = mk(<><path d="M2 2h6l6 6-6 6L2 8V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/></>)
+const Gift = mk(<><rect x="2" y="7" width="12" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><path d="M14 10H2M8 7V14M8 7c0-2 2-4 3-2s-1 2-3 2M8 7c0-2-2-4-3-2s1 2 3 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></>)
+const Fire = mk(<><path d="M8 14c-3 0-5-2-5-5 0-2 1-3.5 2.5-4.5 0 1.5 1 2.5 1 2.5 0-2 1-4 3-5 0 2 1 3 2 3.5C12 6.5 13 8 13 9c0 3-2 5-5 5z" fill="currentColor" opacity="0.8"/><path d="M8 12c-1.5 0-2.5-1-2.5-2 0-1 .5-1.5 1.5-2 0 .8.5 1.5 1 1.5 0-1 .5-2 1.5-2.5-.5 1 0 2 .5 2.5.5-.5 1-.5 1 .5C11 11 9.5 12 8 12z" fill="currentColor"/></>)
 
 export const SHELF_TPL_ICON: Record<string, React.ReactElement> = {
   blank: Plus,
@@ -48,6 +52,10 @@ export const SHELF_TPL_ICON: Record<string, React.ReactElement> = {
   steam_cloud: Cloud,
   deck_verified: ShieldCheck,
   top_reviewed: ThumbsUp,
+  wishlist: Bookmark,
+  wishlist_on_sale: Tag,
+  free_wishlist: Gift,
+  free_now: Fire,
 }
 
 // Calendar with X — game sitting untouched for years

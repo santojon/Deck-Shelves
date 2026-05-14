@@ -10,6 +10,8 @@ import {
   setShelfCollapsed,
   dispatchShelfModal,
 } from "./shelfActions";
+import { invalidateRandomSortCache } from "../steam";
+import { invalidateSmartShelfCache } from "../steam/smartShelves";
 
 /**
  * Returns `true` when this device should use the pre-3.8 (v1.4.0-style) menu
@@ -531,6 +533,12 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
   const item = (key: string, label: string, onSelected: () => void, disabled?: boolean) =>
     R.createElement(dfl.MenuItem, { key, onSelected, disabled }, label);
 
+  const src: any = shelf?.source;
+  const isRandomOrSmart =
+    src?.type === "smart" ||
+    shelf?.sort === "random" ||
+    (src?.type === "filter" && src?.filter?.sort === "random");
+
   const children = [
     item("ds-edit", lbl("editShelf", "Edit"), () => dispatchShelfModal("edit", shelfId)),
     item("ds-duplicate", lbl("duplicateShelf", "Duplicate"), () => {
@@ -549,6 +557,15 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
     ),
     item("ds-move-up", lbl("move_up", "Move up"), () => { void moveShelfById(shelfId, -1); }, idx <= 0),
     item("ds-move-down", lbl("move_down", "Move down"), () => { void moveShelfById(shelfId, 1); }, idx >= shelves.length - 1),
+    ...(isRandomOrSmart ? [
+      item("ds-refresh", lbl("refresh", "Refresh"), () => {
+        try {
+          if (src?.type === "smart") invalidateSmartShelfCache(shelfId);
+          else invalidateRandomSortCache(shelfId);
+          (globalThis as any).window?.dispatchEvent?.(new CustomEvent("ds-shelf-refresh"));
+        } catch {}
+      }),
+    ] : []),
     item("ds-delete", lbl("deleteShelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
   ];
 
