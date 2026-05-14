@@ -136,17 +136,32 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   }, []);
 
   useEffect(() => {
+    // Add a class from the runtime map (space-joined values supported) to an
+    // element idempotently. No-ops when the key isn't present.
+    function addMapClasses(el: HTMLElement | null, key: string, map: Record<string, string> | null) {
+      if (!el || !map?.[key]) return;
+      for (const c of map[key].split(/\s+/)) {
+        if (c && !el.classList.contains(c)) el.classList.add(c);
+      }
+    }
     function injectShelfNativeClasses() {
       const doc = getPreferredSteamDocument();
       const map = doc ? getRuntimeClassMap(doc) : null;
       if (!map) return;
-      if (map.nativeShelf && outerRef.current && !outerRef.current.classList.contains(map.nativeShelf)) {
-        outerRef.current.classList.add(map.nativeShelf);
-      }
-      if (map.nativeShelfTitle && titleRef.current && !titleRef.current.classList.contains(map.nativeShelfTitle)) {
-        titleRef.current.classList.add(map.nativeShelfTitle);
-      }
+      // Legacy heuristic-derived classes (existing behavior).
+      addMapClasses(outerRef.current, 'nativeShelf', map);
+      addMapClasses(titleRef.current, 'nativeShelfTitle', map);
       if (map.nativeShelfRow) setNativeRowClass(map.nativeShelfRow);
+      // DFL-derived semantic layout classes (additive — themes targeting these
+      // semantic names reach DS shelves via the same translation that runs on
+      // native shelves). Safe set: container / header wrappers only. State
+      // classes (focus, hover) intentionally excluded to avoid conflicting
+      // with DS's own focus handling.
+      addMapClasses(outerRef.current, 'nativeRecentsContainer', map);
+      addMapClasses(outerRef.current, 'nativeRecentsInner', map);
+      addMapClasses(outerRef.current, 'nativeRecentsSection', map);
+      addMapClasses(titleRef.current, 'nativeRecentsHeader', map);
+      addMapClasses(titleRef.current, 'nativeRecentsHeaderLabel', map);
     }
     injectShelfNativeClasses();
     const t = setTimeout(injectShelfNativeClasses, 500);

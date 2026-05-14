@@ -9,7 +9,8 @@ const STYLE_ID = "deck-shelves-row-style";
 const DIMS_TOL_PX = 4;            // ignore jitter smaller than this
 const DIMS_STABLE_POLLS = 2;      // consecutive matches required before accepting
 const DIMS_DEBOUNCE_MS = 500;     // notify listeners after the churn settles
-const STYLES_POLL_MS = 3000;      // how often ensureStyles re-runs
+const STYLES_POLL_MS = 3000;      // fast cadence while dims aren't stable
+const STYLES_POLL_MS_IDLE = 30000;// slower cadence once featured dims are cached
 
 // Persisted cache (cold-start reflow avoidance)
 const DIMS_CACHE_KEY = "ds-cardsize";
@@ -644,12 +645,27 @@ function buildStylesheet(): string {
 // Single global timer for ensureStyles — shared by all DeckRow instances.
 let globalStyleRefCount = 0;
 let globalStyleTimer: ReturnType<typeof setInterval> | null = null;
+let globalStyleTimerPeriod: number = STYLES_POLL_MS;
 let globalResizeHandler: (() => void) | null = null;
+
+// Re-arm the steady poll at the appropriate cadence. Fast (3s) while featured
+// dims aren't cached yet; slow (30s) once they are — most theme changes also
+// fire resize/hashchange, which immediately re-invoke ensureStyles regardless.
+function rearmStyleTimer() {
+  const wantPeriod = cachedNativeDims?.featuredWidth ? STYLES_POLL_MS_IDLE : STYLES_POLL_MS;
+  if (globalStyleTimer && globalStyleTimerPeriod === wantPeriod) return;
+  if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
+  globalStyleTimerPeriod = wantPeriod;
+  globalStyleTimer = setInterval(() => {
+    ensureStyles();
+    rearmStyleTimer();
+  }, wantPeriod);
+}
 
 export function globalStylesStart() {
   if (++globalStyleRefCount === 1) {
     ensureStyles();
-    globalStyleTimer = setInterval(ensureStyles, STYLES_POLL_MS);
+    rearmStyleTimer();
     globalResizeHandler = () => ensureStyles();
     window.addEventListener('resize', globalResizeHandler);
     // Short burst of early polls to catch native dims as soon as Steam's home
@@ -670,6 +686,7 @@ export function globalStylesStop() {
   if (--globalStyleRefCount <= 0) {
     globalStyleRefCount = 0;
     if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
+    globalStyleTimerPeriod = STYLES_POLL_MS;
     if (globalResizeHandler) { window.removeEventListener('resize', globalResizeHandler); globalResizeHandler = null; }
   }
 }

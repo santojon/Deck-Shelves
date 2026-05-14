@@ -808,9 +808,8 @@ async function renderHomeShelves() {
     } catch {}
 
     // Discover obfuscated/webpack-hashed class tokens and inject a runtime map so
-    // the rest of the plugin can rely on deterministic selectors. This mirrors
-    // the approach taken by CSS Loader: discover classes at runtime and make
-    // them available to injected code before mounting UI.
+    // the rest of the plugin can rely on deterministic selectors — classes are
+    // discovered at runtime and made available to injected code before mounting UI.
     try {
       const hostDoc = getHostContext().doc;
       // Always run discovery so new keys (nativeShelf, nativeShelfRow, etc.) get populated
