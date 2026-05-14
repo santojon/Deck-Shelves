@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Two-level "Hide owned games" toggles (global + per-shelf).** Both the global `onlineHideOwnedGames` (QAM Additional Features) and the per-shelf `excludeOwned` (edit modal Source tab) now expose a sub-toggle (`onlineHideOwnedNonSteam` / `excludeOwnedNonSteam`) visible only when the parent is on. Main toggle hides games owned on Steam (appid match); sub-toggle also hides non-Steam shortcuts (name match via `getAllAppOverviews()`). New schema fields, new sanitizer whitelist entries in `main.py`, new i18n keys `hide_owned_non_steam` / `hide_owned_non_steam_desc` across all 19 locales. Existing `online_hide_owned*` / `exclude_owned*` strings reworded to clarify Steam-only scope of the main toggle.
+
+### Changed
+
+- **`onlineHideOwnedGames` default flipped from `true` to `false`.** Fresh installs (and any settings missing the field) now show owned games in online shelves by default; user must opt in. Schema transform, `defaults.ts`, `controller.tsx` inline fallbacks, and `main.py` sanitizer aligned to the new default.
+- **Unified global + per-shelf owned-game filter path in `Shelf.tsx`.** The previously-unconditional "hide library games from online shelves" check at the render layer is now gated by `shouldHideOwned = globalHideOwned || excludeOwned`. The owned-name set (`ownedNames`) is built when either toggle is on, with non-Steam shortcuts included when the matching sub-toggle is active. `globalHideOwned` / `globalHideOwnedNonSteam` are React state synced to `deck-shelves-settings-changed` so toggle flips re-render the shelf without reload.
+
+### Fixed
+
+- **Global "Hide owned games" toggle now actually filters at the render layer.** Previously, line 276 of `Shelf.tsx` unconditionally hid every library game from wishlist/store shelves regardless of toggle state, making the global toggle a no-op for users with a clean wishlist (every owned game was always hidden anyway) and making name-based filtering of non-Steam shortcuts unreachable without the per-shelf toggle.
+- **Global sub-toggle `onlineHideOwnedNonSteam` no longer deactivates itself on save.** Root cause: the Python `_sanitize_settings` whitelist in `main.py` was stripping the new field on every persist, so it round-tripped as `null` and the schema transform reset it to `false`. Added the field to the sanitizer return dict.
+- **Per-shelf sub-toggle (`excludeOwnedNonSteam`) now reflects in the edit-modal preview.** The preview's meta `useEffect` was filtering only by `getAppMeta` appid; it now also pre-fetches non-Steam shortcut names from `getAllAppOverviews()` and applies the name filter when `excludeOwnedNonSteam` is on.
+- **Settings test fixture aligned with new schema.** `src/test/domain/settings.test.ts` now includes `onlineHideOwnedNonSteam` and uses the new `onlineHideOwnedGames: false` default — restores `pnpm typecheck` / precommit gate.
+
 ## [2.2.0] - 2026-05-14
 
 ### Added
