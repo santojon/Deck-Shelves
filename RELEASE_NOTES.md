@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-05-14
+
 ### Added
 
 - **"Additional features" section in the QAM.** Plugin-wide extras now live in their own collapsible section (between Behavior and Shelves) — Check for updates and Online features (with sub-toggles for Wishlist / Price sort / Hide owned). The update notification banner also moved above the main on/off switch, so update reminders stay visible no matter which section you have collapsed.

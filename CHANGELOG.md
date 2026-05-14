@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-05-14
+
 ### Added
 
 - **"Exclude owned games" toggle on online shelves (`excludeOwned`).** Per-shelf toggle in the Source tab of the edit modal, visible only for `wishlist` / `store` sources. When on, filters out any game whose exact name (case-insensitive) matches an entry in the local library — including non-Steam shortcuts that share a name with a Steam Store entry but use a different appid. The owned-name set is built from `getAllAppOverviews()` once per shelf and only when the toggle is on. New schema field `excludeOwned: boolean` on the wishlist/store source variants. New i18n keys `exclude_owned_label`, `exclude_owned_desc` across all 19 locales. Schema acceptance pinned by `ShelfSourceSchema` regression tests.

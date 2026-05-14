@@ -1,6 +1,6 @@
 {
   "name": "deck-shelves",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "Decky Loader plugin that injects configurable shelves into Steam Deck Home and provides a Steam Deck focused QAM editor.",
   "type": "module",
   "scripts": {
