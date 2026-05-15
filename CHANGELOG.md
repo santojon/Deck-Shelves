@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-05-15
+
 ### Fixed
 
 - **"Use shelf as Recents (experimental)" crash on library open after Steam restart (#60).** Root cause: `filterKnownAppIds` validated only `appStore.GetAppOverviewByAppID` + `app_type`, but the recents component crashes in Steam's `userCollections` getter (`Cannot read properties of undefined (reading 'values')`) for appids that aren't present in `collectionStore.allAppsCollection.apps` — typical for non-owned games (wishlist / store metadata / friends-playing entries that appStore happens to know about). New `getOwnedAppIdSet()` reads the owned-set from `collectionStore.allAppsCollection.apps` (falling back to `allGamesCollection` / `localGamesCollection`) and returns `null` when the store hasn't populated yet. `filterKnownAppIds` now requires every id to be in that owned set AND have a renderable `app_type` AND have an appStore overview — the only filter that maps 1:1 to "this id won't crash the recents renderer." When `getOwnedAppIdSet()` returns `null` (collectionStore not ready, typical 0–80 s window on cold boot), `scheduleResolve` bails silently instead of injecting; once the store comes online the periodic + event-driven retries pick the strict path up.
