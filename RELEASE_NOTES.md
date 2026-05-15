@@ -5,6 +5,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Use shelf as Recents (experimental)" no longer crashes the library after a Steam restart (#60).** With the toggle on, opening Library on a fresh boot could show Steam's error page (`An error occurred while rendering this content`). The injection now waits for Steam's library catalog to be ready before it touches the recents shelf, and only ever sends games you actually own — wishlist / store entries you don't own are skipped automatically. If your first shelf is a wishlist or store shelf, recents falls through to the next visible shelf instead of trying to use a non-owned game (which is what caused the crash).
+- **"Use shelf as Recents" applies without needing to restart Steam.** Toggling the option on now updates the recents shelf as soon as Steam has finished loading your library — usually within a few seconds — instead of requiring a restart for the swap to take effect.
+
 ## [2.2.1] - 2026-05-14
 
 ### Added
