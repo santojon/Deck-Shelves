@@ -105,11 +105,54 @@ function markReplaceFailed(reason: string) {
  *  `userCollections` getter because those collections don't index them. */
 const RENDERABLE_STEAM_APP_TYPES: ReadonlySet<number> = new Set([1, 2, 1073741824]); // Game, Application, Non-Steam Shortcut
 
+/** The crash in issue #60 ("Cannot read properties of undefined (reading
+ *  'values')") originates from Steam's `userCollections` getter — which
+ *  lives in `collectionStore`, NOT `appStore`. An appid can have a valid
+ *  appStore overview yet not be present in any user collection (typical
+ *  for wishlist / store-recommendation ids the user doesn't own), and
+ *  those are the ones that crash the recents renderer. Membership in
+ *  `allAppsCollection.apps` (a Set of owned/installed appids) is the only
+ *  reliable signal that an id is safe to inject. */
+function getOwnedAppIdSet(): Set<number> | null {
+  const cs: any = (globalThis as any).collectionStore;
+  if (!cs) return null;
+  const coll = cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection;
+  const apps = coll?.apps;
+  if (!apps) return null;
+  const out = new Set<number>();
+  try {
+    if (apps instanceof Set) {
+      for (const v of apps) {
+        const id = typeof v === "number" ? v : Number((v as any)?.appid ?? (v as any)?.nAppID);
+        if (Number.isFinite(id) && id > 0) out.add(id);
+      }
+    } else if (typeof apps?.values === "function") {
+      for (const v of apps.values()) {
+        const id = typeof v === "number" ? v : Number((v as any)?.appid ?? (v as any)?.nAppID);
+        if (Number.isFinite(id) && id > 0) out.add(id);
+      }
+    } else if (Array.isArray(apps)) {
+      for (const v of apps) {
+        const id = typeof v === "number" ? v : Number((v as any)?.appid ?? (v as any)?.nAppID);
+        if (Number.isFinite(id) && id > 0) out.add(id);
+      }
+    }
+  } catch { return null; }
+  return out.size > 0 ? out : null;
+}
+
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
   if (!store || typeof store.GetAppOverviewByAppID !== "function") return [];
+  // Owned-set check is the real safety net against issue #60: only ids
+  // that collectionStore knows about can be safely rendered. Null means
+  // collectionStore isn't ready yet — bail out (return []) so the caller
+  // waits for the retry tick rather than injecting prematurely.
+  const owned = getOwnedAppIdSet();
+  if (!owned) return [];
   const out: number[] = [];
   for (const id of ids) {
+    if (!owned.has(id)) continue;
     try {
       const ov = store.GetAppOverviewByAppID(id);
       if (ov && typeof ov.app_type === "number" && RENDERABLE_STEAM_APP_TYPES.has(ov.app_type)) {
@@ -189,18 +232,25 @@ function scheduleResolve(shelf: any) {
       const prev = cachedAppIds;
       const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
       const known = filterKnownAppIds(valid);
-      if (known.length === 0 && valid.length > 0) {
-        cachedAppIds = valid;
-        cachedShelfId = shelf.id;
-        cachedTitle = shelf.title ?? cachedTitle;
-        const changed = prev?.length !== cachedAppIds.length || prev?.some((v, i) => v !== cachedAppIds![i]);
-        if (changed) { notifyInjectingChange(); forceRemountRecents(); }
-        return;
-      }
       if (known.length === 0) {
-        // Shelf resolved to 0 native-renderable apps — try the next
-        // candidate (normals first, then visible smart shelves). setTimeout
-        // so resolvePromise is null before the next call.
+        if (valid.length > 0 && !getOwnedAppIdSet()) {
+          // Fresh-boot window: collectionStore hasn't built
+          // allAppsCollection yet. Injecting ids before that's ready
+          // crashes Steam's userCollections getter (issue #60). Don't
+          // promote to next candidate either — every shelf will look
+          // "empty" until the store loads. Bail silently; the periodic
+          // tick + RegisterForAppOverviewChanges will retry once
+          // collectionStore comes online.
+          lastResolveKey = "";
+          return;
+        }
+        // Strict filter rejected every id. This is either an online shelf
+        // (wishlist/store) returning non-owned games, or a shelf whose
+        // contents are all unrenderable types (Tool, DLC, etc.). Promote
+        // to the next candidate — never fall back to unfiltered ids, even
+        // partially, because Steam's recents component cannot safely
+        // render anything outside the strict whitelist (Game / Application
+        // / Non-Steam Shortcut).
         const candidates = visibleCandidateShelves();
         const currentIdx = candidates.findIndex((sh: any) => sh.id === shelf.id);
         const next = candidates[currentIdx + 1];
@@ -223,7 +273,18 @@ function scheduleResolve(shelf: any) {
     })
     .catch((err) => {
       logWarn("RUNTIME", "resolveShelfAppIds failed", String(err));
-      cachedAppIds = [];
+      // Resolve failure (typical for online shelves when the network is
+      // down or the user has online features off) — promote to the next
+      // candidate so a failed first shelf doesn't leave recents empty.
+      const candidates = visibleCandidateShelves();
+      const currentIdx = candidates.findIndex((sh: any) => sh.id === shelf.id);
+      const next = candidates[currentIdx + 1];
+      if (next) {
+        lastResolveKey = "";
+        setTimeout(() => scheduleResolve(next), 0);
+      } else {
+        cachedAppIds = [];
+      }
     })
     .finally(() => { resolvePromise = null; });
 }
@@ -421,7 +482,9 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
   // If already on home at install time, we trigger resolve ourselves.
   // Timers only call scheduleResolve — forceRemountRecents is called by
   // scheduleResolve internally when data changes, so we never disturb
-  // the native tree unnecessarily.
+  // the native tree unnecessarily. Range covers the first ~80s because
+  // collectionStore.allAppsCollection can take that long to populate on
+  // a cold boot (issue #60); after that the 90s periodic tick takes over.
   const bootstrapTimers: ReturnType<typeof setTimeout>[] = [];
   const tryResolve = () => {
     if (replaceFailed || (cachedAppIds && cachedAppIds.length > 0)) return;
@@ -430,9 +493,28 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
     lastResolveKey = "";
     scheduleResolve(shelf);
   };
-  for (const d of [300, 1000, 2500, 5000, 10000]) {
+  for (const d of [300, 1000, 2500, 5000, 10000, 20000, 40000, 80000]) {
     bootstrapTimers.push(setTimeout(tryResolve, d));
   }
+
+  // collectionStore.on('change') fires when the user's collections (and
+  // the underlying allAppsCollection.apps set) finish populating on cold
+  // boot, or when the user installs/removes an app. Either trigger is a
+  // good moment to re-resolve: the boot case unblocks the filter that
+  // requires owned-set membership, and the install/uninstall case keeps
+  // the recents list aligned with the user's library state.
+  let unsubColl: (() => void) | null = null;
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    if (cs && typeof cs.on === "function") {
+      const handler = () => {
+        const shelf = activeFirstShelf();
+        if (shelf) { lastResolveKey = ""; scheduleResolve(shelf); }
+      };
+      cs.on("change", handler);
+      unsubColl = () => { try { cs.off?.("change", handler); } catch {} };
+    }
+  } catch {}
 
   let resumeUnsub: (() => void) | null = null;
   try {
@@ -454,6 +536,7 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
       try { routerHook.removePatch?.("/library/home", patch); } catch {}
       try { unsubSettings?.(); } catch {}
       try { unsubApp?.(); } catch {}
+      try { unsubColl?.(); } catch {}
       try { uninstallErrorTrap(); } catch {}
       try { resumeUnsub?.(); } catch {}
       clearInterval(periodicTimer);

@@ -1,7 +1,7 @@
 name: "[BUG] Bug Report"
 description: Something is broken or behaving unexpectedly
 title: "[BUG] "
-labels: ["bug", "triage"]
+labels: ["type::bug"]
 body:
   - type: markdown
     attributes:
