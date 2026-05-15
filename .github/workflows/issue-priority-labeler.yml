@@ -26,11 +26,11 @@ jobs:
             if (hasAnyMatching(/^priority::/)) return;
 
             let priority = null;
-            if (has("type::bug") && (has("os::steamos") || has("os::steamosbeta"))) {
+            if (has("type::bug") && has("os::steamos")) {
               priority = "priority::high";
             } else if (has("type::bug")) {
               priority = "priority::medium";
-            } else if (has("type::enhancement", "type::feature", "documentation", "area::docs")) {
+            } else if (has("type::enhancement", "type::feature", "area::docs")) {
               priority = "priority::low";
             }
 
