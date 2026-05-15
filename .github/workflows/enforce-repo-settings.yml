@@ -58,6 +58,9 @@ jobs:
               { name: "type::bug",         color: "d73a4a", description: "Something isn't working" },
               { name: "type::feature",     color: "0E8A16", description: "New feature or request" },
               { name: "type::enhancement", color: "a2eeef", description: "Improvement to an existing feature" },
+              { name: "type::duplicated",  color: "cfd3d7", description: "Issue or pull request already exists" },
+              { name: "type::invalid",     color: "e4e669", description: "Not a real issue or doesn't seem right" },
+              { name: "type::wontfix",     color: "ffffff", description: "This will not be worked on" },
               // Priority labels (assigned automatically by issue-priority-labeler; critical is manual-only)
               { name: "priority::critical", color: "B60205", description: "Critical — immediate fix (crash, regression, security)" },
               { name: "priority::high",     color: "D93F0B", description: "High — prioritized fix in the next PATCH release" },
@@ -78,9 +81,8 @@ jobs:
               { name: "area::backend",      color: "FFA500", description: "main.py — Python backend" },
             ];
 
-            // SteamOSBeta is replaced by the OS::SteamOS + release::beta pair.
             // The `documentation` default GitHub label is replaced by area::docs.
-            const deprecated = ["mode desktop", "OS::SteamOSBeta", "documentation"];
+            const deprecated = ["mode desktop", "documentation"];
 
             const existing = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
             const existingMap = new Map(existing.map(l => [l.name, l]));
