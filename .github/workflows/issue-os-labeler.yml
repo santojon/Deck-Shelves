@@ -24,18 +24,17 @@ jobs:
             const text  = `${title}\n${body}`;
 
             // Detection order matters: more specific labels must be checked
-            // first so they win over broader fallbacks. SteamOSBeta is the
-            // narrowest — only fires when "steamos" appears alongside any
-            // beta / preview signal — and is intentionally checked BEFORE
-            // the generic SteamOS bucket below.
+            // first so they win over broader fallbacks. The SteamOS-beta
+            // signal is detected here as a flag — when it fires we apply
+            // OS::SteamOS + release::beta instead of a dedicated beta label
+            // (kept consistent with the plugin release-channel convention).
+            const steamOsBetaPatterns = [
+              /\bsteam\s*os\b[\s\S]{0,80}\b(beta|preview|3\.[7-9]\d*\.\d+)\b/i,
+              /\b(beta|preview)\b[\s\S]{0,80}\bsteam\s*os\b/i,
+            ];
+            const isSteamOsBeta = steamOsBetaPatterns.some((p) => p.test(text));
+
             const buckets = [
-              {
-                label: "OS::SteamOSBeta",
-                patterns: [
-                  /\bsteam\s*os\b[\s\S]{0,80}\b(beta|preview|3\.[7-9]\d*\.\d+)\b/i,
-                  /\b(beta|preview)\b[\s\S]{0,80}\bsteam\s*os\b/i,
-                ],
-              },
               { label: "OS::Bazzite",       patterns: [/\bbazzite\b/i] },
               { label: "OS::Chimera",       patterns: [/\bchimera\s*os\b/i, /\bchimeraos\b/i, /\bchimera\b/i] },
               { label: "OS::MacOS",         patterns: [/\bmac\s*os\b/i, /\bmacos\b/i, /\bdarwin\b/i, /\bosx\b/i] },
@@ -66,9 +65,13 @@ jobs:
               }
             }
 
-            // If SteamOSBeta matched, also keep SteamOS — they're not mutually
-            // exclusive (the issue still references SteamOS, just a beta build).
-            if (toAdd.has("OS::SteamOSBeta")) toAdd.add("OS::SteamOS");
+            // SteamOS-beta signal: apply OS::SteamOS + release::beta together
+            // (no dedicated OS::SteamOSBeta label — kept in line with the
+            // plugin release-channel convention).
+            if (isSteamOsBeta) {
+              toAdd.add("OS::SteamOS");
+              toAdd.add("release::beta");
+            }
 
             // Fallback: if no specific OS matched but the issue clearly
             // references a Deck/HoloISO-style environment (e.g. "Decky",

@@ -1,7 +1,7 @@
 name: "[FEATURE] Feature Request"
 description: Propose a new feature for Deck Shelves
 title: "[FEATURE] "
-labels: ["feature", "triage"]
+labels: ["type::feature"]
 body:
   - type: markdown
     attributes:

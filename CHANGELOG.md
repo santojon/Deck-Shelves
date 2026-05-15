@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-05-15
+
+### Fixed
+
+- **"Use shelf as Recents (experimental)" crash on library open after Steam restart (#60).** Root cause: `filterKnownAppIds` validated only `appStore.GetAppOverviewByAppID` + `app_type`, but the recents component crashes in Steam's `userCollections` getter (`Cannot read properties of undefined (reading 'values')`) for appids that aren't present in `collectionStore.allAppsCollection.apps` — typical for non-owned games (wishlist / store metadata / friends-playing entries that appStore happens to know about). New `getOwnedAppIdSet()` reads the owned-set from `collectionStore.allAppsCollection.apps` (falling back to `allGamesCollection` / `localGamesCollection`) and returns `null` when the store hasn't populated yet. `filterKnownAppIds` now requires every id to be in that owned set AND have a renderable `app_type` AND have an appStore overview — the only filter that maps 1:1 to "this id won't crash the recents renderer." When `getOwnedAppIdSet()` returns `null` (collectionStore not ready, typical 0–80 s window on cold boot), `scheduleResolve` bails silently instead of injecting; once the store comes online the periodic + event-driven retries pick the strict path up.
+- **"Use shelf as Recents" no longer needs a Steam restart to take effect when the first shelf is an online source.** Removed the PR #58 unfiltered fallback (`cachedAppIds = valid` when strict rejected all) which was the source of the crash above — promoting unfiltered ids was inherently unsafe regardless of timing. Replaced with deterministic next-candidate promotion: when the strict filter returns 0 against a ready `collectionStore`, the resolver moves to the next visible shelf instead of trying to inject. Wishlist / store shelves in position 0 are now skipped cleanly (the user's first owned shelf takes their slot). Resolve failures in the `.catch` path also promote to the next candidate now, instead of leaving recents empty.
+- **Faster post-boot recovery for the recents replace.** Added a `collectionStore.on("change")` listener so the resolver re-runs immediately when `allAppsCollection` finishes populating, instead of waiting up to 90 s for the next periodic tick. Bootstrap retry timers extended from `[300, 1000, 2500, 5000, 10000]` ms to `[300, 1000, 2500, 5000, 10000, 20000, 40000, 80000]` ms so the cold-boot window is fully covered before the periodic interval takes over.
+
 ## [2.2.1] - 2026-05-14
 
 ### Added
