@@ -32,7 +32,7 @@ type NativeHeroClasses = {
   wrapperClasses: string[];
 };
 
-export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
+export function HeroBackground({ mountEl, shelves, shelfHeroBackground }: { mountEl: HTMLElement; shelves?: any[]; shelfHeroBackground?: boolean }) {
   // The dual-hero risk (ours stacking on top of an ArtHero-family theme's
   // own hero) is already handled at the parent: HomeInject only renders
   // this component when `!replaceInjecting`. In that path the native
@@ -233,13 +233,25 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       }
       if (!focused) return;
-      // Hero art mirrors only the first shelf — native Steam recents hero
-      // never reacts to focus on shelves below the recents row, so neither
-      // should ours. Prefer the explicit promoted marker when present
-      // (CSS Loader path); fall back to the first DOM shelf otherwise.
-      const heroShelf = (mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"]')
-        ?? mountEl.querySelector('.ds-shelf')) as HTMLElement | null;
-      if (heroShelf && !heroShelf.contains(focused)) return;
+      // Hero art targets ONE shelf at a time:
+      // - When `shelfHeroBackground` (Behavior override) is on: force the
+      //   first shelf (promoted recents-slot when present, else first DOM
+      //   shelf). Global override takes visual precedence regardless of
+      //   per-shelf `heroEnabled`.
+      // - Otherwise: only react when the focused card belongs to a shelf
+      //   whose `heroEnabled` flag is true.
+      const focusedShelf = focused.closest('.ds-shelf') as HTMLElement | null;
+      let heroShelf: HTMLElement | null = null;
+      if (shelfHeroBackground) {
+        const promoted = mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"]');
+        heroShelf = (promoted ?? mountEl.querySelector('.ds-shelf')) as HTMLElement | null;
+      } else if (focusedShelf && Array.isArray(shelves)) {
+        const id = focusedShelf.getAttribute('data-shelfid');
+        const cfg = shelves.find((s: any) => s.id === id);
+        if (cfg?.heroEnabled === true) heroShelf = focusedShelf;
+      }
+      if (!heroShelf) return;
+      if (!heroShelf.contains(focused)) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
       if (appid !== currentAppid.current) {

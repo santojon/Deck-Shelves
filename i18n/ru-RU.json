@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Скрыть заголовки полок",
   "hide_status_line": "Скрыть строку статуса",
   "highlight_all": "Выделить все игры",
+  "hero_enabled_label": "Включить фон hero",
+  "hero_enabled_desc": "Показывает hero-изображение за этой полкой при фокусе на карточке.",
   "highlight_first": "Выделить первую игру",
   "highlight_pattern_even_odd": "Чёт/Нечёт",
   "highlight_pattern_odd_even": "Нечёт/Чёт",

@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Ocultar títulos das prateleiras",
   "hide_status_line": "Ocultar linha de estado",
   "highlight_all": "Destacar todos os jogos",
+  "hero_enabled_label": "Ativar fundo hero",
+  "hero_enabled_desc": "Exibe imagem hero atrás desta prateleira quando uma carta está focada.",
   "highlight_first": "Destacar primeiro jogo",
   "highlight_pattern_even_odd": "Par/Ímpar",
   "highlight_pattern_odd_even": "Ímpar/Par",

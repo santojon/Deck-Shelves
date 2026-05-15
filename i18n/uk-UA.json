@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Сховати заголовки полиць",
   "hide_status_line": "Приховати рядок стану",
   "highlight_all": "Виділити всі ігри",
+  "hero_enabled_label": "Увімкнути фон hero",
+  "hero_enabled_desc": "Показує hero-зображення позаду цієї полиці, коли картку зосереджено.",
   "highlight_first": "Виділити першу гру",
   "highlight_pattern_even_odd": "Парні/Непарні",
   "highlight_pattern_odd_even": "Непарні/Парні",

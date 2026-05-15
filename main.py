@@ -101,6 +101,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_install_indicator = bool(s.get("hideInstallIndicator", False))
         hide_see_more = bool(s.get("hideSeeMore", False))
         hide_refresh_card = bool(s.get("hideRefreshCard", False))
+        hero_enabled = bool(s.get("heroEnabled", False))
         valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"}
         shelf_sort = str(s.get("sort") or "")
         raw_manual = s.get("manualOrder")
@@ -155,6 +156,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "hideInstallIndicator": hide_install_indicator,
             "hideSeeMore": hide_see_more,
             "hideRefreshCard": hide_refresh_card,
+            "heroEnabled": hero_enabled,
         }
         if shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
@@ -229,7 +231,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(ss_filter_group, dict):
             entry["filterGroup"] = ss_filter_group
         # Visual overrides mirrored from regular shelves.
-        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard"):
+        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard", "heroEnabled"):
             if bool_key in ss:
                 entry[bool_key] = bool(ss.get(bool_key, False))
         raw_ss_highlighted = ss.get("highlightedAppIds")

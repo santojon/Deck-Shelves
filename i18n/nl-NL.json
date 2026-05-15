@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Verberg planktitels",
   "hide_status_line": "Statusregel verbergen",
   "highlight_all": "Alle games markeren",
+  "hero_enabled_label": "Hero-achtergrond inschakelen",
+  "hero_enabled_desc": "Toon een hero-afbeelding achter deze plank wanneer een kaart focus heeft.",
   "highlight_first": "Eerste spel markeren",
   "highlight_pattern_even_odd": "Even/Oneven",
   "highlight_pattern_odd_even": "Oneven/Even",

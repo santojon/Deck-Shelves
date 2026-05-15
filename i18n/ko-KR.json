@@ -298,6 +298,8 @@
   "hide_shelf_titles": "선반 제목 숨기기",
   "hide_status_line": "상태 줄 숨기기",
   "highlight_all": "모든 게임 강조 표시",
+  "hero_enabled_label": "히어로 배경 활성화",
+  "hero_enabled_desc": "카드에 포커스가 있을 때 이 셸프 뒤에 히어로 이미지를 표시합니다.",
   "highlight_first": "첫 번째 게임 강조",
   "highlight_pattern_even_odd": "짝수/홀수",
   "highlight_pattern_odd_even": "홀수/짝수",

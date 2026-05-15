@@ -10,7 +10,7 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
-import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
+import { applyHideRecents, applyHideHomeTabs, applyReplaceActiveMargin, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch } from "../core/steamGameMenu";
@@ -300,6 +300,7 @@ export function HomeShelves() {
     const canHide = settings?.enabled && settings?.hideRecents === true
       && hasAnyVisible && !replaceActive;
     applyHideRecents(canHide === true);
+    applyReplaceActiveMargin(replaceActive === true && replaceInjecting === true);
     // When recents are hidden, remove them from the gamepad navigation tree so
     // the D-pad skips straight to our shelves.  We keep the DOM intact (visibility:
     // hidden) so we can still read native classes, hero images, etc.
@@ -780,7 +781,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       {...flowChildrenProps("column")}
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
-      {shelfHeroBackground && <HeroBackground mountEl={mountEl} />}
+      <HeroBackground mountEl={mountEl} shelves={Array.from(orderedShelves)} shelfHeroBackground={shelfHeroBackground} />
       {orderedShelves.map((shelf: any) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} globalHideShelfTitle={globalHideShelfTitle} globalHideGameNames={globalHideGameNames} globalHideInstallIndicator={globalHideInstallIndicator} globalHideSeeMore={globalHideSeeMore} globalHideRefreshCard={globalHideRefreshCard} globalDedupeByName={globalDedupeByName} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} />)}
     </Focusable>
   );

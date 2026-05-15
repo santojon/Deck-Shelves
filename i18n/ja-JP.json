@@ -298,6 +298,8 @@
   "hide_shelf_titles": "棚のタイトルを非表示",
   "hide_status_line": "ステータス行を非表示",
   "highlight_all": "すべてのゲームをハイライト",
+  "hero_enabled_label": "ヒーロー背景を有効にする",
+  "hero_enabled_desc": "カードがフォーカスされたとき、この棚の後ろにヒーロー画像を表示します。",
   "highlight_first": "最初のゲームをハイライト",
   "highlight_pattern_even_odd": "偶数/奇数",
   "highlight_pattern_odd_even": "奇数/偶数",

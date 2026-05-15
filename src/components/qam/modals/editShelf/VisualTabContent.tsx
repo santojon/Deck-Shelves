@@ -28,8 +28,8 @@ export function VisualTabContent({
   effectiveManualOrder,
 }: {
   t: (k: any, opts?: any) => string;
-  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean };
-  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean }>) => void;
+  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; heroEnabled: boolean };
+  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; heroEnabled: boolean }>) => void;
   highlightedAppIds: number[];
   setHighlightedAppIds: (next: number[]) => void;
   highlightPickerOpen: boolean;
@@ -45,6 +45,7 @@ export function VisualTabContent({
       <ToggleField label={t('match_native_size')} checked={flags.matchNativeSize} onChange={(v: boolean) => setFlags({ matchNativeSize: v })} />
       <ToggleField label={t('highlight_first')} checked={flags.highlightFirst} onChange={(v: boolean) => setFlags({ highlightFirst: v })} />
       <ToggleField label={t('highlight_all')} checked={flags.highlightAll} onChange={(v: boolean) => setFlags({ highlightAll: v })} />
+      <ToggleField label={t('hero_enabled_label')} description={t('hero_enabled_desc')} checked={flags.heroEnabled} onChange={(v: boolean) => setFlags({ heroEnabled: v })} />
       <ToggleField
         label={t('highlight_specific_games')}
         checked={highlightPickerOpen}

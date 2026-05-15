@@ -68,6 +68,7 @@ type EditState = {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+  heroEnabled: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   refreshIntervalMinutes: number
@@ -106,6 +107,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
     hideSeeMore: (shelf as any).hideSeeMore ?? false,
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
+    heroEnabled: (shelf as any).heroEnabled ?? false,
     dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
@@ -336,6 +338,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).hideInstallIndicator = state.hideInstallIndicator
       ;(patch as any).hideSeeMore = state.hideSeeMore
       ;(patch as any).hideRefreshCard = state.hideRefreshCard
+      ;(patch as any).heroEnabled = state.heroEnabled || undefined
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       // Only persist when the user diverged from the default cadence; otherwise
@@ -689,7 +692,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll }}
+                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, heroEnabled: state.heroEnabled }}
                       setFlags={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}

@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Raf başlıklarını gizle",
   "hide_status_line": "Durum satırını gizle",
   "highlight_all": "Tüm oyunları vurgula",
+  "hero_enabled_label": "Hero arka planı etkinleştir",
+  "hero_enabled_desc": "Bir karta odaklanıldığında bu rafın arkasında hero görseli gösterir.",
   "highlight_first": "İlk oyunu öne çıkar",
   "highlight_pattern_even_odd": "Çift/Tek",
   "highlight_pattern_odd_even": "Tek/Çift",

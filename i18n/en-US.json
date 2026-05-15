@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Hide shelf titles",
   "hide_status_line": "Hide playtime/status line",
   "highlight_all": "Highlight all games",
+  "hero_enabled_label": "Enable hero background",
+  "hero_enabled_desc": "Show a hero image behind this shelf when a card is focused.",
   "highlight_first": "Highlight first game",
   "highlight_pattern_even_odd": "Even/Odd",
   "highlight_pattern_odd_even": "Odd/Even",

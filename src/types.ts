@@ -130,6 +130,7 @@ export const SmartShelfSchema = z.object({
   hideInstallIndicator: z.boolean().optional(),
   hideSeeMore: z.boolean().optional(),
   hideRefreshCard: z.boolean().optional(),
+  heroEnabled: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
@@ -185,6 +186,8 @@ export const ShelfSchema = z.object({
   // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
   // Defaults to "alphabetical" when absent; must not be "manual" itself.
   manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
+  // Per-shelf toggle to enable hero art when this shelf is promoted
+  heroEnabled: z.boolean().optional(),
   // When true, reverse the manual base sort. Default false.
   manualBaseSortReverse: z.boolean().optional(),
   matchNativeSize: z.boolean().default(false),

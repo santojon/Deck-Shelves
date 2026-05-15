@@ -298,6 +298,8 @@
   "hide_shelf_titles": "隐藏货架标题",
   "hide_status_line": "隐藏状态行",
   "highlight_all": "高亮所有游戏",
+  "hero_enabled_label": "启用 hero 背景",
+  "hero_enabled_desc": "当卡片获得焦点时,在此货架后方显示 hero 图像。",
   "highlight_first": "突出显示第一个游戏",
   "highlight_pattern_even_odd": "偶/奇",
   "highlight_pattern_odd_even": "奇/偶",

@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Ukryj tytuły półek",
   "hide_status_line": "Ukryj linię stanu",
   "highlight_all": "Wyróżnij wszystkie gry",
+  "hero_enabled_label": "Włącz tło hero",
+  "hero_enabled_desc": "Pokaż obraz hero za tą półką, gdy karta jest zaznaczona.",
   "highlight_first": "Wyróżnij pierwszą grę",
   "highlight_pattern_even_odd": "Parzyste/Nieparzyste",
   "highlight_pattern_odd_even": "Nieparzyste/Parzyste",

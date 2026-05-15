@@ -298,6 +298,8 @@
   "hide_shelf_titles": "隱藏書架標題",
   "hide_status_line": "隱藏遊玩時間 / 狀態列",
   "highlight_all": "醒目顯示所有遊戲",
+  "hero_enabled_label": "啟用 hero 背景",
+  "hero_enabled_desc": "當卡片獲得焦點時,在此貨架後方顯示 hero 圖像。",
   "highlight_first": "醒目顯示第一款遊戲",
   "highlight_pattern_even_odd": "偶數 / 奇數",
   "highlight_pattern_odd_even": "奇數 / 偶數",

@@ -171,6 +171,16 @@ export function useSettingsController() {
       if (!s || s.shelfHeroBackground === shelfHeroBackground) return;
       await persist({ ...s, shelfHeroBackground });
     },
+    async setEnableShelfHeroArt(enable: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).enableShelfHeroArt === enable) return;
+      await persist({ ...s, enableShelfHeroArt: enable } as any);
+    },
+    async setShelfHeroEnabled(id: string, enabled: boolean) {
+      const s = liveSettings();
+      if (!s) return;
+      await actions.patchShelf(id, { heroEnabled: enabled });
+    },
     async setGlobalMatchNativeSize(globalMatchNativeSize: boolean) {
       const s = liveSettings();
       if (!s || s.globalMatchNativeSize === globalMatchNativeSize) return;

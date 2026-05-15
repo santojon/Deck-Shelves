@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Ocultar títulos de los estantes",
   "hide_status_line": "Ocultar línea de estado",
   "highlight_all": "Resaltar todos los juegos",
+  "hero_enabled_label": "Activar fondo hero",
+  "hero_enabled_desc": "Muestra una imagen hero detrás de este estante al enfocar una carta.",
   "highlight_first": "Destacar el primer juego",
   "highlight_pattern_even_odd": "Par/Impar",
   "highlight_pattern_odd_even": "Impar/Par",

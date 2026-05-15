@@ -56,6 +56,28 @@ function notifyMountFailedChange(): void {
 let cachedRecentsEl: HTMLElement | null = null;
 let pendingHideRecents: boolean = false;
 
+/** Override the DS mount margin-top when the replace-recents experimental
+ *  toggle is actively injecting. Without this, the default CSS rule pulls
+ *  the DS area up by 32px to overlap the recents bottom — fine when recents
+ *  is collapsed, but with replace active the recents row stays visible
+ *  (showing our injected content) and the 32px overlap pushes the next
+ *  DS shelf's title into the recents area (especially under CSS Loader
+ *  themes like SLH that extend the recents visually).
+ */
+export function applyReplaceActiveMargin(active: boolean): void {
+  try {
+    const { doc } = getHostContext();
+    const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+    if (!mount) return;
+    if (active) {
+      mount.style.setProperty("margin-top", "0px", "important");
+    } else {
+      // Leave applyHideRecents in control when replace is not active.
+      mount.style.removeProperty("margin-top");
+    }
+  } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
+}
+
 export function applyHideRecents(hidden: boolean): void {
   pendingHideRecents = hidden;
   // If cache is stale, try to re-find the element via the host document

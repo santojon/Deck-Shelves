@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Nascondi titoli degli scaffali",
   "hide_status_line": "Nascondi linea di stato",
   "highlight_all": "Evidenzia tutti i giochi",
+  "hero_enabled_label": "Abilita sfondo hero",
+  "hero_enabled_desc": "Mostra un'immagine hero dietro questo scaffale quando una carta è focalizzata.",
   "highlight_first": "Metti in evidenza il primo gioco",
   "highlight_pattern_even_odd": "Pari/Dispari",
   "highlight_pattern_odd_even": "Dispari/Pari",

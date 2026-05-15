@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Regaltitel ausblenden",
   "hide_status_line": "Statuszeile ausblenden",
   "highlight_all": "Alle Spiele hervorheben",
+  "hero_enabled_label": "Hero-Hintergrund aktivieren",
+  "hero_enabled_desc": "Zeigt ein Hero-Bild hinter diesem Regal an, wenn eine Karte fokussiert ist.",
   "highlight_first": "Erstes Spiel hervorheben",
   "highlight_pattern_even_odd": "Gerade/Ungerade",
   "highlight_pattern_odd_even": "Ungerade/Gerade",

@@ -298,6 +298,8 @@
   "hide_shelf_titles": "Masquer les titres des étagères",
   "hide_status_line": "Masquer la ligne d'état",
   "highlight_all": "Mettre en avant tous les jeux",
+  "hero_enabled_label": "Activer l'arrière-plan hero",
+  "hero_enabled_desc": "Affiche une image hero derrière cette étagère lorsqu'une carte est focalisée.",
   "highlight_first": "Mettre le premier jeu en avant",
   "highlight_pattern_even_odd": "Pair/Impair",
   "highlight_pattern_odd_even": "Impair/Pair",
