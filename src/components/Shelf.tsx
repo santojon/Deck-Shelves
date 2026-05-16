@@ -7,7 +7,7 @@ import { usePlatform } from "../runtime/platformContext";
 import type { PlatformAppMeta } from "../runtime/platform";
 import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards";
-import { showGameMenu } from "../core/steamGameMenu";
+import { showGameMenu, buildShelfContextMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
@@ -310,24 +310,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         const cdnHero = `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`;
         const gameName = storeNames.get(appid) ?? `#${appid}`;
         const discountPct = getCachedDiscount(appid);
-        // Online card menu: show ONLY DS shelf actions — no native Steam menu.
+        // Online card menu: DS shelf actions only — no native Steam menu.
+        // Uses buildShelfContextMenu for structure parity with regular shelves.
         const showOnlineMenu = () => {
           try {
             const dfl = (globalThis as any).DFL ?? (globalThis as any).deckyFrontendLib;
             const R = (globalThis as any).SP_REACT;
             if (!dfl?.showContextMenu || !R || !dfl.MenuItem || !dfl.Menu) return;
-            const mk = (key: string, label: string, fn: () => void) =>
-              R.createElement(dfl.MenuItem, { key, onSelected: fn }, label);
-            const items = [
-              mk('edit', t('editShelf'), () => dispatchShelfModal('edit', shelf.id)),
-              mk('dup', t('duplicateShelf'), () => void duplicateShelfById(shelf.id, t('copySuffix'))),
-              mk('hide', t('hide_shelf'), () => void toggleShelfHiddenById(shelf.id)),
-              mk('up', t('move_up'), () => void moveShelfById(shelf.id, -1)),
-              mk('down', t('move_down'), () => void moveShelfById(shelf.id, 1)),
-              mk('refresh', t('refresh_cache'), () => { clearOnlineShelfCache(); resolveRef.current(); }),
-              mk('del', t('deleteShelf'), () => dispatchShelfModal('delete', shelf.id)),
-            ];
-            const menu = R.createElement(dfl.Menu, { label: t('menu_deck_shelves'), cancelText: t('cancel') }, ...items);
+            const items = buildShelfContextMenu(shelf.id, appid, dfl, R);
+            if (!items.length) return;
+            const menu = R.createElement(dfl.Menu, { label: t('menu_shelf'), cancelText: t('cancel') }, ...items);
             dfl.showContextMenu(menu, null);
           } catch {}
         };
@@ -450,7 +442,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveHideShelfTitle = globalHideShelfTitle === true ? true : ((shelf as any).hideShelfTitle === true);
   const effectiveHideGameNames = globalHideGameNames === true ? true : ((shelf as any).hideGameNames === true);
   const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} />;
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} heroEnabled={(shelf as any).heroEnabled === true} />;
 }
 
 // Shallow-prop memo: settings changes in unrelated sections (e.g. toggling a

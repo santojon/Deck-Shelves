@@ -298,7 +298,7 @@
   "hide_shelf_titles": "Ocultar títulos de las estanterías",
   "hide_status_line": "Ocultar línea de estado",
   "highlight_all": "Resaltar todos los juegos",
-  "hero_enabled_label": "Activar fondo hero",
+  "hero_enabled_label": "Activar hero art",
   "hero_enabled_desc": "Muestra una imagen hero detrás de este estante al enfocar una carta.",
   "highlight_first": "Destacar el primer juego",
   "highlight_pattern_even_odd": "Par/Impar",
@@ -569,5 +569,12 @@
   "docs_online_discount_badge_body": "Las tarjetas en estanterías online muestran una insignia verde (ej.: \"75% off\") en el mismo lugar que la insignia NEW siempre que la caché de precios indique descuento. También aparece en tarjetas placeholder, así que la insignia es visible incluso mientras se carga la portada.",
   "docs_online_refresh_title": "Actualizar caché",
   "docs_online_refresh_body": "Las estanterías online exponen \"Actualizar caché\" en el menú de acciones del QAM, en el menú contextual de la tarjeta y en la tarjeta final de refresh. Vacía los cachés de wishlist / tienda / precio / nombre y vuelve a resolver la estantería. Las estanterías aleatorias e inteligentes tienen una acción \"Actualizar\" equivalente que rebaraja la fuente sin tocar las cachés.",
-  "docs_online_refresh_tip": "La portada de algunos juegos recién lanzados a veces no tiene el retrato library_600x900 estándar. La cadena de fallback prueba cada variante común del CDN (library_600x900_2x, capsule_*, header.jpg) antes de mostrar un placeholder — y el placeholder sigue mostrando la insignia de descuento."
+  "docs_online_refresh_tip": "La portada de algunos juegos recién lanzados a veces no tiene el retrato library_600x900 estándar. La cadena de fallback prueba cada variante común del CDN (library_600x900_2x, capsule_*, header.jpg) antes de mostrar un placeholder — y el placeholder sigue mostrando la insignia de descuento.",
+  "menu_management": "Gestión",
+  "menu_display": "Visualización",
+  "menu_visual": "Visual",
+  "highlight_this": "Destacar este juego",
+  "remove_highlight": "Quitar destacado",
+  "hide_from_shelf": "Ocultar del estante",
+  "show_in_shelf": "Mostrar en el estante"
 }

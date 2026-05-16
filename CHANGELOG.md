@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Per-shelf hero art (inline, behind each shelf).** New `heroEnabled?: boolean` on `ShelfSchema` and `SmartShelfSchema`. When on, a `PerShelfHero` component is rendered inside `DeckRow` (`position: absolute, z-index: -1`), so the hero image appears behind that specific shelf — not at the top of the page. The global `HeroBackground` now explicitly skips shelves carrying `data-ds-hero-enabled="true"` so there is no double-render. The global hero continues to handle only the recents-slot promoted shelf (or the first shelf when `shelfHeroBackground` is on globally). Backend sanitizer accepts `heroEnabled` for both regular and smart shelf schemas. The smart shelf → `Shelf` conversion in `HomeInject` carries the flag through.
+- **Deck Shelves context menu on smart shelf cards.** Smart shelves were already wired in `buildDeckShelvesMenuItems` and `shelfActions.ts`, but the Refresh action was dispatching `invalidateRandomSortCache` instead of `invalidateSmartShelfCache` for smart shelves because the guard checked `src?.type === "smart"` (regular shelf's `source.type`) rather than the `isSmart` flag already resolved from the settings lookup. Fixed: Refresh now calls `invalidateSmartShelfCache` whenever `isSmart` is true.
+
+### Changed
+
+- **`forceCssLoaderThemes` toggle now correctly persists.** The `setForceCssLoaderThemes` action was missing from the settings controller — the QAM toggle called `actions.setForceCssLoaderThemes(value)` but the method did not exist, so the setting silently dropped every write. Added the action following the same pattern as all other boolean settings.
+- **`forceCssLoaderThemes` toggle now promotes every visible shelf into the native-recents selector space, not just the first.** With the toggle on the promotion iterates all `.ds-shelf[data-shelfid]` under the root, so themes scoped to the recents wrapper apply uniformly across every shelf.
+- **Edit-modal Visual tab — hero toggle simplified.** `hero_enabled_label` rewritten across all 19 locales. The `description` prop was removed from the `ToggleField`.
+
+### Fixed
+
+- **`matchNativeSize` featured-card size no longer picks up "What's New" cards.** `discoverNativeCardDimensions` found the widest card anywhere in the page and adopted it as the featured-card width. The "What's New" / Highlights section contains landscape cards that are taller and wider than the recents featured card, so when that section was visible the cached `featuredWidth` would be set to its dimensions — causing the DS highlight card to render at the wrong (larger, more square) size. Fix: candidate wide cards are now filtered to the vertical band of the portrait row (±50 % of card height) and additionally rejected when their height exceeds `portraitHeight + 20 px`.
+- **TiltedHome + `matchNativeSize` — card gap no longer collapses to zero.** The `skew()` transform TiltedHome applies to native cards expands their bounding rect beyond the CSS layout width. `getBoundingClientRect().right` of card 1 could land past `getBoundingClientRect().left` of card 2, making `secondRect.left - firstRect.right` negative and the clamped gap 0. DS cards carry the same skew, so a gap of 0 stacked additional visual overlap on top of the skew's own parallelogram overlap. Fix: when bounding rect width exceeds `offsetWidth` by more than 2 % (skew detected), gap is derived from `offsetLeft` / `offsetWidth` layout coordinates instead of transformed viewport rects.
+
 ## [2.2.2] - 2026-05-15
 
 ### Fixed

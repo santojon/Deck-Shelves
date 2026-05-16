@@ -3,6 +3,9 @@ import { Navigation } from "@decky/ui";
 import { useSettingsController } from "../features/settings/controller";
 import { PlatformProvider, getPlatform } from "../runtime/platformContext";
 import { showEditShelfModal, showDeleteConfirm } from "./qam/list/ShelfActions";
+import { openManagedModal } from "./qam/common/openManagedModal";
+import { EditSmartShelfModal } from "./qam/modals/EditSmartShelfModal";
+import { DeleteConfirmSmartModal } from "./qam/modals/DeleteConfirmSmartModal";
 
 /** Parses the shelfId out of the current URL path. Routes are registered as
  *  /deck-shelves/edit/:shelfId and /deck-shelves/delete/:shelfId. */
@@ -34,13 +37,19 @@ function ShelfModalRouteImpl({ kind, shelfId: shelfIdProp }: { kind: "edit" | "d
     if (triggeredRef.current) return;
     triggeredRef.current = true;
     const shelf = controller.shelves.find((s) => s.id === shelfId);
-    if (!shelf) {
+    const smartShelf = shelf ? null : (controller.settings?.smartShelves ?? []).find((s) => s.id === shelfId);
+    if (!shelf && !smartShelf) {
       try { (Navigation as any).NavigateBack?.(); } catch {}
       return;
     }
     try {
-      if (kind === "edit") showEditShelfModal(controller, shelf);
-      else showDeleteConfirm(controller, shelf);
+      if (smartShelf) {
+        if (kind === "edit") openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={smartShelf} />);
+        else openManagedModal((close) => <DeleteConfirmSmartModal closeModal={close} controller={controller} shelf={smartShelf} />);
+      } else if (shelf) {
+        if (kind === "edit") showEditShelfModal(controller, shelf);
+        else showDeleteConfirm(controller, shelf);
+      }
     } catch {}
     // Pop back immediately — showModal renders in a portal independent of
     // the route, so the modal stays visible over the previous page.

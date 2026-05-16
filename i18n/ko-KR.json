@@ -298,7 +298,7 @@
   "hide_shelf_titles": "선반 제목 숨기기",
   "hide_status_line": "상태 줄 숨기기",
   "highlight_all": "모든 게임 강조 표시",
-  "hero_enabled_label": "히어로 배경 활성화",
+  "hero_enabled_label": "히어로 아트 활성화",
   "hero_enabled_desc": "카드에 포커스가 있을 때 이 셸프 뒤에 히어로 이미지를 표시합니다.",
   "highlight_first": "첫 번째 게임 강조",
   "highlight_pattern_even_odd": "짝수/홀수",
@@ -569,5 +569,12 @@
   "docs_online_discount_badge_body": "Cards in online shelves show a green badge (e.g. \"75% off\") in the same slot as the NEW badge whenever the price cache reports a non-zero discount. Also rendered on placeholder cards so the badge is visible even when artwork is still loading.",
   "docs_online_refresh_title": "Refresh cache",
   "docs_online_refresh_body": "Online shelves expose a \"Refresh cache\" entry in the QAM action menu, in the shelf-card context menu, and on the trailing refresh card. Clears the wishlist / store / price / name caches and re-resolves the shelf. Random and smart shelves get an equivalent \"Refresh\" action that re-shuffles the source without touching caches.",
-  "docs_online_refresh_tip": "Card art for some newly-released games sometimes lacks the standard library_600x900 portrait. The fallback chain tries every common CDN variant (library_600x900_2x, capsule_*, header.jpg) before showing a placeholder — and the placeholder still renders the discount badge."
+  "docs_online_refresh_tip": "Card art for some newly-released games sometimes lacks the standard library_600x900 portrait. The fallback chain tries every common CDN variant (library_600x900_2x, capsule_*, header.jpg) before showing a placeholder — and the placeholder still renders the discount badge.",
+  "menu_management": "관리",
+  "menu_display": "표시",
+  "menu_visual": "비주얼",
+  "highlight_this": "이 게임 강조",
+  "remove_highlight": "강조 해제",
+  "hide_from_shelf": "선반에서 숨기기",
+  "show_in_shelf": "선반에 표시"
 }

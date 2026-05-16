@@ -5,6 +5,20 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Hero art behind each shelf, independently.** The edit modal's Visual tab now has an "Enable hero art" toggle per shelf (regular and smart). Turn it on for a shelf and the focused card's background art appears behind that shelf — not at the top of the page, exactly where the shelf sits. Works without hiding the native recents row or enabling any global toggle. The global hero (first shelf / promoted recents) continues to work exactly as before.
+
+### Changed
+
+- **"Force CSS Loader themes" actually works now.** The setting was being lost on every save due to a missing action in the settings engine — the toggle appeared to work in the QAM but the value never persisted. Fixed. When enabled, the full set of native shelf class tokens is applied to every visible shelf (not only the first), so themes like ArtHero and similar apply consistently across all your shelves.
+
+### Fixed
+
+- **Highlighted / featured card no longer gets the wrong size with "Match native card size" on.** The size measurement was accidentally picking up landscape cards from the "What's New" section above the recents row, resulting in the first card on your shelf rendering at the wrong (taller, wider) dimensions. The measurement is now scoped to the correct row.
+- **TiltedHome: card spacing no longer collapses when "Match native card size" is on.** The TiltedHome theme tilts cards with a CSS skew, which confused the gap measurement — the plugin saw the cards as overlapping and used 0 spacing, making your shelf look more compressed than the native recents. The gap is now computed from layout positions instead of visual bounding boxes, so the spacing matches what the theme intends.
+- **Deck Shelves menu (Refresh) now works correctly on smart shelves.** The "Refresh" action in the long-press / Menu context menu was calling the wrong refresh function for smart shelves, so pressing Refresh on a smart shelf card had no effect. Fixed.
+
 ## [2.2.2] - 2026-05-15
 
 ### Fixed

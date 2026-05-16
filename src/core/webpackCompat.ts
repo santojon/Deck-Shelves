@@ -460,8 +460,30 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
     const width = Math.round(firstRect.width);
     const height = Math.round(firstRect.height);
     const secondRect = portraitRoots[1].getBoundingClientRect();
-    const gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
     if (width < 50 || height < 80) return null;
+
+    // Gap calculation: when a theme like TiltedHome applies `skew()` to cards,
+    // the bounding rect overflows the layout width, making `secondRect.left -
+    // firstRect.right` negative (cards appear to overlap in box-model terms).
+    // Clamping to 0 causes DS cards (which carry the same skew) to double-stack
+    // the visual overlap. Fix: when the bounding rect width materially exceeds
+    // the layout (offsetWidth) width, derive the gap from layout coordinates
+    // instead of viewport-transformed rects.
+    let gap: number;
+    try {
+      const layoutW1 = portraitRoots[0].offsetWidth;
+      const bboxW1 = firstRect.width;
+      const hasSkew = layoutW1 > 0 && (bboxW1 / layoutW1 - 1) > 0.02; // >2% bbox overhang
+      if (hasSkew) {
+        const layoutLeft1 = portraitRoots[0].offsetLeft;
+        const layoutLeft2 = portraitRoots[1].offsetLeft;
+        gap = Math.max(0, Math.round(layoutLeft2 - layoutLeft1 - layoutW1));
+      } else {
+        gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
+      }
+    } catch {
+      gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
+    }
 
     const result: NativeCardDims = { width, height, gap };
 
@@ -474,17 +496,31 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
       }
     } catch {}
 
-    // Featured card: the widest card root found, if it's notably wider than portrait cards
+    // Featured card: the widest card root found in the SAME vertical band as
+    // the portrait cards. Restricting to the portrait row's Y-band prevents
+    // "What's New" / Highlights landscape cards (which are in a different row)
+    // from being mistakenly adopted as the featured-card dimensions.
     if (wideRoots.length > 0) {
-      wideRoots.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
-      const featCard = wideRoots[0];
+      const rowTop = firstRect.top - height * 0.5;
+      const rowBottom = firstRect.bottom + height * 0.5;
+      const rowCandidates = wideRoots.filter((el) => {
+        try {
+          const r = el.getBoundingClientRect();
+          return r.top >= rowTop && r.bottom <= rowBottom;
+        } catch { return false; }
+      });
+      const pool = rowCandidates.length > 0 ? rowCandidates : wideRoots;
+      pool.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+      const featCard = pool[0];
       const featRect = featCard.getBoundingClientRect();
       const fw = Math.round(featRect.width);
       const fh = Math.round(featRect.height);
-      if (fw > width * 1.5 && fh >= 80) {
+      // Recents featured card is portrait-height, very wide (≥ 2× portrait).
+      // "What's New" landscape items are 16:9 and typically taller than portrait
+      // cards — reject those by requiring height ≤ portrait height + 20 px.
+      if (fw > width * 1.5 && fh >= 80 && fh <= height + 20) {
         result.featuredWidth = fw;
         result.featuredHeight = fh;
-        // Featured image height
         try {
           const featImg = featCard.querySelector('img');
           if (featImg) {

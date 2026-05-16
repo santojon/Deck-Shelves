@@ -32,7 +32,7 @@ type NativeHeroClasses = {
   wrapperClasses: string[];
 };
 
-export function HeroBackground({ mountEl, shelves, shelfHeroBackground }: { mountEl: HTMLElement; shelves?: any[]; shelfHeroBackground?: boolean }) {
+export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   // The dual-hero risk (ours stacking on top of an ArtHero-family theme's
   // own hero) is already handled at the parent: HomeInject only renders
   // this component when `!replaceInjecting`. In that path the native
@@ -233,25 +233,27 @@ export function HeroBackground({ mountEl, shelves, shelfHeroBackground }: { moun
         focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       }
       if (!focused) return;
-      // Hero art targets ONE shelf at a time:
-      // - When `shelfHeroBackground` (Behavior override) is on: force the
-      //   first shelf (promoted recents-slot when present, else first DOM
-      //   shelf). Global override takes visual precedence regardless of
-      //   per-shelf `heroEnabled`.
-      // - Otherwise: only react when the focused card belongs to a shelf
-      //   whose `heroEnabled` flag is true.
-      const focusedShelf = focused.closest('.ds-shelf') as HTMLElement | null;
-      let heroShelf: HTMLElement | null = null;
-      if (shelfHeroBackground) {
-        const promoted = mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"]');
-        heroShelf = (promoted ?? mountEl.querySelector('.ds-shelf')) as HTMLElement | null;
-      } else if (focusedShelf && Array.isArray(shelves)) {
-        const id = focusedShelf.getAttribute('data-shelfid');
-        const cfg = shelves.find((s: any) => s.id === id);
-        if (cfg?.heroEnabled === true) heroShelf = focusedShelf;
+      // Hero art mirrors:
+      //   - any shelf with `data-ds-hero-enabled="true"` (per-shelf opt-in
+      //     via the edit modal Visual tab — regular + smart shelves)
+      //   - OR the recents-slot promoted shelf when the global
+      //     `shelfHeroBackground` is on
+      // When the focused card lives in a shelf carrying either marker, we
+      // update the hero overlay; otherwise we leave the previous hero in
+      // place (matching native Steam's "sticky last hero" behaviour).
+      // The global hero handles only the recents-slot promoted shelf.
+      // Per-shelf hero (heroEnabled=true) is handled by PerShelfHero
+      // rendered inside each DeckRow — skip those here to avoid doubling.
+      const parentShelf = focused.closest('.ds-shelf') as HTMLElement | null;
+      const isRecentsSlot = !!parentShelf && parentShelf.getAttribute('data-ds-recents-slot') === 'true';
+      const isPerShelfHero = !!parentShelf && parentShelf.getAttribute('data-ds-hero-enabled') === 'true';
+      if (isPerShelfHero) return;
+      if (!isRecentsSlot) {
+        // Fallback: when no shelf is promoted yet, use the first DS shelf
+        // (legacy single-hero path for shelfHeroBackground global toggle).
+        const fallbackShelf = mountEl.querySelector('.ds-shelf') as HTMLElement | null;
+        if (fallbackShelf && !fallbackShelf.contains(focused)) return;
       }
-      if (!heroShelf) return;
-      if (!heroShelf.contains(focused)) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
       if (appid !== currentAppid.current) {

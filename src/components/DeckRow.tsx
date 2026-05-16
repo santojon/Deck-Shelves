@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, useMemo } from "react";
+import { memo, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
@@ -27,6 +27,106 @@ import {
   onNativeDimsChange,
 } from "./shelf/shelfStyles";
 
+function getHeroUrls(appid: number): string[] {
+  return [
+    `/customimages/${appid}_hero.png`,
+    `/customimages/${appid}_hero.jpg`,
+    `/assets/${appid}/library_hero.jpg`,
+    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
+    `/assets/${appid}/header.jpg`,
+    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/header.jpg`,
+  ];
+}
+
+/** Lightweight per-shelf hero background. Rendered inside the .ds-shelf div
+ *  (z-index:-1) so it appears behind that shelf's cards only. Separate from
+ *  the global HeroBackground which handles the recents-slot promoted shelf. */
+function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
+  const [slotA, setSlotA] = useState<string | null>(null);
+  const [slotB, setSlotB] = useState<string | null>(null);
+  const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
+  const [visible, setVisible] = useState(false);
+  const activeSlotRef = useRef<'A' | 'B'>('A');
+  const currentAppid = useRef(0);
+  const fallbackIdx = useRef(0);
+  const allUrls = useRef<string[]>([]);
+  useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
+
+  const onError = useCallback((slot: 'A' | 'B') => () => {
+    fallbackIdx.current += 1;
+    const next = allUrls.current[fallbackIdx.current];
+    if (next) { if (slot === 'A') setSlotA(next); else setSlotB(next); }
+    else setVisible(false);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = (e?: Event) => {
+      let focused: HTMLElement | null = null;
+      if (e && e.target instanceof HTMLElement)
+        focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
+      if (!focused)
+        focused = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      if (!focused) return;
+      const appid = Number(focused.getAttribute('data-appid') ?? 0);
+      if (appid <= 0) return;
+      if (appid !== currentAppid.current) {
+        currentAppid.current = appid;
+        const urls = getHeroUrls(appid);
+        allUrls.current = urls;
+        fallbackIdx.current = 0;
+        const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
+        if (next === 'A') setSlotA(urls[0] ?? null); else setSlotB(urls[0] ?? null);
+        setActiveSlot(next);
+        setVisible(true);
+      } else {
+        setVisible(true);
+      }
+    };
+    el.addEventListener('focusin', update);
+    const obs = new MutationObserver(() => update());
+    obs.observe(el, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    update();
+    return () => { el.removeEventListener('focusin', update); obs.disconnect(); };
+  }, [containerRef]);
+
+  if (!slotA && !slotB) return null;
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: -1, pointerEvents: 'none', overflow: 'hidden',
+      opacity: visible ? 1 : 0,
+      transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'var(--ds-page-bg,rgb(0,0,0))' }} />
+      {slotA && (
+        <div style={{
+          position: 'absolute', inset: 0, overflow: 'hidden',
+          opacity: activeSlot === 'A' ? 1 : 0,
+          transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+        }}>
+          <img src={slotA} onError={onError('A')}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
+        </div>
+      )}
+      {slotB && (
+        <div style={{
+          position: 'absolute', inset: 0, overflow: 'hidden',
+          opacity: activeSlot === 'B' ? 1 : 0,
+          transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+        }}>
+          <img src={slotB} onError={onError('B')}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
+        </div>
+      )}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'linear-gradient(to top, var(--ds-page-bg,rgb(0,0,0)) 0%, rgba(0,0,0,0.5) 40%, transparent 100%)',
+      }} />
+    </div>
+  );
+}
+
 function readCollapsed(shelfId: string): boolean {
   try { return localStorage.getItem(`ds-collapsed-${shelfId}`) === '1'; } catch (e) { logInfo("HOME", "readCollapsed failed", String(e)); return false; }
 }
@@ -40,7 +140,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, heroEnabled = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; heroEnabled?: boolean }) {
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
@@ -499,8 +599,10 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       ref={outerRef}
       className="Panel ds-shelf"
       data-shelfid={shelfId || undefined}
-        style={{ marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: 'var(--ds-shell-bg)' }}
+      data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
+        style={{ position: 'relative', marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
     >
+      {heroEnabled && <PerShelfHero containerRef={outerRef} />}
       {title && !hideShelfTitle ? (
         collapsed ? (
           <Focusable

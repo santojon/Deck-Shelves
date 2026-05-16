@@ -116,11 +116,6 @@ export function useSettingsController() {
       if (!s || (s.onlineHideOwnedNonSteam ?? false) === onlineHideOwnedNonSteam) return;
       await persist({ ...s, onlineHideOwnedNonSteam });
     },
-    async setForceCssLoaderThemes(forceCssLoaderThemes: boolean) {
-      const s = liveSettings();
-      if (!s || (s.forceCssLoaderThemes ?? false) === forceCssLoaderThemes) return;
-      await persist({ ...s, forceCssLoaderThemes });
-    },
     async setOnlinePriceSortEnabled(onlinePriceSortEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s.onlinePriceSortEnabled ?? true) === onlinePriceSortEnabled) return;
@@ -170,16 +165,6 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.shelfHeroBackground === shelfHeroBackground) return;
       await persist({ ...s, shelfHeroBackground });
-    },
-    async setEnableShelfHeroArt(enable: boolean) {
-      const s = liveSettings();
-      if (!s || (s as any).enableShelfHeroArt === enable) return;
-      await persist({ ...s, enableShelfHeroArt: enable } as any);
-    },
-    async setShelfHeroEnabled(id: string, enabled: boolean) {
-      const s = liveSettings();
-      if (!s) return;
-      await actions.patchShelf(id, { heroEnabled: enabled });
     },
     async setGlobalMatchNativeSize(globalMatchNativeSize: boolean) {
       const s = liveSettings();
@@ -245,6 +230,11 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || (s as any).globalDedupeByName === globalDedupeByName) return;
       await persist({ ...s, globalDedupeByName } as any);
+    },
+    async setForceCssLoaderThemes(forceCssLoaderThemes: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).forceCssLoaderThemes === forceCssLoaderThemes) return;
+      await persist({ ...s, forceCssLoaderThemes } as any);
     },
     async addShelf(): Promise<Shelf | undefined> {
       const s = liveSettings();

@@ -298,7 +298,7 @@
   "hide_shelf_titles": "Ocultar títulos das prateleiras",
   "hide_status_line": "Ocultar linha de status",
   "highlight_all": "Destacar todos os jogos",
-  "hero_enabled_label": "Ativar fundo hero",
+  "hero_enabled_label": "Ativar hero art",
   "hero_enabled_desc": "Exibe imagem hero atrás desta prateleira quando um card está focado.",
   "highlight_first": "Destacar primeiro jogo",
   "highlight_pattern_even_odd": "Par/Ímpar",
@@ -569,5 +569,12 @@
   "docs_online_discount_badge_body": "Os cards das prateleiras online mostram uma badge verde (ex.: \"75% off\") no mesmo slot da badge NEW sempre que o cache de preço indicar desconto. Também aparece em cards placeholder, então a badge é visível mesmo enquanto a arte está carregando.",
   "docs_online_refresh_title": "Atualizar cache",
   "docs_online_refresh_body": "Prateleiras online expõem \"Atualizar cache\" no menu de ações do QAM, no menu de contexto do card e no card final de refresh. Limpa os caches de wishlist / loja / preço / nome e re-resolve a prateleira. Prateleiras aleatórias e inteligentes têm uma ação \"Atualizar\" equivalente que reembaralha a fonte sem tocar nos caches.",
-  "docs_online_refresh_tip": "A arte dos cards de alguns jogos recém-lançados às vezes não tem o retrato library_600x900 padrão. A cadeia de fallback tenta todas as variantes comuns do CDN (library_600x900_2x, capsule_*, header.jpg) antes de mostrar um placeholder — e o placeholder ainda renderiza a badge de desconto."
+  "docs_online_refresh_tip": "A arte dos cards de alguns jogos recém-lançados às vezes não tem o retrato library_600x900 padrão. A cadeia de fallback tenta todas as variantes comuns do CDN (library_600x900_2x, capsule_*, header.jpg) antes de mostrar um placeholder — e o placeholder ainda renderiza a badge de desconto.",
+  "menu_management": "Gerenciamento",
+  "menu_display": "Exibição",
+  "menu_visual": "Visual",
+  "highlight_this": "Destacar este jogo",
+  "remove_highlight": "Remover destaque",
+  "hide_from_shelf": "Ocultar da prateleira",
+  "show_in_shelf": "Mostrar na prateleira"
 }

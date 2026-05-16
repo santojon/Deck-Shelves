@@ -298,7 +298,7 @@
   "hide_shelf_titles": "Masquer les titres des étagères",
   "hide_status_line": "Masquer la ligne d'état",
   "highlight_all": "Mettre en avant tous les jeux",
-  "hero_enabled_label": "Activer l'arrière-plan hero",
+  "hero_enabled_label": "Activer hero art",
   "hero_enabled_desc": "Affiche une image hero derrière cette étagère lorsqu'une carte est focalisée.",
   "highlight_first": "Mettre le premier jeu en avant",
   "highlight_pattern_even_odd": "Pair/Impair",
@@ -569,5 +569,12 @@
   "docs_online_discount_badge_body": "Cards in online shelves show a green badge (e.g. \"75% off\") in the same slot as the NEW badge whenever the price cache reports a non-zero discount. Also rendered on placeholder cards so the badge is visible even when artwork is still loading.",
   "docs_online_refresh_title": "Refresh cache",
   "docs_online_refresh_body": "Online shelves expose a \"Refresh cache\" entry in the QAM action menu, in the shelf-card context menu, and on the trailing refresh card. Clears the wishlist / store / price / name caches and re-resolves the shelf. Random and smart shelves get an equivalent \"Refresh\" action that re-shuffles the source without touching caches.",
-  "docs_online_refresh_tip": "Card art for some newly-released games sometimes lacks the standard library_600x900 portrait. The fallback chain tries every common CDN variant (library_600x900_2x, capsule_*, header.jpg) before showing a placeholder — and the placeholder still renders the discount badge."
+  "docs_online_refresh_tip": "Card art for some newly-released games sometimes lacks the standard library_600x900 portrait. The fallback chain tries every common CDN variant (library_600x900_2x, capsule_*, header.jpg) before showing a placeholder — and the placeholder still renders the discount badge.",
+  "menu_management": "Gestion",
+  "menu_display": "Affichage",
+  "menu_visual": "Visuel",
+  "highlight_this": "Mettre en avant ce jeu",
+  "remove_highlight": "Supprimer la mise en avant",
+  "hide_from_shelf": "Masquer de l'étagère",
+  "show_in_shelf": "Afficher dans l'étagère"
 }

@@ -298,7 +298,7 @@
   "hide_shelf_titles": "Сховати заголовки полиць",
   "hide_status_line": "Приховати рядок стану",
   "highlight_all": "Виділити всі ігри",
-  "hero_enabled_label": "Увімкнути фон hero",
+  "hero_enabled_label": "Увімкнути hero art",
   "hero_enabled_desc": "Показує hero-зображення позаду цієї полиці, коли картку зосереджено.",
   "highlight_first": "Виділити першу гру",
   "highlight_pattern_even_odd": "Парні/Непарні",
@@ -569,5 +569,12 @@
   "docs_online_discount_badge_body": "Cards in online shelves show a green badge (e.g. \"75% off\") in the same slot as the NEW badge whenever the price cache reports a non-zero discount. Also rendered on placeholder cards so the badge is visible even when artwork is still loading.",
   "docs_online_refresh_title": "Refresh cache",
   "docs_online_refresh_body": "Online shelves expose a \"Refresh cache\" entry in the QAM action menu, in the shelf-card context menu, and on the trailing refresh card. Clears the wishlist / store / price / name caches and re-resolves the shelf. Random and smart shelves get an equivalent \"Refresh\" action that re-shuffles the source without touching caches.",
-  "docs_online_refresh_tip": "Card art for some newly-released games sometimes lacks the standard library_600x900 portrait. The fallback chain tries every common CDN variant (library_600x900_2x, capsule_*, header.jpg) before showing a placeholder — and the placeholder still renders the discount badge."
+  "docs_online_refresh_tip": "Card art for some newly-released games sometimes lacks the standard library_600x900 portrait. The fallback chain tries every common CDN variant (library_600x900_2x, capsule_*, header.jpg) before showing a placeholder — and the placeholder still renders the discount badge.",
+  "menu_management": "Управління",
+  "menu_display": "Відображення",
+  "menu_visual": "Візуальне",
+  "highlight_this": "Виділити цю гру",
+  "remove_highlight": "Видалити виділення",
+  "hide_from_shelf": "Сховати з полиці",
+  "show_in_shelf": "Показати на полиці"
 }

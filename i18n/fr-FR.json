@@ -298,7 +298,7 @@
   "hide_shelf_titles": "Masquer les titres des étagères",
   "hide_status_line": "Masquer la ligne d'état",
   "highlight_all": "Mettre en avant tous les jeux",
-  "hero_enabled_label": "Activer l'arrière-plan hero",
+  "hero_enabled_label": "Activer hero art",
   "hero_enabled_desc": "Affiche une image hero derrière cette étagère lorsqu'une carte est focalisée.",
   "highlight_first": "Mettre le premier jeu en avant",
   "highlight_pattern_even_odd": "Pair/Impair",
@@ -569,5 +569,12 @@
   "docs_online_discount_badge_body": "Les cartes des étagères en ligne affichent un badge vert (ex. : « 75% off ») au même emplacement que le badge NEW lorsque le cache de prix indique une réduction. Également affiché sur les cartes de remplacement, donc le badge est visible même pendant le chargement de la jaquette.",
   "docs_online_refresh_title": "Actualiser le cache",
   "docs_online_refresh_body": "Les étagères en ligne exposent « Actualiser le cache » dans le menu d'actions du QAM, dans le menu contextuel de la carte et sur la carte de rafraîchissement de fin de rangée. Vide les caches wishlist / boutique / prix / nom et redéclenche la résolution. Les étagères aléatoires et intelligentes ont une action « Actualiser » équivalente qui remélange la source sans toucher aux caches.",
-  "docs_online_refresh_tip": "Les jaquettes de certains jeux récemment sortis n'ont parfois pas le portrait library_600x900 standard. La chaîne de fallback essaie toutes les variantes courantes du CDN (library_600x900_2x, capsule_*, header.jpg) avant d'afficher un placeholder — et le placeholder affiche toujours le badge de réduction."
+  "docs_online_refresh_tip": "Les jaquettes de certains jeux récemment sortis n'ont parfois pas le portrait library_600x900 standard. La chaîne de fallback essaie toutes les variantes courantes du CDN (library_600x900_2x, capsule_*, header.jpg) avant d'afficher un placeholder — et le placeholder affiche toujours le badge de réduction.",
+  "menu_management": "Gestion",
+  "menu_display": "Affichage",
+  "menu_visual": "Visuel",
+  "highlight_this": "Mettre en avant ce jeu",
+  "remove_highlight": "Supprimer la mise en avant",
+  "hide_from_shelf": "Masquer de l'étagère",
+  "show_in_shelf": "Afficher dans l'étagère"
 }

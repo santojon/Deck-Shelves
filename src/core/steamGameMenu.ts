@@ -2,7 +2,7 @@ import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderCompone
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
-import { getCurrentSettings } from "../store/settingsStore";
+import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import {
   toggleShelfHiddenById,
   moveShelfById,
@@ -10,8 +10,10 @@ import {
   setShelfCollapsed,
   dispatchShelfModal,
 } from "./shelfActions";
+import { patchShelfInSettings } from "../domain/settings";
 import { invalidateRandomSortCache } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
+import { clearOnlineShelfCache } from "./shelfActions";
 
 /**
  * Returns `true` when this device should use the pre-3.8 (v1.4.0-style) menu
@@ -64,14 +66,15 @@ let _libraryContextMenuClass: any = null;
 let _libraryContextMenuPatched = false;
 let _hltbDiscoveryAttempted = false;
 let _activeShelfIdForMenu: string | null = null;
-function setActiveShelfIdForMenu(id: string | null): void {
+let _activeAppIdForMenu: number = 0;
+function setActiveShelfIdForMenu(id: string | null, appid?: number): void {
   _activeShelfIdForMenu = id;
-  // Auto-clear shortly after — the menu is rendered synchronously, so a
-  // single tick is enough. Prevents stale state if a follow-up unrelated
-  // menu fires before the next showGameMenu call.
+  if (appid !== undefined) _activeAppIdForMenu = appid;
   if (id !== null) {
     try {
-      setTimeout(() => { if (_activeShelfIdForMenu === id) _activeShelfIdForMenu = null; }, 250);
+      setTimeout(() => {
+        if (_activeShelfIdForMenu === id) { _activeShelfIdForMenu = null; _activeAppIdForMenu = 0; }
+      }, 250);
     } catch {}
   }
 }
@@ -213,13 +216,15 @@ function isGameContextMenuItems(items: any[], dfl: any): boolean {
  * double-injection across re-renders (Steam re-renders the menu when the app
  * overview changes — e.g. install progress, playtime tick).
  */
+const DS_ROOT_KEYS = new Set([
+  "ds-deck-shelves", "ds-shelf-root",
+  "ds-card-highlight", "ds-card-hide",
+  "ds-sep-boot",
+]);
 function dedupDsMenuItems(items: any[]): void {
   if (!Array.isArray(items)) return;
   for (let i = items.length - 1; i >= 0; i--) {
-    const key = items[i]?.key;
-    if (key === "ds-deck-shelves" || key === "ds-sep-boot") {
-      items.splice(i, 1);
-    }
+    if (DS_ROOT_KEYS.has(items[i]?.key)) items.splice(i, 1);
   }
 }
 
@@ -328,7 +333,7 @@ function patchDeepestRender(prototype: any): void {
         }
         const curShelfId = resolveShelfIdByAppid(curAppid);
         if (!curShelfId) return ret2;
-        const items = buildDeckShelvesMenuItems(curShelfId, dfl, R);
+        const items = buildDeckShelvesMenuItems(curShelfId, dfl, R, curAppid);
         if (!items.length) return ret2;
         spliceDsItems(menuItems, items, dfl, R);
       } catch (e) {
@@ -361,7 +366,7 @@ function patchDeepestRender(prototype: any): void {
           const curShelfId = resolveShelfIdByAppid(curAppid);
           if (!curShelfId) return shouldUpdate;
           dedupDsMenuItems(nextChildren);
-          const items = buildDeckShelvesMenuItems(curShelfId, dfl, R);
+          const items = buildDeckShelvesMenuItems(curShelfId, dfl, R, curAppid);
           if (items.length) spliceDsItems(nextChildren, items, dfl, R);
         } catch (e) {
           try { (globalThis as any).console?.warn?.("[DS][menu] inner sCU patch threw", e); } catch {}
@@ -514,14 +519,24 @@ export function installCreateContextMenuPatch(): void {
  * Returns an empty array when the shelf cannot be located (silent no-op
  * — the native menu renders unchanged).
  */
-function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
+function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: number): any[] {
+  const focusedAppId = appid ?? _activeAppIdForMenu;
   if (!dfl?.MenuItem || !dfl?.MenuGroup || !R?.createElement) return [];
   const settings = getCurrentSettings?.();
   if (!settings) return [];
   const shelves = settings.shelves ?? [];
-  const idx = shelves.findIndex((sh: any) => sh.id === shelfId);
-  if (idx < 0) return [];
-  const shelf = shelves[idx];
+  const smartShelves = (settings as any).smartShelves ?? [];
+  let idx = shelves.findIndex((sh: any) => sh.id === shelfId);
+  let isSmart = false;
+  let listLen = shelves.length;
+  let shelf: any = idx >= 0 ? shelves[idx] : null;
+  if (!shelf) {
+    idx = smartShelves.findIndex((sh: any) => sh.id === shelfId);
+    if (idx < 0) return [];
+    shelf = smartShelves[idx];
+    isSmart = true;
+    listLen = smartShelves.length;
+  }
   const isHidden = !!shelf?.hidden;
   let isCollapsed = false;
   try { isCollapsed = (globalThis as any).localStorage?.getItem?.(`ds-collapsed-${shelfId}`) === "1"; } catch {}
@@ -534,16 +549,37 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
     R.createElement(dfl.MenuItem, { key, onSelected, disabled }, label);
 
   const src: any = shelf?.source;
+  const isOnline = src?.type === "wishlist" || src?.type === "store";
   const isRandomOrSmart =
+    isSmart ||
+    isOnline ||
     src?.type === "smart" ||
     shelf?.sort === "random" ||
     (src?.type === "filter" && src?.filter?.sort === "random");
 
-  const children = [
-    item("ds-edit", lbl("editShelf", "Edit"), () => dispatchShelfModal("edit", shelfId)),
+  // Toggle a boolean flag on the shelf and persist immediately.
+  const toggleFlag = (key: string) => {
+    const s = getCurrentSettings();
+    if (!s) return;
+    const next = !shelf[key];
+    if (isSmart) {
+      const updated = (s.smartShelves ?? []).map((sh: any) =>
+        sh.id === shelfId ? { ...sh, [key]: next } : sh,
+      );
+      void saveSettings({ ...s, smartShelves: updated });
+    } else {
+      void saveSettings(patchShelfInSettings(s, shelfId, { [key]: next } as any));
+    }
+  };
+
+  // Prefix checked items with a checkmark so the current state is visible.
+  const checked = (flag: boolean, label: string) => (flag ? `✓ ${label}` : label);
+
+  // ── Management submenu ────────────────────────────────────────────────
+  const mgmt = [
+    item("ds-edit",      lbl("editShelf", "Edit"),      () => dispatchShelfModal("edit", shelfId)),
     item("ds-duplicate", lbl("duplicateShelf", "Duplicate"), () => {
-      const suffix = lbl("copySuffix", "(Copy)");
-      void duplicateShelfById(shelfId, suffix);
+      void duplicateShelfById(shelfId, lbl("copySuffix", "(Copy)"));
     }),
     item(
       "ds-collapse",
@@ -555,12 +591,13 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
       isHidden ? lbl("show_shelf", "Show shelf") : lbl("hide_shelf", "Hide shelf"),
       () => { void toggleShelfHiddenById(shelfId); },
     ),
-    item("ds-move-up", lbl("move_up", "Move up"), () => { void moveShelfById(shelfId, -1); }, idx <= 0),
-    item("ds-move-down", lbl("move_down", "Move down"), () => { void moveShelfById(shelfId, 1); }, idx >= shelves.length - 1),
+    item("ds-move-up",   lbl("move_up", "Move up"),     () => { void moveShelfById(shelfId, -1); }, idx <= 0),
+    item("ds-move-down", lbl("move_down", "Move down"),  () => { void moveShelfById(shelfId, 1); }, idx >= listLen - 1),
     ...(isRandomOrSmart ? [
-      item("ds-refresh", lbl("refresh", "Refresh"), () => {
+      item("ds-refresh", lbl("refresh", isOnline ? "refresh_cache" : "Refresh"), () => {
         try {
-          if (src?.type === "smart") invalidateSmartShelfCache(shelfId);
+          if (isSmart || src?.type === "smart") invalidateSmartShelfCache(shelfId);
+          else if (isOnline) clearOnlineShelfCache();
           else invalidateRandomSortCache(shelfId);
           (globalThis as any).window?.dispatchEvent?.(new CustomEvent("ds-shelf-refresh"));
         } catch {}
@@ -569,11 +606,88 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any): any[] {
     item("ds-delete", lbl("deleteShelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
   ];
 
+  // ── Display submenu ───────────────────────────────────────────────────
+  const display = [
+    item("ds-d-title",     checked(!!shelf.hideShelfTitle,    lbl("hide_shelf_title",    "Hide shelf title")),    () => toggleFlag("hideShelfTitle")),
+    item("ds-d-names",     checked(!!shelf.hideGameNames,     lbl("hide_game_name",      "Hide game names")),     () => toggleFlag("hideGameNames")),
+    item("ds-d-status",    checked(!!shelf.hideStatusLine,    lbl("hide_status_line",    "Hide status line")),    () => toggleFlag("hideStatusLine")),
+    item("ds-d-badge",     checked(!!shelf.hideNewBadge,      lbl("hide_new_badge",      "Hide new badge")),      () => toggleFlag("hideNewBadge")),
+    item("ds-d-compat",    checked(!!shelf.hideCompatIcons,   lbl("hide_compat_icons",   "Hide compat icons")),   () => toggleFlag("hideCompatIcons")),
+    item("ds-d-nsbadge",   checked(!!shelf.hideNonSteamBadge, lbl("hide_non_steam_badge","Hide non-Steam badge")),() => toggleFlag("hideNonSteamBadge")),
+    item("ds-d-install",   checked(!!shelf.hideInstallIndicator, lbl("hide_install_indicator","Hide install indicator")), () => toggleFlag("hideInstallIndicator")),
+    item("ds-d-seemore",   checked(!!shelf.hideSeeMore,       lbl("hide_see_more_card",  "Hide \"See more\"")),   () => toggleFlag("hideSeeMore")),
+    item("ds-d-refresh",   checked(!!shelf.hideRefreshCard,   lbl("hide_refresh_card",   "Hide refresh card")),   () => toggleFlag("hideRefreshCard")),
+  ];
+
+  // ── Visual submenu ────────────────────────────────────────────────────
+  const visual = [
+    item("ds-v-native",    checked(!!shelf.matchNativeSize,   lbl("match_native_size",   "Match native size")),   () => toggleFlag("matchNativeSize")),
+    item("ds-v-hiFirst",   checked(!!shelf.highlightFirst,    lbl("highlight_first",     "Highlight first card")),() => toggleFlag("highlightFirst")),
+    item("ds-v-hiAll",     checked(!!shelf.highlightAll,      lbl("highlight_all",       "Highlight all cards")), () => toggleFlag("highlightAll")),
+    item("ds-v-hero",      checked(!!(shelf as any).heroEnabled, lbl("hero_enabled_label","Enable hero art")),     () => toggleFlag("heroEnabled")),
+  ];
+
+  const group = (key: string, label: string, ...children: any[]) =>
+    R.createElement(dfl.MenuGroup, { key, label }, ...children);
+
+  // ── Card-level actions (base level, no submenu) ───────────────────────
+  // These apply to the specific focused card, not the shelf as a whole.
+  const cardActions: any[] = [];
+  if (focusedAppId > 0) {
+    const highlighted = (shelf.highlightedAppIds ?? []).includes(focusedAppId);
+    cardActions.push(item(
+      "ds-card-highlight",
+      highlighted
+        ? checked(true, lbl("remove_highlight", "Remove highlight"))
+        : lbl("highlight_this", "Highlight this game"),
+      () => {
+        const s = getCurrentSettings();
+        if (!s) return;
+        const ids: number[] = shelf.highlightedAppIds ?? [];
+        const next = highlighted ? ids.filter((id) => id !== focusedAppId) : [...ids, focusedAppId];
+        if (isSmart) {
+          const updated = (s.smartShelves ?? []).map((sh: any) =>
+            sh.id === shelfId ? { ...sh, highlightedAppIds: next } : sh,
+          );
+          void saveSettings({ ...s, smartShelves: updated });
+        } else {
+          void saveSettings(patchShelfInSettings(s, shelfId, { highlightedAppIds: next }));
+        }
+      },
+    ));
+
+    const hiddenFromShelf = (shelf.hiddenAppIds ?? []).includes(focusedAppId);
+    cardActions.push(item(
+      "ds-card-hide",
+      hiddenFromShelf
+        ? lbl("show_in_shelf", "Show in shelf")
+        : lbl("hide_from_shelf", "Hide from shelf"),
+      () => {
+        const s = getCurrentSettings();
+        if (!s) return;
+        const ids: number[] = shelf.hiddenAppIds ?? [];
+        const next = hiddenFromShelf ? ids.filter((id) => id !== focusedAppId) : [...ids, focusedAppId];
+        if (isSmart) {
+          const updated = (s.smartShelves ?? []).map((sh: any) =>
+            sh.id === shelfId ? { ...sh, hiddenAppIds: next } : sh,
+          );
+          void saveSettings({ ...s, smartShelves: updated });
+        } else {
+          void saveSettings(patchShelfInSettings(s, shelfId, { hiddenAppIds: next }));
+        }
+      },
+    ));
+  }
+
+  // Card-level items sit at the same level as "Prateleira", before it.
+  // The "Prateleira" group contains only shelf-scoped submenus.
   return [
-    R.createElement(
-      dfl.MenuGroup,
-      { key: "ds-deck-shelves", label: lbl("menu_deck_shelves", "Deck Shelves") },
-      ...children,
+    ...cardActions,
+    group(
+      "ds-shelf-root", lbl("menu_shelf", "Shelf"),
+      group("ds-mgmt",    lbl("menu_management", "Management"), ...mgmt),
+      group("ds-display", lbl("menu_display",    "Display"),    ...display),
+      group("ds-visual",  lbl("menu_visual",     "Visual"),     ...visual),
     ),
   ];
 }
@@ -1170,7 +1284,7 @@ function showGameMenuLegacy(appid: number, shelfId?: string): boolean {
         // recognise the call as ours and append the DS submenu, even when
         // the captured-component wrap path doesn't fire (memo / forwardRef
         // mismatch). Auto-cleared after a tick.
-        if (shelfId) setActiveShelfIdForMenu(shelfId);
+        if (shelfId) setActiveShelfIdForMenu(shelfId, appid);
         if (dfl?.showContextMenu) {
           dfl.showContextMenu(menuElement, cardEl);
         } else {
@@ -1277,6 +1391,16 @@ export function extractAppContextMenu(): boolean {
   return false;
 }
 
+/**
+ * Public wrapper for `buildDeckShelvesMenuItems` — used by `Shelf.tsx`
+ * (online shelf card menu) to get the standard DS menu structure without
+ * opening a native Steam menu. Returns an empty array when the shelf can't
+ * be resolved.
+ */
+export function buildShelfContextMenu(shelfId: string, appid: number, dfl: any, R: any): any[] {
+  return buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
+}
+
 export function showGameMenu(appid: number, shelfId?: string): void {
   if (showGameMenuActive) return;
   showGameMenuActive = true;
@@ -1343,7 +1467,7 @@ export function showGameMenu(appid: number, shelfId?: string): void {
                 });
 
                 const dfl = getDFL();
-                if (shelfId) setActiveShelfIdForMenu(shelfId);
+                if (shelfId) setActiveShelfIdForMenu(shelfId, appid);
                 if (dfl?.showContextMenu) {
                   dfl.showContextMenu(menuElement, cardEl);
                 } else {
@@ -1435,7 +1559,7 @@ export function showGameMenu(appid: number, shelfId?: string): void {
         // fallback runs from a shelf-card press — same actions appear here
         // and on the discovered native menu via the afterPatch seam.
         if (shelfId) {
-          const dsItems = buildDeckShelvesMenuItems(shelfId, dfl, R);
+          const dsItems = buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
           if (dsItems.length && dfl.MenuSeparator) {
             items.push(R.createElement(dfl.MenuSeparator, { key: "ds-sep" }));
           }

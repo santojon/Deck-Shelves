@@ -130,6 +130,7 @@ export const SmartShelfSchema = z.object({
   hideInstallIndicator: z.boolean().optional(),
   hideSeeMore: z.boolean().optional(),
   hideRefreshCard: z.boolean().optional(),
+  // Per-shelf hero opt-in (same semantics as the regular Shelf flag).
   heroEnabled: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
@@ -186,8 +187,6 @@ export const ShelfSchema = z.object({
   // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
   // Defaults to "alphabetical" when absent; must not be "manual" itself.
   manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
-  // Per-shelf toggle to enable hero art when this shelf is promoted
-  heroEnabled: z.boolean().optional(),
   // When true, reverse the manual base sort. Default false.
   manualBaseSortReverse: z.boolean().optional(),
   matchNativeSize: z.boolean().default(false),
@@ -203,6 +202,11 @@ export const ShelfSchema = z.object({
   hideInstallIndicator: z.boolean().default(false),
   hideSeeMore: z.boolean().default(false),
   hideRefreshCard: z.boolean().default(false),
+  // Per-shelf "Enable hero art" toggle. When true, focusing any card in this
+  // shelf paints the hero image (same overlay used by the global
+  // `shelfHeroBackground`) tied to the focused appid. Independent of
+  // `hideRecents` — a regular shelf below the native recents row can opt in.
+  heroEnabled: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema
