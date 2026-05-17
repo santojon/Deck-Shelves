@@ -262,11 +262,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       const previewSort = isManualSort
         ? (state.manualBaseSort || 'alphabetical')
         : (state.sort || (previewReverse ? 'alphabetical' : undefined))
-      resolveShelfAppIds(previewSource, state.limit, previewSort, previewShelfId, previewReverse)
+      resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse)
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
-          setResolvedIds(ids)
+          setResolvedIds(ids.slice(0, state.limit))
         })
         .catch(() => {
           if (cancelled) return

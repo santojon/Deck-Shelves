@@ -576,5 +576,7 @@
   "highlight_this": "このゲームをハイライト",
   "remove_highlight": "ハイライトを外す",
   "hide_from_shelf": "シェルフから非表示",
-  "show_in_shelf": "シェルフに表示"
+  "show_in_shelf": "シェルフに表示",
+  "sort_ascending": "並び順: 昇順",
+  "sort_descending": "並び順: 降順"
 }

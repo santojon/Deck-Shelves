@@ -576,5 +576,7 @@
   "highlight_this": "Виділити цю гру",
   "remove_highlight": "Видалити виділення",
   "hide_from_shelf": "Сховати з полиці",
-  "show_in_shelf": "Показати на полиці"
+  "show_in_shelf": "Показати на полиці",
+  "sort_ascending": "Сортування: за зростанням",
+  "sort_descending": "Сортування: за спаданням"
 }

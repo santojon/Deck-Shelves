@@ -576,5 +576,7 @@
   "highlight_this": "Destacar este jogo",
   "remove_highlight": "Remover destaque",
   "hide_from_shelf": "Ocultar da prateleira",
-  "show_in_shelf": "Mostrar na prateleira"
+  "show_in_shelf": "Mostrar na prateleira",
+  "sort_ascending": "Ordem: crescente",
+  "sort_descending": "Ordem: decrescente"
 }

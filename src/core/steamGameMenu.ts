@@ -67,13 +67,33 @@ let _libraryContextMenuPatched = false;
 let _hltbDiscoveryAttempted = false;
 let _activeShelfIdForMenu: string | null = null;
 let _activeAppIdForMenu: number = 0;
+let _activeCardIndexForMenu: number = -1;
 function setActiveShelfIdForMenu(id: string | null, appid?: number): void {
   _activeShelfIdForMenu = id;
   if (appid !== undefined) _activeAppIdForMenu = appid;
+  // Capture the card index from the DOM so the menu knows if the focused card
+  // is position 0 (needed to reflect highlightFirst state correctly).
+  try {
+    if (appid && id) {
+      const docs: Document[] = [];
+      try { docs.push(document); } catch {}
+      try { const w = (globalThis as any).GamepadUIMainWindowStore?.BrowserView?.m_browser?.gamepadui?.document; if (w) docs.push(w); } catch {}
+      for (const d of docs) {
+        const el = d.querySelector(`.ds-card[data-appid="${appid}"][data-shelfid="${id}"]`) as HTMLElement | null;
+        if (el) {
+          const idx = el.getAttribute('data-ds-card-index');
+          _activeCardIndexForMenu = idx !== null ? Number(idx) : -1;
+          break;
+        }
+      }
+    } else {
+      _activeCardIndexForMenu = -1;
+    }
+  } catch { _activeCardIndexForMenu = -1; }
   if (id !== null) {
     try {
       setTimeout(() => {
-        if (_activeShelfIdForMenu === id) { _activeShelfIdForMenu = null; _activeAppIdForMenu = 0; }
+        if (_activeShelfIdForMenu === id) { _activeShelfIdForMenu = null; _activeAppIdForMenu = 0; _activeCardIndexForMenu = -1; }
       }, 250);
     } catch {}
   }
@@ -429,7 +449,7 @@ export function installLibraryContextMenuPatch(): void {
             const outerChildren = component?.props?.children;
             if (Array.isArray(outerChildren) && isGameContextMenuItems(outerChildren, dfl)) {
               dedupDsMenuItems(outerChildren);
-              const items = buildDeckShelvesMenuItems(shelfId, dfl, R);
+              const items = buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
               if (items.length) spliceDsItems(outerChildren, items, dfl, R);
             }
           } catch {}
@@ -630,11 +650,26 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
   const group = (key: string, label: string, ...children: any[]) =>
     R.createElement(dfl.MenuGroup, { key, label }, ...children);
 
+  // ── Sort direction toggle (direct item inside "Prateleira") ───────────
+  const isReversed = !!shelf.sortReverse;
+  const sortLabel = isReversed
+    ? checked(true, lbl("sort_descending", "Sort: descending"))
+    : lbl("sort_ascending", "Sort: ascending");
+  const sortToggle = item("ds-sort-dir", sortLabel, () => toggleFlag("sortReverse"));
+
   // ── Card-level actions (base level, no submenu) ───────────────────────
   // These apply to the specific focused card, not the shelf as a whole.
   const cardActions: any[] = [];
   if (focusedAppId > 0) {
-    const highlighted = (shelf.highlightedAppIds ?? []).includes(focusedAppId);
+    // A card is effectively highlighted if it's individually in highlightedAppIds,
+    // OR if it's at index 0 and highlightFirst is on (shelf-level setting),
+    // OR if highlightAll is on. Reflect all three in the menu so the user
+    // can see the active state and toggle it per-card without confusion.
+    const inHighlightedIds = (shelf.highlightedAppIds ?? []).includes(focusedAppId);
+    const isFirstCard = _activeCardIndexForMenu === 0;
+    const highlightedViaFirst = isFirstCard && !!shelf.highlightFirst;
+    const highlightedViaAll = !!shelf.highlightAll;
+    const highlighted = inHighlightedIds || highlightedViaFirst || highlightedViaAll;
     cardActions.push(item(
       "ds-card-highlight",
       highlighted
@@ -643,15 +678,33 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
       () => {
         const s = getCurrentSettings();
         if (!s) return;
-        const ids: number[] = shelf.highlightedAppIds ?? [];
-        const next = highlighted ? ids.filter((id) => id !== focusedAppId) : [...ids, focusedAppId];
-        if (isSmart) {
-          const updated = (s.smartShelves ?? []).map((sh: any) =>
-            sh.id === shelfId ? { ...sh, highlightedAppIds: next } : sh,
-          );
-          void saveSettings({ ...s, smartShelves: updated });
+        // When removing highlight: if the highlight came from highlightAll/
+        // highlightFirst (shelf-level), turn those off. If it came from
+        // highlightedAppIds (per-card), remove from that list.
+        if (highlighted) {
+          let patch: Record<string, any> = {};
+          if (highlightedViaAll) patch.highlightAll = false;
+          if (highlightedViaFirst) patch.highlightFirst = false;
+          if (inHighlightedIds) patch.highlightedAppIds = (shelf.highlightedAppIds ?? []).filter((id: number) => id !== focusedAppId);
+          if (isSmart) {
+            const updated = (s.smartShelves ?? []).map((sh: any) =>
+              sh.id === shelfId ? { ...sh, ...patch } : sh,
+            );
+            void saveSettings({ ...s, smartShelves: updated });
+          } else {
+            void saveSettings(patchShelfInSettings(s, shelfId, patch));
+          }
         } else {
-          void saveSettings(patchShelfInSettings(s, shelfId, { highlightedAppIds: next }));
+          const ids: number[] = shelf.highlightedAppIds ?? [];
+          const next = [...ids, focusedAppId];
+          if (isSmart) {
+            const updated = (s.smartShelves ?? []).map((sh: any) =>
+              sh.id === shelfId ? { ...sh, highlightedAppIds: next } : sh,
+            );
+            void saveSettings({ ...s, smartShelves: updated });
+          } else {
+            void saveSettings(patchShelfInSettings(s, shelfId, { highlightedAppIds: next }));
+          }
         }
       },
     ));
@@ -685,6 +738,7 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
     ...cardActions,
     group(
       "ds-shelf-root", lbl("menu_shelf", "Shelf"),
+      sortToggle,
       group("ds-mgmt",    lbl("menu_management", "Management"), ...mgmt),
       group("ds-display", lbl("menu_display",    "Display"),    ...display),
       group("ds-visual",  lbl("menu_visual",     "Visual"),     ...visual),

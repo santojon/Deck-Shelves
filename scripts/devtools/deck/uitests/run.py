@@ -27,6 +27,8 @@ from .suites import qam_shelves as _qam_shelves_t  # noqa: E402,F401
 from .suites import qam_smart as _qam_smart_t  # noqa: E402,F401
 from .suites import qam_global_toggles as _qam_global_t  # noqa: E402,F401
 from .suites import about as _about_t  # noqa: E402,F401
+from .suites import context_menu as _ctx_menu_t  # noqa: E402,F401
+from .suites import perf as _perf_t  # noqa: E402,F401
 
 
 REPO_ROOT = THIS_DIR.parent.parent.parent.parent

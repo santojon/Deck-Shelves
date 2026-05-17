@@ -576,5 +576,7 @@
   "highlight_this": "이 게임 강조",
   "remove_highlight": "강조 해제",
   "hide_from_shelf": "선반에서 숨기기",
-  "show_in_shelf": "선반에 표시"
+  "show_in_shelf": "선반에 표시",
+  "sort_ascending": "정렬: 오름차순",
+  "sort_descending": "정렬: 내림차순"
 }

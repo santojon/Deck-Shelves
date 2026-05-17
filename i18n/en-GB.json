@@ -576,5 +576,7 @@
   "highlight_this": "Highlight this game",
   "remove_highlight": "Remove highlight",
   "hide_from_shelf": "Hide from shelf",
-  "show_in_shelf": "Show in shelf"
+  "show_in_shelf": "Show in shelf",
+  "sort_ascending": "Sort: ascending",
+  "sort_descending": "Sort: descending"
 }

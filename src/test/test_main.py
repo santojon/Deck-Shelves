@@ -150,32 +150,48 @@ def test_sanitize_settings_multiple_shelves():
 
 # ─── _normalize_path ───────────────────────────────────────────────────────────
 
+import os as _os
+
+_HOME = _os.path.realpath(_os.path.expanduser("~"))
+
+
 def test_normalize_path_plain_string():
-    result = _normalize_path("/home/deck/Downloads/file.json")
-    assert result == "/home/deck/Downloads/file.json"
+    # Path must be under home to be accepted by the security guard.
+    p = _os.path.join(_HOME, "Downloads", "file.json")
+    result = _normalize_path(p)
+    assert result == _os.path.realpath(p)
 
 
 def test_normalize_path_strips_file_protocol():
-    result = _normalize_path("file:///home/deck/Downloads/file.json")
+    p = _os.path.join(_HOME, "Downloads", "file.json")
+    result = _normalize_path(f"file://{p}")
     assert "file://" not in result
-    assert result.endswith("Downloads/file.json")
+    assert result.endswith("file.json")
 
 
 def test_normalize_path_reads_dest_path_from_dict():
-    result = _normalize_path({"dest_path": "/home/deck/file.json"})
-    assert result == "/home/deck/file.json"
+    p = _os.path.join(_HOME, "file.json")
+    result = _normalize_path({"dest_path": p})
+    assert result == _os.path.realpath(p)
 
 
 def test_normalize_path_reads_src_path_from_dict():
-    result = _normalize_path({"src_path": "/home/deck/file.json"})
-    assert result == "/home/deck/file.json"
+    p = _os.path.join(_HOME, "file.json")
+    result = _normalize_path({"src_path": p})
+    assert result == _os.path.realpath(p)
 
 
 def test_normalize_path_strips_surrounding_quotes():
-    # strip() removes outer whitespace, then strip('"') removes the quotes.
-    # Spaces inside the original quotes are NOT stripped by this sequence.
-    result = _normalize_path('"/home/deck/file.json"')
-    assert result == "/home/deck/file.json"
+    p = _os.path.join(_HOME, "file.json")
+    result = _normalize_path(f'"{p}"')
+    assert result == _os.path.realpath(p)
+
+
+def test_normalize_path_rejects_outside_home():
+    # Path traversal / system paths must be blocked.
+    assert _normalize_path("/etc/passwd") == ""
+    assert _normalize_path("/root/.ssh/id_rsa") == ""
+    assert _normalize_path(_HOME + "/../../../etc/passwd") == ""
 
 
 def test_normalize_path_non_string_non_dict_returns_empty():
@@ -230,3 +246,82 @@ def test_sanitize_settings_round_trip_preserves_shelves_with_updateNotify_null()
     # Both new fields appear in output and either include real values or null.
     assert "updateNotifyEnabled" in sanitized
     assert "updateNotifyDismissedVersion" in sanitized
+
+
+# ─── heroEnabled sanitizer (regular + smart shelves) ─────────────────────────
+
+def test_sanitize_settings_heroEnabled_regular_shelf():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "favorites"},
+                     "heroEnabled": True}]
+    })
+    assert result["shelves"][0].get("heroEnabled") is True
+
+
+def test_sanitize_settings_heroEnabled_false_omitted():
+    # False is the default — sanitizer should omit it to keep storage minimal.
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "favorites"},
+                     "heroEnabled": False}]
+    })
+    assert result["shelves"][0].get("heroEnabled") is not True
+
+
+def test_sanitize_settings_heroEnabled_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
+                          "heroEnabled": True}]
+    })
+    assert result["smartShelves"][0].get("heroEnabled") is True
+
+
+# ─── hiddenAppIds in smart shelves ───────────────────────────────────────────
+
+def test_sanitize_settings_hiddenAppIds_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
+                          "hiddenAppIds": [730, 570, 0, -1, "bad"]}]
+    })
+    # Only positive integers survive.
+    assert result["smartShelves"][0].get("hiddenAppIds") == [730, 570]
+
+
+def test_sanitize_settings_highlightedAppIds_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
+                          "highlightedAppIds": [440, 0]}]
+    })
+    assert result["smartShelves"][0].get("highlightedAppIds") == [440]
+
+
+# ─── forceCssLoaderThemes sanitizer ──────────────────────────────────────────
+
+def test_sanitize_settings_forceCssLoaderThemes_true():
+    result = _sanitize_settings({"forceCssLoaderThemes": True})
+    assert result.get("forceCssLoaderThemes") is True
+
+
+def test_sanitize_settings_forceCssLoaderThemes_default_false():
+    result = _sanitize_settings({})
+    assert result.get("forceCssLoaderThemes") is False
+
+
+# ─── sortReverse in context-menu persist path ─────────────────────────────────
+
+def test_sanitize_settings_sortReverse_shelf():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "favorites"},
+                     "sortReverse": True}]
+    })
+    assert result["shelves"][0].get("sortReverse") is True
+
+
+def test_sanitize_settings_sortReverse_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
+                          "sortReverse": True}]
+    })
+    assert result["smartShelves"][0].get("sortReverse") is True

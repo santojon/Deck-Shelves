@@ -576,5 +576,7 @@
   "highlight_this": "高亮此遊戲",
   "remove_highlight": "取消高亮",
   "hide_from_shelf": "從書架隱藏",
-  "show_in_shelf": "在書架中顯示"
+  "show_in_shelf": "在書架中顯示",
+  "sort_ascending": "排序: 升序",
+  "sort_descending": "排序: 降序"
 }

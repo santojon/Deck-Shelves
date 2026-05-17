@@ -693,6 +693,11 @@ function isFavoriteOf(a: any): boolean {
   return !!(a?.is_favorite ?? a?.favorite ?? a?.m_bIsFavorite ?? a?.m_bFavorite ?? a?.bFavorite);
 }
 function isHiddenOf(a: any): boolean {
+  // `visible_in_game_list === false` is how SteamOS 3.x / recent Steam clients
+  // mark hidden games on the AppOverview protobuf — the older bool fields
+  // (is_hidden, m_bHidden) are not populated on these versions (confirmed via
+  // CDP on SteamOS 3.7, issue #63). Check all known variants.
+  if (a?.visible_in_game_list === false) return true;
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }
 function isInstalledOf(a: any): boolean {
@@ -750,7 +755,7 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     is_steam: node?.is_steam ?? !isNonSteamOf(node),
     is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
-    is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
+    is_hidden: (node?.visible_in_game_list === false) ? true : readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     installed: (() => {
       // Non-Steam shortcuts (notably Unifideck) advertise installed:true on
       // the raw overview regardless of real state. Defer to isInstalledOf

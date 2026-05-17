@@ -160,14 +160,17 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
       }
-      resolveShelfAppIds(previewSource, state.limit, previewSort, previewShelfId, previewReverse, {
+      // Resolve with a generous limit so the count reflects the true number of
+      // matching games, not just the configured shelf limit. The resolved list
+      // is then sliced to state.limit for the preview row display.
+      resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse, {
         hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
         dedupeByName: state.dedupeByExactName || undefined,
       })
         .then((ids) => {
           if (cancelled) return
           setPreviewCount(ids.length)
-          setResolvedIds(ids)
+          setResolvedIds(ids.slice(0, state.limit))
         })
         .catch(() => {
           if (cancelled) return
@@ -214,14 +217,17 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         return
       }
 
-      // Online shelves only show games NOT in local library (mirrors Shelf.tsx).
-      // getAppMeta returns a fallback with name "App <id>" for non-library apps.
-      // Games with a real name are already owned — the real shelf hides them.
+      // For online shelves, enrich display names via the local cache. When
+      // excludeOwned is ON, mirror Shelf.tsx and hide games already in the
+      // library (getAppMeta returns "App <id>" for non-library apps; real
+      // names signal owned). When excludeOwned is OFF, show everything.
       const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
       const nameCache: Record<number, string> = (() => {
         try { return JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch { return {} }
       })()
-      const onlineIds = rawResults.filter(([, m]) => /^App \d+$/.test(m.name)).map(([id]) => id)
+      const onlineIds = state.excludeOwned
+        ? rawResults.filter(([, m]) => /^App \d+$/.test(m.name)).map(([id]) => id)
+        : rawResults.map(([id]) => id)
       const meta = new Map<number, PlatformAppMeta>()
       const toFetch: number[] = []
       for (const id of onlineIds) {

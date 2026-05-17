@@ -232,6 +232,7 @@ export const SettingsSchema = z.object({
   globalHideInstallIndicator: z.boolean().default(false),
   globalHideSeeMore: z.boolean().default(false),
   globalHideRefreshCard: z.boolean().default(false),
+  globalHeroEnabled: z.boolean().default(false),
   globalDedupeByName: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),

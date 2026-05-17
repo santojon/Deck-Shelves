@@ -576,5 +576,7 @@
   "highlight_this": "Dit spel uitlichten",
   "remove_highlight": "Uitlichten verwijderen",
   "hide_from_shelf": "Verbergen van plank",
-  "show_in_shelf": "Tonen op plank"
+  "show_in_shelf": "Tonen op plank",
+  "sort_ascending": "Sortering: oplopend",
+  "sort_descending": "Sortering: aflopend"
 }

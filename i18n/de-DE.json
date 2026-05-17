@@ -576,5 +576,7 @@
   "highlight_this": "Dieses Spiel hervorheben",
   "remove_highlight": "Hervorhebung entfernen",
   "hide_from_shelf": "Aus Regal ausblenden",
-  "show_in_shelf": "Im Regal anzeigen"
+  "show_in_shelf": "Im Regal anzeigen",
+  "sort_ascending": "Sortierung: aufsteigend",
+  "sort_descending": "Sortierung: absteigend"
 }

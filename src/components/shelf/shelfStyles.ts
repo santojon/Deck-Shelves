@@ -48,6 +48,16 @@ function loadPersistedDims(): NativeCardDims | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedDims;
     if (!parsed || parsed.v !== DIMS_CACHE_VERSION || !parsed.dims) return null;
+    // Validate viewport fingerprint: if resolution or dpr changed since the
+    // dims were measured, they no longer match reality. Discard so they get
+    // re-measured from the live DOM (fixes wrong featured-card size after a
+    // display-resolution change while matchNativeSize is on).
+    const fp = viewportFingerprint();
+    if (fp.vw >= 100 && fp.vh >= 100) {
+      if (parsed.vw !== fp.vw || parsed.vh !== fp.vh || Math.abs((parsed.dpr ?? 1) - fp.dpr) > 0.05) {
+        return null;
+      }
+    }
     return parsed.dims;
   } catch { return null; }
 }
@@ -255,6 +265,19 @@ function ensureStyles() {
         else doc.documentElement.removeAttribute('data-ds-slh');
       } catch {}
 
+      // Centered Home detection — the theme sets `--center-home-padding` on
+      // :root to shift the home page content into a centered column. We detect
+      // it via that property and mark <html data-ds-centered="1"> so our CSS
+      // can apply matching left-offset compensation to DS shelves.
+      // NOTE: property name verified against Centered Home v1.x by Morz
+      // (CSS Loader store). If it stops working, inspect :root in CDP to find
+      // the new signal property and update accordingly.
+      try {
+        const ch = getComputedStyle(doc.documentElement).getPropertyValue('--center-home-padding').trim();
+        if (ch !== '') doc.documentElement.setAttribute('data-ds-centered', '1');
+        else doc.documentElement.removeAttribute('data-ds-centered');
+      } catch {}
+
       try {
         doc.documentElement.style.removeProperty('--ds-native-heading-color');
         const headings = doc.querySelectorAll('h2[class], h3[class]');
@@ -313,6 +336,64 @@ function buildStylesheet(): string {
        opts back into the tall flex container only when needed. */
     .ds-shelf[data-ds-recents-slot="true"] {
       height: auto !important;
+    }
+
+    /* ── SLH alt C shim (data-ds-slh="1") ─────────────────────────────────
+       Problem: the SLH theme uses position:absolute/bottom:0 on the native
+       recents grid inside a height:100vh/overflow:hidden container. When DS
+       hides the native recents (height:0), that grid disappears but the
+       fixed-height container stays. Our promoted shelf
+       (data-ds-recents-slot="true") sits OUTSIDE that container inside
+       #deck-shelves-home-root, so it is not caught by the theme's
+       absolute-positioning rule and ends up at the top instead of the bottom.
+
+       Fix: expand #deck-shelves-home-root to viewport height and pin the
+       promoted shelf to its bottom via absolute positioning — mirroring the
+       theme's layout contract without touching any native class names.
+
+       NOTE: Requires validation on a real Deck with the theme active. The
+       56px header offset is based on CDP observations from 2026-05-14. */
+    [data-ds-slh="1"] #deck-shelves-home-root {
+      height: calc(100vh - 56px);
+      position: relative;
+      overflow: visible;
+    }
+    [data-ds-slh="1"] .deck-shelves-root {
+      height: 100%;
+      position: relative;
+    }
+    [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] {
+      position: absolute !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      height: auto !important;
+      /* SLH pads the grid top by the lift amount so the hero image above
+         it doesn't overlap the card row. Mirror via the same variable. */
+      padding-top: calc(var(--SLH-lift-hero-px, 0px) + 6px);
+    }
+    /* SLH + ArtHero: the ArtHero flex column still applies inside the
+       absolute-positioned promoted shelf. */
+    [data-ds-slh="1"] .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
+      display: flex !important;
+      flex-direction: column;
+    }
+
+    /* ── Centered Home shim (data-ds-centered="1") ─────────────────────────
+       The Centered Home theme (by Morz) shifts the library home content into
+       a centered column using a left padding defined by --center-home-padding.
+       DS shelves sit in a portal outside that column and therefore stay
+       full-width, not centered. We compensate by applying the same left-padding
+       variable so DS shelves align with native content.
+
+       NOTE: --center-home-padding name needs verification on a real Deck with
+       the theme active. If the theme uses a different property name, update the
+       detection in ensureStyles() and this rule together. */
+    [data-ds-centered="1"] #deck-shelves-home-root,
+    [data-ds-centered="1"] .deck-shelves-root {
+      padding-left: var(--center-home-padding, 0px);
+      padding-right: var(--center-home-padding, 0px);
+      box-sizing: border-box;
     }
 
     /* ArtHero (and any future hero-label theme) opts into the full layout:
@@ -487,44 +568,47 @@ function buildStylesheet(): string {
       z-index: 2;
     }
 
-    /* TiltedHome (Renaissance) compat — universal: when a CSS Loader theme
-       sets --ren-tilt-angle on :root, our cards mirror the same skew the
-       theme applies to native recents tiles. var() without a fallback on
-       the angle means the whole transform is invalid (and dropped) when no
-       theme defines it — zero GPU/composite cost in the no-theme case.
+    /* TiltedHome (Renaissance) compat — universal: mirrors whatever transform
+       the theme applies to native recents tiles. Two methods are supported:
+       - skew  (default): parallelogram tilt via skewX(--ren-tilt-angle)
+       - rotate3d: perspective 3-D tilt via rotateY(--ren-tilt-angle)
+       --ren-tilt-method controls which branch fires; when neither var is
+       defined the whole transform is invalid and dropped — zero cost in the
+       no-theme case. Gated by @supports to avoid syntax errors on older
+       WebKit that doesn't understand custom-property-in-transform. */
 
-       The skew is on .ds-card (the visual card wrapper) so the entire card
-       structure tilts as a parallelogram — image, label, focus glow, and
-       blank-card variants (MoreCard, RefreshCard) all participate. .ds-card
-       already has overflow:hidden so children clip to the skewed bounds,
-       matching native TiltedHome. Focus adds scale(1.02) only — native
-       TiltedHome's focused-tile rule. */
-    .ds-card {
+    /* method: skew (default when --ren-tilt-method is unset or "skew") */
+    :root:not([style*="--ren-tilt-method"]) .ds-card,
+    :root[style*="--ren-tilt-method: skew"] .ds-card {
       transform: skew(var(--ren-tilt-angle));
     }
-    /* Focus state — covers gpfocus (gamepad focus on the card itself),
-       is-selected (Steam's selected-tile marker), and the live :focus /
-       :hover pseudos. NOTE: .gpfocuswithin is intentionally excluded — it
-       fires on EVERY card whenever a descendant of the row has focus, so
-       including it would scale every card and erase the focus indicator.
-
-       Steam also injects a higher-specificity rule
-       (.BasicUI .NATIVE-CLASS.Focusable:focus { transform: translateZ(15px) })
-       that strips our skew on the truly-focused card. !important wins the
-       cascade; translateZ(15px) preserves the native depth lift so the
-       focused card still floats above its neighbors. */
-    .ds-card.gpfocus,
-    .ds-card.is-selected,
-    .ds-card:focus,
-    .ds-card:hover {
+    :root:not([style*="--ren-tilt-method"]) .ds-card.gpfocus,
+    :root:not([style*="--ren-tilt-method"]) .ds-card.is-selected,
+    :root:not([style*="--ren-tilt-method"]) .ds-card:focus,
+    :root:not([style*="--ren-tilt-method"]) .ds-card:hover,
+    :root[style*="--ren-tilt-method: skew"] .ds-card.gpfocus,
+    :root[style*="--ren-tilt-method: skew"] .ds-card.is-selected,
+    :root[style*="--ren-tilt-method: skew"] .ds-card:focus,
+    :root[style*="--ren-tilt-method: skew"] .ds-card:hover {
       transform: skew(var(--ren-tilt-angle)) scale(1.02) translateZ(15px) !important;
     }
-    /* No row-gap compensation: native TiltedHome accepts visual overlap of
-       adjacent skewed cards as part of the aesthetic, and trying to widen
-       the gap to fully separate parallelograms leaves obvious empty space
-       between focused cards (the focus glow then has to travel through
-       that gap). Match native: cards skewed, gap stays at the row's
-       configured value, parallelograms gently overlap. */
+
+    /* method: rotate3d — perspective tilt (Renaissance "3D" variant) */
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card {
+      transform: perspective(600px) rotateY(var(--ren-tilt-angle));
+    }
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card.gpfocus,
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card.is-selected,
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card:focus,
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card:hover {
+      transform: perspective(600px) rotateY(var(--ren-tilt-angle)) scale(1.02) translateZ(15px) !important;
+    }
+
+    /* NOTE: .gpfocuswithin intentionally excluded — fires on EVERY card when
+       any descendant has focus, erasing the focused-card indicator. Steam also
+       injects a higher-specificity rule that strips our transform on the truly-
+       focused card; !important above wins the cascade while translateZ(15px)
+       preserves the native depth lift. */
 
     .ds-card .ds-card-label {
       opacity: 0;

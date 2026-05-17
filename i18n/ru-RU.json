@@ -576,5 +576,7 @@
   "highlight_this": "Выделить эту игру",
   "remove_highlight": "Убрать выделение",
   "hide_from_shelf": "Скрыть с полки",
-  "show_in_shelf": "Показать на полке"
+  "show_in_shelf": "Показать на полке",
+  "sort_ascending": "Сортировка: по возрастанию",
+  "sort_descending": "Сортировка: по убыванию"
 }

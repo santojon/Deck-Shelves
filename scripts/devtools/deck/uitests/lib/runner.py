@@ -22,12 +22,18 @@ from ...screenshots.lib import nav, capture
 
 @dataclass
 class Context:
-    sjc: Session
+    sjc: Session       # SharedJSContext — navigation, router, localStorage
+    bp: Session        # Big Picture — DOM queries (DS shelves, cards, native recents)
     host: str
     port: int
     out_dir: Path
 
     def eval(self, expr: str, return_by_value: bool = True, timeout: float = 8.0) -> Any:
+        """Evaluate in Big Picture where DS shelves render."""
+        return self.bp.evaluate(expr, return_by_value=return_by_value, timeout=timeout)
+
+    def eval_sjc(self, expr: str, return_by_value: bool = True, timeout: float = 8.0) -> Any:
+        """Evaluate in SharedJSContext (Router, appStore, settings)."""
         return self.sjc.evaluate(expr, return_by_value=return_by_value, timeout=timeout)
 
     def query(self, selector: str) -> Any:
@@ -97,7 +103,8 @@ def suite(name: str) -> Suite:
 
 def run(host: str, port: int, out_dir: Path, only: Optional[List[str]] = None) -> List[TestResult]:
     sjc = open_session(host, port, "SharedJSContext")
-    ctx = Context(sjc=sjc, host=host, port=port, out_dir=out_dir)
+    bp  = open_session(host, port, "Big Picture")
+    ctx = Context(sjc=sjc, bp=bp, host=host, port=port, out_dir=out_dir)
     results: List[TestResult] = []
     try:
         for s in SUITES.values():
@@ -119,4 +126,5 @@ def run(host: str, port: int, out_dir: Path, only: Optional[List[str]] = None) -
                     print(f"ERROR {full} :: {e}")
     finally:
         sjc.close()
+        bp.close()
     return results

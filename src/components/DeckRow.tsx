@@ -92,13 +92,28 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
   }, [containerRef]);
 
   if (!slotA && !slotB) return null;
+  // Extend 80px above the shelf (fills the row title area and bleeds into the
+  // shelf above) and 60px below — mirrors the native Steam hero extent.
+  // Left/right use vw units to reach full viewport width even when the shelf
+  // itself has padding. The outer wrapper is overflow:visible so the extension
+  // is visible; the hero image wrapper is overflow:hidden so the image clips.
   return (
     <div style={{
-      position: 'absolute', inset: 0, zIndex: -1, pointerEvents: 'none', overflow: 'hidden',
+      position: 'absolute',
+      top: -80, bottom: -60,
+      left: '-2.8vw', right: '-2.8vw',
+      zIndex: -1, pointerEvents: 'none', overflow: 'hidden',
       opacity: visible ? 1 : 0,
       transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+      // Soft mask at top so the hero fades into the shelf above rather than
+      // cutting sharply. Bottom is handled by the gradient overlay below.
+      maskImage: 'linear-gradient(to bottom, transparent 0%, rgb(0,0,0) 15%, rgb(0,0,0) 80%, transparent 100%)',
+      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, rgb(0,0,0) 15%, rgb(0,0,0) 80%, transparent 100%)' as any,
     }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'var(--ds-page-bg,rgb(0,0,0))' }} />
+      {/* Solid fill behind the image — uses --obsidian-main-color when
+          Obsidian is active, otherwise falls back to --ds-page-bg. This
+          makes the base color match Obsidian without extra detection. */}
+      <div style={{ position: 'absolute', inset: 0, background: 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))' }} />
       {slotA && (
         <div style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
@@ -119,9 +134,12 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
         </div>
       )}
+      {/* Bottom gradient: fades hero art to the theme background color.
+          Uses --obsidian-main-color when Obsidian is active so the fade
+          matches the theme's black exactly. */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(to top, var(--ds-page-bg,rgb(0,0,0)) 0%, rgba(0,0,0,0.5) 40%, transparent 100%)',
+        background: 'linear-gradient(to top, var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0))) 0%, rgba(0,0,0,0.4) 45%, transparent 100%)',
       }} />
     </div>
   );
@@ -179,7 +197,11 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     const nd = getCachedNativeDims();
     const w = matchNativeSize && nd ? nd.width : CARD_W;
     const h = matchNativeSize && nd ? nd.height : CARD_ART_H;
-    const gap = matchNativeSize && nd ? nd.gap : CARD_GAP;
+    // TiltedHome skews cards into each other: a measured native gap of 0 (or
+    // near-0) becomes fully invisible after the skew transform. Clamp to 8px
+    // minimum so parallelograms never fully merge regardless of theme state.
+    const rawGap = matchNativeSize && nd ? nd.gap : CARD_GAP;
+    const gap = Math.max(rawGap, 8);
     // Default featured: ~3.21× portrait width (matches base native 430px featured
     // card at 134px portrait width, measured via CDP on the Steam Deck home screen).
     const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3.21);
@@ -285,11 +307,14 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       }
     }
     injectShelfNativeClasses();
-    const t = setTimeout(injectShelfNativeClasses, 500);
+    // Multiple retry points: classmap discovery (homePatch) and settings load
+    // from backend both happen async after mount. On cold boot the 500ms slot
+    // misses both — 1 s, 2 s, and 5 s cover the tail without staying active.
+    const timers = [500, 1000, 2000, 5000].map(d => setTimeout(injectShelfNativeClasses, d));
     const onSettings = () => injectShelfNativeClasses();
     globalThis.addEventListener('deck-shelves-settings-changed', onSettings);
     return () => {
-      clearTimeout(t);
+      for (const t of timers) clearTimeout(t);
       globalThis.removeEventListener('deck-shelves-settings-changed', onSettings);
     };
   }, []);
@@ -685,6 +710,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
               cardH={isFeatured ? finalFeaturedH : effectiveH}
               artH={isFeatured ? finalFeaturedArtH : effectiveArtH}
               featured={isFeatured}
+              cardIndex={idx}
               hideStatusLine={hideStatusLine}
               hideNewBadge={hideNewBadge}
               hideCompatIcons={hideCompatIcons}

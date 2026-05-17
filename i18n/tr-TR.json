@@ -576,5 +576,7 @@
   "highlight_this": "Bu oyunu vurgula",
   "remove_highlight": "Vurguyu kaldır",
   "hide_from_shelf": "Raftan gizle",
-  "show_in_shelf": "Rafta göster"
+  "show_in_shelf": "Rafta göster",
+  "sort_ascending": "Sıralama: artan",
+  "sort_descending": "Sıralama: azalan"
 }
