@@ -4,6 +4,10 @@
   "description": "Decky Loader plugin that injects configurable shelves into Steam Deck Home and provides a Steam Deck focused QAM editor.",
   "type": "module",
   "scripts": {
+    "validate:full": "bash scripts/ci/validate.sh",
+    "validate:full:stress": "bash scripts/ci/validate.sh --stress",
+    "validate:ci": "bash scripts/ci/validate-ci.sh",
+    "reports": "open reports/index.html 2>/dev/null || xdg-open reports/index.html 2>/dev/null || echo 'Open reports/index.html manually'",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build/build-decky.mjs --mode development",

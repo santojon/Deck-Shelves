@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deck Shelves &mdash; Validation Reports</title>
+<style>*,*::before,*::after{box-sizing:border-box}
+:root{font-family:system-ui,-apple-system,sans-serif;
+  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
+  --pass:#4ade80;--fail:#f87171;--link:#60a5fa}
+body{margin:0;background:var(--bg);color:var(--text)}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:18px 32px}
+header h1{margin:0;font-size:20px;font-weight:700}
+header p{margin:4px 0 0;color:var(--muted);font-size:12px}
+main{max-width:760px;margin:0 auto;padding:24px 32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:32px}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:20px 22px;display:flex;flex-direction:column;gap:8px}
+.scard h2{margin:0;font-size:15px;font-weight:700}
+.scard p{margin:0;font-size:11px;color:var(--muted);flex:1}
+.scard a.btn{display:inline-block;padding:6px 14px;border-radius:6px;font-size:12px;
+  font-weight:600;background:#1e40af;color:#fff;margin-top:4px;text-align:center}
+.scard a.btn:hover{background:#2563eb;text-decoration:none}
+.latest{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+.latest h2{margin:0 0 12px;font-size:14px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:5px 10px;color:var(--muted);font-size:10px;
+  text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid #1e293b}
+tr:hover td{background:#273548}
+.b{display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700}
+.b.pass{background:#14532d44;color:var(--pass)}.b.fail{background:#7f1d1d44;color:var(--fail)}
+footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Deck Shelves &mdash; Validation Reports</h1>
+  <p>Three validation scopes &middot; local-only, not committed</p>
+</header>
+<main>
+  <div class="grid">
+<div class="scard"><h2>Local</h2><p>Full validation with Steam Deck (deploy + UI tests + perf bench).</p><a class="btn" href="local/index.html">Open reports &rarr;</a></div>
+<div class="scard"><h2>CI / Automated</h2><p>Automated checks without device (typecheck, tests, build, compat).</p><a class="btn" href="ci/index.html">Open reports &rarr;</a></div>
+<div class="scard"><h2>Release</h2><p>Release gate: CI checks + packaging + security audit.</p><a class="btn" href="release/index.html">Open reports &rarr;</a></div>
+  </div>
+  <div class="latest">
+    <h2>Latest run per scope</h2>
+    <table>
+      <thead><tr>
+        <th>Scope</th><th>Date / Time</th><th>Result</th><th>Pass / Total</th><th></th>
+      </tr></thead>
+      <tbody><tr><td>Local</td><td>2026-05-17 11:47:45</td><td><span class="b fail">FAIL</span></td><td class="num">9/10</td><td><a href="local/index.html">history &rarr;</a></td></tr>
+<tr><td>CI / Automated</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="ci/index.html">open &rarr;</a></td></tr>
+<tr><td>Release</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="release/index.html">open &rarr;</a></td></tr></tbody>
+    </table>
+  </div>
+</main>
+<footer>Deck Shelves CI &middot; local-only</footer>
+</body>
+</html>

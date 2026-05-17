@@ -33,6 +33,12 @@ build/*
 .deploy/
 *.zip
 
+# Local validation reports (with Deck — not committed)
+reports/local/
+# Temp files inside any reports subfolder
+reports/**/.tmp_*/
+reports/**/.tmp_*.json
+
 # Hidden folders
 /.*/
 !.github/

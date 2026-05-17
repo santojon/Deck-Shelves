@@ -20,6 +20,9 @@ type PersistedDims = { v: number; dims: NativeCardDims; vw: number; vh: number; 
 let cachedCardRadius = "0px";
 let cachedNewBadgeRadius = "0px";
 let cachedNativeDims: NativeCardDims | null = null;
+// Fingerprint at the time cachedNativeDims was last measured — used to detect
+// resolution changes mid-session without waiting for the stability cycle.
+let cachedDimsFp: { vw: number; vh: number; dpr: number } | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
 // Confirmation cycle: new dims must be stable for N consecutive polls before accepting.
@@ -74,6 +77,7 @@ function persistDims(dims: NativeCardDims) {
 // Seed from last-session cache so cold boot skips the CARD_W/CARD_ART_H fallback
 // and avoids the reflow when native dims are discovered shortly after.
 cachedNativeDims = loadPersistedDims();
+if (cachedNativeDims) cachedDimsFp = viewportFingerprint();
 
 let dimsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedNotifyDims(_dims: NativeCardDims) {
@@ -138,6 +142,21 @@ function detectNativeNewBadgeRadius(): string {
 
 function ensureStyles() {
   try {
+    // If the viewport fingerprint changed (resolution / DPI switch), discard
+    // the in-memory dims immediately so the very next measurement applies
+    // without waiting for the 2-poll stability cycle. Without this, the idle
+    // poll interval (30 s) means a resolution change takes up to 60 s to
+    // reflect on featured-card sizing when matchNativeSize is on.
+    if (cachedNativeDims && cachedDimsFp) {
+      const fp = viewportFingerprint();
+      if (fp.vw >= 100 && fp.vh >= 100 &&
+          (fp.vw !== cachedDimsFp.vw || fp.vh !== cachedDimsFp.vh || Math.abs(fp.dpr - cachedDimsFp.dpr) > 0.05)) {
+        cachedNativeDims = null;
+        cachedDimsFp = null;
+        pendingDims = null;
+        pendingDimsCount = 0;
+      }
+    }
     const newRadius = detectNativeCardRadius();
     const radiusChanged = newRadius !== cachedCardRadius;
     cachedCardRadius = newRadius;
@@ -178,6 +197,7 @@ function ensureStyles() {
       const acquiredFeatured = !!newDims.featuredWidth && !cachedNativeDims?.featuredWidth;
       if (acquiredFeatured) {
         cachedNativeDims = newDims;
+        cachedDimsFp = viewportFingerprint();
         persistDims(newDims);
         pendingDims = null;
         pendingDimsCount = 0;
@@ -196,6 +216,7 @@ function ensureStyles() {
         pendingDimsCount++;
         if (pendingDimsCount >= DIMS_STABLE_POLLS) {
           cachedNativeDims = newDims;
+          cachedDimsFp = viewportFingerprint();
           persistDims(newDims);
           pendingDims = null;
           pendingDimsCount = 0;
@@ -208,6 +229,7 @@ function ensureStyles() {
       }
     } else if (!cachedNativeDims && newDims) {
       cachedNativeDims = newDims;
+      cachedDimsFp = viewportFingerprint();
       persistDims(newDims);
     } else {
       pendingDims = null;

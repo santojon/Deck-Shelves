@@ -322,6 +322,24 @@ pnpm uitests --only home,qam_shelves   # subset
 
 The suites live in `scripts/devtools/deck/uitests/suites/` and reuse the screenshot pipeline's `lib/` (CDP session, navigation, capture). Local-only — runs against a real Deck or a SteamOS VM via CDP, never on CI. Use it as the optional pre-PR check for flows the unit tests can't reach.
 
+##### Validation flows (with HTML reports)
+
+Three commands orchestrate all checks end-to-end and write an HTML report to `reports/`:
+
+```bash
+pnpm validate:ci             # offline: typecheck, build, tests, package, compat
+pnpm validate:full           # with Deck: above + deploy + UI tests + perf bench
+pnpm validate:full:stress    # with Deck + stress fixture (16 shelves, 50 cards each)
+```
+
+`validate:ci` is designed for CI/CD — no device or `.env` required. `validate:full` skips device steps gracefully when the Deck is unreachable.
+
+Reports land in `reports/` (gitignored) with per-step logs, test result counts, and VS Code-clickable file links for errors:
+
+```bash
+pnpm reports                 # open reports/index.html
+```
+
 ##### Performance bench
 
 ```bash

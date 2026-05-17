@@ -110,6 +110,42 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 - **Performance bench (optional):** `pnpm perf:bench` reports `mount p_avg / p_min / p_max` for the home cold-mount path so `[PERF]` PRs can include a measured before/after delta. See [docs/performance.md](docs/performance.md).
 - **QA harness flags** are documented in [docs/qa-manual.md §12](docs/qa-manual.md). Use `pnpm qa:<scenario>` scripts to deploy a build with a fixture pre-applied.
 
+## Validation flows and reports
+
+Three validation commands are available depending on context:
+
+| Command | When to use | Device needed |
+|---|---|---|
+| `pnpm validate:ci` | Before a PR, in CI, or offline | No |
+| `pnpm validate:full` | Final check before release, with Deck on the network | Yes (skips gracefully if unreachable) |
+| `pnpm validate:full:stress` | After changes to rendering, shelves, or perf-sensitive paths | Yes |
+
+All three produce an HTML report with per-step output, test result counts, and clickable file links for errors. Reports are written to `reports/` (gitignored) in three subfolders:
+
+```
+reports/
+  index.html        ← top-level summary linking all scopes
+  ci/               ← automated runs (validate:ci)
+  manual/           ← manual runs with Deck (validate:full / validate:full:stress)
+  release/          ← reserved for release-gate runs
+```
+
+Open the report index after any run with:
+```bash
+pnpm reports
+```
+
+### CI integration
+
+`pnpm validate:ci` is designed to run in GitHub Actions (no device, no .env required):
+
+```yaml
+- name: Validate
+  run: pnpm validate:ci
+```
+
+It exits with code 1 on any failure. Reports are not uploaded by default; add an artifact upload step if needed.
+
 ## Screenshots (optional)
 
 > Screenshot capture and Devtools usage are documented in the main README and the Devtools readme under `scripts/devtools/README.md`.
