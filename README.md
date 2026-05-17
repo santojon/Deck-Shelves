@@ -334,11 +334,32 @@ pnpm validate:full:stress    # with Deck + stress fixture (16 shelves, 50 cards 
 
 `validate:ci` is designed for CI/CD — no device or `.env` required. `validate:full` skips device steps gracefully when the Deck is unreachable.
 
-Reports land in `reports/` (gitignored) with per-step logs, test result counts, and VS Code-clickable file links for errors:
+Reports land in `reports/` (gitignored) organised in three scopes:
+
+```
+reports/
+  index.html        ← top-level overview (links to scopes + dashboard)
+  dashboard.html    ← statistics dashboard with charts
+  ci/               ← automated runs (validate:ci)
+  local/            ← manual runs with Deck (validate:full / validate:full:stress)
+  release/          ← reserved for release-gate runs
+```
+
+Each report includes per-step captured output, test result counts, and VS Code-clickable file links for errors.
 
 ```bash
-pnpm reports                 # open reports/index.html
+pnpm reports                 # open reports/index.html (includes link to dashboard)
 ```
+
+The **dashboard** (`reports/dashboard.html`) aggregates data across all runs and scopes:
+- KPIs: total runs, pass rate, last run result
+- Pass-rate trend chart over time
+- **Coverage by test suite** — stacked bars per suite (home, QAM, context menu, perf, crash, stress) showing pass/fail/skip distribution, populated from UI tests logs
+- Overall test distribution (donut chart)
+- Results by scope (local / CI / release)
+- Context pills showing how many runs were with/without Deck and with/without stress fixture
+
+> **Reports folder:** [`reports/`](reports/) — [`index`](reports/index.html) · [`dashboard`](reports/dashboard.html)
 
 ##### Performance bench
 

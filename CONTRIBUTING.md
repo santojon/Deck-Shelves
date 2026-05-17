@@ -120,20 +120,36 @@ Three validation commands are available depending on context:
 | `pnpm validate:full` | Final check before release, with Deck on the network | Yes (skips gracefully if unreachable) |
 | `pnpm validate:full:stress` | After changes to rendering, shelves, or perf-sensitive paths | Yes |
 
-All three produce an HTML report with per-step output, test result counts, and clickable file links for errors. Reports are written to `reports/` (gitignored) in three subfolders:
+All three produce an HTML report with per-step captured output, test result counts, and VS Code-clickable file links for errors. Reports are written to `reports/` (gitignored):
 
 ```
 reports/
-  index.html        ← top-level summary linking all scopes
+  index.html        ← top-level overview + link to dashboard
+  dashboard.html    ← statistics dashboard with charts (see below)
   ci/               ← automated runs (validate:ci)
-  manual/           ← manual runs with Deck (validate:full / validate:full:stress)
+    index.html
+    YYYY-MM-DD_HH-MM-SS.html + .json
+  local/            ← manual runs with Deck (validate:full / :stress)
   release/          ← reserved for release-gate runs
 ```
 
-Open the report index after any run with:
+Open the report index and dashboard after any run with:
 ```bash
-pnpm reports
+pnpm reports        # opens reports/index.html (includes 📊 Dashboard link)
 ```
+
+### Dashboard (`reports/dashboard.html`)
+
+The dashboard aggregates statistics across **all runs and all scopes** automatically after each `validate:*` command. It shows:
+
+- **KPI cards** — total runs, run pass rate, tests executed, test pass rate, last run result
+- **Pass-rate trend** — line chart of pass % per run over time (green = all pass, red = failures)
+- **Coverage by test suite** — stacked bars per suite (home, QAM shelves, QAM smart, QAM global, about, context menu, performance, crash protection, stress) showing cumulative pass/fail/skip distribution; populated automatically from UI tests logs and backfilled retroactively from HTML when JSON metadata predates the feature
+- **Overall distribution** — donut chart of total pass/fail/skip
+- **Results by scope** — stacked bars (local / CI / release) with totals
+- **Context pills** — how many runs were with/without Deck and with/without stress fixture
+
+The dashboard is a self-contained HTML file (inline SVG, no CDN, works offline).
 
 ### CI integration
 
@@ -144,7 +160,7 @@ pnpm reports
   run: pnpm validate:ci
 ```
 
-It exits with code 1 on any failure. Reports are not uploaded by default; add an artifact upload step if needed.
+It exits with code 1 on any failure. Reports are local-only (`reports/ci/` is gitignored); add an artifact upload step to preserve them across CI runs if needed.
 
 ## Screenshots (optional)
 
