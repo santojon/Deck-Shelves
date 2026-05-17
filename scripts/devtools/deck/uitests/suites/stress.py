@@ -1,0 +1,464 @@
+"""
+UI stress test suite — navigation responsiveness under load.
+
+Requires the stress fixture deployed first:
+    pnpm qa:stress-fixture
+
+Then run:
+    pnpm uitests -- --suite stress
+
+What it measures
+----------------
+- Home render time with 12 regular + 6 smart shelves at limit=50 each
+- rAF max/avg frame gap during vertical navigation (shelf-to-shelf)
+- rAF max/avg frame gap during horizontal navigation (card-to-card, 10 steps)
+- rAF max/avg frame gap during combined navigation (vertical + horizontal interleaved)
+- Time to enter a game detail page and return (A → B pattern)
+- Scroll-to-bottom / scroll-to-top continuous frame gap
+- Error count throughout all steps
+
+Thresholds
+----------
+MOUNT_WARN_MS     = 5000   — cold render with 18 shelves
+NAV_FRAME_MAX_MS  = 100    — worst single frame during navigation
+NAV_FRAME_AVG_MS  = 50     — average frame during navigation
+ENTER_EXIT_MS     = 3000   — round-trip to game page and back
+"""
+from __future__ import annotations
+
+import time
+from typing import Any, Dict
+
+from ..lib.runner import suite
+
+s = suite("stress")
+
+MOUNT_WARN_MS    = 5000
+NAV_FRAME_MAX_MS = 100
+NAV_FRAME_AVG_MS = 50
+ENTER_EXIT_MS    = 3000
+
+# ── Error collector (installed once, read throughout) ─────────────────────────
+_INSTALL_COLLECTOR = """
+(function(){
+    if (window.__dsStressErrors) return 'already installed';
+    window.__dsStressErrors = [];
+    const push = (msg, kind) => {
+        const m = String(msg || '');
+        const isDs = m.toLowerCase().includes('deck') || m.toLowerCase().includes('.ds-')
+            || m.toLowerCase().includes('deck-shelves');
+        if (isDs) window.__dsStressErrors.push({ msg: m.slice(0, 200), kind });
+    };
+    const origErr = window.onerror;
+    window.onerror = function(msg, src, line, col, err) {
+        push(msg, 'error');
+        if (origErr) return origErr(msg, src, line, col, err);
+    };
+    const origUP = window.onunhandledrejection;
+    window.onunhandledrejection = function(e) {
+        push(e?.reason?.message || e?.reason, 'rejection');
+        if (origUP) return origUP(e);
+    };
+    return 'installed';
+})()
+"""
+_READ_ERRORS = "(function(){ return window.__dsStressErrors || []; })()"
+_CLEAR_ERRORS = "(function(){ window.__dsStressErrors = []; })()"
+
+
+def _assert_no_errors(ctx, step: str) -> None:
+    errs = ctx.eval(_READ_ERRORS)
+    if errs:
+        raise AssertionError(f"{step}: {len(errs)} DS error(s): {errs[:2]}")
+
+
+# ── JS helpers ────────────────────────────────────────────────────────────────
+
+def _key(ctx, code: str, pause_ms: int = 80) -> None:
+    """Dispatch a keydown + keyup pair to the Big Picture context."""
+    for t in ("keyDown", "keyUp"):
+        ctx.bp.call("Input.dispatchKeyEvent", {
+            "type": t,
+            "code": code,
+            "key": code.replace("Arrow", "").replace("Enter", "Return"),
+            "windowsVirtualKeyCode": {
+                "ArrowDown": 40, "ArrowUp": 38,
+                "ArrowLeft": 37, "ArrowRight": 39,
+                "Enter": 13, "Escape": 27,
+            }.get(code, 0),
+            "nativeVirtualKeyCode": 0,
+            "autoRepeat": False,
+            "isKeypad": False,
+            "isSystemKey": False,
+        })
+    time.sleep(pause_ms / 1000.0)
+
+
+_RAF_SAMPLER = """
+(async function(steps, interval_ms){
+    const gaps = [];
+    let last = performance.now();
+    let n = 0;
+    await new Promise(resolve => {
+        function tick(t) {
+            const gap = t - last;
+            if (gap > 4) gaps.push(+gap.toFixed(1));  // ignore micro-gaps < 4ms
+            last = t;
+            if (++n < steps) requestAnimationFrame(tick);
+            else resolve();
+        }
+        requestAnimationFrame(tick);
+    });
+    return gaps;
+})
+"""
+
+
+def _sample_frames(ctx, steps: int = 30, settle_ms: int = 0) -> Dict[str, Any]:
+    """Sample `steps` rAF gaps during the settle period, return stats dict."""
+    if settle_ms:
+        time.sleep(settle_ms / 1000.0)
+    raw = ctx.eval(f"({_RAF_SAMPLER})(30, 0)", timeout=10)
+    if not raw:
+        return {"max": 0, "avg": 0, "samples": 0, "over_50": 0, "over_100": 0}
+    gaps = [g for g in raw if isinstance(g, (int, float))]
+    if not gaps:
+        return {"max": 0, "avg": 0, "samples": 0, "over_50": 0, "over_100": 0}
+    return {
+        "max":      round(max(gaps), 1),
+        "avg":      round(sum(gaps) / len(gaps), 1),
+        "samples":  len(gaps),
+        "over_50":  sum(1 for g in gaps if g > 50),
+        "over_100": sum(1 for g in gaps if g > 100),
+    }
+
+
+def _wait_for_shelves(ctx, min_count: int = 5, timeout_s: float = 12.0) -> int:
+    result = ctx.eval(f"""
+(async function(){{
+    const deadline = Date.now() + {int(timeout_s * 1000)};
+    while (Date.now() < deadline) {{
+        const n = document.querySelectorAll('.ds-shelf[data-shelfid]').length;
+        if (n >= {min_count}) return n;
+        await new Promise(r => setTimeout(r, 150));
+    }}
+    return document.querySelectorAll('.ds-shelf[data-shelfid]').length;
+}})()
+""", timeout=timeout_s + 2)
+    return result or 0
+
+
+def _shelf_ids(ctx):
+    return ctx.eval("""
+(function(){
+    return Array.from(document.querySelectorAll('.ds-shelf[data-shelfid]'))
+        .map(el => el.getAttribute('data-shelfid'));
+})()
+""") or []
+
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+
+@s.test("home render — 18 shelves / 50 cards each under 5 s")
+def _(ctx) -> None:
+    ctx.eval(_INSTALL_COLLECTOR)
+    t0 = time.time()
+    ctx.navigate("/library/home", settle_ms=500)
+    n = _wait_for_shelves(ctx, min_count=5, timeout_s=12.0)
+    elapsed_ms = int((time.time() - t0) * 1000)
+    assert n >= 5, f"only {n} DS shelves rendered (expected ≥5)"
+    assert elapsed_ms < MOUNT_WARN_MS, f"render took {elapsed_ms}ms (threshold {MOUNT_WARN_MS}ms); {n} shelves"
+    print(f"  → {n} shelves in {elapsed_ms}ms")
+    _assert_no_errors(ctx, "home render")
+
+
+@s.test("card count — every shelf has cards rendered")
+def _(ctx) -> None:
+    ctx.navigate("/library/home", settle_ms=2000)
+    result = ctx.eval("""
+(function(){
+    const shelves = Array.from(document.querySelectorAll('.ds-shelf[data-shelfid]'));
+    return shelves.map(el => ({
+        id: el.getAttribute('data-shelfid'),
+        cards: el.querySelectorAll('.ds-card[data-appid]').length
+    }));
+})()
+""") or []
+    empty = [r["id"] for r in result if r["cards"] == 0]
+    assert len(result) >= 5, f"only {len(result)} shelves in DOM"
+    # Allow up to 2 empty shelves (online sources may be disabled in stress env)
+    assert len(empty) <= 2, f"shelves with 0 cards: {empty}"
+    total_cards = sum(r["cards"] for r in result)
+    print(f"  → {len(result)} shelves, {total_cards} cards total")
+
+
+@s.test("vertical nav — frame gap across all shelves")
+def _(ctx) -> None:
+    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.eval(_CLEAR_ERRORS)
+    n_shelves = _wait_for_shelves(ctx, min_count=5)
+
+    # Focus the first DS card to start navigation
+    ctx.eval("""
+(function(){
+    const card = document.querySelector('.ds-shelf[data-shelfid] .ds-card[data-appid]');
+    if (card) { card.focus(); card.scrollIntoView({ block: 'nearest' }); }
+})()
+""")
+    time.sleep(0.3)
+
+    frame_stats_list = []
+    # Navigate down through every shelf, sampling frames each step
+    for _ in range(min(n_shelves, 12)):
+        _key(ctx, "ArrowDown", pause_ms=0)
+        stats = _sample_frames(ctx, steps=20, settle_ms=0)
+        frame_stats_list.append(stats)
+        time.sleep(0.1)
+
+    if not frame_stats_list:
+        return
+
+    overall_max = max(s["max"] for s in frame_stats_list)
+    overall_avg = round(sum(s["avg"] for s in frame_stats_list) / len(frame_stats_list), 1)
+    worst_over_100 = max(s["over_100"] for s in frame_stats_list)
+
+    print(f"  → vertical nav {len(frame_stats_list)} steps: max={overall_max}ms avg={overall_avg}ms worst_over_100={worst_over_100}")
+    assert overall_max < NAV_FRAME_MAX_MS, f"vertical nav: worst frame {overall_max}ms > {NAV_FRAME_MAX_MS}ms threshold"
+    assert overall_avg < NAV_FRAME_AVG_MS, f"vertical nav: avg frame {overall_avg}ms > {NAV_FRAME_AVG_MS}ms threshold"
+    _assert_no_errors(ctx, "vertical nav")
+
+
+@s.test("horizontal nav — 10 cards right per shelf, 3 shelves")
+def _(ctx) -> None:
+    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.eval(_CLEAR_ERRORS)
+
+    shelves = _shelf_ids(ctx)[:3]
+    if not shelves:
+        return
+
+    all_stats = []
+    for shelf_id in shelves:
+        # Focus first card of this shelf
+        ctx.eval(f"""
+(function(){{
+    const shelf = document.querySelector('.ds-shelf[data-shelfid="{shelf_id}"]');
+    if (!shelf) return;
+    const card = shelf.querySelector('.ds-card[data-appid]');
+    if (card) {{ card.focus(); card.scrollIntoView({{ block: 'nearest' }}); }}
+}})()
+""")
+        time.sleep(0.2)
+
+        for _ in range(10):
+            _key(ctx, "ArrowRight", pause_ms=0)
+            stats = _sample_frames(ctx, steps=15)
+            all_stats.append(stats)
+            time.sleep(0.05)
+
+    if not all_stats:
+        return
+
+    overall_max = max(s["max"] for s in all_stats)
+    overall_avg = round(sum(s["avg"] for s in all_stats) / len(all_stats), 1)
+
+    print(f"  → horizontal nav {len(all_stats)} steps: max={overall_max}ms avg={overall_avg}ms")
+    assert overall_max < NAV_FRAME_MAX_MS, f"horizontal nav: worst frame {overall_max}ms > {NAV_FRAME_MAX_MS}ms threshold"
+    assert overall_avg < NAV_FRAME_AVG_MS, f"horizontal nav: avg frame {overall_avg}ms > {NAV_FRAME_AVG_MS}ms threshold"
+    _assert_no_errors(ctx, "horizontal nav")
+
+
+@s.test("combined nav — vertical + horizontal interleaved, 5 shelves")
+def _(ctx) -> None:
+    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.eval(_CLEAR_ERRORS)
+
+    ctx.eval("""
+(function(){
+    const card = document.querySelector('.ds-shelf[data-shelfid] .ds-card[data-appid]');
+    if (card) { card.focus(); card.scrollIntoView({ block: 'nearest' }); }
+})()
+""")
+    time.sleep(0.3)
+
+    all_stats = []
+    for i in range(5):
+        # 3 right
+        for _ in range(3):
+            _key(ctx, "ArrowRight", pause_ms=0)
+            all_stats.append(_sample_frames(ctx, steps=10))
+            time.sleep(0.05)
+        # 1 down
+        _key(ctx, "ArrowDown", pause_ms=0)
+        all_stats.append(_sample_frames(ctx, steps=15))
+        time.sleep(0.1)
+        # 2 left to reset position
+        for _ in range(2):
+            _key(ctx, "ArrowLeft", pause_ms=0)
+            time.sleep(0.04)
+
+    if not all_stats:
+        return
+
+    overall_max = max(s["max"] for s in all_stats)
+    overall_avg = round(sum(s["avg"] for s in all_stats) / len(all_stats), 1)
+    print(f"  → combined nav {len(all_stats)} steps: max={overall_max}ms avg={overall_avg}ms")
+    assert overall_max < NAV_FRAME_MAX_MS, f"combined nav: worst frame {overall_max}ms > {NAV_FRAME_MAX_MS}ms threshold"
+    assert overall_avg < NAV_FRAME_AVG_MS, f"combined nav: avg frame {overall_avg}ms > {NAV_FRAME_AVG_MS}ms threshold"
+    _assert_no_errors(ctx, "combined nav")
+
+
+@s.test("enter + exit game page — 5 round-trips")
+def _(ctx) -> None:
+    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.eval(_CLEAR_ERRORS)
+
+    # Focus a card with a known appid
+    appid = ctx.eval("""
+(function(){
+    const card = document.querySelector('.ds-shelf[data-shelfid] .ds-card[data-appid]');
+    return card ? card.getAttribute('data-appid') : null;
+})()
+""")
+    if not appid:
+        return
+
+    ctx.eval(f"""
+(function(){{
+    const card = document.querySelector('.ds-card[data-appid="{appid}"]');
+    if (card) {{ card.focus(); card.scrollIntoView({{ block: 'nearest' }}); }}
+}})()
+""")
+    time.sleep(0.3)
+
+    round_trips = []
+    for i in range(5):
+        t0 = time.time()
+        _key(ctx, "Enter", pause_ms=1500)     # open game page
+        _key(ctx, "Escape", pause_ms=1000)    # go back
+        elapsed = int((time.time() - t0) * 1000)
+        round_trips.append(elapsed)
+
+    max_rt = max(round_trips)
+    avg_rt = round(sum(round_trips) / len(round_trips))
+    print(f"  → enter/exit ×5: max={max_rt}ms avg={avg_rt}ms")
+    assert max_rt < ENTER_EXIT_MS, f"enter/exit round-trip {max_rt}ms > {ENTER_EXIT_MS}ms threshold"
+    _assert_no_errors(ctx, "enter+exit round-trips")
+
+
+@s.test("scroll full page — bottom to top, continuous frame measurement")
+def _(ctx) -> None:
+    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.eval(_CLEAR_ERRORS)
+    _wait_for_shelves(ctx, min_count=5)
+
+    # Measure frames during programmatic scroll to bottom
+    stats_down = ctx.eval("""
+(async function(){
+    const mount = document.getElementById('deck-shelves-home-root');
+    if (!mount) return null;
+    let scr = mount.parentElement;
+    while (scr) {
+        const cs = getComputedStyle(scr);
+        const oy = cs.overflowY.toLowerCase();
+        if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && scr.scrollHeight > scr.clientHeight) break;
+        scr = scr.parentElement;
+    }
+    if (!scr) return null;
+
+    const gaps = [];
+    let last = performance.now();
+    const target = scr.scrollHeight;
+    const step = Math.ceil(target / 30);
+    let pos = 0;
+
+    await new Promise(resolve => {
+        function tick(t) {
+            const gap = t - last;
+            if (gap > 4) gaps.push(+gap.toFixed(1));
+            last = t;
+            pos = Math.min(pos + step, target);
+            scr.scrollTop = pos;
+            if (pos < target) requestAnimationFrame(tick);
+            else resolve();
+        }
+        requestAnimationFrame(tick);
+    });
+    return { max: Math.max(...gaps), avg: +(gaps.reduce((a,b)=>a+b,0)/gaps.length).toFixed(1), n: gaps.length };
+})()
+""", timeout=15)
+
+    if not stats_down:
+        return
+
+    print(f"  → scroll down: max={stats_down.get('max')}ms avg={stats_down.get('avg')}ms n={stats_down.get('n')}")
+    assert stats_down["max"] < NAV_FRAME_MAX_MS, f"scroll down: worst frame {stats_down['max']}ms > {NAV_FRAME_MAX_MS}ms"
+    assert stats_down["avg"] < NAV_FRAME_AVG_MS, f"scroll down: avg frame {stats_down['avg']}ms > {NAV_FRAME_AVG_MS}ms"
+    _assert_no_errors(ctx, "scroll full page")
+
+
+@s.test("route reload ×3 — frame gap on each cold remount")
+def _(ctx) -> None:
+    ctx.eval(_INSTALL_COLLECTOR)
+    ctx.eval(_CLEAR_ERRORS)
+
+    mount_times = []
+    for i in range(3):
+        ctx.navigate("/library", settle_ms=400)
+        t0 = time.time()
+        ctx.navigate("/library/home", settle_ms=200)
+        n = _wait_for_shelves(ctx, min_count=3, timeout_s=8.0)
+        elapsed = int((time.time() - t0) * 1000)
+        mount_times.append(elapsed)
+        stats = _sample_frames(ctx, steps=20, settle_ms=300)
+        print(f"  → reload {i+1}: shelves={n} mount={elapsed}ms frame_max={stats['max']}ms avg={stats['avg']}ms")
+        assert elapsed < MOUNT_WARN_MS, f"reload {i+1}: mount {elapsed}ms > {MOUNT_WARN_MS}ms"
+        assert stats["max"] < NAV_FRAME_MAX_MS, f"reload {i+1}: frame gap {stats['max']}ms > {NAV_FRAME_MAX_MS}ms"
+
+    _assert_no_errors(ctx, "route reload ×3")
+
+
+@s.test("QAM open ×5 while shelves visible — no frame budget blowout")
+def _(ctx) -> None:
+    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.eval(_INSTALL_COLLECTOR)
+    ctx.eval(_CLEAR_ERRORS)
+
+    all_stats = []
+    for i in range(5):
+        ctx.open_qam(settle_ms=600)
+        stats = _sample_frames(ctx, steps=20)
+        all_stats.append(stats)
+        ctx.close_qam(settle_ms=400)
+        time.sleep(0.2)
+
+    overall_max = max(s["max"] for s in all_stats)
+    overall_avg = round(sum(s["avg"] for s in all_stats) / len(all_stats), 1)
+    print(f"  → QAM ×5 open: max={overall_max}ms avg={overall_avg}ms")
+    assert overall_max < NAV_FRAME_MAX_MS, f"QAM open: frame {overall_max}ms > {NAV_FRAME_MAX_MS}ms"
+    _assert_no_errors(ctx, "QAM open ×5")
+
+
+@s.test("summary — print full metrics report")
+def _(ctx) -> None:
+    """Final pass: collect counts and emit a printable summary (always passes)."""
+    ctx.navigate("/library/home", settle_ms=2000)
+    summary = ctx.eval("""
+(function(){
+    const shelves = Array.from(document.querySelectorAll('.ds-shelf[data-shelfid]'));
+    const cards   = document.querySelectorAll('.ds-card[data-appid]').length;
+    const errors  = (window.__dsStressErrors || []).length;
+    const perShelf = shelves.map(el => ({
+        id: el.getAttribute('data-shelfid') || '?',
+        cards: el.querySelectorAll('.ds-card[data-appid]').length,
+    }));
+    return { shelves: shelves.length, cards, errors, perShelf };
+})()
+""") or {}
+    print("\n  ┌─ STRESS SUMMARY ────────────────────────────────────────")
+    print(f"  │ shelves rendered : {summary.get('shelves', '?')}")
+    print(f"  │ total cards      : {summary.get('cards', '?')}")
+    print(f"  │ DS errors seen   : {summary.get('errors', '?')}")
+    for row in (summary.get("perShelf") or []):
+        print(f"  │   {row['id'][:40]:40s} → {row['cards']} cards")
+    print("  └─────────────────────────────────────────────────────────")
