@@ -33,7 +33,17 @@ def _(ctx) -> None:
 
 @s.test("first card carries data-ds-card-index=0")
 def _(ctx) -> None:
-    ctx.navigate("/library/home", settle_ms=1500)
+    ctx.navigate("/library/home", settle_ms=1000)
+    # Reuse home suite's polling helper
+    ctx.eval("""
+(async function(){
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) {
+        if (document.querySelector('.ds-shelf[data-shelfid]')) break;
+        await new Promise(r => setTimeout(r, 150));
+    }
+})()
+""", timeout=12)
     idx = ctx.eval(
         "(function(){ const c = document.querySelector('.ds-shelf .ds-row-scroll .ds-card[data-appid]'); return c?.getAttribute('data-ds-card-index'); })()"
     )
@@ -42,7 +52,7 @@ def _(ctx) -> None:
 
 @s.test("highlighted card has ds-card--featured class")
 def _(ctx) -> None:
-    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.navigate("/library/home", settle_ms=1000)
     result = ctx.eval("""
 (function(){
     const settings = JSON.parse(localStorage.getItem('deck-shelves-settings-cache-v3') || '{}');

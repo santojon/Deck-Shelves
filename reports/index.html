@@ -37,9 +37,14 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
 <body>
 <header>
   <h1>Deck Shelves &mdash; Validation Reports</h1>
-  <p>Three validation scopes &middot; local-only, not committed</p>
+  <p>Three validation scopes + dashboard &middot; local-only, not committed</p>
 </header>
 <main>
+  <div style="margin-bottom:20px">
+    <a class="btn" href="dashboard.html"
+       style="display:inline-block;padding:9px 18px;border-radius:8px;font-size:13px;
+              font-weight:700;background:#7c3aed;color:#fff">📊 Open Dashboard &rarr;</a>
+  </div>
   <div class="grid">
 <div class="scard"><h2>Local</h2><p>Full validation with Steam Deck (deploy + UI tests + perf bench).</p><a class="btn" href="local/index.html">Open reports &rarr;</a></div>
 <div class="scard"><h2>CI / Automated</h2><p>Automated checks without device (typecheck, tests, build, compat).</p><a class="btn" href="ci/index.html">Open reports &rarr;</a></div>
@@ -51,7 +56,7 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
       <thead><tr>
         <th>Scope</th><th>Date / Time</th><th>Result</th><th>Pass / Total</th><th></th>
       </tr></thead>
-      <tbody><tr><td>Local</td><td>2026-05-17 12:57:01</td><td><span class="b fail">FAIL</span></td><td class="num">9/10</td><td><a href="local/index.html">history &rarr;</a></td></tr>
+      <tbody><tr><td>Local</td><td>2026-05-17 15:08:48</td><td><span class="b fail">FAIL</span></td><td class="num">8/10</td><td><a href="local/index.html">history &rarr;</a></td></tr>
 <tr><td>CI / Automated</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="ci/index.html">open &rarr;</a></td></tr>
 <tr><td>Release</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="release/index.html">open &rarr;</a></td></tr></tbody>
     </table>

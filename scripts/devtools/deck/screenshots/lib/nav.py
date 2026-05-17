@@ -49,6 +49,10 @@ CLOSE_QAM_EXPR = """
 
 _NAVIGATE_HOME_EXPR = """
 (function(){
+  try {
+    var nav = SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_Navigator;
+    if (nav?.Home) { nav.Home(); return 'navigator.Home'; }
+  } catch(e) {}
   try { SteamClient.Navigation.Navigate('/library/home'); return 'steamclient'; } catch(e) {}
   try { Router.Navigate('/library/home'); return 'router'; } catch(e) {}
   return 'failed';
@@ -224,7 +228,17 @@ def navigate_home(sjc: Session, settle_ms: int = 2000) -> None:
 
 
 def navigate(sjc: Session, route: str, settle_ms: int = 2000) -> None:
-    expr = f"""(function(){{ if (typeof Router !== 'undefined' && Router?.Navigate) {{ Router.Navigate({route!r}); return 'ok'; }} return 'not found'; }})()"""
+    if route in ("/library/home", "/library"):
+        navigate_home(sjc, settle_ms=settle_ms)
+        return
+    expr = f"""(function(){{
+      try {{
+        var nav = SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_Navigator;
+        if (nav?.LibraryTab) {{ nav.LibraryTab(); return 'navigator.LibraryTab'; }}
+      }} catch(e) {{}}
+      try {{ Router.Navigate({route!r}); return 'router'; }} catch(e) {{}}
+      return 'failed';
+    }})()"""
     try:
         sjc.evaluate(expr)
     except Exception:

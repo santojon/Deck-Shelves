@@ -6,16 +6,32 @@ from ..lib.runner import suite
 s = suite("home")
 
 
+def _wait_for_shelves(ctx, timeout_s: float = 10.0) -> int:
+    """Poll BigPicture until at least one DS shelf appears; return count."""
+    return ctx.eval(f"""
+(async function(){{
+    const deadline = Date.now() + {int(timeout_s * 1000)};
+    while (Date.now() < deadline) {{
+        const n = document.querySelectorAll('.ds-shelf[data-shelfid]').length;
+        if (n > 0) return n;
+        await new Promise(r => setTimeout(r, 150));
+    }}
+    return document.querySelectorAll('.ds-shelf[data-shelfid]').length;
+}})()
+""", timeout=timeout_s + 3) or 0
+
+
 @s.test("renders at least one shelf")
 def _(ctx) -> None:
-    ctx.navigate("/library/home", settle_ms=2500)
-    found = ctx.eval("!!document.querySelector('.ds-shelf[data-shelfid]')")
-    assert found is True, "no .ds-shelf rendered on home"
+    ctx.navigate("/library/home", settle_ms=2000)
+    count = _wait_for_shelves(ctx, timeout_s=10.0)
+    assert count > 0, "no .ds-shelf rendered on home"
 
 
 @s.test("first card has appid attribute")
 def _(ctx) -> None:
-    ctx.navigate("/library/home", settle_ms=1500)
+    ctx.navigate("/library/home", settle_ms=1000)
+    _wait_for_shelves(ctx, timeout_s=8.0)
     appid = ctx.eval(
         "(function(){ const c = document.querySelector('.ds-card[data-appid]'); return c ? c.getAttribute('data-appid') : null; })()"
     )
@@ -24,14 +40,16 @@ def _(ctx) -> None:
 
 @s.test("card width within expected range")
 def _(ctx) -> None:
-    ctx.navigate("/library/home", settle_ms=1500)
+    ctx.navigate("/library/home", settle_ms=1000)
+    _wait_for_shelves(ctx, timeout_s=8.0)
     width = ctx.eval("(function(){ const c = document.querySelector('.ds-card'); return c ? c.offsetWidth : 0; })()")
     assert isinstance(width, (int, float)) and 80 <= width <= 800, f"unexpected card width: {width}"
 
 
 @s.test("mount element present and non-empty")
 def _(ctx) -> None:
-    ctx.navigate("/library/home", settle_ms=2000)
+    ctx.navigate("/library/home", settle_ms=1000)
+    _wait_for_shelves(ctx, timeout_s=8.0)
     height = ctx.eval(
         "(function(){ const el = document.getElementById('deck-shelves-home-root'); return el ? el.offsetHeight : 0; })()"
     )
@@ -50,6 +68,7 @@ def _(ctx) -> None:
 
 @s.test("card index attribute set on first card")
 def _(ctx) -> None:
+    _wait_for_shelves(ctx, timeout_s=5.0)
     ctx.navigate("/library/home", settle_ms=1500)
     idx = ctx.eval(
         "(function(){ const c = document.querySelector('.ds-card[data-appid]'); return c ? c.getAttribute('data-ds-card-index') : null; })()"

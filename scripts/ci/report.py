@@ -108,17 +108,43 @@ def _file_issues(log_text: str, root: str) -> List[Tuple[str, str, str]]:
 def _parse_test_results(log_text: str) -> Optional[dict]:
     """Extract pass/fail counts from vitest or pytest output."""
     text = _strip(log_text)
-    # vitest: "Tests  N passed (N)" or "N passed | N failed"
     m = re.search(r'(\d+)\s+passed', text)
     f = re.search(r'(\d+)\s+failed', text)
     if m or f:
         return {"passed": int(m.group(1)) if m else 0, "failed": int(f.group(1)) if f else 0}
-    # pytest: "N passed, N failed"
     m2 = re.search(r'(\d+) passed', text)
     f2 = re.search(r'(\d+) failed', text)
     if m2 or f2:
         return {"passed": int(m2.group(1)) if m2 else 0, "failed": int(f2.group(1)) if f2 else 0}
     return None
+
+
+_UITEST_LINE = re.compile(r'^(PASS|FAIL|SKIP|ERROR)\s+([a-z_]+)\.(.+?)(?:\s+::.*)?$')
+
+def _parse_uitests_by_suite(log_text: str) -> dict:
+    """Parse UI test output into per-suite {passed,failed,skipped} counts.
+
+    Input lines:
+        PASS home.renders at least one shelf
+        FAIL qam_shelves.Add shelf button :: reason
+        SKIP stress.enter + exit :: timeout
+    """
+    text = _strip(log_text)
+    by_suite: dict = {}
+    for line in text.splitlines():
+        line = line.strip()
+        m = _UITEST_LINE.match(line)
+        if not m:
+            continue
+        status, suite, _ = m.group(1), m.group(2), m.group(3)
+        s = by_suite.setdefault(suite, {"passed": 0, "failed": 0, "skipped": 0})
+        if status == "PASS":
+            s["passed"] += 1
+        elif status in ("FAIL", "ERROR"):
+            s["failed"] += 1
+        elif status == "SKIP":
+            s["skipped"] += 1
+    return by_suite
 
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
@@ -444,9 +470,14 @@ def _rebuild_top_index(reports_root: Path) -> None:
 <body>
 <header>
   <h1>Deck Shelves &mdash; Validation Reports</h1>
-  <p>Three validation scopes &middot; local-only, not committed</p>
+  <p>Three validation scopes + dashboard &middot; local-only, not committed</p>
 </header>
 <main>
+  <div style="margin-bottom:20px">
+    <a class="btn" href="dashboard.html"
+       style="display:inline-block;padding:9px 18px;border-radius:8px;font-size:13px;
+              font-weight:700;background:#7c3aed;color:#fff">📊 Open Dashboard &rarr;</a>
+  </div>
   <div class="grid">
 {cards_html}
   </div>
@@ -465,6 +496,381 @@ def _rebuild_top_index(reports_root: Path) -> None:
 </html>
 """
     (reports_root / "index.html").write_text(top, encoding="utf-8")
+
+
+# ── Dashboard ──────────────────────────────────────────────────────────────────
+
+_DASH_CSS = """\
+*,*::before,*::after{box-sizing:border-box}
+:root{font-family:system-ui,-apple-system,sans-serif;
+  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
+  --pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--link:#60a5fa;--accent:#a78bfa}
+body{margin:0;background:var(--bg);color:var(--text)}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:18px 32px;
+  display:flex;align-items:center;gap:14px}
+header h1{margin:0;font-size:20px;font-weight:700;flex:1}
+.back{font-size:12px;color:var(--link)}
+main{max-width:1080px;margin:0 auto;padding:24px 32px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:26px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.kpi .v{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.kpi .l{font-size:11px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.05em}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:18px 22px;margin-bottom:20px}
+.panel h2{margin:0 0 14px;font-size:14px;font-weight:700}
+.panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:720px){.panel-grid{grid-template-columns:1fr}}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.scope-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px}
+.scope-row .nm{width:90px;color:var(--muted)}
+.bar{flex:1;height:22px;border-radius:5px;overflow:hidden;display:flex;background:#0f172a}
+.bar i{display:block;height:100%}
+.scope-row .ct{width:70px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px}
+footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
+text{font-family:system-ui,sans-serif}
+"""
+
+
+_STEP_BODY_RE  = re.compile(r'id="b(\d+)">(.*?)</div>\s*</div>', re.DOTALL)
+_PRE_RE        = re.compile(r'<pre[^>]*>(.*?)</pre>', re.DOTALL)
+_TAG_RE        = re.compile(r'<[^>]+>')
+_ENTITY_MAP    = {"&gt;": ">", "&lt;": "<", "&amp;": "&", "&#x27;": "'", "&quot;": '"'}
+
+def _html_to_text(h: str) -> str:
+    t = _TAG_RE.sub("", h)
+    for ent, ch in _ENTITY_MAP.items():
+        t = t.replace(ent, ch)
+    return t
+
+
+def _backfill_per_suite(meta: dict, json_path: Path) -> None:
+    """If per_suite is missing, try to extract it from the corresponding HTML."""
+    if meta.get("per_suite"):
+        return
+    html_path = json_path.with_suffix(".html")
+    if not html_path.exists():
+        return
+    try:
+        html = html_path.read_text(errors="replace")
+        # Find the step name for each body
+        names_in_html = re.findall(r'class="sname">([^<]+)', html)
+        for i, step_name in enumerate(names_in_html):
+            if "ui test" not in step_name.lower():
+                continue
+            body_m = re.search(rf'id="b{i}">(.*?)</div>\s*</div>', html, re.DOTALL)
+            if not body_m:
+                continue
+            pre_m = re.search(r'<pre[^>]*>(.*?)</pre>', body_m.group(1), re.DOTALL)
+            if not pre_m:
+                continue
+            log_text = _html_to_text(pre_m.group(1))
+            by_suite = _parse_uitests_by_suite(log_text)
+            if by_suite:
+                meta["per_suite"] = by_suite
+                # Persist back to JSON so next rebuild is instant
+                json_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+            break
+    except Exception:
+        pass
+
+
+def _collect_all_runs(reports_root: Path) -> List[dict]:
+    """Gather every run's metadata across all three scopes, sorted by ts.
+    Retroactively backfills per_suite from HTML when missing in the JSON."""
+    runs: List[dict] = []
+    for sd in ("local", "ci", "release"):
+        sp = reports_root / sd
+        if not sp.exists():
+            continue
+        for p in sp.glob("*.json"):
+            if p.name.startswith((".", "_")):
+                continue
+            try:
+                m = json.loads(p.read_text())
+                m["_scope"] = sd
+                _backfill_per_suite(m, p)
+                runs.append(m)
+            except Exception:
+                pass
+    runs.sort(key=lambda m: m.get("ts", ""))
+    return runs
+
+
+def _svg_line_chart(runs: List[dict], w: int = 480, h: int = 200) -> str:
+    """Line chart of pass-rate % per run over time."""
+    if not runs:
+        return '<p style="color:#475569;font-size:12px">No data yet.</p>'
+    pad_l, pad_b, pad_t, pad_r = 34, 24, 12, 12
+    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    pts = []
+    for i, m in enumerate(runs):
+        total = m.get("total", 0) or 1
+        rate = 100.0 * m.get("passed", 0) / total
+        x = pad_l + (cw * i / max(1, len(runs) - 1))
+        y = pad_t + ch - (ch * rate / 100.0)
+        pts.append((x, y, rate, m))
+    # Grid lines + labels (0/50/100%)
+    grid = []
+    for pct in (0, 50, 100):
+        gy = pad_t + ch - (ch * pct / 100.0)
+        grid.append(f'<line x1="{pad_l}" y1="{gy:.1f}" x2="{w-pad_r}" y2="{gy:.1f}" '
+                    f'stroke="#334155" stroke-width="1"/>')
+        grid.append(f'<text x="{pad_l-6}" y="{gy+3:.1f}" fill="#64748b" font-size="9" '
+                    f'text-anchor="end">{pct}%</text>')
+    # Area + line
+    line_d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y, _, _ in pts)
+    area_d = (f"M{pts[0][0]:.1f},{pad_t+ch} L"
+              + " L".join(f"{x:.1f},{y:.1f}" for x, y, _, _ in pts)
+              + f" L{pts[-1][0]:.1f},{pad_t+ch} Z")
+    dots = "".join(
+        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" '
+        f'fill="{"#4ade80" if m.get("failed",0)==0 else "#f87171"}">'
+        f'<title>{_html.escape(m.get("ts","?"))} [{m.get("_scope","?")}] '
+        f'{rate:.0f}% ({m.get("passed",0)}/{m.get("total",0)})</title></circle>'
+        for x, y, rate, m in pts
+    )
+    return f"""<svg viewBox="0 0 {w} {h}" width="100%" height="{h}">
+{''.join(grid)}
+<path d="{area_d}" fill="#7c3aed22"/>
+<path d="{line_d}" fill="none" stroke="#a78bfa" stroke-width="2"/>
+{dots}
+</svg>"""
+
+
+def _svg_donut(passed: int, failed: int, skipped: int, size: int = 180) -> str:
+    """Donut chart of overall pass/fail/skip distribution."""
+    total = passed + failed + skipped
+    if total == 0:
+        return '<p style="color:#475569;font-size:12px">No data yet.</p>'
+    cx = cy = size / 2
+    r = size / 2 - 14
+    import math
+    segs = [("#4ade80", passed), ("#f87171", failed), ("#94a3b8", skipped)]
+    arcs = []
+    angle = -90.0
+    for color, val in segs:
+        if val == 0:
+            continue
+        frac = val / total
+        sweep = frac * 360.0
+        a1 = math.radians(angle)
+        a2 = math.radians(angle + sweep)
+        x1, y1 = cx + r * math.cos(a1), cy + r * math.sin(a1)
+        x2, y2 = cx + r * math.cos(a2), cy + r * math.sin(a2)
+        large = 1 if sweep > 180 else 0
+        arcs.append(
+            f'<path d="M{x1:.2f},{y1:.2f} A{r:.2f},{r:.2f} 0 {large} 1 {x2:.2f},{y2:.2f}" '
+            f'fill="none" stroke="{color}" stroke-width="22"/>'
+        )
+        angle += sweep
+    pct = round(100.0 * passed / total)
+    return f"""<svg viewBox="0 0 {size} {size}" width="{size}" height="{size}">
+{''.join(arcs)}
+<text x="{cx}" y="{cy-2}" fill="#e2e8f0" font-size="26" font-weight="800"
+      text-anchor="middle">{pct}%</text>
+<text x="{cx}" y="{cy+16}" fill="#64748b" font-size="10" text-anchor="middle">PASS RATE</text>
+</svg>"""
+
+
+def _scope_bars(runs: List[dict]) -> str:
+    """Horizontal stacked bars: pass/fail/skip totals per scope."""
+    rows = []
+    for sd, label in (("local", "Local"), ("ci", "CI"), ("release", "Release")):
+        sr = [m for m in runs if m.get("_scope") == sd]
+        p = sum(m.get("passed", 0) for m in sr)
+        f = sum(m.get("failed", 0) for m in sr)
+        k = sum(m.get("skipped", 0) for m in sr)
+        tot = p + f + k
+        if tot == 0:
+            rows.append(
+                f'<div class="scope-row"><span class="nm">{label}</span>'
+                f'<div class="bar"></div><span class="ct" style="color:#475569">—</span></div>'
+            )
+            continue
+        pp, fp, kp = 100*p/tot, 100*f/tot, 100*k/tot
+        rows.append(
+            f'<div class="scope-row"><span class="nm">{label}</span>'
+            f'<div class="bar">'
+            f'<i style="width:{pp:.1f}%;background:#4ade80"></i>'
+            f'<i style="width:{fp:.1f}%;background:#f87171"></i>'
+            f'<i style="width:{kp:.1f}%;background:#94a3b8"></i>'
+            f'</div>'
+            f'<span class="ct">{p}/{tot}</span></div>'
+        )
+    return "".join(rows)
+
+
+def _suite_coverage_bars(runs: List[dict]) -> str:
+    """Per-suite stacked bars aggregated across all runs that have per_suite data."""
+    # Known suites in display order
+    SUITES = [
+        ("home",             "Home"),
+        ("qam_shelves",      "QAM Shelves"),
+        ("qam_smart",        "QAM Smart"),
+        ("qam_global_toggles","QAM Global"),
+        ("about",            "About"),
+        ("context_menu",     "Context Menu"),
+        ("perf",             "Performance"),
+        ("crash_protection", "Crash Protection"),
+        ("stress",           "Stress"),
+    ]
+    # Aggregate across all runs
+    totals: dict = {}
+    runs_with_suites = [m for m in runs if m.get("per_suite")]
+    for m in runs_with_suites:
+        for suite, counts in (m.get("per_suite") or {}).items():
+            s = totals.setdefault(suite, {"passed": 0, "failed": 0, "skipped": 0})
+            s["passed"]  += counts.get("passed",  0)
+            s["failed"]  += counts.get("failed",  0)
+            s["skipped"] += counts.get("skipped", 0)
+
+    if not totals:
+        return '<p style="color:#475569;font-size:12px">No UI test data yet. Run <code>pnpm validate:full</code> with a Deck connected.</p>'
+
+    rows = []
+    for key, label in SUITES:
+        s = totals.get(key)
+        if not s:
+            continue
+        tot = s["passed"] + s["failed"] + s["skipped"]
+        if tot == 0:
+            continue
+        pp = 100 * s["passed"]  / tot
+        fp = 100 * s["failed"]  / tot
+        kp = 100 * s["skipped"] / tot
+        pct_pass = round(100 * s["passed"] / tot)
+        color = "#4ade80" if s["failed"] == 0 else ("#f87171" if s["passed"] == 0 else "#fbbf24")
+        rows.append(
+            f'<div class="scope-row">'
+            f'<span class="nm" title="{key}">{label}</span>'
+            f'<div class="bar">'
+            f'<i style="width:{pp:.1f}%;background:#4ade80"></i>'
+            f'<i style="width:{fp:.1f}%;background:#f87171"></i>'
+            f'<i style="width:{kp:.1f}%;background:#94a3b8"></i>'
+            f'</div>'
+            f'<span class="ct" style="color:{color}">{pct_pass}%</span>'
+            f'</div>'
+        )
+    return "".join(rows) if rows else '<p style="color:#475569;font-size:12px">No suite data.</p>'
+
+
+def _context_pills(runs: List[dict]) -> str:
+    """Stats: runs with/without Deck and with/without stress fixture."""
+    total = len(runs)
+    if total == 0:
+        return ""
+    with_deck   = sum(1 for m in runs if m.get("subdir") == "local")
+    without_deck = total - with_deck
+    with_stress = sum(1 for m in runs if m.get("stress"))
+    items = [
+        ("with Deck",    with_deck,    "#60a5fa"),
+        ("without Deck", without_deck, "#818cf8"),
+        ("with stress",  with_stress,  "#f59e0b"),
+        ("no stress",    total - with_stress, "#6b7280"),
+    ]
+    pills = "".join(
+        f'<span style="background:{c}22;color:{c};border:1px solid {c}44;'
+        f'padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">'
+        f'{n} <b>{v}</b></span>'
+        for (n, v, c) in items
+    )
+    return f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">{pills}</div>'
+
+
+def _rebuild_dashboard(reports_root: Path) -> None:
+    runs = _collect_all_runs(reports_root)
+    total_runs = len(runs)
+    total_pass = sum(m.get("passed", 0) for m in runs)
+    total_fail = sum(m.get("failed", 0) for m in runs)
+    total_skip = sum(m.get("skipped", 0) for m in runs)
+    total_tests = total_pass + total_fail + total_skip
+    overall_pct = round(100.0 * total_pass / total_tests) if total_tests else 0
+    runs_passed = sum(1 for m in runs if m.get("failed", 0) == 0)
+    runs_pct = round(100.0 * runs_passed / total_runs) if total_runs else 0
+    last = runs[-1] if runs else None
+    last_result = (last.get("overall", "?") if last else "—")
+
+    line_chart  = _svg_line_chart(runs)
+    donut       = _svg_donut(total_pass, total_fail, total_skip)
+    scope_bars  = _scope_bars(runs)
+    suite_bars  = _suite_coverage_bars(runs)
+    ctx_pills   = _context_pills(runs)
+
+    dash = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deck Shelves &mdash; Dashboard</title>
+<style>{_DASH_CSS}</style>
+</head>
+<body>
+<header>
+  <h1>Deck Shelves &mdash; Dashboard</h1>
+  <a class="back" href="index.html">&larr; All reports</a>
+</header>
+<main>
+  {ctx_pills}
+  <div class="kpis">
+    <div class="kpi"><div class="v">{total_runs}</div><div class="l">Total Runs</div></div>
+    <div class="kpi"><div class="v" style="color:var(--pass)">{runs_pct}%</div>
+      <div class="l">Runs Passed</div></div>
+    <div class="kpi"><div class="v">{total_tests}</div><div class="l">Tests Executed</div></div>
+    <div class="kpi"><div class="v" style="color:var(--accent)">{overall_pct}%</div>
+      <div class="l">Test Pass Rate</div></div>
+    <div class="kpi"><div class="v" style="color:{'var(--pass)' if last_result=='PASS' else 'var(--fail)'}">
+      {_html.escape(last_result)}</div><div class="l">Last Run</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Pass rate over time &mdash; all runs</h2>
+    {line_chart}
+    <div class="legend">
+      <span><i style="background:#4ade80"></i> run passed</span>
+      <span><i style="background:#f87171"></i> run had failures</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Coverage by test suite &mdash; pass rate per suite (aggregated)</h2>
+    {suite_bars}
+    <div class="legend">
+      <span><i style="background:#4ade80"></i> pass</span>
+      <span><i style="background:#f87171"></i> fail</span>
+      <span><i style="background:#94a3b8"></i> skip</span>
+      <span style="color:#64748b;font-size:10px">(% = pass rate, requires a local run with Deck)</span>
+    </div>
+  </div>
+
+  <div class="panel-grid">
+    <div class="panel">
+      <h2>Overall test distribution</h2>
+      <div style="text-align:center">{donut}</div>
+      <div class="legend" style="justify-content:center">
+        <span><i style="background:#4ade80"></i> {total_pass} pass</span>
+        <span><i style="background:#f87171"></i> {total_fail} fail</span>
+        <span><i style="background:#94a3b8"></i> {total_skip} skip</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Results by scope</h2>
+      {scope_bars}
+      <div class="legend">
+        <span><i style="background:#4ade80"></i> pass</span>
+        <span><i style="background:#f87171"></i> fail</span>
+        <span><i style="background:#94a3b8"></i> skip</span>
+      </div>
+    </div>
+  </div>
+</main>
+<footer>Deck Shelves CI &middot; dashboard &middot; {total_runs} run(s) aggregated</footer>
+</body>
+</html>
+"""
+    (reports_root / "dashboard.html").write_text(dash, encoding="utf-8")
 
 
 # ── Report generation ──────────────────────────────────────────────────────────
@@ -540,16 +946,29 @@ function toggle(i){{
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
 
+    # Extract per-suite breakdown from the "UI tests" step log (if present)
+    per_suite: dict = {}
+    for step_name, log_path in zip(names, logs):
+        if "ui test" in step_name.lower() and log_path and Path(log_path).exists():
+            try:
+                raw = Path(log_path).read_text(errors="replace")
+                per_suite = _parse_uitests_by_suite(raw)
+            except OSError:
+                pass
+            break
+
     meta = {
         "ts": ts, "stress": stress, "subdir": subdir,
         "overall": overall.upper(),
         "passed": passed, "failed": failed, "skipped": skipped, "total": total,
+        "per_suite": per_suite,
     }
     out.with_suffix(".json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
     # Rebuild indexes
     _rebuild_subfolder_index(out.parent)
     _rebuild_top_index(out.parent.parent)
+    _rebuild_dashboard(out.parent.parent)
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
