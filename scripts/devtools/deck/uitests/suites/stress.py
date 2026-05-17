@@ -175,10 +175,26 @@ def _shelf_ids(ctx):
 """) or []
 
 
+_STRESS_MIN_SHELVES = 10  # stress fixture has 16 regular + 6 smart = 22 total
+
+
+def _require_stress_fixture(ctx) -> None:
+    """Skip if the stress fixture is not deployed (fewer than 10 DS shelves)."""
+    from ..lib.runner import SkipTest
+    ctx.navigate("/library/home", settle_ms=1000)
+    n = _wait_for_shelves(ctx, min_count=_STRESS_MIN_SHELVES, timeout_s=5.0)
+    if n < _STRESS_MIN_SHELVES:
+        raise SkipTest(
+            f"Stress fixture not active — only {n} shelves (need ≥{_STRESS_MIN_SHELVES}). "
+            "Deploy with: pnpm qa:stress-fixture"
+        )
+
+
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 @s.test("home render — 18 shelves / 50 cards each under 5 s")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.eval(_INSTALL_COLLECTOR)
     t0 = time.time()
     ctx.navigate("/library/home", settle_ms=500)
@@ -212,6 +228,7 @@ def _(ctx) -> None:
 
 @s.test("card count — every shelf has cards rendered")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=2000)
     result = ctx.eval("""
 (function(){
@@ -232,6 +249,7 @@ def _(ctx) -> None:
 
 @s.test("vertical nav — frame gap across all shelves")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=2000)
     ctx.eval(_CLEAR_ERRORS)
     n_shelves = _wait_for_shelves(ctx, min_count=5)
@@ -268,6 +286,7 @@ def _(ctx) -> None:
 
 @s.test("horizontal nav — 10 cards right per shelf, 3 shelves")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=1000)
     _wait_for_shelves(ctx, min_count=5, timeout_s=15.0)
     # Extra settle so initial layout burst completes before frame sampling
@@ -311,6 +330,7 @@ def _(ctx) -> None:
 
 @s.test("combined nav — vertical + horizontal interleaved, 5 shelves")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=1000)
     _wait_for_shelves(ctx, min_count=5, timeout_s=15.0)
     time.sleep(0.5)
@@ -353,6 +373,7 @@ def _(ctx) -> None:
 
 @s.test("enter + exit game page — 5 round-trips")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=2000)
     ctx.eval(_CLEAR_ERRORS)
 
@@ -391,6 +412,7 @@ def _(ctx) -> None:
 
 @s.test("scroll full page — bottom to top, continuous frame measurement")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=1000)
     _wait_for_shelves(ctx, min_count=5, timeout_s=15.0)
     time.sleep(1.0)  # let layout settle before scrolling
@@ -460,6 +482,7 @@ def _(ctx) -> None:
 
 @s.test("route reload ×3 — frame gap on each cold remount")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.eval(_INSTALL_COLLECTOR)
     ctx.eval(_CLEAR_ERRORS)
 
@@ -483,6 +506,7 @@ def _(ctx) -> None:
 
 @s.test("QAM open ×5 while shelves visible — no frame budget blowout")
 def _(ctx) -> None:
+    _require_stress_fixture(ctx)
     ctx.navigate("/library/home", settle_ms=1000)
     _wait_for_shelves(ctx, min_count=3, timeout_s=15.0)
     ctx.eval(_INSTALL_COLLECTOR)

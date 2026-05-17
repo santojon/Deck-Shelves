@@ -366,7 +366,6 @@ function isOurCrashFingerprint(msg: string): boolean {
 function installGlobalErrorTrap() {
   try {
     const handler = (evt: any) => {
-      // Only fire when replacement is actively injecting (not just configured)
       if (!isRecentsReplaceInjecting()) return;
       const msg = String(evt?.error?.message ?? evt?.message ?? evt?.reason?.message ?? evt?.reason ?? "");
       if (!isOurCrashFingerprint(msg)) return;
@@ -377,11 +376,35 @@ function installGlobalErrorTrap() {
     };
     (globalThis as any).addEventListener?.("error", handler, true);
     (globalThis as any).addEventListener?.("unhandledrejection", handler, true);
+
+    // React ErrorBoundary swallows errors before they reach window.error.
+    // Watch for the Decky error boundary element appearing in the DOM — its
+    // body text contains the userCollections stack fingerprint when our
+    // injection causes the crash. One appearance is enough to flip the kill
+    // switch (no threshold needed — an EB render is always a hard failure).
+    let observer: MutationObserver | null = null;
+    try {
+      const checkForErrorBoundary = () => {
+        try {
+          const body = (globalThis as any).document?.body;
+          if (!body) return;
+          const text = body.innerText ?? "";
+          if (!text.includes("error occured") && !text.includes("error occurred")) return;
+          if (!isOurCrashFingerprint(text)) return;
+          markReplaceFailed("React ErrorBoundary: userCollections crash");
+        } catch {}
+      };
+      const obs = new (globalThis as any).MutationObserver(checkForErrorBoundary);
+      obs.observe((globalThis as any).document?.body ?? {}, { childList: true, subtree: false });
+      observer = obs;
+    } catch {}
+
     return () => {
       try {
         (globalThis as any).removeEventListener?.("error", handler, true);
         (globalThis as any).removeEventListener?.("unhandledrejection", handler, true);
       } catch {}
+      try { if (observer) observer.disconnect(); } catch {}
     };
   } catch { return () => {}; }
 }

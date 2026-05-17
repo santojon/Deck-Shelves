@@ -283,8 +283,25 @@ function ensureStyles() {
       // Marker is removed when the theme is no longer active.
       try {
         const slh = getComputedStyle(doc.documentElement).getPropertyValue('--SLH-lift-hero-px').trim();
-        if (slh !== '') doc.documentElement.setAttribute('data-ds-slh', '1');
-        else doc.documentElement.removeAttribute('data-ds-slh');
+        if (slh !== '') {
+          doc.documentElement.setAttribute('data-ds-slh', '1');
+          // Alt C fix: SLH locks the home to viewport height but our DS root
+          // starts mid-page (after hero/tabs) so `bottom: 0px` lands below the
+          // viewport. Set a CSS variable `--ds-slh-root-top` to the root's
+          // current top offset; the stylesheet uses it to size the root to
+          // exactly the remaining viewport height so `bottom: 0px` works.
+          const root = doc.getElementById('deck-shelves-home-root');
+          if (root) {
+            const rootTop = root.getBoundingClientRect().top;
+            const vh = (doc.defaultView ?? globalThis as any).innerHeight ?? 800;
+            if (rootTop > 0 && rootTop < vh) {
+              doc.documentElement.style.setProperty('--ds-slh-root-top', `${Math.round(rootTop)}px`);
+            }
+          }
+        } else {
+          doc.documentElement.removeAttribute('data-ds-slh');
+          doc.documentElement.style.removeProperty('--ds-slh-root-top');
+        }
       } catch {}
 
       // Centered Home detection — the theme sets `--center-home-padding` on
@@ -376,7 +393,7 @@ function buildStylesheet(): string {
        NOTE: Requires validation on a real Deck with the theme active. The
        56px header offset is based on CDP observations from 2026-05-14. */
     [data-ds-slh="1"] #deck-shelves-home-root {
-      height: calc(100vh - 56px);
+      height: calc(100vh - var(--ds-slh-root-top, 56px)) !important;
       position: relative;
       overflow: visible;
     }
@@ -389,9 +406,8 @@ function buildStylesheet(): string {
       bottom: 0 !important;
       left: 0 !important;
       right: 0 !important;
-      height: auto !important;
-      /* SLH pads the grid top by the lift amount so the hero image above
-         it doesn't overlap the card row. Mirror via the same variable. */
+      max-height: calc(100vh - var(--ds-slh-root-top, 56px) - var(--SLH-lift-hero-px, 0px) - 6px) !important;
+      overflow: hidden !important;
       padding-top: calc(var(--SLH-lift-hero-px, 0px) + 6px);
     }
     /* SLH + ArtHero: the ArtHero flex column still applies inside the
