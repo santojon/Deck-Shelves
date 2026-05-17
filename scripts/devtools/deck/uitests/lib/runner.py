@@ -101,6 +101,10 @@ def suite(name: str) -> Suite:
     return s
 
 
+class SkipTest(Exception):
+    """Raise inside a test to mark it as skipped (environment not ready)."""
+
+
 def run(host: str, port: int, out_dir: Path, only: Optional[List[str]] = None) -> List[TestResult]:
     sjc = open_session(host, port, "SharedJSContext")
     bp  = open_session(host, port, "Big Picture")
@@ -117,6 +121,9 @@ def run(host: str, port: int, out_dir: Path, only: Optional[List[str]] = None) -
                     fn(ctx)
                     results.append(TestResult(s.name, tname, "pass", int((time.time() - t0) * 1000)))
                     print(f"PASS {full}")
+                except SkipTest as e:
+                    results.append(TestResult(s.name, tname, "skip", int((time.time() - t0) * 1000), str(e)))
+                    print(f"SKIP {full} :: {e}")
                 except AssertionError as e:
                     results.append(TestResult(s.name, tname, "fail", int((time.time() - t0) * 1000), str(e)))
                     print(f"FAIL {full} :: {e}")

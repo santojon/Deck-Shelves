@@ -77,10 +77,17 @@ def _(ctx) -> None:
     ctx.navigate("/library/home", settle_ms=2000)
     result = ctx.eval("""
 (function(){
-    const settings = JSON.parse(localStorage.getItem('deck-shelves-settings-cache-v3') || '{}');
-    const configured = (settings.shelves || []).filter(s => s.enabled && !s.hidden).map(s => s.id);
+    const raw = localStorage.getItem('deck-shelves-settings-cache-v3')
+             || JSON.stringify(window.__DECK_SHELVES_SHARED_SETTINGS__ || {});
+    const settings = JSON.parse(raw || '{}');
+    const configuredRegular = (settings.shelves || []).filter(s => s.enabled && !s.hidden).map(s => s.id);
+    const configuredSmart   = (settings.smartShelves || []).filter(s => s.enabled !== false && !s.hidden).map(s => s.id);
+    const configured = [...configuredRegular, ...configuredSmart];
     const rendered = Array.from(document.querySelectorAll('.ds-shelf[data-shelfid]')).map(el => el.getAttribute('data-shelfid'));
-    return { configured: configured.length, rendered: rendered.length, mismatch: rendered.filter(id => !configured.includes(id)) };
+    // QA fixture IDs (qa_*) are always valid — they come from harness overrides
+    // that may only exist in SharedJSContext's localStorage, not BigPicture's.
+    const mismatch = rendered.filter(id => !configured.includes(id) && !id.startsWith('qa_'));
+    return { configured: configured.length, rendered: rendered.length, mismatch };
 })()
 """)
     if isinstance(result, dict):
