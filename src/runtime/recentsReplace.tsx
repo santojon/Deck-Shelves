@@ -141,31 +141,15 @@ function getOwnedAppIdSet(): Set<number> | null {
   return out.size > 0 ? out : null;
 }
 
-/** Verify that collectionStore.userCollections is accessible without throwing.
- *  That getter is a MobX computed that crashes with "Cannot read properties of
- *  undefined (reading 'values')" when the store hasn't fully initialized.
- *  The native recents component accesses it during render — injecting any IDs
- *  while it's broken causes the React error boundary to fire (issue #60). */
-function userCollectionsReady(): boolean {
-  try {
-    const cs: any = (globalThis as any).collectionStore;
-    if (!cs) return false;
-    void cs.userCollections; // just access it — throws if not ready
-    return true;
-  } catch { return false; }
-}
-
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
   if (!store || typeof store.GetAppOverviewByAppID !== "function") return [];
-  // Dual gate against issue #60:
-  // 1. getOwnedAppIdSet() — only inject ids the user actually owns.
-  // 2. userCollectionsReady() — the native recents component accesses
-  //    collectionStore.userCollections during render; if that MobX computed
-  //    throws (store not fully initialized), any injection causes a crash.
+  // Owned-set check is the real safety net against issue #60: only ids
+  // that collectionStore knows about can be safely rendered. Null means
+  // collectionStore isn't ready yet — bail out (return []) so the caller
+  // waits for the retry tick rather than injecting prematurely.
   const owned = getOwnedAppIdSet();
   if (!owned) return [];
-  if (!userCollectionsReady()) return [];
   const out: number[] = [];
   for (const id of ids) {
     if (!owned.has(id)) continue;
@@ -366,6 +350,7 @@ function isOurCrashFingerprint(msg: string): boolean {
 function installGlobalErrorTrap() {
   try {
     const handler = (evt: any) => {
+      // Only fire when replacement is actively injecting (not just configured)
       if (!isRecentsReplaceInjecting()) return;
       const msg = String(evt?.error?.message ?? evt?.message ?? evt?.reason?.message ?? evt?.reason ?? "");
       if (!isOurCrashFingerprint(msg)) return;
@@ -376,35 +361,11 @@ function installGlobalErrorTrap() {
     };
     (globalThis as any).addEventListener?.("error", handler, true);
     (globalThis as any).addEventListener?.("unhandledrejection", handler, true);
-
-    // React ErrorBoundary swallows errors before they reach window.error.
-    // Watch for the Decky error boundary element appearing in the DOM — its
-    // body text contains the userCollections stack fingerprint when our
-    // injection causes the crash. One appearance is enough to flip the kill
-    // switch (no threshold needed — an EB render is always a hard failure).
-    let observer: MutationObserver | null = null;
-    try {
-      const checkForErrorBoundary = () => {
-        try {
-          const body = (globalThis as any).document?.body;
-          if (!body) return;
-          const text = body.innerText ?? "";
-          if (!text.includes("error occured") && !text.includes("error occurred")) return;
-          if (!isOurCrashFingerprint(text)) return;
-          markReplaceFailed("React ErrorBoundary: userCollections crash");
-        } catch {}
-      };
-      const obs = new (globalThis as any).MutationObserver(checkForErrorBoundary);
-      obs.observe((globalThis as any).document?.body ?? {}, { childList: true, subtree: false });
-      observer = obs;
-    } catch {}
-
     return () => {
       try {
         (globalThis as any).removeEventListener?.("error", handler, true);
         (globalThis as any).removeEventListener?.("unhandledrejection", handler, true);
       } catch {}
-      try { if (observer) observer.disconnect(); } catch {}
     };
   } catch { return () => {}; }
 }
