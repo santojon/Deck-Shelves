@@ -166,6 +166,11 @@ export function useSettingsController() {
       if (!s || s.shelfHeroBackground === shelfHeroBackground) return;
       await persist({ ...s, shelfHeroBackground });
     },
+    async setForceCssLoaderThemes(forceCssLoaderThemes: boolean) {
+      const s = liveSettings();
+      if (!s || s.forceCssLoaderThemes === forceCssLoaderThemes) return;
+      await persist({ ...s, forceCssLoaderThemes });
+    },
     async setGlobalMatchNativeSize(globalMatchNativeSize: boolean) {
       const s = liveSettings();
       if (!s || s.globalMatchNativeSize === globalMatchNativeSize) return;
