@@ -387,12 +387,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         id='visual_global'
         icon={<WandIcon />}
         title={t('section_visual_global')}
-        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHeroEnabled, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
+        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
       >
         <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />
         <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />
         <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightAll(value)} />
-        <ToggleField label={t('hero_enabled_label' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalHeroEnabled(value)} />
         <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideShelfTitle(value)} />
         <ToggleField label={t('hide_game_names')} checked={settings.globalHideGameNames === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideGameNames(value)} />
         <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />

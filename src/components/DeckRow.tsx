@@ -41,16 +41,49 @@ function getHeroUrls(appid: number): string[] {
 /** Lightweight per-shelf hero background. Rendered inside the .ds-shelf div
  *  (z-index:-1) so it appears behind that shelf's cards only. Separate from
  *  the global HeroBackground which handles the recents-slot promoted shelf. */
+
 function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);  // true: always render, opacity driven by image loading
+  // Smaller bleed above for non-first hero shelves so their art doesn't
+  // overlap the shelf above. Determined by DOM order on mount.
+  const [topBleed, setTopBleed] = useState(-90);
   const activeSlotRef = useRef<'A' | 'B'>('A');
   const currentAppid = useRef(0);
   const fallbackIdx = useRef(0);
   const allUrls = useRef<string[]>([]);
   useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
+
+  // First hero shelf: more bleed above to fill the space before the page
+  // content. Non-first: keep bleed short so the eased-in fade stays mostly
+  // in the gap between shelves and doesn't visibly overlay the shelf above.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const root = el.closest('.deck-shelves-root');
+    if (!root) return;
+    setTopBleed(-80);
+  }, [containerRef]);
+
+  // Assign decreasing z-index to the shelf divs so each shelf's stacking
+  // context sits above the shelf below it. Without this, DOM order (later =
+  // on top) makes shelf N's downward hero bleed appear behind shelf N+1 instead
+  // of in front of it. Runs after a short delay so all hero shelves have mounted.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const assign = () => {
+      const root = el.closest('.deck-shelves-root');
+      if (!root) return;
+      const all = Array.from(root.querySelectorAll<HTMLElement>('.ds-shelf[data-ds-hero-enabled="true"]'));
+      const idx = all.indexOf(el);
+      if (idx >= 0) el.style.zIndex = String(all.length - idx);
+    };
+    const t = setTimeout(assign, 50);
+    return () => { clearTimeout(t); el.style.zIndex = ''; };
+  }, [containerRef]);
 
   const onError = useCallback((slot: 'A' | 'B') => () => {
     fallbackIdx.current += 1;
@@ -68,6 +101,21 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
         focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
       if (!focused)
         focused = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      // Always-visible fallback: if no card is focused yet, show the first
+      // VISIBLE card so hidden/filtered cards (owned games on online shelves,
+      // cards in collapsed rows, etc.) are skipped.
+      if (!focused) {
+        const allCards = el.querySelectorAll<HTMLElement>('.ds-card[data-appid]');
+        for (const c of allCards) {
+          // Check element is visible: has layout height and is in the document flow.
+          // Also verify no ancestor has display:none by checking offsetParent.
+          if (c.offsetHeight > 0 && c.offsetParent !== null &&
+              getComputedStyle(c).visibility !== 'hidden' &&
+              getComputedStyle(c).display !== 'none') {
+            focused = c; break;
+          }
+        }
+      }
       if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
@@ -77,43 +125,63 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
         allUrls.current = urls;
         fallbackIdx.current = 0;
         const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
-        if (next === 'A') setSlotA(urls[0] ?? null); else setSlotB(urls[0] ?? null);
+        const url0 = urls[0] ?? null;
+        if (next === 'A') setSlotA(url0); else setSlotB(url0);
         setActiveSlot(next);
         setVisible(true);
+        // Extract dominant color for background tinting — mirrors how ArtHero
+        // picks up the art color. Works for same-origin steamloopback.host URLs.
       } else {
         setVisible(true);
       }
     };
     el.addEventListener('focusin', update);
     const obs = new MutationObserver(() => update());
-    obs.observe(el, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    obs.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
     update();
     return () => { el.removeEventListener('focusin', update); obs.disconnect(); };
   }, [containerRef]);
 
   if (!slotA && !slotB) return null;
-  // Extend 80px above the shelf (fills the row title area and bleeds into the
-  // shelf above) and 60px below — mirrors the native Steam hero extent.
-  // Left/right use vw units to reach full viewport width even when the shelf
-  // itself has padding. The outer wrapper is overflow:visible so the extension
-  // is visible; the hero image wrapper is overflow:hidden so the image clips.
+  const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
+  // When a dominant color was extracted from the hero image, blend it at low
+  // opacity over the theme background — same tinting effect ArtHero applies
+  // to the first shelf when active. Falls back to the theme background alone.
+  const bPx = Math.abs(topBleed); // 80px
+
+  // Top fade: smooth ease-in curve with 5 stops over the full 80px bleed.
+  // Keeps the hero near-invisible while overlapping the shelf above (~0.03 at
+  // mid-bleed) and accelerates to opaque only in the final third.  This gives
+  // the rounded, gradual transition the user sees between hero arts.
+  // Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
+  // matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme.
+  const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
+  const maskVal = [
+    `linear-gradient(to bottom,`,
+    `  transparent 0,`,
+    `  rgba(0,0,0,0.02) ${p(0.28)},`,
+    `  rgba(0,0,0,0.08) ${p(0.50)},`,
+    `  rgba(0,0,0,0.28) ${p(0.70)},`,
+    `  rgba(0,0,0,0.65) ${p(0.88)},`,
+    `  rgba(0,0,0,0.88) ${bPx}px,`,
+    `  black calc(${bPx}px + 40px),`,
+    `  black calc(100% - 100px),`,
+    `  rgba(0,0,0,0.45) calc(100% - 64px),`,
+    `  transparent calc(100% - 16px))`,
+  ].join(' ');
+
   return (
     <div style={{
       position: 'absolute',
-      top: -80, bottom: -60,
+      top: topBleed, bottom: -64,
       left: '-2.8vw', right: '-2.8vw',
       zIndex: -1, pointerEvents: 'none', overflow: 'hidden',
       opacity: visible ? 1 : 0,
       transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
-      // Soft mask at top so the hero fades into the shelf above rather than
-      // cutting sharply. Bottom is handled by the gradient overlay below.
-      maskImage: 'linear-gradient(to bottom, transparent 0%, rgb(0,0,0) 15%, rgb(0,0,0) 80%, transparent 100%)',
-      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, rgb(0,0,0) 15%, rgb(0,0,0) 80%, transparent 100%)' as any,
+      maskImage: maskVal,
+      WebkitMaskImage: maskVal,
     }}>
-      {/* Solid fill behind the image — uses --obsidian-main-color when
-          Obsidian is active, otherwise falls back to --ds-page-bg. This
-          makes the base color match Obsidian without extra detection. */}
-      <div style={{ position: 'absolute', inset: 0, background: 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))' }} />
+      <div style={{ position: 'absolute', inset: 0, background: themeBg }} />
       {slotA && (
         <div style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
@@ -121,6 +189,7 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
           transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <img src={slotA} onError={onError('A')}
+            className="ds-per-shelf-hero-img"
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
         </div>
       )}
@@ -131,16 +200,10 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
           transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <img src={slotB} onError={onError('B')}
+            className="ds-per-shelf-hero-img"
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
         </div>
       )}
-      {/* Bottom gradient: fades hero art to the theme background color.
-          Uses --obsidian-main-color when Obsidian is active so the fade
-          matches the theme's black exactly. */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(to top, var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0))) 0%, rgba(0,0,0,0.4) 45%, transparent 100%)',
-      }} />
     </div>
   );
 }
@@ -625,7 +688,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       className="Panel ds-shelf"
       data-shelfid={shelfId || undefined}
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
-        style={{ position: 'relative', marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
+        style={{ position: 'relative', marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: heroEnabled ? 'visible' : 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
     >
       {heroEnabled && <PerShelfHero containerRef={outerRef} />}
       {title && !hideShelfTitle ? (

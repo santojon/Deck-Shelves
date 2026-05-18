@@ -113,7 +113,36 @@ export function applyHideRecents(hidden: boolean): void {
   }
 
   if (cachedRecentsEl) {
-    try { cachedRecentsEl.style.visibility = hidden ? "hidden" : ""; cachedRecentsEl.style.height = hidden ? "0px" : ""; cachedRecentsEl.style.overflow = hidden ? "hidden" : ""; } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
+    try {
+      cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
+      cachedRecentsEl.style.height     = hidden ? "0px" : "";
+      cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
+      // Remove from gamepad focus order when hidden (issue #69 / Bazzite):
+      // visibility:hidden + height:0 keeps the element in the tab order,
+      // causing an extra scroll step when navigating between shelves.
+      if (hidden) {
+        if (!cachedRecentsEl.dataset.dsHrPrevTi)
+          cachedRecentsEl.dataset.dsHrPrevTi = cachedRecentsEl.getAttribute("tabindex") ?? "";
+        cachedRecentsEl.setAttribute("tabindex", "-1");
+        cachedRecentsEl.setAttribute("aria-hidden", "true");
+        cachedRecentsEl.querySelectorAll<HTMLElement>("[tabindex]:not([tabindex='-1']), .Focusable").forEach(f => {
+          if (!f.dataset.dsHrPrevTi) f.dataset.dsHrPrevTi = f.getAttribute("tabindex") ?? "0";
+          f.setAttribute("tabindex", "-1");
+        });
+      } else {
+        const prev = cachedRecentsEl.dataset.dsHrPrevTi;
+        if (prev !== undefined) {
+          prev ? cachedRecentsEl.setAttribute("tabindex", prev) : cachedRecentsEl.removeAttribute("tabindex");
+          delete cachedRecentsEl.dataset.dsHrPrevTi;
+        }
+        cachedRecentsEl.removeAttribute("aria-hidden");
+        cachedRecentsEl.querySelectorAll<HTMLElement>("[data-ds-hr-prev-ti]").forEach(f => {
+          const p = f.dataset.dsHrPrevTi;
+          p ? f.setAttribute("tabindex", p) : f.removeAttribute("tabindex");
+          delete f.dataset.dsHrPrevTi;
+        });
+      }
+    } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
   }
 
   // CSS-based fallback: aria-label-based discovery doesn't find modern

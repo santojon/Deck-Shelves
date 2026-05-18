@@ -42,13 +42,13 @@ text{font-family:system-ui,sans-serif}
   <a class="back" href="index.html">&larr; All reports</a>
 </header>
 <main>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"><span style="background:#60a5fa22;color:#60a5fa;border:1px solid #60a5fa44;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">with Deck <b>1</b></span><span style="background:#818cf822;color:#818cf8;border:1px solid #818cf844;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">without Deck <b>0</b></span><span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">with stress <b>1</b></span><span style="background:#6b728022;color:#6b7280;border:1px solid #6b728044;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">no stress <b>0</b></span></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"><span style="background:#60a5fa22;color:#60a5fa;border:1px solid #60a5fa44;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">with Deck <b>1</b></span><span style="background:#818cf822;color:#818cf8;border:1px solid #818cf844;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">without Deck <b>1</b></span><span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">with stress <b>1</b></span><span style="background:#6b728022;color:#6b7280;border:1px solid #6b728044;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">no stress <b>1</b></span></div>
   <div class="kpis">
-    <div class="kpi"><div class="v">1</div><div class="l">Total Runs</div></div>
+    <div class="kpi"><div class="v">2</div><div class="l">Total Runs</div></div>
     <div class="kpi"><div class="v" style="color:var(--pass)">0%</div>
       <div class="l">Runs Passed</div></div>
-    <div class="kpi"><div class="v">10</div><div class="l">Tests Executed</div></div>
-    <div class="kpi"><div class="v" style="color:var(--accent)">80%</div>
+    <div class="kpi"><div class="v">16</div><div class="l">Tests Executed</div></div>
+    <div class="kpi"><div class="v" style="color:var(--accent)">81%</div>
       <div class="l">Test Pass Rate</div></div>
     <div class="kpi"><div class="v" style="color:var(--fail)">
       FAIL</div><div class="l">Last Run</div></div>
@@ -58,9 +58,9 @@ text{font-family:system-ui,sans-serif}
     <h2>Pass rate over time &mdash; all runs</h2>
     <svg viewBox="0 0 480 200" width="100%" height="200">
 <line x1="34" y1="176.0" x2="468" y2="176.0" stroke="#334155" stroke-width="1"/><text x="28" y="179.0" fill="#64748b" font-size="9" text-anchor="end">0%</text><line x1="34" y1="94.0" x2="468" y2="94.0" stroke="#334155" stroke-width="1"/><text x="28" y="97.0" fill="#64748b" font-size="9" text-anchor="end">50%</text><line x1="34" y1="12.0" x2="468" y2="12.0" stroke="#334155" stroke-width="1"/><text x="28" y="15.0" fill="#64748b" font-size="9" text-anchor="end">100%</text>
-<path d="M34.0,176 L34.0,44.8 L34.0,176 Z" fill="#7c3aed22"/>
-<path d="M34.0,44.8" fill="none" stroke="#a78bfa" stroke-width="2"/>
-<circle cx="34.0" cy="44.8" r="3" fill="#f87171"><title>2026-05-17_15-08-48 [local] 80% (8/10)</title></circle>
+<path d="M34.0,176 L34.0,44.8 L468.0,39.3 L468.0,176 Z" fill="#7c3aed22"/>
+<path d="M34.0,44.8 L468.0,39.3" fill="none" stroke="#a78bfa" stroke-width="2"/>
+<circle cx="34.0" cy="44.8" r="3" fill="#f87171"><title>2026-05-17_15-08-48 [local] 80% (8/10)</title></circle><circle cx="468.0" cy="39.3" r="3" fill="#f87171"><title>2026-05-18_16-40-58 [ci] 83% (5/6)</title></circle>
 </svg>
     <div class="legend">
       <span><i style="background:#4ade80"></i> run passed</span>
@@ -83,20 +83,20 @@ text{font-family:system-ui,sans-serif}
     <div class="panel">
       <h2>Overall test distribution</h2>
       <div style="text-align:center"><svg viewBox="0 0 180 180" width="180" height="180">
-<path d="M90.00,14.00 A76.00,76.00 0 1 1 17.72,66.51" fill="none" stroke="#4ade80" stroke-width="22"/><path d="M17.72,66.51 A76.00,76.00 0 0 1 90.00,14.00" fill="none" stroke="#f87171" stroke-width="22"/>
+<path d="M90.00,14.00 A76.00,76.00 0 1 1 19.79,60.92" fill="none" stroke="#4ade80" stroke-width="22"/><path d="M19.79,60.92 A76.00,76.00 0 0 1 90.00,14.00" fill="none" stroke="#f87171" stroke-width="22"/>
 <text x="90.0" y="88.0" fill="#e2e8f0" font-size="26" font-weight="800"
-      text-anchor="middle">80%</text>
+      text-anchor="middle">81%</text>
 <text x="90.0" y="106.0" fill="#64748b" font-size="10" text-anchor="middle">PASS RATE</text>
 </svg></div>
       <div class="legend" style="justify-content:center">
-        <span><i style="background:#4ade80"></i> 8 pass</span>
-        <span><i style="background:#f87171"></i> 2 fail</span>
+        <span><i style="background:#4ade80"></i> 13 pass</span>
+        <span><i style="background:#f87171"></i> 3 fail</span>
         <span><i style="background:#94a3b8"></i> 0 skip</span>
       </div>
     </div>
     <div class="panel">
       <h2>Results by scope</h2>
-      <div class="scope-row"><span class="nm">Local</span><div class="bar"><i style="width:80.0%;background:#4ade80"></i><i style="width:20.0%;background:#f87171"></i><i style="width:0.0%;background:#94a3b8"></i></div><span class="ct">8/10</span></div><div class="scope-row"><span class="nm">CI</span><div class="bar"></div><span class="ct" style="color:#475569">—</span></div><div class="scope-row"><span class="nm">Release</span><div class="bar"></div><span class="ct" style="color:#475569">—</span></div>
+      <div class="scope-row"><span class="nm">Local</span><div class="bar"><i style="width:80.0%;background:#4ade80"></i><i style="width:20.0%;background:#f87171"></i><i style="width:0.0%;background:#94a3b8"></i></div><span class="ct">8/10</span></div><div class="scope-row"><span class="nm">CI</span><div class="bar"><i style="width:83.3%;background:#4ade80"></i><i style="width:16.7%;background:#f87171"></i><i style="width:0.0%;background:#94a3b8"></i></div><span class="ct">5/6</span></div><div class="scope-row"><span class="nm">Release</span><div class="bar"></div><span class="ct" style="color:#475569">—</span></div>
       <div class="legend">
         <span><i style="background:#4ade80"></i> pass</span>
         <span><i style="background:#f87171"></i> fail</span>
@@ -105,6 +105,6 @@ text{font-family:system-ui,sans-serif}
     </div>
   </div>
 </main>
-<footer>Deck Shelves CI &middot; dashboard &middot; 1 run(s) aggregated</footer>
+<footer>Deck Shelves CI &middot; dashboard &middot; 2 run(s) aggregated</footer>
 </body>
 </html>

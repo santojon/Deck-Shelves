@@ -232,6 +232,20 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       if (!focused) {
         focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       }
+      if (!focused) {
+        // Fallback: first visible card in the promoted/first shelf, skipping
+        // hidden/filtered cards (owned games on online shelves, etc.)
+        const pool = (mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"]')
+          ?? mountEl.querySelector('.ds-shelf')) as HTMLElement | null;
+        if (pool) {
+          for (const c of pool.querySelectorAll<HTMLElement>('.ds-card[data-appid]')) {
+            const cs = getComputedStyle(c);
+            if (c.offsetHeight > 0 && c.offsetParent !== null && cs.visibility !== 'hidden' && cs.display !== 'none') {
+              focused = c; break;
+            }
+          }
+        }
+      }
       if (!focused) return;
       // Hero art mirrors:
       //   - any shelf with `data-ds-hero-enabled="true"` (per-shelf opt-in
@@ -241,16 +255,15 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       // When the focused card lives in a shelf carrying either marker, we
       // update the hero overlay; otherwise we leave the previous hero in
       // place (matching native Steam's "sticky last hero" behaviour).
-      // The global hero handles only the recents-slot promoted shelf.
-      // Per-shelf hero (heroEnabled=true) is handled by PerShelfHero
-      // rendered inside each DeckRow — skip those here to avoid doubling.
       const parentShelf = focused.closest('.ds-shelf') as HTMLElement | null;
-      const isRecentsSlot = !!parentShelf && parentShelf.getAttribute('data-ds-recents-slot') === 'true';
-      const isPerShelfHero = !!parentShelf && parentShelf.getAttribute('data-ds-hero-enabled') === 'true';
-      if (isPerShelfHero) return;
-      if (!isRecentsSlot) {
-        // Fallback: when no shelf is promoted yet, use the first DS shelf
-        // (legacy single-hero path for shelfHeroBackground global toggle).
+      const isHeroShelf = !!parentShelf && (
+        parentShelf.getAttribute('data-ds-hero-enabled') === 'true'
+        || parentShelf.getAttribute('data-ds-recents-slot') === 'true'
+      );
+      if (!isHeroShelf) {
+        // Fallback for the legacy single-hero path: when neither marker is
+        // present (e.g. first shelf isn't promoted yet), keep the previous
+        // behaviour of using the first DOM shelf.
         const fallbackShelf = mountEl.querySelector('.ds-shelf') as HTMLElement | null;
         if (fallbackShelf && !fallbackShelf.contains(focused)) return;
       }

@@ -328,27 +328,6 @@ export function HomeShelves() {
     applyHideHomeTabs(settings?.hideHomeTabs === true);
   }, [settings?.hideHomeTabs, mountEl]);
 
-  // Restore gamepad focus to native recents when the plugin is disabled or all
-  // shelves are hidden — otherwise the focus lands on nothing and the user has
-  // to blindly navigate back. Only fires when the shelves go from visible to
-  // absent (enabled flips false, or visible count reaches 0).
-  const prevEnabledRef = useRef<boolean | null>(null);
-  const prevVisibleCountRef = useRef<number>(-1);
-  useEffect(() => {
-    const enabled = settings?.enabled === true;
-    const count = (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden).length;
-    const wasActive = prevEnabledRef.current === true && prevVisibleCountRef.current > 0;
-    const nowInactive = !enabled || count === 0;
-    prevEnabledRef.current = enabled;
-    prevVisibleCountRef.current = count;
-    if (!wasActive || !nowInactive || !mountEl) return;
-    try {
-      const doc = mountEl.ownerDocument ?? document;
-      const nativeCard = doc.querySelector('[class*="GameGridItem"][tabindex], [class*="gameGridItem"][tabindex]') as HTMLElement | null;
-      if (nativeCard) focusElement(nativeCard);
-    } catch {}
-  }, [settings?.enabled, (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden).length, mountEl]);
-
   // Schedule a one-shot refresh at the next visibility-window boundary across
   // all smart shelves. Picks the earliest boundary; on fire, invalidates
   // resolver caches for time-aware shelves, forces HomeInject to re-render
@@ -508,36 +487,19 @@ export function HomeShelves() {
   if (!settings.enabled || !visibleShelves.length) {
     applyHideRecents(false);
     if (!settings.enabled) logWarn("HOME", "plugin disabled — recents forced visible");
-    // Collapse the mount element so it doesn't contribute any layout space
-    // and can't interfere with the native recents scroll container. Without
-    // this, the mount div (with margin-top:-32px and position:relative) stays
-    // in the DOM and can break native horizontal scrolling even when empty.
-    if (mountEl) {
-      mountEl.style.height = '0';
-      mountEl.style.overflow = 'hidden';
-      mountEl.style.marginTop = '0';
-      mountEl.style.pointerEvents = 'none';
-    }
     return null;
-  }
-  // Restore mount layout when active
-  if (mountEl) {
-    mountEl.style.height = '';
-    mountEl.style.overflow = '';
-    mountEl.style.marginTop = '';
-    mountEl.style.pointerEvents = '';
   }
   logInfo("HOME", "rendering shelves via portal", { visible: shelves.length, mountConnected: mountEl.isConnected });
 
   return createPortal(
     <PlatformProvider platform={homePlatform}>
-      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHighlightAll={settings.globalHighlightAll === true} globalHideStatusLine={settings.globalHideStatusLine === true} globalHideNewBadge={settings.globalHideNewBadge === true} globalHideCompatIcons={settings.globalHideCompatIcons === true} globalHideNonSteamBadge={settings.globalHideNonSteamBadge === true} globalHideShelfTitle={settings.globalHideShelfTitle === true} globalHideGameNames={settings.globalHideGameNames === true} globalHideInstallIndicator={settings.globalHideInstallIndicator === true} globalHideSeeMore={settings.globalHideSeeMore === true} globalHideRefreshCard={settings.globalHideRefreshCard === true} globalHeroEnabled={(settings as any).globalHeroEnabled === true} globalDedupeByName={(settings as any).globalDedupeByName === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true && !(replaceInjecting && !replaceKillSwitch)} perShelfHeroAllowed={!(replaceInjecting && !replaceKillSwitch)} hideRecentsSetting={settings.hideRecents === true && (settings.recentsReplaceSource !== true || replaceKillSwitch)} forceCssLoaderThemes={settings.forceCssLoaderThemes === true} interleaveSmart={interleaveSmart} />
+      <ShelvesContainer mountEl={mountEl} shelves={shelves} globalMatchNativeSize={settings.globalMatchNativeSize === true} globalHighlightFirst={settings.globalHighlightFirst === true} globalHighlightAll={settings.globalHighlightAll === true} globalHideStatusLine={settings.globalHideStatusLine === true} globalHideNewBadge={settings.globalHideNewBadge === true} globalHideCompatIcons={settings.globalHideCompatIcons === true} globalHideNonSteamBadge={settings.globalHideNonSteamBadge === true} globalHideShelfTitle={settings.globalHideShelfTitle === true} globalHideGameNames={settings.globalHideGameNames === true} globalHideInstallIndicator={settings.globalHideInstallIndicator === true} globalHideSeeMore={settings.globalHideSeeMore === true} globalHideRefreshCard={settings.globalHideRefreshCard === true} globalDedupeByName={(settings as any).globalDedupeByName === true} shelfHeroBackground={settings.hideRecents === true && settings.shelfHeroBackground === true && !(replaceInjecting && !replaceKillSwitch)} perShelfHeroAllowed={!(replaceInjecting && !replaceKillSwitch)} hideRecentsSetting={settings.hideRecents === true && (settings.recentsReplaceSource !== true || replaceKillSwitch)} forceCssLoaderThemes={settings.forceCssLoaderThemes === true} interleaveSmart={interleaveSmart} />
     </PlatformProvider>,
     mountEl,
   ) as any;
 }
 
-function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalDedupeByName = false, shelfHeroBackground = false, perShelfHeroAllowed = false, hideRecentsSetting = false, forceCssLoaderThemes = false, interleaveSmart = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalDedupeByName?: boolean; shelfHeroBackground?: boolean; perShelfHeroAllowed?: boolean; hideRecentsSetting?: boolean; forceCssLoaderThemes?: boolean; interleaveSmart?: boolean }) {
+function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalDedupeByName = false, shelfHeroBackground = false, perShelfHeroAllowed = false, hideRecentsSetting = false, forceCssLoaderThemes = false, interleaveSmart = false }: { mountEl: HTMLElement; shelves: any[]; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalDedupeByName?: boolean; shelfHeroBackground?: boolean; perShelfHeroAllowed?: boolean; hideRecentsSetting?: boolean; forceCssLoaderThemes?: boolean; interleaveSmart?: boolean }) {
   useEffect(() => {
     // One-time nav tree API detection — result surfaced in About > Diagnostics
     const navApi = detectNavTreeApi();
@@ -757,30 +719,34 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   //   4. Class assignment is purely additive — `ds-*` is never stripped.
   useEffect(() => {
     if (!hideRecentsSetting) return;       // INVARIANT 1
-    if (!firstVisibleId) return;            // INVARIANT 2 (first-shelf path requires it)
+    if (!firstVisibleId) return;            // INVARIANT 2
     if (!isCssLoaderActive()) return;       // INVARIANT 3
     const rootEl = rootRef.current;
     if (!rootEl) return;
     const nativeClass = getNativeRecentsClassName(mountEl);
     if (!nativeClass) return;
-    const targets: HTMLElement[] = [];
-    if (forceCssLoaderThemes) {
-      targets.push(...Array.from(rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]')));
-    } else {
-      const first = rootEl.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${CSS.escape(firstVisibleId)}"]`);
-      if (first) targets.push(first);
-    }
-    if (!targets.length) return;
-    for (const target of targets) {
-      target.setAttribute('data-ds-recents-slot', 'true');
-      target.classList.add(nativeClass);    // INVARIANT 4
-    }
+
+    // forceCssLoaderThemes: apply the native wrapper CLASS to every shelf so
+    // themes (Obsidian, TiltedHome, etc.) that style the recents wrapper
+    // reach all DS shelves — not just the first. data-ds-recents-slot stays
+    // on the FIRST shelf only; applying it to all shelves would trigger
+    // ArtHero's full-screen layout (height:100vh, hidden card labels) on
+    // every shelf, breaking game-data visibility on subsequent shelves.
+    const applyAll = () => {
+      const firstShelf = rootEl.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${CSS.escape(firstVisibleId)}"]`);
+      for (const t of rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]')) {
+        t.classList.add(nativeClass);                                    // INVARIANT 4
+        if (t === firstShelf) t.setAttribute('data-ds-recents-slot', 'true');
+      }
+    };
+    applyAll();
+    // Re-apply when shelves appear late (items load async → DeckRow mounts after this effect ran)
+    const obs = new MutationObserver(applyAll);
+    obs.observe(rootEl, { childList: true, subtree: false });
     return () => {
-      for (const target of targets) {
-        try {
-          target.removeAttribute('data-ds-recents-slot');
-          target.classList.remove(nativeClass);
-        } catch {}
+      obs.disconnect();
+      for (const t of rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]')) {
+        try { t.removeAttribute('data-ds-recents-slot'); t.classList.remove(nativeClass); } catch {}
       }
     };
   }, [hideRecentsSetting, firstVisibleId, mountEl, forceCssLoaderThemes, shelves]);
@@ -833,8 +799,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       {...flowChildrenProps("column")}
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
-      {(shelfHeroBackground || (perShelfHeroAllowed && (globalHeroEnabled || shelves.some((s: any) => s?.heroEnabled === true)))) && <HeroBackground mountEl={mountEl} />}
-      {orderedShelves.map((shelf: any) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} globalHideShelfTitle={globalHideShelfTitle} globalHideGameNames={globalHideGameNames} globalHideInstallIndicator={globalHideInstallIndicator} globalHideSeeMore={globalHideSeeMore} globalHideRefreshCard={globalHideRefreshCard} globalHeroEnabled={globalHeroEnabled} globalDedupeByName={globalDedupeByName} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} />)}
+      {(shelfHeroBackground || (perShelfHeroAllowed && shelves.some((s: any) => s?.heroEnabled === true))) && <HeroBackground mountEl={mountEl} />}
+      {orderedShelves.map((shelf: any) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} globalHideShelfTitle={globalHideShelfTitle} globalHideGameNames={globalHideGameNames} globalHideInstallIndicator={globalHideInstallIndicator} globalHideSeeMore={globalHideSeeMore} globalHideRefreshCard={globalHideRefreshCard} globalDedupeByName={globalDedupeByName} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} />)}
     </Focusable>
   );
 }

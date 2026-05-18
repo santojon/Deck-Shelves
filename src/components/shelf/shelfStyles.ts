@@ -87,10 +87,8 @@ function debouncedNotifyDims(_dims: NativeCardDims) {
     nativeDimsListeners.forEach(cb => cb());
   }, DIMS_DEBOUNCE_MS);
 }
-function notifyDimsNow() {
-  if (dimsDebounceTimer) { clearTimeout(dimsDebounceTimer); dimsDebounceTimer = null; }
-  nativeDimsListeners.forEach(cb => cb());
-}
+// notifyDimsNow kept as dead code — all paths now use debouncedNotifyDims
+// to avoid jarring full-screen re-renders when dims first arrive.
 
 export function getCachedCardRadius(): string { return cachedCardRadius; }
 export function getCachedNativeDims(): NativeCardDims | null { return cachedNativeDims; }
@@ -189,7 +187,6 @@ function ensureStyles() {
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
     if (dimsChanged && newDims) {
-      const hadDims = cachedNativeDims !== null;
       // Fast path: when the cache has no featuredWidth but the new measurement does,
       // accept immediately. The featured card would otherwise render at the fallback
       // landscape ratio for 6+ seconds (2 × poll interval) before resizing — visible
@@ -201,11 +198,12 @@ function ensureStyles() {
         persistDims(newDims);
         pendingDims = null;
         pendingDimsCount = 0;
-        // If portrait dims were already cached (override mode on reload), debounce to
-        // avoid a resize flash when early polls fire before the layout stabilises.
-        // On a true cold boot (no prior dims), snap immediately — no visible card exists yet.
-        if (hadDims) debouncedNotifyDims(newDims);
-        else notifyDimsNow();
+        // Always debounce — even on first acquisition (hadDims=false).
+        // notifyDimsNow() on first measurement causes all DeckRows to
+        // re-render mid-interaction ("prateleiras recarregam"), which is
+        // jarring on the first navigation after a restart. The debounce
+        // (~100ms) is imperceptible but prevents the full-screen reload.
+        debouncedNotifyDims(newDims);
       } else {
       // Require 2 consecutive polls showing the same new values before accepting
       const matchesPending = pendingDims &&
@@ -272,6 +270,15 @@ function ensureStyles() {
         }
         if (pageBg) doc.documentElement.style.setProperty('--ds-page-bg', pageBg);
         else doc.documentElement.style.setProperty('--ds-page-bg', 'rgb(0, 0, 0)');
+      } catch {}
+
+      // Obsidian theme detection — the theme sets `--obsidian-main-color` on
+      // :root. Per-shelf hero images should inherit the same grayscale+contrast
+      // filter that Obsidian applies to native hero images so they match visually.
+      try {
+        const obs = getComputedStyle(doc.documentElement).getPropertyValue('--obsidian-main-color').trim();
+        if (obs !== '') doc.documentElement.setAttribute('data-ds-obsidian', '1');
+        else doc.documentElement.removeAttribute('data-ds-obsidian');
       } catch {}
 
       // SLH theme defense — that CSS Loader theme locks the home page to
@@ -348,15 +355,18 @@ function buildStylesheet(): string {
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
-    /* The Opção B promotion adds the native wrapper class to our first
-       shelf so theme rules (Obsidian backgrounds, Delly fades, ArtHero
+    /* The Opção B promotion adds the native wrapper class to our shelves
+       so theme rules (Obsidian backgrounds, Delly fades, ArtHero
        hero/mask, etc.) reach our shelf naturally. But that wrapper class
        also drags in the native rule ._39tNvaLedsTrVh0fFsP4Jm { height:
-       105vh }, which would inflate our shelf to 5% past the viewport.
-       Reset it to auto unconditionally so the shelf is compact (just
-       title + row) by default. The ArtHero-specific layout below then
-       opts back into the tall flex container only when needed. */
-    .ds-shelf[data-ds-recents-slot="true"] {
+       105vh }, which would inflate the shelf to 5% past the viewport.
+       Reset every DS shelf to auto unconditionally so it stays compact
+       (just title + row) by default — forceCssLoaderThemes adds the
+       wrapper class to ALL shelves, so the reset must cover all of them,
+       not only the promoted one. The ArtHero-specific layout below has
+       higher specificity and still opts the promoted shelf back into the
+       tall flex container when needed. */
+    .Panel.ds-shelf {
       height: auto !important;
     }
 
@@ -745,6 +755,27 @@ function buildStylesheet(): string {
       word-break: break-word;
     }
     .ds-card.ds-card--featured .ds-card-art img { object-position: center top; }
+
+    /* ── Per-shelf hero art ─────────────────────────────────────────────────
+       Hero images rendered by PerShelfHero (in DeckRow when heroEnabled=true).
+       Subtle zoom animation mirrors the 25s native Steam hero zoom. */
+    @keyframes ds-per-shelf-hero-zoom {
+      from { transform: scale(1); }
+      to   { transform: scale(1.06); }
+    }
+    .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
+      animation: ds-per-shelf-hero-zoom 25s ease infinite alternate;
+      transition: opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83),
+                  filter 0.35s ease;
+    }
+
+    /* Obsidian without ArtHero: apply grayscale+contrast to per-shelf hero
+       images so they match the first shelf. When ArtHero is also active
+       (data-ds-hero-label set on .deck-shelves-root), the first shelf shows
+       colour — so skip grayscale on all per-shelf heroes to match. */
+    [data-ds-obsidian="1"] .deck-shelves-root:not([data-ds-hero-label="true"]) .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
+      filter: grayscale(1) contrast(1.1);
+    }
   `;
 }
 

@@ -66,3 +66,7 @@ jobs:
           name: deck-shelves-${{ github.sha }}
           path: |
             deck-shelves-v*.zip
+      
+      - name: Generate report (if '#report' tag is present)
+        if: contains(github.event.head_commit.message, '#report') || (github.event.pull_request && contains(github.event.pull_request.title, '#report'))
+        run: pnpm run validate:ci

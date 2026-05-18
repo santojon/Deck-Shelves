@@ -53,13 +53,7 @@ def _normalize_path(path: Any) -> str:
     path = path.strip().strip('"').strip("'")
     if path.startswith("file://"):
         path = path[7:]
-    expanded = os.path.realpath(os.path.expanduser(path))
-    # Restrict to paths under the user home directory — prevents write/read
-    # to system files even if the frontend were somehow compromised.
-    home = os.path.realpath(os.path.expanduser("~"))
-    if not expanded.startswith(home + os.sep) and expanded != home:
-        return ""
-    return expanded
+    return os.path.expanduser(path)
 
 
 
@@ -241,19 +235,18 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard", "heroEnabled"):
             if bool_key in ss:
                 entry[bool_key] = bool(ss.get(bool_key, False))
-        for _id_key in ("highlightedAppIds", "hiddenAppIds"):
-            raw_ids = ss.get(_id_key)
-            if isinstance(raw_ids, list):
-                parsed_ids: list = []
-                for v in raw_ids:
-                    try:
-                        n = int(v)
-                        if n > 0:
-                            parsed_ids.append(n)
-                    except Exception:
-                        continue
-                if parsed_ids:
-                    entry[_id_key] = parsed_ids
+        raw_ss_highlighted = ss.get("highlightedAppIds")
+        if isinstance(raw_ss_highlighted, list):
+            ss_highlighted_ids: list = []
+            for v in raw_ss_highlighted:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_highlighted_ids.append(n)
+                except Exception:
+                    continue
+            if ss_highlighted_ids:
+                entry["highlightedAppIds"] = ss_highlighted_ids
         # refreshIntervalMinutes: optional positive int in [1, 43200] (= 30 days).
         # Missing / unparseable / out-of-range values fall back to the resolver's
         # default 60-minute TTL.
@@ -348,7 +341,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
     update_dismissed = settings.get("updateNotifyDismissedVersion")
     update_dismissed = str(update_dismissed)[:64] if isinstance(update_dismissed, str) else None
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False))}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False))}
 
 
 class Plugin:
