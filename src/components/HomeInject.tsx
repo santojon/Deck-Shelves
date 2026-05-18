@@ -726,20 +726,17 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     const nativeClass = getNativeRecentsClassName(mountEl);
     if (!nativeClass) return;
 
-    // forceCssLoaderThemes ON: apply the native wrapper CLASS to every shelf
-    // so themes (Obsidian, TiltedHome, etc.) that style the recents wrapper
-    // reach all DS shelves. OFF: only the first (promoted) shelf gets it.
-    // data-ds-recents-slot stays on the FIRST shelf only either way —
-    // applying it to all shelves would trigger ArtHero's full-screen layout
-    // (height:100vh, hidden card labels) on every shelf, breaking
-    // game-data visibility on subsequent shelves.
+    // forceCssLoaderThemes ON: promote EVERY shelf — native wrapper class +
+    // data-ds-recents-slot — so theme rules (Obsidian, TiltedHome, ArtHero
+    // hero/mask + full-page layout) reach all DS shelves, not just the first.
+    // OFF: only the first (promoted) shelf is promoted.
     const applyAll = () => {
       const firstShelf = rootEl.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${CSS.escape(firstVisibleId)}"]`);
       const all = Array.from(rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]'));
       const targets = forceCssLoaderThemes ? all : (firstShelf ? [firstShelf] : []);
       for (const t of targets) {
         t.classList.add(nativeClass);                                    // INVARIANT 4
-        if (t === firstShelf) t.setAttribute('data-ds-recents-slot', 'true');
+        t.setAttribute('data-ds-recents-slot', 'true');
       }
     };
     applyAll();
