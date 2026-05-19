@@ -7,17 +7,26 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
-- **Hero art behind each shelf, independently.** The edit modal's Visual tab now has an "Enable hero art" toggle per shelf (regular and smart). Turn it on for a shelf and the focused card's background art appears behind that shelf — not at the top of the page, exactly where the shelf sits. Works without hiding the native recents row or enabling any global toggle. The global hero (first shelf / promoted recents) continues to work exactly as before.
+- **Hero art behind your shelves.** Each shelf (regular or smart) has an "Enable hero art" toggle in the edit modal's Visual tab — turn it on and the focused game's artwork appears behind that shelf, following it wherever it sits. A new global toggle in the QAM (Visual section) turns hero art on for *every* shelf at once.
+- **Game name above the shelf, like native Recents.** With an ArtHero-style CSS Loader theme active, each full-page shelf shows the focused game's name and info above its row — the same effect Steam's native Recents shelf has, and the label follows the game you're on.
 
 ### Changed
 
-- **"Force CSS Loader themes" actually works now.** The setting was being lost on every save due to a missing action in the settings engine — the toggle appeared to work in the QAM but the value never persisted. Fixed. When enabled, the full set of native shelf class tokens is applied to every visible shelf (not only the first), so themes like ArtHero and similar apply consistently across all your shelves.
+- **"Force CSS Loader themes" now applies to every shelf** — and works whether you keep the native Recents row visible or hide it. Themes like ArtHero reach all your shelves consistently.
 
 ### Fixed
 
-- **Highlighted / featured card no longer gets the wrong size with "Match native card size" on.** The size measurement was accidentally picking up landscape cards from the "What's New" section above the recents row, resulting in the first card on your shelf rendering at the wrong (taller, wider) dimensions. The measurement is now scoped to the correct row.
-- **TiltedHome: card spacing no longer collapses when "Match native card size" is on.** The TiltedHome theme tilts cards with a CSS skew, which confused the gap measurement — the plugin saw the cards as overlapping and used 0 spacing, making your shelf look more compressed than the native recents. The gap is now computed from layout positions instead of visual bounding boxes, so the spacing matches what the theme intends.
-- **Deck Shelves menu (Refresh) now works correctly on smart shelves.** The "Refresh" action in the long-press / Menu context menu was calling the wrong refresh function for smart shelves, so pressing Refresh on a smart shelf card had no effect. Fixed.
+- **"Force CSS Loader themes" and the global hero toggle now stay on.** They were being lost on every save; fixed.
+- **D-pad up no longer makes the home flicker / reload.** Pressing up from the top shelf used to dip into the hidden Recents row and jolt the screen — focus now stays on your shelves.
+- **No more flash of reloading shelves on the first move after a Steam restart.**
+- **The hero art and name no longer show a game you've hidden** (with "ignore games I own" on) — they follow the first game actually shown.
+- **Leaving a shelf keeps the last game's hero art** instead of snapping back to the first game.
+- **Online shelves: the game name no longer gets stuck as a "#number"** while it loads — the real name appears once fetched.
+- **Force themes + ArtHero: shelves no longer overflow the screen.**
+- **Online shelf context menu now shows the game's name** as its title instead of "Shelf".
+- **Highlighted-card size and TiltedHome card spacing** are correct again with "Match native card size" on.
+- **Refresh works on smart shelf cards** from the long-press / Menu context menu.
+
 
 ## [2.2.2] - 2026-05-15
 

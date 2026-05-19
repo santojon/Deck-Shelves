@@ -158,14 +158,15 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
     currentAppid.current = 0;
     const update = (e?: Event) => {
       let focused: HTMLElement | null = null;
-      if (e && e.target instanceof HTMLElement) {
+      if (e && e.target instanceof HTMLElement)
         focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
-        // A real focusin on a card means the user navigated here — from now
-        // on keep the last selection instead of snapping to the first card.
-        if (focused) userHasFocusedRef.current = true;
-      }
       if (!focused)
         focused = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      // A genuinely focused card — via gamepad (`gpfocus` class) OR real DOM
+      // focus — means the user has navigated into this shelf. Steam's gamepad
+      // nav only toggles `gpfocus` and does not always fire `focusin`, so this
+      // must be checked here, not only on the focusin event.
+      if (focused) userHasFocusedRef.current = true;
       // First-visible-card fallback: when no card is focused, show the first
       // VISIBLE card so hidden/filtered cards (owned games on online shelves,
       // cards in collapsed rows, etc.) are skipped. Only BEFORE the user has
