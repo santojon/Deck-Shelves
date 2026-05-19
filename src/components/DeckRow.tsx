@@ -64,6 +64,7 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
   const currentAppid = useRef(0);
   const fallbackIdx = useRef(0);
   const allUrls = useRef<string[]>([]);
+  const userHasFocusedRef = useRef(false);
   useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
 
   // First hero shelf: more bleed above to fill the space before the page
@@ -157,17 +158,21 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
     currentAppid.current = 0;
     const update = (e?: Event) => {
       let focused: HTMLElement | null = null;
-      if (e && e.target instanceof HTMLElement)
+      if (e && e.target instanceof HTMLElement) {
         focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
+        // A real focusin on a card means the user navigated here — from now
+        // on keep the last selection instead of snapping to the first card.
+        if (focused) userHasFocusedRef.current = true;
+      }
       if (!focused)
         focused = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       // First-visible-card fallback: when no card is focused, show the first
       // VISIBLE card so hidden/filtered cards (owned games on online shelves,
-      // cards in collapsed rows, etc.) are skipped. ONLY on the initial load
-      // (currentAppid still 0) — once a card has been selected, focus leaving
-      // the shelf must keep the last-selected hero, not revert to the first.
+      // cards in collapsed rows, etc.) are skipped. Only BEFORE the user has
+      // focused a card — afterwards, focus leaving the shelf must keep the
+      // last-selected hero/label, not revert to the first card.
       if (!focused) {
-        if (currentAppid.current !== 0) return;
+        if (userHasFocusedRef.current) return;
         const allCards = el.querySelectorAll<HTMLElement>('.ds-card[data-appid]');
         for (const c of allCards) {
           // Check element is visible: has layout height and is in the document flow.
@@ -183,27 +188,28 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
       // Align the overlay label horizontally with the focused card's left
       // edge — mirrors native ArtHero, where the label tracks the focused
       // tile. Read after a frame so the row's centering scroll has settled.
-      const trackLeft = (card: HTMLElement) => {
+      const fc = focused;
+      requestAnimationFrame(() => {
         try {
           const sr = el.getBoundingClientRect();
-          const cr = card.getBoundingClientRect();
+          const cr = fc.getBoundingClientRect();
           setLabelLeft(Math.max(0, Math.round(cr.left - sr.left)));
         } catch {}
-      };
-      const fc = focused;
-      requestAnimationFrame(() => trackLeft(fc));
+      });
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
+      // Always re-clone the card's label DOM so the overlay mirrors it
+      // byte-for-byte. Online shelves resolve game names asynchronously — if
+      // the first clone happened during the brief "#appid" window, re-cloning
+      // picks up the resolved name once it lands. Cloning identical content
+      // yields the same string, so setLabelHtml bails out (no re-render).
+      const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
+      setLabelHtml(labelEl ? labelEl.outerHTML : null);
+      // Hero ART loads only when enabled for this shelf AND the game changed.
+      // `forceCssLoader` promotes a shelf (full-page + label) WITHOUT forcing
+      // hero art — the per-shelf / global hero-art setting is respected.
       if (appid !== currentAppid.current) {
         currentAppid.current = appid;
-        // Clone the card's own label DOM so the hero overlay mirrors it
-        // byte-for-byte (same classes → same formatting). Always done — the
-        // label is independent of whether this shelf shows hero ART.
-        const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-        setLabelHtml(labelEl ? labelEl.outerHTML : null);
-        // Hero ART only loads when this shelf has it enabled. `forceCssLoader`
-        // promotes a shelf (full-page + label) WITHOUT forcing hero art —
-        // the per-shelf / global hero-art setting is respected.
         if (showArt) {
           const urls = getHeroUrls(appid);
           allUrls.current = urls;
@@ -213,14 +219,15 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
           if (next === 'A') setSlotA(url0); else setSlotB(url0);
           setActiveSlot(next);
         }
-        setVisible(true);
-      } else {
-        setVisible(true);
       }
+      setVisible(true);
     };
     el.addEventListener('focusin', update);
     const obs = new MutationObserver(() => update());
-    obs.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    // characterData (with subtree) catches the async name resolution on
+    // online shelves — the card label's text changes from "#appid" to the
+    // real name, which is neither a class nor a childList mutation.
+    obs.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'], characterData: true });
     // Keep the label left-aligned with the focused card as the row scrolls
     // (the centering animation moves the card after focusin fires).
     const row = el.querySelector('.ds-row-scroll') as HTMLElement | null;
