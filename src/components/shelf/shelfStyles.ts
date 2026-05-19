@@ -448,14 +448,17 @@ function buildStylesheet(): string {
     }
 
     /* Hero-label overlay (ArtHero etc.): when the active theme requires the
-       focused card's info to be shown above the row, HeroBackground clones
+       focused card's info to be shown above the row, PerShelfHero clones
        the .ds-card-label DOM into a wrapper here. The cloned label keeps
        its own classes (so all formatting matches the in-card label exactly)
        but its inline position:absolute / top:artH was meaningful only
        inside the card — reset it to static here so it lays out naturally
-       in the wrapper. The original in-card label is hidden so the focused
-       card doesn't render the same label twice. */
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label {
+       in the wrapper. The original IN-CARD label is hidden so the focused
+       card doesn't render the same label twice — scoped to the
+       ".ds-card .ds-card-label" descendant so it does NOT also hide the
+       cloned overlay label, which lives in .ds-promoted-hero-label and
+       not inside a card. */
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card .ds-card-label {
       display: none !important;
     }
     .ds-promoted-hero-label .ds-card-label {
@@ -465,15 +468,19 @@ function buildStylesheet(): string {
       width: auto !important;
       padding-top: 0 !important;
       opacity: 1 !important;
+      display: block !important;
     }
-    /* Match native ArtHero text scale: 22px / weight 800 for the name,
-       ~14.7px / weight 700 for the status. Status icons are dropped — the
-       native overlay shows just text (e.g. "Last two weeks: 2 min"), no
-       download / play / update icons. */
+    /* Match the native ArtHero recents game-info overlay exactly (values
+       read via CDP from the native recents shelf):
+         name   — 22px / weight 800 / rgb(255,255,255)
+         status — 14.67px / weight 700 / rgba(255,255,255,0.5) /
+                  uppercase / letter-spacing 0.5px
+       Status icons are dropped — the native overlay shows just text. */
     .ds-promoted-hero-label .ds-card-label-name {
       font-size: 22px !important;
       font-weight: 800 !important;
       line-height: 1.15 !important;
+      color: rgb(255, 255, 255) !important;
       white-space: nowrap !important;
       text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
     }
@@ -481,8 +488,10 @@ function buildStylesheet(): string {
       font-size: 14.6667px !important;
       font-weight: 700 !important;
       opacity: 1 !important;
-      text-transform: none !important;
-      letter-spacing: 0 !important;
+      color: rgba(255, 255, 255, 0.5) !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
+      margin-top: 2px !important;
       text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
     }
     /* Hide only the play icon (installed + no pending update). The download

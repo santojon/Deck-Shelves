@@ -412,6 +412,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const heroH = heroHeight + 120;
 
   return (
+    <>
     <div
       className="ds-hero-background"
       style={{
@@ -473,30 +474,37 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         pointerEvents: "none",
         zIndex: 1,
       }} />
-      {/* Game info overlay — clones the focused card's `.ds-card-label`
-          DOM (all classes preserved) so the hero label is identical to
-          the regular card label, only positioned above the row instead
-          of below. The wrapper div carries `ds-promoted-hero-label`
-          which the stylesheet uses to override the cloned label's own
-          absolute positioning back to static. The in-card label is
-          hidden via CSS on the promoted shelf so we don't render two
-          copies of the same label. pointerEvents:none so it never
-          intercepts focus. */}
-      {needsHeroLabel && labelHtml && (
-        <div
-          className="ds-promoted-hero-label"
-          style={{
-            position: "fixed",
-            left: labelLeftPx,
-            bottom: labelBottomPx,
-            pointerEvents: "none",
-            zIndex: 2,
-            opacity: visible ? 1 : 0,
-            transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), left 0.2s ease, bottom 0.2s ease",
-          }}
-          dangerouslySetInnerHTML={{ __html: labelHtml }}
-        />
-      )}
     </div>
+    {/* Game info overlay — clones the focused card's `.ds-card-label`
+        DOM (all classes preserved) so the hero label is identical to
+        the regular card label, only positioned above the row instead
+        of below. The wrapper div carries `ds-promoted-hero-label`
+        which the stylesheet uses to override the cloned label's own
+        absolute positioning back to static. The in-card label is
+        hidden via CSS on the promoted shelf so we don't render two
+        copies of the same label. pointerEvents:none so it never
+        intercepts focus.
+
+        Kept a SIBLING of `.ds-hero-background` (not a child): that
+        element is z-index:-1 and forms a stacking context, so any
+        descendant — even at z-index:2 — is trapped behind the cards.
+        As a sibling, the overlay's z-index competes with the cards
+        directly and can sit above them. */}
+    {needsHeroLabel && labelHtml && (
+      <div
+        className="ds-promoted-hero-label"
+        style={{
+          position: "fixed",
+          left: labelLeftPx,
+          bottom: labelBottomPx,
+          pointerEvents: "none",
+          zIndex: 20,
+          opacity: visible ? 1 : 0,
+          transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), left 0.2s ease, bottom 0.2s ease",
+        }}
+        dangerouslySetInnerHTML={{ __html: labelHtml }}
+      />
+    )}
+    </>
   );
 }

@@ -4,6 +4,7 @@ import { computeCenteredScrollLeft } from "../core/scrollUtils";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
+import { isArtHeroActive } from "../core/cssLoaderDetect";
 import { logInfo } from "../runtime/logger";
 import { focusElement } from "../core/focusRestore";
 import { flowChildrenProps } from "../core/steamOSVersion";
@@ -42,7 +43,7 @@ function getHeroUrls(appid: number): string[] {
  *  (z-index:-1) so it appears behind that shelf's cards only. Separate from
  *  the global HeroBackground which handles the recents-slot promoted shelf. */
 
-function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
+function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean }) {
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
@@ -50,6 +51,15 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
   // Smaller bleed above for non-first hero shelves so their art doesn't
   // overlap the shelf above. Determined by DOM order on mount.
   const [topBleed, setTopBleed] = useState(-90);
+  // Game-info overlay: a clone of the focused card's `.ds-card-label`,
+  // shown above the row exactly like the native recents hero label.
+  // Rendered inside THIS shelf (position:absolute relative to it) so it
+  // always follows the shelf — no global/fixed anchoring.
+  const [labelHtml, setLabelHtml] = useState<string | null>(null);
+  const [needsLabel, setNeedsLabel] = useState(() => { try { return isArtHeroActive(); } catch { return false; } });
+  const [rowH, setRowH] = useState(310);
+  const [labelLeft, setLabelLeft] = useState(40);
+  const [isPromoted, setIsPromoted] = useState(false);
   const activeSlotRef = useRef<'A' | 'B'>('A');
   const currentAppid = useRef(0);
   const fallbackIdx = useRef(0);
@@ -65,6 +75,50 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
     const root = el.closest('.deck-shelves-root');
     if (!root) return;
     setTopBleed(-80);
+  }, [containerRef]);
+
+  // Re-evaluate ArtHero state when CSS Loader themes are toggled at runtime.
+  useEffect(() => {
+    const recheck = () => { try { setNeedsLabel(isArtHeroActive()); } catch {} };
+    const doc = getPreferredSteamDocument();
+    const head = doc?.head ?? doc?.documentElement;
+    if (!head) return;
+    const obs = new MutationObserver(recheck);
+    obs.observe(head, { childList: true });
+    return () => obs.disconnect();
+  }, []);
+
+  // Measure the distance from the shelf's bottom edge up to the card row's
+  // top edge. The overlay label's `bottom` is set to this + a small gap so
+  // it sits just above the row regardless of shelf/row height changes.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const row = el.querySelector('.ds-row-scroll') as HTMLElement | null;
+      if (!row) return;
+      const dist = el.offsetHeight - row.offsetTop;
+      if (dist > 0) setRowH(Math.round(dist));
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, [containerRef]);
+
+  // Track whether this shelf is in full-page ArtHero mode (data-ds-recents-slot).
+  // The overlay label only belongs there: in that mode the in-card labels and
+  // shelf title are hidden by CSS, so the overlay replaces them. On a normal
+  // (non-promoted) shelf the title + in-card labels show as usual — rendering
+  // the overlay too would stack duplicate texts.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const sync = () => setIsPromoted(el.getAttribute('data-ds-recents-slot') === 'true');
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(el, { attributes: true, attributeFilter: ['data-ds-recents-slot'] });
+    return () => obs.disconnect();
   }, [containerRef]);
 
   // Assign decreasing z-index to the shelf divs so each shelf's stacking
@@ -95,16 +149,25 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // Reset the tracked appid whenever this effect (re-)runs — notably when
+    // `showArt` flips on (global hero toggle). Otherwise `currentAppid` was
+    // already set by an earlier label-only update() pass, so the appid-change
+    // guard skips loading the hero art and it never appears until the user
+    // navigates to a different card.
+    currentAppid.current = 0;
     const update = (e?: Event) => {
       let focused: HTMLElement | null = null;
       if (e && e.target instanceof HTMLElement)
         focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
       if (!focused)
         focused = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
-      // Always-visible fallback: if no card is focused yet, show the first
+      // First-visible-card fallback: when no card is focused, show the first
       // VISIBLE card so hidden/filtered cards (owned games on online shelves,
-      // cards in collapsed rows, etc.) are skipped.
+      // cards in collapsed rows, etc.) are skipped. ONLY on the initial load
+      // (currentAppid still 0) — once a card has been selected, focus leaving
+      // the shelf must keep the last-selected hero, not revert to the first.
       if (!focused) {
+        if (currentAppid.current !== 0) return;
         const allCards = el.querySelectorAll<HTMLElement>('.ds-card[data-appid]');
         for (const c of allCards) {
           // Check element is visible: has layout height and is in the document flow.
@@ -117,20 +180,40 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
         }
       }
       if (!focused) return;
+      // Align the overlay label horizontally with the focused card's left
+      // edge — mirrors native ArtHero, where the label tracks the focused
+      // tile. Read after a frame so the row's centering scroll has settled.
+      const trackLeft = (card: HTMLElement) => {
+        try {
+          const sr = el.getBoundingClientRect();
+          const cr = card.getBoundingClientRect();
+          setLabelLeft(Math.max(0, Math.round(cr.left - sr.left)));
+        } catch {}
+      };
+      const fc = focused;
+      requestAnimationFrame(() => trackLeft(fc));
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
       if (appid !== currentAppid.current) {
         currentAppid.current = appid;
-        const urls = getHeroUrls(appid);
-        allUrls.current = urls;
-        fallbackIdx.current = 0;
-        const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
-        const url0 = urls[0] ?? null;
-        if (next === 'A') setSlotA(url0); else setSlotB(url0);
-        setActiveSlot(next);
+        // Clone the card's own label DOM so the hero overlay mirrors it
+        // byte-for-byte (same classes → same formatting). Always done — the
+        // label is independent of whether this shelf shows hero ART.
+        const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
+        setLabelHtml(labelEl ? labelEl.outerHTML : null);
+        // Hero ART only loads when this shelf has it enabled. `forceCssLoader`
+        // promotes a shelf (full-page + label) WITHOUT forcing hero art —
+        // the per-shelf / global hero-art setting is respected.
+        if (showArt) {
+          const urls = getHeroUrls(appid);
+          allUrls.current = urls;
+          fallbackIdx.current = 0;
+          const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
+          const url0 = urls[0] ?? null;
+          if (next === 'A') setSlotA(url0); else setSlotB(url0);
+          setActiveSlot(next);
+        }
         setVisible(true);
-        // Extract dominant color for background tinting — mirrors how ArtHero
-        // picks up the art color. Works for same-origin steamloopback.host URLs.
       } else {
         setVisible(true);
       }
@@ -138,11 +221,29 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
     el.addEventListener('focusin', update);
     const obs = new MutationObserver(() => update());
     obs.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    // Keep the label left-aligned with the focused card as the row scrolls
+    // (the centering animation moves the card after focusin fires).
+    const row = el.querySelector('.ds-row-scroll') as HTMLElement | null;
+    const onRowScroll = () => {
+      const fc = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      if (!fc) return;
+      try {
+        const sr = el.getBoundingClientRect();
+        const cr = fc.getBoundingClientRect();
+        setLabelLeft(Math.max(0, Math.round(cr.left - sr.left)));
+      } catch {}
+    };
+    row?.addEventListener('scroll', onRowScroll, { passive: true });
     update();
-    return () => { el.removeEventListener('focusin', update); obs.disconnect(); };
-  }, [containerRef]);
+    return () => {
+      el.removeEventListener('focusin', update); obs.disconnect();
+      row?.removeEventListener('scroll', onRowScroll);
+    };
+  }, [containerRef, showArt]);
 
-  if (!slotA && !slotB) return null;
+  const hasArt = showArt && !!(slotA || slotB);
+  const showLabel = needsLabel && isPromoted && !!labelHtml;
+  if (!hasArt && !showLabel) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   // When a dominant color was extracted from the hero image, blend it at low
   // opacity over the theme background — same tinting effect ArtHero applies
@@ -171,7 +272,8 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
   ].join(' ');
 
   return (
-    <div style={{
+    <>
+    {hasArt && <div style={{
       position: 'absolute',
       top: topBleed, bottom: -64,
       left: '-2.8vw', right: '-2.8vw',
@@ -204,7 +306,30 @@ function PerShelfHero({ containerRef }: { containerRef: React.RefObject<HTMLDivE
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
         </div>
       )}
-    </div>
+    </div>}
+    {/* Game-info overlay — sibling of the hero art (NOT a child: the art
+        div is z-index:-1 and forms a stacking context that would trap the
+        label behind the cards). Positioned absolute inside the shelf,
+        just above the card row, so it follows this shelf naturally.
+        Only on promoted (full-page ArtHero) shelves — there the in-card
+        labels + title are hidden by CSS, so the overlay replaces them;
+        on normal shelves it would stack on top of the visible texts. */}
+    {showLabel && (
+      <div
+        className="ds-promoted-hero-label"
+        style={{
+          position: 'absolute',
+          left: labelLeft,
+          bottom: rowH,
+          zIndex: 20,
+          pointerEvents: 'none',
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.4s cubic-bezier(0.17,0.45,0.14,0.83), left 0.2s ease',
+        }}
+        dangerouslySetInnerHTML={{ __html: labelHtml }}
+      />
+    )}
+    </>
   );
 }
 
@@ -221,7 +346,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, heroEnabled = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; heroEnabled?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
@@ -690,7 +815,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
         style={{ position: 'relative', marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: heroEnabled ? 'visible' : 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
     >
-      {heroEnabled && <PerShelfHero containerRef={outerRef} />}
+      {(heroEnabled || heroLabelMount) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} />}
       {title && !hideShelfTitle ? (
         collapsed ? (
           <Focusable

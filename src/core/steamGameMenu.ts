@@ -1619,7 +1619,16 @@ export function showGameMenu(appid: number, shelfId?: string): void {
           }
           for (const it of dsItems) items.push(it);
         }
-        const menu = R.createElement(dfl.Menu, { label: overview?.display_name ?? "Game" }, ...items);
+        // Title: prefer Steam's overview name; for online-shelf games (no
+        // Steam overview) fall back to the DS card's own label text so the
+        // menu shows the game name instead of a generic placeholder.
+        const dsCardName = (() => {
+          try {
+            const n = cardEl?.querySelector?.('.ds-card-label-name')?.textContent?.trim();
+            return n || null;
+          } catch { return null; }
+        })();
+        const menu = R.createElement(dfl.Menu, { label: overview?.display_name || dsCardName || "Game" }, ...items);
         dfl.showContextMenu(menu, cardEl);
       }
     } catch {}

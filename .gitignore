@@ -5,6 +5,14 @@ out/
 *.log
 .DS_Store
 
+# tmp files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+/temp/
+
 # pnpm
 .pnpm-store/
 
