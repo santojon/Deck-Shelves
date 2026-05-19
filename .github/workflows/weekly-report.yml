@@ -13,8 +13,9 @@ on:
     - cron: '0 7 * * 1'  # Every Monday at 07:00 UTC
   workflow_dispatch:
 
+# Need `contents: write` so the report commit below can push back to main.
 permissions:
-  contents: read
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -26,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -55,3 +56,13 @@ jobs:
           name: ci-weekly-report-${{ github.run_id }}
           path: reports/ci/
           retention-days: 90
+
+      # Commit the freshly-generated report back to main. Scheduled runs
+      # check out the default branch; the commit lands there. Failure of
+      # validate-ci above does not skip this — we want the failure report
+      # captured in the repo too.
+      - name: Commit report
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/commit-report.sh
