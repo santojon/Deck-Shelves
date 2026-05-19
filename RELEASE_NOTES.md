@@ -7,7 +7,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
-- **Hero art behind your shelves.** Each shelf (regular or smart) has an "Enable hero art" toggle in the edit modal's Visual tab — turn it on and the focused game's artwork appears behind that shelf, following it wherever it sits. A new global toggle in the QAM (Visual section) turns hero art on for *every* shelf at once.
+- **Hero art behind your shelves (#41).** Each shelf (regular or smart) has an "Enable hero art" toggle in the edit modal's Visual tab — turn it on and the focused game's artwork appears behind that shelf, following it wherever it sits. A new global toggle in the QAM (Visual section) turns hero art on for *every* shelf at once.
 - **Game name above the shelf, like native Recents.** With an ArtHero-style CSS Loader theme active, each full-page shelf shows the focused game's name and info above its row — the same effect Steam's native Recents shelf has, and the label follows the game you're on.
 
 ### Changed

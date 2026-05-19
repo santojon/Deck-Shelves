@@ -53,7 +53,16 @@ def _normalize_path(path: Any) -> str:
     path = path.strip().strip('"').strip("'")
     if path.startswith("file://"):
         path = path[7:]
-    return os.path.expanduser(path)
+    if not path:
+        return ""
+    # Resolve ~, .. and symlinks, then confine the result to the user's home
+    # directory. Anything resolving outside home (system paths, traversal) is
+    # rejected — import/export only ever touches files under home.
+    resolved = os.path.realpath(os.path.expanduser(path))
+    home = os.path.realpath(os.path.expanduser("~"))
+    if resolved == home or resolved.startswith(home + os.sep):
+        return resolved
+    return ""
 
 
 
@@ -247,6 +256,18 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                     continue
             if ss_highlighted_ids:
                 entry["highlightedAppIds"] = ss_highlighted_ids
+        raw_ss_hidden = ss.get("hiddenAppIds")
+        if isinstance(raw_ss_hidden, list):
+            ss_hidden_ids: list = []
+            for v in raw_ss_hidden:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_hidden_ids.append(n)
+                except Exception:
+                    continue
+            if ss_hidden_ids:
+                entry["hiddenAppIds"] = ss_hidden_ids
         # refreshIntervalMinutes: optional positive int in [1, 43200] (= 30 days).
         # Missing / unparseable / out-of-range values fall back to the resolver's
         # default 60-minute TTL.

@@ -50,7 +50,8 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
 - **Hide home tabs** — toggle to hide the native home tab bar on te bottom of shelves
-- **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
+- **Hero background art** — enable it per shelf (regular or smart) in the editor's Visual tab, or globally for every shelf at once; the focused game's background art appears behind that shelf, following it wherever it sits — works with or without hiding the native recents row
+- **Force CSS Loader themes** — promotes every shelf into the native-recents selector space so themes like ArtHero apply consistently across all shelves
 - **Developer / Publisher filter** — filter games by developer or publisher with automatic batch discovery
 - **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus

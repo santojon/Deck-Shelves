@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Per-shelf hero art.** New `heroEnabled?: boolean` on `ShelfSchema` and `SmartShelfSchema`. When on, `PerShelfHero` renders the focused card's background art *inside* that `.ds-shelf` (`position: absolute`), so the hero follows the shelf instead of being anchored to the top of the page. The edit modal's Visual tab exposes the per-shelf toggle.
-- **`globalHeroEnabled` — hero art on every shelf.** New global toggle in the QAM Visual section that enables hero art on all shelves at once. New schema field, `main.py` sanitizer entry, `setGlobalHeroEnabled` controller action, and `global_hero_enabled` i18n key (en-US / pt-BR; other locales fall back to en-US).
+- **Per-shelf hero art (#41).** New `heroEnabled?: boolean` on `ShelfSchema` and `SmartShelfSchema`. When on, `PerShelfHero` renders the focused card's background art *inside* that `.ds-shelf` (`position: absolute`), so the hero follows the shelf instead of being anchored to the top of the page. The edit modal's Visual tab exposes the per-shelf toggle.
+- **`globalHeroEnabled` — hero art on every shelf (#41).** New global toggle in the QAM Visual section that enables hero art on all shelves at once. New schema field, `main.py` sanitizer entry, `setGlobalHeroEnabled` controller action, and `global_hero_enabled` i18n key across all 19 locales.
 - **Game-info overlay label, per shelf.** Under an ArtHero-family theme, each promoted (full-page) shelf shows the focused card's name + status above the row — a clone of the card's `.ds-card-label`, rendered by `PerShelfHero` and positioned relative to its own shelf. Styling matches the native recents hero label (22 px / weight 800 name; 14.67 px / weight 700, uppercase, 0.5 px letter-spacing, 50 % white status). The label tracks the focused card horizontally.
 
 ### Changed

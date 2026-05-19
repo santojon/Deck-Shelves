@@ -282,6 +282,7 @@
   "first_run_desc": "在首頁建立自訂遊戲書架。你可以先使用預設值，或手動新增書架。",
   "first_run_title": "歡迎使用 Deck Shelves！",
   "global_dedupe_by_name": "依名稱去重 (全域)",
+  "global_hero_enabled": "在所有書架上顯示背景美術",
   "hide_compat_icons": "隱藏相容性圖示",
   "hide_game_name": "隱藏遊戲名稱",
   "hide_game_names": "隱藏遊戲名稱",
