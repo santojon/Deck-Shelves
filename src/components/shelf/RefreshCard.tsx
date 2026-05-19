@@ -55,11 +55,15 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interact
     item.onActivate?.();
   };
 
+  // Size off the per-shelf --ds-eff-* vars so a native-dims change reflows
+  // through CSS with no re-render; the prop is the fallback.
+  const cssW = `var(--ds-eff-card-w, ${cardW}px)`;
+  const cssH = `var(--ds-eff-card-h, ${cardH}px)`;
   const containerStyle: React.CSSProperties = {
     position: "relative",
-    width: cardW,
-    minWidth: cardW,
-    height: cardH,
+    width: cssW,
+    minWidth: cssW,
+    height: cssH,
     flexShrink: 0,
     padding: 0,
     margin: 0,
@@ -73,8 +77,8 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interact
       style={{
         position: "absolute",
         inset: 0,
-        width: cardW,
-        height: cardH,
+        width: cssW,
+        height: cssH,
         overflow: "hidden",
         background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
         borderRadius: cachedCardRadius,

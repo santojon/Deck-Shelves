@@ -533,8 +533,14 @@ export function removeAppFromCollection(collectionId: string, appid: number): vo
           return;
         }
       }
-      // Attempt 2: iterate userCollections
-      const userColls: any[] = store.userCollections ?? [];
+      // Attempt 2: iterate the raw storage map. NEVER read `userCollections`
+      // here — that getter is a MobX computed that poisons its own cache when
+      // evaluated against a not-yet-initialized store, taking down Steam's
+      // library home. The raw map holds every user-defined collection.
+      const rawMap: any = store.m_mapCollectionsFromStorage ?? store.collectionsFromStorage;
+      const userColls: any[] = rawMap && typeof rawMap.values === 'function'
+        ? Array.from(rawMap.values())
+        : (Array.isArray(rawMap) ? rawMap : []);
       for (const c of userColls) {
         const id = String(c?.id ?? c?.collectionid ?? '');
         if (id !== collectionId) continue;
@@ -565,18 +571,14 @@ export async function listCollections(): Promise<SteamCollection[]> {
   for (const hostWindow of hostWindows) {
     const globalCollectionStore = hostWindow?.collectionStore ?? (globalThis as any).collectionStore;
     if (!globalCollectionStore) continue;
-    // The `userCollections` getter is a MobX computed that can throw with
-    // `Cannot read properties of undefined (reading 'values')` when the
-    // underlying observable maps haven't initialized yet. Wrap the ACCESS
-    // itself (not only the normalize/return below) so the throw is contained.
-    let userCollections: any = null;
-    try { userCollections = globalCollectionStore.userCollections; } catch { /* store not ready */ }
-    if (Array.isArray(userCollections)) {
-      try {
-        const norm = normalize(userCollections as any[]);
-        if (norm.length) return norm;
-      } catch {}
-    }
+    // NEVER read `globalCollectionStore.userCollections` here. That getter is
+    // a MobX computed: if the first evaluation happens while the store is
+    // still initializing it throws, and MobX caches the exception forever —
+    // every later read (including Steam's own library home) hits the cached
+    // error and crashes. `listCollections` is called during early shelf
+    // resolution, which is exactly when the store may not be ready. Skip
+    // straight to the raw storage map below — it already holds every user
+    // collection (size 23 confirmed live on SteamOS 3.7).
     // m_mapCollectionsFromStorage is a MobX ObservableMap; .keys()/.get() work.
     // Collections have m_strId but no top-level `id`, so inject it explicitly.
     try {
@@ -672,7 +674,13 @@ function getUnifideckInstalledSet(): Set<number> {
   const ids = new Set<number>();
   try {
     const cs: any = (globalThis as any).collectionStore;
-    const cols = cs?.userCollections;
+    // Read the raw storage map, never the `userCollections` getter. That
+    // getter is a MobX computed: evaluated while the collection store is
+    // still initializing it throws, and MobX then caches the exception
+    // permanently — poisoning every later read, including Steam's own
+    // library home, which crashes (and the Decky error boundary then blames
+    // this plugin). The raw map already holds every user collection.
+    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
     const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
     const match = list.find((c: any) => {
       const name = String(c?.displayName ?? c?.m_strName ?? "");
@@ -1860,7 +1868,9 @@ function buildNonSteamPlatformMap(): Map<number, string> {
   const map = new Map<number, string>();
   try {
     const cs: any = (globalThis as any).collectionStore;
-    const cols = cs?.userCollections;
+    // Raw storage map, not the `userCollections` computed — see
+    // getUnifideckInstalledSet for why touching that getter is unsafe.
+    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
     const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
     for (const c of list) {
       const name = String(c?.displayName ?? c?.m_strName ?? "");

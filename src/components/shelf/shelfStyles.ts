@@ -138,6 +138,25 @@ function detectNativeNewBadgeRadius(): string {
   return "0px";
 }
 
+// Native card-dimension CSS variables. Cards reference these through the
+// per-shelf --ds-eff-* vars, so a dims change reflows every card via CSS
+// alone — no React re-render of the 800+ GameCards on the home screen.
+// The fallbacks mirror the dims computation in DeckRow exactly.
+function nativeDimVarEntries(): [string, string][] {
+  const nd = cachedNativeDims;
+  const w = nd?.width ?? CARD_W;
+  const h = nd?.height ?? CARD_ART_H;
+  return [
+    ['--ds-native-card-w', `${w}px`],
+    ['--ds-native-card-h', `${h}px`],
+    ['--ds-native-card-gap', `${nd?.gap ?? CARD_GAP}px`],
+    ['--ds-native-card-art-h', `${nd?.imgHeight ?? h}px`],
+    ['--ds-native-feat-w', `${nd?.featuredWidth ?? Math.round(w * 3.21)}px`],
+    ['--ds-native-feat-h', `${nd?.featuredHeight ?? h}px`],
+    ['--ds-native-feat-art-h', `${nd?.featuredImgHeight ?? nd?.featuredHeight ?? h}px`],
+  ];
+}
+
 function ensureStyles() {
   try {
     // If the viewport fingerprint changed (resolution / DPI switch), discard
@@ -246,9 +265,7 @@ function ensureStyles() {
         // Update CSS variables in-place instead of removing the stylesheet
         doc.documentElement.style.setProperty('--ds-card-radius', cachedCardRadius);
         doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
-        doc.documentElement.style.setProperty('--ds-native-card-w', `${cachedNativeDims?.width ?? CARD_W}px`);
-        doc.documentElement.style.setProperty('--ds-native-card-h', `${cachedNativeDims?.height ?? CARD_ART_H}px`);
-        doc.documentElement.style.setProperty('--ds-native-card-gap', `${cachedNativeDims?.gap ?? CARD_GAP}px`);
+        for (const [k, v] of nativeDimVarEntries()) doc.documentElement.style.setProperty(k, v);
       }
       doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
 
@@ -346,6 +363,10 @@ function buildStylesheet(): string {
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
+      --ds-native-card-art-h: ${cachedNativeDims?.imgHeight ?? cachedNativeDims?.height ?? CARD_ART_H}px;
+      --ds-native-feat-w: ${cachedNativeDims?.featuredWidth ?? Math.round((cachedNativeDims?.width ?? CARD_W) * 3.21)}px;
+      --ds-native-feat-h: ${cachedNativeDims?.featuredHeight ?? cachedNativeDims?.height ?? CARD_ART_H}px;
+      --ds-native-feat-art-h: ${cachedNativeDims?.featuredImgHeight ?? cachedNativeDims?.featuredHeight ?? cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-row-base-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }

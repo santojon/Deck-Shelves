@@ -386,9 +386,12 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   const collapsed = forceExpanded ? false : collapsedState;
   const [nativeRowClass, setNativeRowClass] = useState('');
 
-  // Memoize effective dimensions — only recompute when the dims version changes,
-  // not on every render. This prevents intermediate states from causing layout jumps.
-  const [dimsVersion, setDimsVersion] = useState(0);
+  // Effective dimensions, computed once at mount from whatever native dims are
+  // already cached. These feed the cards only as the *fallback* of their
+  // --ds-eff-* CSS variables — the live value comes from those vars (set on
+  // the shelf div, resolved from the root --ds-native-* vars that ensureStyles
+  // keeps current). So a dims discovery after mount reflows the cards through
+  // CSS alone, with no React re-render of the 800+ GameCards on the home.
   const dims = useMemo(() => {
     const nd = getCachedNativeDims();
     const w = matchNativeSize && nd ? nd.width : CARD_W;
@@ -405,8 +408,26 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     const artH = matchNativeSize && nd?.imgHeight ? nd.imgHeight : h;
     const featArtH = matchNativeSize && nd?.featuredImgHeight ? nd.featuredImgHeight : featH;
     return { w, h, gap, featW, featH, artH, featArtH };
-  }, [matchNativeSize, dimsVersion]);
+  }, [matchNativeSize]);
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
+
+  // Per-shelf effective-dimension vars. When matchNativeSize is on, the cards
+  // size off the live native dims (root --ds-native-* vars); when off, the
+  // vars are absent and cards fall back to their CARD_W/CARD_ART_H props —
+  // exactly the prior behaviour. Memoized on matchNativeSize alone so a dims
+  // change never recomputes (and thus never re-renders) this object.
+  const effShelfVars = useMemo<React.CSSProperties>(() => {
+    if (!matchNativeSize) return {};
+    return {
+      ["--ds-eff-card-w" as string]: `var(--ds-native-card-w, ${CARD_W}px)`,
+      ["--ds-eff-card-h" as string]: `var(--ds-native-card-h, ${CARD_ART_H}px)`,
+      ["--ds-eff-card-art-h" as string]: `var(--ds-native-card-art-h, ${CARD_ART_H}px)`,
+      ["--ds-eff-feat-w" as string]: `var(--ds-native-feat-w, ${Math.round(CARD_W * 3.21)}px)`,
+      ["--ds-eff-feat-h" as string]: `var(--ds-native-feat-h, ${CARD_ART_H}px)`,
+      ["--ds-eff-feat-art-h" as string]: `var(--ds-native-feat-art-h, ${CARD_ART_H}px)`,
+      ["--ds-eff-card-gap" as string]: `max(var(--ds-native-card-gap, ${CARD_GAP}px), 8px)`,
+    };
+  }, [matchNativeSize]);
   // When native dims are unavailable but highlightFirst is on, the featured
   // card must stay the same HEIGHT as neighboring portrait cards — only width
   // differs (landscape hero shape). Scaling height broke row alignment.
@@ -418,8 +439,8 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     globalStylesStart();
     try { requestAnimationFrame(() => { try { measure?.(`deckRow.render:${shelfId ?? 'unknown'}`, `deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "measure failed", String(e)); } }); } catch (e) { logInfo("HOME", "rAF measure failed", String(e)); }
     const unsub = onNativeDimsChange(() => {
-      setDimsVersion(n => n + 1);
-      // After dims change the focused card's offsetLeft shifts because
+      // The cards resize through CSS (--ds-eff-* vars) with no re-render.
+      // After that reflow the focused card's offsetLeft shifts because
       // preceding cards resized — the row's scrollLeft (set for the old
       // layout) leaves the focused card off-center, making the focus look
       // misplaced. Re-center on the next frame, only if a card in THIS row
@@ -440,13 +461,9 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
         }
       } catch {}
     });
-    // Race-condition guard: dims may have been cached between the render
-    // that captured `nd === null` and this effect's listener registration —
-    // typical for shelves that mount in a later commit (smart shelves with
-    // visibility windows, or any shelf that appears after `globalStylesStart`
-    // triggers measurement). Without this, the row stays at the default
-    // `CARD_W` even with `matchNativeSize: true` because no listener fires.
-    if (matchNativeSize && getCachedNativeDims()) setDimsVersion(n => n + 1);
+    // No race-condition guard needed: a shelf that mounts before dims are
+    // cached still sizes correctly once they arrive — the cards follow the
+    // root --ds-native-* vars through CSS, no listener or re-render required.
     return () => {
       globalStylesStop();
       unsub();
@@ -821,7 +838,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       className="Panel ds-shelf"
       data-shelfid={shelfId || undefined}
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
-        style={{ position: 'relative', marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: heroEnabled ? 'visible' : 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
+        style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: heroEnabled ? 'visible' : 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
     >
       {(heroEnabled || heroLabelMount) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} />}
       {title && !hideShelfTitle ? (
@@ -882,7 +899,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
           style={{
             display: "flex",
             flexWrap: "nowrap",
-            gap: effectiveGap,
+            gap: `var(--ds-eff-card-gap, ${effectiveGap}px)`,
             overflowX: "auto",
             overflowY: "visible",
             scrollbarWidth: "none",

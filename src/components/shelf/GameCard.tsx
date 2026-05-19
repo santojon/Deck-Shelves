@@ -61,6 +61,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
   const featuredW = cardW;
   const artH = artHProp ?? cardH;
+  // Size off the per-shelf --ds-eff-* vars (set by DeckRow when matchNativeSize
+  // is on) so a native-dims change reflows the card through CSS with no
+  // re-render. The prop is the fallback: when the var is absent — non-native
+  // shelves, or the brief window before ensureStyles sets the root vars — the
+  // card keeps its prior prop-driven size.
+  const cssW = `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`;
+  const cssH = `var(${featured ? "--ds-eff-feat-h" : "--ds-eff-card-h"}, ${cardH}px)`;
+  const cssArtH = `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${artH}px)`;
 
   const [nativeCardClass, setNativeCardClass] = useState('');
   const [imgFailed, setImgFailed] = useState(false);
@@ -250,16 +258,16 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       data-ds-card-index={cardIndex !== undefined ? String(cardIndex) : undefined}
       style={{
         position: "relative",
-        width: featuredW,
-        minWidth: featuredW,
-        height: cardH,
+        width: cssW,
+        minWidth: cssW,
+        height: cssH,
         flexShrink: 0,
         padding: 0,
         margin: 0,
         background: "transparent",
         cursor: "pointer",
         overflow: "visible",
-        ["--ds-card-art-h" as string]: artH < cardH ? `${artH}px` : "100%",
+        ["--ds-card-art-h" as string]: cssArtH,
         // Per-card height/width ratio used by the TiltedHome compat CSS to
         // compute the exact zoom scale that covers the skewed parallelogram
         // — featured (landscape) and portrait cards need different scale
@@ -309,9 +317,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         className={`ds-card-label${hideStatusLine ? ' ds-card-label--compact' : ''}`}
         style={{
           position: "absolute",
-          top: artH < cardH ? artH : "100%",
+          top: cssArtH,
           left: 0,
-          width: featuredW + 20,
+          width: `calc(${cssW} + 20px)`,
           paddingTop: 10,
           pointerEvents: "none",
           display: "flex",
