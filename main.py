@@ -53,7 +53,19 @@ def _normalize_path(path: Any) -> str:
     path = path.strip().strip('"').strip("'")
     if path.startswith("file://"):
         path = path[7:]
-    return os.path.expanduser(path)
+    if not path:
+        return ""
+    try:
+        resolved = os.path.realpath(os.path.expanduser(path))
+    except Exception:
+        return ""
+    # Confine to the user's home directory. Realpath collapses `..` so a
+    # traversal like `~/../../../etc/passwd` resolves to `/etc/passwd` and
+    # gets rejected here. Absolute system paths fall into the same branch.
+    home = os.path.realpath(os.path.expanduser("~"))
+    if resolved != home and not resolved.startswith(home + os.sep):
+        return ""
+    return resolved
 
 
 
@@ -247,6 +259,20 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                     continue
             if ss_highlighted_ids:
                 entry["highlightedAppIds"] = ss_highlighted_ids
+        # `hiddenAppIds`: per-shelf exclusion list. Mirrors the regular shelf
+        # field — only positive integers persist.
+        raw_ss_hidden = ss.get("hiddenAppIds")
+        if isinstance(raw_ss_hidden, list):
+            ss_hidden_ids: list = []
+            for v in raw_ss_hidden:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_hidden_ids.append(n)
+                except Exception:
+                    continue
+            if ss_hidden_ids:
+                entry["hiddenAppIds"] = ss_hidden_ids
         # refreshIntervalMinutes: optional positive int in [1, 43200] (= 30 days).
         # Missing / unparseable / out-of-range values fall back to the resolver's
         # default 60-minute TTL.
