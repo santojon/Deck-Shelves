@@ -52,8 +52,11 @@ def _(ctx) -> None:
         if (stableFor >= 600) break;
         await new Promise(r => setTimeout(r, 100));
     }
-    // Phase 2: extra 500ms to let any deferred work finish
-    await new Promise(r => setTimeout(r, 500));
+    // Phase 2: extra 2000ms to let the initial layout burst finish. The
+    // shelf COUNT settles well before 800+ cards (stress fixture) finish
+    // their layout/image/observer work — that burst runs 1-2s longer. Wait
+    // it out fully so Phase 3 samples a genuinely idle home, not its tail.
+    await new Promise(r => setTimeout(r, 2000));
     // Phase 3: sample 10 rAF frames (idle FPS)
     let max = 0, last = performance.now();
     await new Promise(resolve => {
@@ -63,7 +66,7 @@ def _(ctx) -> None:
     });
     return +max.toFixed(1);
 })()
-""", timeout=25)
+""", timeout=28)
     assert isinstance(result, (int, float)), f"rAF probe returned {result}"
     assert result < FRAME_WARN_MS, f"max frame gap {result}ms (warn threshold {FRAME_WARN_MS}ms)"
 

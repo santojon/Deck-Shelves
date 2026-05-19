@@ -387,25 +387,46 @@ def _(ctx) -> None:
     if not appid:
         return
 
-    ctx.eval(f"""
+    # Re-focus the target DS card and confirm it IS the active element.
+    # Enter is only ever dispatched while a DS card holds focus, so it opens
+    # the game's library page — never a Play / Install button on a detail
+    # page, which would LAUNCH the game and break the rest of the run.
+    def _focus_target_card() -> bool:
+        return bool(ctx.eval(f"""
 (function(){{
     const card = document.querySelector('.ds-card[data-appid="{appid}"]');
-    if (card) {{ card.focus(); card.scrollIntoView({{ block: 'nearest' }}); }}
+    if (!card) return false;
+    card.focus();
+    card.scrollIntoView({{ block: 'nearest' }});
+    return !!(document.activeElement && document.activeElement.closest('.ds-card[data-appid]'));
 }})()
-""")
+"""))
+
+    if not _focus_target_card():
+        return
     time.sleep(0.3)
 
     round_trips = []
     for i in range(5):
         t0 = time.time()
-        _key(ctx, "Enter", pause_ms=1500)     # open game page
-        _key(ctx, "Escape", pause_ms=1000)    # go back
+        _key(ctx, "Enter", pause_ms=1500)     # open the game's library page
+        _key(ctx, "Escape", pause_ms=1000)    # go back to home
         elapsed = int((time.time() - t0) * 1000)
         round_trips.append(elapsed)
+        # Guard: confirm focus is back on a DS card before the next Enter. If
+        # Escape failed and we're still on a detail page, pressing Enter would
+        # activate its Play / Install button — abort the loop instead.
+        if i < 4 and not _focus_target_card():
+            print(f"  → aborted after {i + 1} round-trip(s): not back on a DS card")
+            break
+        time.sleep(0.2)
+
+    # Leave the suite on a known-good route regardless of how the loop ended.
+    ctx.navigate("/library/home", settle_ms=1000)
 
     max_rt = max(round_trips)
     avg_rt = round(sum(round_trips) / len(round_trips))
-    print(f"  → enter/exit ×5: max={max_rt}ms avg={avg_rt}ms")
+    print(f"  → enter/exit ×{len(round_trips)}: max={max_rt}ms avg={avg_rt}ms")
     assert max_rt < ENTER_EXIT_MS, f"enter/exit round-trip {max_rt}ms > {ENTER_EXIT_MS}ms threshold"
     _assert_no_errors(ctx, "enter+exit round-trips")
 

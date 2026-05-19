@@ -214,7 +214,7 @@ else
       python3 -m scripts.devtools.deck.uitests.run \
         --host "${DECK_HOST:-}" --port "${DECK_CDP_PORT:-8081}" \
         --out "${TMP}/uitest-screenshots" \
-        --only "home,qam_shelves,qam_smart,qam_global_toggles,crash_protection,perf,context_menu" || true
+        --only "perf,home,qam_shelves,qam_smart,qam_global_toggles,crash_protection,context_menu" || true
   fi
 
   # ─── 8. Perf bench ──────────────────────────────────────────────────────────
