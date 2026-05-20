@@ -323,7 +323,9 @@ def _subfolder_label(subdir: str) -> str:
 def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
     """Rebuild index.html for one subfolder. Returns list of meta dicts."""
     metas = sorted(
-        [f for f in subdir_path.glob("*.json") if not f.name.startswith(("_", "."))],
+        [f for f in subdir_path.glob("*.json")
+         if not f.name.startswith(("_", "."))
+         and f.name != "runs-manifest.json"],
         key=lambda f: f.stem,
         reverse=True,
     )
@@ -334,6 +336,18 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
             records.append(m)
         except Exception:
             continue
+
+    # Write a manifest listing every run in this scope, full metadata inline.
+    # The dashboard's client-side JS fetches this at view time and merges with
+    # whatever was baked into the page, so a CI-committed dashboard still picks
+    # up locally-generated runs when opened on the contributor's machine.
+    try:
+        manifest = [{**m, "_scope": subdir_path.name} for m in records]
+        (subdir_path / "runs-manifest.json").write_text(
+            json.dumps(manifest, indent=2), encoding="utf-8"
+        )
+    except OSError:
+        pass
 
     rows = []
     for m in records:
@@ -414,7 +428,11 @@ def _rebuild_top_index(reports_root: Path) -> None:
     for sd in subdirs:
         sp = reports_root / sd
         sp.mkdir(exist_ok=True)
-        metas = sorted(sp.glob("*.json"), key=lambda f: f.stem, reverse=True)
+        metas = sorted(
+            [f for f in sp.glob("*.json") if f.name != "runs-manifest.json"],
+            key=lambda f: f.stem,
+            reverse=True,
+        )
         last = None
         for p in metas:
             try:
@@ -459,6 +477,42 @@ def _rebuild_top_index(reports_root: Path) -> None:
     latest_body = "\n".join(latest_rows)
     cards_html  = "\n".join(section_cards)
 
+    # Mirror the dashboard's client-side augmentation: server-rendered table
+    # is the fallback (file:// in Chromium blocks fetch), JS replaces each
+    # row with whatever the live runs-manifest reports. Without this, a
+    # CI-committed index always shows "No runs yet" for local on the
+    # contributor's machine even though their local manifest is right there.
+    top_js = r"""
+(function(){
+  const SCOPES=[['local','Local'],['ci','CI / Automated'],['release','Release']];
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+  function fmt(ts){
+    const m=/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/.exec(ts||'');
+    return m?`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`:(ts||'?');
+  }
+  Promise.all(SCOPES.map(([sd])=>fetch(sd+'/runs-manifest.json',{cache:'no-cache'})
+    .then(r=>r.ok?r.json():[]).catch(()=>[])))
+  .then(lists=>{
+    const tbody=document.querySelector('.latest tbody');
+    if(!tbody)return;
+    const rows=SCOPES.map(([sd,label],i)=>{
+      const runs=lists[i]||[];
+      if(!runs.length){
+        return `<tr><td>${esc(label)}</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="${sd}/index.html">open &rarr;</a></td></tr>`;
+      }
+      runs.sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
+      const last=runs[0];
+      const overall=String(last.overall||'?').toLowerCase();
+      return `<tr><td>${esc(label)}</td><td>${esc(fmt(last.ts))}</td>`+
+             `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
+             `<td class="num">${last.passed||0}/${last.total||0}</td>`+
+             `<td><a href="${sd}/index.html">history &rarr;</a></td></tr>`;
+    });
+    tbody.innerHTML=rows.join('');
+  });
+})();
+""".strip()
+
     top = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -492,6 +546,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
   </div>
 </main>
 <footer>Deck Shelves CI &middot; local-only</footer>
+<script>{top_js}</script>
 </body>
 </html>
 """
@@ -531,6 +586,14 @@ main{max-width:1080px;margin:0 auto;padding:24px 32px}
 .scope-row .ct{width:70px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px}
 footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
 text{font-family:system-ui,sans-serif}
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
+.filter-chips button{background:var(--card);border:1px solid var(--border);color:var(--muted);
+  padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;
+  transition:all .12s ease}
+.filter-chips button:hover{color:var(--text);border-color:var(--muted)}
+.filter-chips button.active{background:var(--accent);border-color:var(--accent);color:#0f172a}
+.scope-view[hidden]{display:none}
+.empty-scope{color:#475569;font-size:12px;text-align:center;padding:24px}
 """
 
 
@@ -586,7 +649,7 @@ def _collect_all_runs(reports_root: Path) -> List[dict]:
         if not sp.exists():
             continue
         for p in sp.glob("*.json"):
-            if p.name.startswith((".", "_")):
+            if p.name.startswith((".", "_")) or p.name == "runs-manifest.json":
                 continue
             try:
                 m = json.loads(p.read_text())
@@ -656,6 +719,17 @@ def _svg_donut(passed: int, failed: int, skipped: int, size: int = 180) -> str:
             continue
         frac = val / total
         sweep = frac * 360.0
+        # 100%-single-bucket case: a full 360° arc has its start point equal
+        # to its end point, which the SVG `<path A>` spec treats as a zero
+        # arc — nothing renders, the donut shows only the percent text. Emit
+        # a `<circle>` instead so the ring is visible at 100% pass/fail/skip.
+        if sweep >= 359.999:
+            arcs.append(
+                f'<circle cx="{cx}" cy="{cy}" r="{r:.2f}" '
+                f'fill="none" stroke="{color}" stroke-width="22"/>'
+            )
+            angle += sweep
+            continue
         a1 = math.radians(angle)
         a2 = math.radians(angle + sweep)
         x1, y1 = cx + r * math.cos(a1), cy + r * math.sin(a1)
@@ -780,25 +854,247 @@ def _context_pills(runs: List[dict]) -> str:
     return f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">{pills}</div>'
 
 
+_DASH_JS = r"""
+(function(){
+  const SCOPES=['local','ci','release'];
+  const PASS='#4ade80',FAIL='#f87171',SKIP='#94a3b8';
+  const $=id=>document.getElementById(id);
+  let runs=Array.isArray(window.__BAKED_RUNS__)?window.__BAKED_RUNS__:[];
+  let currentScope='all';
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+  function scopeOf(r){return r._scope||r.scope||''}
+  function filterRuns(rs,sc){return sc==='all'?rs:rs.filter(r=>scopeOf(r)===sc)}
+  function sortRuns(rs){return rs.slice().sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||'')))}
+  function dedupe(rs){const m=new Map();for(const r of rs){const k=(r.ts||'')+'|'+scopeOf(r);if(!m.has(k))m.set(k,r);}return Array.from(m.values())}
+
+  function pills(rs){
+    const total=rs.length;if(!total)return '';
+    const withDeck=rs.filter(r=>scopeOf(r)==='local').length;
+    const stress=rs.filter(r=>r.stress).length;
+    const items=[['with Deck',withDeck,'#60a5fa'],['without Deck',total-withDeck,'#818cf8'],
+                 ['with stress',stress,'#f59e0b'],['no stress',total-stress,'#6b7280']];
+    return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">'+
+      items.map(([n,v,c])=>`<span style="background:${c}22;color:${c};border:1px solid ${c}44;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">${esc(n)} <b>${v}</b></span>`).join('')+
+      '</div>';
+  }
+
+  function kpis(rs){
+    const total=rs.length;
+    const p=rs.reduce((a,r)=>a+(r.passed||0),0);
+    const f=rs.reduce((a,r)=>a+(r.failed||0),0);
+    const k=rs.reduce((a,r)=>a+(r.skipped||0),0);
+    const tt=p+f+k;
+    const pct=tt?Math.round(100*p/tt):0;
+    const okRuns=rs.filter(r=>(r.failed||0)===0).length;
+    const rpct=total?Math.round(100*okRuns/total):0;
+    const last=rs.length?rs[rs.length-1]:null;
+    const lr=last?(last.overall||'?'):'—';
+    const lc=lr==='PASS'?'var(--pass)':(lr==='FAIL'?'var(--fail)':'var(--muted)');
+    return `<div class="kpis">
+      <div class="kpi"><div class="v">${total}</div><div class="l">Total Runs</div></div>
+      <div class="kpi"><div class="v" style="color:var(--pass)">${rpct}%</div><div class="l">Runs Passed</div></div>
+      <div class="kpi"><div class="v">${tt}</div><div class="l">Tests Executed</div></div>
+      <div class="kpi"><div class="v" style="color:var(--accent)">${pct}%</div><div class="l">Test Pass Rate</div></div>
+      <div class="kpi"><div class="v" style="color:${lc}">${esc(lr)}</div><div class="l">Last Run</div></div></div>`;
+  }
+
+  function svgLine(rs){
+    if(!rs.length)return '<p style="color:#475569;font-size:12px">No data yet.</p>';
+    const w=480,h=200,pl=34,pb=24,pt=12,pr=12,cw=w-pl-pr,ch=h-pt-pb;
+    const pts=rs.map((m,i)=>{
+      const tt=m.total||1,rate=100*(m.passed||0)/tt;
+      const x=pl+(cw*i/Math.max(1,rs.length-1)),y=pt+ch-(ch*rate/100);
+      return {x,y,rate,m};
+    });
+    let grid='';
+    for(const pct of [0,50,100]){const gy=pt+ch-(ch*pct/100);
+      grid+=`<line x1="${pl}" y1="${gy.toFixed(1)}" x2="${w-pr}" y2="${gy.toFixed(1)}" stroke="#334155" stroke-width="1"/>`+
+            `<text x="${pl-6}" y="${(gy+3).toFixed(1)}" fill="#64748b" font-size="9" text-anchor="end">${pct}%</text>`;}
+    const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
+    const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
+    const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${(p.m.failed||0)===0?PASS:FAIL}"><title>${esc(p.m.ts||'?')} [${esc(scopeOf(p.m)||'?')}] ${Math.round(p.rate)}% (${p.m.passed||0}/${p.m.total||0})</title></circle>`).join('');
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}<path d="${area}" fill="#7c3aed22"/><path d="${line}" fill="none" stroke="#a78bfa" stroke-width="2"/>${dots}</svg>`;
+  }
+
+  function svgDonut(p,f,k,size=180){
+    const tt=p+f+k;
+    if(!tt)return '<p style="color:#475569;font-size:12px">No data yet.</p>';
+    const cx=size/2,cy=size/2,r=size/2-14;
+    const segs=[[PASS,p],[FAIL,f],[SKIP,k]];
+    let arcs='',angle=-90;
+    for(const [c,v] of segs){
+      if(!v)continue;
+      const sweep=(v/tt)*360;
+      // 360° as <circle> — A-arc with same start/end renders nothing.
+      if(sweep>=359.999){arcs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="22"/>`;angle+=sweep;continue;}
+      const a1=angle*Math.PI/180,a2=(angle+sweep)*Math.PI/180;
+      const x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1);
+      const x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+      const lg=sweep>180?1:0;
+      arcs+=`<path d="M${x1.toFixed(2)},${y1.toFixed(2)} A${r.toFixed(2)},${r.toFixed(2)} 0 ${lg} 1 ${x2.toFixed(2)},${y2.toFixed(2)}" fill="none" stroke="${c}" stroke-width="22"/>`;
+      angle+=sweep;
+    }
+    const pct=Math.round(100*p/tt);
+    return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${arcs}<text x="${cx}" y="${cy-2}" fill="#e2e8f0" font-size="26" font-weight="800" text-anchor="middle">${pct}%</text><text x="${cx}" y="${cy+16}" fill="#64748b" font-size="10" text-anchor="middle">PASS RATE</text></svg>`;
+  }
+
+  function scopeBars(rs){
+    const labels=[['local','Local'],['ci','CI'],['release','Release']];
+    return labels.map(([sd,label])=>{
+      const sr=rs.filter(r=>scopeOf(r)===sd);
+      const p=sr.reduce((a,r)=>a+(r.passed||0),0);
+      const f=sr.reduce((a,r)=>a+(r.failed||0),0);
+      const k=sr.reduce((a,r)=>a+(r.skipped||0),0);
+      const tt=p+f+k;
+      if(!tt)return `<div class="scope-row"><span class="nm">${label}</span><div class="bar"></div><span class="ct" style="color:#475569">—</span></div>`;
+      const pp=(100*p/tt).toFixed(1),fp=(100*f/tt).toFixed(1),kp=(100*k/tt).toFixed(1);
+      return `<div class="scope-row"><span class="nm">${label}</span><div class="bar"><i style="width:${pp}%;background:${PASS}"></i><i style="width:${fp}%;background:${FAIL}"></i><i style="width:${kp}%;background:${SKIP}"></i></div><span class="ct">${p}/${tt}</span></div>`;
+    }).join('');
+  }
+
+  function suiteBars(rs){
+    const SUITES=[['home','Home'],['qam_shelves','QAM Shelves'],['qam_smart','QAM Smart'],
+                  ['qam_global_toggles','QAM Global'],['about','About'],['context_menu','Context Menu'],
+                  ['perf','Performance'],['crash_protection','Crash Protection'],['stress','Stress']];
+    const totals={};
+    for(const r of rs){
+      const ps=r.per_suite;if(!ps||typeof ps!=='object')continue;
+      for(const [s,c] of Object.entries(ps)){
+        const t=totals[s]=totals[s]||{passed:0,failed:0,skipped:0};
+        t.passed+=c.passed||0;t.failed+=c.failed||0;t.skipped+=c.skipped||0;
+      }
+    }
+    if(!Object.keys(totals).length)return '<p style="color:#475569;font-size:12px">No UI test data yet. Run <code>pnpm validate:full</code> with a Deck connected.</p>';
+    return SUITES.map(([key,label])=>{
+      const s=totals[key];if(!s)return '';
+      const tt=s.passed+s.failed+s.skipped;if(!tt)return '';
+      const pp=(100*s.passed/tt).toFixed(1),fp=(100*s.failed/tt).toFixed(1),kp=(100*s.skipped/tt).toFixed(1);
+      const pct=Math.round(100*s.passed/tt);
+      return `<div class="scope-row"><span class="nm">${esc(label)}</span><div class="bar"><i style="width:${pp}%;background:${PASS}"></i><i style="width:${fp}%;background:${FAIL}"></i><i style="width:${kp}%;background:${SKIP}"></i></div><span class="ct">${pct}% (${s.passed}/${tt})</span></div>`;
+    }).filter(Boolean).join('');
+  }
+
+  function render(){
+    const view=filterRuns(runs,currentScope);
+    const empty=view.length===0;
+    $('pills').innerHTML=pills(view);
+    $('kpis-host').innerHTML=empty
+      ? `<div class="empty-scope">No <strong>${esc(currentScope)}</strong> runs yet. Run <code>pnpm validate:full</code> (local) or push to a tracked branch (CI) to see data here.</div>`
+      : kpis(view);
+    $('line').innerHTML=svgLine(view);
+    $('suites').innerHTML=suiteBars(view);
+    const p=view.reduce((a,r)=>a+(r.passed||0),0);
+    const f=view.reduce((a,r)=>a+(r.failed||0),0);
+    const k=view.reduce((a,r)=>a+(r.skipped||0),0);
+    $('donut').innerHTML=svgDonut(p,f,k);
+    $('donut-legend').innerHTML=`<span><i style="background:${PASS}"></i> ${p} pass</span><span><i style="background:${FAIL}"></i> ${f} fail</span><span><i style="background:${SKIP}"></i> ${k} skip</span>`;
+    $('scopes').innerHTML=scopeBars(view);
+    $('footer-count').textContent=view.length;
+  }
+
+  function setScope(s){
+    if(!['all','local','ci','release'].includes(s))return;
+    currentScope=s;
+    document.querySelectorAll('.filter-chips button').forEach(b=>b.classList.toggle('active',b.dataset.filter===s));
+    try{history.replaceState(null,'','#'+s)}catch(_){}
+    render();
+  }
+
+  document.querySelectorAll('.filter-chips button').forEach(b=>b.addEventListener('click',()=>setScope(b.dataset.filter)));
+  const init=(location.hash||'').replace('#','');
+  if(init)setScope(init);else render();
+
+  // Augment with live manifests. file:// in Chromium blocks fetch — that's
+  // OK, the baked data already in the page is the fallback. Firefox file://
+  // and any http:// server picks up locally-generated runs that weren't
+  // committed (typically `reports/local/`, which is gitignored).
+  Promise.all(SCOPES.map(s=>fetch(s+'/runs-manifest.json',{cache:'no-cache'})
+    .then(r=>r.ok?r.json():[]).catch(()=>[]))).then(lists=>{
+    const fetched=[].concat(...lists).map(r=>Object.assign({},r,{_scope:r._scope||r.scope}));
+    if(!fetched.length)return;
+    const merged=sortRuns(dedupe(runs.concat(fetched)));
+    if(merged.length===runs.length)return;
+    runs=merged;render();
+  });
+})();
+""".strip()
+
+
 def _rebuild_dashboard(reports_root: Path) -> None:
+    """Write the dashboard as a STATIC SHELL driven by client-side JS.
+
+    The shell embeds the runs the generator saw (`window.__BAKED_RUNS__`) so
+    the page is never blank, then augments at view time by fetching each
+    scope's `runs-manifest.json` — pulling in locally-generated reports that
+    were never committed (`reports/local/` is gitignored). file:// in
+    Chromium blocks fetch and falls back to the baked data; Firefox or any
+    http server (e.g. `pnpm reports`) sees everything on disk.
+    """
     runs = _collect_all_runs(reports_root)
-    total_runs = len(runs)
-    total_pass = sum(m.get("passed", 0) for m in runs)
-    total_fail = sum(m.get("failed", 0) for m in runs)
-    total_skip = sum(m.get("skipped", 0) for m in runs)
-    total_tests = total_pass + total_fail + total_skip
-    overall_pct = round(100.0 * total_pass / total_tests) if total_tests else 0
-    runs_passed = sum(1 for m in runs if m.get("failed", 0) == 0)
-    runs_pct = round(100.0 * runs_passed / total_runs) if total_runs else 0
-    last = runs[-1] if runs else None
-    last_result = (last.get("overall", "?") if last else "—")
+    # Strip Python-internal markers we won't need on the client; keep `_scope`
+    # since the JS uses it to bucket runs.
+    baked = [
+        {k: v for k, v in m.items() if not k.startswith("__")}
+        for m in runs
+    ]
 
-    line_chart  = _svg_line_chart(runs)
-    donut       = _svg_donut(total_pass, total_fail, total_skip)
-    scope_bars  = _scope_bars(runs)
-    suite_bars  = _suite_coverage_bars(runs)
-    ctx_pills   = _context_pills(runs)
+    chips = (
+        '<div class="filter-chips" role="tablist" aria-label="Scope filter">'
+        + "".join(
+            f'<button type="button" data-filter="{s}" '
+            f'class="{"active" if s == "all" else ""}" role="tab">{label}</button>'
+            for s, label in (("all", "All"), ("local", "Local"), ("ci", "CI"), ("release", "Release"))
+        )
+        + '</div>'
+    )
 
+    # Static panel skeleton. The JS fills the `id`-tagged containers; the
+    # text fallbacks here keep the page readable for ~50ms before JS runs
+    # (or forever if JS is disabled — rare, but doesn't hurt).
+    panels = """
+  <div id="pills"></div>
+  <div id="kpis-host"></div>
+
+  <div class="panel">
+    <h2>Pass rate over time &mdash; all runs</h2>
+    <div id="line"></div>
+    <div class="legend">
+      <span><i style="background:#4ade80"></i> run passed</span>
+      <span><i style="background:#f87171"></i> run had failures</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Coverage by test suite &mdash; pass rate per suite (aggregated)</h2>
+    <div id="suites"></div>
+    <div class="legend">
+      <span><i style="background:#4ade80"></i> pass</span>
+      <span><i style="background:#f87171"></i> fail</span>
+      <span><i style="background:#94a3b8"></i> skip</span>
+      <span style="color:#64748b;font-size:10px">(% = pass rate, requires a local run with Deck)</span>
+    </div>
+  </div>
+
+  <div class="panel-grid">
+    <div class="panel">
+      <h2>Overall test distribution</h2>
+      <div style="text-align:center" id="donut"></div>
+      <div class="legend" style="justify-content:center" id="donut-legend"></div>
+    </div>
+    <div class="panel">
+      <h2>Results by scope</h2>
+      <div id="scopes"></div>
+      <div class="legend">
+        <span><i style="background:#4ade80"></i> pass</span>
+        <span><i style="background:#f87171"></i> fail</span>
+        <span><i style="background:#94a3b8"></i> skip</span>
+      </div>
+    </div>
+  </div>
+"""
+
+    baked_json = json.dumps(baked, separators=(",", ":"))
     dash = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -813,60 +1109,12 @@ def _rebuild_dashboard(reports_root: Path) -> None:
   <a class="back" href="index.html">&larr; All reports</a>
 </header>
 <main>
-  {ctx_pills}
-  <div class="kpis">
-    <div class="kpi"><div class="v">{total_runs}</div><div class="l">Total Runs</div></div>
-    <div class="kpi"><div class="v" style="color:var(--pass)">{runs_pct}%</div>
-      <div class="l">Runs Passed</div></div>
-    <div class="kpi"><div class="v">{total_tests}</div><div class="l">Tests Executed</div></div>
-    <div class="kpi"><div class="v" style="color:var(--accent)">{overall_pct}%</div>
-      <div class="l">Test Pass Rate</div></div>
-    <div class="kpi"><div class="v" style="color:{'var(--pass)' if last_result=='PASS' else 'var(--fail)'}">
-      {_html.escape(last_result)}</div><div class="l">Last Run</div></div>
-  </div>
-
-  <div class="panel">
-    <h2>Pass rate over time &mdash; all runs</h2>
-    {line_chart}
-    <div class="legend">
-      <span><i style="background:#4ade80"></i> run passed</span>
-      <span><i style="background:#f87171"></i> run had failures</span>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Coverage by test suite &mdash; pass rate per suite (aggregated)</h2>
-    {suite_bars}
-    <div class="legend">
-      <span><i style="background:#4ade80"></i> pass</span>
-      <span><i style="background:#f87171"></i> fail</span>
-      <span><i style="background:#94a3b8"></i> skip</span>
-      <span style="color:#64748b;font-size:10px">(% = pass rate, requires a local run with Deck)</span>
-    </div>
-  </div>
-
-  <div class="panel-grid">
-    <div class="panel">
-      <h2>Overall test distribution</h2>
-      <div style="text-align:center">{donut}</div>
-      <div class="legend" style="justify-content:center">
-        <span><i style="background:#4ade80"></i> {total_pass} pass</span>
-        <span><i style="background:#f87171"></i> {total_fail} fail</span>
-        <span><i style="background:#94a3b8"></i> {total_skip} skip</span>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Results by scope</h2>
-      {scope_bars}
-      <div class="legend">
-        <span><i style="background:#4ade80"></i> pass</span>
-        <span><i style="background:#f87171"></i> fail</span>
-        <span><i style="background:#94a3b8"></i> skip</span>
-      </div>
-    </div>
-  </div>
+  {chips}
+  {panels}
 </main>
-<footer>Deck Shelves CI &middot; dashboard &middot; {total_runs} run(s) aggregated</footer>
+<footer>Deck Shelves CI &middot; dashboard &middot; <span id="footer-count">0</span> run(s) aggregated</footer>
+<script>window.__BAKED_RUNS__={baked_json};</script>
+<script>{_DASH_JS}</script>
 </body>
 </html>
 """
@@ -965,24 +1213,58 @@ function toggle(i){{
     }
     out.with_suffix(".json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
-    # Rebuild indexes
-    _rebuild_subfolder_index(out.parent)
-    _rebuild_top_index(out.parent.parent)
-    _rebuild_dashboard(out.parent.parent)
+    # NOTE: per-run generation only writes `{ts}.html` and `{ts}.json` for
+    # this run. The derived aggregates (per-scope `index.html`, per-scope
+    # `runs-manifest.json`, top-level `index.html`, `dashboard.html`) are
+    # NOT touched here — they're regenerated explicitly via `--rebuild`
+    # (exposed as `pnpm reports:rebuild`). That keeps the auto-commit step
+    # in CI from churning the committed dashboards on every run, and lets
+    # the contributor refresh them on demand against whatever's on disk
+    # locally (including `reports/local/`, which is gitignored).
+
+
+def rebuild_aggregates(reports_root: Path) -> None:
+    """Regenerate every derived artifact across all scopes.
+
+    Walks `local/`, `ci/`, `release/` (whichever exist) and rewrites each
+    scope's `index.html` + `runs-manifest.json`, then the top-level
+    `index.html` and the client-side `dashboard.html`. Idempotent — running
+    it twice produces identical output for the same per-run files.
+    """
+    for sd in ("local", "ci", "release"):
+        sp = reports_root / sd
+        if sp.exists():
+            _rebuild_subfolder_index(sp)
+    _rebuild_top_index(reports_root)
+    _rebuild_dashboard(reports_root)
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--ts",         required=True)
-    p.add_argument("--stress",     required=True)
-    p.add_argument("--subdir",     required=True)
-    p.add_argument("--tmp",        required=True)
-    p.add_argument("--out",        required=True)
+    p.add_argument("--rebuild", action="store_true",
+                   help="Regenerate the aggregates (manifests, indexes, dashboard) "
+                        "across all scopes under --root. No per-run report is written.")
+    p.add_argument("--ts",         required=False)
+    p.add_argument("--stress",     required=False)
+    p.add_argument("--subdir",     required=False)
+    p.add_argument("--tmp",        required=False)
+    p.add_argument("--out",        required=False)
     p.add_argument("--root",       required=True)
-    p.add_argument("--steps-json", required=True, dest="steps_json")
+    p.add_argument("--steps-json", required=False, dest="steps_json")
     args = p.parse_args()
+
+    if args.rebuild:
+        rebuild_aggregates(Path(args.root) / "reports" if (Path(args.root) / "reports").is_dir()
+                           else Path(args.root))
+        return 0
+
+    # Per-run path needs the full set of arguments.
+    missing = [n for n in ("ts", "stress", "subdir", "tmp", "out", "steps_json") if not getattr(args, n)]
+    if missing:
+        print(f"report.py: missing required arg(s) for per-run mode: {missing}", file=sys.stderr)
+        return 2
 
     try:
         data = json.loads(Path(args.steps_json).read_text())

@@ -28,7 +28,77 @@ import {
   onNativeDimsChange,
 } from "./shelf/shelfStyles";
 
+// Cached prototype of Steam's native asset <img> component (any class
+// instance whose props include `eAssetType`). Discovered once via the live
+// DOM/React fiber; reused for every subsequent hero resolution.
+let _nativeAssetProto: any = null;
+
+function findNativeAssetProto(): any {
+  if (_nativeAssetProto && typeof _nativeAssetProto.GetSourcesForAsset === "function") {
+    return _nativeAssetProto;
+  }
+  _nativeAssetProto = null;
+  try {
+    for (const doc of getAllSteamDocuments()) {
+      const imgs = doc.querySelectorAll("img");
+      for (let i = 0; i < imgs.length; i++) {
+        const img = imgs[i] as HTMLImageElement;
+        // Skip DS-rendered images — we're hunting Steam's own asset component.
+        if (img.closest(".ds-card, .ds-per-shelf-hero-img")) continue;
+        const fiberKey = Object.keys(img).find(k => k.startsWith("__reactFiber$"));
+        if (!fiberKey) continue;
+        let f: any = (img as any)[fiberKey];
+        let depth = 0;
+        while (f && depth < 8) {
+          const p = f.memoizedProps;
+          if (p && "eAssetType" in p && f.stateNode) {
+            const proto = Object.getPrototypeOf(f.stateNode);
+            if (typeof proto?.GetSourcesForAsset === "function") {
+              _nativeAssetProto = proto;
+              return proto;
+            }
+          }
+          f = f.return;
+          depth++;
+        }
+      }
+    }
+  } catch { /* swallow — caller falls back to static list */ }
+  return null;
+}
+
+/** Steam's native `<S>` asset component computes hero URLs via `GetHeroImages`
+ *  which has access to hash filenames that aren't exposed on the basic
+ *  `appStore.GetAppOverviewByAppID` overview (observed for Candellum,
+ *  appid 4514790: only the hashed `/assets/{appid}/{hash}/library_hero.jpg`
+ *  serves the real 1920×620 hero — everything else 404s or returns the
+ *  smaller header crop). Instantiate the class via `Object.create` on its
+ *  prototype, call `GetSourcesForAsset` with our app + `eAssetType=1` (hero),
+ *  and get back exactly the URL list Steam itself would render. */
+function getNativeHeroUrls(appid: number): string[] | null {
+  try {
+    const app: any = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
+    if (!app) return null;
+    const proto = findNativeAssetProto();
+    if (!proto) return null;
+    const fake = Object.create(proto);
+    fake.props = { app, eAssetType: 1 };
+    const sources = fake.GetSourcesForAsset();
+    if (!Array.isArray(sources) || !sources.length) return null;
+    // Drop the placeholder so our own fallback chain still gets a shot
+    // before we render Steam's default-app image.
+    return sources.filter(
+      (s: any) => typeof s === "string" && s && !s.startsWith("/images/default")
+    );
+  } catch { return null; }
+}
+
 function getHeroUrls(appid: number): string[] {
+  const native = getNativeHeroUrls(appid);
+  if (native && native.length) return native;
+  // Pre-mount fallback (no native S instance discovered yet) — same chain
+  // we had before. Once any native hero img mounts on the page, subsequent
+  // calls use the native path above and pick up the real hash URLs.
   return [
     `/customimages/${appid}_hero.png`,
     `/customimages/${appid}_hero.jpg`,

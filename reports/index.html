@@ -56,12 +56,40 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
       <thead><tr>
         <th>Scope</th><th>Date / Time</th><th>Result</th><th>Pass / Total</th><th></th>
       </tr></thead>
-      <tbody><tr><td>Local</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="local/index.html">open &rarr;</a></td></tr>
+      <tbody><tr><td>Local</td><td>2026-05-19 19:05:55</td><td><span class="b pass">PASS</span></td><td class="num">10/10</td><td><a href="local/index.html">history &rarr;</a></td></tr>
 <tr><td>CI / Automated</td><td>2026-05-19 22:46:19</td><td><span class="b pass">PASS</span></td><td class="num">6/6</td><td><a href="ci/index.html">history &rarr;</a></td></tr>
 <tr><td>Release</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="release/index.html">open &rarr;</a></td></tr></tbody>
     </table>
   </div>
 </main>
 <footer>Deck Shelves CI &middot; local-only</footer>
+<script>(function(){
+  const SCOPES=[['local','Local'],['ci','CI / Automated'],['release','Release']];
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+  function fmt(ts){
+    const m=/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/.exec(ts||'');
+    return m?`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`:(ts||'?');
+  }
+  Promise.all(SCOPES.map(([sd])=>fetch(sd+'/runs-manifest.json',{cache:'no-cache'})
+    .then(r=>r.ok?r.json():[]).catch(()=>[])))
+  .then(lists=>{
+    const tbody=document.querySelector('.latest tbody');
+    if(!tbody)return;
+    const rows=SCOPES.map(([sd,label],i)=>{
+      const runs=lists[i]||[];
+      if(!runs.length){
+        return `<tr><td>${esc(label)}</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="${sd}/index.html">open &rarr;</a></td></tr>`;
+      }
+      runs.sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
+      const last=runs[0];
+      const overall=String(last.overall||'?').toLowerCase();
+      return `<tr><td>${esc(label)}</td><td>${esc(fmt(last.ts))}</td>`+
+             `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
+             `<td class="num">${last.passed||0}/${last.total||0}</td>`+
+             `<td><a href="${sd}/index.html">history &rarr;</a></td></tr>`;
+    });
+    tbody.innerHTML=rows.join('');
+  });
+})();</script>
 </body>
 </html>

@@ -8,6 +8,8 @@
     "validate:full:stress": "bash scripts/ci/validate.sh --stress",
     "validate:ci": "bash scripts/ci/validate-ci.sh",
     "reports": "open reports/index.html 2>/dev/null || xdg-open reports/index.html 2>/dev/null || echo 'Open reports/index.html manually'",
+    "reports:serve": "echo 'Serving reports/ at http://localhost:8765/ (Ctrl-C to stop)' && (sleep 1 && (open http://localhost:8765/ 2>/dev/null || xdg-open http://localhost:8765/ 2>/dev/null) &) && python3 -m http.server -d reports 8765",
+    "reports:rebuild": "python3 scripts/ci/report.py --rebuild --root .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build/build-decky.mjs --mode development",
