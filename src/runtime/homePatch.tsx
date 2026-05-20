@@ -55,6 +55,7 @@ function notifyMountFailedChange(): void {
 // --- Recents hiding ---
 let cachedRecentsEl: HTMLElement | null = null;
 let pendingHideRecents: boolean = false;
+let pendingHideHomeTabs: boolean = false;
 
 /** Override the DS mount margin-top when the replace-recents experimental
  *  toggle is actively injecting. Without this, the default CSS rule pulls
@@ -114,6 +115,21 @@ export function applyHideRecents(hidden: boolean): void {
 
   if (cachedRecentsEl) {
     try {
+      // Idempotency: when the requested hidden state already matches the
+      // applied state, skip the work entirely. The 2 s state poll calls this
+      // repeatedly; without this short-circuit, every poll tick re-writes
+      // styles + iterates focusables on the native recents, which can race
+      // with Steam's own gamepad nav state machine on D-pad navigation
+      // (intermittent focus reset).
+      const alreadyHidden = cachedRecentsEl.style.display === 'none'
+        && cachedRecentsEl.getAttribute('aria-hidden') === 'true';
+      const alreadyShown = cachedRecentsEl.style.display !== 'none'
+        && cachedRecentsEl.getAttribute('aria-hidden') !== 'true'
+        && cachedRecentsEl.dataset.dsHrPrevTi === undefined;
+      if ((hidden && alreadyHidden) || (!hidden && alreadyShown)) {
+        // Fast-exit: still apply the CSS-rule fallback + margin-top below,
+        // but skip the focusable iteration that's the main side-effect source.
+      } else {
       cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
       cachedRecentsEl.style.height     = hidden ? "0px" : "";
       cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
@@ -147,6 +163,7 @@ export function applyHideRecents(hidden: boolean): void {
           p ? f.setAttribute("tabindex", p) : f.removeAttribute("tabindex");
           delete f.dataset.dsHrPrevTi;
         });
+      }
       }
     } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
   }
@@ -244,23 +261,55 @@ function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
 }
 
 export function applyHideHomeTabs(hidden: boolean): void {
+  pendingHideHomeTabs = hidden;
   try {
     const { doc } = getHostContext();
     const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
 
-    // Always restore previously-hidden elements first (handles parent changes).
-    for (const el of Array.from(hiddenHomeTabs)) {
-      if (el.isConnected) setSiblingHidden(el, false);
-      hiddenHomeTabs.delete(el);
+    if (!hidden) {
+      // Restore everything we hid; no further work.
+      for (const el of Array.from(hiddenHomeTabs)) {
+        if (el.isConnected) setSiblingHidden(el, false);
+      }
+      hiddenHomeTabs.clear();
+      return;
     }
-    if (!hidden) return;
     if (!mount) return;
 
-    for (const el of collectHomeTabSiblings(mount)) {
-      setSiblingHidden(el, true);
-      hiddenHomeTabs.add(el);
+    // Idempotent: only act on differences between the requested state and the
+    // currently-hidden set. The previous "restore-then-re-hide" pass caused a
+    // brief layout shift on every call (the 2 s state poll fires often, and
+    // each visual flicker on D-pad nav was visible). Now we leave already-
+    // hidden siblings alone and only touch newcomers or stale refs.
+    const current = collectHomeTabSiblings(mount);
+    const currentSet = new Set(current);
+    // 1) Drop stale refs (disconnected or moved out of the candidate set)
+    for (const el of Array.from(hiddenHomeTabs)) {
+      if (!el.isConnected) { hiddenHomeTabs.delete(el); continue; }
+      if (!currentSet.has(el)) {
+        setSiblingHidden(el, false);
+        hiddenHomeTabs.delete(el);
+      }
+    }
+    // 2) Hide any newcomers not yet tracked
+    for (const el of current) {
+      if (!hiddenHomeTabs.has(el)) {
+        setSiblingHidden(el, true);
+        hiddenHomeTabs.add(el);
+      }
     }
   } catch (e) { logInfo("HOME", "applyHideHomeTabs failed", String(e)); }
+}
+
+/**
+ * Re-applies BOTH the most recent hide-recents AND hide-home-tabs requests.
+ * Used after Steam re-renders the home DOM (e.g. user goes to library and
+ * comes back with B): the freshly mounted native recents/tabs arrive without
+ * our hides applied, so this re-runs both apply paths with the cached flags.
+ */
+export function reapplyHomeHides(): void {
+  applyHideRecents(pendingHideRecents);
+  applyHideHomeTabs(pendingHideHomeTabs);
 }
 
 function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
@@ -269,9 +318,22 @@ function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null 
   const mountParent = mountEl.parentElement;
   if (!mountParent) return null;
 
+  // Defensive helper: never match our own DS shelves or the mount itself.
+  // DS shelves carry `ReactVirtualized__Grid` via buildShelfNode, which would
+  // otherwise pass the heuristic below and lead applyHideRecents to strip
+  // tabindex from our own focusables — making the shelves unfocusable.
+  const isDsOwn = (el: HTMLElement): boolean => {
+    if (!el) return false;
+    if (el === mountEl || el.id === ROOT_ID) return true;
+    if (el.classList?.contains('ds-shelf')) return true;
+    if (el.classList?.contains('deck-shelves-root')) return true;
+    if (el.querySelector?.('.ds-shelf, .deck-shelves-root, #' + ROOT_ID)) return true;
+    return false;
+  };
+
   // Check mountEl.previousElementSibling first (fastest path)
   const prev = mountEl.previousElementSibling as HTMLElement | null;
-  if (prev) {
+  if (prev && !isDsOwn(prev)) {
     const txt = (prev.getAttribute?.("aria-label") || prev.innerText || "").toLowerCase().substring(0, 80);
     if (labels.some((l) => txt.includes(l))) return prev;
     // Check descendants
@@ -293,7 +355,7 @@ function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null 
     while (el.parentElement && el.parentElement !== mountParent) {
       el = el.parentElement;
     }
-    if (el.parentElement === mountParent && el !== mountEl) return el;
+    if (el.parentElement === mountParent && el !== mountEl && !isDsOwn(el)) return el;
   }
   return null;
 }

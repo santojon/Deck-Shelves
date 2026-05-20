@@ -10,7 +10,7 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
-import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
+import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch } from "../core/steamGameMenu";
@@ -53,10 +53,21 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 // are in ./home/navPatches.ts
 
 function isHomeRoute(): boolean {
-  const win = getPreferredSteamWindow();
-  const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
-  if (href.includes("library/home") || href.includes("#library/home")) return true;
-  if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
+  // Steam Deck 3.9: the BigPicture window stays at `/index.html` regardless
+  // of the React Router route, while the SharedJSContext window carries the
+  // real `/routes/library/home` path. Inspecting only the preferred window
+  // would lock the result to one of those two truths. Walk every known Steam
+  // window so we catch whichever one is currently tracking the route.
+  const wins: Window[] = [];
+  try { wins.push(getPreferredSteamWindow()); } catch {}
+  try { for (const d of getAllSteamDocuments()) { const w = d.defaultView; if (w && !wins.includes(w)) wins.push(w); } } catch {}
+  for (const win of wins) {
+    try {
+      const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
+      if (href.includes("library/home") || href.includes("#library/home")) return true;
+      if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
+    } catch {}
+  }
   return false;
 }
 
@@ -265,6 +276,33 @@ export function HomeShelves() {
     };
     observeDoc(doc);
     for (const d of getAllSteamDocuments()) observeDoc(d);
+
+    // State-divergence poll (2 s): when Steam re-renders the home DOM (B from
+    // library, route swap via SteamClient APIs that bypass history events,
+    // etc.), the fresh native recents / home tabs arrive WITHOUT our hides.
+    // History-event listeners miss those swaps. A MutationObserver on the
+    // mount's parent fires on every D-pad mutation and cascades. This poll
+    // is the smallest middle ground: cheap state read, only re-applies when
+    // the actual DOM contradicts the desired hide state.
+    const hideStatePoll = window.setInterval(() => {
+      try {
+        const m = doc.getElementById(ROOT_ID) ?? getAllSteamDocuments().map((dd) => dd.getElementById(ROOT_ID)).find(Boolean);
+        if (!m) return;
+        const parent = (m as HTMLElement).parentElement;
+        if (!parent) return;
+        let recentsVisible = false;
+        let tabsVisible = false;
+        for (const child of Array.from(parent.children) as HTMLElement[]) {
+          if (child === m) continue;
+          if (child.offsetHeight <= 8) continue;
+          if (child.querySelector('[role="tablist"]')) { tabsVisible = true; continue; }
+          // Heuristic: any visible non-mount sibling not handled as tab is recents-like
+          recentsVisible = true;
+        }
+        if (recentsVisible || tabsVisible) reapplyHomeHides();
+      } catch {}
+    }, 2000);
+
     // Short fallback covers SPA pushState navigation (library → home) that does
     // not fire popstate/hashchange and may not trigger body subtree mutations.
     const timer = window.setInterval(updateMount, 2000);
@@ -283,6 +321,11 @@ export function HomeShelves() {
       if (nowOnHome && !wasOnHome) {
         updateMount();
         triggerShelfRefresh();
+        // Steam re-renders BOTH native recents AND home tabs on every route
+        // entry back to home (B from library, etc.). The freshly mounted
+        // siblings arrive without our hides, so they flash back into view.
+        // Re-apply both hide states so they collapse again before the next paint.
+        try { reapplyHomeHides(); } catch {}
       }
       wasOnHome = nowOnHome;
     };
@@ -302,6 +345,7 @@ export function HomeShelves() {
       alive = false;
       for (const o of observers) { try { o.disconnect(); } catch {} }
       window.clearInterval(timer);
+      window.clearInterval(hideStatePoll);
       win.removeEventListener("hashchange", updateMount);
       win.removeEventListener("popstate", updateMount);
       win.removeEventListener("popstate", onRouteChange);
@@ -740,7 +784,27 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   // focus jumps back into our first card after the layout reflows.
   const [viewportTick, setViewportTick] = useState(0);
   useEffect(() => {
-    const bump = () => setViewportTick((v) => v + 1);
+    // Only bump the tick when the viewport fingerprint really changed —
+    // Steam emits spurious resize events during D-pad navigation (gamepad
+    // scroll, focus-driven scrollIntoView, etc.) that would otherwise
+    // re-fire the focus effect and yank the user back to the first card
+    // mid-navigation.
+    let lastFp: { w: number; h: number; dpr: number } | null = null;
+    const measureFp = (): { w: number; h: number; dpr: number } | null => {
+      try {
+        const w: any = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow ?? window;
+        if (!w?.innerWidth) return null;
+        return { w: Math.round(w.innerWidth), h: Math.round(w.innerHeight), dpr: Number(w.devicePixelRatio ?? 1) };
+      } catch { return null; }
+    };
+    lastFp = measureFp();
+    const bump = () => {
+      const fp = measureFp();
+      if (!fp || !lastFp) { lastFp = fp; return; }
+      if (fp.w === lastFp.w && fp.h === lastFp.h && Math.abs(fp.dpr - lastFp.dpr) <= 0.05) return;
+      lastFp = fp;
+      setViewportTick((v) => v + 1);
+    };
     const attached: Array<() => void> = [];
     const attach = (w: Window | null | undefined) => {
       if (!w) return;

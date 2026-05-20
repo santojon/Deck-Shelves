@@ -1,6 +1,7 @@
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { discoverNativeCardDimensions, type NativeCardDims } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
+import { subscribeShelfRefresh } from "../../core/shelfRefresh";
 import { CARD_W, CARD_ART_H, CARD_GAP } from "./types";
 
 const STYLE_ID = "deck-shelves-row-style";
@@ -24,9 +25,6 @@ type PersistedDimsV3 = { v: number; entries: Array<{ fp: { vw: number; vh: numbe
 // cache into the new multi-entry map so users don't lose their tuned dims.
 type PersistedDimsV2 = { v: number; dims: NativeCardDims; vw: number; vh: number; dpr: number };
 
-function fpKey(fp: { vw: number; vh: number; dpr: number }): string {
-  return `${fp.vw}x${fp.vh}@${fp.dpr.toFixed(2)}`;
-}
 function fpMatches(a: { vw: number; vh: number; dpr: number }, b: { vw: number; vh: number; dpr: number }): boolean {
   return a.vw === b.vw && a.vh === b.vh && Math.abs(a.dpr - b.dpr) <= 0.05;
 }
@@ -43,6 +41,10 @@ const nativeDimsListeners = new Set<() => void>();
 // This prevents flicker from transient measurements (focus scale, hover, animation frames).
 let pendingDims: NativeCardDims | null = null;
 let pendingDimsCount = 0;
+// When the viewport changes (resolution swap) we want the very next valid
+// measurement to apply without waiting for the 2-poll stability cycle —
+// otherwise cards stay at the wrong size for tens of seconds after the swap.
+let acceptNextMeasurementImmediately = false;
 
 function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
   // SharedJSContext has window.innerWidth/Height = 1, so reading from
@@ -106,16 +108,36 @@ function persistDims(dims: NativeCardDims) {
   } catch {}
 }
 
-// Returns the persisted dims for a specific fp, or null. Used when the fp
-// poll detects a resolution change — we re-seed cachedNativeDims from the
-// stored entry instead of waiting for a fresh measurement that may never
-// complete (e.g. native recents permanently hidden via hideRecents=true).
+// Returns the persisted dims for a specific viewport fingerprint, or null.
+// Used by the fp poll to restore previously-measured dims when the user
+// switches to a viewport we've already seen — avoids the wait for a fresh
+// measurement (which may never complete when native recents stays hidden).
 function lookupPersistedForFp(fp: { vw: number; vh: number; dpr: number }): NativeCardDims | null {
   try {
     const all = loadPersistedEntries();
     const match = all.entries.find((e) => fpMatches(e.fp, fp));
     return match ? match.dims : null;
   } catch { return null; }
+}
+
+// Propagates the in-memory `cachedNativeDims` to CSS variables on every
+// known Steam document's `<html>`. `ensureStyles` already does this, but
+// only when a new measurement was accepted in the same call. When we set
+// `cachedNativeDims` from the persisted store (fp poll lookup, cold-start
+// seed) without a fresh measurement, the variables would stay stale unless
+// we propagate here.
+function applyCachedDimsToCssVars(): void {
+  try {
+    const docs: Document[] = [];
+    try { docs.push(document); } catch {}
+    try { docs.push(getPreferredSteamDocument()); } catch {}
+    const seen = new Set<Document>();
+    for (const doc of docs) {
+      if (!doc || seen.has(doc)) continue;
+      seen.add(doc);
+      try { for (const [k, v] of nativeDimVarEntries()) doc.documentElement.style.setProperty(k, v); } catch {}
+    }
+  } catch {}
 }
 
 // Seed from last-session cache so cold boot skips the CARD_W/CARD_ART_H fallback
@@ -205,6 +227,53 @@ function nativeDimVarEntries(): [string, string][] {
   ];
 }
 
+// Fallback measurement that briefly un-hides native recents to get a
+// measurable card, then immediately re-hides — all in one synchronous block.
+// The compositor only paints DOM state at animation-frame boundaries, so the
+// transient unhidden state is never shown to the user (no visible flash).
+// Used when `discoverNativeCardDimensions` returns null because hideRecents
+// is active and there are no other measurable native portrait cards on screen.
+function discoverViaBriefUnhide(steamDoc: Document): NativeCardDims | null {
+  try {
+    const mount = steamDoc.getElementById('deck-shelves-home-root') as HTMLElement | null;
+    if (!mount) return null;
+    const recentsEl = mount.previousElementSibling as HTMLElement | null;
+    if (!recentsEl) return null;
+    // Hide can come from either the dedicated <style#hide-recents> element OR
+    // from inline `display:none` set by applyHideRecents on the recents
+    // element itself (the classmap may not have native-recents tokens, in
+    // which case homePatch only sets the inline style and skips the CSS rule).
+    const hideStyle = steamDoc.getElementById('deck-shelves-hide-recents-style') as HTMLStyleElement | null;
+    const styleText = hideStyle?.textContent ?? '';
+    const hiddenViaInline = recentsEl.style.display === 'none' || recentsEl.style.visibility === 'hidden';
+    const hiddenViaStyleRule = !!styleText && styleText.includes('display: none');
+    if (!hiddenViaInline && !hiddenViaStyleRule) return null;
+    // Save anything we may touch
+    const savedDisplay = recentsEl.style.display;
+    const savedVisibility = recentsEl.style.visibility;
+    const savedHeight = recentsEl.style.height;
+    const savedOverflow = recentsEl.style.overflow;
+    try {
+      if (hideStyle && hiddenViaStyleRule) hideStyle.textContent = '';
+      // Clear inline hiding too — applyHideRecents may have set both.
+      recentsEl.style.display = '';
+      recentsEl.style.visibility = '';
+      recentsEl.style.height = '';
+      recentsEl.style.overflow = '';
+      // Force synchronous layout so getBoundingClientRect sees the unhidden cards.
+      void recentsEl.offsetHeight;
+      return discoverNativeCardDimensions(steamDoc);
+    } finally {
+      // Restore before the next paint so the user never sees recents flash.
+      if (hideStyle && hiddenViaStyleRule) hideStyle.textContent = styleText;
+      recentsEl.style.display = savedDisplay;
+      recentsEl.style.visibility = savedVisibility;
+      recentsEl.style.height = savedHeight;
+      recentsEl.style.overflow = savedOverflow;
+    }
+  } catch { return null; }
+}
+
 function ensureStyles() {
   try {
     // If the viewport fingerprint changed (resolution / DPI switch), discard
@@ -229,7 +298,24 @@ function ensureStyles() {
     const newBadgeRadiusChanged = newBadgeRadius !== cachedNewBadgeRadius;
     cachedNewBadgeRadius = newBadgeRadius;
     const steamDoc = getPreferredSteamDocument();
-    const newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
+    let newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
+    // Fallback: when hideRecents is active there are no measurable native
+    // portraits on screen — discover by briefly un-hiding (sync block, no
+    // visible flash). Without this, post-display-swap dims stay at fallback
+    // constants until the user opens library and comes back.
+    if (!newDims) newDims = discoverViaBriefUnhide(steamDoc);
+    // Sanity: discard measurements that don't make sense for the current
+    // viewport — happens when Steam hasn't yet re-laid out after a display
+    // swap and our brief-unhide reads cards still sized for the previous
+    // viewport. Native portrait cards take roughly 8-15% of viewport width;
+    // anything above ~22% is almost certainly leftover layout from the
+    // previous resolution and would poison the per-fp cache.
+    if (newDims) {
+      const fpNow = viewportFingerprint();
+      if (fpNow.vw >= 100 && newDims.width / fpNow.vw > 0.22) {
+        newDims = null;
+      }
+    }
     // Only accept new dims when the change exceeds tolerance (avoids flicker
     // from focus-scale, rounding, or animation mid-frame measurements).
     // When newDims is null (e.g. recents hidden, or focus present), keep the cached dims.
@@ -258,8 +344,12 @@ function ensureStyles() {
       // accept immediately. The featured card would otherwise render at the fallback
       // landscape ratio for 6+ seconds (2 × poll interval) before resizing — visible
       // as a slow enlarge on cold boot when matchNativeSize is on.
+      // Also accept immediately when a viewport change was just detected — the
+      // stability cycle would otherwise hold cards at the wrong size for tens of
+      // seconds after a display-resolution swap.
       const acquiredFeatured = !!newDims.featuredWidth && !cachedNativeDims?.featuredWidth;
-      if (acquiredFeatured) {
+      if (acquiredFeatured || acceptNextMeasurementImmediately) {
+        acceptNextMeasurementImmediately = false;
         cachedNativeDims = newDims;
         cachedDimsFp = viewportFingerprint();
         persistDims(newDims);
@@ -891,6 +981,7 @@ const resizeListenerWindows = new Set<Window>();
 // regardless of when the listener attached.
 let globalFpPollTimer: ReturnType<typeof setInterval> | null = null;
 let lastObservedFp: { vw: number; vh: number; dpr: number } | null = null;
+let globalShelfRefreshUnsub: (() => void) | null = null;
 
 export function globalStylesStart() {
   if (++globalStyleRefCount === 1) {
@@ -921,19 +1012,35 @@ export function globalStylesStart() {
             fp.vh !== lastObservedFp.vh ||
             Math.abs(fp.dpr - (lastObservedFp.dpr ?? 1)) > 0.05) {
           lastObservedFp = fp;
-          // Try the persisted entry for the new viewport BEFORE measuring.
-          // Re-measurement may not succeed when recents is hidden (no native
-          // portraits visible). Restoring previously-seen dims for this fp
-          // keeps cards correctly sized without waiting for measurement.
+          // 1) If we've already measured this exact viewport in a prior
+          //    session, restore those dims immediately — cards re-size before
+          //    any measurement attempt.
           const stored = lookupPersistedForFp(fp);
           if (stored) {
             cachedNativeDims = stored;
             cachedDimsFp = fp;
             pendingDims = null;
             pendingDimsCount = 0;
+            // Push the cached dims into CSS variables NOW — `ensureStyles`
+            // below only updates them when a new measurement is accepted in
+            // the same tick. With recents hidden, that measurement returns
+            // null, so without this manual propagation the cards stay at the
+            // previous viewport's dims even though the cache was updated.
+            applyCachedDimsToCssVars();
             debouncedNotifyDims(stored);
+          } else {
+            // First time at this viewport: clear so ensureStyles measures fresh.
+            cachedNativeDims = null;
+            cachedDimsFp = null;
+            pendingDims = null;
+            pendingDimsCount = 0;
           }
+          // Skip the 2-poll stability gate on the next measurement — a real
+          // viewport swap is a legit change. Retry 500 ms later in case Steam
+          // is still re-laying out under the new viewport at the first call.
+          acceptNextMeasurementImmediately = true;
           ensureStyles();
+          setTimeout(() => { try { acceptNextMeasurementImmediately = true; ensureStyles(); } catch {} }, 500);
         }
       } catch {}
     }, 2000);
@@ -948,6 +1055,11 @@ export function globalStylesStart() {
         ensureStyles();
       }, d);
     }
+    // Piggy-back on the shelf-refresh emitter — every refresh cycle (30 s
+    // fallback + Steam app/collection change events) re-runs measurement.
+    // Pairs well with `discoverViaBriefUnhide`, which makes measurement
+    // succeed even when hideRecents leaves no measurable native portraits.
+    globalShelfRefreshUnsub = subscribeShelfRefresh(() => { try { ensureStyles(); } catch {} });
   }
 }
 
@@ -957,6 +1069,7 @@ export function globalStylesStop() {
     if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
     globalStyleTimerPeriod = STYLES_POLL_MS;
     if (globalFpPollTimer) { clearInterval(globalFpPollTimer); globalFpPollTimer = null; }
+    if (globalShelfRefreshUnsub) { try { globalShelfRefreshUnsub(); } catch {} globalShelfRefreshUnsub = null; }
     if (globalResizeHandler) {
       for (const w of resizeListenerWindows) {
         try { w.removeEventListener('resize', globalResizeHandler); } catch {}
