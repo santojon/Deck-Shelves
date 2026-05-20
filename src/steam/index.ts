@@ -489,25 +489,35 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
     { id: "nonsteam", name: "Non-Steam" },
   ];
 
-  // 1. Settings file — primary source for TabMaster tabs
+  // Hard guarantee: any thrown error in the discovery chain below must NOT
+  // surface as a rejected promise — the settings controller's `.catch`
+  // path replaces `tabs` with [], leaving the EditShelfModal's tab dropdown
+  // empty (regression seen against SteamOS 3.9 where some host-window
+  // accessors started throwing on enumeration). Wrap everything; always
+  // fall back to the 5 native defaults.
   try {
-    const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
-    const { isTabMasterInstalled } = await import('../integrations/registry');
-    if (isTabMasterInstalled()) {
-      const settingsTabs = await getVisibleTabsFromSettingsFile();
-      if (settingsTabs.length > 0) return settingsTabs;
-    }
-  } catch {}
+    // 1. Settings file — primary source for TabMaster tabs
+    try {
+      const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
+      const { isTabMasterInstalled } = await import('../integrations/registry');
+      if (isTabMasterInstalled()) {
+        const settingsTabs = await getVisibleTabsFromSettingsFile();
+        if (settingsTabs.length > 0) return settingsTabs;
+      }
+    } catch {}
 
-  // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
-  const fiberTabs = getCustomFiltersList();
-  if (fiberTabs.length > 0) return fiberTabs;
+    // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
+    try {
+      const fiberTabs = getCustomFiltersList();
+      if (fiberTabs.length > 0) return fiberTabs;
+    } catch {}
 
-  // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
-  try {
-    const { getTabsFromDOM } = await import('../integrations/domtabs');
-    const domTabs = getTabsFromDOM();
-    if (domTabs.length > 0) return domTabs;
+    // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
+    try {
+      const { getTabsFromDOM } = await import('../integrations/domtabs');
+      const domTabs = getTabsFromDOM();
+      if (domTabs.length > 0) return domTabs;
+    } catch {}
   } catch {}
 
   return defaults;

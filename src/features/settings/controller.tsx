@@ -21,17 +21,44 @@ export function useSettingsController() {
   const [tabs, setTabs] = useState<PlatformTab[]>([]);
 
   useEffect(() => {
+    // The 5 native library tabs Steam exposes by default. Used whenever the
+    // discovery chain in `listLibraryTabs` returns nothing — covers both
+    // promise rejection (unhandled throw inside one of the integrations)
+    // AND the legit-resolved-but-empty case (no TabMaster, no fiber ctx,
+    // no DOM tabs). Without this the EditShelfModal's tab dropdown ends up
+    // empty whenever the host-window-walk hits a Proxy that throws.
+    const NATIVE_DEFAULT_TABS: PlatformTab[] = [
+      { id: "all",       name: "All Games" },
+      { id: "favorites", name: "Favorites" },
+      { id: "installed", name: "Installed" },
+      { id: "hidden",    name: "Hidden" },
+      { id: "nonsteam",  name: "Non-Steam" },
+    ];
     const refreshTabs = () => {
       logInfo("SETTINGS", "refreshTabs start");
-      platform.listLibraryTabs().then((nextTabs) => {
+      let p: Promise<PlatformTab[]>;
+      try {
+        p = platform.listLibraryTabs();
+      } catch (e) {
+        // `listLibraryTabs` is async so this only fires if the function
+        // ref itself is missing (broken platform wiring). Swallow and
+        // surface defaults.
+        logError("SETTINGS", "refreshTabs sync throw", String(e));
+        setTabs((current) => current.length ? current : NATIVE_DEFAULT_TABS);
+        return;
+      }
+      p.then((nextTabs) => {
+        const finalTabs = (Array.isArray(nextTabs) && nextTabs.length > 0) ? nextTabs : NATIVE_DEFAULT_TABS;
         setTabs((current) => {
           const now = JSON.stringify(current.map((t) => ({ id: t.id, name: t.name })));
-          const next = JSON.stringify(nextTabs.map((t) => ({ id: t.id, name: t.name })));
-          if (now !== next) logInfo("SETTINGS", "tabs updated", { count: nextTabs.length, sample: nextTabs.slice(0, 8) });
-          return now === next ? current : nextTabs;
+          const next = JSON.stringify(finalTabs.map((t) => ({ id: t.id, name: t.name })));
+          if (now !== next) logInfo("SETTINGS", "tabs updated", { count: finalTabs.length, sample: finalTabs.slice(0, 8) });
+          return now === next ? current : finalTabs;
         });
       }).catch((error) => {
-        setTabs([]);
+        // Never zero out — keep the previous list if we had one, else
+        // fall back to native defaults so the picker is always usable.
+        setTabs((current) => current.length ? current : NATIVE_DEFAULT_TABS);
         logError("SETTINGS", "refreshTabs failed", String(error));
         logDiagnostic("error", "Failed to load tabs", String(error));
       });

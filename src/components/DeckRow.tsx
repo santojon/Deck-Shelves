@@ -93,19 +93,43 @@ function getNativeHeroUrls(appid: number): string[] | null {
   } catch { return null; }
 }
 
+/** Kick off Steam's own `RegisterForAppData(appid)` via a fake S instance.
+ *  Without this the hero hash never lands in the data store for an app that
+ *  isn't currently mounted in native UI — observed for Candellum: hero only
+ *  appeared once the user focused it in native recents, which mounted the
+ *  S instance and triggered the load. Calling it here pre-loads the data
+ *  for every app we want to render a hero for, so the next pass of
+ *  `getNativeHeroUrls` picks up the real hashed URL. Best-effort, no-op
+ *  if anything is missing. */
+function prefetchNativeAppData(appid: number): void {
+  try {
+    const app: any = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
+    if (!app) return;
+    const proto = findNativeAssetProto();
+    if (!proto || typeof proto.RegisterForAppDetails !== "function") return;
+    const fake = Object.create(proto);
+    fake.props = { app, eAssetType: 1 };
+    // The handle (`fake.m_hAppDetails`) is intentionally left dangling:
+    // the registration is purely a notification subscription; the loaded
+    // data persists process-wide regardless. Cheap to leak.
+    fake.RegisterForAppDetails();
+  } catch { /* best-effort */ }
+}
+
 function getHeroUrls(appid: number): string[] {
   const native = getNativeHeroUrls(appid);
   if (native && native.length) return native;
-  // Pre-mount fallback (no native S instance discovered yet) — same chain
-  // we had before. Once any native hero img mounts on the page, subsequent
-  // calls use the native path above and pick up the real hash URLs.
+  // Pre-mount fallback (no native S instance discovered yet). Trimmed to
+  // the three URLs most likely to actually exist: the user's own custom
+  // hero, then the public CDN's library_hero. We dropped the hashless
+  // `/assets/{appid}/library_hero.jpg`, `/assets/{appid}/header.jpg` and
+  // the CDN `header.jpg` — for any title without a hash exposed on
+  // overview they all 404, and the prefetch + retry in PerShelfHero
+  // resolves to the real hashed URL within ~700 ms anyway.
   return [
     `/customimages/${appid}_hero.png`,
     `/customimages/${appid}_hero.jpg`,
-    `/assets/${appid}/library_hero.jpg`,
     `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
-    `/assets/${appid}/header.jpg`,
-    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/header.jpg`,
   ];
 }
 
@@ -160,8 +184,8 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
   }, []);
 
   // Measure the distance from the shelf's bottom edge up to the card row's
-  // top edge. The overlay label's `bottom` is set to this + a small gap so
-  // it sits just above the row regardless of shelf/row height changes.
+  // top edge. The overlay label's `bottom` is set to this so it sits at
+  // the row top regardless of shelf/row height changes.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -173,8 +197,26 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
     };
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    // Also observe the row itself. In ArtHero mode the shelf is pinned to
+    // `100vh` (fixed) so the shelf RO never fires when the row grows —
+    // e.g. when matchNativeSize discovers larger card dims a moment after
+    // mount. Without observing the row, `rowH` stays stale and the
+    // overlay label ends up positioned over the card art instead of
+    // above the row. Re-attach if the row appears later via MutationObserver.
+    let rowEl: HTMLElement | null = el.querySelector('.ds-row-scroll');
+    if (rowEl) ro.observe(rowEl);
+    const mo = new MutationObserver(() => {
+      const next = el.querySelector('.ds-row-scroll') as HTMLElement | null;
+      if (next && next !== rowEl) {
+        if (rowEl) try { ro.unobserve(rowEl); } catch {}
+        ro.observe(next);
+        rowEl = next;
+        measure();
+      }
+    });
+    mo.observe(el, { childList: true, subtree: true });
     measure();
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); mo.disconnect(); };
   }, [containerRef]);
 
   // Track whether this shelf is in full-page ArtHero mode (data-ds-recents-slot).
@@ -256,6 +298,17 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
         }
       }
       if (!focused) return;
+      const appid = Number(focused.getAttribute('data-appid') ?? 0);
+      // Non-game card (RefreshCard / MoreCard / PlaceholderCard) — they
+      // have no `data-appid` and no `.ds-card-label`. Clear the overlay
+      // label so it doesn't keep showing the previously-focused game's
+      // name above the refresh/more card. Hero art is left as-is for
+      // visual continuity (avoids a fade flash when stepping into the
+      // tail card and immediately back).
+      if (appid <= 0) {
+        setLabelHtml(null);
+        return;
+      }
       // Align the overlay label horizontally with the focused card's left
       // edge — mirrors native ArtHero, where the label tracks the focused
       // tile. Read after a frame so the row's centering scroll has settled.
@@ -267,8 +320,6 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
           setLabelLeft(Math.max(0, Math.round(cr.left - sr.left)));
         } catch {}
       });
-      const appid = Number(focused.getAttribute('data-appid') ?? 0);
-      if (appid <= 0) return;
       // Always re-clone the card's label DOM so the overlay mirrors it
       // byte-for-byte. Online shelves resolve game names asynchronously — if
       // the first clone happened during the brief "#appid" window, re-cloning
@@ -282,6 +333,10 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
       if (appid !== currentAppid.current) {
         currentAppid.current = appid;
         if (showArt) {
+          // Trigger Steam's own hero-data load first. Without this the
+          // hashed CDN URL is unavailable until the user happens to focus
+          // the game in a native shelf (observed for Candellum).
+          prefetchNativeAppData(appid);
           const urls = getHeroUrls(appid);
           allUrls.current = urls;
           fallbackIdx.current = 0;
@@ -289,6 +344,23 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
           const url0 = urls[0] ?? null;
           if (next === 'A') setSlotA(url0); else setSlotB(url0);
           setActiveSlot(next);
+          // Steam's hero data lands asynchronously. Re-resolve a moment
+          // later and swap in place if the first URL changed (typically
+          // the hashless static fallback → hashed high-quality CDN URL).
+          // Bail out if the user navigated away in the meantime.
+          const swapAppid = appid;
+          setTimeout(() => {
+            if (currentAppid.current !== swapAppid) return;
+            const fresh = getHeroUrls(swapAppid);
+            const newFirst = fresh[0] ?? null;
+            if (!newFirst || newFirst === url0) return;
+            allUrls.current = fresh;
+            fallbackIdx.current = 0;
+            // Same slot the user is currently seeing — swap without a
+            // cross-fade so it looks like the image just sharpened.
+            const slot = activeSlotRef.current;
+            if (slot === 'A') setSlotA(newFirst); else setSlotB(newFirst);
+          }, 700);
         }
       }
       setVisible(true);

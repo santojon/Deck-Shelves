@@ -34,8 +34,28 @@ import { SortField } from './editShelf/SortField'
 import { ModalHeader } from './editShelf/ModalHeader'
 
 
+// Native library tabs. If the controller's async `listLibraryTabs` resolved
+// to an empty list (a host-window store throwing on enumeration has been
+// seen in the wild, and the controller's `.catch` falls back to `[]`), we
+// still surface these so the source dropdown is never blank. The localized
+// labels later in `detectNativeKey` match against `id` slugs, so these IDs
+// are guaranteed to render with the right translated names.
+const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = [
+  { id: 'all',        name: 'All Games' },
+  { id: 'favorites',  name: 'Favorites' },
+  { id: 'installed',  name: 'Installed' },
+  { id: 'hidden',     name: 'Hidden' },
+  { id: 'nonsteam',   name: 'Non-Steam' },
+]
+
 export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf; mode?: 'create' | 'edit' }) {
-  const { t, tabs: platformTabs, collections, actions } = controller
+  const { t, tabs: controllerTabs, collections, actions } = controller
+  // Guard the dropdown against any failure mode in the controller's async
+  // `listLibraryTabs`: empty array, undefined, or never-resolved. Native
+  // defaults below are the same 5 IDs `listLibraryTabs` would have
+  // returned, so localized labels via `detectNativeKey` still apply.
+  const platformTabs = (Array.isArray(controllerTabs) && controllerTabs.length > 0)
+    ? controllerTabs : NATIVE_FALLBACK_TABS
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
   const initialSourceType = shelf.source.type as SourceType
