@@ -49,6 +49,12 @@ jobs:
       - name: Run CI report
         run: pnpm run validate:ci
 
+      # Refresh aggregates so the new run shows up in the dashboard /
+      # manifest / per-scope index that the auto-commit below ships.
+      - name: Rebuild aggregates
+        if: always()
+        run: pnpm run reports:rebuild
+
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4

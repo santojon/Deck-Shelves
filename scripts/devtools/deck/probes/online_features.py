@@ -89,9 +89,16 @@ def check_caches(sjc) -> None:
     sc = data.get("storeCache")
     wc = data.get("wishlistCache")
     pc = data.get("priceCache")
-    print(f"  store cache   : {f'{sc[\"ids\"]} IDs, {sc[\"ageMin\"]}min old' if sc else '(empty)'}")
-    print(f"  wishlist cache: {f'{wc[\"ids\"]} IDs, {wc[\"ageMin\"]}min old' if wc else '(empty)'}")
-    print(f"  price cache   : {f'{pc[\"entries\"]} entries' if pc else '(empty)'}")
+    # Pre-format each cache summary outside the f-string. Nested f-strings
+    # with backslash-escaped quotes (`{sc[\"ids\"]}`) only parse on Python
+    # 3.12+ (PEP 701); CodeQL / older runners fail with SyntaxError. Building
+    # the inner strings up-front sidesteps the limitation entirely.
+    store_summary    = f"{sc['ids']} IDs, {sc['ageMin']}min old" if sc else "(empty)"
+    wishlist_summary = f"{wc['ids']} IDs, {wc['ageMin']}min old" if wc else "(empty)"
+    price_summary    = f"{pc['entries']} entries"                if pc else "(empty)"
+    print(f"  store cache   : {store_summary}")
+    print(f"  wishlist cache: {wishlist_summary}")
+    print(f"  price cache   : {price_summary}")
 
 
 def check_store_fetch(sjc) -> None:

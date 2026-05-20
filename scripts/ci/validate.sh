@@ -73,6 +73,12 @@ json.dump({'names': names, 'statuses': statuses, 'logs': logs}, open('${steps_js
       || echo -e "  ${YELLOW}warn: report.py failed — check ${report_path}${RESET}"
     rm -f "${steps_json}" 2>/dev/null || true
 
+    # Refresh derived aggregates (manifests + per-scope index + top index +
+    # dashboard) so the run we just wrote shows up everywhere. The per-run
+    # report only writes `{ts}.{html,json}`.
+    python3 "${SCRIPT_DIR}/report.py" --rebuild --root "${ROOT}" \
+      || echo -e "  ${YELLOW}warn: aggregate rebuild failed${RESET}"
+
     echo -e "\n${BOLD}Report:${RESET} file://${report_path}"
   ) || true
 }
