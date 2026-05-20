@@ -484,12 +484,26 @@ class Plugin:
         reliable source is its settings file on disk.
         Returns { tabs: [{ id, title, position, filters, filtersMode }] }
         """
+        try:
+            decky.logger.info("get_tabmaster_tabs: invoked")
+        except Exception:
+            pass
         decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
         settings_path = os.path.join(decky_home, "settings", "TabMaster", "settings.json")
         try:
+            if not os.path.exists(settings_path):
+                try:
+                    decky.logger.info(f"get_tabmaster_tabs: file not found at {settings_path}")
+                except Exception:
+                    pass
+                return {"tabs": [], "error": "file_not_found"}
             data = _safe_read_json(settings_path)
             users_dict = data.get("usersDict", {})
             if not users_dict:
+                try:
+                    decky.logger.info("get_tabmaster_tabs: usersDict empty")
+                except Exception:
+                    pass
                 return {"tabs": [], "error": "no_users"}
             # Use the first (and usually only) user entry
             user_data = next(iter(users_dict.values()))
@@ -507,6 +521,11 @@ class Plugin:
                 })
             # Sort by position: visible (>= 0) first ascending, then hidden (-1)
             tabs.sort(key=lambda t: (t["position"] < 0, t["position"]))
+            try:
+                visible = sum(1 for t in tabs if t["position"] >= 0)
+                decky.logger.info(f"get_tabmaster_tabs: returning {len(tabs)} tabs ({visible} visible)")
+            except Exception:
+                pass
             return {"tabs": tabs}
         except Exception as e:
             try:

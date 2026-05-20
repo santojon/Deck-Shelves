@@ -117,6 +117,12 @@ export function applyHideRecents(hidden: boolean): void {
       cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
       cachedRecentsEl.style.height     = hidden ? "0px" : "";
       cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
+      // display:none is the only signal Steam's gamepad nav tree reliably
+      // respects to exclude this node from D-pad traversal (otherwise focus
+      // gets trapped above our shelves). matchNativeSize measurement is
+      // handled by the class-based fallback in discoverNativeCardDimensions
+      // (creates a temp element with the native card class to measure).
+      cachedRecentsEl.style.display = hidden ? "none" : "";
       // Remove from gamepad focus order when hidden (issue #69 / Bazzite):
       // visibility:hidden + height:0 keeps the element in the tab order,
       // causing an extra scroll step when navigating between shelves.
@@ -165,7 +171,7 @@ export function applyHideRecents(hidden: boolean): void {
         doc.head.appendChild(style);
       }
       const selectors = tokens.map((t) => `.${t}`).join(", ");
-      style.textContent = `${selectors} { height: 0 !important; min-height: 0 !important; overflow: hidden !important; visibility: hidden !important; }`;
+      style.textContent = `${selectors} { height: 0 !important; min-height: 0 !important; overflow: hidden !important; visibility: hidden !important; display: none !important; }`;
     } else if (style) {
       style.textContent = "";
     }

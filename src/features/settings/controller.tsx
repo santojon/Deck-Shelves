@@ -18,7 +18,17 @@ export function useSettingsController() {
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
-  const [tabs, setTabs] = useState<PlatformTab[]>([]);
+  // Initialise tabs from the localStorage cache so the shelf editor shows the
+  // correct tab list instantly on every QAM open (the QAM remounts each time,
+  // so useState([]) would show an empty dropdown for the 200–500ms while the
+  // async listLibraryTabs() IPC round-trip completes).
+  const [tabs, setTabs] = useState<PlatformTab[]>(() => {
+    try {
+      const raw = localStorage.getItem('ds-tabs-cache-v1');
+      if (raw) return JSON.parse(raw) as PlatformTab[];
+    } catch {}
+    return [];
+  });
 
   useEffect(() => {
     // The 5 native library tabs Steam exposes by default. Used whenever the
@@ -52,7 +62,10 @@ export function useSettingsController() {
         setTabs((current) => {
           const now = JSON.stringify(current.map((t) => ({ id: t.id, name: t.name })));
           const next = JSON.stringify(finalTabs.map((t) => ({ id: t.id, name: t.name })));
-          if (now !== next) logInfo("SETTINGS", "tabs updated", { count: finalTabs.length, sample: finalTabs.slice(0, 8) });
+          if (now !== next) {
+            logInfo("SETTINGS", "tabs updated", { count: finalTabs.length, sample: finalTabs.slice(0, 8) });
+            try { localStorage.setItem('ds-tabs-cache-v1', JSON.stringify(finalTabs)); } catch {}
+          }
           return now === next ? current : finalTabs;
         });
       }).catch((error) => {

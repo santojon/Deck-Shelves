@@ -386,6 +386,80 @@ export type NativeCardDims = {
  *  theme shows a landscape highlight card before the portrait row).
  *  Returns { width, height, gap, featuredWidth?, featuredHeight? } or null.
  */
+/**
+ * Fallback measurement when native cards are hidden (display:none).
+ * Creates a temporary element with the native card CSS class — inside a
+ * container that mirrors the native shelf row's flex context when possible
+ * — and reads its computed dimensions. Works regardless of whether recents
+ * are visible, so matchNativeSize keeps responding to viewport changes
+ * (e.g. Deck ↔ external monitor) even when the recents shelf is
+ * display:none for nav-tree exclusion.
+ */
+function discoverNativeCardDimensionsViaClass(doc: Document): NativeCardDims | null {
+  try {
+    const map = getRuntimeClassMap(doc);
+    const nativeCardClass = map?.nativeCard;
+    if (!nativeCardClass) return null;
+
+    // Prefer hosting the temp cards in a clone of the native shelf-row
+    // container so the card's CSS inherits the same flex/grid context it
+    // would get when actually rendered. Falls back to a generic flex row.
+    let host: HTMLElement;
+    const rowToken = (map?.nativeShelfRow || map?.nativeRecentsInner || '').split(/\s+/)[0];
+    if (rowToken) {
+      host = doc.createElement('div');
+      host.className = rowToken;
+      host.style.cssText = 'position:absolute;top:-99999px;left:-99999px;visibility:hidden;pointer-events:none;width:100vw;';
+    } else {
+      host = doc.createElement('div');
+      host.style.cssText = 'position:absolute;top:-99999px;left:-99999px;visibility:hidden;pointer-events:none;display:flex;flex-direction:row;width:100vw;';
+    }
+
+    const card1 = doc.createElement('div');
+    const card2 = doc.createElement('div');
+    card1.className = nativeCardClass;
+    card2.className = nativeCardClass;
+    // Add an <img> child so CSS rules targeting `.<cardClass> img` apply too
+    // (some themes drive card aspect ratio from the inner image).
+    const img1 = doc.createElement('img');
+    img1.style.cssText = 'width:100%;height:100%;display:block;';
+    card1.appendChild(img1);
+    host.appendChild(card1);
+    host.appendChild(card2);
+    doc.body.appendChild(host);
+
+    try {
+      // Force reflow before measuring
+      void card1.offsetHeight;
+      const rect1 = card1.getBoundingClientRect();
+      const rect2 = card2.getBoundingClientRect();
+      const cs1 = getComputedStyle(card1);
+      const w = rect1.width || parseFloat(cs1.width);
+      const h = rect1.height || parseFloat(cs1.height);
+      if (!w || !h || w < 50 || h < 80) return null;
+
+      // Gap: horizontal distance between siblings, then column-gap on host,
+      // then margin-right on card1 — whichever is non-zero first.
+      let gap = Math.max(0, Math.round(rect2.left - rect1.right));
+      if (gap === 0) {
+        const csHost = getComputedStyle(host);
+        const colGap = parseFloat(csHost.columnGap || csHost.gap || '0');
+        gap = Math.round(colGap) || Math.round(parseFloat(cs1.marginRight) || 0);
+      }
+
+      const result: NativeCardDims = { width: Math.round(w), height: Math.round(h), gap };
+      try {
+        const imgRect = img1.getBoundingClientRect();
+        if (imgRect.height >= 40) result.imgHeight = Math.round(imgRect.height);
+      } catch {}
+      return result;
+    } finally {
+      doc.body.removeChild(host);
+    }
+  } catch {}
+  return null;
+}
+
 export function discoverNativeCardDimensions(doc: Document): NativeCardDims | null {
   try {
     const imgs = Array.from(doc.querySelectorAll<HTMLImageElement>('img'));
@@ -453,7 +527,12 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
       } catch {}
     }
 
-    if (portraitRoots.length < 2) return null;
+    if (portraitRoots.length < 2) {
+      // Fallback: native cards may be hidden (display:none) so getBoundingClientRect
+      // returns zeros. Measure via a temporary element that carries the native card
+      // class — responds to the current viewport without requiring visible cards.
+      return discoverNativeCardDimensionsViaClass(doc);
+    }
 
     // Portrait card dimensions
     const firstRect = portraitRoots[0].getBoundingClientRect();

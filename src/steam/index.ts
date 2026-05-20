@@ -496,14 +496,15 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
   // accessors started throwing on enumeration). Wrap everything; always
   // fall back to the 5 native defaults.
   try {
-    // 1. Settings file — primary source for TabMaster tabs
+    // 1. Settings file — primary source for TabMaster tabs.
+    // Guard removed: in SteamOS 3.9 DeckyPluginLoader is no longer accessible
+    // via window, so isTabMasterInstalled() always returns false even when
+    // TabMaster IS installed. The Python backend returns {"tabs":[]} safely
+    // when the file is absent, so unconditional call is safe on both 3.7 and 3.9.
     try {
       const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
-      const { isTabMasterInstalled } = await import('../integrations/registry');
-      if (isTabMasterInstalled()) {
-        const settingsTabs = await getVisibleTabsFromSettingsFile();
-        if (settingsTabs.length > 0) return settingsTabs;
-      }
+      const settingsTabs = await getVisibleTabsFromSettingsFile();
+      if (settingsTabs.length > 0) return settingsTabs;
     } catch {}
 
     // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
@@ -517,6 +518,45 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
       const { getTabsFromDOM } = await import('../integrations/domtabs');
       const domTabs = getTabsFromDOM();
       if (domTabs.length > 0) return domTabs;
+    } catch {}
+
+    // 4. Native special tabs + user collections from collectionStore.
+    // Adds "Recentes" (allRecentAppsCollection) plus user-created collections
+    // (including Unifideck-managed ones). Uses the safe raw storage map —
+    // never touches the userCollections getter to avoid MobX cache poisoning.
+    // Compatible with both SteamOS 3.7 and 3.9: on 3.7 this step is only
+    // reached if TabMaster is not installed; on 3.9 it adds user collections
+    // that LibraryTabStore used to expose but no longer does.
+    try {
+      const cs = (globalThis as any).collectionStore;
+      const extra: PlatformTab[] = [];
+      const seen = new Set(defaults.map((t) => t.id.toLowerCase()));
+      // "Recentes" native tab
+      const recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection;
+      if (recentCol) {
+        const id = String(recentCol.id ?? recentCol.m_strId ?? 'recent');
+        const name = String(recentCol.displayName ?? recentCol.m_strName ?? 'Recent');
+        if (id && !seen.has(id.toLowerCase())) { seen.add(id.toLowerCase()); extra.push({ id, name }); }
+      }
+      // User-created collections (uc-*, from-tag-*, etc.)
+      const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+      if (rawMap && typeof rawMap.values === 'function') {
+        const SYSTEM_IDS = new Set([
+          'favorite','hidden','notinstalled','installed','local',
+          'deckverified','controller','uncategorized',
+          'all-apps-alpha','all-apps-recent','local-install','recent',
+        ]);
+        for (const col of rawMap.values()) {
+          const id = String(col?.id ?? col?.m_strId ?? col?.key ?? '');
+          const name = String(col?.displayName ?? col?.m_strName ?? '');
+          if (!id || !name) continue;
+          if (SYSTEM_IDS.has(id.toLowerCase()) || seen.has(id.toLowerCase())) continue;
+          try { if (cs?.BIsSystemCollectionId?.(id)) continue; } catch {}
+          seen.add(id.toLowerCase());
+          extra.push({ id, name });
+        }
+      }
+      if (extra.length > 0) return [...defaults, ...extra];
     } catch {}
   } catch {}
 
@@ -1650,12 +1690,35 @@ async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOv
     );
   }
   if (id === "recent") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
+  if (id === "all_apps_recent" || id === "allrecentapps") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
   const byTab = all.filter((a: any) => {
     const tags = [a?.tab, a?.tab_name, a?.collection_name, a?.category, ...(Array.isArray(a?.tags) ? a.tags : [])]
       .map((v: any) => slugifyTab(String(v ?? "")))
       .filter(Boolean);
     return tags.includes(id);
   });
+  // Fallback: resolve via collectionStore raw map (covers uc-*, from-tag-*, and
+  // Unifideck-managed collections which use the original tab id as the collection id).
+  // Safe for both SteamOS 3.7 and 3.9 since we only use m_mapCollectionsFromStorage.
+  if (!byTab.length) {
+    try {
+      const cs = (globalThis as any).collectionStore;
+      const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+      if (rawMap && typeof rawMap.get === 'function') {
+        const col = rawMap.get(tab) ?? rawMap.get(id);
+        if (col) {
+          const appsSet = col?.allApps ?? col?.m_rgApps;
+          if (appsSet instanceof Set) {
+            const appIds = new Set(Array.from(appsSet).map(Number).filter(Number.isFinite));
+            if (appIds.size > 0) return all.filter((a) => appIds.has(appIdOf(a)));
+          } else if (Array.isArray(appsSet) && appsSet.length) {
+            const appIds = new Set(appsSet.map((a: any) => Number(a?.appid ?? a)).filter(Number.isFinite));
+            if (appIds.size > 0) return all.filter((a) => appIds.has(appIdOf(a)));
+          }
+        }
+      }
+    } catch {}
+  }
   return byTab;
 }
 

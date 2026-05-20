@@ -12,10 +12,24 @@ const DIMS_DEBOUNCE_MS = 500;     // notify listeners after the churn settles
 const STYLES_POLL_MS = 3000;      // fast cadence while dims aren't stable
 const STYLES_POLL_MS_IDLE = 30000;// slower cadence once featured dims are cached
 
-// Persisted cache (cold-start reflow avoidance)
+// Persisted cache (cold-start reflow avoidance).
+// v3 stores ONE entry per viewport fingerprint so switching displays
+// (1440p external ↔ 800p Deck) restores the previously-measured dims for
+// each resolution instead of falling back to constants when the live
+// recents is hidden and can't be re-measured.
 const DIMS_CACHE_KEY = "ds-cardsize";
-const DIMS_CACHE_VERSION = 2;
-type PersistedDims = { v: number; dims: NativeCardDims; vw: number; vh: number; dpr: number };
+const DIMS_CACHE_VERSION = 3;
+type PersistedDimsV3 = { v: number; entries: Array<{ fp: { vw: number; vh: number; dpr: number }; dims: NativeCardDims }> };
+// Legacy v2 shape — read once on first run to migrate the prior single-entry
+// cache into the new multi-entry map so users don't lose their tuned dims.
+type PersistedDimsV2 = { v: number; dims: NativeCardDims; vw: number; vh: number; dpr: number };
+
+function fpKey(fp: { vw: number; vh: number; dpr: number }): string {
+  return `${fp.vw}x${fp.vh}@${fp.dpr.toFixed(2)}`;
+}
+function fpMatches(a: { vw: number; vh: number; dpr: number }, b: { vw: number; vh: number; dpr: number }): boolean {
+  return a.vw === b.vw && a.vh === b.vh && Math.abs(a.dpr - b.dpr) <= 0.05;
+}
 
 let cachedCardRadius = "0px";
 let cachedNewBadgeRadius = "0px";
@@ -45,23 +59,35 @@ function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
   };
 }
 
-function loadPersistedDims(): NativeCardDims | null {
+// Read the full persisted entries map (one entry per viewport fingerprint).
+// Migrates v2 (single entry) into v3 (entries array) on first read so users
+// don't lose their previously-tuned dims.
+function loadPersistedEntries(): PersistedDimsV3 {
   try {
     const raw = (globalThis as any)?.localStorage?.getItem(DIMS_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedDims;
-    if (!parsed || parsed.v !== DIMS_CACHE_VERSION || !parsed.dims) return null;
-    // Validate viewport fingerprint: if resolution or dpr changed since the
-    // dims were measured, they no longer match reality. Discard so they get
-    // re-measured from the live DOM (fixes wrong featured-card size after a
-    // display-resolution change while matchNativeSize is on).
-    const fp = viewportFingerprint();
-    if (fp.vw >= 100 && fp.vh >= 100) {
-      if (parsed.vw !== fp.vw || parsed.vh !== fp.vh || Math.abs((parsed.dpr ?? 1) - fp.dpr) > 0.05) {
-        return null;
-      }
+    if (!raw) return { v: DIMS_CACHE_VERSION, entries: [] };
+    const parsed = JSON.parse(raw);
+    if (parsed?.v === DIMS_CACHE_VERSION && Array.isArray(parsed.entries)) return parsed as PersistedDimsV3;
+    // v2 migration: convert the single { dims, vw, vh, dpr } into a v3 entry.
+    if (parsed?.v === 2 && parsed.dims && typeof parsed.vw === 'number') {
+      const v2 = parsed as PersistedDimsV2;
+      return { v: DIMS_CACHE_VERSION, entries: [{ fp: { vw: v2.vw, vh: v2.vh, dpr: v2.dpr ?? 1 }, dims: v2.dims }] };
     }
-    return parsed.dims;
+  } catch {}
+  return { v: DIMS_CACHE_VERSION, entries: [] };
+}
+
+function loadPersistedDims(): { dims: NativeCardDims; fp: { vw: number; vh: number; dpr: number } } | null {
+  try {
+    const fp = viewportFingerprint();
+    // When BigPic isn't ready yet at module load we can't pick the right
+    // entry — leave cachedNativeDims null and let the polling tick re-seed
+    // once a real viewport is observable.
+    if (fp.vw < 100 || fp.vh < 100) return null;
+    const all = loadPersistedEntries();
+    const match = all.entries.find((e) => fpMatches(e.fp, fp));
+    if (!match) return null;
+    return { dims: match.dims, fp: match.fp };
   } catch { return null; }
 }
 
@@ -69,15 +95,37 @@ function persistDims(dims: NativeCardDims) {
   try {
     const fp = viewportFingerprint();
     if (fp.vw < 100 || fp.vh < 100) return;
-    const payload: PersistedDims = { v: DIMS_CACHE_VERSION, dims, ...fp };
-    (globalThis as any)?.localStorage?.setItem(DIMS_CACHE_KEY, JSON.stringify(payload));
+    const all = loadPersistedEntries();
+    // Replace existing entry for the current fp, or append.
+    const idx = all.entries.findIndex((e) => fpMatches(e.fp, fp));
+    if (idx >= 0) all.entries[idx] = { fp, dims };
+    else all.entries.push({ fp, dims });
+    // Cap to a small number of resolutions to avoid unbounded growth.
+    if (all.entries.length > 8) all.entries = all.entries.slice(-8);
+    (globalThis as any)?.localStorage?.setItem(DIMS_CACHE_KEY, JSON.stringify(all));
   } catch {}
+}
+
+// Returns the persisted dims for a specific fp, or null. Used when the fp
+// poll detects a resolution change — we re-seed cachedNativeDims from the
+// stored entry instead of waiting for a fresh measurement that may never
+// complete (e.g. native recents permanently hidden via hideRecents=true).
+function lookupPersistedForFp(fp: { vw: number; vh: number; dpr: number }): NativeCardDims | null {
+  try {
+    const all = loadPersistedEntries();
+    const match = all.entries.find((e) => fpMatches(e.fp, fp));
+    return match ? match.dims : null;
+  } catch { return null; }
 }
 
 // Seed from last-session cache so cold boot skips the CARD_W/CARD_ART_H fallback
 // and avoids the reflow when native dims are discovered shortly after.
-cachedNativeDims = loadPersistedDims();
-if (cachedNativeDims) cachedDimsFp = viewportFingerprint();
+// Seed cachedDimsFp from the cache's STORED fp (not the live one) so a viewport
+// change since the cache was written is detected on the next ensureStyles tick.
+{
+  const persisted = loadPersistedDims();
+  if (persisted) { cachedNativeDims = persisted.dims; cachedDimsFp = persisted.fp; }
+}
 
 let dimsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedNotifyDims(_dims: NativeCardDims) {
@@ -829,12 +877,66 @@ function rearmStyleTimer() {
   }, wantPeriod);
 }
 
+// Track which windows we've attached the resize handler to so we can detach
+// them all on stop. The plugin code runs in SharedJSContext but the visual
+// viewport that changes on display switch (1440p external → 800p internal)
+// is the BigPicture window — resize events fire there, not on SWC. Without
+// also listening on BigPic, `ensureStyles` only re-runs on the 30 s idle
+// poll, leaving cards at the old size for up to 30 s after the display swap.
+const resizeListenerWindows = new Set<Window>();
+// Independent viewport-fingerprint poll. Resize listeners on BigPic require
+// the SteamUIStore main window to be ready at `globalStylesStart` time, which
+// isn't guaranteed (DeckRow can mount before SteamUIStore exposes the main
+// window instance). A light 2 s fp poll catches display-resolution swaps
+// regardless of when the listener attached.
+let globalFpPollTimer: ReturnType<typeof setInterval> | null = null;
+let lastObservedFp: { vw: number; vh: number; dpr: number } | null = null;
+
 export function globalStylesStart() {
   if (++globalStyleRefCount === 1) {
     ensureStyles();
     rearmStyleTimer();
     globalResizeHandler = () => ensureStyles();
-    window.addEventListener('resize', globalResizeHandler);
+    const attach = (w: any) => {
+      if (!w || resizeListenerWindows.has(w)) return;
+      try { w.addEventListener('resize', globalResizeHandler!); resizeListenerWindows.add(w); } catch {}
+    };
+    attach(window);
+    // Retry the BigPic attach for a few seconds — SteamUIStore.WindowStore may
+    // not yet expose GamepadUIMainWindowInstance when this effect first runs.
+    const tryAttachBig = () => {
+      try { attach((globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch {}
+    };
+    tryAttachBig();
+    for (const d of [500, 1500, 3000, 6000]) setTimeout(tryAttachBig, d);
+    // Independent viewport fingerprint poll — catches resolution swaps even
+    // if the resize event never fires (e.g. attach to BigPic failed silently).
+    lastObservedFp = viewportFingerprint();
+    globalFpPollTimer = setInterval(() => {
+      try {
+        const fp = viewportFingerprint();
+        if (fp.vw < 100 || fp.vh < 100) return;
+        if (!lastObservedFp ||
+            fp.vw !== lastObservedFp.vw ||
+            fp.vh !== lastObservedFp.vh ||
+            Math.abs(fp.dpr - (lastObservedFp.dpr ?? 1)) > 0.05) {
+          lastObservedFp = fp;
+          // Try the persisted entry for the new viewport BEFORE measuring.
+          // Re-measurement may not succeed when recents is hidden (no native
+          // portraits visible). Restoring previously-seen dims for this fp
+          // keeps cards correctly sized without waiting for measurement.
+          const stored = lookupPersistedForFp(fp);
+          if (stored) {
+            cachedNativeDims = stored;
+            cachedDimsFp = fp;
+            pendingDims = null;
+            pendingDimsCount = 0;
+            debouncedNotifyDims(stored);
+          }
+          ensureStyles();
+        }
+      } catch {}
+    }, 2000);
     // Short burst of early polls to catch native dims as soon as Steam's home
     // renders its recents — otherwise we wait a full STYLES_POLL_MS (3s) for
     // the first chance, which visibly delays the featured card sizing.
@@ -854,7 +956,14 @@ export function globalStylesStop() {
     globalStyleRefCount = 0;
     if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
     globalStyleTimerPeriod = STYLES_POLL_MS;
-    if (globalResizeHandler) { window.removeEventListener('resize', globalResizeHandler); globalResizeHandler = null; }
+    if (globalFpPollTimer) { clearInterval(globalFpPollTimer); globalFpPollTimer = null; }
+    if (globalResizeHandler) {
+      for (const w of resizeListenerWindows) {
+        try { w.removeEventListener('resize', globalResizeHandler); } catch {}
+      }
+      resizeListenerWindows.clear();
+      globalResizeHandler = null;
+    }
   }
 }
 

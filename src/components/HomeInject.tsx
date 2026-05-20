@@ -9,7 +9,7 @@ import { PlatformProvider } from "../runtime/platformContext";
 import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
-import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
+import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { applyHideRecents, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
 import { Focusable } from "@decky/ui";
@@ -90,8 +90,8 @@ function detectNavTreeApi(): { available: boolean; detail: string } {
   }
 }
 
-function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | null {
-  const doc = getPreferredSteamDocument();
+function resolveAnchor(doc?: Document): { parent: HTMLElement; before: ChildNode | null } | null {
+  doc = doc ?? getPreferredSteamDocument();
   if (!doc) return null;
 
   // Strategy: find the "Recent Games" section, then walk UP to the scrollable
@@ -109,7 +109,10 @@ function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | nu
       const p: HTMLElement | null = container.parentElement;
       if (!p || p === doc.body) break;
       try {
-        const cs = getComputedStyle(p);
+        // Use the element's own window for getComputedStyle so cross-doc
+        // anchoring (BigPicture vs SharedJSContext) still resolves overflow.
+        const win = p.ownerDocument?.defaultView ?? getPreferredSteamWindow();
+        const cs = win.getComputedStyle(p);
         const oy = (cs.overflowY || '').toLowerCase();
         if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) {
           // Found the scrollable viewport — insert after the current container
@@ -147,21 +150,66 @@ function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | nu
   return null;
 }
 
+// Holds the last mount we created so we can re-insert THE SAME element back
+// into the DOM after Steam blows it away during navigation. Reusing the same
+// node keeps React's portal target stable — no unmount/remount of children,
+// so per-shelf data, focus state, nav-tree registration, and ArtHero
+// data-attribute all survive the brief detach.
+let lastCreatedMount: HTMLElement | null = null;
+
 function findOrCreateMount(): HTMLElement | null {
-  const doc = getPreferredSteamDocument();
-  const existing = doc.getElementById(ROOT_ID) as HTMLElement | null;
-  if (existing?.isConnected) return existing;
+  // SteamOS 3.9: `preferredSteamWindow` can get stuck on the SharedJSContext
+  // while the visual DOM lives in the BigPicture main window. Sweeping every
+  // known Steam doc — preferred first for 3.7 fast-path parity — guarantees
+  // we re-attach to whichever doc actually carries the home anchor when our
+  // mount gets blown away by Steam re-renders.
+  const preferred = getPreferredSteamDocument();
+  const allDocs = getAllSteamDocuments();
+  const seen = new Set<Document>();
+  const docs: Document[] = [];
+  const push = (d: Document | null | undefined) => {
+    if (d && !seen.has(d)) { seen.add(d); docs.push(d); }
+  };
+  push(preferred);
+  for (const d of allDocs) push(d);
 
-  const anchor = resolveAnchor();
-  if (!anchor || anchor.parent === doc.body) return null;
+  // 1) Reuse a still-connected mount in any known doc (covers cases where
+  //    the mount survives in BigPic but preferred points at SWC).
+  for (const d of docs) {
+    const existing = d.getElementById(ROOT_ID) as HTMLElement | null;
+    if (existing?.isConnected) return existing;
+  }
 
-  const mount = doc.createElement("div");
-  mount.id = ROOT_ID;
-  mount.style.cssText = "width:100%;display:block;position:relative;z-index:0;margin:0;padding:0;";
-  anchor.parent.insertBefore(mount, anchor.before);
+  // 2) Mount was detached but element ref is still alive — re-insert THE SAME
+  //    element into the first doc with a valid anchor. React's portal keeps
+  //    rendering into it; the brief detach is invisible to the React subtree.
+  if (lastCreatedMount && !lastCreatedMount.isConnected) {
+    for (const d of docs) {
+      const anchor = resolveAnchor(d);
+      if (!anchor || anchor.parent === d.body) continue;
+      // If the cached element belongs to a different doc, adoptNode keeps it
+      // usable in the new doc — Steam doc instances share a window in 3.7 so
+      // this is normally a no-op; in 3.9 the cross-doc case is harmless.
+      try { if (lastCreatedMount.ownerDocument !== d) d.adoptNode(lastCreatedMount); } catch {}
+      anchor.parent.insertBefore(lastCreatedMount, anchor.before);
+      return lastCreatedMount;
+    }
+  }
 
-  logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
-  return mount;
+  // 3) Otherwise create a new mount in the first doc whose `resolveAnchor`
+  //    yields a usable insertion point.
+  for (const d of docs) {
+    const anchor = resolveAnchor(d);
+    if (!anchor || anchor.parent === d.body) continue;
+    const mount = d.createElement("div");
+    mount.id = ROOT_ID;
+    mount.style.cssText = "width:100%;display:block;position:relative;z-index:0;margin:0;padding:0;";
+    anchor.parent.insertBefore(mount, anchor.before);
+    lastCreatedMount = mount;
+    logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
+    return mount;
+  }
+  return null;
 }
 
 export function HomeShelves() {
@@ -172,14 +220,28 @@ export function HomeShelves() {
   useEffect(() => {
     let alive = true;
 
+    // Debounce mount removal: a brief route-detector failure (e.g. getPreferredSteamWindow
+    // returns a window whose location isn't settled yet) would immediately unmount the portal
+    // and flash native recents. Wait 600 ms before actually removing — if home becomes
+    // visible again within the window, cancel the removal. Additive only; no impact on 3.7.
+    let removeTimer: ReturnType<typeof setTimeout> | null = null;
     const updateMount = () => {
       if (!alive) return;
       const homeVisible = isHomeRoute() || hasHomeDomSignals();
       if (!homeVisible) {
-        setMountEl(null);
-        getPreferredSteamDocument().getElementById(ROOT_ID)?.remove();
+        if (!removeTimer) {
+          removeTimer = setTimeout(() => {
+            removeTimer = null;
+            if (!alive) return;
+            if (!isHomeRoute() && !hasHomeDomSignals()) {
+              setMountEl(null);
+              getPreferredSteamDocument().getElementById(ROOT_ID)?.remove();
+            }
+          }, 600);
+        }
         return;
       }
+      if (removeTimer) { clearTimeout(removeTimer); removeTimer = null; }
       const el = findOrCreateMount();
       if (el) setMountEl(el);
     };
@@ -187,8 +249,22 @@ export function HomeShelves() {
     updateMount();
     const doc = getPreferredSteamDocument();
     const win = getPreferredSteamWindow();
-    const obs = new MutationObserver(updateMount);
-    obs.observe(doc.body, { childList: true, subtree: true });
+    // Observe every known Steam doc — when preferredSteamWindow points at
+    // SharedJSContext and Steam blows away our mount from the BigPicture
+    // body, a single observer on `preferred.body` never fires. Watching each
+    // doc body lets updateMount re-create the mount in the same animation
+    // frame instead of waiting up to 2 s for the setInterval fallback.
+    const observers: MutationObserver[] = [];
+    const observedDocs = new Set<Document>();
+    const observeDoc = (d: Document | null | undefined) => {
+      if (!d || observedDocs.has(d) || !d.body) return;
+      observedDocs.add(d);
+      const o = new MutationObserver(updateMount);
+      o.observe(d.body, { childList: true, subtree: true });
+      observers.push(o);
+    };
+    observeDoc(doc);
+    for (const d of getAllSteamDocuments()) observeDoc(d);
     // Short fallback covers SPA pushState navigation (library → home) that does
     // not fire popstate/hashchange and may not trigger body subtree mutations.
     const timer = window.setInterval(updateMount, 2000);
@@ -197,7 +273,11 @@ export function HomeShelves() {
 
     // Patch history.pushState/replaceState so SPA navigations synchronously
     // trigger updateMount (no 2s fallback wait when returning to home).
-    let wasOnHome = isHomeRoute();
+    // HomeShelves only mounts while on the home route, so wasOnHome is always true
+    // at effect run time. If isHomeRoute() fails briefly (window not settled yet on
+    // restart), wasOnHome=false would cause onRouteChange to fire triggerShelfRefresh
+    // immediately — the "strange reload" the user sees after Steam restart.
+    let wasOnHome = true;
     const onRouteChange = () => {
       const nowOnHome = isHomeRoute();
       if (nowOnHome && !wasOnHome) {
@@ -220,7 +300,7 @@ export function HomeShelves() {
 
     return () => {
       alive = false;
-      obs.disconnect();
+      for (const o of observers) { try { o.disconnect(); } catch {} }
       window.clearInterval(timer);
       win.removeEventListener("hashchange", updateMount);
       win.removeEventListener("popstate", updateMount);
@@ -228,7 +308,9 @@ export function HomeShelves() {
       win.removeEventListener("hashchange", onRouteChange);
       try { if (origPush && hist.pushState !== origPush) hist.pushState = origPush; } catch {}
       try { if (origReplace && hist.replaceState !== origReplace) hist.replaceState = origReplace; } catch {}
-      doc.getElementById(ROOT_ID)?.remove();
+      if (removeTimer) { clearTimeout(removeTimer); removeTimer = null; }
+      // Remove the mount from every doc we may have created it in, not just preferred.
+      for (const d of observedDocs) { try { d.getElementById(ROOT_ID)?.remove(); } catch {} }
     };
   }, []);
 
@@ -258,6 +340,35 @@ export function HomeShelves() {
       delete mountEl.dataset.deckShelvesRenderer;
     };
   }, [mountEl]);
+
+  // Issue #68: restore focus to the native recents shelf when the plugin is
+  // disabled while focus is inside DS shelves — otherwise focus disappears
+  // and the user must navigate blindly.
+  const prevEnabledRef = useRef(settings?.enabled);
+  useEffect(() => {
+    if (!settings) return;
+    if (prevEnabledRef.current === true && settings.enabled === false) {
+      try {
+        // Sweep every known Steam doc — preferred may point at SharedJSContext
+        // while the visual native recents lives in BigPic. Case-insensitive
+        // attribute match catches PT-BR "Jogados Recentemente" /
+        // "Adicionados Recentemente" alongside the older "Jogos recentes".
+        const docs = [getPreferredSteamDocument(), ...getAllSteamDocuments()];
+        let native: HTMLElement | null = null;
+        const seen = new Set<Document>();
+        for (const dc of docs) {
+          if (!dc || seen.has(dc)) continue;
+          seen.add(dc);
+          native = dc.querySelector(
+            '[aria-label*="recentes" i] .Focusable, [aria-label*="recente" i] .Focusable, [aria-label*="recent" i] .Focusable, [role="list"] .Panel.Focusable'
+          ) as HTMLElement | null;
+          if (native) break;
+        }
+        if (native) focusElement(native);
+      } catch {}
+    }
+    prevEnabledRef.current = settings.enabled;
+  }, [settings?.enabled]);
 
   // Apply hideRecents — only actually hide when the plugin is enabled and has
   // visible shelves.  Otherwise force recents visible regardless of the toggle
@@ -625,6 +736,21 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   // When recents are hidden, move gamepad focus to the first shelf card
   // using the Steam FocusNavController API (element.focus() alone does not
   // update the gamepad nav tree).  Retries because shelf content loads async.
+  // Also re-runs on display resolution change (viewport resize on BigPic) so
+  // focus jumps back into our first card after the layout reflows.
+  const [viewportTick, setViewportTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setViewportTick((v) => v + 1);
+    const attached: Array<() => void> = [];
+    const attach = (w: Window | null | undefined) => {
+      if (!w) return;
+      try { w.addEventListener('resize', bump); attached.push(() => { try { w.removeEventListener('resize', bump); } catch {} }); } catch {}
+    };
+    attach(window);
+    try { attach((globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow as Window); } catch {}
+    return () => { for (const off of attached) off(); };
+  }, []);
+
   useEffect(() => {
     if (!hideRecentsSetting) return;
     let cancelled = false;
@@ -648,7 +774,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
     return () => { cancelled = true; };
-  }, [hideRecentsSetting, mountEl, shelves?.length]);
+  }, [hideRecentsSetting, mountEl, shelves?.length, viewportTick]);
 
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -771,12 +897,26 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       } catch {}
     };
     apply();
-    const doc = getPreferredSteamDocument();
-    const head = doc?.head ?? doc?.documentElement;
-    if (!head) return;
-    const obs = new MutationObserver(apply);
-    obs.observe(head, { childList: true });
-    return () => { obs.disconnect(); try { root.removeAttribute('data-ds-hero-label'); } catch {} };
+    // Observe every known Steam doc's head — CSS Loader injects theme styles
+    // into the BigPicture head, which may not be the preferred doc. A single
+    // observer on preferred.head misses those mutations and leaves
+    // data-ds-hero-label stale when themes toggle mid-session.
+    const observers: MutationObserver[] = [];
+    const seen = new Set<Element>();
+    const observeHead = (d: Document | null | undefined) => {
+      const head = d?.head ?? d?.documentElement;
+      if (!head || seen.has(head)) return;
+      seen.add(head);
+      const o = new MutationObserver(apply);
+      o.observe(head, { childList: true });
+      observers.push(o);
+    };
+    observeHead(getPreferredSteamDocument());
+    for (const d of getAllSteamDocuments()) observeHead(d);
+    return () => {
+      for (const o of observers) { try { o.disconnect(); } catch {} }
+      try { root.removeAttribute('data-ds-hero-label'); } catch {}
+    };
   }, [mountEl]);
 
   // Drag-to-reorder shelves by holding the title (touch/mouse only; D-pad nav

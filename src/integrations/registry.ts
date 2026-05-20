@@ -3,14 +3,26 @@
  * Uses DeckyPluginLoader.plugins as the authoritative source.
  */
 export function isPluginInstalled(name: string): boolean {
+  // SteamOS 3.9: DeckyPluginLoader moved away from window — try multiple paths.
+  // plugins may be an array or Map depending on the Decky version.
   try {
-    const plugins: any[] = (window as any).DeckyPluginLoader?.plugins ?? [];
-    return plugins.some(
-      (p: any) => typeof p.name === 'string' && p.name.toLowerCase() === name.toLowerCase(),
-    );
-  } catch {
-    return false;
-  }
+    const loaders = [
+      (window as any).DeckyPluginLoader,
+      (globalThis as any).DeckyPluginLoader,
+      (globalThis as any).deckyPluginLoader,
+      (window as any).deckyPluginLoader,
+    ].filter(Boolean);
+    for (const loader of loaders) {
+      const raw = loader?.plugins ?? loader?.pluginList;
+      const arr: any[] = raw instanceof Map
+        ? Array.from(raw.values())
+        : (Array.isArray(raw) ? raw : []);
+      if (arr.some((p: any) => typeof p?.name === 'string' && p.name.toLowerCase() === name.toLowerCase())) {
+        return true;
+      }
+    }
+  } catch {}
+  return false;
 }
 
 function qaForce(flag: string): "present" | "absent" | "" {

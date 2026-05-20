@@ -1,4 +1,4 @@
-import { getPreferredSteamDocument } from "../runtime/steamHost";
+import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
 import { getRuntimeClassMap } from "./webpackCompat";
 
 /**
@@ -24,13 +24,21 @@ import { getRuntimeClassMap } from "./webpackCompat";
 const FALLBACK_HERO_INNER = "_30D-80Lg-Luy-KxOumBlaY";
 
 function getCssLoaderStyleNodes(): HTMLStyleElement[] {
-  try {
-    const doc = getPreferredSteamDocument();
-    if (!doc) return [];
-    return Array.from(doc.querySelectorAll<HTMLStyleElement>("style.css-loader-style"));
-  } catch {
-    return [];
-  }
+  // SteamOS 3.9: CSS Loader theme styles live in the BigPicture document's
+  // <head>, but `preferredSteamWindow` may currently point at the
+  // SharedJSContext (whose document has no theme styles). Sweep every known
+  // Steam doc — preferred first for 3.7 parity — so ArtHero / theme
+  // detection doesn't silently flip to false when preferred drifts.
+  const out: HTMLStyleElement[] = [];
+  const seen = new Set<Document>();
+  const pushFrom = (d: Document | null | undefined) => {
+    if (!d || seen.has(d)) return;
+    seen.add(d);
+    try { out.push(...Array.from(d.querySelectorAll<HTMLStyleElement>("style.css-loader-style"))); } catch {}
+  };
+  try { pushFrom(getPreferredSteamDocument()); } catch {}
+  try { for (const d of getAllSteamDocuments()) pushFrom(d); } catch {}
+  return out;
 }
 
 /** Returns true when at least one CSS Loader theme is active. */
