@@ -348,22 +348,22 @@ export function HomeShelves() {
           liveMount?.dispatchEvent(new CustomEvent('ds-home-reentry'));
         } catch {}
         // Steam restores the previously-focused DS card on B-return, but the
-        // mount's scroll container is at the top — the focused card is in
-        // view only after the user moves the D-pad once, which silently
-        // scrolls. Sync the viewport with the focus position so the focused
-        // card is visible immediately. Fired at multiple delays because
-        // Steam re-renders home over the next ~1.5 s and can reset the
-        // scroll position; each subsequent call re-aligns.
+        // mount's scroll container can be at the top — the focused card is
+        // in view only after the user moves the D-pad once. Sync the
+        // viewport so it's visible immediately. Uses `block:'nearest'` —
+        // NOT `'center'` — so an already-visible card (e.g. the first card
+        // near the top) is left exactly where it is. `'center'` would
+        // re-center it and visibly scroll the viewport down.
         const syncScroll = () => {
           try {
             const liveMount = getPreferredSteamDocument().getElementById(ROOT_ID);
             const focused = liveMount?.querySelector('.gpfocus, .deck-shelves-root *:focus') as HTMLElement | null;
             if (focused) {
-              focused.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as ScrollBehavior });
+              focused.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' as ScrollBehavior });
             }
           } catch {}
         };
-        for (const d of [150, 400, 800, 1400, 2200]) setTimeout(syncScroll, d);
+        for (const d of [150, 400, 800]) setTimeout(syncScroll, d);
       }
       wasOnHome = nowOnHome;
     };
@@ -885,68 +885,37 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   }, [mountEl]);
 
   useEffect(() => {
+    if (!hideRecentsSetting) return;
     let cancelled = false;
-    // Find the closest scrollable ancestor of the mount. Used to undo the
-    // Steam-driven scrollIntoView that fires when we focus the first card —
-    // in ArtHero mode the first shelf is `height:calc(100vh-56px)` with the
-    // card row pushed to the bottom (`margin-top:auto`), so scrollIntoView
-    // pulls the viewport DOWN to center on the card, hiding the hero art
-    // above. Resetting scrollTop back to 0 restores the intended layout.
-    const findScrollAncestor = (el: HTMLElement | null): HTMLElement | null => {
-      try {
-        let cur: HTMLElement | null = el?.parentElement ?? null;
-        for (let i = 0; i < 8 && cur; i++) {
-          const cs = window.getComputedStyle(cur);
-          const oy = (cs.overflowY || '').toLowerCase();
-          if ((oy === 'auto' || oy === 'scroll') && cur.scrollHeight > cur.clientHeight) return cur;
-          cur = cur.parentElement;
-        }
-      } catch {}
-      return null;
-    };
+    const dsHasFocus = () =>
+      !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
     const tryFocus = () => {
       if (cancelled) return true;
       try {
-        // Don't hijack if any card (DS or native recents) is already focused.
-        const doc = getPreferredSteamDocument();
-        if (doc.querySelector('.gpfocus')) return true;
-        // When hideRecents=true, focus our first DS card. When the native
-        // recents stays visible, focus its first card (matches what Steam
-        // does on its own home but consistently even after restart, when
-        // Steam can park focus on the search bar instead).
-        if (hideRecentsSetting) {
-          const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-          if (firstCard) {
-            const r = focusElement(firstCard);
-            // Park the viewport at the top of the mount so the ArtHero
-            // hero (or any full-screen first-shelf layout) is visible. Done
-            // on next frame so we override Steam's own scrollIntoView.
-            const scroller = findScrollAncestor(mountEl);
-            if (scroller) {
-              requestAnimationFrame(() => { try { scroller.scrollTop = 0; } catch {} });
-              setTimeout(() => { try { scroller.scrollTop = 0; } catch {} }, 100);
-            }
-            return r;
-          }
+        // Success state: a DS card already holds gamepad focus. Also the
+        // guard against hijacking the user mid-navigation.
+        if (dsHasFocus()) return true;
+        const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
+        if (firstCard) focusElement(firstCard);
+        else {
           const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-          if (firstRow) return focusElement(firstRow);
-        } else {
-          // Native recents lives as a previous-element-sibling of our mount.
-          const nativeRoot = mountEl.previousElementSibling as HTMLElement | null;
-          const nativeCard = nativeRoot?.querySelector('.Focusable[tabindex]:not([tabindex="-1"])') as HTMLElement | null;
-          if (nativeCard) return focusElement(nativeCard);
-          // Fallback to our first DS card if native isn't focusable.
-          const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-          if (firstCard) return focusElement(firstCard);
+          if (firstRow) focusElement(firstRow);
         }
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
-      return false;
+      // Report success ONLY when a DS card actually holds focus now —
+      // `focusElement` returning true doesn't guarantee the focus stuck
+      // (Steam restores last-session focus to a native-recents card late
+      // in cold boot, AFTER our early retries). Returning false here keeps
+      // the retry chain alive so a late retry re-grabs focus.
+      return dsHasFocus();
     };
     if (!tryFocus()) {
-      const t1 = setTimeout(tryFocus, 500);
-      const t2 = setTimeout(tryFocus, 1500);
-      const t3 = setTimeout(tryFocus, 3000);
-      return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+      // Extended schedule — the last retries (5 s, 7 s) cover Steam's
+      // cold-boot focus restore, which lands well after the 3 s mark and
+      // would otherwise win the race, leaving focus on the off-screen
+      // native recents card (viewport then scrolls down to it).
+      const timers = [300, 800, 1500, 3000, 5000, 7000].map((d) => setTimeout(tryFocus, d));
+      return () => { cancelled = true; for (const t of timers) clearTimeout(t); };
     }
     return () => { cancelled = true; };
   }, [hideRecentsSetting, mountEl, shelves?.length, viewportTick, localHomeReentryTick]);

@@ -92,9 +92,11 @@ run_checks() {
   fi
 
   # 8. INVARIANT 1: Promotion is gated on hideRecentsSetting (hero-wrapper themes
-  # must NOT leak into shelves while native recents are visible).
+  # must NOT leak into shelves while native recents are visible). The guard
+  # also allows the `forceCssLoaderThemes` opt-in, so the grep matches the
+  # full early-return rather than a `hideRecentsSetting`-only fragment.
   if grep -q 'INVARIANT 1' "$src/components/HomeInject.tsx" 2>/dev/null \
-     && grep -q 'if (!hideRecentsSetting) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
+     && grep -q 'if (!hideRecentsSetting && !forceCssLoaderThemes) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 1: promotion requires hideRecentsSetting"
     ((pass++))
   else
