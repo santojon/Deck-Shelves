@@ -337,16 +337,6 @@ export function HomeShelves() {
         // siblings arrive without our hides, so they flash back into view.
         // Re-apply both hide states so they collapse again before the next paint.
         try { reapplyHomeHides(); } catch {}
-        // Re-fire the focus useEffect inside ShelvesContainer so first-card
-        // focus is restored after Steam's nav layer parks focus on the
-        // search bar (or wherever) on route re-entry. The
-        // mountEl/shelves/viewportTick deps don't change here because the
-        // React subtree is preserved by lastCreatedMount, so we use a
-        // custom DOM event subscribed by ShelvesContainer.
-        try {
-          const liveMount = getPreferredSteamDocument().getElementById(ROOT_ID);
-          liveMount?.dispatchEvent(new CustomEvent('ds-home-reentry'));
-        } catch {}
         // Steam restores the previously-focused DS card on B-return, but the
         // mount's scroll container can be at the top — the focused card is
         // in view only after the user moves the D-pad once. Sync the
@@ -837,88 +827,30 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   // When recents are hidden, move gamepad focus to the first shelf card
   // using the Steam FocusNavController API (element.focus() alone does not
   // update the gamepad nav tree).  Retries because shelf content loads async.
-  // Also re-runs on display resolution change (viewport resize on BigPic) so
-  // focus jumps back into our first card after the layout reflows.
-  const [viewportTick, setViewportTick] = useState(0);
-  useEffect(() => {
-    // Only bump the tick when the viewport fingerprint really changed —
-    // Steam emits spurious resize events during D-pad navigation (gamepad
-    // scroll, focus-driven scrollIntoView, etc.) that would otherwise
-    // re-fire the focus effect and yank the user back to the first card
-    // mid-navigation.
-    let lastFp: { w: number; h: number; dpr: number } | null = null;
-    const measureFp = (): { w: number; h: number; dpr: number } | null => {
-      try {
-        const w: any = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow ?? window;
-        if (!w?.innerWidth) return null;
-        return { w: Math.round(w.innerWidth), h: Math.round(w.innerHeight), dpr: Number(w.devicePixelRatio ?? 1) };
-      } catch { return null; }
-    };
-    lastFp = measureFp();
-    const bump = () => {
-      const fp = measureFp();
-      if (!fp || !lastFp) { lastFp = fp; return; }
-      if (fp.w === lastFp.w && fp.h === lastFp.h && Math.abs(fp.dpr - lastFp.dpr) <= 0.05) return;
-      lastFp = fp;
-      setViewportTick((v) => v + 1);
-    };
-    const attached: Array<() => void> = [];
-    const attach = (w: Window | null | undefined) => {
-      if (!w) return;
-      try { w.addEventListener('resize', bump); attached.push(() => { try { w.removeEventListener('resize', bump); } catch {} }); } catch {}
-    };
-    attach(window);
-    try { attach((globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow as Window); } catch {}
-    return () => { for (const off of attached) off(); };
-  }, []);
-
-  // Subscribe to the "ds-home-reentry" event dispatched on the mount by
-  // HomeShelves' `onRouteChange` when the user returns to home. We bump a
-  // local counter that the focus useEffect listens to as a dep, so the
-  // focus restore re-fires without prop threading.
-  const [localHomeReentryTick, setLocalHomeReentryTick] = useState(0);
-  useEffect(() => {
-    if (!mountEl) return;
-    const handler = () => setLocalHomeReentryTick((v) => v + 1);
-    mountEl.addEventListener('ds-home-reentry', handler);
-    return () => { try { mountEl.removeEventListener('ds-home-reentry', handler); } catch {} };
-  }, [mountEl]);
-
   useEffect(() => {
     if (!hideRecentsSetting) return;
     let cancelled = false;
-    const dsHasFocus = () =>
-      !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
     const tryFocus = () => {
       if (cancelled) return true;
       try {
-        // Success state: a DS card already holds gamepad focus. Also the
-        // guard against hijacking the user mid-navigation.
-        if (dsHasFocus()) return true;
+        // Do not hijack focus if the user is already navigating inside the
+        // shelves — effect re-runs on shelves.length changes (5s interval).
+        if (mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus')) return true;
         const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-        if (firstCard) focusElement(firstCard);
-        else {
-          const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-          if (firstRow) focusElement(firstRow);
-        }
+        if (firstCard) return focusElement(firstCard);
+        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+        if (firstRow) return focusElement(firstRow);
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
-      // Report success ONLY when a DS card actually holds focus now —
-      // `focusElement` returning true doesn't guarantee the focus stuck
-      // (Steam restores last-session focus to a native-recents card late
-      // in cold boot, AFTER our early retries). Returning false here keeps
-      // the retry chain alive so a late retry re-grabs focus.
-      return dsHasFocus();
+      return false;
     };
     if (!tryFocus()) {
-      // Extended schedule — the last retries (5 s, 7 s) cover Steam's
-      // cold-boot focus restore, which lands well after the 3 s mark and
-      // would otherwise win the race, leaving focus on the off-screen
-      // native recents card (viewport then scrolls down to it).
-      const timers = [300, 800, 1500, 3000, 5000, 7000].map((d) => setTimeout(tryFocus, d));
-      return () => { cancelled = true; for (const t of timers) clearTimeout(t); };
+      const t1 = setTimeout(tryFocus, 500);
+      const t2 = setTimeout(tryFocus, 1500);
+      const t3 = setTimeout(tryFocus, 3000);
+      return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
     return () => { cancelled = true; };
-  }, [hideRecentsSetting, mountEl, shelves?.length, viewportTick, localHomeReentryTick]);
+  }, [hideRecentsSetting, mountEl, shelves?.length]);
 
   const rootRef = useRef<HTMLDivElement>(null);
 

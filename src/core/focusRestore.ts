@@ -67,20 +67,27 @@ function findNavNodeForElement(el: HTMLElement): any {
   return null;
 }
 
+/** Move gamepad focus to a navigation node. Returns true if a gamepad-tree
+ *  API was invoked, false if none was available. Note: a true return does NOT
+ *  guarantee focus actually landed — Steam's BTakeFocus reports success even
+ *  on a stale node while the nav tree is mid-rebuild. */
+function takeNavFocus(navNode: any): boolean {
+  try {
+    if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); return true; }
+    const tree = navNode.m_Tree;
+    if (tree?.TakeFocus) { tree.TakeFocus(2, navNode); return true; }
+    const ctrl = getFocusNavController();
+    if (ctrl?.OnGamepadNavigationTreeFocused && tree) { ctrl.OnGamepadNavigationTreeFocused(tree, navNode); return true; }
+  } catch {}
+  return false;
+}
+
 /** Move gamepad focus to a specific DOM element using the Steam nav tree API.
  *  Returns true if BTakeFocus or equivalent succeeded, false if it had to
  *  fall back to element.focus(). */
 export function focusElement(el: HTMLElement): boolean {
   const navNode = findNavNodeForElement(el);
-  if (navNode) {
-    try {
-      if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); return true; }
-      const tree = navNode.m_Tree;
-      if (tree?.TakeFocus) { tree.TakeFocus(2, navNode); return true; }
-      const ctrl = getFocusNavController();
-      if (ctrl?.OnGamepadNavigationTreeFocused && tree) { ctrl.OnGamepadNavigationTreeFocused(tree, navNode); return true; }
-    } catch {}
-  }
+  if (navNode && takeNavFocus(navNode)) return true;
   try { el.focus?.(); } catch {}
   return false;
 }
@@ -89,16 +96,9 @@ export function hasPendingFocus(): boolean {
   return !!pendingAppid;
 }
 
-export function tryRestoreFocus(): boolean {
-  if (!pendingAppid) return false;
-  if (Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) {
-    pendingAppid = null;
-    return false;
-  }
-
+function findPendingCard(): HTMLElement | null {
   const doc = getPreferredSteamDocument();
-  if (!doc) return false;
-
+  if (!doc) return null;
   let card: HTMLElement | null = null;
   if (pendingShelfId) {
     card = doc.querySelector(`.ds-card[data-appid="${pendingAppid}"][data-shelfid="${pendingShelfId}"]`) as HTMLElement | null;
@@ -106,46 +106,46 @@ export function tryRestoreFocus(): boolean {
   if (!card) {
     card = doc.querySelector(`.ds-card[data-appid="${pendingAppid}"]`) as HTMLElement | null;
   }
+  return card;
+}
+
+function clearPending(): void {
+  pendingAppid = null;
+  pendingShelfId = null;
+}
+
+/**
+ * Single restore attempt. Clears the pending state ONLY when the target card
+ * is confirmed focused — calling BTakeFocus is not proof of success, so an
+ * unconfirmed attempt leaves the pending state intact for the next caller to
+ * retry (HomeInject re-invokes this on every mount mutation).
+ */
+export function tryRestoreFocus(): boolean {
+  if (!pendingAppid) return false;
+  if (Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) {
+    clearPending();
+    return false;
+  }
+
+  const card = findPendingCard();
   if (!card) return false;
 
   if (card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement) {
-    pendingAppid = null;
-    pendingShelfId = null;
+    clearPending();
     return true;
   }
 
   const navNode = findNavNodeForElement(card);
-
   if (navNode) {
+    takeNavFocus(navNode);
+  } else {
     try {
-      if (typeof navNode.BTakeFocus === "function") {
-        navNode.BTakeFocus(2);
-        pendingAppid = null;
-        pendingShelfId = null;
-        return true;
-      }
-      const tree = navNode.m_Tree;
-      if (tree?.TakeFocus) {
-        tree.TakeFocus(2, navNode);
-        pendingAppid = null;
-        pendingShelfId = null;
-        return true;
-      }
-      const ctrl = getFocusNavController();
-      if (ctrl?.OnGamepadNavigationTreeFocused && tree) {
-        ctrl.OnGamepadNavigationTreeFocused(tree, navNode);
-        pendingAppid = null;
-        pendingShelfId = null;
-        return true;
-      }
+      card.focus?.();
+      card.scrollIntoView?.({ block: "center", behavior: "smooth" });
     } catch {}
   }
-
-  try {
-    card.focus?.();
-    card.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  } catch {}
-
+  // Unconfirmed: keep the pending state so a later call retries once the
+  // rebuilt nav tree actually registers the node.
   return false;
 }
 
@@ -174,63 +174,56 @@ export function beginFocusRestoreLoop(): void {
 
   const isDone = () => abort.signal.aborted || !pendingAppid || pendingAppid !== targetAppid;
 
-  // After a successful initial restore, Steam's native "focus first card on
-  // home mount" can fire later and steal back to the first game (issue #38).
-  // Re-take focus once if we observe it land on a DIFFERENT card within the
-  // confirmation window — bounded to one re-take so legitimate user nav is
-  // never hijacked. With hero art mounted, the extra DOM activity coincidentally
-  // delays Steam's restore past our window, masking the bug.
+  // Steam's native "focus first card on home mount" (issue #38) fires once,
+  // ~0.8-1.8s after the home remounts — well AFTER our initial restore lands.
+  // Poll for 2s and, the first time focus has drifted off the target card,
+  // re-take it. Bounded to one re-take so the user's own later navigation is
+  // never fought. Gated on `activeAbort === abort` (NOT `abort.signal`, which
+  // `succeed()` itself sets) so a newer restore loop cancels this.
   const scheduleConfirmation = () => {
-    if (abort.signal.aborted) return;
     let reTaken = false;
-    const retake = (): boolean => {
-      if (reTaken) return true;
+    const start = Date.now();
+    const check = () => {
+      if (activeAbort !== abort || reTaken) return;
       const card = findCard();
-      if (!card) return false;
-      // If our card is still focused, confirmation succeeded — nothing to do.
-      if (card.classList.contains("gpfocus")) return true;
-      const navNode = findNavNodeForElement(card);
-      if (!navNode) return false;
-      try {
-        if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); reTaken = true; return true; }
-        const tree = navNode.m_Tree;
-        if (tree?.TakeFocus) { tree.TakeFocus(2, navNode); reTaken = true; return true; }
-      } catch {}
-      return false;
+      if (card && !card.classList.contains("gpfocus")) {
+        const navNode = findNavNodeForElement(card);
+        if (navNode && takeNavFocus(navNode)) { reTaken = true; return; }
+      }
+      if (Date.now() - start < 2000) setTimeout(check, 150);
     };
-    // Two checkpoints: ~150ms (catches synchronous post-mount focus) and
-    // ~400ms (catches deferred focus that runs after Steam's home-init layout).
-    setTimeout(retake, 150);
-    setTimeout(retake, 400);
+    setTimeout(check, 150);
   };
 
   const succeed = () => {
-    pendingAppid = null;
-    pendingShelfId = null;
-    abort.abort();
+    clearPending();
     scheduleConfirmation();
+    abort.abort();
   };
 
   const attempt = (): boolean => {
     if (isDone()) return true;
     const card = findCard();
     if (!card) return false;
+    // Success is declared ONLY when the card actually holds gamepad focus.
+    // BTakeFocus returns true even on a stale node during the post-remount
+    // nav-tree rebuild, so the previous tick's BTakeFocus is verified here.
     if (card.classList.contains("gpfocus")) { succeed(); return true; }
     const navNode = findNavNodeForElement(card);
-    if (!navNode) {
-      // If the nav tree walk consistently returns nothing (property name mismatch
-      // on older SteamOS), fall back to DOM focus after most retries are spent.
-      // DOM focus won't sync the gamepad tree but is better than Steam defaulting
-      // to the first card — the restore window is already nearly exhausted.
-      if (Date.now() >= DEADLINE - 200) {
-        try { card.focus?.(); card.scrollIntoView?.({ block: 'nearest' }); } catch {}
-        succeed();
-        return true;
-      }
+    if (navNode) {
+      takeNavFocus(navNode);
+      // Not confirmed yet — let the next poll verify gpfocus landed.
       return false;
     }
-    tryRestoreFocus();
-    return !!pendingAppid ? false : true;
+    // Nav tree never registered the node — last-resort DOM focus once the
+    // window is nearly spent. DOM focus won't sync the gamepad tree but beats
+    // Steam defaulting to the first card.
+    if (Date.now() >= DEADLINE - 200) {
+      try { card.focus?.(); card.scrollIntoView?.({ block: 'nearest' }); } catch {}
+      succeed();
+      return true;
+    }
+    return false;
   };
 
   // MutationObserver: succeed only when TARGET card is added/focused.
@@ -250,28 +243,31 @@ export function beginFocusRestoreLoop(): void {
   const observeRoot = (doc.querySelector(".deck-shelves-root") as HTMLElement | null) ?? doc.body;
   observer.observe(observeRoot, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
 
-  // Defer initial attempt to next macrotask so Steam's synchronous popstate
-  // restoration runs first, then ours wins. Retry on rAF until the rebuilt
-  // nav tree registers our card's node (typically 1–3 frames after remount).
-  const DEADLINE = Date.now() + 800;
+  // setTimeout-based poll — NOT requestAnimationFrame. The plugin runs in the
+  // headless SharedJSContext, which has no render loop, so rAF callbacks never
+  // fire there; an rAF-driven retry would silently never run. Polling every
+  // ~120ms keeps re-issuing BTakeFocus until the rebuilt nav tree settles and
+  // the focus actually sticks. 3.5s window covers a shelf below the fold that
+  // renders ~2-3s after the home remounts.
+  const DEADLINE = Date.now() + 3500;
   const tick = () => {
     if (isDone()) return;
     if (attempt()) return;
     if (Date.now() >= DEADLINE) return;
-    requestAnimationFrame(tick);
+    setTimeout(tick, 120);
   };
-  setTimeout(() => requestAnimationFrame(tick), 0);
+  setTimeout(tick, 0);
 
-  // Short timeout: 2s. Home cards render fast; a longer window lets the
-  // observer interfere with subsequent user navigation.
+  // Hard timeout: 4s — >= DEADLINE so pendingAppid stays set while the poll
+  // still runs. The observer only acts on the target card (no hijack of
+  // arbitrary focus changes) and disconnects on the first success.
   setTimeout(() => {
     if (!abort.signal.aborted) {
       observer.disconnect();
-      pendingAppid = null;
-      pendingShelfId = null;
+      clearPending();
       abort.abort();
     }
-  }, 2000);
+  }, 4000);
 
   // Cleanup on abort
   abort.signal.addEventListener("abort", () => observer.disconnect(), { once: true });
