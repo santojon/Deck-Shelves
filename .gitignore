@@ -46,6 +46,11 @@ reports/local/
 # Temp files inside any reports subfolder
 reports/**/.tmp_*/
 reports/**/.tmp_*.json
+# Top-level aggregate views — static client-side shells that fetch each
+# scope's runs-manifest.json at view time, so they display any run without
+# regeneration. Not committed; regenerate on demand with `pnpm reports:rebuild`.
+reports/index.html
+reports/dashboard.html
 
 # Hidden folders
 /.*/

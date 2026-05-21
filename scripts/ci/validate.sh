@@ -73,10 +73,14 @@ json.dump({'names': names, 'statuses': statuses, 'logs': logs}, open('${steps_js
       || echo -e "  ${YELLOW}warn: report.py failed — check ${report_path}${RESET}"
     rm -f "${steps_json}" 2>/dev/null || true
 
-    # Refresh derived aggregates (manifests + per-scope index + top index +
-    # dashboard) so the run we just wrote shows up everywhere. The per-run
-    # report only writes `{ts}.{html,json}`.
-    python3 "${SCRIPT_DIR}/report.py" --rebuild --root "${ROOT}" \
+    # Refresh per-scope aggregates (manifests + per-scope index.html) so the
+    # run we just wrote shows up in `reports/local/index.html`. `--scope-only`
+    # skips the top-level `reports/index.html` + `reports/dashboard.html`:
+    # those are static client-side shells that fetch each scope's manifest at
+    # view time, so they show any run without regeneration — and they're
+    # gitignored, so rewriting them on every run would only churn the tree.
+    # Regenerate them on demand with `pnpm reports:rebuild` if needed.
+    python3 "${SCRIPT_DIR}/report.py" --rebuild --scope-only --root "${ROOT}" \
       || echo -e "  ${YELLOW}warn: aggregate rebuild failed${RESET}"
 
     echo -e "\n${BOLD}Report:${RESET} file://${report_path}"

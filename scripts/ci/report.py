@@ -1223,18 +1223,26 @@ function toggle(i){{
     # locally (including `reports/local/`, which is gitignored).
 
 
-def rebuild_aggregates(reports_root: Path) -> None:
-    """Regenerate every derived artifact across all scopes.
+def rebuild_aggregates(reports_root: Path, scope_only: bool = False) -> None:
+    """Regenerate derived artifacts across all scopes.
 
     Walks `local/`, `ci/`, `release/` (whichever exist) and rewrites each
-    scope's `index.html` + `runs-manifest.json`, then the top-level
-    `index.html` and the client-side `dashboard.html`. Idempotent — running
-    it twice produces identical output for the same per-run files.
+    scope's `index.html` + `runs-manifest.json`. Unless `scope_only` is set,
+    also rewrites the top-level `index.html` and the client-side
+    `dashboard.html`. Idempotent — running it twice produces identical
+    output for the same per-run files.
+
+    `scope_only` is used by the validate runner: the top index + dashboard
+    are static client-side shells that fetch each scope's manifest at view
+    time, so they never need per-run regeneration — and skipping them keeps
+    those two gitignored files from being rewritten on every local run.
     """
     for sd in ("local", "ci", "release"):
         sp = reports_root / sd
         if sp.exists():
             _rebuild_subfolder_index(sp)
+    if scope_only:
+        return
     _rebuild_top_index(reports_root)
     _rebuild_dashboard(reports_root)
 
@@ -1246,6 +1254,9 @@ def main() -> int:
     p.add_argument("--rebuild", action="store_true",
                    help="Regenerate the aggregates (manifests, indexes, dashboard) "
                         "across all scopes under --root. No per-run report is written.")
+    p.add_argument("--scope-only", action="store_true", dest="scope_only",
+                   help="With --rebuild: regenerate only per-scope indexes + "
+                        "manifests; skip the top-level index.html + dashboard.html.")
     p.add_argument("--ts",         required=False)
     p.add_argument("--stress",     required=False)
     p.add_argument("--subdir",     required=False)
@@ -1257,7 +1268,8 @@ def main() -> int:
 
     if args.rebuild:
         rebuild_aggregates(Path(args.root) / "reports" if (Path(args.root) / "reports").is_dir()
-                           else Path(args.root))
+                           else Path(args.root),
+                           scope_only=args.scope_only)
         return 0
 
     # Per-run path needs the full set of arguments.
