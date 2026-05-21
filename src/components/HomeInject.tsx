@@ -64,8 +64,13 @@ function isHomeRoute(): boolean {
   for (const win of wins) {
     try {
       const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
-      if (href.includes("library/home") || href.includes("#library/home")) return true;
-      if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
+      // Strict: only the actual home route (`/routes/library/home`) counts.
+      // The previous permissive "any /library that isn't /app/ or /collections"
+      // check matched library tabs (e.g. `/routes/library/games`), so leaving
+      // home for the library tab kept `wasOnHome` true — and the B-return
+      // never crossed the `nowOnHome && !wasOnHome` edge, so the focus
+      // restore never fired.
+      if (href.includes("/library/home")) return true;
     } catch {}
   }
   return false;
@@ -320,12 +325,45 @@ export function HomeShelves() {
       const nowOnHome = isHomeRoute();
       if (nowOnHome && !wasOnHome) {
         updateMount();
-        triggerShelfRefresh();
+        // NOTE: deliberately NOT calling `triggerShelfRefresh()` here.
+        // The user briefly left for library/details — shelf data hasn't
+        // meaningfully changed, and triggering a global refresh forces
+        // every online shelf to re-fetch over HTTP, producing a visible
+        // reload cascade on every B-return. Steam app/collection change
+        // events still drive automatic refreshes; the 30 s fallback poll
+        // handles drift.
         // Steam re-renders BOTH native recents AND home tabs on every route
         // entry back to home (B from library, etc.). The freshly mounted
         // siblings arrive without our hides, so they flash back into view.
         // Re-apply both hide states so they collapse again before the next paint.
         try { reapplyHomeHides(); } catch {}
+        // Re-fire the focus useEffect inside ShelvesContainer so first-card
+        // focus is restored after Steam's nav layer parks focus on the
+        // search bar (or wherever) on route re-entry. The
+        // mountEl/shelves/viewportTick deps don't change here because the
+        // React subtree is preserved by lastCreatedMount, so we use a
+        // custom DOM event subscribed by ShelvesContainer.
+        try {
+          const liveMount = getPreferredSteamDocument().getElementById(ROOT_ID);
+          liveMount?.dispatchEvent(new CustomEvent('ds-home-reentry'));
+        } catch {}
+        // Steam restores the previously-focused DS card on B-return, but the
+        // mount's scroll container is at the top — the focused card is in
+        // view only after the user moves the D-pad once, which silently
+        // scrolls. Sync the viewport with the focus position so the focused
+        // card is visible immediately. Fired at multiple delays because
+        // Steam re-renders home over the next ~1.5 s and can reset the
+        // scroll position; each subsequent call re-aligns.
+        const syncScroll = () => {
+          try {
+            const liveMount = getPreferredSteamDocument().getElementById(ROOT_ID);
+            const focused = liveMount?.querySelector('.gpfocus, .deck-shelves-root *:focus') as HTMLElement | null;
+            if (focused) {
+              focused.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' as ScrollBehavior });
+            }
+          } catch {}
+        };
+        for (const d of [150, 400, 800, 1400, 2200]) setTimeout(syncScroll, d);
       }
       wasOnHome = nowOnHome;
     };
@@ -692,6 +730,24 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
     applyPatches();
     if (hasPendingFocus()) beginFocusRestoreLoop();
+
+    // Lazy-load assist for the `LibraryContextMenu` webpack chunk.
+    // applyHideRecents now keeps native recents OFF-SCREEN (position
+    // absolute at -99999px) instead of display:none, so React keeps the
+    // cards mounted and Steam's chunk loader registers the menu class.
+    // These retries cover slow boots where the chunk arrives after the
+    // initial mutation-observer pass — without them a cold deck can land
+    // on the boot's first menu open before the patch installs, falling
+    // back to root injection.
+    const menuPatchRetries = [400, 1000, 2000, 4000, 8000, 15000];
+    const menuRetryTimers: ReturnType<typeof setTimeout>[] = [];
+    const tryInstall = () => {
+      try { installLibraryContextMenuPatch(); } catch {}
+      try { installCreateContextMenuPatch(); } catch {}
+    };
+    for (const d of menuPatchRetries) {
+      menuRetryTimers.push(setTimeout(tryInstall, d));
+    }
     // Proactive extraction via `prewarmMenuExtraction` was removed: it
     // invoked the native `onMenuButton` handler on mount, which briefly
     // opened a real Steam context menu on the home screen — users saw
@@ -738,6 +794,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       obs.disconnect();
       parentObs?.disconnect();
       window.clearInterval(poll);
+      for (const t of menuRetryTimers) { try { clearTimeout(t); } catch {} }
       doc?.removeEventListener("focusin", onFocusIn, true);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
@@ -815,19 +872,73 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     return () => { for (const off of attached) off(); };
   }, []);
 
+  // Subscribe to the "ds-home-reentry" event dispatched on the mount by
+  // HomeShelves' `onRouteChange` when the user returns to home. We bump a
+  // local counter that the focus useEffect listens to as a dep, so the
+  // focus restore re-fires without prop threading.
+  const [localHomeReentryTick, setLocalHomeReentryTick] = useState(0);
   useEffect(() => {
-    if (!hideRecentsSetting) return;
+    if (!mountEl) return;
+    const handler = () => setLocalHomeReentryTick((v) => v + 1);
+    mountEl.addEventListener('ds-home-reentry', handler);
+    return () => { try { mountEl.removeEventListener('ds-home-reentry', handler); } catch {} };
+  }, [mountEl]);
+
+  useEffect(() => {
     let cancelled = false;
+    // Find the closest scrollable ancestor of the mount. Used to undo the
+    // Steam-driven scrollIntoView that fires when we focus the first card —
+    // in ArtHero mode the first shelf is `height:calc(100vh-56px)` with the
+    // card row pushed to the bottom (`margin-top:auto`), so scrollIntoView
+    // pulls the viewport DOWN to center on the card, hiding the hero art
+    // above. Resetting scrollTop back to 0 restores the intended layout.
+    const findScrollAncestor = (el: HTMLElement | null): HTMLElement | null => {
+      try {
+        let cur: HTMLElement | null = el?.parentElement ?? null;
+        for (let i = 0; i < 8 && cur; i++) {
+          const cs = window.getComputedStyle(cur);
+          const oy = (cs.overflowY || '').toLowerCase();
+          if ((oy === 'auto' || oy === 'scroll') && cur.scrollHeight > cur.clientHeight) return cur;
+          cur = cur.parentElement;
+        }
+      } catch {}
+      return null;
+    };
     const tryFocus = () => {
       if (cancelled) return true;
       try {
-        // Do not hijack focus if the user is already navigating inside the
-        // shelves — effect re-runs on shelves.length changes (5s interval).
-        if (mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus')) return true;
-        const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-        if (firstCard) return focusElement(firstCard);
-        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-        if (firstRow) return focusElement(firstRow);
+        // Don't hijack if any card (DS or native recents) is already focused.
+        const doc = getPreferredSteamDocument();
+        if (doc.querySelector('.gpfocus')) return true;
+        // When hideRecents=true, focus our first DS card. When the native
+        // recents stays visible, focus its first card (matches what Steam
+        // does on its own home but consistently even after restart, when
+        // Steam can park focus on the search bar instead).
+        if (hideRecentsSetting) {
+          const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
+          if (firstCard) {
+            const r = focusElement(firstCard);
+            // Park the viewport at the top of the mount so the ArtHero
+            // hero (or any full-screen first-shelf layout) is visible. Done
+            // on next frame so we override Steam's own scrollIntoView.
+            const scroller = findScrollAncestor(mountEl);
+            if (scroller) {
+              requestAnimationFrame(() => { try { scroller.scrollTop = 0; } catch {} });
+              setTimeout(() => { try { scroller.scrollTop = 0; } catch {} }, 100);
+            }
+            return r;
+          }
+          const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+          if (firstRow) return focusElement(firstRow);
+        } else {
+          // Native recents lives as a previous-element-sibling of our mount.
+          const nativeRoot = mountEl.previousElementSibling as HTMLElement | null;
+          const nativeCard = nativeRoot?.querySelector('.Focusable[tabindex]:not([tabindex="-1"])') as HTMLElement | null;
+          if (nativeCard) return focusElement(nativeCard);
+          // Fallback to our first DS card if native isn't focusable.
+          const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
+          if (firstCard) return focusElement(firstCard);
+        }
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
       return false;
     };
@@ -838,7 +949,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
     return () => { cancelled = true; };
-  }, [hideRecentsSetting, mountEl, shelves?.length, viewportTick]);
+  }, [hideRecentsSetting, mountEl, shelves?.length, viewportTick, localHomeReentryTick]);
 
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -906,6 +1017,15 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   //      reach every shelf, not just the first.
   //   3. Promotion only when at least one CSS Loader theme is active.
   //   4. Class assignment is purely additive — `ds-*` is never stripped.
+
+  // Bumped when CSS Loader transitions from inactive→active. Used as a dep
+  // of the recents-slot promotion useEffect below so it re-fires when CSS
+  // Loader injects its chunks AFTER the initial mount — without this, a
+  // cold Steam restart with hideRecents+ArtHero often misses the promotion
+  // window (the effect's first run sees `isCssLoaderActive=false` and
+  // bails; its other deps don't include CSS Loader state).
+  const [cssLoaderTick, setCssLoaderTick] = useState(0);
+
   useEffect(() => {
     // INVARIANT 1: runs when recents are hidden (first-shelf promotion) OR
     // when forceCssLoaderThemes is on — the latter promotes every shelf
@@ -945,7 +1065,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         try { t.removeAttribute('data-ds-recents-slot'); t.classList.remove(nativeClass); } catch {}
       }
     };
-  }, [hideRecentsSetting, firstVisibleId, mountEl, forceCssLoaderThemes, shelves]);
+  }, [hideRecentsSetting, firstVisibleId, mountEl, forceCssLoaderThemes, shelves, cssLoaderTick]);
 
   // Mark .deck-shelves-root with data-ds-hero-label while an ArtHero-family
   // theme is active — the stylesheet keys the full-page hero layout (hidden
@@ -954,10 +1074,14 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    let lastActive = isCssLoaderActive();
     const apply = () => {
       try {
         if (isArtHeroActive()) root.setAttribute('data-ds-hero-label', 'true');
         else root.removeAttribute('data-ds-hero-label');
+        const nowActive = isCssLoaderActive();
+        if (nowActive && !lastActive) setCssLoaderTick((v) => v + 1);
+        lastActive = nowActive;
       } catch {}
     };
     apply();

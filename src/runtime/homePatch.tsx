@@ -115,41 +115,88 @@ export function applyHideRecents(hidden: boolean): void {
 
   if (cachedRecentsEl) {
     try {
-      // Idempotency: when the requested hidden state already matches the
-      // applied state, skip the work entirely. The 2 s state poll calls this
-      // repeatedly; without this short-circuit, every poll tick re-writes
-      // styles + iterates focusables on the native recents, which can race
-      // with Steam's own gamepad nav state machine on D-pad navigation
-      // (intermittent focus reset).
-      const alreadyHidden = cachedRecentsEl.style.display === 'none'
-        && cachedRecentsEl.getAttribute('aria-hidden') === 'true';
-      const alreadyShown = cachedRecentsEl.style.display !== 'none'
-        && cachedRecentsEl.getAttribute('aria-hidden') !== 'true'
-        && cachedRecentsEl.dataset.dsHrPrevTi === undefined;
-      if ((hidden && alreadyHidden) || (!hidden && alreadyShown)) {
+      // Idempotency: skip work when the exact desired state is already on
+      // the element. The 2 s state poll calls this repeatedly; without
+      // this short-circuit, every poll tick re-writes styles + iterates
+      // focusables, which races with Steam's own gamepad nav state
+      // machine on D-pad navigation (intermittent focus reset).
+      const wantPosition = hidden ? 'absolute' : '';
+      const wantAriaHidden = hidden ? 'true' : null;
+      const havePosition = cachedRecentsEl.style.position;
+      const haveAriaHidden = cachedRecentsEl.getAttribute('aria-hidden');
+      const stateMatches = havePosition === wantPosition
+        && haveAriaHidden === wantAriaHidden;
+      if (stateMatches) {
         // Fast-exit: still apply the CSS-rule fallback + margin-top below,
         // but skip the focusable iteration that's the main side-effect source.
       } else {
-      cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
-      cachedRecentsEl.style.height     = hidden ? "0px" : "";
-      cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
-      // display:none is the only signal Steam's gamepad nav tree reliably
-      // respects to exclude this node from D-pad traversal (otherwise focus
-      // gets trapped above our shelves). matchNativeSize measurement is
-      // handled by the class-based fallback in discoverNativeCardDimensions
-      // (creates a temp element with the native card class to measure).
-      cachedRecentsEl.style.display = hidden ? "none" : "";
-      // Remove from gamepad focus order when hidden (issue #69 / Bazzite):
-      // visibility:hidden + height:0 keeps the element in the tab order,
-      // causing an extra scroll step when navigating between shelves.
+      // Off-screen hide: position the recents element OFF-SCREEN via
+      // `position:absolute; top/left:-99999px` while keeping its natural
+      // width/height. Three benefits over `display:none`:
+      //   1. Steam's React virtualization keeps the recents cards mounted
+      //      (the container reports a natural size), so the
+      //      LibraryContextMenu webpack chunk lazy-loads and our menu
+      //      patch can wrap it — without this, the chunk never registers
+      //      and our DS menu items fall back to root injection.
+      //   2. Visually invisible to the user (painted at -99999px), and
+      //      removed from layout flow so siblings (our mount, news/tabs)
+      //      shift up exactly as they would with `display:none`.
+      //   3. The tabindex strip below still removes the recents focusables
+      //      from the gamepad nav tree, so D-pad navigation skips it.
+      if (hidden) {
+        cachedRecentsEl.style.position = "absolute";
+        cachedRecentsEl.style.top = "-99999px";
+        cachedRecentsEl.style.left = "-99999px";
+        cachedRecentsEl.style.width = "100vw";
+        // NOTE: deliberately NOT applying `visibility:hidden` here. It would
+        // skip the native recents from browser tab order in one step, but
+        // React's IntersectionObserver-based virtualization treats
+        // visibility:hidden as "not visible" and bails on rendering the
+        // card list — which means the LibraryContextMenu webpack chunk
+        // never lazy-loads, and the user's context menu falls back to the
+        // root-injection variant. Nav-tree exclusion is handled below
+        // (tabindex + Focusable class strip).
+        cachedRecentsEl.style.visibility = "";
+        cachedRecentsEl.style.height = "";
+        cachedRecentsEl.style.overflow = "";
+        cachedRecentsEl.style.display = "";
+      } else {
+        cachedRecentsEl.style.position = "";
+        cachedRecentsEl.style.top = "";
+        cachedRecentsEl.style.left = "";
+        cachedRecentsEl.style.width = "";
+        cachedRecentsEl.style.visibility = "";
+        cachedRecentsEl.style.height = "";
+        cachedRecentsEl.style.overflow = "";
+        cachedRecentsEl.style.display = "";
+      }
+      // Remove from gamepad focus order when hidden — the recents element
+      // is off-screen at -99999px but Steam's nav controller still walks
+      // its descendants (registered via the `Focusable` class) and lands
+      // on them via D-pad — that's the "two scrolls to reach the search
+      // bar" symptom. Strip both tabindex AND the `Focusable` class so
+      // FocusNavController skips them entirely. Originals saved in
+      // dataset for restoration on un-hide.
       if (hidden) {
         if (!cachedRecentsEl.dataset.dsHrPrevTi)
           cachedRecentsEl.dataset.dsHrPrevTi = cachedRecentsEl.getAttribute("tabindex") ?? "";
         cachedRecentsEl.setAttribute("tabindex", "-1");
         cachedRecentsEl.setAttribute("aria-hidden", "true");
+        // Container itself: drop Focusable so nav tree doesn't register it
+        // as a node. We don't touch the obfuscated hash class — only the
+        // standalone `Focusable` marker — so theme CSS that keys on the
+        // hash class still applies.
+        if (cachedRecentsEl.classList.contains("Focusable") && cachedRecentsEl.dataset.dsHrPrevFoc === undefined) {
+          cachedRecentsEl.dataset.dsHrPrevFoc = "1";
+          cachedRecentsEl.classList.remove("Focusable");
+        }
         cachedRecentsEl.querySelectorAll<HTMLElement>("[tabindex]:not([tabindex='-1']), .Focusable").forEach(f => {
           if (!f.dataset.dsHrPrevTi) f.dataset.dsHrPrevTi = f.getAttribute("tabindex") ?? "0";
           f.setAttribute("tabindex", "-1");
+          if (f.classList.contains("Focusable") && f.dataset.dsHrPrevFoc === undefined) {
+            f.dataset.dsHrPrevFoc = "1";
+            f.classList.remove("Focusable");
+          }
         });
       } else {
         const prev = cachedRecentsEl.dataset.dsHrPrevTi;
@@ -158,10 +205,20 @@ export function applyHideRecents(hidden: boolean): void {
           delete cachedRecentsEl.dataset.dsHrPrevTi;
         }
         cachedRecentsEl.removeAttribute("aria-hidden");
-        cachedRecentsEl.querySelectorAll<HTMLElement>("[data-ds-hr-prev-ti]").forEach(f => {
+        if (cachedRecentsEl.dataset.dsHrPrevFoc === "1") {
+          cachedRecentsEl.classList.add("Focusable");
+          delete cachedRecentsEl.dataset.dsHrPrevFoc;
+        }
+        cachedRecentsEl.querySelectorAll<HTMLElement>("[data-ds-hr-prev-ti], [data-ds-hr-prev-foc]").forEach(f => {
           const p = f.dataset.dsHrPrevTi;
-          p ? f.setAttribute("tabindex", p) : f.removeAttribute("tabindex");
-          delete f.dataset.dsHrPrevTi;
+          if (p !== undefined) {
+            p ? f.setAttribute("tabindex", p) : f.removeAttribute("tabindex");
+            delete f.dataset.dsHrPrevTi;
+          }
+          if (f.dataset.dsHrPrevFoc === "1") {
+            f.classList.add("Focusable");
+            delete f.dataset.dsHrPrevFoc;
+          }
         });
       }
       }
@@ -188,7 +245,13 @@ export function applyHideRecents(hidden: boolean): void {
         doc.head.appendChild(style);
       }
       const selectors = tokens.map((t) => `.${t}`).join(", ");
-      style.textContent = `${selectors} { height: 0 !important; min-height: 0 !important; overflow: hidden !important; visibility: hidden !important; display: none !important; }`;
+      // CSS-rule companion to the inline off-screen hide. Pulls the element
+      // off-screen so it stays rendered (cards mount, LibraryContextMenu
+      // chunk lazy-loads) but never paints in the visible viewport. NO
+      // `visibility:hidden` — that would short-circuit React's
+      // IntersectionObserver virtualization and prevent cards from
+      // mounting, breaking the menu patch.
+      style.textContent = `${selectors} { position: absolute !important; top: -99999px !important; left: -99999px !important; width: 100vw !important; pointer-events: none !important; }`;
     } else if (style) {
       style.textContent = "";
     }

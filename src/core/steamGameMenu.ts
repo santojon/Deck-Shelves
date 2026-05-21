@@ -397,6 +397,16 @@ function patchDeepestRender(prototype: any): void {
   }
 }
 
+/** True once the boot-patch on Steam's LibraryContextMenu has been applied
+ * successfully. Lets callers (e.g. the hide-recents stager) tell whether the
+ * lazy-loaded webpack chunk has registered yet — when this is still false,
+ * forcing `display:none` on native recents prevents Steam from ever loading
+ * the chunk, so menus fall back to root injection instead of the proper
+ * Library variant. */
+export function isLibraryContextMenuPatched(): boolean {
+  return _libraryContextMenuPatched;
+}
+
 export function installLibraryContextMenuPatch(): void {
   if (_libraryContextMenuPatched) return;
   const cls = discoverLibraryContextMenuClass();
