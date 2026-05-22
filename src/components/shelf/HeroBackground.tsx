@@ -382,8 +382,6 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
-            objectPosition: "50% 50%",
             display: "block",
           }}
           loading="eager"
@@ -426,8 +424,6 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         pointerEvents: "none",
         opacity: visible ? 1 : 0,
         transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
-        maskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))",
-        WebkitMaskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))" as any,
       }}
     >
       {/* Solid background layer — fills behind the image so the native

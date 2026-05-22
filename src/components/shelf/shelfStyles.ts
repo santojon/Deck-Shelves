@@ -929,12 +929,26 @@ function buildStylesheet(): string {
        Subtle zoom animation mirrors the 25s native Steam hero zoom. */
     @keyframes ds-per-shelf-hero-zoom {
       from { transform: scale(1); }
-      to   { transform: scale(1.06); }
+      to   { transform: scale(var(--ds-hero-zoom-scale, 1.06)); }
     }
     .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
-      animation: ds-per-shelf-hero-zoom 25s ease infinite alternate;
+      animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, ease) infinite alternate;
       transition: opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83),
                   filter 0.35s ease;
+      /* Respect theme overrides via CSS variables for fit/position/filter */
+      object-fit: var(--ds-hero-fit, cover);
+      object-position: var(--ds-hero-position, 50% 18%);
+      filter: var(--ds-hero-appearance-filter, none);
+      mask-image: var(--ds-hero-mask, none);
+      -webkit-mask-image: var(--ds-hero-mask, none);
+    }
+
+    /* Global promoted hero background container — themes can override the
+       mask via --ds-hero-mask on :root. Fallback mirrors the native linear
+       bottom fade when no theme provides a mask. */
+    .ds-hero-background {
+      mask-image: var(--ds-hero-mask, linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px)));
+      -webkit-mask-image: var(--ds-hero-mask, linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px)));
     }
 
     /* Obsidian without ArtHero: apply grayscale+contrast to per-shelf hero

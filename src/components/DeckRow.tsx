@@ -137,7 +137,12 @@ function getHeroUrls(appid: number): string[] {
  *  (z-index:-1) so it appears behind that shelf's cards only. Separate from
  *  the global HeroBackground which handles the recents-slot promoted shelf. */
 
-function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean }) {
+// Hero height, viewport-parameterized: scales proportionally with the screen
+// instead of a hard pixel value. Used for the first shelf, and for every
+// shelf under forceCssLoaderThemes.
+const HERO_HEIGHT = '70vh';
+
+function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean }) {
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
@@ -154,6 +159,10 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
   const [rowH, setRowH] = useState(310);
   const [labelLeft, setLabelLeft] = useState(40);
   const [isPromoted, setIsPromoted] = useState(false);
+  const [nativeHeroInnerClass, setNativeHeroInnerClass] = useState<string | null>(null);
+  const [nativeHeroRootClass, setNativeHeroRootClass] = useState<string | null>(null);
+  const [nativeHeroZoomClass, setNativeHeroZoomClass] = useState<string | null>(null);
+  const [nativeHeroImgClass, setNativeHeroImgClass] = useState<string | null>(null);
   const activeSlotRef = useRef<'A' | 'B'>('A');
   const currentAppid = useRef(0);
   const fallbackIdx = useRef(0);
@@ -182,6 +191,35 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
     obs.observe(head, { childList: true });
     return () => obs.disconnect();
   }, []);
+
+  // When ArtHero (or a hero-label theme) is active, opt this shelf's hero
+  // container into the native hero class selectors so the theme's rules
+  // (mask, filter, zoom) apply. Apply to the promoted shelf or to all
+  // shelves when `forceCssLoaderThemes` is enabled.
+  useEffect(() => {
+    const readForceThemes = () => {
+      try {
+        const w = globalThis as any;
+        const raw = w.localStorage?.getItem('deck-shelves-settings-cache-v3');
+        if (!raw) return false;
+        const s = JSON.parse(raw);
+        return s?.forceCssLoaderThemes === true;
+      } catch { return false; }
+    };
+    try {
+      const doc = getPreferredSteamDocument();
+      const map = doc ? getRuntimeClassMap(doc) : null;
+      if (!map) { setNativeHeroInnerClass(null); setNativeHeroRootClass(null); return; }
+      const shouldApply = isArtHeroActive() && (readForceThemes() || isPromoted);
+      if (shouldApply) {
+        setNativeHeroInnerClass(map.heroInner ?? null);
+        setNativeHeroRootClass(map.heroRoot ?? null);
+      } else {
+        setNativeHeroInnerClass(null);
+        setNativeHeroRootClass(null);
+      }
+    } catch {}
+  }, [isPromoted]);
 
   // Measure the distance from the shelf's bottom edge up to the card row's
   // top edge. The overlay label's `bottom` is set to this so it sits at
@@ -232,6 +270,72 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
     const obs = new MutationObserver(sync);
     obs.observe(el, { attributes: true, attributeFilter: ['data-ds-recents-slot'] });
     return () => obs.disconnect();
+  }, [containerRef]);
+
+  // Discover the active CSS Loader theme's hero class chain from the native
+  // recents hero, so our per-shelf hero inherits ALL of the theme's hero
+  // styling — appearance, alignment, fit, gradient, z-order, the 25s zoom
+  // animation — exactly how the old single-hero did it. The theme styles
+  // hashed classes on the native hero's `img > zoom > heroInner > wrapper`
+  // chain; we mirror every level's class onto our matching layers so the
+  // theme's CSS cascades into our hero. When no theme touches the hero,
+  // everything is cleared and the built-in look is kept.
+  useEffect(() => {
+    const discover = () => {
+      try {
+        for (const doc of getAllSteamDocuments()) {
+          const win = doc.defaultView ?? window;
+          const imgs = doc.querySelectorAll<HTMLImageElement>('img');
+          for (let i = 0; i < imgs.length; i++) {
+            const img = imgs[i];
+            if (img.closest('.ds-card, .ds-per-shelf-hero-img')) continue;
+            const r = img.getBoundingClientRect();
+            if (r.width < 400 || r.height < 120) continue;
+            const imgClass = ((img.className as any) || '').toString().trim() || null;
+            let node: HTMLElement | null = img.parentElement;
+            let zoomClass: string | null = null;
+            let innerClass: string | null = null;
+            let rootClass: string | null = null;
+            for (let depth = 0; node && depth < 6; depth++, node = node.parentElement) {
+              const cs = win.getComputedStyle(node);
+              const wm = (cs as any).webkitMaskImage;
+              const hasMask = (cs.maskImage && cs.maskImage !== 'none') || (wm && wm !== 'none');
+              const hasAnim = cs.animationName && cs.animationName !== 'none';
+              const cls = ((node.className as any) || '').toString().trim();
+              // zoom: the first ancestor carrying an animation (ArtHero's 25s
+              // zoom keyframes) — sits between the img and heroInner.
+              if (hasAnim && !zoomClass && !innerClass && cls) zoomClass = cls;
+              // heroInner: first ancestor masked by the theme.
+              else if (hasMask && !innerClass) innerClass = cls || null;
+              // wrapper above heroInner — context for theme selectors.
+              else if (innerClass && !rootClass && cls) rootClass = cls;
+            }
+            if (innerClass || zoomClass) {
+              setNativeHeroImgClass((prev) => (prev === imgClass ? prev : imgClass));
+              setNativeHeroZoomClass((prev) => (prev === zoomClass ? prev : zoomClass));
+              setNativeHeroInnerClass((prev) => (prev === innerClass ? prev : innerClass));
+              setNativeHeroRootClass((prev) => (prev === rootClass ? prev : rootClass));
+              return;
+            }
+          }
+        }
+        // No themed native hero found — clear so the built-in look is used.
+        setNativeHeroImgClass((prev) => (prev === null ? prev : null));
+        setNativeHeroZoomClass((prev) => (prev === null ? prev : null));
+        setNativeHeroInnerClass((prev) => (prev === null ? prev : null));
+        setNativeHeroRootClass((prev) => (prev === null ? prev : null));
+      } catch {}
+    };
+    discover();
+    // CSS Loader injects/removes theme styles after mount; re-discover so the
+    // hero follows ArtHero/Obsidian being toggled at runtime.
+    const t1 = setTimeout(discover, 1200);
+    const t2 = setTimeout(discover, 3000);
+    const doc = getPreferredSteamDocument();
+    const head = doc?.head ?? doc?.documentElement;
+    const mo = head ? new MutationObserver(discover) : null;
+    if (head && mo) mo.observe(head, { childList: true });
+    return () => { clearTimeout(t1); clearTimeout(t2); mo?.disconnect(); };
   }, [containerRef]);
 
   // Assign decreasing z-index to the shelf divs so each shelf's stacking
@@ -395,10 +499,18 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
   const showLabel = needsLabel && isPromoted && !!labelHtml;
   if (!hasArt && !showLabel) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
-  // When a dominant color was extracted from the hero image, blend it at low
-  // opacity over the theme background — same tinting effect ArtHero applies
-  // to the first shelf when active. Falls back to the theme background alone.
-  const bPx = Math.abs(topBleed); // 80px
+  // "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
+  // Applies to the genuine first shelf (forceExpanded) AND, under
+  // forceCssLoaderThemes, to EVERY shelf (each carries data-ds-recents-slot →
+  // isPromoted) — there the user wants all heroes identical to the first.
+  // force OFF + non-first shelves fall through to the overlap treatment.
+  const treatAsFirst = isFirstShelf || isPromoted;
+  const heroHeight = treatAsFirst ? HERO_HEIGHT : '100%';
+  // Every hero bleeds `topBleed`px up over the shelf above — this is the
+  // pre-change behaviour that keeps the art visually anchored to the top.
+  // The genuine first shelf simply suppresses its top FADE (via `topStops`);
+  // the upward bleed itself stays for every shelf.
+  const bPx = Math.abs(topBleed);
 
   // Top fade: smooth ease-in curve with 5 stops over the full 80px bleed.
   // Keeps the hero near-invisible while overlapping the shelf above (~0.03 at
@@ -407,12 +519,11 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
   // Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
   // matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme.
   const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
-  // Top fade only applies to NON-promoted hero shelves, where the art bleeds
-  // up over the shelf above and must ease in. The promoted (recents-slot)
-  // shelf is the first thing on the page — nothing sits above it — so its
-  // hero must be fully opaque from the top edge, exactly like the native
-  // recents hero.
-  const topStops = isPromoted
+  // Top fade (the soft inter-shelf overlap) applies to every hero shelf
+  // EXCEPT the genuine first one — including all non-first shelves under
+  // forceCssLoaderThemes (the user wants the fade kept there too). Only the
+  // real first shelf has nothing above it, so it stays opaque at the top.
+  const topStops = isFirstShelf
     ? [`  black 0,`]
     : [
         `  transparent 0,`,
@@ -433,37 +544,63 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
 
   return (
     <>
-    {hasArt && <div style={{
+    {hasArt && <div className={nativeHeroRootClass ?? undefined} style={{
       position: 'absolute',
-      top: topBleed, bottom: -64,
-      left: '-2.8vw', right: '-2.8vw',
+      // Viewport-parameterized height (~374px at the Deck's BigPicture
+      // viewport): scales with the screen instead of a hard pixel value.
+      top: topBleed, height: heroHeight,
+      // Exactly viewport-width — NOT bled out sideways. The native theme's
+      // zoom layer carries a `width: 100vw` rule; a hero wider than the
+      // viewport left that layer 48px short on the right (the white bar).
+      // Full-viewport-width also satisfies "image spans 100% of the viewport".
+      left: 0, right: 0,
       zIndex: -1, pointerEvents: 'none', overflow: 'hidden',
       opacity: visible ? 1 : 0,
       transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+      // OUR linear mask stays on the root — it carries the inter-shelf
+      // overlap+fade (each hero bleeds `topBleed`px up over the shelf above
+      // and eases in). The theme's own gradient (ArtHero's radial mask) is
+      // applied separately, by the discovered `heroInner` class on the
+      // layers below — so both compose instead of one replacing the other.
       maskImage: maskVal,
       WebkitMaskImage: maskVal,
     }}>
       <div style={{ position: 'absolute', inset: 0, background: themeBg }} />
       {slotA && (
-        <div style={{
+        <div className={nativeHeroInnerClass ?? undefined} style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
           opacity: activeSlot === 'A' ? 1 : 0,
           transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
-          <img src={slotA} onError={onError('A')}
-            className="ds-per-shelf-hero-img"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
+          <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <img src={slotA} onError={onError('A')}
+              className={`ds-per-shelf-hero-img${nativeHeroImgClass ? ' ' + nativeHeroImgClass : ''}`}
+              style={{
+                width: '100%', height: '100%', display: 'block',
+                // Anchor the art to the top — the pre-change framing the user
+                // wants (the native img class otherwise centres it at 50%).
+                objectPosition: '50% 18%',
+                // Dark fill so a loading/broken image never flashes white.
+                background: 'rgb(0,0,0)',
+                // When the theme supplies its own zoom (native zoom class on
+                // the wrapper), disable ours — running both compounds the
+                // scale and drifts the framing off-centre.
+                animation: nativeHeroZoomClass ? 'none' : undefined,
+              }} />
+          </div>
         </div>
       )}
       {slotB && (
-        <div style={{
+        <div className={nativeHeroInnerClass ?? undefined} style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
           opacity: activeSlot === 'B' ? 1 : 0,
           transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
-          <img src={slotB} onError={onError('B')}
-            className="ds-per-shelf-hero-img"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
+          <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <img src={slotB} onError={onError('B')}
+              className={`ds-per-shelf-hero-img${nativeHeroImgClass ? ' ' + nativeHeroImgClass : ''}`}
+              style={{ width: '100%', height: '100%', display: 'block' }} />
+          </div>
         </div>
       )}
     </div>}
@@ -691,6 +828,8 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       globalThis.removeEventListener('deck-shelves-settings-changed', onSettings);
     };
   }, []);
+
+  
 
   // Keep `forceExpanded` readable inside the focus-scroll effect without
   // re-subscribing the listener every time it flips — the effect below
@@ -1013,7 +1152,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
         style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: heroEnabled ? 'visible' : 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
     >
-      {(heroEnabled || heroLabelMount) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} />}
+      {(heroEnabled || heroLabelMount) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={forceExpanded} />}
       {title && !hideShelfTitle ? (
         collapsed ? (
           <Focusable
