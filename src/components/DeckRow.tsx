@@ -407,15 +407,25 @@ function PerShelfHero({ containerRef, showArt }: { containerRef: React.RefObject
   // Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
   // matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme.
   const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
+  // Top fade only applies to NON-promoted hero shelves, where the art bleeds
+  // up over the shelf above and must ease in. The promoted (recents-slot)
+  // shelf is the first thing on the page — nothing sits above it — so its
+  // hero must be fully opaque from the top edge, exactly like the native
+  // recents hero.
+  const topStops = isPromoted
+    ? [`  black 0,`]
+    : [
+        `  transparent 0,`,
+        `  rgba(0,0,0,0.02) ${p(0.28)},`,
+        `  rgba(0,0,0,0.08) ${p(0.50)},`,
+        `  rgba(0,0,0,0.28) ${p(0.70)},`,
+        `  rgba(0,0,0,0.65) ${p(0.88)},`,
+        `  rgba(0,0,0,0.88) ${bPx}px,`,
+        `  black calc(${bPx}px + 40px),`,
+      ];
   const maskVal = [
     `linear-gradient(to bottom,`,
-    `  transparent 0,`,
-    `  rgba(0,0,0,0.02) ${p(0.28)},`,
-    `  rgba(0,0,0,0.08) ${p(0.50)},`,
-    `  rgba(0,0,0,0.28) ${p(0.70)},`,
-    `  rgba(0,0,0,0.65) ${p(0.88)},`,
-    `  rgba(0,0,0,0.88) ${bPx}px,`,
-    `  black calc(${bPx}px + 40px),`,
+    ...topStops,
     `  black calc(100% - 100px),`,
     `  rgba(0,0,0,0.45) calc(100% - 64px),`,
     `  transparent calc(100% - 16px))`,
@@ -546,9 +556,12 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
     // Default featured: ~3.21× portrait width (matches base native 430px featured
     // card at 134px portrait width, measured via CDP on the Steam Deck home screen).
     const featW = matchNativeSize && nd?.featuredWidth ? nd.featuredWidth : Math.round(w * 3.21);
-    const featH = matchNativeSize && nd?.featuredHeight ? nd.featuredHeight : h;
+    // A featured card differs from its row-mates only in WIDTH — its height
+    // (and art height) always match the regular cards, never Steam's
+    // separately measured landscape-card height.
     const artH = matchNativeSize && nd?.imgHeight ? nd.imgHeight : h;
-    const featArtH = matchNativeSize && nd?.featuredImgHeight ? nd.featuredImgHeight : featH;
+    const featH = h;
+    const featArtH = artH;
     return { w, h, gap, featW, featH, artH, featArtH };
   }, [matchNativeSize]);
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
@@ -565,8 +578,13 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       ["--ds-eff-card-h" as string]: `var(--ds-native-card-h, ${CARD_ART_H}px)`,
       ["--ds-eff-card-art-h" as string]: `var(--ds-native-card-art-h, ${CARD_ART_H}px)`,
       ["--ds-eff-feat-w" as string]: `var(--ds-native-feat-w, ${Math.round(CARD_W * 3.21)}px)`,
-      ["--ds-eff-feat-h" as string]: `var(--ds-native-feat-h, ${CARD_ART_H}px)`,
-      ["--ds-eff-feat-art-h" as string]: `var(--ds-native-feat-art-h, ${CARD_ART_H}px)`,
+      // A featured card must be the SAME height as the regular cards in its
+      // row — only its WIDTH differs. So feat height/art-height intentionally
+      // reuse the regular card's native vars (not the separately-measured
+      // --ds-native-feat-* ones, which track Steam's landscape native card
+      // and would make the featured card taller/shorter than its neighbours).
+      ["--ds-eff-feat-h" as string]: `var(--ds-native-card-h, ${CARD_ART_H}px)`,
+      ["--ds-eff-feat-art-h" as string]: `var(--ds-native-card-art-h, ${CARD_ART_H}px)`,
       ["--ds-eff-card-gap" as string]: `max(var(--ds-native-card-gap, ${CARD_GAP}px), 8px)`,
     };
   }, [matchNativeSize]);
@@ -927,7 +945,16 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
         }
       } catch {}
       if (rafPending !== null) return;
-      rafPending = requestAnimationFrame(() => { rafPending = null; handleFocusedCard(c); });
+      rafPending = requestAnimationFrame(() => {
+        rafPending = null;
+        // Skip the scroll-to-center when the gpfocus was transient. On a Steam
+        // restart the nav tree is rebuilt and gpfocus flickers across cards
+        // (including late-resolving online shelves) before settling — without
+        // this guard a brief gpfocus on an online card scrolls the viewport to
+        // center that shelf even though real focus ends up elsewhere.
+        if (!c.classList.contains('gpfocus') && c !== c.ownerDocument?.activeElement) return;
+        handleFocusedCard(c);
+      });
     });
 
     const onCardFocus = (e: FocusEvent) => {
@@ -935,7 +962,11 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       if (card) {
         (globalThis as any).__ds_last_focused_card = card;
         if (rafPending !== null) { cancelAnimationFrame(rafPending); rafPending = null; }
-        rafPending = requestAnimationFrame(() => { rafPending = null; handleFocusedCard(card); });
+        rafPending = requestAnimationFrame(() => {
+          rafPending = null;
+          if (!card.classList.contains('gpfocus') && card !== card.ownerDocument?.activeElement) return;
+          handleFocusedCard(card);
+        });
       }
     };
 

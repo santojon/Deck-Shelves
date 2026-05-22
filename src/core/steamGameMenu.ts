@@ -11,6 +11,7 @@ import {
   dispatchShelfModal,
 } from "./shelfActions";
 import { patchShelfInSettings } from "../domain/settings";
+import { saveFocusTarget, beginFocusRestoreLoop } from "./focusRestore";
 import { invalidateRandomSortCache } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
 import { clearOnlineShelfCache } from "./shelfActions";
@@ -575,8 +576,18 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
     try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
   };
 
+  // A menu action mutates settings, which re-renders the home and drops
+  // gamepad focus — Steam then defaults it to the first shelf. Pin the card
+  // the menu was opened on and let the focus-restore loop put it back after
+  // the re-render (the loop's confirmation poll also defends against Steam's
+  // post-render first-card grab).
+  const preserveFocus = () => {
+    if (focusedAppId > 0) {
+      try { saveFocusTarget(focusedAppId, shelfId); beginFocusRestoreLoop(); } catch {}
+    }
+  };
   const item = (key: string, label: string, onSelected: () => void, disabled?: boolean) =>
-    R.createElement(dfl.MenuItem, { key, onSelected, disabled }, label);
+    R.createElement(dfl.MenuItem, { key, onSelected: () => { onSelected(); preserveFocus(); }, disabled }, label);
 
   const src: any = shelf?.source;
   const isOnline = src?.type === "wishlist" || src?.type === "store";

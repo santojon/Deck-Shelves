@@ -6,6 +6,7 @@ type S = { id: string; source?: { type?: string } }
 const tab = (id: string): S => ({ id, source: { type: 'tab' } })
 const filter = (id: string): S => ({ id, source: { type: 'filter' } })
 const smart = (id: string): S => ({ id, source: { type: 'smart' } })
+const wishlist = (id: string): S => ({ id, source: { type: 'wishlist' } })
 
 describe('pickFirstVisibleShelfId', () => {
   it('returns the first non-smart shelf in CONFIG order that is rendering', () => {
@@ -39,6 +40,23 @@ describe('pickFirstVisibleShelfId', () => {
   it('falls back to the first rendering smart shelf when no normal shelf exists', () => {
     const shelves = [smart('s1'), smart('s2')]
     expect(pickFirstVisibleShelfId(shelves, new Set(['s1', 's2']))).toBe('s1')
+  })
+
+  it('prefers a local shelf over an online (wishlist) shelf when both are rendering', () => {
+    const shelves = [wishlist('w'), tab('a')]
+    expect(pickFirstVisibleShelfId(shelves, new Set(['w', 'a']))).toBe('a')
+  })
+
+  it('skips an online shelf that rendered first while the earlier-config local shelf has not', () => {
+    // Cold restart: config order is [local, online, local]; the online shelf
+    // renders from cache before the first local shelf resolves its app data.
+    const shelves = [filter('local1'), wishlist('w'), tab('local2')]
+    expect(pickFirstVisibleShelfId(shelves, new Set(['w', 'local2']))).toBe('local2')
+  })
+
+  it('falls back to an online shelf only when no local or smart shelf is rendering', () => {
+    const shelves = [filter('a'), wishlist('w')]
+    expect(pickFirstVisibleShelfId(shelves, new Set(['w']))).toBe('w')
   })
 
   it('handles empty shelves list', () => {

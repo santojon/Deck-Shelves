@@ -830,24 +830,49 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   useEffect(() => {
     if (!hideRecentsSetting) return;
     let cancelled = false;
+    // Set once a per-card focus restore is observed pending during this mount
+    // (A→game→back). The restore — and its own confirmation/fallback — owns
+    // the focus outcome from then on; the first-card focus must permanently
+    // bow out, even after the restore clears `pendingAppid`. Without this the
+    // extended cold-boot retries (5s/7s) fire AFTER the restore finished and
+    // grab the first card — the A→game→back regression.
+    let restorePendingSeen = false;
+    const dsHasFocus = () =>
+      !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
     const tryFocus = () => {
       if (cancelled) return true;
       try {
-        // Do not hijack focus if the user is already navigating inside the
-        // shelves — effect re-runs on shelves.length changes (5s interval).
-        if (mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus')) return true;
+        // Already focused — done, and the guard against hijacking the user
+        // once they are navigating inside the shelves.
+        if (dsHasFocus()) return true;
+        // A per-card focus restore is in flight (A→game→back): it owns the
+        // focus and is restoring the ORIGINATING card. Do NOT focus the first
+        // card — that would fight the restore.
+        if (hasPendingFocus()) { restorePendingSeen = true; return false; }
+        // A restore ran earlier this mount — it (or its fallback) owns the
+        // focus; never fall back to the first card. Stop the retry chain.
+        if (restorePendingSeen) return true;
         const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-        if (firstCard) return focusElement(firstCard);
-        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-        if (firstRow) return focusElement(firstRow);
+        if (firstCard) focusElement(firstCard);
+        else {
+          const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+          if (firstRow) focusElement(firstRow);
+        }
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
-      return false;
+      // Report success ONLY when a DS card actually holds focus — focusElement
+      // returning true does not guarantee it stuck. On a cold Steam restart
+      // the gamepad nav tree is rebuilt slowly and Steam keeps refocusing an
+      // off-screen, hidden native-recents card until ~5-7s in (which also
+      // parks the viewport scrolled away from our first shelf). Returning
+      // false keeps the retry chain alive so a late retry re-grabs focus —
+      // and the BTakeFocus inside focusElement scrolls the viewport back.
+      return dsHasFocus();
     };
     if (!tryFocus()) {
-      const t1 = setTimeout(tryFocus, 500);
-      const t2 = setTimeout(tryFocus, 1500);
-      const t3 = setTimeout(tryFocus, 3000);
-      return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+      // Extended schedule: the 5s/7s retries cover Steam's cold-boot focus
+      // restore, which lands well after the 3s mark.
+      const timers = [500, 1500, 3000, 5000, 7000].map((d) => setTimeout(tryFocus, d));
+      return () => { cancelled = true; for (const t of timers) clearTimeout(t); };
     }
     return () => { cancelled = true; };
   }, [hideRecentsSetting, mountEl, shelves?.length]);
