@@ -788,10 +788,13 @@ function injectDeckShelvesIntoTree(rendered: any, shelfId: string): any {
     return rendered;
   }
   // Dedup helper — prevents double-injection when both the boot-patch and
-  // the HOC wrap fire on the same render cycle.
+  // the HOC wrap fire on the same render cycle. Must match the keys that
+  // `buildDeckShelvesMenuItems` actually emits (`ds-card-*`, `ds-shelf-root`)
+  // — the old check looked for `ds-deck-shelves`, a key no longer produced,
+  // so it never detected the existing items and re-injected a duplicate set.
   const containsDsItems = (children: any): boolean => {
     if (!Array.isArray(children)) return false;
-    return children.some((c: any) => c?.key === "ds-deck-shelves");
+    return children.some((c: any) => DS_ROOT_KEYS.has(c?.key));
   };
   try {
     // Broader Menu detection — the captured AppContextMenu may render the
