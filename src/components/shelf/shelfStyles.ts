@@ -1057,22 +1057,31 @@ function buildStylesheet(): string {
     .ds-card { opacity: 1 !important; }
 
     /* First DS shelf when native recents is visible above (hideRecents off).
-       Previous attempt kept the hero opaque from its top edge — that drew
-       a large opaque overlap ON TOP of native (covering native's bottom)
-       without any fade. Switch to a SMALL bleed (50px) with a smooth top
-       fade so only a thin softened band overlaps native, plus the usual
-       bottom fade for the cross-fade into the next DS shelf below. */
+       Big upward bleed (150px) so our hero sits behind native's bottom
+       area, with a visibly ramping top fade — opacity climbs gradually
+       through the bleed and lands fully opaque right at the shelf top.
+       Native covers the early (most transparent) part of the fade; the
+       last ~40-50px of the ramp is BELOW native and forms the visible
+       cross-fade between the two arts.
+
+       Bottom fade is extended (140→8) and split into 5 stops so the
+       transition into the next DS shelf below is a smooth, subtle blend
+       instead of a sharper 3-stop drop. */
     .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
-      --ds-hero-top: -50px;
-      --ds-hero-h: calc(100% + 50px);
+      --ds-hero-top: -150px;
+      --ds-hero-h: calc(100% + 150px);
       --ds-hero-mask: linear-gradient(to bottom,
         transparent 0,
-        rgba(0,0,0,0.18) 12px,
-        rgba(0,0,0,0.55) 26px,
-        black 42px,
-        black calc(100% - 100px),
-        rgba(0,0,0,0.45) calc(100% - 64px),
-        transparent calc(100% - 16px));
+        rgba(0,0,0,0.08) 30px,
+        rgba(0,0,0,0.25) 60px,
+        rgba(0,0,0,0.5) 90px,
+        rgba(0,0,0,0.78) 120px,
+        black 150px,
+        black calc(100% - 140px),
+        rgba(0,0,0,0.78) calc(100% - 105px),
+        rgba(0,0,0,0.45) calc(100% - 70px),
+        rgba(0,0,0,0.2) calc(100% - 35px),
+        transparent calc(100% - 8px));
     }
 
     /* Tune the SECOND DS shelf's top bleed based on what the FIRST is.
