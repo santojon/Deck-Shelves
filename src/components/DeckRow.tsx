@@ -142,7 +142,7 @@ function getHeroUrls(appid: number): string[] {
 // shelf under forceCssLoaderThemes.
 const HERO_HEIGHT = '70vh';
 
-function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean }) {
+function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecents }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean; forceLayoutAsRecents: boolean }) {
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
@@ -159,6 +159,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
   const [rowH, setRowH] = useState(310);
   const [labelLeft, setLabelLeft] = useState(40);
   const [isPromoted, setIsPromoted] = useState(false);
+  // Tracks whether a card in THIS shelf currently has gamepad/DOM focus.
+  // Drives the conditional top fade under `forceLayoutAsRecents` (force-on
+  // secondary shelves): opaque top while selected, subtle fade while not.
+  const [isShelfSelected, setIsShelfSelected] = useState(false);
   const [nativeHeroInnerClass, setNativeHeroInnerClass] = useState<string | null>(null);
   const [nativeHeroRootClass, setNativeHeroRootClass] = useState<string | null>(null);
   const [nativeHeroZoomClass, setNativeHeroZoomClass] = useState<string | null>(null);
@@ -170,16 +174,19 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
   const userHasFocusedRef = useRef(false);
   useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
 
-  // First hero shelf: more bleed above to fill the space before the page
-  // content. Non-first: keep bleed short so the eased-in fade stays mostly
-  // in the gap between shelves and doesn't visibly overlay the shelf above.
+  // First / promoted hero shelf: 80px bleed (the hero is anchored to the
+  // page top — nothing above to blend with). Non-first non-promoted shelves
+  // get a much wider bleed (140px) so the cross-fade with the adjacent
+  // shelf above spans the entire transition zone — eliminates the dim gap
+  // between adjacent heroes that the user reported. Re-runs when promotion
+  // flips at runtime (force toggle / hideRecents change).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const root = el.closest('.deck-shelves-root');
     if (!root) return;
-    setTopBleed(-80);
-  }, [containerRef]);
+    setTopBleed((isFirstShelf || isPromoted) ? -80 : -140);
+  }, [containerRef, isFirstShelf, isPromoted]);
 
   // Re-evaluate ArtHero state when CSS Loader themes are toggled at runtime.
   useEffect(() => {
@@ -191,35 +198,6 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
     obs.observe(head, { childList: true });
     return () => obs.disconnect();
   }, []);
-
-  // When ArtHero (or a hero-label theme) is active, opt this shelf's hero
-  // container into the native hero class selectors so the theme's rules
-  // (mask, filter, zoom) apply. Apply to the promoted shelf or to all
-  // shelves when `forceCssLoaderThemes` is enabled.
-  useEffect(() => {
-    const readForceThemes = () => {
-      try {
-        const w = globalThis as any;
-        const raw = w.localStorage?.getItem('deck-shelves-settings-cache-v3');
-        if (!raw) return false;
-        const s = JSON.parse(raw);
-        return s?.forceCssLoaderThemes === true;
-      } catch { return false; }
-    };
-    try {
-      const doc = getPreferredSteamDocument();
-      const map = doc ? getRuntimeClassMap(doc) : null;
-      if (!map) { setNativeHeroInnerClass(null); setNativeHeroRootClass(null); return; }
-      const shouldApply = isArtHeroActive() && (readForceThemes() || isPromoted);
-      if (shouldApply) {
-        setNativeHeroInnerClass(map.heroInner ?? null);
-        setNativeHeroRootClass(map.heroRoot ?? null);
-      } else {
-        setNativeHeroInnerClass(null);
-        setNativeHeroRootClass(null);
-      }
-    } catch {}
-  }, [isPromoted]);
 
   // Measure the distance from the shelf's bottom edge up to the card row's
   // top edge. The overlay label's `bottom` is set to this so it sits at
@@ -281,8 +259,31 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
   // theme's CSS cascades into our hero. When no theme touches the hero,
   // everything is cleared and the built-in look is kept.
   useEffect(() => {
+    const readForceThemes = () => {
+      try {
+        const w = globalThis as any;
+        const raw = w.localStorage?.getItem('deck-shelves-settings-cache-v3');
+        if (!raw) return false;
+        const s = JSON.parse(raw);
+        return s?.forceCssLoaderThemes === true;
+      } catch { return false; }
+    };
+    const clearAll = () => {
+      setNativeHeroImgClass((prev) => (prev === null ? prev : null));
+      setNativeHeroZoomClass((prev) => (prev === null ? prev : null));
+      setNativeHeroInnerClass((prev) => (prev === null ? prev : null));
+      setNativeHeroRootClass((prev) => (prev === null ? prev : null));
+    };
     const discover = () => {
       try {
+        // Same gate as the promotion CSS: only opt into the native theme's
+        // hero class chain when ArtHero is active AND this shelf is in a
+        // "primary/promoted" position. On a non-promoted shelf the theme's
+        // hashed classes (which expect their own wrapper context) intermittently
+        // hide the img/zoom layer when focus changes — making the per-shelf
+        // hero briefly appear and disappear as the user d-pads between cards.
+        const shouldApply = isArtHeroActive() && (readForceThemes() || isPromoted);
+        if (!shouldApply) { clearAll(); return; }
         for (const doc of getAllSteamDocuments()) {
           const win = doc.defaultView ?? window;
           const imgs = doc.querySelectorAll<HTMLImageElement>('img');
@@ -320,10 +321,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
           }
         }
         // No themed native hero found — clear so the built-in look is used.
-        setNativeHeroImgClass((prev) => (prev === null ? prev : null));
-        setNativeHeroZoomClass((prev) => (prev === null ? prev : null));
-        setNativeHeroInnerClass((prev) => (prev === null ? prev : null));
-        setNativeHeroRootClass((prev) => (prev === null ? prev : null));
+        clearAll();
       } catch {}
     };
     discover();
@@ -336,7 +334,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
     const mo = head ? new MutationObserver(discover) : null;
     if (head && mo) mo.observe(head, { childList: true });
     return () => { clearTimeout(t1); clearTimeout(t2); mo?.disconnect(); };
-  }, [containerRef]);
+  }, [containerRef, isPromoted]);
 
   // Assign decreasing z-index to the shelf divs so each shelf's stacking
   // context sits above the shelf below it. Without this, DOM order (later =
@@ -373,11 +371,15 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
     // navigates to a different card.
     currentAppid.current = 0;
     const update = (e?: Event) => {
+      // Selection state runs first so it updates on EVERY tick — including
+      // when focus leaves this shelf (handled by the cross-shelf gpfocus
+      // cleanup mutating a card's class, which fires our observer).
+      const focusedAnyCard = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      setIsShelfSelected((prev) => (prev === !!focusedAnyCard ? prev : !!focusedAnyCard));
       let focused: HTMLElement | null = null;
       if (e && e.target instanceof HTMLElement)
         focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
-      if (!focused)
-        focused = el.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+      if (!focused) focused = focusedAnyCard;
       // A genuinely focused card — via gamepad (`gpfocus` class) OR real DOM
       // focus — means the user has navigated into this shelf. Steam's gamepad
       // nav only toggles `gpfocus` and does not always fire `focusin`, so this
@@ -505,7 +507,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
   // isPromoted) — there the user wants all heroes identical to the first.
   // force OFF + non-first shelves fall through to the overlap treatment.
   const treatAsFirst = isFirstShelf || isPromoted;
-  const heroHeight = treatAsFirst ? HERO_HEIGHT : '100%';
+  // Non-first non-promoted shelves grow the hero by `bPx` below the shelf
+  // so the symmetric top/bottom fades create a seamless cross-fade with
+  // the adjacent shelf — without `+bPx` the hero ends at shelf bottom,
+  // leaving a dim gap before the next hero starts.
+  const heroHeight = treatAsFirst ? HERO_HEIGHT : `calc(100% + ${Math.abs(topBleed)}px)`;
   // Every hero bleeds `topBleed`px up over the shelf above — this is the
   // pre-change behaviour that keeps the art visually anchored to the top.
   // The genuine first shelf simply suppresses its top FADE (via `topStops`);
@@ -519,27 +525,45 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf }: { containerRef: R
   // Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
   // matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme.
   const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
-  // Top fade (the soft inter-shelf overlap) applies to every hero shelf
-  // EXCEPT the genuine first one — including all non-first shelves under
-  // forceCssLoaderThemes (the user wants the fade kept there too). Only the
-  // real first shelf has nothing above it, so it stays opaque at the top.
-  const topStops = isFirstShelf
+  // Top fade decision:
+  //   - forceLayoutAsRecents (force-on secondary shelves): opaque while a
+  //     card in this shelf is selected, subtle fade when not. Keeps the
+  //     full-page look on the active shelf while still soft-blending the
+  //     non-focused ones.
+  //   - isFirstShelf (primary recents-slot shelf): always opaque — anchored
+  //     to the top of the page with nothing above.
+  //   - otherwise: subtle fade.
+  const opaqueTop = forceLayoutAsRecents ? isShelfSelected : isFirstShelf;
+  // Subtle ease-in curve (~x^4): opacity stays very low for most of the
+  // bleed and only climbs near the end. The added stops fill in the
+  // gradient so the linear-between-stops interpolation can't show banding.
+  const topStops = opaqueTop
     ? [`  black 0,`]
     : [
         `  transparent 0,`,
-        `  rgba(0,0,0,0.02) ${p(0.28)},`,
-        `  rgba(0,0,0,0.08) ${p(0.50)},`,
-        `  rgba(0,0,0,0.28) ${p(0.70)},`,
-        `  rgba(0,0,0,0.65) ${p(0.88)},`,
-        `  rgba(0,0,0,0.88) ${bPx}px,`,
+        `  rgba(0,0,0,0.003) ${p(0.10)},`,
+        `  rgba(0,0,0,0.012) ${p(0.22)},`,
+        `  rgba(0,0,0,0.035) ${p(0.38)},`,
+        `  rgba(0,0,0,0.085) ${p(0.55)},`,
+        `  rgba(0,0,0,0.18) ${p(0.72)},`,
+        `  rgba(0,0,0,0.40) ${p(0.86)},`,
+        `  rgba(0,0,0,0.70) ${p(0.95)},`,
+        `  rgba(0,0,0,0.92) ${bPx}px,`,
         `  black calc(${bPx}px + 40px),`,
       ];
+  // Bottom fade width: scales with bPx for non-first non-promoted so it
+  // mirrors the wider top bleed, producing a balanced cross-fade with the
+  // next shelf's hero. First/promoted shelves keep the prior 100/64/16
+  // hardcoded values so the existing ArtHero-anchored look is untouched.
+  const bBlackOffset = treatAsFirst ? 100 : bPx;
+  const bMidOffset = treatAsFirst ? 64 : Math.round(bPx * 0.64);
+  const bTransOffset = treatAsFirst ? 16 : Math.round(bPx * 0.16);
   const maskVal = [
     `linear-gradient(to bottom,`,
     ...topStops,
-    `  black calc(100% - 100px),`,
-    `  rgba(0,0,0,0.45) calc(100% - 64px),`,
-    `  transparent calc(100% - 16px))`,
+    `  black calc(100% - ${bBlackOffset}px),`,
+    `  rgba(0,0,0,0.45) calc(100% - ${bMidOffset}px),`,
+    `  transparent calc(100% - ${bTransOffset}px))`,
   ].join(' ');
 
   return (
@@ -643,7 +667,8 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
+  const visuallyForced = forceExpanded || forceLayoutAsRecents;
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
@@ -672,7 +697,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   // it should return to whatever state the user had chosen. We intentionally
   // do NOT overwrite `collapsedState` or the persisted `ds-collapsed-{id}`
   // key while `forceExpanded` is active.
-  const collapsed = forceExpanded ? false : collapsedState;
+  const collapsed = visuallyForced ? false : collapsedState;
   const [nativeRowClass, setNativeRowClass] = useState('');
 
   // Effective dimensions, computed once at mount from whatever native dims are
@@ -1122,7 +1147,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
   }, []);
 
   const toggleCollapse = () => {
-    if (forceExpanded) return;
+    if (visuallyForced) return;
     const next = !collapsed;
     const shelf = outerRef.current;
     const focusedInside = !!shelf?.querySelector('.gpfocus, :focus');
@@ -1152,7 +1177,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
         style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: heroEnabled ? 'visible' : 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
     >
-      {(heroEnabled || heroLabelMount) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={forceExpanded} />}
+      {(heroEnabled || heroLabelMount) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={visuallyForced} forceLayoutAsRecents={forceLayoutAsRecents} />}
       {title && !hideShelfTitle ? (
         collapsed ? (
           <Focusable
@@ -1176,17 +1201,17 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
         ) : (
           <div
             ref={titleRef}
-            className={`ds-shelf-title${forceExpanded ? ' ds-shelf-title--locked' : ''}`}
-            onClick={forceExpanded ? undefined : toggleCollapse}
+            className={`ds-shelf-title${visuallyForced ? ' ds-shelf-title--locked' : ''}`}
+            onClick={visuallyForced ? undefined : toggleCollapse}
             style={{
               marginBottom: 8,
               paddingLeft: "2.8vw",
               display: "flex",
               alignItems: "center",
               gap: 8,
-              cursor: forceExpanded ? "default" : "pointer",
+              cursor: visuallyForced ? "default" : "pointer",
               userSelect: "none",
-              pointerEvents: forceExpanded ? "none" : undefined,
+              pointerEvents: visuallyForced ? "none" : undefined,
             }}
           >
             <span style={{ flex: 1 }}>{title}</span>

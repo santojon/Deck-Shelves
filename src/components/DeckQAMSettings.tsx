@@ -13,6 +13,7 @@ import { usePlatform } from '../runtime/platformContext'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
 import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations'
+import { isCssLoaderActive } from '../core/cssLoaderDetect'
 
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
@@ -97,6 +98,23 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='all' />)
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
+  // CSS Loader presence — the force-themes toggle only shows when at least
+  // one CSS Loader theme is loaded. Re-check shortly after mount in case
+  // the panel opens before CSS Loader has injected its stylesheets.
+  const [hasCssLoader, setHasCssLoader] = useState(() => {
+    try { return isCssLoaderActive(); } catch { return false; }
+  });
+  useEffect(() => {
+    const tick = () => {
+      try {
+        const next = isCssLoaderActive();
+        setHasCssLoader((prev) => (prev === next ? prev : next));
+      } catch {}
+    };
+    const t1 = setTimeout(tick, 500);
+    const t2 = setTimeout(tick, 2000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
   const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
 
   // Register TabMaster import as a first-party entry on the public registry
@@ -257,23 +275,21 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />
             <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(value: boolean) => void actions.setOnlinePriceSortEnabled(value)} />
             <ToggleField label={t('online_hide_owned')} checked={settings.onlineHideOwnedGames !== false} onChange={(value: boolean) => { void actions.setOnlineHideOwnedGames(value); if (!value) void actions.setOnlineHideOwnedNonSteam(false); }} />
-            <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
-              {t('online_hide_owned_desc')}
-            </div>
             {settings.onlineHideOwnedGames !== false && (
               <div style={{ paddingLeft: 16 }}>
                 <ToggleField label={t('hide_owned_non_steam')} checked={settings.onlineHideOwnedNonSteam === true} onChange={(value: boolean) => void actions.setOnlineHideOwnedNonSteam(value)} />
-                <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
-                  {t('hide_owned_non_steam_desc')}
-                </div>
+                {settings.onlineHideOwnedNonSteam === true && (
+                  <div style={{ paddingLeft: 16 }}>
+                    <ToggleField label={t('hide_owned_non_steam_cloud')} checked={settings.onlineHideOwnedNonSteamCloud === true} onChange={(value: boolean) => void actions.setOnlineHideOwnedNonSteamCloud(value)} />
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
-        <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
-        <div style={{ paddingLeft: 14, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
-          {t('force_themes_desc')}
-        </div>
+        {hasCssLoader && (
+          <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
+        )}
       </CollapsibleSection>
 
       {replaceFailed && (

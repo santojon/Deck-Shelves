@@ -747,6 +747,46 @@ function getUnifideckInstalledSet(): Set<number> {
   _ufInstalledCache = { ids, ts: now };
   return ids;
 }
+
+// Cloud-play providers — non-Steam shortcuts catalogued by Unifideck whose
+// "primary action" is to stream from the cloud rather than install locally.
+// Right now only Xbox Cloud Gaming via Microsoft Store fits; the other
+// Unifideck providers (Epic, GOG, Amazon Luna-as-app, Ubisoft, etc.) are
+// native-install platforms — owning a game there counts as owned even
+// when the user hasn't installed it locally (e.g. Harold Halibut on GOG).
+let _ufCloudCache: { ids: Set<number>; ts: number } | null = null;
+const UF_CLOUD_COLLECTION_LABELS = new Set(["microsoft"]);
+function getUnifideckCloudPlaySet(): Set<number> {
+  const now = Date.now();
+  if (_ufCloudCache && now - _ufCloudCache.ts < 5000) return _ufCloudCache.ids;
+  const ids = new Set<number>();
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+    const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
+    for (const c of list) {
+      const name = String(c?.displayName ?? c?.m_strName ?? "");
+      if (!/^\[Unifideck\]/i.test(name)) continue;
+      const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
+      if (!UF_CLOUD_COLLECTION_LABELS.has(label)) continue;
+      const apps = c?.allApps ?? c?.m_rgApps ?? [];
+      for (const a of apps) {
+        const n = Number(a?.appid);
+        if (Number.isFinite(n)) ids.add(n);
+      }
+    }
+  } catch {}
+  _ufCloudCache = { ids, ts: now };
+  return ids;
+}
+
+function isCloudPlayShortcut(a: any): boolean {
+  if (!isNonSteamOf(a)) return false;
+  const id = Number(a?.appid);
+  if (!Number.isFinite(id)) return false;
+  return getUnifideckCloudPlaySet().has(id);
+}
+
 function isFavoriteOf(a: any): boolean {
   return !!(a?.is_favorite ?? a?.favorite ?? a?.m_bIsFavorite ?? a?.m_bFavorite ?? a?.bFavorite);
 }
@@ -757,6 +797,74 @@ function isHiddenOf(a: any): boolean {
   // CDP on SteamOS 3.7, issue #63). Check all known variants.
   if (a?.visible_in_game_list === false) return true;
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
+}
+/**
+ * Returns the appids that sit in the user's actual Steam library.
+ *
+ *  - Steam-owned games come from `collectionStore.allGamesCollection`
+ *    (the "All Games" view — verified via CDP to contain only Steam apps).
+ *  - When `includeNonSteam` is true, ALL non-Steam shortcuts are unioned
+ *    in (no install-status filter — matches the original behaviour).
+ *  - When `includeNonSteam` is true and `includeCloudPlay` is FALSE, the
+ *    cloud-play subset (non-Steam shortcuts without local-install proof)
+ *    is SUBTRACTED out — so wishlist matches for cloud-streaming-only
+ *    catalogue entries (e.g. SM2 via Unifideck's Microsoft Store / Xbox
+ *    Cloud Gaming integration) still appear on the shelf.
+ */
+export function getLocalLibraryAppIds(includeNonSteam: boolean, includeCloudPlay: boolean = false): Set<number> {
+  const out = new Set<number>();
+  const collectSteam = (coll: any): void => {
+    if (!coll) return;
+    const apps = coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
+    for (const a of apps) {
+      if (isNonSteamOf(a)) continue;
+      const id = Number(a?.appid ?? a?.m_unAppID);
+      if (Number.isFinite(id) && id > 0) out.add(id);
+    }
+  };
+  // Non-Steam shortcuts live in `myGamesCollection` on this Steam build
+  // (verified via CDP: `allShortcutsCollection` is undefined; non-Steam
+  // entries are mixed into `myGamesCollection` and `allAppsCollection`).
+  // We filter to `isNonSteamOf` to pick only the shortcuts.
+  //
+  // Cloud-play (Xbox Cloud Gaming via Unifideck's Microsoft integration)
+  // is detected by collection membership, not by install status — owning
+  // a game on GOG/Epic/Ubisoft still counts as owned even when not
+  // installed locally (e.g. Harold Halibut on GOG), so we don't subtract
+  // those. Only the actual cloud-streaming entries get the opt-in switch.
+  const collectNonSteam = (coll: any): void => {
+    if (!coll) return;
+    const apps = coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
+    for (const a of apps) {
+      if (!isNonSteamOf(a)) continue;
+      if (!includeCloudPlay && isCloudPlayShortcut(a)) continue;
+      const id = Number(a?.appid ?? a?.m_unAppID);
+      if (Number.isFinite(id) && id > 0) out.add(id);
+    }
+  };
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    if (cs) {
+      collectSteam(cs.allGamesCollection);
+      if (includeNonSteam) {
+        // Prefer `myGamesCollection` (Steam + shortcuts mixed) since
+        // `allShortcutsCollection` doesn't exist on recent Steam builds.
+        collectNonSteam(cs.myGamesCollection ?? cs.allAppsCollection ?? cs.allShortcutsCollection);
+      }
+    }
+    if (out.size === 0) {
+      for (const hw of getSteamWindows()) {
+        const cs2: any = (hw as any)?.collectionStore;
+        if (!cs2) continue;
+        collectSteam(cs2.allGamesCollection);
+        if (includeNonSteam) {
+          collectNonSteam(cs2.myGamesCollection ?? cs2.allAppsCollection ?? cs2.allShortcutsCollection);
+        }
+        if (out.size > 0) break;
+      }
+    }
+  } catch {}
+  return out;
 }
 function isInstalledOf(a: any): boolean {
   if (isNonSteamOf(a)) {
@@ -2466,11 +2574,15 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
       const hideOwned = s?.onlineHideOwnedGames !== false;
       const hideOwnedNonSteam = hideOwned && (s?.onlineHideOwnedNonSteam === true);
-      const ownedSet = new Set(
-        hideOwned
-          ? all.filter((a) => hideOwnedNonSteam || !isNonSteamOf(a)).map((a) => appIdOf(a))
-          : []
-      );
+      // Cloud-play sub-toggle (default FALSE): when ON, cloud-play
+      // shortcuts stay in the owned set (their wishlist matches hidden).
+      // When OFF (default), cloud-play is subtracted, so e.g. SM2 (Unifideck
+      // Microsoft Store catalogue stub) still appears on the shelf.
+      const hideOwnedNonSteamCloud = (source as any).hideOwnedNonSteamCloud
+        ?? s?.onlineHideOwnedNonSteamCloud === true;
+      const ownedSet = hideOwned
+        ? getLocalLibraryAppIds(hideOwnedNonSteam, hideOwnedNonSteamCloud)
+        : new Set<number>();
       let ids = hideOwned ? wishlistIds.filter((id) => !ownedSet.has(id)) : [...wishlistIds];
       // Apply childFilter: discount filter uses price cache and works for every
       // wishlist item; AppOverview-dependent filters only apply to games already
@@ -2538,10 +2650,10 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
       const hideOwnedStore = s?.onlineHideOwnedGames !== false;
       const hideOwnedStoreNonSteam = hideOwnedStore && (s?.onlineHideOwnedNonSteam === true);
+      const hideOwnedStoreNonSteamCloud = (source as any).hideOwnedNonSteamCloud
+        ?? s?.onlineHideOwnedNonSteamCloud === true;
       if (hideOwnedStore) {
-        const ownedSetStore = new Set(
-          all.filter((a) => hideOwnedStoreNonSteam || !isNonSteamOf(a)).map((a) => appIdOf(a))
-        );
+        const ownedSetStore = getLocalLibraryAppIds(hideOwnedStoreNonSteam, hideOwnedStoreNonSteamCloud);
         ids = ids.filter((id) => !ownedSetStore.has(id));
       }
 

@@ -34,4 +34,5 @@ export type EditableShelfState = {
   childFilterGroup: FilterGroup
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean
+  hideOwnedNonSteamCloud: boolean
 }

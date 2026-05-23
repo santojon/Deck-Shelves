@@ -93,6 +93,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     excludeOwned: (shelf.source as any).excludeOwned ?? false,
     excludeOwnedNonSteam: (shelf.source as any).excludeOwnedNonSteam ?? false,
+    hideOwnedNonSteamCloud: (shelf.source as any).hideOwnedNonSteamCloud === true,
     childFilterGroup: (() => {
       if (shelf.source.type === 'collection' || shelf.source.type === 'tab' || shelf.source.type === 'wishlist' || shelf.source.type === 'store') {
         return (shelf.source as any).childFilter ?? { mode: 'and', items: [] }
@@ -147,8 +148,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
     if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(childFilter ? { childFilter } : {}) }
     if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
-    if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any
-    if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any }
+    if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any
+    if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any }
     // When manual sort is active, use the configured base sort for the
     // preview so the mini-card row reflects the actual order of non-manual
     // positions at runtime (matches what Shelf.tsx resolves on home).
@@ -493,8 +494,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined;
       }
       else if (state.sourceType === 'external') { patch.source = { type: 'external', sourceId: state.externalSourceId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
-      else if (state.sourceType === 'wishlist') { patch.source = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
-      else if (state.sourceType === 'store') { const cf = childFilter; patch.source = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      else if (state.sourceType === 'wishlist') { patch.source = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      else if (state.sourceType === 'store') { const cf = childFilter; patch.source = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
       if (mode === 'create') {
         // Modal-driven create: nothing was persisted on open. Build the full
@@ -561,7 +562,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       <>
                         <ToggleField
                           label={t('exclude_owned_label')}
-                          description={t('exclude_owned_desc')}
                           checked={state.excludeOwned}
                           onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwned: v, excludeOwnedNonSteam: v ? prev.excludeOwnedNonSteam : false }))}
                         />
@@ -569,10 +569,18 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                           <div style={{ paddingLeft: 16 }}>
                             <ToggleField
                               label={t('hide_owned_non_steam')}
-                              description={t('hide_owned_non_steam_desc')}
                               checked={state.excludeOwnedNonSteam}
                               onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwnedNonSteam: v }))}
                             />
+                            {state.excludeOwnedNonSteam && (
+                              <div style={{ paddingLeft: 16 }}>
+                                <ToggleField
+                                  label={t('hide_owned_non_steam_cloud')}
+                                  checked={state.hideOwnedNonSteamCloud}
+                                  onChange={(v: boolean) => setState((prev) => ({ ...prev, hideOwnedNonSteamCloud: v }))}
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
                       </>

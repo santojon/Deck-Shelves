@@ -540,6 +540,7 @@
   "online_hide_owned_desc": "Kütüphanenizdeki yalnızca Steam oyunlarını çevrimiçi raflardan gizler.",
   "hide_owned_non_steam": "Steam dışı kısayolları dahil et",
   "hide_owned_non_steam_desc": "Kütüphanenizdeki Steam dışı kısayolları da gizler.",
+  "hide_owned_non_steam_cloud": "Buluttan oynanan Steam dışılarını dahil et",
   "force_themes_label": "CSS Loader temalarını zorla uygula (deneysel)",
   "force_themes_desc": "DS raflarına Steam'in tüm yerel sınıflarını uygulayarak CSS Loader temalarının onları yerel raflar gibi biçimlendirmesini sağlar. Bazı temalar düzeni bozabilir.",
   "refresh_cache": "Önbelleği güncelle",

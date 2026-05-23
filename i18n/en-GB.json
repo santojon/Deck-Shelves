@@ -540,6 +540,7 @@
   "online_hide_owned_desc": "Hides only Steam games already in your library from online shelves.",
   "hide_owned_non_steam": "Include non-Steam shortcuts",
   "hide_owned_non_steam_desc": "Also hides non-Steam shortcuts from your library.",
+  "hide_owned_non_steam_cloud": "Include cloud-play non-Steam",
   "force_themes_label": "Force CSS Loader themes (experimental)",
   "force_themes_desc": "Applies the full set of native Steam classes to DS shelves so CSS Loader themes style them like native shelves. Some themes may break layout.",
   "refresh_cache": "Refresh cache",

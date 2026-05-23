@@ -449,17 +449,31 @@ function ensureStyles() {
         else doc.documentElement.removeAttribute('data-ds-slh');
       } catch {}
 
-      // Centered Home detection — the theme sets `--center-home-padding` on
-      // :root to shift the home page content into a centered column. We detect
-      // it via that property and mark <html data-ds-centered="1"> so our CSS
-      // can apply matching left-offset compensation to DS shelves.
-      // NOTE: property name verified against Centered Home v1.x by Morz
-      // (CSS Loader store). If it stops working, inspect :root in CDP to find
-      // the new signal property and update accordingly.
+      // Centered Home detection — the theme sets a padding/inset custom
+      // property on :root to shift the home page content into a centered
+      // column. Variable name varies across versions, so probe a known set
+      // and copy the first non-empty value into our own `--ds-centered-pad`
+      // so the CSS rule below has a single, stable variable to read from.
       try {
-        const ch = getComputedStyle(doc.documentElement).getPropertyValue('--center-home-padding').trim();
-        if (ch !== '') doc.documentElement.setAttribute('data-ds-centered', '1');
-        else doc.documentElement.removeAttribute('data-ds-centered');
+        const root = doc.documentElement;
+        const cs = getComputedStyle(root);
+        const candidates = [
+          '--center-home-padding', '--centered-home-padding',
+          '--center-home-padding-x', '--center-home-x',
+          '--ch-padding', '--centered-padding',
+        ];
+        let chVal = '';
+        for (const name of candidates) {
+          const v = cs.getPropertyValue(name).trim();
+          if (v !== '') { chVal = v; break; }
+        }
+        if (chVal !== '') {
+          root.setAttribute('data-ds-centered', '1');
+          root.style.setProperty('--ds-centered-pad', chVal);
+        } else {
+          root.removeAttribute('data-ds-centered');
+          root.style.removeProperty('--ds-centered-pad');
+        }
       } catch {}
 
       try {
@@ -582,9 +596,18 @@ function buildStylesheet(): string {
        detection in ensureStyles() and this rule together. */
     [data-ds-centered="1"] #deck-shelves-home-root,
     [data-ds-centered="1"] .deck-shelves-root {
-      padding-left: var(--center-home-padding, 0px);
-      padding-right: var(--center-home-padding, 0px);
+      padding-left: var(--ds-centered-pad, var(--center-home-padding, 0px));
+      padding-right: var(--ds-centered-pad, var(--center-home-padding, 0px));
       box-sizing: border-box;
+    }
+    /* The row's own left padding (2.8vw, inline-styled) compounds with the
+       container padding above and offsets cards too far right. Override to 0
+       so cards sit flush with the centered native column. */
+    [data-ds-centered="1"] .ds-shelf .ds-row-scroll {
+      padding-left: 0 !important;
+    }
+    [data-ds-centered="1"] .ds-shelf .ds-shelf-title {
+      padding-left: 0 !important;
     }
 
     /* ArtHero (and any future hero-label theme) opts into the full layout:

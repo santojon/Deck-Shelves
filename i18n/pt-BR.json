@@ -542,6 +542,7 @@
   "online_hide_owned_desc": "Remove da lista apenas os jogos Steam que você já possui.",
   "hide_owned_non_steam": "Incluir atalhos não-Steam",
   "hide_owned_non_steam_desc": "Também oculta atalhos não-Steam da lista.",
+  "hide_owned_non_steam_cloud": "Incluir não-Steam em nuvem",
   "force_themes_label": "Forçar temas do CSS Loader (experimental)",
   "force_themes_desc": "Aplica o conjunto completo de classes nativas do Steam nas prateleiras DS para que os temas do CSS Loader as estilizem como as nativas. Alguns temas podem quebrar o layout.",
   "refresh_cache": "Atualizar cache",

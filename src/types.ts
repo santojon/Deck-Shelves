@@ -166,8 +166,8 @@ export const ShelfSourceSchema = z.union([
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
-  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional() }),
-  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional() }),
+  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
+  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
 ]);
 
 export type ShelfSource = z.infer<typeof ShelfSourceSchema>;
@@ -253,6 +253,11 @@ export const SettingsSchema = z.object({
   onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedNonSteam: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // When TRUE, cloud-play non-Steam shortcuts are kept in the "owned" set
+  // (so their wishlist/store matches are hidden). Default FALSE — so
+  // catalogue stubs that only stream from the cloud (e.g. Xbox Cloud
+  // Gaming) don't hide their promotions on the shelf.
+  onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
 });
 

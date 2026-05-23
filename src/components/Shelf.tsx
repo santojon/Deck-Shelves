@@ -12,7 +12,7 @@ import { saveFocusTarget } from "../core/focusRestore";
 import { subscribeShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
-import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews } from "../steam";
+import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
 import { clearOnlineShelfCache, dispatchShelfModal, toggleShelfHiddenById, moveShelfById, duplicateShelfById } from "../core/shelfActions";
 import { fetchGameNames } from "../core/onlineStore";
@@ -72,7 +72,7 @@ function getCachedDiscount(appid: number): number | null {
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
-function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalDedupeByName = false, heroForced = false, heroLabelMount = false, forceExpanded = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalDedupeByName?: boolean; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean }) {
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalDedupeByName = false, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalDedupeByName?: boolean; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}-${(shelf as any).sortReverse ? 'r1' : 'r0'}-${(shelf as any).manualBaseSortReverse ? 'r1' : 'r0'}`;
@@ -209,15 +209,18 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const isOnlineShelf = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
   const excludeOwned = isOnlineShelf && (shelf.source as any).excludeOwned === true;
   const excludeOwnedNonSteam = excludeOwned && (shelf.source as any).excludeOwnedNonSteam === true;
+  const perShelfHideOwnedCloud = (shelf.source as any).hideOwnedNonSteamCloud;
 
   const [globalHideOwned, setGlobalHideOwned] = useState(() => getCurrentSettings()?.onlineHideOwnedGames === true);
   const [globalHideOwnedNonSteam, setGlobalHideOwnedNonSteam] = useState(() => getCurrentSettings()?.onlineHideOwnedNonSteam === true);
+  const [globalHideOwnedCloud, setGlobalHideOwnedCloud] = useState(() => getCurrentSettings()?.onlineHideOwnedNonSteamCloud === true);
 
   useEffect(() => {
     const handler = () => {
       const s = getCurrentSettings();
       setGlobalHideOwned(s?.onlineHideOwnedGames === true);
       setGlobalHideOwnedNonSteam(s?.onlineHideOwnedNonSteam === true);
+      setGlobalHideOwnedCloud(s?.onlineHideOwnedNonSteamCloud === true);
     };
     globalThis.addEventListener("deck-shelves-settings-changed", handler);
     return () => globalThis.removeEventListener("deck-shelves-settings-changed", handler);
@@ -226,26 +229,39 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // Effective filter flags: true if either global or per-shelf toggle is active.
   const shouldHideOwned = isOnlineShelf && (globalHideOwned || excludeOwned);
   const effectiveNonSteam = (globalHideOwned && globalHideOwnedNonSteam) || (excludeOwned && excludeOwnedNonSteam);
+  // Cloud-play "include" sub-sub-toggle: per-shelf override → global. ONLY
+  // meaningful when non-Steam hiding is also on.
+  const effectiveCloud = effectiveNonSteam && (perShelfHideOwnedCloud === true || (perShelfHideOwnedCloud === undefined && globalHideOwnedCloud));
 
-  // Build a Set of locally-owned game names. Active when either filter is on.
-  // Non-Steam shortcuts are included when the corresponding sub-toggle is on.
+  // Authoritative "owned" appid set, from `collectionStore` — matches the
+  // resolver's logic so the render filter agrees with what was already
+  // selected. Wishlist items that Steam happens to have an AppOverview for
+  // (because they were viewed in store / wishlisted) no longer count as
+  // "owned" — they're only excluded when they actually appear in the user's
+  // library collections.
+  const [ownedAppIds, setOwnedAppIds] = useState<Set<number> | null>(null);
   useEffect(() => {
-    if (!shouldHideOwned) { setOwnedNames(null); return; }
+    if (!shouldHideOwned) { setOwnedAppIds(null); setOwnedNames(null); return; }
+    setOwnedAppIds(getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud));
     let cancelled = false;
+    // Name-based dedup: only useful as a defensive secondary signal for
+    // non-Steam shortcuts that share a name with an unrelated Steam app.
+    // Sourced from the same library appids — NOT from `getAllAppOverviews`
+    // (which leaks wishlist/store-viewed apps).
     getAllAppOverviews().then((apps) => {
       if (cancelled) return;
+      const ownedSet = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud);
       const names = new Set<string>();
       for (const a of apps) {
-        const nonSteam = !!(a as any)?.is_non_steam || (a as any)?.is_steam === false ||
-          (a as any)?.m_eAppType === 1073741824 || (a as any)?.app_type === 1073741824;
-        if (!effectiveNonSteam && nonSteam) continue;
+        const id = Number((a as any)?.appid);
+        if (!ownedSet.has(id)) continue;
         const n = (a as any)?.display_name ?? (a as any)?.name;
         if (typeof n === 'string' && n) names.add(n.trim().toLowerCase());
       }
       setOwnedNames(names);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [shouldHideOwned, effectiveNonSteam]);
+  }, [shouldHideOwned, effectiveNonSteam, effectiveCloud]);
   useEffect(() => {
     if (!isOnlineShelf || !appIds?.length) return;
     // Read previously-fetched names from localStorage cache to show instantly.
@@ -289,16 +305,20 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       const isStoreFallback = /^App \d+$/.test(item.name);
       const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
 
-      // Hide library games from online shelves when either the global or per-shelf toggle is on.
-      if (!isStoreFallback && isOnlineSource && shouldHideOwned) return [];
+      // Hide library games from online shelves when either toggle is on —
+      // authoritative check via the `collectionStore`-based owned set. Using
+      // "has local meta" (= !isStoreFallback) as a proxy was wrong: Steam
+      // caches AppOverview for wishlist/store-viewed games too, which made
+      // legitimate promo results (e.g. SM2) drop out incorrectly.
+      if (isOnlineSource && shouldHideOwned && ownedAppIds && ownedAppIds.has(appid)) return [];
       if (isStoreFallback && !isOnlineSource) return [];
 
-      // Name-based filter: drops games whose name matches a locally-owned title.
-      // Covers non-Steam shortcuts that share a name with a store entry (different
-      // appid, so the appid check above misses them). Applies when either toggle is on.
+      // Name-based defensive filter: drops online entries whose name matches
+      // a TRULY-owned local title (set sourced from the same library appids,
+      // so it does not leak wishlist/store-viewed names).
       if (shouldHideOwned && ownedNames && isOnlineSource) {
-        const n = (storeNames.get(appid) ?? '').trim().toLowerCase();
-        if (n && ownedNames.has(n)) return [];
+        const itemName = (item.name && !isStoreFallback ? item.name : storeNames.get(appid) ?? '').trim().toLowerCase();
+        if (itemName && ownedNames.has(itemName)) return [];
       }
 
       // Non-owned game from an online source: decorative card with CDN artwork.
@@ -416,7 +436,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       });
     }
     return base;
-  }, [appIds, items, storeNames, ownedNames, shouldHideOwned, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
+  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
@@ -442,7 +462,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveHideShelfTitle = globalHideShelfTitle === true ? true : ((shelf as any).hideShelfTitle === true);
   const effectiveHideGameNames = globalHideGameNames === true ? true : ((shelf as any).hideGameNames === true);
   const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
+  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
 }
 
 // Shallow-prop memo: settings changes in unrelated sections (e.g. toggling a
