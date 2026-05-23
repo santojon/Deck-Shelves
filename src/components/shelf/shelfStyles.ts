@@ -693,13 +693,19 @@ function buildStylesheet(): string {
     }
     .ds-card {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
-      overflow: hidden;
-      filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), transform 0.4s;
+      /* overflow: visible so the badge host can extend above the card on
+         focus without being clipped. The art (.ds-card-art) keeps its own
+         overflow: hidden + border-radius so the cover image stays clipped. */
+      overflow: visible;
+      transition: transform 0.3s cubic-bezier(0.16, 0.86, 0.43, 0.99);
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
     }
+    /* Cancel native brightness on .ds-card so it does not create a stacking
+       context that traps the badge host's z-index. Brightness is applied to
+       .ds-card-art below instead. */
+    #deck-shelves-home-root .ds-card { filter: none !important; }
     #deck-shelves-home-root .deck-shelves-root:focus,
     #deck-shelves-home-root .deck-shelves-root.gpfocus,
     #deck-shelves-home-root .deck-shelves-root.gpfocuswithin,
@@ -726,7 +732,15 @@ function buildStylesheet(): string {
          only the drop shadow shows. */
       box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px, 0 0 0 2px var(--custom-sp-color-border, transparent) !important;
       z-index: 12;
-      filter: brightness(1);
+    }
+    /* Suppress our focus drop shadow when the "Focus Highlight Color" theme's
+       Round Compatibility patch is on — that patch removes the native card
+       focus indicator, so DS cards should match. The flag attribute sits on
+       .deck-shelves-root (inside #deck-shelves-home-root). */
+    .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus,
+    .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
+      box-shadow: none !important;
     }
     /* Layout-only ::after: matches the card's art height/radius so any
        theme overlay (e.g. Game Cover Shine focus animation) targets the
@@ -795,14 +809,17 @@ function buildStylesheet(): string {
       padding-top: 0 !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius});
       overflow: hidden;
+      filter: brightness(var(--ds-card-dim, 0.9)) !important;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1);
     }
     .ds-card-art img {
       border-radius: var(--ds-card-radius, ${cachedCardRadius});
     }
-    .ds-card.gpfocus .ds-card-art,
-    .ds-card:focus .ds-card-art,
-    .ds-card:hover .ds-card-art {
+    #deck-shelves-home-root .ds-card.gpfocus .ds-card-art,
+    #deck-shelves-home-root .ds-card:focus .ds-card-art,
+    #deck-shelves-home-root .ds-card:hover .ds-card-art {
       z-index: 2;
+      filter: brightness(1) !important;
     }
 
     /* TiltedHome (Renaissance) compat — universal: mirrors whatever transform
@@ -817,7 +834,7 @@ function buildStylesheet(): string {
     /* method: skew (default when --ren-tilt-method is unset or "skew") */
     :root:not([style*="--ren-tilt-method"]) .ds-card,
     :root[style*="--ren-tilt-method: skew"] .ds-card {
-      transform: skew(var(--ren-tilt-angle));
+      transform: skew(var(--ren-tilt-angle, 0deg));
     }
     :root:not([style*="--ren-tilt-method"]) .ds-card.gpfocus,
     :root:not([style*="--ren-tilt-method"]) .ds-card.is-selected,
@@ -827,18 +844,18 @@ function buildStylesheet(): string {
     :root[style*="--ren-tilt-method: skew"] .ds-card.is-selected,
     :root[style*="--ren-tilt-method: skew"] .ds-card:focus,
     :root[style*="--ren-tilt-method: skew"] .ds-card:hover {
-      transform: skew(var(--ren-tilt-angle)) scale(1.02) translateZ(15px) !important;
+      transform: skew(var(--ren-tilt-angle, 0deg)) scale(1.04) translateZ(15px) !important;
     }
 
     /* method: rotate3d — perspective tilt (Renaissance "3D" variant) */
     :root[style*="--ren-tilt-method: rotate3d"] .ds-card {
-      transform: perspective(600px) rotateY(var(--ren-tilt-angle));
+      transform: perspective(600px) rotateY(var(--ren-tilt-angle, 0deg));
     }
     :root[style*="--ren-tilt-method: rotate3d"] .ds-card.gpfocus,
     :root[style*="--ren-tilt-method: rotate3d"] .ds-card.is-selected,
     :root[style*="--ren-tilt-method: rotate3d"] .ds-card:focus,
     :root[style*="--ren-tilt-method: rotate3d"] .ds-card:hover {
-      transform: perspective(600px) rotateY(var(--ren-tilt-angle)) scale(1.02) translateZ(15px) !important;
+      transform: perspective(600px) rotateY(var(--ren-tilt-angle, 0deg)) scale(1.04) translateZ(15px) !important;
     }
 
     /* NOTE: .gpfocuswithin intentionally excluded — fires on EVERY card when
@@ -883,14 +900,28 @@ function buildStylesheet(): string {
     body.ds-hide-non-steam-badges .nonsteam-badge,
     .ds-card--hide-non-steam-badge .nonsteam-badge { display: none !important; }
     .ds-new-badge-band {
-      position: absolute; top: -2px; left: 0; right: 0;
+      position: absolute; top: 0px; left: 0; right: 0;
       height: 24px;
       display: flex; justify-content: center; align-items: flex-start;
       pointer-events: none;
       z-index: 20;
     }
+    /* Badge host: 2px above the card top by default, rises to 12px on
+       focus/hover. */
+    .ds-card .ds-card-badge-host {
+      top: -2px;
+      height: calc(100% + 2px);
+      transition: top 0.15s ease, height 0.15s ease;
+    }
+    .ds-card.gpfocus .ds-card-badge-host,
+    .ds-card:focus .ds-card-badge-host,
+    .ds-card:hover .ds-card-badge-host,
+    .ds-card.is-selected .ds-card-badge-host {
+      top: -10px;
+      height: calc(100% + 10px);
+    }
     .ds-new-badge {
-      /* Mirrors the native SteamOS "Novo" badge color resolution:
+      /* Mirrors the native SteamOS "New" badge color resolution:
          themes may override --ds-new-badge-bg directly; otherwise the
          badge falls back to --colored-toggles-main-color (the same var
          the native badge uses, set by themes like Colored Toggles), and

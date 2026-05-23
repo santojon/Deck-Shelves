@@ -27,6 +27,7 @@ jobs:
     if: >-
       (github.event_name == 'workflow_dispatch') ||
       (github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'rc') &&
        (startsWith(github.event.pull_request.title, '[FIX]') ||
         startsWith(github.event.pull_request.title, '[ENHANCEMENT]') ||
         startsWith(github.event.pull_request.title, '[PERF]') ||

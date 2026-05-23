@@ -1226,7 +1226,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
             overflowY: "visible",
             scrollbarWidth: "none",
             scrollBehavior: "smooth",
-            padding: "6px 0 46px 2.8vw",
+            padding: "16px 0 46px 2.8vw",
           }}
           {...flowChildrenProps("horizontal")}
         >

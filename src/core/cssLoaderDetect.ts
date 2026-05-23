@@ -129,6 +129,17 @@ export function isHeroFullscreenActive(): boolean {
     || matchesAny(text, innerTokens, "height\\s*:\\s*100vh");
 }
 
+/** "Focus Highlight Color" with "Round Compatibility" patch on: the patch
+ *  injects a custom keyframe `appportrait_blinker_..._flangrande` that only
+ *  exists in that file. When active, the theme removes the native card
+ *  focus outline — DS shelves should match and suppress their own focus
+ *  drop shadow. */
+export function isFocusRoundCompatActive(): boolean {
+  const text = getAllStyleText();
+  return /appportrait_blinker_[\w-]*flangrande/i.test(text)
+    || /focusring_blinker_[\w-]*flangrande/i.test(text);
+}
+
 /** "No Home Text": carousel game label hidden via visibility:hidden. */
 export function isNoHomeTextActive(): boolean {
   const text = getAllStyleText();

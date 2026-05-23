@@ -21,7 +21,7 @@ import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelf
 import { isInVisibilityWindow, nextVisibilityBoundary, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { getRuntimeClassMap } from "../core/webpackCompat";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive } from "../core/cssLoaderDetect";
 
 // Fallback for the native shelf-section token when the runtime classmap
 // hasn't been populated yet. Mirrors `FALLBACK_SHELF_SECTION` in
@@ -1013,6 +1013,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
         setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
+        setFlag('data-ds-theme-focus-round-compat', isFocusRoundCompatActive());
         // Force-themes flag — gates theme rules that should only engage
         // under force (e.g. No Home Text per user spec).
         setFlag('data-ds-force-themes', forceCssLoaderThemes);
@@ -1048,6 +1049,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         root.removeAttribute('data-ds-theme-no-hero-gradient');
         root.removeAttribute('data-ds-theme-hero-fullscreen');
         root.removeAttribute('data-ds-theme-no-home-text');
+        root.removeAttribute('data-ds-theme-focus-round-compat');
         root.removeAttribute('data-ds-force-themes');
         root.removeAttribute('data-ds-recents-hidden');
       } catch {}

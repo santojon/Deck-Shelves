@@ -276,6 +276,38 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
+      {/* Invisible overlay hosting NEW / discount badge above the card
+          top. Top offset + height grow under focus via CSS (defaults to
+          2px above, jumps to 12px when the card is focused/hovered).
+          Very high z-index + isolation keeps the badge in front of the
+          label, focus drop-shadow, and any theme-injected overlays. */}
+      {(showDiscountBadge || showNewBadge) && (
+        <div
+          className="ds-card-badge-host"
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            pointerEvents: "none",
+            zIndex: 2147483647,
+            isolation: "isolate",
+          }}
+        >
+          {showDiscountBadge && (
+            <div className="ds-new-badge-band">
+              <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
+                {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+              </div>
+            </div>
+          )}
+          {showNewBadge && !showDiscountBadge && (
+            <div className="ds-new-badge-band">
+              <div className="ds-new-badge">{t('badge_new')}</div>
+            </div>
+          )}
+        </div>
+      )}
       <div
         className="ds-card-art"
         style={{
@@ -298,18 +330,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           <div className={compatClass}>
             {deckLogoSvg}
             {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
-          </div>
-        )}
-        {showDiscountBadge && (
-          <div className="ds-new-badge-band">
-            <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-              {t('badge_discount', { count: discount }) ?? `${discount}% off`}
-            </div>
-          </div>
-        )}
-        {showNewBadge && !showDiscountBadge && (
-          <div className="ds-new-badge-band">
-            <div className="ds-new-badge">{t('badge_new')}</div>
           </div>
         )}
       </div>
