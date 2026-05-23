@@ -384,6 +384,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       }];
     });
     if (!base.length) return base;
+    // Cap to the user's configured shelf.limit AFTER filtering. The resolver
+    // overshoots for online shelves so render-time owned/name filters can
+    // drop a couple of items without leaving the shelf below the limit; the
+    // slice here keeps trailing cards (refresh / "see more") anchored to the
+    // visible limit's worth of game cards, not to the overshoot pool.
+    if (base.length > shelf.limit) base.length = shelf.limit;
     // Trailing card rules live in `shelf/trailingCards.ts` so the modal
     // preview renders the same set as the home shelf. Cache-invalidation
     // handler picks the right path based on smart vs random-sort.
@@ -436,7 +442,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       });
     }
     return base;
-  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
+  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;

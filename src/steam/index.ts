@@ -2228,8 +2228,17 @@ async function applyPriceSort(ids: number[], sort: "price_low" | "discount_high"
 
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean, options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }): Promise<number[]> {
   const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
-  // Overshoot: fetch more candidates to compensate for hidden app filtering.
-  const overShootLimit = hiddenSet ? Math.min(limit + hiddenSet.size * 2, limit * 3) : limit;
+  // Overshoot accounts for filters applied AFTER the resolver returns:
+  //   - hiddenAppIds (per-shelf "Hide game" picker): bumps by hidden*2.
+  //   - online owned/name filter applied in Shelf.tsx at render time:
+  //     bumps by max(10, 50% of limit) so wishlist/store shelves still hit
+  //     the user's configured limit after a couple of owned-name matches
+  //     get dropped (e.g. games the user also owns on Epic/GOG).
+  // Capped at limit*3 to keep the candidate pool sane.
+  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
+  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
+  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
+  const overShootLimit = Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
 
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
@@ -2238,11 +2247,15 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     all = await getAllAppOverviews();
   }
 
+  // Returns up to `overShootLimit` ids — Shelf.tsx slices to `shelf.limit`
+  // after applying its render-time filters (owned appid check + name match
+  // against the local library). The extra headroom lets the rendered shelf
+  // still hit `shelf.limit` when those filters drop a handful of items.
   function finish(ids: number[]): number[] {
     let result = ids;
     if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
     if (options?.dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
-    return result.slice(0, limit);
+    return result.slice(0, overShootLimit);
   }
 
   if (source.type === "collection") {
@@ -2570,16 +2583,25 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
       const wishlistIds = await getWishlistIds();
       if (!wishlistIds) return [];
-      // Optionally exclude games already in the local library.
-      // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
-      const hideOwned = s?.onlineHideOwnedGames !== false;
-      const hideOwnedNonSteam = hideOwned && (s?.onlineHideOwnedNonSteam === true);
-      // Cloud-play sub-toggle (default FALSE): when ON, cloud-play
-      // shortcuts stay in the owned set (their wishlist matches hidden).
-      // When OFF (default), cloud-play is subtracted, so e.g. SM2 (Unifideck
-      // Microsoft Store catalogue stub) still appears on the shelf.
-      const hideOwnedNonSteamCloud = (source as any).hideOwnedNonSteamCloud
-        ?? s?.onlineHideOwnedNonSteamCloud === true;
+      // Per-shelf toggles override / extend the global setting — mirrors
+      // Shelf.tsx render-time logic so the resolver count matches the final
+      // displayed count (the modal "found X" pill reflects this number).
+      //
+      //   hideOwned          = global ON  OR  source.excludeOwned
+      //   hideOwnedNonSteam  = hideOwned AND (global non-Steam OR source NS)
+      //   hideCloud          = NS-hide AND (per-shelf cloud override → global)
+      //
+      // Per-shelf is independent from global so the modal's preview reflects
+      // the toggles the user is actively configuring.
+      const globalHideOwned = s?.onlineHideOwnedGames === true;
+      const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
+      const srcExcludeOwned = (source as any).excludeOwned === true;
+      const srcExcludeNonSteam = srcExcludeOwned && (source as any).excludeOwnedNonSteam === true;
+      const hideOwned = globalHideOwned || srcExcludeOwned;
+      const hideOwnedNonSteam = hideOwned && ((globalHideOwned && globalHideNonSteam) || srcExcludeNonSteam);
+      const perShelfCloud = (source as any).hideOwnedNonSteamCloud;
+      const hideOwnedNonSteamCloud = hideOwnedNonSteam &&
+        (perShelfCloud === true || (perShelfCloud === undefined && s?.onlineHideOwnedNonSteamCloud === true));
       const ownedSet = hideOwned
         ? getLocalLibraryAppIds(hideOwnedNonSteam, hideOwnedNonSteamCloud)
         : new Set<number>();
@@ -2645,13 +2667,17 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         childFilter.items.some((item: any) => item.type === "discount");
       if (hasDiscountFilter) await getPriceMap(ids);
 
-      // Apply childFilter (discount uses price cache; others use AppOverview).
-      // Optionally exclude owned games from the store shelf.
-      // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
-      const hideOwnedStore = s?.onlineHideOwnedGames !== false;
-      const hideOwnedStoreNonSteam = hideOwnedStore && (s?.onlineHideOwnedNonSteam === true);
-      const hideOwnedStoreNonSteamCloud = (source as any).hideOwnedNonSteamCloud
-        ?? s?.onlineHideOwnedNonSteamCloud === true;
+      // Same merge logic as the wishlist branch (see comment above) — keeps
+      // the store shelf preview count consistent with the rendered shelf.
+      const globalHideOwned = s?.onlineHideOwnedGames === true;
+      const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
+      const srcExcludeOwned = (source as any).excludeOwned === true;
+      const srcExcludeNonSteam = srcExcludeOwned && (source as any).excludeOwnedNonSteam === true;
+      const hideOwnedStore = globalHideOwned || srcExcludeOwned;
+      const hideOwnedStoreNonSteam = hideOwnedStore && ((globalHideOwned && globalHideNonSteam) || srcExcludeNonSteam);
+      const perShelfCloud = (source as any).hideOwnedNonSteamCloud;
+      const hideOwnedStoreNonSteamCloud = hideOwnedStoreNonSteam &&
+        (perShelfCloud === true || (perShelfCloud === undefined && s?.onlineHideOwnedNonSteamCloud === true));
       if (hideOwnedStore) {
         const ownedSetStore = getLocalLibraryAppIds(hideOwnedStoreNonSteam, hideOwnedStoreNonSteamCloud);
         ids = ids.filter((id) => !ownedSetStore.has(id));

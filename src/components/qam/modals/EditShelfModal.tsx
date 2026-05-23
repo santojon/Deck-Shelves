@@ -14,7 +14,8 @@ import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '.
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
-import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
+import { resolveShelfAppIds, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from '../../../steam'
+import { getCurrentSettings } from '../../../store/settingsStore'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
@@ -156,7 +157,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
     const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
     return { type: 'filter' as const, filter: effectiveFilter }
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud])
 
   useEffect(() => {
     let cancelled = false
@@ -181,52 +182,78 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
       }
-      // Resolve with a generous limit so the count reflects the true number of
-      // matching games, not just the configured shelf limit. The resolved list
-      // is then sliced to state.limit for the preview row display.
-      resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse, {
-        hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
-        dedupeByName: state.dedupeByExactName || undefined,
-      })
-        .then((ids) => {
+      // Resolve with a generous limit so we see the full matching pool.
+      // The preview count and resolvedIds are then derived by running the
+      // SAME render-time filters Shelf.tsx applies (owned-by-appid + owned-
+      // by-name) — without this the modal's count and preview drift away
+      // from what the actual shelf renders.
+      ;(async () => {
+        try {
+          const rawIds = await resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse, {
+            hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
+            dedupeByName: state.dedupeByExactName || undefined,
+          })
           if (cancelled) return
-          setPreviewCount(ids.length)
-          setResolvedIds(ids.slice(0, state.limit))
-        })
-        .catch(() => {
+
+          const isOnlineShelf = state.sourceType === 'wishlist' || state.sourceType === 'store'
+          let filteredIds = rawIds
+          if (isOnlineShelf) {
+            const settings = getCurrentSettings()
+            const globalHideOwned = settings?.onlineHideOwnedGames === true
+            const globalHideNonSteam = settings?.onlineHideOwnedNonSteam === true
+            const globalHideCloud = settings?.onlineHideOwnedNonSteamCloud === true
+            const shouldHideOwned = globalHideOwned || state.excludeOwned
+            const effectiveNonSteam = (globalHideOwned && globalHideNonSteam) || (state.excludeOwned && state.excludeOwnedNonSteam)
+            // Per-shelf cloud override only kicks in when the per-shelf
+            // exclude+NS pair is set — same shape the source serialization
+            // uses (otherwise the resolver inherits the global flag).
+            const perShelfCloud = (state.excludeOwned && state.excludeOwnedNonSteam) ? state.hideOwnedNonSteamCloud : undefined
+            const effectiveCloud = effectiveNonSteam && (perShelfCloud === true || (perShelfCloud === undefined && globalHideCloud))
+
+            if (shouldHideOwned) {
+              const ownedAppIds = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
+              const all = await getAllAppOverviews()
+              const ownedNames = new Set<string>()
+              const allById = new Map<number, any>()
+              for (const a of all) {
+                const id = Number((a as any)?.appid)
+                if (Number.isFinite(id)) allById.set(id, a)
+                if (!ownedAppIds.has(id)) continue
+                const n = (a as any)?.display_name ?? (a as any)?.name
+                if (typeof n === 'string' && n) ownedNames.add(n.trim().toLowerCase())
+              }
+              const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
+              let nameCache: Record<number, string> = {}
+              try { nameCache = JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch {}
+              filteredIds = rawIds.filter((id) => {
+                if (ownedAppIds.has(id)) return false
+                const overview = allById.get(id)
+                const localName = overview ? ((overview as any).display_name ?? (overview as any).name) : ''
+                const cachedName = nameCache[id]
+                const name = ((localName && !/^App \d+$/.test(localName) ? localName : cachedName) ?? '').trim().toLowerCase()
+                if (name && ownedNames.has(name)) return false
+                return true
+              })
+            }
+          }
+          if (cancelled) return
+          setPreviewCount(filteredIds.length)
+          setResolvedIds(filteredIds.slice(0, state.limit))
+        } catch {
           if (cancelled) return
           setPreviewCount(0)
           setResolvedIds([])
-        })
+        }
+      })()
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce])
+  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud])
 
   useEffect(() => {
     let cancelled = false
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
     const isOnlineSource = state.sourceType === 'wishlist' || state.sourceType === 'store'
-    const filterNonSteam = isOnlineSource && state.excludeOwned && state.excludeOwnedNonSteam
     ;(async () => {
-      // Pre-fetch non-Steam shortcut names before calling getAppMeta so the
-      // name-based filter can be applied in one pass.
-      let nonSteamNameSet: Set<string> | null = null
-      if (filterNonSteam) {
-        try {
-          const { getAllAppOverviews } = await import('../../../steam')
-          const all = await getAllAppOverviews()
-          nonSteamNameSet = new Set<string>()
-          for (const a of all) {
-            const ns = !!(a as any)?.is_non_steam || (a as any)?.is_steam === false ||
-              (a as any)?.m_eAppType === 1073741824 || (a as any)?.app_type === 1073741824
-            if (!ns) continue
-            const n = (a as any)?.display_name ?? (a as any)?.name
-            if (typeof n === 'string' && n) nonSteamNameSet.add(n.trim().toLowerCase())
-          }
-        } catch {}
-      }
-      if (cancelled) return
-
       const rawResults = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
         try { return [id, await platform.getAppMeta(id)] }
         catch { return [id, { appid: id, name: `App ${id}` }] }
@@ -238,25 +265,22 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         return
       }
 
-      // For online shelves, enrich display names via the local cache. When
-      // excludeOwned is ON, mirror Shelf.tsx and hide games already in the
-      // library (getAppMeta returns "App <id>" for non-library apps; real
-      // names signal owned). When excludeOwned is OFF, show everything.
+      // Online shelves: `resolvedIds` is already the filtered+limited list
+      // (owned-by-appid AND owned-by-name already applied in the count
+      // useEffect above). Just enrich each id with a real name (from local
+      // overview, then localStorage cache, fall back to "#id").
       const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
       const nameCache: Record<number, string> = (() => {
         try { return JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch { return {} }
       })()
-      const onlineIds = state.excludeOwned
-        ? rawResults.filter(([, m]) => /^App \d+$/.test(m.name)).map(([id]) => id)
-        : rawResults.map(([id]) => id)
       const meta = new Map<number, PlatformAppMeta>()
       const toFetch: number[] = []
-      for (const id of onlineIds) {
+      for (const [id, m] of rawResults) {
+        const overviewName = m?.name && !/^App \d+$/.test(m.name) ? m.name : undefined
         const cachedName = nameCache[id]
-        if (nonSteamNameSet && cachedName && nonSteamNameSet.has(cachedName.trim().toLowerCase())) continue
         const portraitUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${id}/library_600x900.jpg`
-        meta.set(id, { appid: id, name: cachedName ?? `#${id}`, portraitUrl })
-        if (!cachedName) toFetch.push(id)
+        meta.set(id, { appid: id, name: overviewName ?? cachedName ?? `#${id}`, portraitUrl })
+        if (!overviewName && !cachedName) toFetch.push(id)
       }
       setResolvedMeta(meta)
 
@@ -271,7 +295,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       setResolvedMeta(prev => {
         const next = new Map(prev)
         names.forEach((name, id) => {
-          if (nonSteamNameSet?.has(name.trim().toLowerCase())) { next.delete(id); return }
           const existing = next.get(id)
           if (existing) next.set(id, { ...existing, name })
         })
@@ -279,7 +302,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       })
     })()
     return () => { cancelled = true }
-  }, [platform, resolvedIds.join(','), state.sourceType, state.excludeOwned, state.excludeOwnedNonSteam])
+  }, [platform, resolvedIds.join(','), state.sourceType])
 
   // Fetch overshoot candidates for hidden-games picker: uses limit*3 without
   // hiddenAppIds applied, so the user sees all slots they can fill/hide.
