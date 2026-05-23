@@ -229,25 +229,19 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // Effective filter flags: true if either global or per-shelf toggle is active.
   const shouldHideOwned = isOnlineShelf && (globalHideOwned || excludeOwned);
   const effectiveNonSteam = (globalHideOwned && globalHideOwnedNonSteam) || (excludeOwned && excludeOwnedNonSteam);
-  // Cloud-play "include" sub-sub-toggle: per-shelf override → global. ONLY
-  // meaningful when non-Steam hiding is also on.
+  // Cloud-play sub-toggle: per-shelf overrides global. Only meaningful
+  // when non-Steam hiding is also on.
   const effectiveCloud = effectiveNonSteam && (perShelfHideOwnedCloud === true || (perShelfHideOwnedCloud === undefined && globalHideOwnedCloud));
 
-  // Authoritative "owned" appid set, from `collectionStore` — matches the
-  // resolver's logic so the render filter agrees with what was already
-  // selected. Wishlist items that Steam happens to have an AppOverview for
-  // (because they were viewed in store / wishlisted) no longer count as
-  // "owned" — they're only excluded when they actually appear in the user's
-  // library collections.
+  // Owned appid set from collectionStore — matches the resolver's logic so
+  // render and resolver agree on what counts as owned.
   const [ownedAppIds, setOwnedAppIds] = useState<Set<number> | null>(null);
   useEffect(() => {
     if (!shouldHideOwned) { setOwnedAppIds(null); setOwnedNames(null); return; }
     setOwnedAppIds(getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud));
     let cancelled = false;
-    // Name-based dedup: only useful as a defensive secondary signal for
-    // non-Steam shortcuts that share a name with an unrelated Steam app.
-    // Sourced from the same library appids — NOT from `getAllAppOverviews`
-    // (which leaks wishlist/store-viewed apps).
+    // Name-based dedup: sourced from the library appids (not all overviews,
+    // which leak wishlist/store-viewed entries).
     getAllAppOverviews().then((apps) => {
       if (cancelled) return;
       const ownedSet = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud);
@@ -305,17 +299,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       const isStoreFallback = /^App \d+$/.test(item.name);
       const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
 
-      // Hide library games from online shelves when either toggle is on —
-      // authoritative check via the `collectionStore`-based owned set. Using
-      // "has local meta" (= !isStoreFallback) as a proxy was wrong: Steam
-      // caches AppOverview for wishlist/store-viewed games too, which made
-      // legitimate promo results (e.g. SM2) drop out incorrectly.
+      // Hide owned games on online shelves via the collectionStore-based set.
       if (isOnlineSource && shouldHideOwned && ownedAppIds && ownedAppIds.has(appid)) return [];
       if (isStoreFallback && !isOnlineSource) return [];
 
-      // Name-based defensive filter: drops online entries whose name matches
-      // a TRULY-owned local title (set sourced from the same library appids,
-      // so it does not leak wishlist/store-viewed names).
+      // Name-based dedup against the truly-owned local titles.
       if (shouldHideOwned && ownedNames && isOnlineSource) {
         const itemName = (item.name && !isStoreFallback ? item.name : storeNames.get(appid) ?? '').trim().toLowerCase();
         if (itemName && ownedNames.has(itemName)) return [];
@@ -384,11 +372,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       }];
     });
     if (!base.length) return base;
-    // Cap to the user's configured shelf.limit AFTER filtering. The resolver
-    // overshoots for online shelves so render-time owned/name filters can
-    // drop a couple of items without leaving the shelf below the limit; the
-    // slice here keeps trailing cards (refresh / "see more") anchored to the
-    // visible limit's worth of game cards, not to the overshoot pool.
+    // Cap to shelf.limit AFTER filtering — the resolver overshoots so the
+    // render-time filters can drop items without leaving the shelf short.
     if (base.length > shelf.limit) base.length = shelf.limit;
     // Trailing card rules live in `shelf/trailingCards.ts` so the modal
     // preview renders the same set as the home shelf. Cache-invalidation

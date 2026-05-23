@@ -174,12 +174,9 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const userHasFocusedRef = useRef(false);
   useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
 
-  // First / promoted hero shelf: 80px bleed (the hero is anchored to the
-  // page top — nothing above to blend with). Non-first non-promoted shelves
-  // get a much wider bleed (140px) so the cross-fade with the adjacent
-  // shelf above spans the entire transition zone — eliminates the dim gap
-  // between adjacent heroes that the user reported. Re-runs when promotion
-  // flips at runtime (force toggle / hideRecents change).
+  // 80px bleed for first / promoted (anchored to page top); 140px for
+  // non-first non-promoted so the cross-fade with the shelf above spans
+  // the whole transition zone.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -276,12 +273,9 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     };
     const discover = () => {
       try {
-        // Same gate as the promotion CSS: only opt into the native theme's
-        // hero class chain when ArtHero is active AND this shelf is in a
-        // "primary/promoted" position. On a non-promoted shelf the theme's
-        // hashed classes (which expect their own wrapper context) intermittently
-        // hide the img/zoom layer when focus changes — making the per-shelf
-        // hero briefly appear and disappear as the user d-pads between cards.
+        // Gate matches the promotion CSS: only adopt the theme's hero class
+        // chain on a promoted shelf, otherwise the theme's hashed classes
+        // intermittently hide our hero on d-pad navigation.
         const shouldApply = isArtHeroActive() && (readForceThemes() || isPromoted);
         if (!shouldApply) { clearAll(); return; }
         for (const doc of getAllSteamDocuments()) {
@@ -507,10 +501,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // isPromoted) — there the user wants all heroes identical to the first.
   // force OFF + non-first shelves fall through to the overlap treatment.
   const treatAsFirst = isFirstShelf || isPromoted;
-  // Non-first non-promoted shelves grow the hero by `bPx` below the shelf
-  // so the symmetric top/bottom fades create a seamless cross-fade with
-  // the adjacent shelf — without `+bPx` the hero ends at shelf bottom,
-  // leaving a dim gap before the next hero starts.
+  // Non-first non-promoted: grow by bPx below so the symmetric top/bottom
+  // fades create a seamless cross-fade with the next shelf.
   const heroHeight = treatAsFirst ? HERO_HEIGHT : `calc(100% + ${Math.abs(topBleed)}px)`;
   // Every hero bleeds `topBleed`px up over the shelf above — this is the
   // pre-change behaviour that keeps the art visually anchored to the top.
@@ -525,18 +517,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
   // matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme.
   const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
-  // Top fade decision:
-  //   - forceLayoutAsRecents (force-on secondary shelves): opaque while a
-  //     card in this shelf is selected, subtle fade when not. Keeps the
-  //     full-page look on the active shelf while still soft-blending the
-  //     non-focused ones.
-  //   - isFirstShelf (primary recents-slot shelf): always opaque — anchored
-  //     to the top of the page with nothing above.
-  //   - otherwise: subtle fade.
+  // Top fade: forceLayoutAsRecents shelves are opaque when selected and
+  // fade when not. isFirstShelf is always opaque. Otherwise subtle fade.
   const opaqueTop = forceLayoutAsRecents ? isShelfSelected : isFirstShelf;
-  // Subtle ease-in curve (~x^4): opacity stays very low for most of the
-  // bleed and only climbs near the end. The added stops fill in the
-  // gradient so the linear-between-stops interpolation can't show banding.
+  // Subtle ease-in curve (~x^4): low opacity for most of the bleed, ramps
+  // near the end. Extra stops smooth the gradient interpolation.
   const topStops = opaqueTop
     ? [`  black 0,`]
     : [
@@ -551,10 +536,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         `  rgba(0,0,0,0.92) ${bPx}px,`,
         `  black calc(${bPx}px + 40px),`,
       ];
-  // Bottom fade width: scales with bPx for non-first non-promoted so it
-  // mirrors the wider top bleed, producing a balanced cross-fade with the
-  // next shelf's hero. First/promoted shelves keep the prior 100/64/16
-  // hardcoded values so the existing ArtHero-anchored look is untouched.
+  // Bottom fade scales with bPx for non-first non-promoted (matches the
+  // wider top bleed). First/promoted keep the 100/64/16 ArtHero values.
   const bBlackOffset = treatAsFirst ? 100 : bPx;
   const bMidOffset = treatAsFirst ? 64 : Math.round(bPx * 0.64);
   const bTransOffset = treatAsFirst ? 16 : Math.round(bPx * 0.16);

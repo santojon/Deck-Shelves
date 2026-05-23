@@ -748,12 +748,9 @@ function getUnifideckInstalledSet(): Set<number> {
   return ids;
 }
 
-// Cloud-play providers — non-Steam shortcuts catalogued by Unifideck whose
-// "primary action" is to stream from the cloud rather than install locally.
-// Right now only Xbox Cloud Gaming via Microsoft Store fits; the other
-// Unifideck providers (Epic, GOG, Amazon Luna-as-app, Ubisoft, etc.) are
-// native-install platforms — owning a game there counts as owned even
-// when the user hasn't installed it locally (e.g. Harold Halibut on GOG).
+// Cloud-play set: Unifideck Microsoft (Xbox Cloud Gaming). Other Unifideck
+// providers (Epic, GOG, Amazon, Ubisoft) are native-install platforms —
+// owning a game there counts as owned even when not installed locally.
 let _ufCloudCache: { ids: Set<number>; ts: number } | null = null;
 const UF_CLOUD_COLLECTION_LABELS = new Set(["microsoft"]);
 function getUnifideckCloudPlaySet(): Set<number> {
@@ -799,17 +796,9 @@ function isHiddenOf(a: any): boolean {
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }
 /**
- * Returns the appids that sit in the user's actual Steam library.
- *
- *  - Steam-owned games come from `collectionStore.allGamesCollection`
- *    (the "All Games" view — verified via CDP to contain only Steam apps).
- *  - When `includeNonSteam` is true, ALL non-Steam shortcuts are unioned
- *    in (no install-status filter — matches the original behaviour).
- *  - When `includeNonSteam` is true and `includeCloudPlay` is FALSE, the
- *    cloud-play subset (non-Steam shortcuts without local-install proof)
- *    is SUBTRACTED out — so wishlist matches for cloud-streaming-only
- *    catalogue entries (e.g. SM2 via Unifideck's Microsoft Store / Xbox
- *    Cloud Gaming integration) still appear on the shelf.
+ * AppIDs in the user's library. Steam comes from allGamesCollection;
+ * non-Steam (when includeNonSteam) comes from myGamesCollection filtered
+ * by isNonSteamOf. Cloud-play entries are subtracted unless includeCloudPlay.
  */
 export function getLocalLibraryAppIds(includeNonSteam: boolean, includeCloudPlay: boolean = false): Set<number> {
   const out = new Set<number>();
@@ -822,16 +811,10 @@ export function getLocalLibraryAppIds(includeNonSteam: boolean, includeCloudPlay
       if (Number.isFinite(id) && id > 0) out.add(id);
     }
   };
-  // Non-Steam shortcuts live in `myGamesCollection` on this Steam build
-  // (verified via CDP: `allShortcutsCollection` is undefined; non-Steam
-  // entries are mixed into `myGamesCollection` and `allAppsCollection`).
-  // We filter to `isNonSteamOf` to pick only the shortcuts.
-  //
-  // Cloud-play (Xbox Cloud Gaming via Unifideck's Microsoft integration)
-  // is detected by collection membership, not by install status — owning
-  // a game on GOG/Epic/Ubisoft still counts as owned even when not
-  // installed locally (e.g. Harold Halibut on GOG), so we don't subtract
-  // those. Only the actual cloud-streaming entries get the opt-in switch.
+  // Non-Steam entries live in myGamesCollection on current Steam builds
+  // (allShortcutsCollection is undefined). Cloud-play (Xbox via Unifideck
+  // Microsoft) is detected by collection membership; other providers
+  // (Epic/GOG/etc.) still count as owned when not installed locally.
   const collectNonSteam = (coll: any): void => {
     if (!coll) return;
     const apps = coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
@@ -2228,13 +2211,8 @@ async function applyPriceSort(ids: number[], sort: "price_low" | "discount_high"
 
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean, options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }): Promise<number[]> {
   const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
-  // Overshoot accounts for filters applied AFTER the resolver returns:
-  //   - hiddenAppIds (per-shelf "Hide game" picker): bumps by hidden*2.
-  //   - online owned/name filter applied in Shelf.tsx at render time:
-  //     bumps by max(10, 50% of limit) so wishlist/store shelves still hit
-  //     the user's configured limit after a couple of owned-name matches
-  //     get dropped (e.g. games the user also owns on Epic/GOG).
-  // Capped at limit*3 to keep the candidate pool sane.
+  // Overshoot for render-time filters: hidden*2 for the picker, plus
+  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
   const isOnlineShelf = source.type === "wishlist" || source.type === "store";
   const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
   const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
@@ -2247,10 +2225,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     all = await getAllAppOverviews();
   }
 
-  // Returns up to `overShootLimit` ids — Shelf.tsx slices to `shelf.limit`
-  // after applying its render-time filters (owned appid check + name match
-  // against the local library). The extra headroom lets the rendered shelf
-  // still hit `shelf.limit` when those filters drop a handful of items.
+  // Returns up to overShootLimit — Shelf.tsx slices to shelf.limit after
+  // its render-time owned/name filters, so the overshoot provides headroom.
   function finish(ids: number[]): number[] {
     let result = ids;
     if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
@@ -2583,16 +2559,8 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
       const wishlistIds = await getWishlistIds();
       if (!wishlistIds) return [];
-      // Per-shelf toggles override / extend the global setting — mirrors
-      // Shelf.tsx render-time logic so the resolver count matches the final
-      // displayed count (the modal "found X" pill reflects this number).
-      //
-      //   hideOwned          = global ON  OR  source.excludeOwned
-      //   hideOwnedNonSteam  = hideOwned AND (global non-Steam OR source NS)
-      //   hideCloud          = NS-hide AND (per-shelf cloud override → global)
-      //
-      // Per-shelf is independent from global so the modal's preview reflects
-      // the toggles the user is actively configuring.
+      // Per-shelf toggles extend global — mirrors Shelf.tsx render so the
+      // resolver count matches displayed count.
       const globalHideOwned = s?.onlineHideOwnedGames === true;
       const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
       const srcExcludeOwned = (source as any).excludeOwned === true;
@@ -2667,8 +2635,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         childFilter.items.some((item: any) => item.type === "discount");
       if (hasDiscountFilter) await getPriceMap(ids);
 
-      // Same merge logic as the wishlist branch (see comment above) — keeps
-      // the store shelf preview count consistent with the rendered shelf.
+      // Same merge logic as wishlist (see comment above).
       const globalHideOwned = s?.onlineHideOwnedGames === true;
       const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
       const srcExcludeOwned = (source as any).excludeOwned === true;

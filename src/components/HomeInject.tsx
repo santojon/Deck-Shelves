@@ -1008,23 +1008,16 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     const apply = () => {
       try {
         setFlag('data-ds-hero-label', isArtHeroActive());
-        // Theme integration flags — pure CSS selectors elsewhere
-        // (shelfStyles.ts) react to these to scope the equivalent visual
-        // change to the promoted shelf only (or, under forceCssLoaderThemes,
-        // to every DS shelf — `data-ds-recents-slot` carries that scope).
+        // Theme flags — CSS in shelfStyles.ts scopes the visual change via
+        // data-ds-recents-slot (first shelf or all under force).
         setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
         setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
-        // Force-themes flag mirrors the user setting so theme CSS that
-        // should ONLY engage under force (e.g. No Home Text per user spec)
-        // can gate cleanly without re-reading settings.
+        // Force-themes flag — gates theme rules that should only engage
+        // under force (e.g. No Home Text per user spec).
         setFlag('data-ds-force-themes', forceCssLoaderThemes);
-        // Recents-hidden flag — used by the fullscreen-theme margin-top
-        // rule to know whether the first DS shelf is truly at viewport top
-        // (no native sibling content above) and can safely be pulled up to
-        // cover the transparent header band. With native visible we leave
-        // the shelf in its natural flow position (avoids overlapping the
-        // bottom of the native section).
+        // Recents-hidden flag — gates the fullscreen-theme margin-top: -56
+        // rule (only pull the first shelf up when nothing native is above).
         setFlag('data-ds-recents-hidden', hideRecentsSetting);
         const nowActive = isCssLoaderActive();
         if (nowActive && !lastActive) setCssLoaderTick((v) => v + 1);

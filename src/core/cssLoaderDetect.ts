@@ -82,12 +82,9 @@ function getAllStyleText(): string {
   return text;
 }
 
-// Theme CSS in the wild references native classes in two equivalent forms:
-//   - Module-prefixed:  `gamepadhomerecentgames_RecentGamesInnerContainer_282X0`
-//   - Raw hashed:       `_282X0J4BtrSF1IXctmOe-X` (the live hashed class)
-// Detection has to accept either. We resolve live hashed tokens from the
-// runtime classmap and pair them with the module-prefixed signature so
-// detection survives theme authoring style + Steam minor renames.
+// Theme CSS references native classes in two forms — module-prefixed
+// (gamepadhomerecentgames_RecentGames...) or raw hashed (_282X0...).
+// Pair the live runtime token with the module signature so we match both.
 function tokensForKey(key: string, fallback: string): string[] {
   const out = new Set<string>([fallback]);
   try {
@@ -108,12 +105,8 @@ function matchesAny(text: string, tokens: string[], suffixRegex: string): boolea
   return false;
 }
 
-/**
- * "No Hero Gradient" — strips the mask/filter that the native theme applies
- * to the recents background. Detected via the heroRoot / heroInner class
- * (either module-prefixed or live hashed form) combined with
- * `mask-image: none` or `filter: brightness(100%)`.
- */
+/** "No Hero Gradient": heroRoot/heroInner with mask-image:none or
+ *  filter:brightness(100%). */
 export function isNoHeroGradientActive(): boolean {
   const text = getAllStyleText();
   const rootTokens = tokensForKey("heroRoot", "gamepadhomerecentgames_RecentGamesBackgroundContainer");
@@ -125,11 +118,7 @@ export function isNoHeroGradientActive(): boolean {
     || matchesAny(text, bgTokens, "filter\\s*:\\s*brightness\\(\\s*100");
 }
 
-/**
- * "Hero Fullscreen" (Art Hero `FullBG` and similar) — pushes the
- * recents inner container / hero layers to 100vh so the hero fills the
- * whole viewport.
- */
+/** "Hero Fullscreen": recents inner container / hero layers at 100vh. */
 export function isHeroFullscreenActive(): boolean {
   const text = getAllStyleText();
   const sectionTokens = tokensForKey("shelfSection", "gamepadhomerecentgames_RecentGamesInnerContainer");
@@ -140,12 +129,7 @@ export function isHeroFullscreenActive(): boolean {
     || matchesAny(text, innerTokens, "height\\s*:\\s*100vh");
 }
 
-/**
- * "No Home Text" — hides the carousel game label on the home screen.
- * Carousel-label class lives in the runtime classmap under
- * `nativeCarouselGameLabel`; fall back to the well-known hashed token
- * (`_3CKjiR7...`) seen on current SteamOS builds.
- */
+/** "No Home Text": carousel game label hidden via visibility:hidden. */
 export function isNoHomeTextActive(): boolean {
   const text = getAllStyleText();
   const labelTokens = tokensForKey("nativeCarouselGameLabel", "basicgamecarousel_CarouselGameLabel");

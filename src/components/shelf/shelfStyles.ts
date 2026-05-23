@@ -189,15 +189,9 @@ function detectNativeCardRadius(): string {
 }
 
 /**
- * Reads the native "Novo" / "NEW" badge's live border-radius so DS badges
- * match SteamOS exactly when no theme is active.
- *
- * Returns the detected pixel value, or `""` when no native badge is
- * currently rendered (e.g. recents hidden, or no recent game qualifies as
- * NEW). The caller treats the empty string as "leave the CSS fallback
- * chain alone" — otherwise we'd lock the badge to 0px and override
- * Round / More Round (`--round-radius-size`) even when the user has those
- * themes installed.
+ * Reads the native NEW badge radius so DS badges match SteamOS. Returns
+ * "" when no native badge is rendered (recents hidden / no qualifying
+ * game) so the CSS fallback chain stays in effect for Round-family themes.
  */
 function detectNativeNewBadgeRadius(): string {
   try {
@@ -1007,43 +1001,14 @@ function buildStylesheet(): string {
       filter: grayscale(1) contrast(1.1);
     }
 
-    /* ── Theme inheritance for promoted (recents-slot) shelves ──────────────
-       Themes that target the native recents wrapper / cards are mirrored on
-       our promoted shelves so the first DS shelf (hideRecents) — or every DS
-       shelf under forceCssLoaderThemes — matches the visual treatment that
-       the user already gets on the native recents.
+    /* Theme inheritance for promoted (recents-slot) shelves. The slot
+       attribute scopes these rules to the first shelf (hideRecents) or to
+       every shelf (force on). */
 
-       Scope: the data-ds-recents-slot attribute is set on the first DS shelf
-       when recents are hidden, and on EVERY DS shelf when force is on.
-       So these rules naturally honour the user contract:
-         - hideRecents only → first shelf inherits, rest keep DS defaults.
-         - force on        → all shelves inherit. */
-
-    /* Transparency Tweaks (carousel): the native theme dims unfocused cards
-       via --carousel-opacity (typ. 0.5) and restores full opacity on focus.
-       Applied to ALL DS cards so the behaviour matches the native carousel
-       regardless of force / promoted state — when the theme isn't loaded,
-       the fallback 1 keeps full opacity.
-
-       Specificity bump (#deck-shelves-home-root + :not(...)) is needed
-       because Steam's Focusable system stamps the gpfocuswithin class onto
-       every DS card — making the carousel theme rule that targets
-       gpfocuswithin lock all our cards at opacity 1. The id selector +
-       !important here outranks the theme (1,4,0 vs 0,3,0).
-
-       Opacity goes on the CHILDREN of the card (art + label), NOT the card
-       itself — CSS opacity is a stacking-context property that affects
-       every descendant uniformly, so dimming the card would also dim the
-       "Novo" / discount badges. The native theme dims the portrait + label
-       too, badges stay full opacity. We mirror that by applying opacity
-       only to .ds-card-art and .ds-card-label. */
-    /* Dim ONLY the portrait artwork. Label has its own opacity:0 default
-       (rendered only on focus) — applying carousel-opacity to it would
-       force it visible at 0.5 even when unfocused, which is the bug the
-       user just reported ("labels showing on all cards always"). Badge
-       band stays at opacity 1 because it's not in this selector either.
-       Card root keeps opacity:1 so the focus stacking context isn't
-       interfered with. */
+    /* Carousel transparency: only the portrait artwork dims. Label keeps
+       its own opacity:0 default (visible on focus); badge band stays at 1
+       because it's not in the selector. Specificity bump (#deck-shelves-
+       home-root) outranks the carousel theme's gpfocuswithin rule. */
     #deck-shelves-home-root .ds-card:not(.gpfocus):not(.is-selected):not(:hover):not(:focus) .ds-card-art {
       opacity: var(--carousel-opacity, 1) !important;
       transition: opacity 0.2s ease-in-out;
@@ -1056,17 +1021,10 @@ function buildStylesheet(): string {
     }
     .ds-card { opacity: 1 !important; }
 
-    /* First DS shelf when native recents is visible above (hideRecents off).
-       Big upward bleed (150px) so our hero sits behind native's bottom
-       area, with a visibly ramping top fade — opacity climbs gradually
-       through the bleed and lands fully opaque right at the shelf top.
-       Native covers the early (most transparent) part of the fade; the
-       last ~40-50px of the ramp is BELOW native and forms the visible
-       cross-fade between the two arts.
-
-       Bottom fade is extended (140→8) and split into 5 stops so the
-       transition into the next DS shelf below is a smooth, subtle blend
-       instead of a sharper 3-stop drop. */
+    /* First DS shelf below native (hideRecents off): 150px upward bleed
+       with a 6-stop top fade that lands opaque at the shelf top. Bottom
+       fade is extended to 132px / 5 stops for a smoother blend into the
+       next shelf. */
     .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -150px;
       --ds-hero-h: calc(100% + 150px);
@@ -1084,30 +1042,22 @@ function buildStylesheet(): string {
         transparent calc(100% - 8px));
     }
 
-    /* Tune the SECOND DS shelf's top bleed based on what the FIRST is.
-       Default (no rule below) leaves the inline -140 in place. */
+    /* Second DS shelf top bleed — tuned based on what the first is.
+       Default inline -140 stays for force/other cases. */
 
-    /* Case A — no force + native recents visible: first DS shelf has NO
-       recents-slot. The next DS shelf bleeds a bit MORE (170 vs 140) so
-       the cross-fade with the first DS hero is slightly larger. */
+    /* No force + native visible: larger bleed for the second (170). */
     .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) + .ds-shelf [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -170px;
       --ds-hero-h: calc(100% + 170px);
     }
 
-    /* Case B — no force + recents hidden: first DS is promoted, second is
-       NOT (the :not on the second selector excludes the force case, where
-       every shelf is promoted). Second's top bleed drops to 110 — subtly
-       smaller cross-fade as the user requested. */
+    /* No force + recents hidden: smaller bleed for the second (110). */
     .deck-shelves-root > .ds-shelf[data-ds-recents-slot="true"]:first-child + .ds-shelf:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
       --ds-hero-top: -110px;
       --ds-hero-h: calc(100% + 110px);
     }
 
-    /* No Hero Gradient — strip our mask/zoom-anim on promoted shelves when
-       the theme is active. Mirrors the theme's intent (which clears the
-       native mask). Without force, only the first promoted shelf matches;
-       with force, every shelf does (data-ds-recents-slot covers both). */
+    /* No Hero Gradient — strip mask/zoom on promoted heroes. */
     [data-ds-theme-no-hero-gradient="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-per-shelf-hero-img {
       mask-image: none !important;
       -webkit-mask-image: none !important;
@@ -1116,38 +1066,20 @@ function buildStylesheet(): string {
       animation: none !important;
     }
 
-    /* Hero Fullscreen (Art Hero FullBG and similar) — the theme bumps the
-       native recents container to 100vh. Mirror on our promoted shelves so
-       the hero fills the viewport the same way: shelf height + hero layer
-       (top + height) snap to 100vh, and the hero rises 56px to overlap the
-       top header band (which is transparent under fullscreen themes), so
-       the user no longer sees a black strip above the hero.
-
-       Specificity matches the prior ArtHero rule
-       (deck-shelves-root[data-ds-hero-label=true] ds-shelf[data-ds-recents-slot=true])
-       and sits AFTER it in source order, so the height: 100vh with
-       !important wins. The hero wrapper reads --ds-hero-top / --ds-hero-h
-       inline (DeckRow PerShelfHero), so setting the vars here propagates
-       without touching React state. */
+    /* Hero Fullscreen — promoted shelves take the full viewport. Hero
+       vars set inline in PerShelfHero are overridden here via CSS. */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"] .ds-shelf[data-ds-recents-slot="true"] {
       height: 100vh !important;
       --ds-hero-top: 0px;
       --ds-hero-h: 100vh;
     }
-    /* The FIRST DS shelf is pulled UP 56px ONLY when native recents are
-       hidden (= no native sibling content above our mount). Without that
-       gate, pulling up makes our shelf overlap the bottom 56px of native
-       — which the user reported as the "overlap" issue under force + native
-       visible. Fixes "first shelf hero too low" and "cards cut at bottom"
-       when our shelf IS at viewport top, leaving native-visible layouts
-       untouched. */
+    /* First DS shelf pulled UP 56px only when recents are hidden (no
+       native content above) — covers the transparent header band without
+       overlapping native when it stays visible. */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
     }
-    /* FORCE only: clean page-per-shelf — collapse inter-shelf margin so
-       each shelf is exactly 100vh, no fade/overlap on the hero. Without
-       force, the per-shelf hero keeps its inline mask so adjacent shelves
-       still cross-fade naturally. */
+    /* FORCE: clean page-per-shelf (no margin, no hero fade). */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf {
       margin-bottom: 0 !important;
     }
@@ -1156,9 +1088,7 @@ function buildStylesheet(): string {
       -webkit-mask-image: none !important;
     }
 
-    /* No Home Text — only applies under force (per user spec). Without
-       force we leave it to our own hideGameNames toggle. Hides the in-card
-       label on every DS card inside promoted shelves. */
+    /* No Home Text — only engages under force (per user spec). */
     [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label,
     [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-promoted-hero-label {
       visibility: hidden !important;

@@ -51,7 +51,7 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
 - **Hide home tabs** — toggle to hide the native home tab bar on te bottom of shelves
 - **Hero background art** — enable it per shelf (regular or smart) in the editor's Visual tab, or globally for every shelf at once; the focused game's background art appears behind that shelf, following it wherever it sits — works with or without hiding the native recents row
-- **Force CSS Loader themes** — promotes every shelf into the native-recents selector space so themes like ArtHero apply consistently across all shelves
+- **Force CSS Loader themes** — promotes every shelf into the native-like-recents selector space so themes like ArtHero apply consistently across all shelves (only shown when CSS Loader is installed)
 - **Developer / Publisher filter** — filter games by developer or publisher with automatic batch discovery
 - **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
@@ -62,7 +62,7 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker. Picking any template — Blank, regular preset, smart preset, or Custom — opens the edit modal first; **nothing is persisted until you press Save**, so cancelling discards the draft cleanly.
 - Reorder and toggle shelf visibility from the QAM
 - **Online shelf sources (opt-in)** — wishlist and Steam Store shelves with `price_low`, `discount_high`, `original_price_high` sorts; four ready-made templates (Wishlist, Wishlist on sale, Free wishlist, Free now); cached locally so the home keeps working offline
-- **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose exact name matches a title in your local library (including non-Steam shortcuts)
+- **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose appid or exact name matches a title in your local library; sub-toggle for non-Steam shortcuts (Epic / GOG / etc.), and a further sub-toggle for cloud-play catalogue stubs (Xbox Cloud Gaming via Unifideck Microsoft) so promotions on the cloud catalogue still surface
 - **Discount badges** — cards on online shelves show a green "% off" badge (mirrors the NEW badge slot, shown even on placeholder cards while artwork is still loading)
 - **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
 - Import / export all shelves and smart shelf configuration as JSON

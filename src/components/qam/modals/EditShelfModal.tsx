@@ -182,11 +182,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
       }
-      // Resolve with a generous limit so we see the full matching pool.
-      // The preview count and resolvedIds are then derived by running the
-      // SAME render-time filters Shelf.tsx applies (owned-by-appid + owned-
-      // by-name) — without this the modal's count and preview drift away
-      // from what the actual shelf renders.
+      // Resolve with a generous limit, then apply the same render-time
+      // filters Shelf.tsx applies so the modal count matches the shelf.
       ;(async () => {
         try {
           const rawIds = await resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse, {
@@ -204,9 +201,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             const globalHideCloud = settings?.onlineHideOwnedNonSteamCloud === true
             const shouldHideOwned = globalHideOwned || state.excludeOwned
             const effectiveNonSteam = (globalHideOwned && globalHideNonSteam) || (state.excludeOwned && state.excludeOwnedNonSteam)
-            // Per-shelf cloud override only kicks in when the per-shelf
-            // exclude+NS pair is set — same shape the source serialization
-            // uses (otherwise the resolver inherits the global flag).
+            // Per-shelf cloud override only kicks in when exclude+NS pair
+            // is set (mirrors the source serialization).
             const perShelfCloud = (state.excludeOwned && state.excludeOwnedNonSteam) ? state.hideOwnedNonSteamCloud : undefined
             const effectiveCloud = effectiveNonSteam && (perShelfCloud === true || (perShelfCloud === undefined && globalHideCloud))
 
@@ -265,10 +261,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         return
       }
 
-      // Online shelves: `resolvedIds` is already the filtered+limited list
-      // (owned-by-appid AND owned-by-name already applied in the count
-      // useEffect above). Just enrich each id with a real name (from local
-      // overview, then localStorage cache, fall back to "#id").
+      // Online shelves: resolvedIds is already filtered. Just enrich each
+      // id with a real name (local overview → cache → fallback "#id").
       const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
       const nameCache: Record<number, string> = (() => {
         try { return JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch { return {} }

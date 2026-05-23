@@ -253,10 +253,9 @@ export const SettingsSchema = z.object({
   onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedNonSteam: z.boolean().nullable().optional().transform((v) => v ?? false),
-  // When TRUE, cloud-play non-Steam shortcuts are kept in the "owned" set
-  // (so their wishlist/store matches are hidden). Default FALSE — so
-  // catalogue stubs that only stream from the cloud (e.g. Xbox Cloud
-  // Gaming) don't hide their promotions on the shelf.
+  // When TRUE, cloud-play non-Steam entries count as owned (their store
+  // matches are hidden). Default FALSE so cloud-streaming catalogue stubs
+  // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
   onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
 });

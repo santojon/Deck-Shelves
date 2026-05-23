@@ -9,13 +9,28 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Hero art behind your shelves (#41).** Each shelf (regular or smart) has an "Enable hero art" toggle in the edit modal's Visual tab — turn it on and the focused game's artwork appears behind that shelf, following it wherever it sits. A new global toggle in the QAM (Visual section) turns hero art on for *every* shelf at once.
 - **Game name above the shelf, like native Recents.** With an ArtHero-style CSS Loader theme active, each full-page shelf shows the focused game's name and info above its row — the same effect Steam's native Recents shelf has, and the label follows the game you're on.
+- **Cloud-play sub-toggle for the online shelves** (QAM Online Features + Edit Shelf modal). Cloud-only catalogue entries — like Xbox Cloud Gaming games surfaced via Unifideck's Microsoft Store integration — are now kept visible on your wishlist / store-on-sale shelves by default, even with "Include non-Steam shortcuts" on. Locally-installed non-Steam games (Epic / GOG / Amazon / Ubisoft) still count as owned. Flip the new sub-toggle on if you want cloud-only entries treated as owned too.
+- **Theme integration for your shelves.** Themes installed via CSS Loader now reach Deck Shelves' promoted shelves automatically: **No Hero Gradient** clears the hero mask; **Hero Fullscreen / Art Hero FullBG** snaps the shelf to 100vh with the hero filling the screen; **No Home Text** hides DS card labels (only under "Force CSS Loader themes"). **Transparency Tweaks** dims unfocused card portraits; **Round / More Round** rounds the NEW and discount tags.
+- **"Force CSS Loader themes" only shows when CSS Loader is installed.** No more dead toggle on devices without the plugin.
 
 ### Changed
 
 - **"Force CSS Loader themes" now applies to every shelf** — and works whether you keep the native Recents row visible or hide it. Themes like ArtHero reach all your shelves consistently.
+- **Online owned filter rewritten** to use Steam's own library collections directly, instead of guessing by whether Steam has cached metadata for a game. Wishlist results that Steam happens to know about (because you viewed them in the store) no longer disappear from your "on sale" shelves.
+- **Online shelf size respects your configured limit.** The resolver now fetches a buffer above the limit so the shelf still fills to N games after owned/name filtering, instead of dropping below the limit.
+- **The Edit Shelf modal "found X games" count and preview now match the rendered shelf.** Toggling per-shelf "Ignore games I own" or the new cloud-play sub-toggle inside the modal updates both immediately.
+- **Online sub-toggle descriptions removed** so the QAM and Edit Shelf modal feel less cluttered. The main "Online features" toggle still carries its description.
 
 ### Fixed
 
+- **Hero art briefly flashing then vanishing as you d-pad between cards** (with the "Force themes" toggle OFF). Smoothed out.
+- **"Force themes" with full-screen hero themes — first shelf hero no longer sits below the header.** Each promoted shelf now fills the viewport cleanly; the next shelf's hero no longer peeks into the bottom of the one you're viewing.
+- **Inter-shelf hero blending refined.** With recents hidden, the first DS shelf's hero reaches the top of the screen, and the transition into the second shelf has a subtler fade. With native recents visible, the first DS shelf hero overlaps native with a smoother fade instead of a black band between the two arts.
+- **NEW and discount tags now round under Round / More Round themes** — they were stuck at 0px corners even with the theme installed.
+- **Unfocused card portraits respect "Transparency Tweaks"** (dim while unfocused, full opacity when focused). NEW / discount tags now stay fully visible regardless of the card's dim state.
+- **Game labels no longer show on every card all the time** — only on focus, as before.
+- **The purple cover-shine gradient no longer locks on every card.** "Game Cover Shine Animation Color" plays its focus animation as intended instead of leaving the gradient visible everywhere.
+- **"Hide non-Steam cloud-play" toggle now stays as you left it** instead of resetting to off on every restart.
 - **"Force CSS Loader themes" and the global hero toggle now stay on.** They were being lost on every save; fixed.
 - **D-pad up no longer makes the home flicker / reload.** Pressing up from the top shelf used to dip into the hidden Recents row and jolt the screen — focus now stays on your shelves.
 - **No more flash of reloading shelves on the first move after a Steam restart.**
