@@ -734,6 +734,12 @@ function buildStylesheet(): string {
       z-index: 12;
       filter: brightness(1);
     }
+    /* Layout-only ::after: matches the card's art height/radius so any
+       theme overlay (e.g. Game Cover Shine focus animation) targets the
+       right region. Opacity is NOT forced here — the cover-shine theme
+       relies on opacity 0 by default + opacity 0.8 on :focus to run its
+       shine animation. Forcing opacity 1 made the shine gradient static-
+       visible on every card (purple stripe at bottom-right). */
     #deck-shelves-home-root .ds-card::after {
       content: '' !important;
       position: absolute !important;
@@ -745,7 +751,6 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       pointer-events: none !important;
       z-index: 4 !important;
-      opacity: 1 !important;
       display: inline !important;
     }
     #deck-shelves-home-root .ds-card.gpfocus::after,
@@ -1051,19 +1056,43 @@ function buildStylesheet(): string {
     }
     .ds-card { opacity: 1 !important; }
 
-    /* First DS shelf when native recents is visible above (hideRecents off)
-       — overlap with the native hero art instead of fading inside a black
-       band: keep the hero OPAQUE from its top edge so the native bottom
-       fade (which fades native OUT) reveals our opaque hero seamlessly.
-       Only the bottom fade is kept, so the next DS shelf can still
-       cross-fade against this one. Overrides the per-shelf inline mask via
-       the --ds-hero-mask CSS variable. */
+    /* First DS shelf when native recents is visible above (hideRecents off).
+       Previous attempt kept the hero opaque from its top edge — that drew
+       a large opaque overlap ON TOP of native (covering native's bottom)
+       without any fade. Switch to a SMALL bleed (50px) with a smooth top
+       fade so only a thin softened band overlaps native, plus the usual
+       bottom fade for the cross-fade into the next DS shelf below. */
     .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -50px;
+      --ds-hero-h: calc(100% + 50px);
       --ds-hero-mask: linear-gradient(to bottom,
-        black 0,
+        transparent 0,
+        rgba(0,0,0,0.18) 12px,
+        rgba(0,0,0,0.55) 26px,
+        black 42px,
         black calc(100% - 100px),
         rgba(0,0,0,0.45) calc(100% - 64px),
         transparent calc(100% - 16px));
+    }
+
+    /* Tune the SECOND DS shelf's top bleed based on what the FIRST is.
+       Default (no rule below) leaves the inline -140 in place. */
+
+    /* Case A — no force + native recents visible: first DS shelf has NO
+       recents-slot. The next DS shelf bleeds a bit MORE (170 vs 140) so
+       the cross-fade with the first DS hero is slightly larger. */
+    .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) + .ds-shelf [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -170px;
+      --ds-hero-h: calc(100% + 170px);
+    }
+
+    /* Case B — no force + recents hidden: first DS is promoted, second is
+       NOT (the :not on the second selector excludes the force case, where
+       every shelf is promoted). Second's top bleed drops to 110 — subtly
+       smaller cross-fade as the user requested. */
+    .deck-shelves-root > .ds-shelf[data-ds-recents-slot="true"]:first-child + .ds-shelf:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -110px;
+      --ds-hero-h: calc(100% + 110px);
     }
 
     /* No Hero Gradient — strip our mask/zoom-anim on promoted shelves when
