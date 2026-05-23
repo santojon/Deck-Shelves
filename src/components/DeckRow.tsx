@@ -568,11 +568,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
 
   return (
     <>
-    {hasArt && <div className={nativeHeroRootClass ?? undefined} style={{
+    {hasArt && <div className={nativeHeroRootClass ?? undefined} data-ds-per-shelf-hero="true" style={{
       position: 'absolute',
       // Viewport-parameterized height (~374px at the Deck's BigPicture
       // viewport): scales with the screen instead of a hard pixel value.
-      top: topBleed, height: heroHeight,
+      // Themes can override via --ds-hero-h / --ds-hero-top (e.g. fullscreen
+      // theme bumps to 100vh + top:0 on promoted shelves).
+      top: `var(--ds-hero-top, ${topBleed}px)`, height: `var(--ds-hero-h, ${heroHeight})`,
       // Exactly viewport-width — NOT bled out sideways. The native theme's
       // zoom layer carries a `width: 100vw` rule; a hero wider than the
       // viewport left that layer 48px short on the right (the white bar).
@@ -586,8 +588,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // and eases in). The theme's own gradient (ArtHero's radial mask) is
       // applied separately, by the discovered `heroInner` class on the
       // layers below — so both compose instead of one replacing the other.
-      maskImage: maskVal,
-      WebkitMaskImage: maskVal,
+      maskImage: `var(--ds-hero-mask, ${maskVal})`,
+      WebkitMaskImage: `var(--ds-hero-mask, ${maskVal})`,
     }}>
       <div style={{ position: 'absolute', inset: 0, background: themeBg }} />
       {slotA && (

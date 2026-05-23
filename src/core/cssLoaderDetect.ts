@@ -71,6 +71,90 @@ export function isArtHeroActive(): boolean {
   return false;
 }
 
+// Aggregated CSS Loader style text — cached briefly so multiple `is*Active`
+// callers in the same render pass don't each rebuild the concatenated text.
+let _styleTextCache: { text: string; ts: number } | null = null;
+function getAllStyleText(): string {
+  const now = Date.now();
+  if (_styleTextCache && now - _styleTextCache.ts < 2000) return _styleTextCache.text;
+  const text = getCssLoaderStyleNodes().map((n) => n.textContent || "").join("\n");
+  _styleTextCache = { text, ts: now };
+  return text;
+}
+
+// Theme CSS in the wild references native classes in two equivalent forms:
+//   - Module-prefixed:  `gamepadhomerecentgames_RecentGamesInnerContainer_282X0`
+//   - Raw hashed:       `_282X0J4BtrSF1IXctmOe-X` (the live hashed class)
+// Detection has to accept either. We resolve live hashed tokens from the
+// runtime classmap and pair them with the module-prefixed signature so
+// detection survives theme authoring style + Steam minor renames.
+function tokensForKey(key: string, fallback: string): string[] {
+  const out = new Set<string>([fallback]);
+  try {
+    const doc = getPreferredSteamDocument();
+    const map = doc ? getRuntimeClassMap(doc) : null;
+    const live = (map as any)?.[key];
+    if (typeof live === "string" && live) out.add(live);
+  } catch {}
+  return Array.from(out);
+}
+
+function matchesAny(text: string, tokens: string[], suffixRegex: string): boolean {
+  for (const t of tokens) {
+    const esc = t.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    const re = new RegExp(esc + "[\\w-]*[^}]*" + suffixRegex, "i");
+    if (re.test(text)) return true;
+  }
+  return false;
+}
+
+/**
+ * "No Hero Gradient" — strips the mask/filter that the native theme applies
+ * to the recents background. Detected via the heroRoot / heroInner class
+ * (either module-prefixed or live hashed form) combined with
+ * `mask-image: none` or `filter: brightness(100%)`.
+ */
+export function isNoHeroGradientActive(): boolean {
+  const text = getAllStyleText();
+  const rootTokens = tokensForKey("heroRoot", "gamepadhomerecentgames_RecentGamesBackgroundContainer");
+  const innerTokens = tokensForKey("heroInner", "gamepadhomerecentgames_RecentGamesBackgroundImages");
+  const bgTokens = ["gamepadhomerecentgames_RecentGamesBackground"];
+  return matchesAny(text, rootTokens, "(?:-webkit-)?mask-image\\s*:\\s*none")
+    || matchesAny(text, innerTokens, "(?:-webkit-)?mask-image\\s*:\\s*none")
+    || matchesAny(text, bgTokens, "(?:-webkit-)?mask-image\\s*:\\s*none")
+    || matchesAny(text, bgTokens, "filter\\s*:\\s*brightness\\(\\s*100");
+}
+
+/**
+ * "Hero Fullscreen" (Art Hero `FullBG` and similar) — pushes the
+ * recents inner container / hero layers to 100vh so the hero fills the
+ * whole viewport.
+ */
+export function isHeroFullscreenActive(): boolean {
+  const text = getAllStyleText();
+  const sectionTokens = tokensForKey("shelfSection", "gamepadhomerecentgames_RecentGamesInnerContainer");
+  const rootTokens = tokensForKey("heroRoot", "gamepadhomerecentgames_RecentGamesBackgroundContainer");
+  const innerTokens = tokensForKey("heroInner", "gamepadhomerecentgames_RecentGamesBackgroundImages");
+  return matchesAny(text, sectionTokens, "height\\s*:\\s*100vh")
+    || matchesAny(text, rootTokens, "height\\s*:\\s*100vh")
+    || matchesAny(text, innerTokens, "height\\s*:\\s*100vh");
+}
+
+/**
+ * "No Home Text" — hides the carousel game label on the home screen.
+ * Carousel-label class lives in the runtime classmap under
+ * `nativeCarouselGameLabel`; fall back to the well-known hashed token
+ * (`_3CKjiR7...`) seen on current SteamOS builds.
+ */
+export function isNoHomeTextActive(): boolean {
+  const text = getAllStyleText();
+  const labelTokens = tokensForKey("nativeCarouselGameLabel", "basicgamecarousel_CarouselGameLabel");
+  // Also include the observed hashed token directly as a safety net for
+  // builds where the classmap key isn't populated yet.
+  labelTokens.push("_3CKjiR7-fuBPyKZKpPI6UZ");
+  return matchesAny(text, labelTokens, "visibility\\s*:\\s*hidden");
+}
+
 /**
  * Returns the class name of the native recents sibling (the element that sits
  * immediately before our mount in the DOM). Used to promote our first shelf

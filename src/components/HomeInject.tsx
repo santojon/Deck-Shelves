@@ -21,7 +21,7 @@ import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelf
 import { isInVisibilityWindow, nextVisibilityBoundary, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { getRuntimeClassMap } from "../core/webpackCompat";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive } from "../core/cssLoaderDetect";
 
 // Fallback for the native shelf-section token when the runtime classmap
 // hasn't been populated yet. Mirrors `FALLBACK_SHELF_SECTION` in
@@ -1001,10 +1001,31 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     const root = rootRef.current;
     if (!root) return;
     let lastActive = isCssLoaderActive();
+    const setFlag = (attr: string, on: boolean) => {
+      if (on) root.setAttribute(attr, 'true');
+      else root.removeAttribute(attr);
+    };
     const apply = () => {
       try {
-        if (isArtHeroActive()) root.setAttribute('data-ds-hero-label', 'true');
-        else root.removeAttribute('data-ds-hero-label');
+        setFlag('data-ds-hero-label', isArtHeroActive());
+        // Theme integration flags — pure CSS selectors elsewhere
+        // (shelfStyles.ts) react to these to scope the equivalent visual
+        // change to the promoted shelf only (or, under forceCssLoaderThemes,
+        // to every DS shelf — `data-ds-recents-slot` carries that scope).
+        setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
+        setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
+        setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
+        // Force-themes flag mirrors the user setting so theme CSS that
+        // should ONLY engage under force (e.g. No Home Text per user spec)
+        // can gate cleanly without re-reading settings.
+        setFlag('data-ds-force-themes', forceCssLoaderThemes);
+        // Recents-hidden flag — used by the fullscreen-theme margin-top
+        // rule to know whether the first DS shelf is truly at viewport top
+        // (no native sibling content above) and can safely be pulled up to
+        // cover the transparent header band. With native visible we leave
+        // the shelf in its natural flow position (avoids overlapping the
+        // bottom of the native section).
+        setFlag('data-ds-recents-hidden', hideRecentsSetting);
         const nowActive = isCssLoaderActive();
         if (nowActive && !lastActive) setCssLoaderTick((v) => v + 1);
         lastActive = nowActive;
@@ -1029,9 +1050,16 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     for (const d of getAllSteamDocuments()) observeHead(d);
     return () => {
       for (const o of observers) { try { o.disconnect(); } catch {} }
-      try { root.removeAttribute('data-ds-hero-label'); } catch {}
+      try {
+        root.removeAttribute('data-ds-hero-label');
+        root.removeAttribute('data-ds-theme-no-hero-gradient');
+        root.removeAttribute('data-ds-theme-hero-fullscreen');
+        root.removeAttribute('data-ds-theme-no-home-text');
+        root.removeAttribute('data-ds-force-themes');
+        root.removeAttribute('data-ds-recents-hidden');
+      } catch {}
     };
-  }, [mountEl]);
+  }, [mountEl, forceCssLoaderThemes, hideRecentsSetting]);
 
   // Drag-to-reorder shelves by holding the title (touch/mouse only; D-pad nav
   // stays untouched). The hook scopes to `.ds-shelf[data-shelfid]` under the
