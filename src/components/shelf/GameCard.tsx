@@ -326,7 +326,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         top: portalFocused ? portalRect.top - 10 : portalRect.top - 2,
         height: 24,
         pointerEvents: 'none',
-        zIndex: 2147483647,
+        /* z:1000 sits above BasicUI (z:5) so the badge wins against the
+         * FocusRingRoot (z:10000 INSIDE BasicUI = z:5 globally), but stays
+         * below Steam overlays (FullModalOverlay z:1500, QAM panels
+         * z:6000-7001) so they cover the badge when active. */
+        zIndex: 1000,
         isolation: 'isolate',
       }}
     >

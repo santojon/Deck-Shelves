@@ -12,6 +12,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Cloud-play sub-toggle for the online shelves** (QAM Online Features + Edit Shelf modal). Cloud-only catalogue entries — like Xbox Cloud Gaming games surfaced via Unifideck's Microsoft Store integration — are now kept visible on your wishlist / store-on-sale shelves by default, even with "Include non-Steam shortcuts" on. Locally-installed non-Steam games (Epic / GOG / Amazon / Ubisoft) still count as owned. Flip the new sub-toggle on if you want cloud-only entries treated as owned too.
 - **Theme integration for your shelves.** Themes installed via CSS Loader now reach Deck Shelves' promoted shelves automatically: **No Hero Gradient** clears the hero mask; **Hero Fullscreen / Art Hero FullBG** snaps the shelf to 100vh with the hero filling the screen; **No Home Text** hides DS card labels (only under "Force CSS Loader themes"). **Transparency Tweaks** dims unfocused card portraits; **Round / More Round** rounds the NEW and discount tags.
 - **"Force CSS Loader themes" only shows when CSS Loader is installed.** No more dead toggle on devices without the plugin.
+- **Focus Highlight Color theme support.** Install the theme and Deck Shelves auto-adjusts: with Round Compatibility enabled, DS card focus disappears (matching the theme's native behaviour); without it, the colored animated outline shows behind the NEW / discount badge with a clean 1 px gap on every side.
+- **Game Cover Shine Animation Color theme support.** The shine sweep on focus reaches Deck Shelves cards automatically — no extra configuration needed.
+- **NEW / discount badges always on top.** Badges now render in a separate overlay above the entire UI, so they stay in front of theme focus rings and other Steam overlays no matter the theme combination.
 
 ### Changed
 
