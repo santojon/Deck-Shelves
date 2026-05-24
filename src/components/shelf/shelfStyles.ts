@@ -904,7 +904,7 @@ function buildStylesheet(): string {
       height: 24px;
       display: flex; justify-content: center; align-items: flex-start;
       pointer-events: none;
-      z-index: 20;
+      z-index: 25;
     }
     /* Badge host: 2px above the card top by default, rises to 12px on
        focus/hover. */
@@ -938,6 +938,7 @@ function buildStylesheet(): string {
       border-radius: var(--ds-new-badge-radius, var(--round-radius-size, 0px));
       box-shadow: rgb(37, 53, 83) 0 1px 8px 0;
       pointer-events: none;
+      z-index: 25;
     }
     .ds-shelf-title {
       color: var(--ds-native-heading-color, inherit);
