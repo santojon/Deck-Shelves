@@ -4,6 +4,7 @@ import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
+import { getHotCachedImageSrc, warmCacheBackground } from "../../core/imageCache";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -201,19 +202,37 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     return urls;
   }, [item.portraitUrl, item.heroUrl, appid, featured]);
 
+  // Track the *original* (non-blob) URL for each fallback step. Used by
+  // onImgError so we always advance through the original URL chain even
+  // when the current src is a cached blob URL.
+  const currentOriginalUrl = useRef<string>("");
+
   useEffect(() => {
     fallbackIdx.current = 0;
     setImgFailed(false);
     setImgLoaded(false);
     if (imgRef.current && allUrls[0]) {
-      imgRef.current.src = allUrls[0];
+      const original = allUrls[0];
+      currentOriginalUrl.current = original;
+      // Hot-cache hit: use the blob URL for instant render. Cache miss:
+      // use the original URL (browser loads as usual) and queue a
+      // background fetch so the next visit is instant. cacheable() inside
+      // the cache module already skips local /customimages/ and /assets/
+      // so SteamGridDB-style local updates aren't blocked.
+      const cached = getHotCachedImageSrc(original);
+      imgRef.current.src = cached ?? original;
+      if (!cached) warmCacheBackground(original);
     }
   }, [allUrls]);
 
   const onImgError = useCallback(() => {
     fallbackIdx.current += 1;
     if (imgRef.current && fallbackIdx.current < allUrls.length) {
-      imgRef.current.src = allUrls[fallbackIdx.current];
+      const next = allUrls[fallbackIdx.current];
+      currentOriginalUrl.current = next;
+      const cached = getHotCachedImageSrc(next);
+      imgRef.current.src = cached ?? next;
+      if (!cached) warmCacheBackground(next);
     } else {
       setImgFailed(true);
     }
@@ -221,6 +240,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   const onImgLoad = useCallback(() => {
     setImgLoaded(true);
+    // Persist successfully-loaded URL so the next visit is a hot hit.
+    // warmCacheBackground dedupes if already cached / in-flight.
+    if (currentOriginalUrl.current) warmCacheBackground(currentOriginalUrl.current);
   }, []);
 
   const firstUrl = allUrls[0] ?? "";
