@@ -258,15 +258,22 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     const el = cardRef.current;
     if (!el) return;
 
-    // Detect when QAM / modal overlay is active: Steam toggles the
-    // `WindowFocus` class on <body> based on whether the Big Picture window
-    // has focus. When QAM (or any other Steam window) takes focus, the
-    // class is removed. Cheap to read and a stable signal — much lighter
-    // than scanning every element for backdrop-filter on each mutation.
+    // Detect when QAM / main menu / any Steam overlay is active by hit-
+    // testing the viewport center: if the topmost element there is NOT
+    // inside our home root, something is painting over it. Single point
+    // probe is fast; works for any overlay type regardless of class hash.
     const doc = el.ownerDocument;
+    const win = doc.defaultView ?? window;
     const detectOverlay = (): boolean => {
-      try { return !doc.body.classList.contains('WindowFocus'); }
-      catch { return false; }
+      try {
+        const homeRoot = doc.getElementById('deck-shelves-home-root');
+        if (!homeRoot) return false;
+        const cx = win.innerWidth / 2;
+        const cy = win.innerHeight / 2;
+        const top = doc.elementFromPoint(cx, cy);
+        if (!top) return false;
+        return !homeRoot.contains(top);
+      } catch { return false; }
     };
 
     const sync = () => {
@@ -278,11 +285,20 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     };
     sync();
 
-    // Watch ONLY the body's class attribute (single element, no subtree) —
-    // Steam adds/removes `WindowFocus` here when focus moves between the
-    // BP window and other windows (QAM, main menu).
+    // Re-check overlay state on every body child-list change (overlays are
+    // added/removed as direct or near-direct children of body when they
+    // open/close). childList without subtree is cheap.
     const bodyObs = new MutationObserver(() => setOverlayActive(detectOverlay()));
-    bodyObs.observe(doc.body, { attributes: true, attributeFilter: ['class'] });
+    bodyObs.observe(doc.body, { childList: true });
+    // Also re-check on viewport interaction events — the elementFromPoint
+    // hit can flip when an overlay finishes its open/close animation
+    // without a body-level mutation firing.
+    const reCheck = () => setOverlayActive(detectOverlay());
+    const recheckTargets: EventTarget[] = [doc, win];
+    for (const t of recheckTargets) {
+      t.addEventListener('focusin', reCheck, true);
+      t.addEventListener('focusout', reCheck, true);
+    }
 
     // Watch class changes (gpfocus add/remove) and focus/blur events
     const obs = new MutationObserver(sync);
@@ -297,7 +313,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       scrollTargets.push(p);
       p = p.parentElement;
     }
-    const win = doc.defaultView ?? window;
     scrollTargets.push(win);
     for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
     win.addEventListener('resize', sync);
@@ -305,7 +320,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     // rAF loop only while focused (covers the 0.3s scale transition)
     let rafId = 0;
     let rafActive = false;
+    let rafStopTimeoutId = 0;
     const startRaf = () => {
+      if (rafStopTimeoutId) { clearTimeout(rafStopTimeoutId); rafStopTimeoutId = 0; }
       if (rafActive) return;
       rafActive = true;
       const tick = () => {
@@ -315,8 +332,16 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       tick();
     };
     const stopRaf = () => { rafActive = false; if (rafId) cancelAnimationFrame(rafId); };
+    // When focus leaves, keep rAF running for ~400ms so the badge follows
+    // the card through its 0.3s scale-down transition and any inter-shelf
+    // scroll animation. Without this the badge "lags" or stays slightly
+    // higher than the unfocused card for a frame.
+    const scheduleStopRaf = () => {
+      if (rafStopTimeoutId) clearTimeout(rafStopTimeoutId);
+      rafStopTimeoutId = win.setTimeout(() => { rafStopTimeoutId = 0; stopRaf(); }, 400);
+    };
     const focusObs = new MutationObserver(() => {
-      if (el.classList.contains('gpfocus')) startRaf(); else stopRaf();
+      if (el.classList.contains('gpfocus')) startRaf(); else scheduleStopRaf();
     });
     focusObs.observe(el, { attributes: true, attributeFilter: ['class'] });
     if (el.classList.contains('gpfocus')) startRaf();
@@ -325,11 +350,16 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       obs.disconnect();
       focusObs.disconnect();
       bodyObs.disconnect();
+      if (rafStopTimeoutId) clearTimeout(rafStopTimeoutId);
       stopRaf();
       el.removeEventListener('focus', sync, true);
       el.removeEventListener('blur', sync, true);
       for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
       win.removeEventListener('resize', sync);
+      for (const t of recheckTargets) {
+        t.removeEventListener('focusin', reCheck, true);
+        t.removeEventListener('focusout', reCheck, true);
+      }
     };
   }, [hasBadge]);
 
