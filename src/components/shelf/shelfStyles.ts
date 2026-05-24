@@ -802,12 +802,6 @@ function buildStylesheet(): string {
       opacity: 0 !important;
       animation: none !important;
     }
-    /* Raise our home root above the FocusRing's stacking neighborhood.
-       The FocusRing element lives in a sibling subtree under BasicUI with
-       z:auto, so without this rule it paints over the badge (inserted later
-       in DOM order). With Panel at z:10, our entire subtree (including the
-       badge inside the focused card) paints above the FocusRing while
-       staying below Steam's higher-stacked overlays (menus, bottom bar). */
     #deck-shelves-home-root { z-index: 10 !important; }
     /* Round Compat ON: hide the FocusRing entirely. Gated on the html-level
        flag so the rule can reach the FocusRing's subtree (which sits outside

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
@@ -242,6 +243,112 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const showNewBadge = !hideNewBadge && item.isNew === true;
   const discount = item.discountPercent;
   const showDiscountBadge = typeof discount === 'number' && discount > 0;
+  const hasBadge = showNewBadge || showDiscountBadge;
+
+  // Portal-positioned badge host: rendered into BP's <body> so it escapes
+  // the card / home-root stacking context (Steam's FocusRingRoot is z:10000
+  // and would otherwise paint above the badge). Position tracks the card's
+  // viewport rect, updated on focus/blur, scroll, resize, and during the
+  // focus zoom transition.
+  const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [portalFocused, setPortalFocused] = useState(false);
+  useEffect(() => {
+    if (!hasBadge) { setPortalRect(null); return; }
+    const el = cardRef.current;
+    if (!el) return;
+
+    const sync = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) { setPortalRect(null); return; }
+      setPortalRect({ left: r.left, top: r.top, width: r.width });
+      setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
+    };
+    sync();
+
+    // Watch class changes (gpfocus add/remove) and focus/blur events
+    const obs = new MutationObserver(sync);
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    el.addEventListener('focus', sync, true);
+    el.addEventListener('blur', sync, true);
+
+    // Scroll listeners on every ancestor that might scroll
+    const scrollTargets: Array<EventTarget> = [];
+    let p: HTMLElement | null = el.parentElement;
+    while (p) {
+      scrollTargets.push(p);
+      p = p.parentElement;
+    }
+    const doc = el.ownerDocument;
+    const win = doc.defaultView ?? window;
+    scrollTargets.push(win);
+    for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
+    win.addEventListener('resize', sync);
+
+    // rAF loop only while focused (covers the 0.3s scale transition)
+    let rafId = 0;
+    let rafActive = false;
+    const startRaf = () => {
+      if (rafActive) return;
+      rafActive = true;
+      const tick = () => {
+        sync();
+        rafId = requestAnimationFrame(tick);
+      };
+      tick();
+    };
+    const stopRaf = () => { rafActive = false; if (rafId) cancelAnimationFrame(rafId); };
+    const focusObs = new MutationObserver(() => {
+      if (el.classList.contains('gpfocus')) startRaf(); else stopRaf();
+    });
+    focusObs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    if (el.classList.contains('gpfocus')) startRaf();
+
+    return () => {
+      obs.disconnect();
+      focusObs.disconnect();
+      stopRaf();
+      el.removeEventListener('focus', sync, true);
+      el.removeEventListener('blur', sync, true);
+      for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
+      win.removeEventListener('resize', sync);
+    };
+  }, [hasBadge]);
+
+  // Build the badge content (used inside the portal).
+  const badgeContent = hasBadge && portalRect ? (
+    <div
+      className="ds-card-badge-host ds-card-badge-host--portal"
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        left: portalRect.left,
+        width: portalRect.width,
+        top: portalFocused ? portalRect.top - 10 : portalRect.top - 2,
+        height: 24,
+        pointerEvents: 'none',
+        zIndex: 2147483647,
+        isolation: 'isolate',
+      }}
+    >
+      {showDiscountBadge && (
+        <div className="ds-new-badge-band">
+          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
+            {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+          </div>
+        </div>
+      )}
+      {showNewBadge && !showDiscountBadge && (
+        <div className="ds-new-badge-band">
+          <div className="ds-new-badge">{t('badge_new')}</div>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  // Portal target: BP document's body (same doc as the card). Falls back to
+  // local document if Steam's preferred doc isn't ready yet.
+  const portalDoc = cardRef.current?.ownerDocument ?? getPreferredSteamDocument() ?? document;
+  const portalEl = badgeContent ? createPortal(badgeContent, portalDoc.body) : null;
 
   return (
     <Focusable
@@ -276,38 +383,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
-      {/* Invisible overlay hosting NEW / discount badge above the card
-          top. Top offset + height grow under focus via CSS (defaults to
-          2px above, jumps to 12px when the card is focused/hovered).
-          Very high z-index + isolation keeps the badge in front of the
-          label, focus drop-shadow, and any theme-injected overlays. */}
-      {(showDiscountBadge || showNewBadge) && (
-        <div
-          className="ds-card-badge-host"
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            pointerEvents: "none",
-            zIndex: 2147483647,
-            isolation: "isolate",
-          }}
-        >
-          {showDiscountBadge && (
-            <div className="ds-new-badge-band">
-              <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-                {t('badge_discount', { count: discount }) ?? `${discount}% off`}
-              </div>
-            </div>
-          )}
-          {showNewBadge && !showDiscountBadge && (
-            <div className="ds-new-badge-band">
-              <div className="ds-new-badge">{t('badge_new')}</div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Badge host moved to a portal at BP <body> level so it escapes the
+          card / home-root stacking context (Steam's FocusRingRoot is z:10000
+          and would otherwise paint above the badge). See `portalEl` below. */}
+      {portalEl}
       <div
         className="ds-card-art"
         style={{
