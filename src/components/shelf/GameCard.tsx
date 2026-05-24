@@ -276,41 +276,59 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       } catch { return false; }
     };
 
+    // Hot-path sync: ONLY updates portalRect, with a tolerance check so
+    // React doesnt re-render on sub-pixel jitter. Reads the same values
+    // setPortalFocused / setOverlayActive used to read — but those are
+    // now updated by their own event paths (class observer, focus/overlay
+    // events) so this stays cheap on every rAF / scroll tick.
+    let lastLeft = -Infinity, lastTop = -Infinity, lastWidth = -Infinity;
     const sync = () => {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) { setPortalRect(null); return; }
+      // sub-pixel jitter from scale transitions causes noisy re-renders
+      if (Math.abs(r.left - lastLeft) < 0.5 && Math.abs(r.top - lastTop) < 0.5 && Math.abs(r.width - lastWidth) < 0.5) return;
+      lastLeft = r.left; lastTop = r.top; lastWidth = r.width;
       setPortalRect({ left: r.left, top: r.top, width: r.width });
-      setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
-      setOverlayActive(detectOverlay());
     };
+    // Initial sync also seeds focus + overlay state.
     sync();
+    setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
+    setOverlayActive(detectOverlay());
 
-    // Re-check overlay state on every body child-list change (overlays are
-    // added/removed as direct or near-direct children of body when they
-    // open/close). childList without subtree is cheap.
-    const bodyObs = new MutationObserver(() => setOverlayActive(detectOverlay()));
+    // Overlay state updates on dedicated events — never inside sync(), so
+    // the rAF tick doesnt force a layout-flushing elementFromPoint call
+    // per frame.
+    const reCheckOverlay = () => setOverlayActive(detectOverlay());
+    const bodyObs = new MutationObserver(reCheckOverlay);
     bodyObs.observe(doc.body, { childList: true });
-    // Also re-check on viewport interaction events — the elementFromPoint
-    // hit can flip when an overlay finishes its open/close animation
-    // without a body-level mutation firing.
-    const reCheck = () => setOverlayActive(detectOverlay());
     const recheckTargets: EventTarget[] = [doc, win];
     for (const t of recheckTargets) {
-      t.addEventListener('focusin', reCheck, true);
-      t.addEventListener('focusout', reCheck, true);
+      t.addEventListener('focusin', reCheckOverlay, true);
+      t.addEventListener('focusout', reCheckOverlay, true);
     }
 
-    // Watch class changes (gpfocus add/remove) and focus/blur events
-    const obs = new MutationObserver(sync);
+    // Focus state updates on class changes — split from sync() so the
+    // setPortalFocused setState only fires when focus actually transitions,
+    // not every rAF tick.
+    const updateFocused = () => setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
+    const obs = new MutationObserver(() => { updateFocused(); sync(); });
     obs.observe(el, { attributes: true, attributeFilter: ['class'] });
-    el.addEventListener('focus', sync, true);
-    el.addEventListener('blur', sync, true);
+    el.addEventListener('focus', () => { updateFocused(); sync(); }, true);
+    el.addEventListener('blur', () => { updateFocused(); sync(); }, true);
 
-    // Scroll listeners on every ancestor that might scroll
-    const scrollTargets: Array<EventTarget> = [];
+    // Scroll listeners on every scrollable ancestor — the row-scroll for
+    // horizontal nav, plus any vertical scroll container above it for
+    // inter-shelf navigation. Listening only on row-scroll left badges
+    // stale by ~100px when the home scrolled vertically. The sync() above
+    // is cheap (single setState with tolerance), so multiple listeners
+    // firing per event is fine.
+    const scrollTargets: EventTarget[] = [];
     let p: HTMLElement | null = el.parentElement;
     while (p) {
-      scrollTargets.push(p);
+      const cs = doc.defaultView?.getComputedStyle(p);
+      if (cs && (cs.overflow !== 'visible' || cs.overflowY !== 'visible' || cs.overflowX !== 'visible')) {
+        scrollTargets.push(p);
+      }
       p = p.parentElement;
     }
     scrollTargets.push(win);
@@ -352,13 +370,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       bodyObs.disconnect();
       if (rafStopTimeoutId) clearTimeout(rafStopTimeoutId);
       stopRaf();
-      el.removeEventListener('focus', sync, true);
-      el.removeEventListener('blur', sync, true);
       for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
       win.removeEventListener('resize', sync);
       for (const t of recheckTargets) {
-        t.removeEventListener('focusin', reCheck, true);
-        t.removeEventListener('focusout', reCheck, true);
+        t.removeEventListener('focusin', reCheckOverlay, true);
+        t.removeEventListener('focusout', reCheckOverlay, true);
       }
     };
   }, [hasBadge]);
