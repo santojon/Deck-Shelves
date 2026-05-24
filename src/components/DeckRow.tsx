@@ -1226,7 +1226,11 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
             overflowY: "visible",
             scrollbarWidth: "none",
             scrollBehavior: "smooth",
-            padding: "16px 0 46px 2.8vw",
+            /* paddingBottom 60 (was 46) — fits the card label + status line
+             * with focus scale(1.04) headroom. Smaller values clip the
+             * status row when a card is focused (scale pushes the label
+             * ~6px further down than its rest position). */
+            padding: "16px 0 60px 2.8vw",
           }}
           {...flowChildrenProps("horizontal")}
         >
