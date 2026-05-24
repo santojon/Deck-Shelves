@@ -125,15 +125,19 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      if (!(await isOnline())) {
-        // Offline: serve any prior cache (even if stale) rather than churn
-        // — keeps the banner stable across short network blips.
-        if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
-        return buildResult(null, null, now);
+      if (cached) {
+        const online = await isOnline();
+        if (!online) {
+          return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
+        }
       }
       const { version, url } = await fetchLatest();
-      writeCache({ ts: Date.now(), latestVersion: version, releaseUrl: url });
-      return buildResult(version, url, Date.now());
+      if (version) {
+        writeCache({ ts: Date.now(), latestVersion: version, releaseUrl: url });
+        return buildResult(version, url, Date.now());
+      }
+      if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
+      return buildResult(null, null, now);
     } catch (e) {
       logInfo("UPDATE", "checkForUpdate failed", String(e));
       if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);

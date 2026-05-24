@@ -21,7 +21,13 @@ env:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+    # Skip the bump-only commit on main (the auto-commit from bump.yml),
+    # but DO run on the matching tag push so the release tag gets its own
+    # validation + committed CI report. Without the tag-push exception the
+    # report-commit step never fires for release tags.
+    if: |
+      github.ref_type == 'tag'
+      || !startsWith(github.event.head_commit.message, 'chore: bump version')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
