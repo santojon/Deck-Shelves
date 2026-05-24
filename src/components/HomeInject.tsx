@@ -1036,9 +1036,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
         const roundCompat = isFocusRoundCompatActive();
         setFlag('data-ds-theme-focus-round-compat', roundCompat);
-        // Also mirror to <html> so the static FocusRing suppression rule
-        // in buildStylesheet() can reach the FocusRing element (which sits
-        // outside .deck-shelves-root in a separate React overlay subtree).
+        // Mirror to <html> so the FocusRing suppression rule can reach the
+        // FocusRing element (which sits outside .deck-shelves-root).
         setHtmlFlag('data-ds-theme-focus-round-compat', roundCompat);
         // Force-themes flag — gates theme rules that should only engage
         // under force (e.g. No Home Text per user spec).

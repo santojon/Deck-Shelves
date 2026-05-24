@@ -802,17 +802,37 @@ function buildStylesheet(): string {
       opacity: 0 !important;
       animation: none !important;
     }
-    /* Steam's native FocusRing element (separate React-rendered overlay
-       outside .ds-card) is what draws the visible focus border + animated
-       color the user reported. Gate the suppression on data-ds-theme-focus-
-       round-compat being set on <html> (HomeInject mirrors the flag to
-       documentElement so this rule can reach the FocusRing's subtree).
-       Hash kept in sync with Steam's classmap entry for FocusRing — if a
-       Steam release breaks this, update the class name below to match. */
+    /* Raise our home root above the FocusRing's stacking neighborhood.
+       The FocusRing element lives in a sibling subtree under BasicUI with
+       z:auto, so without this rule it paints over the badge (inserted later
+       in DOM order). With Panel at z:10, our entire subtree (including the
+       badge inside the focused card) paints above the FocusRing while
+       staying below Steam's higher-stacked overlays (menus, bottom bar). */
+    #deck-shelves-home-root { z-index: 10 !important; }
+    /* Round Compat ON: hide the FocusRing entirely. Gated on the html-level
+       flag so the rule can reach the FocusRing's subtree (which sits outside
+       .deck-shelves-root). Hash kept in sync with classmap entry for
+       FocusRing — if a Steam release breaks this, update the class below. */
     html[data-ds-theme-focus-round-compat="true"] ._1wPplsegQqCoe06wXPhzKT {
       animation: none !important;
       border: none !important;
+      outline: none !important;
       opacity: 0 !important;
+    }
+    /* Round Compat OFF: the FocusRing carries TWO visual layers — a static
+       white border (Steam native) and a themed colored outline (animated
+       blinker). Suppress the border AND switch box-sizing to border-box so
+       the ring's box stays the exact card size on all four sides (default
+       content-box made the border push the right/bottom edges 4px out).
+       Then outline-offset: 1px places the colored outline 1px outside the
+       card edge symmetrically. Scoped via :has() to apply only when a
+       ds-card is the focused element, leaving other Steam screens alone. */
+    html:has(.ds-card.gpfocus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT,
+    html:has(.ds-card:focus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT {
+      box-sizing: border-box !important;
+      border: 0 none transparent !important;
+      margin: 0 !important;
+      outline-offset: 1px !important;
     }
     /* Layout-only ::after: matches the card's art height/radius so any
        theme overlay (e.g. Game Cover Shine focus animation) targets the
