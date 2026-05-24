@@ -5,6 +5,14 @@ out/
 *.log
 .DS_Store
 
+# tmp files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+/temp/
+
 # pnpm
 .pnpm-store/
 
@@ -32,6 +40,17 @@ build/*
 # Deploy staging
 .deploy/
 *.zip
+
+# Local validation reports (with Deck — not committed)
+reports/local/
+# Temp files inside any reports subfolder
+reports/**/.tmp_*/
+reports/**/.tmp_*.json
+# Top-level aggregate views — static client-side shells that fetch each
+# scope's runs-manifest.json at view time, so they display any run without
+# regeneration. Not committed; regenerate on demand with `pnpm reports:rebuild`.
+reports/index.html
+reports/dashboard.html
 
 # Hidden folders
 /.*/

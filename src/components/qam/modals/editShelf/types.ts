@@ -28,9 +28,11 @@ export type EditableShelfState = {
   hideInstallIndicator: boolean
   hideSeeMore: boolean
   hideRefreshCard: boolean
+  heroEnabled: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   childFilterGroup: FilterGroup
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean
+  hideOwnedNonSteamCloud: boolean
 }

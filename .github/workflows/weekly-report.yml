@@ -1,0 +1,74 @@
+name: Weekly CI Report
+
+# Runs the full CI report once a week so the repo always has a recent
+# baseline showing typecheck / build / tests / package / compat — useful
+# to spot drift from upstream dependency churn (decky-loader, Steam-OS
+# bundle changes pulled in via classmap) without needing a push.
+#
+# Picks a different hour than `enforce-repo-settings.yml` (Mon 08:00 UTC)
+# so the two scheduled jobs don't queue back-to-back on the free runner.
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'  # Every Monday at 07:00 UTC
+  workflow_dispatch:
+
+# Need `contents: write` so the report commit below can push back to main.
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Setup Python
+        run: |
+          python3 -m pip install -U pip setuptools
+          python3 -m pip install pytest
+
+      - name: Run CI report
+        run: pnpm run validate:ci
+
+      # Refresh aggregates so the new run shows up in the dashboard /
+      # manifest / per-scope index that the auto-commit below ships.
+      - name: Rebuild aggregates
+        if: always()
+        run: pnpm run reports:rebuild
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-weekly-report-${{ github.run_id }}
+          path: reports/ci/
+          retention-days: 90
+
+      # Commit the freshly-generated report back to main. Scheduled runs
+      # check out the default branch; the commit lands there. Failure of
+      # validate-ci above does not skip this — we want the failure report
+      # captured in the repo too.
+      - name: Commit report
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/commit-report.sh

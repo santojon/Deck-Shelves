@@ -28,9 +28,18 @@ fi
 PLUGIN_SLUG="deck-shelves"
 PLUGIN_DIR="/home/${USER_NAME}/homebrew/plugins/${PLUGIN_SLUG}"
 STAGE_DIR=".deploy/${PLUGIN_SLUG}"
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
-pnpm run build
+# SSH option arrays — bash arrays avoid the word-splitting issue that breaks
+# the `=` syntax on macOS OpenSSH 9.x when SSH_OPTS is a plain string variable.
+SSH_OPTS=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "LogLevel ERROR")
+# Same options as a string, used for rsync's -e flag (rsync passes it to sh
+# which splits correctly; the `=` form is fine there via the shell).
+SSH_OPTS_STR="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+# ServerAliveInterval keeps the connection alive during long remote commands
+# (systemctl restart plugin_loader takes ~8 s).
+SSH_ALIVE=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "LogLevel ERROR" -o "ServerAliveInterval 10" -o "ServerAliveCountMax 6")
+
+pnpm run build 2>&1 | grep -E "built in|error|warning" || true
 
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
@@ -46,9 +55,13 @@ if [[ -d i18n ]]; then mkdir -p "${STAGE_DIR}/i18n" && rsync -a i18n/ "${STAGE_D
 # requires a TTY which SSH doesn't provide by default).
 TEMP_REMOTE="/tmp/ds_deploy_${PLUGIN_SLUG}"
 
-ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "mkdir -p '${TEMP_REMOTE}'"
+# Use rsync for upload — faster than tar+ssh and handles partial transfers.
+# The SSH command is passed as a string to rsync's -e flag (rsync spawns a
+# shell that splits it correctly; direct `ssh ${SSH_OPTS}` would break on
+# macOS OpenSSH 9.x which doesn't accept the `=` form in that position).
+ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "mkdir -p '${TEMP_REMOTE}'"
 rsync -az --delete --no-perms --omit-dir-times \
-  -e "ssh ${SSH_OPTS}" \
+  -e "ssh ${SSH_OPTS_STR}" \
   "${STAGE_DIR}/" "${USER_NAME}@${HOST}:${TEMP_REMOTE}/"
 
 # Move temp → plugin dir with sudo.
@@ -57,14 +70,14 @@ MOVE_CMD="mkdir -p '${PLUGIN_DIR}' && rsync -a --delete '${TEMP_REMOTE}/' '${PLU
 
 MOVED=0
 # 1. Try sudo -n (NOPASSWD setups)
-if ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "sudo -n bash -c \"${MOVE_CMD}\"" 2>/dev/null; then
+if ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "sudo -n bash -c \"${MOVE_CMD}\"" 2>/dev/null; then
   MOVED=1
   echo "[deploy] Moved with sudo -n (NOPASSWD)"
 fi
 
 # 2. Try sudo -S with DECK_SUDO_PASS
 if [[ "$MOVED" == "0" ]] && [[ -n "$SUDO_PASS" ]]; then
-  if ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "printf '%s\n' '${SUDO_PASS}' | sudo -S bash -c \"${MOVE_CMD}\" 2>/dev/null"; then
+  if ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "printf '%s\n' '${SUDO_PASS}' | sudo -S bash -c \"${MOVE_CMD}\" 2>/dev/null"; then
     MOVED=1
     echo "[deploy] Moved with sudo -S"
   fi
@@ -72,38 +85,35 @@ fi
 
 # 3. Fallback: direct copy (works if deck already owns the plugin dir from a previous deploy)
 if [[ "$MOVED" == "0" ]]; then
-  if ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "rsync -a --delete '${TEMP_REMOTE}/' '${PLUGIN_DIR}/' && rm -rf '${TEMP_REMOTE}'" 2>/dev/null; then
+  if ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "rsync -a --delete '${TEMP_REMOTE}/' '${PLUGIN_DIR}/' && rm -rf '${TEMP_REMOTE}'" 2>/dev/null; then
     MOVED=1
     echo "[deploy] Moved directly (deck owns plugin dir)"
   fi
 fi
 
 if [[ "$MOVED" == "0" ]]; then
-  ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "rm -rf '${TEMP_REMOTE}'" 2>/dev/null || true
+  ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "rm -rf '${TEMP_REMOTE}'" 2>/dev/null || true
   echo "[deploy] ERROR: Could not move files to ${PLUGIN_DIR}." >&2
   echo "[deploy] Set DECK_SUDO_PASS in .env with your deck user sudo password and retry." >&2
   exit 1
 fi
 
-# Verify dist/index.js landed
-ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "ls '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] ERROR: dist/index.js not found!'"
-
 if [[ "$HARD" == "1" ]]; then
-  # Killing Steam alone does NOT reload the plugin's Python backend —
-  # plugin_loader.service keeps the imported `main.py` module cached in
-  # memory across Steam restarts. Backend (main.py) edits only take
-  # effect after restarting the loader service. Frontend bundle reloads
-  # naturally with Steam.
+  # Batch: verify + restart plugin_loader + kill Steam in one SSH session.
+  # systemctl restart takes ~8 s; ServerAliveInterval keeps the connection alive.
   if [[ -n "${SUDO_PASS}" ]]; then
-    ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "echo '${SUDO_PASS}' | sudo -S systemctl restart plugin_loader.service >/dev/null 2>&1 || true"
-    echo "[deploy] plugin_loader restarted (backend Python reloaded)."
+    ssh "${SSH_ALIVE[@]}" "${USER_NAME}@${HOST}" \
+      "test -f '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] WARN: index.js missing'; \
+       printf '%s\n' '${SUDO_PASS}' | sudo -S systemctl restart plugin_loader.service 2>/dev/null; \
+       killall steam 2>/dev/null || true"
+    echo "[deploy] hard reload done."
   else
-    echo "[deploy] WARN: DECK_SUDO_PASS not set — plugin_loader NOT restarted; backend Python edits may not apply."
+    echo "[deploy] WARN: DECK_SUDO_PASS not set — plugin_loader NOT restarted." >&2
+    ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "killall steam 2>/dev/null || true"
   fi
-  ssh ${SSH_OPTS} "${USER_NAME}@${HOST}" "killall steam >/dev/null 2>&1 || true"
-  echo "[deploy] Hard reload requested: Steam terminated."
 else
-  echo "[deploy] Soft deploy complete. Decky debug mode should reload the plugin automatically."
+  ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" \
+    "test -f '${PLUGIN_DIR}/dist/index.js' || echo '[deploy] WARN: index.js missing'"
 fi
 
 echo "[deploy] Runtime synced to ${USER_NAME}@${HOST}:${PLUGIN_DIR}"

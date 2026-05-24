@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
+      - name: Generate report
+        run: pnpm run validate:ci
+
       - name: Build plugin (release mode)
         run: pnpm run build:release
 

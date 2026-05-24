@@ -75,6 +75,12 @@ export default definePlugin((serverAPI?: any) => {
   logInfo("RUNTIME", "plugin bootstrap start");
   const platform = createDeckyPlatform();
   setPlatform(platform);
+  // Image cache pruning — drop persistent entries older than EVICT_AFTER_MS.
+  // Deferred to idle so it doesn't compete with bootstrap work.
+  try {
+    const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+    schedule(() => { import("./core/imageCache").then(m => m.pruneCache()).catch(() => {}); });
+  } catch {}
   const enableHomePatch = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
   const routerHook = serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook

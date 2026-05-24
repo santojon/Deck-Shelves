@@ -489,25 +489,75 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
     { id: "nonsteam", name: "Non-Steam" },
   ];
 
-  // 1. Settings file — primary source for TabMaster tabs
+  // Hard guarantee: any thrown error in the discovery chain below must NOT
+  // surface as a rejected promise — the settings controller's `.catch`
+  // path replaces `tabs` with [], leaving the EditShelfModal's tab dropdown
+  // empty (regression seen against SteamOS 3.9 where some host-window
+  // accessors started throwing on enumeration). Wrap everything; always
+  // fall back to the 5 native defaults.
   try {
-    const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
-    const { isTabMasterInstalled } = await import('../integrations/registry');
-    if (isTabMasterInstalled()) {
+    // 1. Settings file — primary source for TabMaster tabs.
+    // Guard removed: in SteamOS 3.9 DeckyPluginLoader is no longer accessible
+    // via window, so isTabMasterInstalled() always returns false even when
+    // TabMaster IS installed. The Python backend returns {"tabs":[]} safely
+    // when the file is absent, so unconditional call is safe on both 3.7 and 3.9.
+    try {
+      const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
       const settingsTabs = await getVisibleTabsFromSettingsFile();
       if (settingsTabs.length > 0) return settingsTabs;
-    }
-  } catch {}
+    } catch {}
 
-  // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
-  const fiberTabs = getCustomFiltersList();
-  if (fiberTabs.length > 0) return fiberTabs;
+    // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
+    try {
+      const fiberTabs = getCustomFiltersList();
+      if (fiberTabs.length > 0) return fiberTabs;
+    } catch {}
 
-  // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
-  try {
-    const { getTabsFromDOM } = await import('../integrations/domtabs');
-    const domTabs = getTabsFromDOM();
-    if (domTabs.length > 0) return domTabs;
+    // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
+    try {
+      const { getTabsFromDOM } = await import('../integrations/domtabs');
+      const domTabs = getTabsFromDOM();
+      if (domTabs.length > 0) return domTabs;
+    } catch {}
+
+    // 4. Native special tabs + user collections from collectionStore.
+    // Adds "Recentes" (allRecentAppsCollection) plus user-created collections
+    // (including Unifideck-managed ones). Uses the safe raw storage map —
+    // never touches the userCollections getter to avoid MobX cache poisoning.
+    // Compatible with both SteamOS 3.7 and 3.9: on 3.7 this step is only
+    // reached if TabMaster is not installed; on 3.9 it adds user collections
+    // that LibraryTabStore used to expose but no longer does.
+    try {
+      const cs = (globalThis as any).collectionStore;
+      const extra: PlatformTab[] = [];
+      const seen = new Set(defaults.map((t) => t.id.toLowerCase()));
+      // "Recentes" native tab
+      const recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection;
+      if (recentCol) {
+        const id = String(recentCol.id ?? recentCol.m_strId ?? 'recent');
+        const name = String(recentCol.displayName ?? recentCol.m_strName ?? 'Recent');
+        if (id && !seen.has(id.toLowerCase())) { seen.add(id.toLowerCase()); extra.push({ id, name }); }
+      }
+      // User-created collections (uc-*, from-tag-*, etc.)
+      const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+      if (rawMap && typeof rawMap.values === 'function') {
+        const SYSTEM_IDS = new Set([
+          'favorite','hidden','notinstalled','installed','local',
+          'deckverified','controller','uncategorized',
+          'all-apps-alpha','all-apps-recent','local-install','recent',
+        ]);
+        for (const col of rawMap.values()) {
+          const id = String(col?.id ?? col?.m_strId ?? col?.key ?? '');
+          const name = String(col?.displayName ?? col?.m_strName ?? '');
+          if (!id || !name) continue;
+          if (SYSTEM_IDS.has(id.toLowerCase()) || seen.has(id.toLowerCase())) continue;
+          try { if (cs?.BIsSystemCollectionId?.(id)) continue; } catch {}
+          seen.add(id.toLowerCase());
+          extra.push({ id, name });
+        }
+      }
+      if (extra.length > 0) return [...defaults, ...extra];
+    } catch {}
   } catch {}
 
   return defaults;
@@ -533,8 +583,14 @@ export function removeAppFromCollection(collectionId: string, appid: number): vo
           return;
         }
       }
-      // Attempt 2: iterate userCollections
-      const userColls: any[] = store.userCollections ?? [];
+      // Attempt 2: iterate the raw storage map. NEVER read `userCollections`
+      // here — that getter is a MobX computed that poisons its own cache when
+      // evaluated against a not-yet-initialized store, taking down Steam's
+      // library home. The raw map holds every user-defined collection.
+      const rawMap: any = store.m_mapCollectionsFromStorage ?? store.collectionsFromStorage;
+      const userColls: any[] = rawMap && typeof rawMap.values === 'function'
+        ? Array.from(rawMap.values())
+        : (Array.isArray(rawMap) ? rawMap : []);
       for (const c of userColls) {
         const id = String(c?.id ?? c?.collectionid ?? '');
         if (id !== collectionId) continue;
@@ -565,18 +621,14 @@ export async function listCollections(): Promise<SteamCollection[]> {
   for (const hostWindow of hostWindows) {
     const globalCollectionStore = hostWindow?.collectionStore ?? (globalThis as any).collectionStore;
     if (!globalCollectionStore) continue;
-    // The `userCollections` getter is a MobX computed that can throw with
-    // `Cannot read properties of undefined (reading 'values')` when the
-    // underlying observable maps haven't initialized yet. Wrap the ACCESS
-    // itself (not only the normalize/return below) so the throw is contained.
-    let userCollections: any = null;
-    try { userCollections = globalCollectionStore.userCollections; } catch { /* store not ready */ }
-    if (Array.isArray(userCollections)) {
-      try {
-        const norm = normalize(userCollections as any[]);
-        if (norm.length) return norm;
-      } catch {}
-    }
+    // NEVER read `globalCollectionStore.userCollections` here. That getter is
+    // a MobX computed: if the first evaluation happens while the store is
+    // still initializing it throws, and MobX caches the exception forever —
+    // every later read (including Steam's own library home) hits the cached
+    // error and crashes. `listCollections` is called during early shelf
+    // resolution, which is exactly when the store may not be ready. Skip
+    // straight to the raw storage map below — it already holds every user
+    // collection (size 23 confirmed live on SteamOS 3.7).
     // m_mapCollectionsFromStorage is a MobX ObservableMap; .keys()/.get() work.
     // Collections have m_strId but no top-level `id`, so inject it explicitly.
     try {
@@ -672,7 +724,13 @@ function getUnifideckInstalledSet(): Set<number> {
   const ids = new Set<number>();
   try {
     const cs: any = (globalThis as any).collectionStore;
-    const cols = cs?.userCollections;
+    // Read the raw storage map, never the `userCollections` getter. That
+    // getter is a MobX computed: evaluated while the collection store is
+    // still initializing it throws, and MobX then caches the exception
+    // permanently — poisoning every later read, including Steam's own
+    // library home, which crashes (and the Decky error boundary then blames
+    // this plugin). The raw map already holds every user collection.
+    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
     const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
     const match = list.find((c: any) => {
       const name = String(c?.displayName ?? c?.m_strName ?? "");
@@ -689,11 +747,107 @@ function getUnifideckInstalledSet(): Set<number> {
   _ufInstalledCache = { ids, ts: now };
   return ids;
 }
+
+// Cloud-play set: Unifideck Microsoft (Xbox Cloud Gaming). Other Unifideck
+// providers (Epic, GOG, Amazon, Ubisoft) are native-install platforms —
+// owning a game there counts as owned even when not installed locally.
+let _ufCloudCache: { ids: Set<number>; ts: number } | null = null;
+const UF_CLOUD_COLLECTION_LABELS = new Set(["microsoft"]);
+function getUnifideckCloudPlaySet(): Set<number> {
+  const now = Date.now();
+  if (_ufCloudCache && now - _ufCloudCache.ts < 5000) return _ufCloudCache.ids;
+  const ids = new Set<number>();
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+    const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
+    for (const c of list) {
+      const name = String(c?.displayName ?? c?.m_strName ?? "");
+      if (!/^\[Unifideck\]/i.test(name)) continue;
+      const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
+      if (!UF_CLOUD_COLLECTION_LABELS.has(label)) continue;
+      const apps = c?.allApps ?? c?.m_rgApps ?? [];
+      for (const a of apps) {
+        const n = Number(a?.appid);
+        if (Number.isFinite(n)) ids.add(n);
+      }
+    }
+  } catch {}
+  _ufCloudCache = { ids, ts: now };
+  return ids;
+}
+
+function isCloudPlayShortcut(a: any): boolean {
+  if (!isNonSteamOf(a)) return false;
+  const id = Number(a?.appid);
+  if (!Number.isFinite(id)) return false;
+  return getUnifideckCloudPlaySet().has(id);
+}
+
 function isFavoriteOf(a: any): boolean {
   return !!(a?.is_favorite ?? a?.favorite ?? a?.m_bIsFavorite ?? a?.m_bFavorite ?? a?.bFavorite);
 }
 function isHiddenOf(a: any): boolean {
+  // `visible_in_game_list === false` is how SteamOS 3.x / recent Steam clients
+  // mark hidden games on the AppOverview protobuf — the older bool fields
+  // (is_hidden, m_bHidden) are not populated on these versions (confirmed via
+  // CDP on SteamOS 3.7, issue #63). Check all known variants.
+  if (a?.visible_in_game_list === false) return true;
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
+}
+/**
+ * AppIDs in the user's library. Steam comes from allGamesCollection;
+ * non-Steam (when includeNonSteam) comes from myGamesCollection filtered
+ * by isNonSteamOf. Cloud-play entries are subtracted unless includeCloudPlay.
+ */
+export function getLocalLibraryAppIds(includeNonSteam: boolean, includeCloudPlay: boolean = false): Set<number> {
+  const out = new Set<number>();
+  const collectSteam = (coll: any): void => {
+    if (!coll) return;
+    const apps = coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
+    for (const a of apps) {
+      if (isNonSteamOf(a)) continue;
+      const id = Number(a?.appid ?? a?.m_unAppID);
+      if (Number.isFinite(id) && id > 0) out.add(id);
+    }
+  };
+  // Non-Steam entries live in myGamesCollection on current Steam builds
+  // (allShortcutsCollection is undefined). Cloud-play (Xbox via Unifideck
+  // Microsoft) is detected by collection membership; other providers
+  // (Epic/GOG/etc.) still count as owned when not installed locally.
+  const collectNonSteam = (coll: any): void => {
+    if (!coll) return;
+    const apps = coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
+    for (const a of apps) {
+      if (!isNonSteamOf(a)) continue;
+      if (!includeCloudPlay && isCloudPlayShortcut(a)) continue;
+      const id = Number(a?.appid ?? a?.m_unAppID);
+      if (Number.isFinite(id) && id > 0) out.add(id);
+    }
+  };
+  try {
+    const cs: any = (globalThis as any).collectionStore;
+    if (cs) {
+      collectSteam(cs.allGamesCollection);
+      if (includeNonSteam) {
+        // Prefer `myGamesCollection` (Steam + shortcuts mixed) since
+        // `allShortcutsCollection` doesn't exist on recent Steam builds.
+        collectNonSteam(cs.myGamesCollection ?? cs.allAppsCollection ?? cs.allShortcutsCollection);
+      }
+    }
+    if (out.size === 0) {
+      for (const hw of getSteamWindows()) {
+        const cs2: any = (hw as any)?.collectionStore;
+        if (!cs2) continue;
+        collectSteam(cs2.allGamesCollection);
+        if (includeNonSteam) {
+          collectNonSteam(cs2.myGamesCollection ?? cs2.allAppsCollection ?? cs2.allShortcutsCollection);
+        }
+        if (out.size > 0) break;
+      }
+    }
+  } catch {}
+  return out;
 }
 function isInstalledOf(a: any): boolean {
   if (isNonSteamOf(a)) {
@@ -750,7 +904,7 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     is_steam: node?.is_steam ?? !isNonSteamOf(node),
     is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
-    is_hidden: readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
+    is_hidden: (node?.visible_in_game_list === false) ? true : readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     installed: (() => {
       // Non-Steam shortcuts (notably Unifideck) advertise installed:true on
       // the raw overview regardless of real state. Defer to isInstalledOf
@@ -1627,12 +1781,35 @@ async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOv
     );
   }
   if (id === "recent") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
+  if (id === "all_apps_recent" || id === "allrecentapps") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
   const byTab = all.filter((a: any) => {
     const tags = [a?.tab, a?.tab_name, a?.collection_name, a?.category, ...(Array.isArray(a?.tags) ? a.tags : [])]
       .map((v: any) => slugifyTab(String(v ?? "")))
       .filter(Boolean);
     return tags.includes(id);
   });
+  // Fallback: resolve via collectionStore raw map (covers uc-*, from-tag-*, and
+  // Unifideck-managed collections which use the original tab id as the collection id).
+  // Safe for both SteamOS 3.7 and 3.9 since we only use m_mapCollectionsFromStorage.
+  if (!byTab.length) {
+    try {
+      const cs = (globalThis as any).collectionStore;
+      const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+      if (rawMap && typeof rawMap.get === 'function') {
+        const col = rawMap.get(tab) ?? rawMap.get(id);
+        if (col) {
+          const appsSet = col?.allApps ?? col?.m_rgApps;
+          if (appsSet instanceof Set) {
+            const appIds = new Set(Array.from(appsSet).map(Number).filter(Number.isFinite));
+            if (appIds.size > 0) return all.filter((a) => appIds.has(appIdOf(a)));
+          } else if (Array.isArray(appsSet) && appsSet.length) {
+            const appIds = new Set(appsSet.map((a: any) => Number(a?.appid ?? a)).filter(Number.isFinite));
+            if (appIds.size > 0) return all.filter((a) => appIds.has(appIdOf(a)));
+          }
+        }
+      }
+    } catch {}
+  }
   return byTab;
 }
 
@@ -1855,7 +2032,9 @@ function buildNonSteamPlatformMap(): Map<number, string> {
   const map = new Map<number, string>();
   try {
     const cs: any = (globalThis as any).collectionStore;
-    const cols = cs?.userCollections;
+    // Raw storage map, not the `userCollections` computed — see
+    // getUnifideckInstalledSet for why touching that getter is unsafe.
+    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
     const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
     for (const c of list) {
       const name = String(c?.displayName ?? c?.m_strName ?? "");
@@ -2032,8 +2211,12 @@ async function applyPriceSort(ids: number[], sort: "price_low" | "discount_high"
 
 export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean, options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }): Promise<number[]> {
   const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
-  // Overshoot: fetch more candidates to compensate for hidden app filtering.
-  const overShootLimit = hiddenSet ? Math.min(limit + hiddenSet.size * 2, limit * 3) : limit;
+  // Overshoot for render-time filters: hidden*2 for the picker, plus
+  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
+  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
+  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
+  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
+  const overShootLimit = Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
 
   let all = await getAllAppOverviews();
   // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
@@ -2042,11 +2225,13 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     all = await getAllAppOverviews();
   }
 
+  // Returns up to overShootLimit — Shelf.tsx slices to shelf.limit after
+  // its render-time owned/name filters, so the overshoot provides headroom.
   function finish(ids: number[]): number[] {
     let result = ids;
     if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
     if (options?.dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
-    return result.slice(0, limit);
+    return result.slice(0, overShootLimit);
   }
 
   if (source.type === "collection") {
@@ -2374,15 +2559,20 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
       const wishlistIds = await getWishlistIds();
       if (!wishlistIds) return [];
-      // Optionally exclude games already in the local library.
-      // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
-      const hideOwned = s?.onlineHideOwnedGames !== false;
-      const hideOwnedNonSteam = hideOwned && (s?.onlineHideOwnedNonSteam === true);
-      const ownedSet = new Set(
-        hideOwned
-          ? all.filter((a) => hideOwnedNonSteam || !isNonSteamOf(a)).map((a) => appIdOf(a))
-          : []
-      );
+      // Per-shelf toggles extend global — mirrors Shelf.tsx render so the
+      // resolver count matches displayed count.
+      const globalHideOwned = s?.onlineHideOwnedGames === true;
+      const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
+      const srcExcludeOwned = (source as any).excludeOwned === true;
+      const srcExcludeNonSteam = srcExcludeOwned && (source as any).excludeOwnedNonSteam === true;
+      const hideOwned = globalHideOwned || srcExcludeOwned;
+      const hideOwnedNonSteam = hideOwned && ((globalHideOwned && globalHideNonSteam) || srcExcludeNonSteam);
+      const perShelfCloud = (source as any).hideOwnedNonSteamCloud;
+      const hideOwnedNonSteamCloud = hideOwnedNonSteam &&
+        (perShelfCloud === true || (perShelfCloud === undefined && s?.onlineHideOwnedNonSteamCloud === true));
+      const ownedSet = hideOwned
+        ? getLocalLibraryAppIds(hideOwnedNonSteam, hideOwnedNonSteamCloud)
+        : new Set<number>();
       let ids = hideOwned ? wishlistIds.filter((id) => !ownedSet.has(id)) : [...wishlistIds];
       // Apply childFilter: discount filter uses price cache and works for every
       // wishlist item; AppOverview-dependent filters only apply to games already
@@ -2445,15 +2635,18 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         childFilter.items.some((item: any) => item.type === "discount");
       if (hasDiscountFilter) await getPriceMap(ids);
 
-      // Apply childFilter (discount uses price cache; others use AppOverview).
-      // Optionally exclude owned games from the store shelf.
-      // Main toggle: Steam games only. Sub-toggle: also non-Steam shortcuts.
-      const hideOwnedStore = s?.onlineHideOwnedGames !== false;
-      const hideOwnedStoreNonSteam = hideOwnedStore && (s?.onlineHideOwnedNonSteam === true);
+      // Same merge logic as wishlist (see comment above).
+      const globalHideOwned = s?.onlineHideOwnedGames === true;
+      const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
+      const srcExcludeOwned = (source as any).excludeOwned === true;
+      const srcExcludeNonSteam = srcExcludeOwned && (source as any).excludeOwnedNonSteam === true;
+      const hideOwnedStore = globalHideOwned || srcExcludeOwned;
+      const hideOwnedStoreNonSteam = hideOwnedStore && ((globalHideOwned && globalHideNonSteam) || srcExcludeNonSteam);
+      const perShelfCloud = (source as any).hideOwnedNonSteamCloud;
+      const hideOwnedStoreNonSteamCloud = hideOwnedStoreNonSteam &&
+        (perShelfCloud === true || (perShelfCloud === undefined && s?.onlineHideOwnedNonSteamCloud === true));
       if (hideOwnedStore) {
-        const ownedSetStore = new Set(
-          all.filter((a) => hideOwnedStoreNonSteam || !isNonSteamOf(a)).map((a) => appIdOf(a))
-        );
+        const ownedSetStore = getLocalLibraryAppIds(hideOwnedStoreNonSteam, hideOwnedStoreNonSteamCloud);
         ids = ids.filter((id) => !ownedSetStore.has(id));
       }
 

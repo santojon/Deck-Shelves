@@ -8,12 +8,17 @@ type ShelfLike = { id: string; source?: { type?: string } } | null | undefined;
  * Walk `shelves` in CONFIG order and return the id of the first shelf that's
  * currently rendering content (`renderedIds.has(sh.id)`).
  *
- * Prefers a non-smart shelf when one is rendering — `pickFirstVisibleShelfId`
- * was originally written to skip smart shelves entirely, but that left users
- * who only have smart shelves (or whose normal shelves all resolve to 0 apps)
- * with nothing in the promoted slot. Falling back to the first rendering
- * smart shelf keeps the slot occupied without changing the priority for
- * users who do have normal shelves.
+ * Prefers a STRONG shelf — a local, non-smart shelf — over WEAK ones (smart
+ * shelves and online wishlist/store shelves). Weak shelves are only returned
+ * as a last-resort fallback when no strong shelf is rendering. Reasons:
+ *  - Smart shelves appear/disappear heuristically, so the promoted slot's
+ *    identity would flicker if they could claim it.
+ *  - Online shelves render fast from their HTTP cache. On a cold Steam restart
+ *    they finish before an earlier-config local shelf has resolved its app
+ *    data, so a pure "first rendering" scan would hand the promoted slot to
+ *    the online shelf — visibly "stealing" the top position until the local
+ *    shelf catches up. Deferring them keeps the promoted slot on the user's
+ *    intended local shelf.
  *
  * Returns `null` when no shelf in the config is rendering yet.
  */
@@ -21,17 +26,18 @@ export function pickFirstVisibleShelfId(
   shelves: readonly ShelfLike[],
   renderedIds: ReadonlySet<string>,
 ): string | null {
-  let firstSmart: string | null = null;
+  let firstWeak: string | null = null;
   for (const sh of shelves ?? []) {
     if (!sh) continue;
     if (!renderedIds.has(sh.id)) continue;
-    if (sh.source?.type === "smart") {
-      if (firstSmart === null) firstSmart = sh.id;
+    const t = sh.source?.type;
+    if (t === "smart" || t === "wishlist" || t === "store") {
+      if (firstWeak === null) firstWeak = sh.id;
       continue;
     }
     return sh.id;
   }
-  return firstSmart;
+  return firstWeak;
 }
 
 /**

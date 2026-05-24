@@ -187,15 +187,22 @@ function smartShelfToCandidate(s: any) {
   };
 }
 
+/** Online-source shelves (wishlist/store) resolve to appids the user doesn't
+ *  own — Steam's native recents renderer only handles appids in the local
+ *  app store, so an online-source promotion always falls back. Exclude them
+ *  from the candidate list so the promotion advances to the next renderable
+ *  shelf. */
+function isOnlineSource(src: any): boolean {
+  const t = src?.type;
+  return t === 'wishlist' || t === 'store';
+}
+
 /** Build the ordered list of replace-candidate shelves: visible normals
- *  first, then visible smart shelves whose visibility window allows them
- *  right now. Used by both `activeFirstShelf` (initial pick) and
- *  `scheduleResolve`'s zero-app fallback (next candidate when the current
- *  one resolves to nothing). Returns shelf-shaped objects only. */
+ *  (excluding online sources) first, then visible smart shelves. */
 function visibleCandidateShelves(): any[] {
   const s = getCurrentSettings();
   if (!s) return [];
-  const normals = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden);
+  const normals = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden && !isOnlineSource(sh.source));
   const smartEnabled = s.smartShelvesEnabled === true;
   const smarts = !smartEnabled
     ? []
@@ -372,16 +379,12 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
 
   const patchFn = (props: { children: ReactElement }) => {
     try {
-      const shelf = activeFirstShelf();
-      if (!shelf) return props;
-
-      if (!cachedAppIds?.length) scheduleResolve(shelf);
-
-      // L1 afterPatch wraps props.children.type permanently (the wrapper
-      // persists on that element reference). Skip if __og is already set
-      // to avoid accumulating handlers when patchFn fires multiple times.
-      // L2/L3 patches are transient (per fresh element each render) so they
-      // must be re-applied every time L1's handler fires.
+      // All three layers (L1 → L2 → L3) install UNCONDITIONALLY so the
+      // patch chain is fully in place regardless of `recentsReplaceSource`
+      // state. Only the L3 mutation step gates on the active shelf — that
+      // way, toggling the setting after Steam boot takes effect on the very
+      // next render of the native recents component (focus shift, app
+      // overview change, etc.), without requiring a restart.
       if ((props.children as any)?.type?.__og) return props;
 
       afterPatch(props.children as any, "type", (_a: any, ret?: any) => {
@@ -396,7 +399,9 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                 x?.props && "autoFocus" in x.props && "showBackground" in x.props,
               );
               if (!recents) {
-                if (cachedAppIds?.length) {
+                // Only count as failure when injection is actively trying to fire
+                // (active shelf + cached ids). Otherwise it's a normal idle render.
+                if (activeFirstShelf() && cachedAppIds?.length) {
                   silentPatchFailures++;
                   if (silentPatchFailures >= 10) markReplaceFailed("tree walk: recents node not found");
                 }
@@ -409,14 +414,11 @@ export function installRecentsReplace(routerHook: any): PatchHandle {
                 try {
                   const freshShelf = activeFirstShelf();
                   if (!freshShelf) return ret3;
-                  const ids = cachedAppIds && cachedAppIds.length ? cachedAppIds : null;
-                  if (!ids) { scheduleResolve(freshShelf); return ret3; }
-                  const ok = mutateRecentsElement(ret3, freshShelf, ids);
+                  if (!cachedAppIds?.length) { scheduleResolve(freshShelf); return ret3; }
+                  const ok = mutateRecentsElement(ret3, freshShelf, cachedAppIds);
                   if (!ok) {
-                    if (cachedAppIds?.length) {
-                      silentPatchFailures++;
-                      if (silentPatchFailures >= 10) markReplaceFailed("mutate: holder not found");
-                    }
+                    silentPatchFailures++;
+                    if (silentPatchFailures >= 10) markReplaceFailed("mutate: holder not found");
                     return ret3;
                   }
                   silentPatchFailures = 0;

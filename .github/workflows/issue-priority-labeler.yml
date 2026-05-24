@@ -25,11 +25,14 @@ jobs:
             // Skip when a priority::* is already present (manual override).
             if (hasAnyMatching(/^priority::/)) return;
 
+            // Anything not running on SteamOS is always low priority —
+            // SteamOS is the only first-class target. Within SteamOS,
+            // bugs are high and enhancements/features/docs are low.
             let priority = null;
-            if (has("type::bug") && has("os::steamos")) {
-              priority = "priority::high";
+            if (!has("os::steamos")) {
+              priority = "priority::low";
             } else if (has("type::bug")) {
-              priority = "priority::medium";
+              priority = "priority::high";
             } else if (has("type::enhancement", "type::feature", "area::docs")) {
               priority = "priority::low";
             }

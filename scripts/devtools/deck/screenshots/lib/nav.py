@@ -12,14 +12,22 @@ from .cdp import Session, open_session, list_targets, find_target
 
 OPEN_QAM_EXPR = """
 (function(){
-  if (typeof SteamUIStore !== 'undefined' &&
-      SteamUIStore.WindowStore &&
-      SteamUIStore.WindowStore.GamepadUIMainWindowInstance &&
-      SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed) {
-    SteamUIStore.WindowStore.GamepadUIMainWindowInstance.OnQuickAccessButtonPressed();
-    return 'ok';
-  }
-  return 'not found';
+  try {
+    const w = SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance;
+    if (w?.OnQuickAccessButtonPressed) { w.OnQuickAccessButtonPressed(); return 'ok:OnQuickAccessButtonPressed'; }
+    if (w?.ToggleQuickAccessMenu)       { w.ToggleQuickAccessMenu();       return 'ok:ToggleQuickAccessMenu'; }
+    const store = SteamUIStore?.GamepadUIStore ?? SteamUIStore?.MainWindowStore;
+    if (store?.OpenQuickAccess)          { store.OpenQuickAccess();         return 'ok:GamepadUIStore.OpenQuickAccess'; }
+    if (store?.ToggleQuickAccessMenu)    { store.ToggleQuickAccessMenu();   return 'ok:GamepadUIStore.Toggle'; }
+    if (SteamClient?.UI?.OpenQuickAccessMenu) {
+      SteamClient.UI.OpenQuickAccessMenu(); return 'ok:SteamClient.UI';
+    }
+    if (SteamClient?.Overlay?.OpenQuickAccessMenu) {
+      SteamClient.Overlay.OpenQuickAccessMenu(); return 'ok:SteamClient.Overlay';
+    }
+    window.dispatchEvent(new CustomEvent('gamepadbutton', { detail: { button: 'qam', pressed: true } }));
+    return 'ok:event';
+  } catch(e) { return 'error:' + String(e); }
 })()
 """
 
@@ -27,7 +35,13 @@ CLOSE_QAM_EXPR = """
 (function(){
   try {
     const w = SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance;
-    if (w?.OnQuickAccessButtonPressed) { w.OnQuickAccessButtonPressed(); return 'closed'; }
+    if (w?.OnQuickAccessButtonPressed) { w.OnQuickAccessButtonPressed(); return 'closed:OnQuickAccessButtonPressed'; }
+    if (w?.ToggleQuickAccessMenu)       { w.ToggleQuickAccessMenu();       return 'closed:ToggleQuickAccessMenu'; }
+    const store = SteamUIStore?.GamepadUIStore ?? SteamUIStore?.MainWindowStore;
+    if (store?.CloseQuickAccess)         { store.CloseQuickAccess();        return 'closed:GamepadUIStore.Close'; }
+    if (store?.ToggleQuickAccessMenu)    { store.ToggleQuickAccessMenu();   return 'closed:GamepadUIStore.Toggle'; }
+    if (SteamClient?.UI?.CloseQuickAccessMenu)      { SteamClient.UI.CloseQuickAccessMenu();      return 'closed:SteamClient.UI'; }
+    if (SteamClient?.Overlay?.CloseQuickAccessMenu) { SteamClient.Overlay.CloseQuickAccessMenu(); return 'closed:SteamClient.Overlay'; }
   } catch {}
   return 'no-op';
 })()
@@ -35,6 +49,10 @@ CLOSE_QAM_EXPR = """
 
 _NAVIGATE_HOME_EXPR = """
 (function(){
+  try {
+    var nav = SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_Navigator;
+    if (nav?.Home) { nav.Home(); return 'navigator.Home'; }
+  } catch(e) {}
   try { SteamClient.Navigation.Navigate('/library/home'); return 'steamclient'; } catch(e) {}
   try { Router.Navigate('/library/home'); return 'router'; } catch(e) {}
   return 'failed';
@@ -210,7 +228,17 @@ def navigate_home(sjc: Session, settle_ms: int = 2000) -> None:
 
 
 def navigate(sjc: Session, route: str, settle_ms: int = 2000) -> None:
-    expr = f"""(function(){{ if (typeof Router !== 'undefined' && Router?.Navigate) {{ Router.Navigate({route!r}); return 'ok'; }} return 'not found'; }})()"""
+    if route in ("/library/home", "/library"):
+        navigate_home(sjc, settle_ms=settle_ms)
+        return
+    expr = f"""(function(){{
+      try {{
+        var nav = SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_Navigator;
+        if (nav?.LibraryTab) {{ nav.LibraryTab(); return 'navigator.LibraryTab'; }}
+      }} catch(e) {{}}
+      try {{ Router.Navigate({route!r}); return 'router'; }} catch(e) {{}}
+      return 'failed';
+    }})()"""
     try:
         sjc.evaluate(expr)
     except Exception:

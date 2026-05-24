@@ -22,10 +22,21 @@ run_checks() {
     ((pass++))
   fi
 
+  # The badge portal (ds-card-badge-host--portal) deliberately uses a top
+  # stacking value via `createPortal` into <body>, so it sits outside any
+  # CheatDeck overlay scope and can't intercept its painting. Match grep
+  # lines + 4 context lines (where "ds-card-badge-host" appears) to exempt
+  # only that legitimate usage.
   local high_z
-  high_z=$(grep -roE 'zIndex\s*[:=]\s*"?[0-9]+' "$src" 2>/dev/null | grep -oE '[0-9]+$' | awk '$1 > 999' | head -3)
+  high_z=$(grep -roB4 'zIndex\s*[:=]\s*"?[0-9]\+' "$src" 2>/dev/null \
+    | grep -B4 -E 'zIndex\s*[:=]\s*"?[0-9]+' \
+    | grep -vE 'ds-card-badge-host|createPortal' \
+    | grep -oE 'zIndex\s*[:=]\s*"?[0-9]+' \
+    | grep -oE '[0-9]+$' \
+    | awk '$1 > 999' \
+    | head -3)
   if [[ -z "$high_z" ]]; then
-    echo "  ✅ No high z-index values that would cover CheatDeck overlay"
+    echo "  ✅ No high z-index values that would cover CheatDeck overlay (portal-scoped badge excluded)"
     ((pass++))
   else
     echo "  ⚠️  z-index values > 999 ($high_z) may conflict with CheatDeck overlay"

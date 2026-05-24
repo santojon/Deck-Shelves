@@ -22,13 +22,26 @@ from ...screenshots.lib import nav, capture
 
 @dataclass
 class Context:
-    sjc: Session
+    sjc: Session        # SharedJSContext — navigation, router, localStorage
+    bp: Session         # Big Picture — DOM queries (DS shelves, cards, native recents)
+    qam: Optional[Any]  # QuickAccess target — QAM panel DOM (separate Chromium target)
     host: str
     port: int
     out_dir: Path
 
     def eval(self, expr: str, return_by_value: bool = True, timeout: float = 8.0) -> Any:
+        """Evaluate in Big Picture where DS shelves render."""
+        return self.bp.evaluate(expr, return_by_value=return_by_value, timeout=timeout)
+
+    def eval_sjc(self, expr: str, return_by_value: bool = True, timeout: float = 8.0) -> Any:
+        """Evaluate in SharedJSContext (Router, appStore, settings)."""
         return self.sjc.evaluate(expr, return_by_value=return_by_value, timeout=timeout)
+
+    def eval_qam(self, expr: str, return_by_value: bool = True, timeout: float = 8.0) -> Any:
+        """Evaluate in the QuickAccess target where the QAM panel renders."""
+        if self.qam is None:
+            return None
+        return self.qam.evaluate(expr, return_by_value=return_by_value, timeout=timeout)
 
     def query(self, selector: str) -> Any:
         return self.eval(f"!!document.querySelector({selector!r})")
@@ -52,6 +65,10 @@ class Context:
         nav.close_qam(self.sjc, settle_ms=settle_ms)
 
     def navigate(self, route: str, settle_ms: int = 1500) -> None:
+        # Navigation works via m_Navigator on the GamepadUI main window instance
+        # (accessible from SJC). BP and SJC Routers are either absent or separate
+        # from the on-screen view — only m_Navigator.Home() reliably changes what
+        # BigPicture shows.
         nav.navigate(self.sjc, route, settle_ms=settle_ms)
 
     def screenshot_bp(self, name: str) -> Optional[Path]:
@@ -95,9 +112,17 @@ def suite(name: str) -> Suite:
     return s
 
 
+class SkipTest(Exception):
+    """Raise inside a test to mark it as skipped (environment not ready)."""
+
+
 def run(host: str, port: int, out_dir: Path, only: Optional[List[str]] = None) -> List[TestResult]:
     sjc = open_session(host, port, "SharedJSContext")
-    ctx = Context(sjc=sjc, host=host, port=port, out_dir=out_dir)
+    bp  = open_session(host, port, "Big Picture")
+    # QuickAccess session is opened lazily by qam_shelves._require_qam() after
+    # open_qam() is called. Opening it at startup caused Steam to show the QAM
+    # overlay, preventing the home screen from rendering its shelves.
+    ctx = Context(sjc=sjc, bp=bp, qam=None, host=host, port=port, out_dir=out_dir)
     results: List[TestResult] = []
     try:
         for s in SUITES.values():
@@ -110,6 +135,9 @@ def run(host: str, port: int, out_dir: Path, only: Optional[List[str]] = None) -
                     fn(ctx)
                     results.append(TestResult(s.name, tname, "pass", int((time.time() - t0) * 1000)))
                     print(f"PASS {full}")
+                except SkipTest as e:
+                    results.append(TestResult(s.name, tname, "skip", int((time.time() - t0) * 1000), str(e)))
+                    print(f"SKIP {full} :: {e}")
                 except AssertionError as e:
                     results.append(TestResult(s.name, tname, "fail", int((time.time() - t0) * 1000), str(e)))
                     print(f"FAIL {full} :: {e}")
@@ -119,4 +147,10 @@ def run(host: str, port: int, out_dir: Path, only: Optional[List[str]] = None) -
                     print(f"ERROR {full} :: {e}")
     finally:
         sjc.close()
+        bp.close()
+        if ctx.qam is not None:
+            try:
+                ctx.qam.close()
+            except Exception:
+                pass
     return results

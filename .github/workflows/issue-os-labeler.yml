@@ -32,7 +32,11 @@ jobs:
               /\bsteam\s*os\b[\s\S]{0,80}\b(beta|preview|3\.[7-9]\d*\.\d+)\b/i,
               /\b(beta|preview)\b[\s\S]{0,80}\bsteam\s*os\b/i,
             ];
-            const isSteamOsBeta = steamOsBetaPatterns.some((p) => p.test(text));
+            // Prefer explicit "stable" mention; detect stable and beta
+            // independently. Only add a release label when explicitly
+            // present; if neither is detected, add no release label.
+            const isReleaseStable = /\bstable\b/i.test(text) || /release\s+channel[\s\S]{0,120}\bstable\b/i.test(text);
+            const isReleaseBeta = steamOsBetaPatterns.some((p) => p.test(text));
 
             const buckets = [
               { label: "OS::Bazzite",       patterns: [/\bbazzite\b/i] },
@@ -65,11 +69,11 @@ jobs:
               }
             }
 
-            // SteamOS-beta signal: apply OS::SteamOS + release::beta together
-            // (no dedicated OS::SteamOSBeta label — kept in line with the
-            // plugin release-channel convention).
-            if (isSteamOsBeta) {
-              toAdd.add("OS::SteamOS");
+            // Release channel: add stable or beta only when explicitly
+            // detected. Do not add either label by default.
+            if (isReleaseStable && !isReleaseBeta) {
+              toAdd.add("release::stable");
+            } else if (isReleaseBeta && !isReleaseStable) {
               toAdd.add("release::beta");
             }
 

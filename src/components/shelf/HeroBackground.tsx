@@ -232,14 +232,41 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
       if (!focused) {
         focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
       }
+      if (!focused) {
+        // Fallback: first visible card in the promoted/first shelf, skipping
+        // hidden/filtered cards (owned games on online shelves, etc.)
+        const pool = (mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"]')
+          ?? mountEl.querySelector('.ds-shelf')) as HTMLElement | null;
+        if (pool) {
+          for (const c of pool.querySelectorAll<HTMLElement>('.ds-card[data-appid]')) {
+            const cs = getComputedStyle(c);
+            if (c.offsetHeight > 0 && c.offsetParent !== null && cs.visibility !== 'hidden' && cs.display !== 'none') {
+              focused = c; break;
+            }
+          }
+        }
+      }
       if (!focused) return;
-      // Hero art mirrors only the first shelf — native Steam recents hero
-      // never reacts to focus on shelves below the recents row, so neither
-      // should ours. Prefer the explicit promoted marker when present
-      // (CSS Loader path); fall back to the first DOM shelf otherwise.
-      const heroShelf = (mountEl.querySelector('.ds-shelf[data-ds-recents-slot="true"]')
-        ?? mountEl.querySelector('.ds-shelf')) as HTMLElement | null;
-      if (heroShelf && !heroShelf.contains(focused)) return;
+      // Hero art mirrors:
+      //   - any shelf with `data-ds-hero-enabled="true"` (per-shelf opt-in
+      //     via the edit modal Visual tab — regular + smart shelves)
+      //   - OR the recents-slot promoted shelf when the global
+      //     `shelfHeroBackground` is on
+      // When the focused card lives in a shelf carrying either marker, we
+      // update the hero overlay; otherwise we leave the previous hero in
+      // place (matching native Steam's "sticky last hero" behaviour).
+      const parentShelf = focused.closest('.ds-shelf') as HTMLElement | null;
+      const isHeroShelf = !!parentShelf && (
+        parentShelf.getAttribute('data-ds-hero-enabled') === 'true'
+        || parentShelf.getAttribute('data-ds-recents-slot') === 'true'
+      );
+      if (!isHeroShelf) {
+        // Fallback for the legacy single-hero path: when neither marker is
+        // present (e.g. first shelf isn't promoted yet), keep the previous
+        // behaviour of using the first DOM shelf.
+        const fallbackShelf = mountEl.querySelector('.ds-shelf') as HTMLElement | null;
+        if (fallbackShelf && !fallbackShelf.contains(focused)) return;
+      }
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
       if (appid <= 0) return;
       if (appid !== currentAppid.current) {
@@ -355,8 +382,6 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
-            objectPosition: "50% 50%",
             display: "block",
           }}
           loading="eager"
@@ -385,6 +410,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const heroH = heroHeight + 120;
 
   return (
+    <>
     <div
       className="ds-hero-background"
       style={{
@@ -398,8 +424,6 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         pointerEvents: "none",
         opacity: visible ? 1 : 0,
         transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83)",
-        maskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))",
-        WebkitMaskImage: "linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px))" as any,
       }}
     >
       {/* Solid background layer — fills behind the image so the native
@@ -446,30 +470,37 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         pointerEvents: "none",
         zIndex: 1,
       }} />
-      {/* Game info overlay — clones the focused card's `.ds-card-label`
-          DOM (all classes preserved) so the hero label is identical to
-          the regular card label, only positioned above the row instead
-          of below. The wrapper div carries `ds-promoted-hero-label`
-          which the stylesheet uses to override the cloned label's own
-          absolute positioning back to static. The in-card label is
-          hidden via CSS on the promoted shelf so we don't render two
-          copies of the same label. pointerEvents:none so it never
-          intercepts focus. */}
-      {needsHeroLabel && labelHtml && (
-        <div
-          className="ds-promoted-hero-label"
-          style={{
-            position: "fixed",
-            left: labelLeftPx,
-            bottom: labelBottomPx,
-            pointerEvents: "none",
-            zIndex: 2,
-            opacity: visible ? 1 : 0,
-            transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), left 0.2s ease, bottom 0.2s ease",
-          }}
-          dangerouslySetInnerHTML={{ __html: labelHtml }}
-        />
-      )}
     </div>
+    {/* Game info overlay — clones the focused card's `.ds-card-label`
+        DOM (all classes preserved) so the hero label is identical to
+        the regular card label, only positioned above the row instead
+        of below. The wrapper div carries `ds-promoted-hero-label`
+        which the stylesheet uses to override the cloned label's own
+        absolute positioning back to static. The in-card label is
+        hidden via CSS on the promoted shelf so we don't render two
+        copies of the same label. pointerEvents:none so it never
+        intercepts focus.
+
+        Kept a SIBLING of `.ds-hero-background` (not a child): that
+        element is z-index:-1 and forms a stacking context, so any
+        descendant — even at z-index:2 — is trapped behind the cards.
+        As a sibling, the overlay's z-index competes with the cards
+        directly and can sit above them. */}
+    {needsHeroLabel && labelHtml && (
+      <div
+        className="ds-promoted-hero-label"
+        style={{
+          position: "fixed",
+          left: labelLeftPx,
+          bottom: labelBottomPx,
+          pointerEvents: "none",
+          zIndex: 20,
+          opacity: visible ? 1 : 0,
+          transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), left 0.2s ease, bottom 0.2s ease",
+        }}
+        dangerouslySetInnerHTML={{ __html: labelHtml }}
+      />
+    )}
+    </>
   );
 }

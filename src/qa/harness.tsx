@@ -22,6 +22,9 @@ const updateDismissed = __DEV__ && typeof __QA_UPDATE_DISMISSED__ !== "undefined
 const updateOffline = __DEV__ && typeof __QA_UPDATE_OFFLINE__ !== "undefined" && __QA_UPDATE_OFFLINE__;
 const collectionEmpty = __DEV__ && typeof __QA_COLLECTION_EMPTY__ !== "undefined" && __QA_COLLECTION_EMPTY__;
 const collectionInverted = __DEV__ && typeof __QA_COLLECTION_INVERTED__ !== "undefined" && __QA_COLLECTION_INVERTED__;
+const sourcesFixture = __DEV__ && typeof __QA_SOURCES_FIXTURE__ !== "undefined" && __QA_SOURCES_FIXTURE__;
+const templatesFixture = __DEV__ && typeof __QA_TEMPLATES_FIXTURE__ !== "undefined" && __QA_TEMPLATES_FIXTURE__;
+const stressFixture = __DEV__ && typeof __QA_STRESS_FIXTURE__ !== "undefined" && __QA_STRESS_FIXTURE__;
 
 // Stable fake version surfaced by the update notifier when `qa:update-available`
 // is set. Picked far above any real release so semver compare always reports
@@ -29,7 +32,7 @@ const collectionInverted = __DEV__ && typeof __QA_COLLECTION_INVERTED__ !== "und
 const QA_FAKE_LATEST_VERSION = "99.0.0";
 const QA_FAKE_RELEASE_URL = "https://github.com/santojon/Deck-Shelves/releases/tag/v99.0.0";
 
-if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceTabMaster || forceUnifiDeck || forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed || updateOffline || collectionEmpty || collectionInverted) {
+if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceTabMaster || forceUnifiDeck || forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture) {
   // eslint-disable-next-line no-console
   console.warn("[Deck Shelves QA] active flags:", {
     firstRun, qamError, shelfError,
@@ -37,6 +40,7 @@ if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || al
     forceTabMaster, forceUnifiDeck, forceNonSteamBadges,
     smartShelvesFixture, savedFiltersFixture, forceHidden, surpriseMe, forceCrash, forceReplaceFailed,
     updateAvailable, updateDismissed, updateOffline, collectionEmpty, collectionInverted,
+    sourcesFixture, templatesFixture, stressFixture,
   });
 }
 
@@ -108,6 +112,233 @@ function qaSavedFiltersFixture(): SavedFilter[] {
   ] as SavedFilter[];
 }
 
+// ─── Fixture: stress — 12 regular + 6 smart, limit=50, varied display/visual ─
+function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
+  // Each shelf deliberately mixes a different source + display/visual flag
+  // combination so the render path exercises different code branches under load.
+  const base = { enabled: true, hidden: false, limit: 50 };
+
+  const shelves: Shelf[] = [
+    // 1 — recent, highlightFirst, matchNativeSize
+    { ...base, id: "qa_st_01", title: "Stress 01 — Recent / highlight first / native size",
+      source: { type: "filter", filter: { sort: "recent" } },
+      matchNativeSize: true, highlightFirst: true },
+    // 2 — playtime, highlightAll
+    { ...base, id: "qa_st_02", title: "Stress 02 — Playtime / highlight all",
+      source: { type: "filter", filter: { sort: "playtime" } },
+      highlightAll: true },
+    // 3 — alphabetical desc, hide status + new badge
+    { ...base, id: "qa_st_03", title: "Stress 03 — Alpha desc / hide status+badge",
+      source: { type: "filter", filter: { sort: "alphabetical" } },
+      sortReverse: true, hideStatusLine: true, hideNewBadge: true },
+    // 4 — review score, hide compat icons
+    { ...base, id: "qa_st_04", title: "Stress 04 — Review score / hide compat",
+      source: { type: "filter", filter: { sort: "review_score" } },
+      hideCompatIcons: true },
+    // 5 — added, hide non-steam badge + install indicator
+    { ...base, id: "qa_st_05", title: "Stress 05 — Recently added / hide badges",
+      source: { type: "filter", filter: { sort: "added" } },
+      hideNonSteamBadge: true, hideInstallIndicator: true },
+    // 6 — release date, hide shelf title
+    { ...base, id: "qa_st_06", title: "Stress 06 — Release date / hide shelf title",
+      source: { type: "filter", filter: { sort: "release_date" } },
+      hideShelfTitle: true },
+    // 7 — installed, matchNativeSize + hide see more
+    { ...base, id: "qa_st_07", title: "Stress 07 — Installed / native size / hide see more",
+      source: { type: "tab", tab: "installed" },
+      matchNativeSize: true, hideSeeMore: true },
+    // 8 — favorites collection, highlightFirst + hide game names
+    { ...base, id: "qa_st_08", title: "Stress 08 — Favorites / highlight first / no names",
+      source: { type: "collection", collectionId: "favorite" },
+      highlightFirst: true, hideGameNames: true },
+    // 9 — deck verified, hero enabled
+    { ...base, id: "qa_st_09", title: "Stress 09 — Deck verified / hero art",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified"] } }] }, sort: "alphabetical" } },
+      heroEnabled: true } as any,
+    // 10 — random, hide refresh card
+    { ...base, id: "qa_st_10", title: "Stress 10 — Random / hide refresh",
+      source: { type: "filter", filter: { sort: "random" } },
+      hideRefreshCard: true },
+    // 11 — developer filter, matchNativeSize + highlightAll
+    { ...base, id: "qa_st_11", title: "Stress 11 — Valve games / native size / all highlight",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "developer", inverted: false, params: { developer: "Valve" } }] }, sort: "playtime" } },
+      matchNativeSize: true, highlightAll: true },
+    // 12 — controller full support, all display flags off
+    { ...base, id: "qa_st_12", title: "Stress 12 — Full controller support",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "controllerSupport", inverted: false, params: { min: 2 } }] }, sort: "alphabetical" } },
+      hideStatusLine: true, hideNewBadge: true, hideCompatIcons: true, hideNonSteamBadge: true, hideInstallIndicator: true },
+    // 13 — wishlist, highlightFirst
+    { ...base, id: "qa_st_13", title: "Stress 13 — Wishlist / highlight first",
+      source: { type: "wishlist" },
+      highlightFirst: true },
+    // 14 — wishlist on sale, matchNativeSize
+    { ...base, id: "qa_st_14", title: "Stress 14 — Wishlist on sale / native size",
+      source: { type: "wishlist", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 1, maxDiscount: 99 } }] } },
+      matchNativeSize: true },
+    // 15 — store, hide status + badge
+    { ...base, id: "qa_st_15", title: "Stress 15 — Store / hide status+badge",
+      source: { type: "store" },
+      hideStatusLine: true, hideNewBadge: true },
+    // 16 — free now (store 100% off), heroEnabled
+    { ...base, id: "qa_st_16", title: "Stress 16 — Free now / hero art",
+      source: { type: "store", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } },
+      heroEnabled: true } as any,
+  ];
+
+  const smartShelves: SmartShelf[] = [
+    { id: "qa_ssm_01", title: "Stress Smart 01 — Quick play",      mode: "quick_play",      enabled: true, hidden: false, limit: 50 },
+    { id: "qa_ssm_02", title: "Stress Smart 02 — On deck",         mode: "on_deck",         enabled: true, hidden: false, limit: 50 },
+    { id: "qa_ssm_03", title: "Stress Smart 03 — Best unplayed",   mode: "best_unplayed",   enabled: true, hidden: false, limit: 50 },
+    { id: "qa_ssm_04", title: "Stress Smart 04 — Interrupted",     mode: "interrupted",     enabled: true, hidden: false, limit: 50 },
+    { id: "qa_ssm_05", title: "Stress Smart 05 — Daily pick",      mode: "daily_pick",      enabled: true, hidden: false, limit: 50 },
+    { id: "qa_ssm_06", title: "Stress Smart 06 — Random pick",     mode: "random_pick",     enabled: true, hidden: false, limit: 50 },
+  ];
+
+  return { shelves, smartShelves };
+}
+
+// ─── Fixture: all source types + sort options + filter combinations ──────────
+function qaSourcesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
+  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+
+  const shelves: Shelf[] = [
+    // ── Tab sources ──────────────────────────────────────────────────────
+    { ...b, id: "qa_tab_installed",  title: "QA: Tab / Installed",   source: { type: "tab", tab: "installed" } },
+    { ...b, id: "qa_tab_favorites",  title: "QA: Tab / Favorites",   source: { type: "tab", tab: "favorites" } },
+    { ...b, id: "qa_tab_hidden",     title: "QA: Tab / Hidden",      source: { type: "tab", tab: "hidden" } },
+    { ...b, id: "qa_tab_nonsteam",   title: "QA: Tab / Non-Steam",   source: { type: "tab", tab: "nonsteam" } },
+    // ── Collection source ────────────────────────────────────────────────
+    { ...b, id: "qa_coll_fav",       title: "QA: Collection / Favorites",              source: { type: "collection", collectionId: "favorite" } },
+    { ...b, id: "qa_coll_child",     title: "QA: Collection / Favorites + childFilter (installed)",
+      source: { type: "collection", collectionId: "favorite", childFilter: { mode: "and", items: [{ type: "installed", inverted: false, params: {} }] } } },
+    // ── Filter / sorts ───────────────────────────────────────────────────
+    { ...b, id: "qa_sort_alpha",     title: "QA: Sort / Alphabetical",   source: { type: "filter", filter: { sort: "alphabetical" } } },
+    { ...b, id: "qa_sort_alpha_rev", title: "QA: Sort / Alpha (desc)",   source: { type: "filter", filter: { sort: "alphabetical" } }, sortReverse: true },
+    { ...b, id: "qa_sort_recent",    title: "QA: Sort / Recent",         source: { type: "filter", filter: { sort: "recent" } } },
+    { ...b, id: "qa_sort_playtime",  title: "QA: Sort / Playtime",       source: { type: "filter", filter: { sort: "playtime" } } },
+    { ...b, id: "qa_sort_release",   title: "QA: Sort / Release date",   source: { type: "filter", filter: { sort: "release_date" } } },
+    { ...b, id: "qa_sort_size",      title: "QA: Sort / Size on disk",   source: { type: "filter", filter: { sort: "size_on_disk", installed: true } } },
+    { ...b, id: "qa_sort_meta",      title: "QA: Sort / Metacritic",     source: { type: "filter", filter: { sort: "metacritic" } } },
+    { ...b, id: "qa_sort_review",    title: "QA: Sort / Review score",   source: { type: "filter", filter: { sort: "review_score" } } },
+    { ...b, id: "qa_sort_added",     title: "QA: Sort / Recently added", source: { type: "filter", filter: { sort: "added" } } },
+    { ...b, id: "qa_sort_random",    title: "QA: Sort / Random",         source: { type: "filter", filter: { sort: "random" } } },
+    // ── Filter / flat fields ─────────────────────────────────────────────
+    { ...b, id: "qa_flat_installed", title: "QA: Filter / Installed",    source: { type: "filter", filter: { installed: true, sort: "alphabetical" } } },
+    { ...b, id: "qa_flat_nonsteam",  title: "QA: Filter / Non-Steam",    source: { type: "filter", filter: { nonSteam: true, sort: "alphabetical" } } },
+    { ...b, id: "qa_flat_update",    title: "QA: Filter / Update pending",source: { type: "filter", filter: { installed: true, updatePending: true, sort: "alphabetical" } } },
+    { ...b, id: "qa_flat_hidden",    title: "QA: Filter / Hidden only",  source: { type: "filter", filter: { hidden: "only", sort: "alphabetical" } } },
+    { ...b, id: "qa_flat_playtime",  title: "QA: Filter / Playtime ≥ 3h",source: { type: "filter", filter: { installed: true, minPlaytimeMinutes: 180, sort: "playtime" } } },
+    // ── Filter / filterGroup items ───────────────────────────────────────
+    { ...b, id: "qa_fg_favorites",   title: "QA: FG / Favorites",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "favorites", inverted: false, params: {} }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_isnew",       title: "QA: FG / Is new",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "isNew", inverted: false, params: {} }] }, sort: "added" } } },
+    { ...b, id: "qa_fg_cloud",       title: "QA: FG / Cloud save",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "cloudAvailable", inverted: false, params: {} }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_verified",    title: "QA: FG / Deck Verified",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified"] } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_playable",    title: "QA: FG / Deck Playable+",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified", "playable"] } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_ctrl_full",   title: "QA: FG / Controller (full)",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "controllerSupport", inverted: false, params: { min: 2 } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_appstatus",   title: "QA: FG / App status (running/downloading)",
+      source: { type: "filter", filter: { filterGroup: { mode: "or", items: [{ type: "appStatus", inverted: false, params: { statuses: ["running", "downloading"] } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_played7d",    title: "QA: FG / Played within 7d",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "playedWithinDays", inverted: false, params: { days: 7 } }] }, sort: "recent" } } },
+    { ...b, id: "qa_fg_playtime_rng",title: "QA: FG / Playtime 1–5h",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "playtimeRange", inverted: false, params: { minMinutes: 60, maxMinutes: 300 } }] }, sort: "playtime" } } },
+    { ...b, id: "qa_fg_achievements", title: "QA: FG / Achievements (has any)",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "achievements", inverted: false, params: { min: 1 } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_developer",   title: "QA: FG / Developer",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "developer", inverted: false, params: { developer: "Valve" } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_publisher",   title: "QA: FG / Publisher",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "publisher", inverted: false, params: { publisher: "Valve" } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_nametag",     title: "QA: FG / Name includes",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "nameIncludes", inverted: false, params: { value: "Portal" } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_storetag",    title: "QA: FG / Store tag (Indie)",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "storeTag", inverted: false, params: { tags: ["492"] } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_shortcut",    title: "QA: FG / Shortcut type",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "shortcutType", inverted: false, params: { shortcutType: "all" } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_coll_inv",    title: "QA: FG / Collection inverted",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "collection", inverted: true, params: { collectionId: "favorite" } }, { type: "installed", inverted: false, params: {} }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_fg_merge",       title: "QA: FG / Merge (OR installed+nonsteam)",
+      source: { type: "filter", filter: { filterGroup: { mode: "or", items: [{ type: "installed", inverted: false, params: {} }, { type: "nonSteam", inverted: false, params: {} }] }, sort: "alphabetical" } } },
+    // ── Online sources ────────────────────────────────────────────────────
+    { ...b, id: "qa_wishlist",       title: "QA: Wishlist",            source: { type: "wishlist" } },
+    { ...b, id: "qa_wishlist_sale",  title: "QA: Wishlist on sale",
+      source: { type: "wishlist", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 1, maxDiscount: 99 } }] } } },
+    { ...b, id: "qa_store",          title: "QA: Store",               source: { type: "store" } },
+    { ...b, id: "qa_store_free",     title: "QA: Store / Free now",
+      source: { type: "store", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } } },
+  ];
+
+  const smartShelves: SmartShelf[] = [
+    { id: "qa_sm_quick",     title: "QA: Smart / Quick play",       mode: "quick_play",      enabled: true, hidden: false },
+    { id: "qa_sm_notstart",  title: "QA: Smart / Not started",      mode: "not_started",     enabled: true, hidden: false },
+    { id: "qa_sm_deck",      title: "QA: Smart / Deck picks",       mode: "deck_picks",      enabled: true, hidden: false },
+    { id: "qa_sm_redis",     title: "QA: Smart / Rediscover",       mode: "rediscover",      enabled: true, hidden: false },
+    { id: "qa_sm_bestun",    title: "QA: Smart / Best unplayed",    mode: "best_unplayed",   enabled: true, hidden: false },
+    { id: "qa_sm_inter",     title: "QA: Smart / Interrupted",      mode: "interrupted",     enabled: true, hidden: false },
+    { id: "qa_sm_tod",       title: "QA: Smart / Time of day",      mode: "time_of_day",     enabled: true, hidden: false },
+    { id: "qa_sm_daily",     title: "QA: Smart / Daily pick",       mode: "daily_pick",      enabled: true, hidden: false },
+    { id: "qa_sm_ondeck",    title: "QA: Smart / On deck",          mode: "on_deck",         enabled: true, hidden: false },
+    { id: "qa_sm_recent",    title: "QA: Smart / Recently played",  mode: "recently_played", enabled: true, hidden: false },
+    { id: "qa_sm_long",      title: "QA: Smart / Long session",     mode: "long_session",    enabled: true, hidden: false },
+    { id: "qa_sm_nonsteam",  title: "QA: Smart / Non-Steam",        mode: "non_steam",       enabled: true, hidden: false },
+    { id: "qa_sm_random",    title: "QA: Smart / Random pick",      mode: "random_pick",     enabled: true, hidden: false },
+    { id: "qa_sm_forgot",    title: "QA: Smart / Forgotten",        mode: "forgotten",       enabled: true, hidden: false },
+    { id: "qa_sm_spare",     title: "QA: Smart / Spare time",       mode: "spare_time",      enabled: true, hidden: false },
+    { id: "qa_sm_custom",    title: "QA: Smart / Custom (default)", mode: "custom",          enabled: true, hidden: false },
+  ];
+
+  return { shelves, smartShelves };
+}
+
+// ─── Fixture: one shelf per template (regular + online + smart) ───────────────
+function qaTemplatesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
+  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+
+  const shelves: Shelf[] = [
+    // ── Regular templates ────────────────────────────────────────────────
+    { ...b, id: "qa_tpl_fav",      title: "Tpl: Favorites",          source: { type: "tab", tab: "favorites" } },
+    { ...b, id: "qa_tpl_recent",   title: "Tpl: Recent",             source: { type: "filter", filter: { sort: "recent" } } },
+    { ...b, id: "qa_tpl_inst",     title: "Tpl: Installed",          source: { type: "tab", tab: "installed" } },
+    { ...b, id: "qa_tpl_mplay",    title: "Tpl: Most played",        source: { type: "filter", filter: { sort: "playtime" } } },
+    { ...b, id: "qa_tpl_added",    title: "Tpl: Recently added",     source: { type: "filter", filter: { sort: "added" } } },
+    { ...b, id: "qa_tpl_update",   title: "Tpl: Awaiting update",    source: { type: "filter", filter: { installed: true, updatePending: true, sort: "alphabetical" } } },
+    { ...b, id: "qa_tpl_nonst",    title: "Tpl: Non-Steam",          source: { type: "filter", filter: { nonSteam: true, sort: "recent" } } },
+    { ...b, id: "qa_tpl_longsess", title: "Tpl: Long session",       source: { type: "filter", filter: { installed: true, minPlaytimeMinutes: 180, sort: "playtime" } } },
+    { ...b, id: "qa_tpl_cloud",    title: "Tpl: Steam Cloud",        source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "cloudAvailable", inverted: false, params: {} }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_tpl_verified", title: "Tpl: Deck Verified",      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified"] } }] }, sort: "alphabetical" } } },
+    { ...b, id: "qa_tpl_review",   title: "Tpl: Top reviewed",       source: { type: "filter", filter: { sort: "review_score" } } },
+    // ── Online templates ─────────────────────────────────────────────────
+    { ...b, id: "qa_tpl_wish",     title: "Tpl: Wishlist",           source: { type: "wishlist" } },
+    { ...b, id: "qa_tpl_wish_sale",title: "Tpl: Wishlist on sale",   source: { type: "wishlist", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 1, maxDiscount: 99 } }] } } },
+    { ...b, id: "qa_tpl_freewish", title: "Tpl: Free wishlist",      source: { type: "wishlist", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } } },
+    { ...b, id: "qa_tpl_freenow",  title: "Tpl: Free now",           source: { type: "store",    childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } } },
+  ];
+
+  const smartShelves: SmartShelf[] = [
+    { id: "qa_tsm_daily",   title: "Tpl: Daily pick",       mode: "daily_pick",      enabled: true, hidden: false },
+    { id: "qa_tsm_deck",    title: "Tpl: Deck picks",       mode: "deck_picks",      enabled: true, hidden: false },
+    { id: "qa_tsm_ondeck",  title: "Tpl: On deck",          mode: "on_deck",         enabled: true, hidden: false },
+    { id: "qa_tsm_recent",  title: "Tpl: Recently played",  mode: "recently_played", enabled: true, hidden: false },
+    { id: "qa_tsm_long",    title: "Tpl: Long session",     mode: "long_session",    enabled: true, hidden: false },
+    { id: "qa_tsm_random",  title: "Tpl: Random pick",      mode: "random_pick",     enabled: true, hidden: false },
+    { id: "qa_tsm_notst",   title: "Tpl: Not started",      mode: "not_started",     enabled: true, hidden: false },
+    { id: "qa_tsm_bestun",  title: "Tpl: Best unplayed",    mode: "best_unplayed",   enabled: true, hidden: false },
+    { id: "qa_tsm_quick",   title: "Tpl: Quick play",       mode: "quick_play",      enabled: true, hidden: false },
+    { id: "qa_tsm_inter",   title: "Tpl: Interrupted",      mode: "interrupted",     enabled: true, hidden: false },
+    { id: "qa_tsm_nonst",   title: "Tpl: Non-Steam",        mode: "non_steam",       enabled: true, hidden: false },
+    { id: "qa_tsm_spare",   title: "Tpl: Spare time",       mode: "spare_time",      enabled: true, hidden: false },
+    { id: "qa_tsm_tod",     title: "Tpl: Time of day",      mode: "time_of_day",     enabled: true, hidden: false },
+    { id: "qa_tsm_redis",   title: "Tpl: Rediscover",       mode: "rediscover",      enabled: true, hidden: false },
+    { id: "qa_tsm_forgot",  title: "Tpl: Forgotten",        mode: "forgotten",       enabled: true, hidden: false },
+  ];
+
+  return { shelves, smartShelves };
+}
+
 export function applyQASettingsOverride(s: Settings): Settings {
   const wantsHomeOverride = allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceHidden;
   const wantsSmartOverride = smartShelvesFixture || surpriseMe;
@@ -118,7 +349,24 @@ export function applyQASettingsOverride(s: Settings): Settings {
   if (
     !wantsHomeOverride && !wantsSmartOverride && !wantsFiltersOverride
     && !wantsCollectionEmpty && !wantsCollectionInverted && !wantsUpdateDismissed
+    && !sourcesFixture && !templatesFixture && !stressFixture
   ) return s;
+
+  // Sources / templates / stress fixtures are exclusive with each other and
+  // with the existing collection-fixture overrides — only one set wins.
+  if (stressFixture) {
+    const f = qaStressFixture();
+    return { ...s, enabled: true, smartShelvesEnabled: true, onlineFeaturesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves };
+  }
+  if (sourcesFixture) {
+    const f = qaSourcesFixture();
+    return { ...s, enabled: true, smartShelvesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves };
+  }
+  if (templatesFixture) {
+    const f = qaTemplatesFixture();
+    return { ...s, enabled: true, smartShelvesEnabled: true, onlineFeaturesEnabled: true, shelves: f.shelves, smartShelves: f.smartShelves };
+  }
+
   // Collection-fixture overrides are exclusive — only one shelf set wins,
   // matching the existing single-fixture-source contract.
   let shelves = s.shelves;

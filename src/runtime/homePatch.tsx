@@ -55,6 +55,29 @@ function notifyMountFailedChange(): void {
 // --- Recents hiding ---
 let cachedRecentsEl: HTMLElement | null = null;
 let pendingHideRecents: boolean = false;
+let pendingHideHomeTabs: boolean = false;
+
+/** Override the DS mount margin-top when the replace-recents experimental
+ *  toggle is actively injecting. Without this, the default CSS rule pulls
+ *  the DS area up by 32px to overlap the recents bottom — fine when recents
+ *  is collapsed, but with replace active the recents row stays visible
+ *  (showing our injected content) and the 32px overlap pushes the next
+ *  DS shelf's title into the recents area (especially under CSS Loader
+ *  themes like SLH that extend the recents visually).
+ */
+export function applyReplaceActiveMargin(active: boolean): void {
+  try {
+    const { doc } = getHostContext();
+    const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+    if (!mount) return;
+    if (active) {
+      mount.style.setProperty("margin-top", "0px", "important");
+    } else {
+      // Leave applyHideRecents in control when replace is not active.
+      mount.style.removeProperty("margin-top");
+    }
+  } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
+}
 
 export function applyHideRecents(hidden: boolean): void {
   pendingHideRecents = hidden;
@@ -90,8 +113,17 @@ export function applyHideRecents(hidden: boolean): void {
     } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
   }
 
+  // Hide native recents via visibility+height collapse (the v2.2.2 contract).
+  // Deliberately NOT using display:none (re-enters the gamepad nav tree
+  // inconsistently across SteamOS builds) nor off-screen positioning (broke
+  // ArtHero shelf placement on restart). The known trade-off — D-pad needs
+  // two "up" presses to reach the search bar — is accepted/roadmapped.
   if (cachedRecentsEl) {
-    try { cachedRecentsEl.style.visibility = hidden ? "hidden" : ""; cachedRecentsEl.style.height = hidden ? "0px" : ""; cachedRecentsEl.style.overflow = hidden ? "hidden" : ""; } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
+    try {
+      cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
+      cachedRecentsEl.style.height     = hidden ? "0px" : "";
+      cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
+    } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
   }
   // Adjust mount margin-top: add breathing room at top when recents are hidden
   try {
@@ -161,23 +193,55 @@ function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
 }
 
 export function applyHideHomeTabs(hidden: boolean): void {
+  pendingHideHomeTabs = hidden;
   try {
     const { doc } = getHostContext();
     const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
 
-    // Always restore previously-hidden elements first (handles parent changes).
-    for (const el of Array.from(hiddenHomeTabs)) {
-      if (el.isConnected) setSiblingHidden(el, false);
-      hiddenHomeTabs.delete(el);
+    if (!hidden) {
+      // Restore everything we hid; no further work.
+      for (const el of Array.from(hiddenHomeTabs)) {
+        if (el.isConnected) setSiblingHidden(el, false);
+      }
+      hiddenHomeTabs.clear();
+      return;
     }
-    if (!hidden) return;
     if (!mount) return;
 
-    for (const el of collectHomeTabSiblings(mount)) {
-      setSiblingHidden(el, true);
-      hiddenHomeTabs.add(el);
+    // Idempotent: only act on differences between the requested state and the
+    // currently-hidden set. The previous "restore-then-re-hide" pass caused a
+    // brief layout shift on every call (the 2 s state poll fires often, and
+    // each visual flicker on D-pad nav was visible). Now we leave already-
+    // hidden siblings alone and only touch newcomers or stale refs.
+    const current = collectHomeTabSiblings(mount);
+    const currentSet = new Set(current);
+    // 1) Drop stale refs (disconnected or moved out of the candidate set)
+    for (const el of Array.from(hiddenHomeTabs)) {
+      if (!el.isConnected) { hiddenHomeTabs.delete(el); continue; }
+      if (!currentSet.has(el)) {
+        setSiblingHidden(el, false);
+        hiddenHomeTabs.delete(el);
+      }
+    }
+    // 2) Hide any newcomers not yet tracked
+    for (const el of current) {
+      if (!hiddenHomeTabs.has(el)) {
+        setSiblingHidden(el, true);
+        hiddenHomeTabs.add(el);
+      }
     }
   } catch (e) { logInfo("HOME", "applyHideHomeTabs failed", String(e)); }
+}
+
+/**
+ * Re-applies BOTH the most recent hide-recents AND hide-home-tabs requests.
+ * Used after Steam re-renders the home DOM (e.g. user goes to library and
+ * comes back with B): the freshly mounted native recents/tabs arrive without
+ * our hides applied, so this re-runs both apply paths with the cached flags.
+ */
+export function reapplyHomeHides(): void {
+  applyHideRecents(pendingHideRecents);
+  applyHideHomeTabs(pendingHideHomeTabs);
 }
 
 function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
@@ -186,9 +250,22 @@ function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null 
   const mountParent = mountEl.parentElement;
   if (!mountParent) return null;
 
+  // Defensive helper: never match our own DS shelves or the mount itself.
+  // DS shelves carry `ReactVirtualized__Grid` via buildShelfNode, which would
+  // otherwise pass the heuristic below and lead applyHideRecents to strip
+  // tabindex from our own focusables — making the shelves unfocusable.
+  const isDsOwn = (el: HTMLElement): boolean => {
+    if (!el) return false;
+    if (el === mountEl || el.id === ROOT_ID) return true;
+    if (el.classList?.contains('ds-shelf')) return true;
+    if (el.classList?.contains('deck-shelves-root')) return true;
+    if (el.querySelector?.('.ds-shelf, .deck-shelves-root, #' + ROOT_ID)) return true;
+    return false;
+  };
+
   // Check mountEl.previousElementSibling first (fastest path)
   const prev = mountEl.previousElementSibling as HTMLElement | null;
-  if (prev) {
+  if (prev && !isDsOwn(prev)) {
     const txt = (prev.getAttribute?.("aria-label") || prev.innerText || "").toLowerCase().substring(0, 80);
     if (labels.some((l) => txt.includes(l))) return prev;
     // Check descendants
@@ -210,7 +287,7 @@ function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null 
     while (el.parentElement && el.parentElement !== mountParent) {
       el = el.parentElement;
     }
-    if (el.parentElement === mountParent && el !== mountEl) return el;
+    if (el.parentElement === mountParent && el !== mountEl && !isDsOwn(el)) return el;
   }
   return null;
 }
@@ -808,9 +885,8 @@ async function renderHomeShelves() {
     } catch {}
 
     // Discover obfuscated/webpack-hashed class tokens and inject a runtime map so
-    // the rest of the plugin can rely on deterministic selectors. This mirrors
-    // the approach taken by CSS Loader: discover classes at runtime and make
-    // them available to injected code before mounting UI.
+    // the rest of the plugin can rely on deterministic selectors — classes are
+    // discovered at runtime and made available to injected code before mounting UI.
     try {
       const hostDoc = getHostContext().doc;
       // Always run discovery so new keys (nativeShelf, nativeShelfRow, etc.) get populated

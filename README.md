@@ -8,7 +8,7 @@
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
 [![Tests](https://img.shields.io/badge/tests-237%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![Compatibility](https://img.shields.io/badge/checks-37%2F37-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
+[![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Steam%20OS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -50,7 +50,8 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - **Hide recent games** — toggle to hide the native "Recently Played" section
 - **Use first shelf as recents (experimental)** — when "Hide recent games" is on, injects the first shelf's games into the native recents component instead of hiding it; reuses native DOM/CSS/animations for full CSS Loader theme compatibility; auto-disables with a banner on failure
 - **Hide home tabs** — toggle to hide the native home tab bar on te bottom of shelves
-- **Hero background art** — when recents are hidden, focused games show background art like native recents for first shelf
+- **Hero background art** — enable it per shelf (regular or smart) in the editor's Visual tab, or globally for every shelf at once; the focused game's background art appears behind that shelf, following it wherever it sits — works with or without hiding the native recents row
+- **Force CSS Loader themes** — promotes every shelf into the native-like-recents selector space so themes like ArtHero apply consistently across all shelves (only shown when CSS Loader is installed)
 - **Developer / Publisher filter** — filter games by developer or publisher with automatic batch discovery
 - **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
@@ -61,7 +62,7 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker. Picking any template — Blank, regular preset, smart preset, or Custom — opens the edit modal first; **nothing is persisted until you press Save**, so cancelling discards the draft cleanly.
 - Reorder and toggle shelf visibility from the QAM
 - **Online shelf sources (opt-in)** — wishlist and Steam Store shelves with `price_low`, `discount_high`, `original_price_high` sorts; four ready-made templates (Wishlist, Wishlist on sale, Free wishlist, Free now); cached locally so the home keeps working offline
-- **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose exact name matches a title in your local library (including non-Steam shortcuts)
+- **Exclude owned games** — per-shelf toggle on wishlist / store sources that hides any game whose appid or exact name matches a title in your local library; sub-toggle for non-Steam shortcuts (Epic / GOG / etc.), and a further sub-toggle for cloud-play catalogue stubs (Xbox Cloud Gaming via Unifideck Microsoft) so promotions on the cloud catalogue still surface
 - **Discount badges** — cards on online shelves show a green "% off" badge (mirrors the NEW badge slot, shown even on placeholder cards while artwork is still loading)
 - **Refresh action everywhere** — context-aware "Refresh cache" / "Refresh" available from the QAM action menu, the shelf-card context menu, and the trailing refresh tile
 - Import / export all shelves and smart shelf configuration as JSON
@@ -321,6 +322,45 @@ pnpm uitests --only home,qam_shelves   # subset
 ```
 
 The suites live in `scripts/devtools/deck/uitests/suites/` and reuse the screenshot pipeline's `lib/` (CDP session, navigation, capture). Local-only — runs against a real Deck or a SteamOS VM via CDP, never on CI. Use it as the optional pre-PR check for flows the unit tests can't reach.
+
+##### Validation flows (with HTML reports)
+
+Three commands orchestrate all checks end-to-end and write an HTML report to `reports/`:
+
+```bash
+pnpm validate:ci             # offline: typecheck, build, tests, package, compat
+pnpm validate:full           # with Deck: above + deploy + UI tests + perf bench
+pnpm validate:full:stress    # with Deck + stress fixture (16 shelves, 50 cards each)
+```
+
+`validate:ci` is designed for CI/CD — no device or `.env` required. `validate:full` skips device steps gracefully when the Deck is unreachable.
+
+Reports land in `reports/` (gitignored) organised in three scopes:
+
+```
+reports/
+  index.html        ← top-level overview (links to scopes + dashboard)
+  dashboard.html    ← statistics dashboard with charts
+  ci/               ← automated runs (validate:ci)
+  local/            ← manual runs with Deck (validate:full / validate:full:stress)
+  release/          ← reserved for release-gate runs
+```
+
+Each report includes per-step captured output, test result counts, and VS Code-clickable file links for errors.
+
+```bash
+pnpm reports                 # open reports/index.html (includes link to dashboard)
+```
+
+The **dashboard** (`reports/dashboard.html`) aggregates data across all runs and scopes:
+- KPIs: total runs, pass rate, last run result
+- Pass-rate trend chart over time
+- **Coverage by test suite** — stacked bars per suite (home, QAM, context menu, perf, crash, stress) showing pass/fail/skip distribution, populated from UI tests logs
+- Overall test distribution (donut chart)
+- Results by scope (local / CI / release)
+- Context pills showing how many runs were with/without Deck and with/without stress fixture
+
+> **Reports folder:** [`reports/`](reports/) — [`index`](reports/index.html) · [`dashboard`](reports/dashboard.html)
 
 ##### Performance bench
 

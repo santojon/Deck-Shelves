@@ -15,6 +15,7 @@ const GROUPS: { labelKey: string; keys: string[] }[] = [
       'about_feature_advanced_groups', 'about_feature_smart_shelves',
       'about_feature_edit_smart', 'about_feature_saved_filters',
       'about_feature_hide_recents',
+      'about_feature_online_shelves', 'about_feature_online_cloud_play',
     ],
   },
   {
@@ -30,6 +31,7 @@ const GROUPS: { labelKey: string; keys: string[] }[] = [
     keys: [
       'about_feature_dynamic_sizing', 'about_feature_highlight_first',
       'about_feature_global_toggles', 'about_feature_mouse_hover',
+      'about_feature_hero_per_shelf', 'about_feature_hero_global',
     ],
   },
   {

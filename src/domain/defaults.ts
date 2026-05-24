@@ -53,6 +53,7 @@ export function defaultSettings(): Settings {
     globalHideInstallIndicator: false,
     globalHideSeeMore: false,
     globalHideRefreshCard: false,
+    globalHeroEnabled: false,
     globalDedupeByName: false,
     shelves: [],
     smartShelvesEnabled: false,
@@ -68,5 +69,7 @@ export function defaultSettings(): Settings {
     onlinePrivacyAccepted: false,
     onlineHideOwnedGames: false,
     onlineHideOwnedNonSteam: false,
+    onlineHideOwnedNonSteamCloud: false,
+    forceCssLoaderThemes: false,
   };
 }

@@ -21,6 +21,11 @@ export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH
   }, []);
 
   const cachedCardRadius = getCachedCardRadius();
+  // Mirror GameCard: size off the per-shelf --ds-eff-* vars so a native-dims
+  // change reflows through CSS with no re-render; the prop is the fallback.
+  const cssW = `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`;
+  const cssH = `var(${featured ? "--ds-eff-feat-h" : "--ds-eff-card-h"}, ${cardH}px)`;
+  const cssArtH = `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${typeof artH === "number" ? artH : cardH}px)`;
   const discount = item.discountPercent;
   const showDiscountBadge = typeof discount === 'number' && discount > 0;
   const showNewBadge = item.isNew === true && !showDiscountBadge;
@@ -39,23 +44,19 @@ export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH
       data-shelfid={item.shelfId || undefined}
       style={{
         position: "relative",
-        width: cardW,
-        minWidth: cardW,
-        height: cardH,
+        width: cssW,
+        minWidth: cssW,
+        height: cssH,
         flexShrink: 0,
         padding: 0,
         margin: 0,
         background: "transparent",
         cursor: "pointer",
         overflow: "visible",
-        // Pass `artH` through the same `--ds-card-art-h` variable GameCard
-        // uses, so the art region fills the right height in the modal preview
-        // (where cardH includes the label strip and artH is shorter).
-        // Without this the CSS falls back to 100% of cardH and the
-        // placeholder ends up taller than neighbouring game cards' art.
-        ...(typeof artH === "number" && artH < cardH
-          ? { ["--ds-card-art-h" as string]: `${artH}px` }
-          : {}),
+        // Pass artH through the same `--ds-card-art-h` variable GameCard uses,
+        // so the art region fills the right height in the modal preview (where
+        // cardH includes the label strip and artH is shorter).
+        ["--ds-card-art-h" as string]: cssArtH,
       }}
     >
       <div

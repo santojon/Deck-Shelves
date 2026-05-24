@@ -130,6 +130,8 @@ export const SmartShelfSchema = z.object({
   hideInstallIndicator: z.boolean().optional(),
   hideSeeMore: z.boolean().optional(),
   hideRefreshCard: z.boolean().optional(),
+  // Per-shelf hero opt-in (same semantics as the regular Shelf flag).
+  heroEnabled: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
@@ -164,8 +166,8 @@ export const ShelfSourceSchema = z.union([
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
-  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional() }),
-  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional() }),
+  z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
+  z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
 ]);
 
 export type ShelfSource = z.infer<typeof ShelfSourceSchema>;
@@ -200,6 +202,11 @@ export const ShelfSchema = z.object({
   hideInstallIndicator: z.boolean().default(false),
   hideSeeMore: z.boolean().default(false),
   hideRefreshCard: z.boolean().default(false),
+  // Per-shelf "Enable hero art" toggle. When true, focusing any card in this
+  // shelf paints the hero image (same overlay used by the global
+  // `shelfHeroBackground`) tied to the focused appid. Independent of
+  // `hideRecents` — a regular shelf below the native recents row can opt in.
+  heroEnabled: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema
@@ -226,6 +233,7 @@ export const SettingsSchema = z.object({
   globalHideSeeMore: z.boolean().default(false),
   globalHideRefreshCard: z.boolean().default(false),
   globalDedupeByName: z.boolean().default(false),
+  globalHeroEnabled: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),
@@ -245,6 +253,11 @@ export const SettingsSchema = z.object({
   onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedNonSteam: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // When TRUE, cloud-play non-Steam entries count as owned (their store
+  // matches are hidden). Default FALSE so cloud-streaming catalogue stubs
+  // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
+  onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
+  forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

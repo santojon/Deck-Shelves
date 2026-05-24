@@ -2,12 +2,18 @@ name: CI
 
 on:
   push:
+    # Skip CI runs whose only changes are the auto-committed report files.
+    # Without this every `chore(report): …` commit would re-trigger CI in a loop.
+    paths-ignore:
+      - 'reports/**'
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
+# Need `contents: write` so the report-commit step below can push the
+# generated HTML back to the branch (or to the default branch for tag pushes).
 permissions:
-  contents: read
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -19,8 +25,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        # persist-credentials default (true) so the report-commit step can
+        # push without re-authenticating. All other steps are read-only.
         with:
-          persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -66,3 +74,38 @@ jobs:
           name: deck-shelves-${{ github.sha }}
           path: |
             deck-shelves-v*.zip
+
+      # Triggers for the report:
+      #   - commit message contains `#report`
+      #   - PR title contains `#report`
+      #   - version tag push (`refs/tags/v*`)
+      - name: Generate report
+        id: report
+        if: |
+          contains(github.event.head_commit.message, '#report')
+          || (github.event.pull_request && contains(github.event.pull_request.title, '#report'))
+          || startsWith(github.ref, 'refs/tags/v')
+        run: pnpm run validate:ci
+
+      # Refresh the derived aggregates (per-scope `runs-manifest.json`,
+      # per-scope `index.html`, top-level `index.html`, `dashboard.html`)
+      # against everything currently on disk. The per-run generator only
+      # writes `{ts}.{html,json}`; without this step the dashboards stay
+      # stale and the new run is invisible until someone rebuilds locally.
+      - name: Rebuild aggregates
+        if: always() && steps.report.outcome != 'skipped'
+        run: pnpm run reports:rebuild
+
+      # Commit the freshly-generated report back to the repo.
+      # Skipped on PR runs (no write to a fork's branch) and only fires
+      # when the report step itself ran. For tag pushes the commit lands
+      # on the repo's default branch (tags themselves are immutable); for
+      # branch pushes / workflow_dispatch it lands on the current branch.
+      - name: Commit report
+        if: |
+          always()
+          && steps.report.outcome != 'skipped'
+          && github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/commit-report.sh

@@ -14,7 +14,8 @@ import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '.
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
-import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
+import { resolveShelfAppIds, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from '../../../steam'
+import { getCurrentSettings } from '../../../store/settingsStore'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
@@ -34,8 +35,28 @@ import { SortField } from './editShelf/SortField'
 import { ModalHeader } from './editShelf/ModalHeader'
 
 
+// Native library tabs. If the controller's async `listLibraryTabs` resolved
+// to an empty list (a host-window store throwing on enumeration has been
+// seen in the wild, and the controller's `.catch` falls back to `[]`), we
+// still surface these so the source dropdown is never blank. The localized
+// labels later in `detectNativeKey` match against `id` slugs, so these IDs
+// are guaranteed to render with the right translated names.
+const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = [
+  { id: 'all',        name: 'All Games' },
+  { id: 'favorites',  name: 'Favorites' },
+  { id: 'installed',  name: 'Installed' },
+  { id: 'hidden',     name: 'Hidden' },
+  { id: 'nonsteam',   name: 'Non-Steam' },
+]
+
 export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf; mode?: 'create' | 'edit' }) {
-  const { t, tabs: platformTabs, collections, actions } = controller
+  const { t, tabs: controllerTabs, collections, actions } = controller
+  // Guard the dropdown against any failure mode in the controller's async
+  // `listLibraryTabs`: empty array, undefined, or never-resolved. Native
+  // defaults below are the same 5 IDs `listLibraryTabs` would have
+  // returned, so localized labels via `detectNativeKey` still apply.
+  const platformTabs = (Array.isArray(controllerTabs) && controllerTabs.length > 0)
+    ? controllerTabs : NATIVE_FALLBACK_TABS
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
   const initialSourceType = shelf.source.type as SourceType
@@ -68,10 +89,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
     hideSeeMore: (shelf as any).hideSeeMore ?? false,
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
+    heroEnabled: (shelf as any).heroEnabled ?? false,
     dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     excludeOwned: (shelf.source as any).excludeOwned ?? false,
     excludeOwnedNonSteam: (shelf.source as any).excludeOwnedNonSteam ?? false,
+    hideOwnedNonSteamCloud: (shelf.source as any).hideOwnedNonSteamCloud === true,
     childFilterGroup: (() => {
       if (shelf.source.type === 'collection' || shelf.source.type === 'tab' || shelf.source.type === 'wishlist' || shelf.source.type === 'store') {
         return (shelf.source as any).childFilter ?? { mode: 'and', items: [] }
@@ -126,15 +149,15 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
     if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(childFilter ? { childFilter } : {}) }
     if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
-    if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any
-    if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any }
+    if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any
+    if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any }
     // When manual sort is active, use the configured base sort for the
     // preview so the mini-card row reflects the actual order of non-manual
     // positions at runtime (matches what Shelf.tsx resolves on home).
     const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
     const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
     return { type: 'filter' as const, filter: effectiveFilter }
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud])
 
   useEffect(() => {
     let cancelled = false
@@ -159,49 +182,74 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
       }
-      resolveShelfAppIds(previewSource, state.limit, previewSort, previewShelfId, previewReverse, {
-        hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
-        dedupeByName: state.dedupeByExactName || undefined,
-      })
-        .then((ids) => {
+      // Resolve with a generous limit, then apply the same render-time
+      // filters Shelf.tsx applies so the modal count matches the shelf.
+      ;(async () => {
+        try {
+          const rawIds = await resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse, {
+            hiddenAppIds: hiddenPickerOpen && state.hiddenAppIds.length ? state.hiddenAppIds : undefined,
+            dedupeByName: state.dedupeByExactName || undefined,
+          })
           if (cancelled) return
-          setPreviewCount(ids.length)
-          setResolvedIds(ids)
-        })
-        .catch(() => {
+
+          const isOnlineShelf = state.sourceType === 'wishlist' || state.sourceType === 'store'
+          let filteredIds = rawIds
+          if (isOnlineShelf) {
+            const settings = getCurrentSettings()
+            const globalHideOwned = settings?.onlineHideOwnedGames === true
+            const globalHideNonSteam = settings?.onlineHideOwnedNonSteam === true
+            const globalHideCloud = settings?.onlineHideOwnedNonSteamCloud === true
+            const shouldHideOwned = globalHideOwned || state.excludeOwned
+            const effectiveNonSteam = (globalHideOwned && globalHideNonSteam) || (state.excludeOwned && state.excludeOwnedNonSteam)
+            // Per-shelf cloud override only kicks in when exclude+NS pair
+            // is set (mirrors the source serialization).
+            const perShelfCloud = (state.excludeOwned && state.excludeOwnedNonSteam) ? state.hideOwnedNonSteamCloud : undefined
+            const effectiveCloud = effectiveNonSteam && (perShelfCloud === true || (perShelfCloud === undefined && globalHideCloud))
+
+            if (shouldHideOwned) {
+              const ownedAppIds = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
+              const all = await getAllAppOverviews()
+              const ownedNames = new Set<string>()
+              const allById = new Map<number, any>()
+              for (const a of all) {
+                const id = Number((a as any)?.appid)
+                if (Number.isFinite(id)) allById.set(id, a)
+                if (!ownedAppIds.has(id)) continue
+                const n = (a as any)?.display_name ?? (a as any)?.name
+                if (typeof n === 'string' && n) ownedNames.add(n.trim().toLowerCase())
+              }
+              const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
+              let nameCache: Record<number, string> = {}
+              try { nameCache = JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch {}
+              filteredIds = rawIds.filter((id) => {
+                if (ownedAppIds.has(id)) return false
+                const overview = allById.get(id)
+                const localName = overview ? ((overview as any).display_name ?? (overview as any).name) : ''
+                const cachedName = nameCache[id]
+                const name = ((localName && !/^App \d+$/.test(localName) ? localName : cachedName) ?? '').trim().toLowerCase()
+                if (name && ownedNames.has(name)) return false
+                return true
+              })
+            }
+          }
+          if (cancelled) return
+          setPreviewCount(filteredIds.length)
+          setResolvedIds(filteredIds.slice(0, state.limit))
+        } catch {
           if (cancelled) return
           setPreviewCount(0)
           setResolvedIds([])
-        })
+        }
+      })()
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce])
+  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud])
 
   useEffect(() => {
     let cancelled = false
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
     const isOnlineSource = state.sourceType === 'wishlist' || state.sourceType === 'store'
-    const filterNonSteam = isOnlineSource && state.excludeOwned && state.excludeOwnedNonSteam
     ;(async () => {
-      // Pre-fetch non-Steam shortcut names before calling getAppMeta so the
-      // name-based filter can be applied in one pass.
-      let nonSteamNameSet: Set<string> | null = null
-      if (filterNonSteam) {
-        try {
-          const { getAllAppOverviews } = await import('../../../steam')
-          const all = await getAllAppOverviews()
-          nonSteamNameSet = new Set<string>()
-          for (const a of all) {
-            const ns = !!(a as any)?.is_non_steam || (a as any)?.is_steam === false ||
-              (a as any)?.m_eAppType === 1073741824 || (a as any)?.app_type === 1073741824
-            if (!ns) continue
-            const n = (a as any)?.display_name ?? (a as any)?.name
-            if (typeof n === 'string' && n) nonSteamNameSet.add(n.trim().toLowerCase())
-          }
-        } catch {}
-      }
-      if (cancelled) return
-
       const rawResults = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
         try { return [id, await platform.getAppMeta(id)] }
         catch { return [id, { appid: id, name: `App ${id}` }] }
@@ -213,22 +261,20 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         return
       }
 
-      // Online shelves only show games NOT in local library (mirrors Shelf.tsx).
-      // getAppMeta returns a fallback with name "App <id>" for non-library apps.
-      // Games with a real name are already owned — the real shelf hides them.
+      // Online shelves: resolvedIds is already filtered. Just enrich each
+      // id with a real name (local overview → cache → fallback "#id").
       const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
       const nameCache: Record<number, string> = (() => {
         try { return JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch { return {} }
       })()
-      const onlineIds = rawResults.filter(([, m]) => /^App \d+$/.test(m.name)).map(([id]) => id)
       const meta = new Map<number, PlatformAppMeta>()
       const toFetch: number[] = []
-      for (const id of onlineIds) {
+      for (const [id, m] of rawResults) {
+        const overviewName = m?.name && !/^App \d+$/.test(m.name) ? m.name : undefined
         const cachedName = nameCache[id]
-        if (nonSteamNameSet && cachedName && nonSteamNameSet.has(cachedName.trim().toLowerCase())) continue
         const portraitUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${id}/library_600x900.jpg`
-        meta.set(id, { appid: id, name: cachedName ?? `#${id}`, portraitUrl })
-        if (!cachedName) toFetch.push(id)
+        meta.set(id, { appid: id, name: overviewName ?? cachedName ?? `#${id}`, portraitUrl })
+        if (!overviewName && !cachedName) toFetch.push(id)
       }
       setResolvedMeta(meta)
 
@@ -243,7 +289,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       setResolvedMeta(prev => {
         const next = new Map(prev)
         names.forEach((name, id) => {
-          if (nonSteamNameSet?.has(name.trim().toLowerCase())) { next.delete(id); return }
           const existing = next.get(id)
           if (existing) next.set(id, { ...existing, name })
         })
@@ -251,7 +296,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       })
     })()
     return () => { cancelled = true }
-  }, [platform, resolvedIds.join(','), state.sourceType, state.excludeOwned, state.excludeOwnedNonSteam])
+  }, [platform, resolvedIds.join(','), state.sourceType])
 
   // Fetch overshoot candidates for hidden-games picker: uses limit*3 without
   // hiddenAppIds applied, so the user sees all slots they can fill/hide.
@@ -455,7 +500,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
       const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
@@ -466,8 +511,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
         patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined;
       }
       else if (state.sourceType === 'external') { patch.source = { type: 'external', sourceId: state.externalSourceId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
-      else if (state.sourceType === 'wishlist') { patch.source = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
-      else if (state.sourceType === 'store') { const cf = childFilter; patch.source = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      else if (state.sourceType === 'wishlist') { patch.source = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      else if (state.sourceType === 'store') { const cf = childFilter; patch.source = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
       else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
       if (mode === 'create') {
         // Modal-driven create: nothing was persisted on open. Build the full
@@ -534,7 +579,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       <>
                         <ToggleField
                           label={t('exclude_owned_label')}
-                          description={t('exclude_owned_desc')}
                           checked={state.excludeOwned}
                           onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwned: v, excludeOwnedNonSteam: v ? prev.excludeOwnedNonSteam : false }))}
                         />
@@ -542,10 +586,18 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                           <div style={{ paddingLeft: 16 }}>
                             <ToggleField
                               label={t('hide_owned_non_steam')}
-                              description={t('hide_owned_non_steam_desc')}
                               checked={state.excludeOwnedNonSteam}
                               onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwnedNonSteam: v }))}
                             />
+                            {state.excludeOwnedNonSteam && (
+                              <div style={{ paddingLeft: 16 }}>
+                                <ToggleField
+                                  label={t('hide_owned_non_steam_cloud')}
+                                  checked={state.hideOwnedNonSteamCloud}
+                                  onChange={(v: boolean) => setState((prev) => ({ ...prev, hideOwnedNonSteamCloud: v }))}
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
@@ -619,7 +671,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 content: (
                   <VisualTabContent
                     t={t}
-                    flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll }}
+                    flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, heroEnabled: state.heroEnabled }}
                     setFlags={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                     highlightedAppIds={state.highlightedAppIds}
                     setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}

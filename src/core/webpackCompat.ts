@@ -126,6 +126,127 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
   return null;
 }
 
+/** Diff a focused card and an unfocused card to extract:
+ *   - `nativeCardCommon`: classes present on every card regardless of state
+ *   - `nativeCardStateFocus`: classes added only when the card is focused
+ *   - `nativeCardStateDefault`: classes added only when the card is not focused
+ *  Used by themes that want to mirror Steam's focus visuals on DS cards.
+ *
+ *  Captures BOTH `_xxx` (webpack-hashed) and non-underscore obfuscated tokens
+ *  (Steam ships both in the same className list). Tokens are space-joined
+ *  inside each role bucket so they survive being treated as a selector chunk.
+ */
+function _discoverNativeCardStateTokens(doc: Document): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    const focused = doc.querySelector<HTMLElement>('.gpfocus.Focusable.Panel');
+    if (!focused || focused.closest('#deck-shelves-home-root')) return out;
+
+    // Find an unfocused sibling card in the same row. Steam's home rows nest
+    // cards under several wrappers; the cheapest path is to ascend ~6 levels
+    // until we find another `.Focusable.Panel` that isn't `.gpfocus`.
+    let scope: HTMLElement | null = focused.parentElement;
+    let unfocused: HTMLElement | null = null;
+    for (let d = 0; d < 6 && scope && !unfocused; d++) {
+      unfocused = scope.querySelector<HTMLElement>('.Focusable.Panel:not(.gpfocus)');
+      if (!unfocused) scope = scope.parentElement;
+    }
+    if (!unfocused) return out;
+
+    // Obfuscated tokens = either webpack-hashed (`_xxx`, length > 5) or "no-dash
+    // letter clusters" (e.g. `biTV-8r…`). Conservatively accept anything that
+    // contains a digit OR is >= 14 chars without being a known DFL/Steam class.
+    const KNOWN = new Set(['Panel', 'Focusable', 'gpfocus', 'gpfocuswithin', 'gpfocus-within', 'Action', 'ButtonBase']);
+    const obf = (el: Element): string[] =>
+      Array.from(el.classList).filter((c) => {
+        if (KNOWN.has(c)) return false;
+        if (c.startsWith('ds-')) return false;
+        if (c.startsWith('_') && c.length > 5) return true;
+        return c.length >= 12 && /[0-9]/.test(c) && /[A-Za-z]/.test(c);
+      });
+
+    const fSet = new Set(obf(focused));
+    const dSet = new Set(obf(unfocused));
+    const common: string[] = [];
+    const focusOnly: string[] = [];
+    const defaultOnly: string[] = [];
+    for (const t of fSet) (dSet.has(t) ? common : focusOnly).push(t);
+    for (const t of dSet) if (!fSet.has(t)) defaultOnly.push(t);
+
+    if (common.length) out.nativeCardCommon = common.join(' ');
+    if (focusOnly.length) out.nativeCardStateFocus = focusOnly.join(' ');
+    if (defaultOnly.length) out.nativeCardStateDefault = defaultOnly.join(' ');
+  } catch {}
+  return out;
+}
+
+/** Walk inside the first rendered shelf row to label internal wrapper layers.
+ *  The row itself usually has no class tokens — Steam wraps content in 2-3
+ *  inner divs that themes commonly target for spacing / padding / overflow.
+ */
+function _discoverNativeShelfRowLayers(doc: Document): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    const grid = doc.querySelector<HTMLElement>('.ReactVirtualized__Grid__innerScrollContainer');
+    if (!grid) return out;
+    const row = grid.firstElementChild as HTMLElement | null;
+    if (!row || row.closest('#deck-shelves-home-root')) return out;
+
+    const obf = (el: Element): string[] =>
+      Array.from(el.classList).filter((c) => c.startsWith('_') && c.length > 5);
+
+    const labels = ['nativeShelfRowInner', 'nativeShelfRowContent', 'nativeShelfRowItems'];
+    let cur: HTMLElement | null = row.firstElementChild as HTMLElement | null;
+    let idx = 0;
+    while (cur && idx < labels.length) {
+      const tokens = obf(cur);
+      if (tokens.length) {
+        out[labels[idx]] = tokens.join(' ');
+        idx++;
+      }
+      // Stop when we reach the card root (has Focusable+Panel)
+      if (cur.classList.contains('Focusable') && cur.classList.contains('Panel')) break;
+      const next = cur.firstElementChild as HTMLElement | null;
+      if (!next || next === cur) break;
+      cur = next;
+    }
+  } catch {}
+  return out;
+}
+
+/** Walk the ancestor chain from the scrollGrid up to documentElement and
+ *  label each named layer. Steam stacks 6-10 wrappers above the grid
+ *  (section → page → app shell → root) that themes commonly target for
+ *  positioning, background, and scroll behaviour. Skip layers already named
+ *  by other helpers (scrollGrid, shelfSection, viewport).
+ */
+function _discoverNativeContainerChain(doc: Document, alreadyNamed: Set<string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    const grid = doc.querySelector<HTMLElement>('.ReactVirtualized__Grid__innerScrollContainer');
+    if (!grid) return out;
+    const obf = (el: Element): string[] =>
+      Array.from(el.classList).filter((c) => c.startsWith('_') && c.length > 5);
+
+    let cur: HTMLElement | null = grid.parentElement;
+    let layerIdx = 0;
+    const maxLayers = 10;
+    while (cur && layerIdx < maxLayers && cur !== doc.documentElement) {
+      const tokens = obf(cur);
+      if (tokens.length) {
+        // Skip layers whose first token is already named under a stable key.
+        const primary = tokens[0];
+        if (!alreadyNamed.has(primary)) {
+          out[`homeLayer${layerIdx}`] = tokens.join(' ');
+          layerIdx++;
+        }
+      }
+      cur = cur.parentElement;
+    }
+  } catch {}
+  return out;
+}
+
 /** Discover hero background and shelf section tokens in the native recents
  *  area. The hero is an ancestor div whose direct child has a mask-image
  *  (linear gradient fading to transparent at bottom). The shelf section is
@@ -175,10 +296,55 @@ function _discoverNativeHomeSectionTokens(doc: Document): Record<string, string>
 }
 
 /** Traverse shelf-level elements to discover nativeShelf, nativeShelfTitle, nativeShelfRow tokens.
- *  Looks for horizontal scroll containers (shelf rows) and their parent/sibling heading elements.
+ *  Primary anchor: the ReactVirtualized inner scroll container — its direct
+ *  children are the rendered shelf rows. Modern Steam shelves are
+ *  virtualized vertically, so individual rows don't use overflow-x.
+ *  Falls back to the old horizontal-scroll heuristic if the grid isn't
+ *  found (older builds / non-home routes).
  */
 function _discoverNativeShelfTokens(doc: Document): Record<string, string> | null {
+  const obfTokens = (el: Element): string[] =>
+    Array.from(el.classList).filter((c) => c.startsWith('_') && c.length > 5);
+
+  const findHeadingToken = (root: Element): string | undefined => {
+    for (const el of Array.from(root.querySelectorAll<HTMLElement>('*'))) {
+      try {
+        const cs = getComputedStyle(el);
+        if (parseFloat(cs.fontSize) < 16) continue;
+        const txt = (el.textContent || '').trim();
+        if (!txt || txt.length > 80) continue;
+        const t = obfTokens(el)[0];
+        if (t) return t;
+      } catch {}
+    }
+    return undefined;
+  };
+
   try {
+    // Primary path: walk from the ReactVirtualized inner scroll container.
+    const grid = doc.querySelector<HTMLElement>('.ReactVirtualized__Grid__innerScrollContainer');
+    if (grid) {
+      const firstRow = grid.firstElementChild as HTMLElement | null;
+      if (firstRow && !firstRow.closest('#deck-shelves-home-root')) {
+        const out: Record<string, string> = {};
+        const rowCls = obfTokens(firstRow)[0];
+        if (rowCls) out.nativeShelfRow = rowCls;
+        // Some Steam builds wrap the heading + scroller inside an inner div;
+        // accept the deepest single-child wrapper as the shelf root candidate.
+        const inner = firstRow.children.length === 1
+          ? (firstRow.firstElementChild as HTMLElement | null)
+          : firstRow;
+        if (inner) {
+          const shelfCls = obfTokens(inner)[0];
+          if (shelfCls && shelfCls !== rowCls) out.nativeShelf = shelfCls;
+          const titleCls = findHeadingToken(inner);
+          if (titleCls) out.nativeShelfTitle = titleCls;
+        }
+        if (Object.keys(out).length) return out;
+      }
+    }
+
+    // Fallback: legacy horizontal-scroll heuristic (older builds).
     const els = Array.from(doc.querySelectorAll<HTMLElement>('[class]'));
     for (const el of els) {
       try {
@@ -186,25 +352,13 @@ function _discoverNativeShelfTokens(doc: Document): Record<string, string> | nul
         const ox = (cs.overflowX || '').toLowerCase();
         if (!(ox === 'auto' || ox === 'scroll' || ox === 'overlay')) continue;
         if (el.scrollWidth <= el.clientWidth + 10 || el.clientHeight < 100) continue;
-        // Skip containers inside our own plugin
         if (el.closest('#deck-shelves-home-root')) continue;
-        const rowCls = Array.from(el.classList).find(c => c.startsWith('_') && c.length > 5);
+        const rowCls = obfTokens(el)[0];
         if (!rowCls) continue;
         const parent = el.parentElement;
         if (!parent) continue;
-        const shelfCls = Array.from(parent.classList).find(c => c.startsWith('_') && c.length > 5);
-        // Find sibling heading element (font-size >= 16px) → nativeShelfTitle
-        let titleCls: string | undefined;
-        for (const sib of Array.from(parent.children)) {
-          if (sib === el) continue;
-          try {
-            const sibCS = getComputedStyle(sib as HTMLElement);
-            if (parseFloat(sibCS.fontSize) >= 16) {
-              titleCls = Array.from(sib.classList).find(c => c.startsWith('_') && c.length > 5);
-              if (titleCls) break;
-            }
-          } catch {}
-        }
+        const shelfCls = obfTokens(parent)[0];
+        const titleCls = findHeadingToken(parent);
         const out: Record<string, string> = {};
         if (rowCls) out.nativeShelfRow = rowCls;
         if (shelfCls) out.nativeShelf = shelfCls;
@@ -228,10 +382,84 @@ export type NativeCardDims = {
 
 /** Measure native Recent Games card dimensions by finding portrait card images
  *  and measuring the focusable card root element.
- *  Also detects the wider "featured" first card if present (e.g. when a CSS Loader
+ *  Also detects the wider "featured" first card if present (e.g. when a
  *  theme shows a landscape highlight card before the portrait row).
  *  Returns { width, height, gap, featuredWidth?, featuredHeight? } or null.
  */
+/**
+ * Fallback measurement when native cards are hidden (display:none).
+ * Creates a temporary element with the native card CSS class — inside a
+ * container that mirrors the native shelf row's flex context when possible
+ * — and reads its computed dimensions. Works regardless of whether recents
+ * are visible, so matchNativeSize keeps responding to viewport changes
+ * (e.g. Deck ↔ external monitor) even when the recents shelf is
+ * display:none for nav-tree exclusion.
+ */
+function discoverNativeCardDimensionsViaClass(doc: Document): NativeCardDims | null {
+  try {
+    const map = getRuntimeClassMap(doc);
+    const nativeCardClass = map?.nativeCard;
+    if (!nativeCardClass) return null;
+
+    // Prefer hosting the temp cards in a clone of the native shelf-row
+    // container so the card's CSS inherits the same flex/grid context it
+    // would get when actually rendered. Falls back to a generic flex row.
+    let host: HTMLElement;
+    const rowToken = (map?.nativeShelfRow || map?.nativeRecentsInner || '').split(/\s+/)[0];
+    if (rowToken) {
+      host = doc.createElement('div');
+      host.className = rowToken;
+      host.style.cssText = 'position:absolute;top:-99999px;left:-99999px;visibility:hidden;pointer-events:none;width:100vw;';
+    } else {
+      host = doc.createElement('div');
+      host.style.cssText = 'position:absolute;top:-99999px;left:-99999px;visibility:hidden;pointer-events:none;display:flex;flex-direction:row;width:100vw;';
+    }
+
+    const card1 = doc.createElement('div');
+    const card2 = doc.createElement('div');
+    card1.className = nativeCardClass;
+    card2.className = nativeCardClass;
+    // Add an <img> child so CSS rules targeting `.<cardClass> img` apply too
+    // (some themes drive card aspect ratio from the inner image).
+    const img1 = doc.createElement('img');
+    img1.style.cssText = 'width:100%;height:100%;display:block;';
+    card1.appendChild(img1);
+    host.appendChild(card1);
+    host.appendChild(card2);
+    doc.body.appendChild(host);
+
+    try {
+      // Force reflow before measuring
+      void card1.offsetHeight;
+      const rect1 = card1.getBoundingClientRect();
+      const rect2 = card2.getBoundingClientRect();
+      const cs1 = getComputedStyle(card1);
+      const w = rect1.width || parseFloat(cs1.width);
+      const h = rect1.height || parseFloat(cs1.height);
+      if (!w || !h || w < 50 || h < 80) return null;
+
+      // Gap: horizontal distance between siblings, then column-gap on host,
+      // then margin-right on card1 — whichever is non-zero first.
+      let gap = Math.max(0, Math.round(rect2.left - rect1.right));
+      if (gap === 0) {
+        const csHost = getComputedStyle(host);
+        const colGap = parseFloat(csHost.columnGap || csHost.gap || '0');
+        gap = Math.round(colGap) || Math.round(parseFloat(cs1.marginRight) || 0);
+      }
+
+      const result: NativeCardDims = { width: Math.round(w), height: Math.round(h), gap };
+      try {
+        const imgRect = img1.getBoundingClientRect();
+        if (imgRect.height >= 40) result.imgHeight = Math.round(imgRect.height);
+      } catch {}
+      return result;
+    } finally {
+      doc.body.removeChild(host);
+    }
+  } catch {}
+  return null;
+}
+
 export function discoverNativeCardDimensions(doc: Document): NativeCardDims | null {
   try {
     const imgs = Array.from(doc.querySelectorAll<HTMLImageElement>('img'));
@@ -299,15 +527,42 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
       } catch {}
     }
 
-    if (portraitRoots.length < 2) return null;
+    if (portraitRoots.length < 2) {
+      // Fallback: native cards may be hidden (display:none) so getBoundingClientRect
+      // returns zeros. Measure via a temporary element that carries the native card
+      // class — responds to the current viewport without requiring visible cards.
+      return discoverNativeCardDimensionsViaClass(doc);
+    }
 
     // Portrait card dimensions
     const firstRect = portraitRoots[0].getBoundingClientRect();
     const width = Math.round(firstRect.width);
     const height = Math.round(firstRect.height);
     const secondRect = portraitRoots[1].getBoundingClientRect();
-    const gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
     if (width < 50 || height < 80) return null;
+
+    // Gap calculation: when a theme like TiltedHome applies `skew()` to cards,
+    // the bounding rect overflows the layout width, making `secondRect.left -
+    // firstRect.right` negative (cards appear to overlap in box-model terms).
+    // Clamping to 0 causes DS cards (which carry the same skew) to double-stack
+    // the visual overlap. Fix: when the bounding rect width materially exceeds
+    // the layout (offsetWidth) width, derive the gap from layout coordinates
+    // instead of viewport-transformed rects.
+    let gap: number;
+    try {
+      const layoutW1 = portraitRoots[0].offsetWidth;
+      const bboxW1 = firstRect.width;
+      const hasSkew = layoutW1 > 0 && (bboxW1 / layoutW1 - 1) > 0.02; // >2% bbox overhang
+      if (hasSkew) {
+        const layoutLeft1 = portraitRoots[0].offsetLeft;
+        const layoutLeft2 = portraitRoots[1].offsetLeft;
+        gap = Math.max(0, Math.round(layoutLeft2 - layoutLeft1 - layoutW1));
+      } else {
+        gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
+      }
+    } catch {
+      gap = Math.max(0, Math.round(secondRect.left - firstRect.right));
+    }
 
     const result: NativeCardDims = { width, height, gap };
 
@@ -320,17 +575,31 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
       }
     } catch {}
 
-    // Featured card: the widest card root found, if it's notably wider than portrait cards
+    // Featured card: the widest card root found in the SAME vertical band as
+    // the portrait cards. Restricting to the portrait row's Y-band prevents
+    // "What's New" / Highlights landscape cards (which are in a different row)
+    // from being mistakenly adopted as the featured-card dimensions.
     if (wideRoots.length > 0) {
-      wideRoots.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
-      const featCard = wideRoots[0];
+      const rowTop = firstRect.top - height * 0.5;
+      const rowBottom = firstRect.bottom + height * 0.5;
+      const rowCandidates = wideRoots.filter((el) => {
+        try {
+          const r = el.getBoundingClientRect();
+          return r.top >= rowTop && r.bottom <= rowBottom;
+        } catch { return false; }
+      });
+      const pool = rowCandidates.length > 0 ? rowCandidates : wideRoots;
+      pool.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+      const featCard = pool[0];
       const featRect = featCard.getBoundingClientRect();
       const fw = Math.round(featRect.width);
       const fh = Math.round(featRect.height);
-      if (fw > width * 1.5 && fh >= 80) {
+      // Recents featured card is portrait-height, very wide (≥ 2× portrait).
+      // "What's New" landscape items are 16:9 and typically taller than portrait
+      // cards — reject those by requiring height ≤ portrait height + 20 px.
+      if (fw > width * 1.5 && fh >= 80 && fh <= height + 20) {
         result.featuredWidth = fw;
         result.featuredHeight = fh;
-        // Featured image height
         try {
           const featImg = featCard.querySelector('img');
           if (featImg) {
@@ -344,6 +613,332 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
     return result;
   } catch {}
   return null;
+}
+
+/** DFL exposes `classMap` (array of webpack modules, each `{semanticKey: obfuscatedClass}`)
+ *  on its global. Semantic names are stable across Steam builds; the
+ *  obfuscated values rebuild every release. When DFL is available, prefer
+ *  this lookup over heuristic DOM probing — it's the canonical source.
+ *
+ *  Returns a flat map of relevant semantic name → current obfuscated class.
+ *  Empty object when DFL isn't reachable or the requested keys don't exist.
+ */
+function _discoverViaDFL(doc: Document): Record<string, string> {
+  try {
+    const w = (doc as any).defaultView as any;
+    if (!w) return {};
+    const DFL = w.DFL ?? w.deckyFrontendLib;
+    if (!DFL) return {};
+    const isClassValue = (v: any): v is string =>
+      typeof v === 'string' && v.length >= 6 && v.length <= 60 && !/[\s%]/.test(v) && /[A-Z0-9_-]/.test(v) && /[a-zA-Z]/.test(v);
+
+    // Build a flat lookup: semanticName → obfuscatedClass. Iterate every module,
+    // skip ones with > 1000 keys (those are localization tables, not class maps).
+    const flat: Record<string, string> = {};
+    const cm = DFL.classMap;
+    if (!Array.isArray(cm)) return {};
+    for (const mod of cm) {
+      if (!mod || typeof mod !== 'object') continue;
+      const keys = Object.keys(mod);
+      if (keys.length === 0 || keys.length >= 1000) continue;
+      for (const k of keys) {
+        const v = (mod as any)[k];
+        if (isClassValue(v) && !flat[k]) flat[k] = v;
+      }
+    }
+
+    // Map DFL semantic names → DS-internal class-map keys. Curated set
+    // covering every surface a third-party theme commonly targets for shelf /
+    // card / focus / status / footer styling. Names below mirror Steam's
+    // internal webpack module keys (562 surveyed via CDP; ~150 selected as
+    // shelf-relevant).
+    const KEY_MAP: Record<string, string> = {
+      // ─ Recents shelf ───────────────────────────────────────────────────
+      RecentGames: 'nativeRecentGames',
+      RecentGame: 'nativeRecentGame',
+      RecentGameFooter: 'nativeRecentGameFooter',
+      RecentGameMediaContainer: 'nativeRecentGameMedia',
+      RecentGamesContainer: 'nativeRecentsContainer',
+      RecentGamesInnerContainer: 'nativeRecentsInner',
+      RecentGamesHeader: 'nativeRecentsHeader',
+      RecentGamesHeaderLabel: 'nativeRecentsHeaderLabel',
+      RecentSection: 'nativeRecentsSection',
+      RecentlyInteracted: 'nativeRecentlyInteracted',
+      RecentlyPlayedFriends: 'nativeRecentlyPlayedFriends',
+      RecentlyUpdated: 'nativeRecentlyUpdated',
+      RecentlyUpdatedIcon: 'nativeRecentlyUpdatedIcon',
+      RecentlyUpdatedText: 'nativeRecentlyUpdatedText',
+      RecentlyCompleted: 'nativeRecentlyCompleted',
+      RecentlyCompletedCarousel: 'nativeRecentlyCompletedCarousel',
+      RecentlyCompletedItem: 'nativeRecentlyCompletedItem',
+
+      // ─ Hero background ─────────────────────────────────────────────────
+      RecentGamesBackgroundContainer: 'nativeHeroContainer',
+      RecentGamesBackgroundImages: 'nativeHeroImages',
+      RecentGamesBackgroundImage: 'nativeHeroImage',
+      RecentGamesBackgroundImagePreload: 'nativeHeroImagePreload',
+      RecentGamesBackground: 'nativeHeroBg',
+      RecentGamesBackgroundAnimation: 'nativeHeroAnim',
+      Hero: 'nativeSemanticHero',
+      HeroAndLogo: 'nativeHeroAndLogo',
+      HeroContainer: 'nativeSemanticHeroContainer',
+      HeroGradient: 'nativeHeroGradient',
+      HeroImage: 'nativeSemanticHeroImage',
+      HeroImageContainer: 'nativeSemanticHeroImageContainer',
+      HeroCapsuleImageContainer: 'nativeHeroCapsule',
+
+      // ─ Card structure ──────────────────────────────────────────────────
+      Card: 'nativeSemanticCard',
+      CardContainer: 'nativeSemanticCardContainer',
+      CardImage: 'nativeSemanticCardImage',
+      CardWrapper: 'nativeSemanticCardWrapper',
+      CardShine: 'nativeSemanticCardShine',
+      CardShineContainer_N: 'nativeSemanticCardShineN',
+      CardShineContainer_S: 'nativeSemanticCardShineS',
+      CardShineContainer_E: 'nativeSemanticCardShineE',
+      CardShineContainer_W: 'nativeSemanticCardShineW',
+      CardsSection: 'nativeCardsSection',
+      LibraryItemBox: 'nativeLibraryItemBox',
+      LibraryItemBoxTitle: 'nativeLibraryItemTitle',
+      LibraryItemBoxSubscript: 'nativeLibraryItemSubscript',
+      LibraryItemBoxShine: 'nativeLibraryItemShine',
+      LibraryItemIcons: 'nativeLibraryItemIcons',
+      LibraryItemUpdateBadge: 'nativeLibraryItemUpdateBadge',
+      LibraryItemActionButton: 'nativeLibraryItemAction',
+      LibraryItemOverlayOuterArea: 'nativeLibraryItemOverlayOuter',
+      LibraryItemOverlayInnerArea: 'nativeLibraryItemOverlayInner',
+
+      // ─ Capsule (generic card art container) ────────────────────────────
+      Capsule: 'nativeCapsule',
+      CapsuleImage: 'nativeCapsuleImage',
+      CapsuleImageCtn: 'nativeCapsuleImageCtn',
+      CapsuleArt: 'nativeCapsuleArt',
+      CapsuleBackground: 'nativeCapsuleBg',
+      CapsuleBackgroundContainer: 'nativeCapsuleBgContainer',
+      CapsuleVisible: 'nativeCapsuleVisible',
+      CapsuleName: 'nativeCapsuleName',
+      CapsuleContainer: 'nativeCapsuleContainer',
+      CapsuleColumn: 'nativeCapsuleColumn',
+      CapsuleParentInfo: 'nativeCapsuleParentInfo',
+      CapsuleDecorators: 'nativeCapsuleDecorators',
+      CapsuleBottomBar: 'nativeCapsuleBottomBar',
+      CapsuleImageAnchorPoint: 'nativeCapsuleImageAnchor',
+      GameCapsule: 'nativeGameCapsule',
+
+      // ─ Featured / focused-state styling ────────────────────────────────
+      Featured: 'nativeSemanticFeatured',
+      FeaturedCapsule: 'nativeSemanticFeaturedCapsule',
+      FeaturedSeparator: 'nativeFeaturedSeparator',
+      FeaturedItem: 'nativeFeaturedItem',
+      FeaturedItemImage: 'nativeFeaturedItemImage',
+      FeaturedItemHeader: 'nativeFeaturedItemHeader',
+      FeaturedItemName: 'nativeFeaturedItemName',
+      FeaturedItemDesc: 'nativeFeaturedItemDesc',
+      FeaturedItemHideButton: 'nativeFeaturedItemHide',
+      FeaturedItemLink: 'nativeFeaturedItemLink',
+      FeaturedItemDetailsContainer: 'nativeFeaturedItemDetails',
+      FeaturedLinks: 'nativeFeaturedLinks',
+      featuredLabels: 'nativeFeaturedLabels',
+      featuredTitle: 'nativeFeaturedTitle',
+      featuredSubTitle: 'nativeFeaturedSubtitle',
+
+      // ─ Focus / highlight ───────────────────────────────────────────────
+      Focus: 'nativeFocus',
+      Focused: 'nativeFocused',
+      FocusedContainer: 'nativeFocusedContainer',
+      FocusedColumn: 'nativeFocusedColumn',
+      FocusedClip: 'nativeFocusedClip',
+      FocusRing: 'nativeFocusRing',
+      FocusRingRoot: 'nativeFocusRingRoot',
+      FocusRingOnHiddenItem: 'nativeFocusRingHidden',
+      FocusBar: 'nativeFocusBar',
+      focusAnimation: 'nativeFocusAnim',
+      Highlight: 'nativeHighlight',
+      Highlighted: 'nativeHighlighted',
+      HighlightOnFocus: 'nativeHighlightOnFocus',
+      HighlightDiv: 'nativeHighlightDiv',
+      HighlightIcon: 'nativeHighlightIcon',
+      HighlightTitle: 'nativeHighlightTitle',
+      HighlightDesc: 'nativeHighlightDesc',
+      Highlights: 'nativeHighlights',
+      HighlightEdge: 'nativeHighlightEdge',
+
+      // ─ Title / labels ──────────────────────────────────────────────────
+      Title: 'nativeTitle',
+      TitleBar: 'nativeTitleBar',
+      TitleSection: 'nativeTitleSection',
+      TitleRow: 'nativeTitleRow',
+      TitleText: 'nativeTitleText',
+      TitleLogo: 'nativeTitleLogo',
+      TitleLabel: 'nativeTitleLabel',
+      TitleContainer: 'nativeTitleContainer',
+      TitleImageContainer: 'nativeTitleImageContainer',
+      TitleCtn: 'nativeTitleCtn',
+      GameTitle: 'nativeGameTitle',
+      GameName: 'nativeGameName',
+      gameName: 'nativeGameNameLower',
+      GameLogo: 'nativeGameLogo',
+      gameLogo: 'nativeGameLogoLower',
+      GameArt: 'nativeGameArt',
+
+      // ─ Hidden state ────────────────────────────────────────────────────
+      Hide: 'nativeHide',
+      Hidden: 'nativeHidden',
+      HideButton: 'nativeHideButton',
+      HideMask: 'nativeHideMask',
+      HideGradient: 'nativeHideGradient',
+      HiddenGameLabel: 'nativeHiddenGameLabel',
+      HiddenLabel: 'nativeHiddenLabel',
+
+      // ─ Status (playing / installing / etc) ─────────────────────────────
+      Status: 'nativeStatus',
+      StatusIcon: 'nativeStatusIcon',
+      StatusItem: 'nativeStatusItem',
+      StatusEntry: 'nativeStatusEntry',
+      StatusText: 'nativeStatusText',
+      StatusLine: 'nativeStatusLine',
+      StatusTime: 'nativeStatusTime',
+      StatusSpinner: 'nativeStatusSpinner',
+      StatusWrapper: 'nativeStatusWrapper',
+      StatusOverride: 'nativeStatusOverride',
+      StatusThrobber: 'nativeStatusThrobber',
+      StatusSuccess: 'nativeStatusSuccess',
+      StatusDanger: 'nativeStatusDanger',
+      StatusCaution: 'nativeStatusCaution',
+      gameState: 'nativeGameState',
+
+      // ─ Playtime ────────────────────────────────────────────────────────
+      Playtime: 'nativePlaytime',
+      PlaytimeStatus: 'nativePlaytimeStatus',
+      PlaytimeContent: 'nativePlaytimeContent',
+      PlaytimeDetails: 'nativePlaytimeDetails',
+      PlaytimeSection: 'nativePlaytimeSection',
+      PlaytimeIcon: 'nativePlaytimeIcon',
+      PlaytimeCurrentSession: 'nativePlaytimeCurrentSession',
+      PlayTimeRow: 'nativePlayTimeRow',
+
+      // ─ Deck Compat icons / badges ──────────────────────────────────────
+      DeckCompat: 'nativeDeckCompat',
+      DeckCompatIcon: 'nativeDeckCompatIcon',
+      CompatIcon: 'nativeCompatIcon',
+      CompatLabel: 'nativeCompatLabel',
+      Compatible: 'nativeCompatible',
+      CompatFooterIcons: 'nativeCompatFooterIcons',
+      CompatFooterDescription: 'nativeCompatFooterDesc',
+
+      // ─ Footer / status line ────────────────────────────────────────────
+      Footer: 'nativeFooter',
+      FooterControls: 'nativeFooterControls',
+      FooterLegend: 'nativeFooterLegend',
+      FooterItem: 'nativeFooterItem',
+      FooterVisible: 'nativeFooterVisible',
+      FooterBlurImage: 'nativeFooterBlur',
+      FooterBlurImageContainer: 'nativeFooterBlurCtn',
+
+      // ─ Section / shelf-row equivalents ─────────────────────────────────
+      Section: 'nativeSection',
+      SectionHeader: 'nativeSectionHeader',
+      SectionHeaderContent: 'nativeSectionHeaderContent',
+      SectionTitle: 'nativeSectionTitle',
+      SectionName: 'nativeSectionName',
+      SectionCount: 'nativeSectionCount',
+      SectionSeparator: 'nativeSectionSeparator',
+      SectionGap: 'nativeSectionGap',
+      SectionContainer: 'nativeSectionContainer',
+      GameRow: 'nativeSemanticGameRow',
+      GameList: 'nativeGameList',
+
+      // ─ Library home / outer shell ──────────────────────────────────────
+      Library: 'nativeLibrary',
+      LibraryHome: 'nativeLibraryHome',
+      LibraryHomeSection: 'nativeLibraryHomeSection',
+      LibraryContent: 'nativeLibraryContent',
+      LibraryHeader: 'nativeLibraryHeader',
+      LibraryInventory: 'nativeLibraryInventory',
+      LibraryImage: 'nativeLibraryImage',
+      LibraryImageWithName: 'nativeLibraryImageWithName',
+      LibraryImageBackgroundGlow: 'nativeLibraryImageGlow',
+      LibraryFallbackAssetImageContainer: 'nativeLibraryFallbackAsset',
+      LibraryAssetExpandedDisplay: 'nativeLibraryAssetExpanded',
+      LibraryViewSubtitle: 'nativeLibraryViewSubtitle',
+      LibraryHomeEmptyGames: 'nativeLibraryHomeEmpty',
+      LibraryHomeWhatsNew: 'nativeLibraryHomeWhatsNew',
+      LibraryHomeMajorUpdates: 'nativeLibraryHomeMajorUpdates',
+      LibraryHomeFriends: 'nativeLibraryHomeFriends',
+      HomeBox: 'nativeHomeBox',
+      GameListHomeAndSearch: 'nativeGameListHomeAndSearch',
+
+      // ─ Carousel (Frontpage/Spotlight surface) ──────────────────────────
+      CarouselBody: 'nativeSemanticCarouselBody',
+      CarouselHeader: 'nativeSemanticCarouselHeader',
+      CarouselItem: 'nativeSemanticCarouselItem',
+      CarouselDisplay: 'nativeSemanticCarouselDisplay',
+      CarouselImage: 'nativeSemanticCarouselImage',
+      CarouselDescription: 'nativeCarouselDescription',
+      CarouselThumb: 'nativeCarouselThumb',
+      CarouselThumbs: 'nativeCarouselThumbs',
+      CarouselPage: 'nativeCarouselPage',
+      CarouselIcon: 'nativeCarouselIcon',
+      CarouselGameLabel: 'nativeCarouselGameLabel',
+      CarouselGameLabelWrapper: 'nativeCarouselGameLabelWrapper',
+      CarouselItemLabel: 'nativeCarouselItemLabel',
+      CarouselItemLabelWrapper: 'nativeCarouselItemLabelWrapper',
+      CarouselCapsuleAnimated: 'nativeCarouselCapsuleAnimated',
+      CarouselCapsuleBordered: 'nativeCarouselCapsuleBordered',
+      CarouselCapsuleBackgroundGlow: 'nativeCarouselCapsuleGlow',
+      CarouselControlsPadding: 'nativeCarouselControlsPadding',
+
+      // ─ Spotlights / Banner ─────────────────────────────────────────────
+      Spotlights: 'nativeSpotlights',
+      Banner: 'nativeBanner',
+      BannerContainer: 'nativeBannerContainer',
+      BannerContents: 'nativeBannerContents',
+      BannerContent: 'nativeBannerContent',
+      BannerHeader: 'nativeBannerHeader',
+      BannerVideoOverlay: 'nativeBannerVideo',
+      BannerSecondHalf: 'nativeBannerSecondHalf',
+
+      // ─ Collection shelf (when home shows a collection bar) ─────────────
+      Collection: 'nativeCollection',
+      CollectionShelfBanner: 'nativeCollectionShelfBanner',
+      CollectionShelfBannerCtn: 'nativeCollectionShelfBannerCtn',
+      CollectionBG: 'nativeCollectionBg',
+      CollectionBar: 'nativeCollectionBar',
+      CollectionName: 'nativeCollectionName',
+      CollectionLabel: 'nativeCollectionLabel',
+      CollectionLabelCount: 'nativeCollectionLabelCount',
+      CollectionImage: 'nativeCollectionImage',
+      CollectionIcon: 'nativeCollectionIcon',
+      CollectionIconBox: 'nativeCollectionIconBox',
+      CollectionContents: 'nativeCollectionContents',
+      CollectionHeader: 'nativeCollectionHeader',
+
+      // ─ Context menu (used by DS shelf-card action menu) ────────────────
+      LibraryContextMenu: 'nativeLibraryContextMenu',
+    };
+
+    const out: Record<string, string> = {};
+    for (const [dflKey, dsKey] of Object.entries(KEY_MAP)) {
+      const v = flat[dflKey];
+      if (v) out[dsKey] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Build a Set of "primary" tokens already named under a stable key in the
+ *  base discovery output, so the container-chain helper can skip them and
+ *  avoid duplicate entries under generic `homeLayerN` keys. */
+function _namedPrimaries(base: Record<string, string>): Set<string> {
+  const out = new Set<string>();
+  for (const v of Object.values(base)) {
+    if (!v) continue;
+    const first = v.split(/\s+/)[0];
+    if (first) out.add(first);
+  }
+  return out;
 }
 
 export function discoverClassMap(doc: Document): Record<string, string> | null {
@@ -361,7 +956,18 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
               const nativeCardTokens = _discoverNativeCardTokens(doc);
               const nativeShelfTokens = _discoverNativeShelfTokens(doc);
               const nativeSectionTokens = _discoverNativeHomeSectionTokens(doc);
-              return { viewport: cls, ...(nativeShelfTokens ?? {}), ...(nativeCardTokens ?? {}), ...nativeSectionTokens };
+              const nativeCardStateTokens = _discoverNativeCardStateTokens(doc);
+              const nativeShelfRowLayers = _discoverNativeShelfRowLayers(doc);
+              const base: Record<string, string> = {
+                viewport: cls,
+                ...(nativeShelfTokens ?? {}),
+                ...(nativeCardTokens ?? {}),
+                ...nativeSectionTokens,
+                ...nativeCardStateTokens,
+                ...nativeShelfRowLayers,
+                ..._discoverViaDFL(doc),
+              };
+              return { ...base, ..._discoverNativeContainerChain(doc, _namedPrimaries(base)) };
             }
           }
         }
@@ -421,10 +1027,17 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
                       }
                       const nativeCardTokens2 = _discoverNativeCardTokens(doc);
                       const nativeShelfTokens2 = _discoverNativeShelfTokens(doc);
-                      const out: Record<string,string> = { viewport: viewportToken, ...(nativeShelfTokens2 ?? {}), ...(nativeCardTokens2 ?? {}) };
-                      if (rowToken) out.row = rowToken;
-                      if (cardToken) out.card = cardToken;
-                      return out;
+                      const base2: Record<string,string> = {
+                        viewport: viewportToken,
+                        ...(nativeShelfTokens2 ?? {}),
+                        ...(nativeCardTokens2 ?? {}),
+                        ..._discoverNativeCardStateTokens(doc),
+                        ..._discoverNativeShelfRowLayers(doc),
+                        ..._discoverViaDFL(doc),
+                      };
+                      if (rowToken) base2.row = rowToken;
+                      if (cardToken) base2.card = cardToken;
+                      return { ...base2, ..._discoverNativeContainerChain(doc, _namedPrimaries(base2)) };
                     }
                   }
                 }
@@ -435,7 +1048,16 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         const nativeCardTokens3 = _discoverNativeCardTokens(doc);
         const nativeShelfTokens3 = _discoverNativeShelfTokens(doc);
         const nativeSectionTokens3 = _discoverNativeHomeSectionTokens(doc);
-        return { viewport: viewportToken, ...(nativeShelfTokens3 ?? {}), ...(nativeCardTokens3 ?? {}), ...nativeSectionTokens3 };
+        const base3: Record<string, string> = {
+          viewport: viewportToken,
+          ...(nativeShelfTokens3 ?? {}),
+          ...(nativeCardTokens3 ?? {}),
+          ...nativeSectionTokens3,
+          ..._discoverNativeCardStateTokens(doc),
+          ..._discoverNativeShelfRowLayers(doc),
+          ..._discoverViaDFL(doc),
+        };
+        return { ...base3, ..._discoverNativeContainerChain(doc, _namedPrimaries(base3)) };
       }
     } catch {}
 
@@ -465,7 +1087,15 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
                 const nativeCardTokens = _discoverNativeCardTokens(doc);
                 const nativeShelfTokens4 = _discoverNativeShelfTokens(doc);
                 const nativeSectionTokens4 = _discoverNativeHomeSectionTokens(doc);
-                const out: Record<string,string> = { viewport: t, ...(nativeShelfTokens4 ?? {}), ...(nativeCardTokens ?? {}), ...nativeSectionTokens4 };
+                const out: Record<string,string> = {
+                  viewport: t,
+                  ...(nativeShelfTokens4 ?? {}),
+                  ...(nativeCardTokens ?? {}),
+                  ...nativeSectionTokens4,
+                  ..._discoverNativeCardStateTokens(doc),
+                  ..._discoverNativeShelfRowLayers(doc),
+                  ..._discoverViaDFL(doc),
+                };
                 try {
                   const viewportEl = el;
                   const childEls = Array.from(viewportEl.children).filter(c=> c instanceof HTMLElement) as HTMLElement[];
@@ -489,7 +1119,7 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
                     } catch {}
                   }
                 } catch {}
-                return out;
+                return { ...out, ..._discoverNativeContainerChain(doc, _namedPrimaries(out)) };
               }
             } catch {}
           }
@@ -498,7 +1128,15 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
         const sorted = Object.keys(tokenMap).sort((a,b)=> tokenMap[b].length - tokenMap[a].length);
         const nativeShelfTokens5 = _discoverNativeShelfTokens(doc);
         const nativeSectionTokens5 = _discoverNativeHomeSectionTokens(doc);
-        return { viewport: sorted[0], ...(nativeShelfTokens5 ?? {}), ...nativeSectionTokens5 };
+        const base5: Record<string, string> = {
+          viewport: sorted[0],
+          ...(nativeShelfTokens5 ?? {}),
+          ...nativeSectionTokens5,
+          ..._discoverNativeCardStateTokens(doc),
+          ..._discoverNativeShelfRowLayers(doc),
+          ..._discoverViaDFL(doc),
+        };
+        return { ...base5, ..._discoverNativeContainerChain(doc, _namedPrimaries(base5)) };
       }
     } catch {}
     return null;

@@ -1,0 +1,162 @@
+/**
+ * Image cache for shelf cards.
+ *
+ * Two layers:
+ *  1. In-memory LRU (hot path) — sync get(), returns blob URL for instant
+ *     re-render. Capped at HOT_CACHE_LIMIT entries to keep memory bounded.
+ *  2. Cache Storage API (persistent) — blobs survive Steam restarts.
+ *     Loaded into the hot cache on first access via background fetch.
+ *
+ * Each cached response carries an `x-ds-cached-at` header (ms epoch) used
+ * for staleness checks. Entries older than STALE_AFTER_MS trigger a
+ * background revalidation on access; entries older than EVICT_AFTER_MS are
+ * removed on the next pruneCache() pass.
+ */
+
+const STORAGE_NAME = "ds-images-v1";
+const HOT_CACHE_LIMIT = 120;
+const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;   // 7 days  → revalidate
+const EVICT_AFTER_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days → drop
+const TIMESTAMP_HEADER = "x-ds-cached-at";
+
+type HotEntry = { blobUrl: string; storedAt: number };
+const hot = new Map<string, HotEntry>();
+const inflight = new Set<string>();
+
+function touchHot(url: string, entry: HotEntry): void {
+  hot.delete(url);
+  hot.set(url, entry);
+  while (hot.size > HOT_CACHE_LIMIT) {
+    const oldestKey = hot.keys().next().value;
+    if (oldestKey === undefined) break;
+    const oldest = hot.get(oldestKey);
+    if (oldest) {
+      try { URL.revokeObjectURL(oldest.blobUrl); } catch {}
+    }
+    hot.delete(oldestKey);
+  }
+}
+
+function supported(): boolean {
+  try { return typeof caches !== "undefined" && typeof fetch !== "undefined"; }
+  catch { return false; }
+}
+
+/**
+ * Local paths (/customimages/, /assets/, etc.) are filesystem-served and
+ * already fast. They also can change WITHOUT a URL change when the user
+ * updates artwork via SteamGridDB etc. — caching them would lock in the
+ * stale version. Only remote CDN URLs (http:// / https://) benefit from
+ * caching and have URL-changes-on-update via the `?c=mtime` cache-bust.
+ */
+function cacheable(url: string): boolean {
+  return typeof url === "string" && /^https?:\/\//i.test(url);
+}
+
+/**
+ * Sync hot-cache lookup. Returns a blob URL ready to feed to `<img src>`
+ * if the URL is in memory; otherwise returns null and the caller should
+ * use the original URL while warmCacheBackground() populates the cache.
+ */
+export function getHotCachedImageSrc(url: string): string | null {
+  if (!cacheable(url)) return null;
+  const hit = hot.get(url);
+  if (!hit) return null;
+  // LRU touch
+  hot.delete(url);
+  hot.set(url, hit);
+  // Background revalidate when stale
+  if (Date.now() - hit.storedAt > STALE_AFTER_MS) {
+    revalidate(url);
+  }
+  return hit.blobUrl;
+}
+
+/**
+ * Best-effort async cache warmer: populates hot + Cache Storage in the
+ * background. Safe to call repeatedly for the same URL — concurrent calls
+ * dedupe via the inflight set. No-op for local (non-http) URLs.
+ */
+export function warmCacheBackground(url: string): void {
+  if (!cacheable(url) || !supported()) return;
+  if (hot.has(url) || inflight.has(url)) return;
+  inflight.add(url);
+  (async () => {
+    try {
+      const cache = await caches.open(STORAGE_NAME);
+      const cached = await cache.match(url);
+      if (cached && cached.ok) {
+        const blob = await cached.blob();
+        if (blob.size > 0) {
+          const storedAt = parseInt(cached.headers.get(TIMESTAMP_HEADER) || "0", 10) || Date.now();
+          const blobUrl = URL.createObjectURL(blob);
+          touchHot(url, { blobUrl, storedAt });
+          if (Date.now() - storedAt > STALE_AFTER_MS) {
+            revalidate(url);
+          }
+          return;
+        }
+      }
+      // Cold — fetch from network and persist
+      await fetchAndStore(url, cache);
+    } catch { /* swallow — caller falls back to direct URL */ }
+    finally { inflight.delete(url); }
+  })();
+}
+
+async function fetchAndStore(url: string, cacheArg?: Cache): Promise<void> {
+  const response = await fetch(url, { credentials: "omit" }).catch(() => null);
+  if (!response || !response.ok) return;
+  const blob = await response.blob().catch(() => null);
+  if (!blob || blob.size === 0) return;
+  const storedAt = Date.now();
+  const blobUrl = URL.createObjectURL(blob);
+  touchHot(url, { blobUrl, storedAt });
+  try {
+    const cache = cacheArg ?? (await caches.open(STORAGE_NAME));
+    const newHeaders = new Headers(response.headers);
+    newHeaders.set(TIMESTAMP_HEADER, String(storedAt));
+    await cache.put(url, new Response(blob, { headers: newHeaders, status: 200 }));
+  } catch { /* persistence is best-effort */ }
+}
+
+function revalidate(url: string): void {
+  if (inflight.has(url)) return;
+  inflight.add(url);
+  (async () => {
+    try { await fetchAndStore(url); }
+    finally { inflight.delete(url); }
+  })();
+}
+
+/**
+ * Periodic cleanup: removes Cache Storage entries older than
+ * EVICT_AFTER_MS. Safe to call on plugin init; idempotent + async.
+ */
+export async function pruneCache(): Promise<{ removed: number; kept: number }> {
+  if (!supported()) return { removed: 0, kept: 0 };
+  let removed = 0;
+  let kept = 0;
+  try {
+    const cache = await caches.open(STORAGE_NAME);
+    const keys = await cache.keys();
+    const now = Date.now();
+    for (const req of keys) {
+      const res = await cache.match(req);
+      if (!res) continue;
+      const storedAt = parseInt(res.headers.get(TIMESTAMP_HEADER) || "0", 10) || 0;
+      if (storedAt && now - storedAt > EVICT_AFTER_MS) {
+        await cache.delete(req);
+        removed++;
+      } else {
+        kept++;
+      }
+    }
+  } catch {}
+  return { removed, kept };
+}
+
+/** Hot-cache stats — used by diagnostics / tests, not by hot-path code. */
+export function imageCacheStats(): { hotEntries: number; inflight: number } {
+  return { hotEntries: hot.size, inflight: inflight.size };
+}

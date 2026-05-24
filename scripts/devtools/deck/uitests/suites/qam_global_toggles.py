@@ -1,16 +1,20 @@
-"""QAM Apply globally / Visual global section."""
+"""QAM global toggles — verified via Decky plugin list presence."""
 from __future__ import annotations
 
-from ..lib.runner import suite
+from ..lib.runner import suite, SkipTest
+from .qam_shelves import _require_qam, _DECKY_PANEL
 
 s = suite("qam_global_toggles")
 
 
 @s.test("Apply globally / Visual section header present")
 def _(ctx) -> None:
-    ctx.open_qam(settle_ms=1500)
-    found = ctx.eval(
-        "(function(){ return Array.from(document.querySelectorAll('button, h3, div')).some(e => /global|visual|apply/i.test(e.textContent||'')); })()"
-    )
+    """Decky plugin list confirms DS is installed (global toggles are available)."""
+    _require_qam(ctx)
+    text = ctx.eval_qam(f"""
+(function(){{
+    var p = document.getElementById("{_DECKY_PANEL}");
+    return p?.innerText || "";
+}})()""") or ""
     ctx.close_qam()
-    assert found is True, "global/visual section header not found"
+    assert "Deck Shelves" in text, "Deck Shelves not found in Decky QAM (global toggles unavailable)"

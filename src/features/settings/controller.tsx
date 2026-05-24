@@ -14,24 +14,64 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
-  const [tabs, setTabs] = useState<PlatformTab[]>([]);
+  // Initialise tabs from the localStorage cache so the shelf editor shows the
+  // correct tab list instantly on every QAM open (the QAM remounts each time,
+  // so useState([]) would show an empty dropdown for the 200–500ms while the
+  // async listLibraryTabs() IPC round-trip completes).
+  const [tabs, setTabs] = useState<PlatformTab[]>(() => {
+    try {
+      const raw = localStorage.getItem('ds-tabs-cache-v1');
+      if (raw) return JSON.parse(raw) as PlatformTab[];
+    } catch {}
+    return [];
+  });
 
   useEffect(() => {
+    // The 5 native library tabs Steam exposes by default. Used whenever the
+    // discovery chain in `listLibraryTabs` returns nothing — covers both
+    // promise rejection (unhandled throw inside one of the integrations)
+    // AND the legit-resolved-but-empty case (no TabMaster, no fiber ctx,
+    // no DOM tabs). Without this the EditShelfModal's tab dropdown ends up
+    // empty whenever the host-window-walk hits a Proxy that throws.
+    const NATIVE_DEFAULT_TABS: PlatformTab[] = [
+      { id: "all",       name: "All Games" },
+      { id: "favorites", name: "Favorites" },
+      { id: "installed", name: "Installed" },
+      { id: "hidden",    name: "Hidden" },
+      { id: "nonsteam",  name: "Non-Steam" },
+    ];
     const refreshTabs = () => {
       logInfo("SETTINGS", "refreshTabs start");
-      platform.listLibraryTabs().then((nextTabs) => {
+      let p: Promise<PlatformTab[]>;
+      try {
+        p = platform.listLibraryTabs();
+      } catch (e) {
+        // `listLibraryTabs` is async so this only fires if the function
+        // ref itself is missing (broken platform wiring). Swallow and
+        // surface defaults.
+        logError("SETTINGS", "refreshTabs sync throw", String(e));
+        setTabs((current) => current.length ? current : NATIVE_DEFAULT_TABS);
+        return;
+      }
+      p.then((nextTabs) => {
+        const finalTabs = (Array.isArray(nextTabs) && nextTabs.length > 0) ? nextTabs : NATIVE_DEFAULT_TABS;
         setTabs((current) => {
           const now = JSON.stringify(current.map((t) => ({ id: t.id, name: t.name })));
-          const next = JSON.stringify(nextTabs.map((t) => ({ id: t.id, name: t.name })));
-          if (now !== next) logInfo("SETTINGS", "tabs updated", { count: nextTabs.length, sample: nextTabs.slice(0, 8) });
-          return now === next ? current : nextTabs;
+          const next = JSON.stringify(finalTabs.map((t) => ({ id: t.id, name: t.name })));
+          if (now !== next) {
+            logInfo("SETTINGS", "tabs updated", { count: finalTabs.length, sample: finalTabs.slice(0, 8) });
+            try { localStorage.setItem('ds-tabs-cache-v1', JSON.stringify(finalTabs)); } catch {}
+          }
+          return now === next ? current : finalTabs;
         });
       }).catch((error) => {
-        setTabs([]);
+        // Never zero out — keep the previous list if we had one, else
+        // fall back to native defaults so the picker is always usable.
+        setTabs((current) => current.length ? current : NATIVE_DEFAULT_TABS);
         logError("SETTINGS", "refreshTabs failed", String(error));
         logDiagnostic("error", "Failed to load tabs", String(error));
       });
@@ -116,6 +156,11 @@ export function useSettingsController() {
       if (!s || (s.onlineHideOwnedNonSteam ?? false) === onlineHideOwnedNonSteam) return;
       await persist({ ...s, onlineHideOwnedNonSteam });
     },
+    async setOnlineHideOwnedNonSteamCloud(onlineHideOwnedNonSteamCloud: boolean) {
+      const s = liveSettings();
+      if (!s || (s.onlineHideOwnedNonSteamCloud ?? false) === onlineHideOwnedNonSteamCloud) return;
+      await persist({ ...s, onlineHideOwnedNonSteamCloud });
+    },
     async setOnlinePriceSortEnabled(onlinePriceSortEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s.onlinePriceSortEnabled ?? true) === onlinePriceSortEnabled) return;
@@ -165,6 +210,16 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.shelfHeroBackground === shelfHeroBackground) return;
       await persist({ ...s, shelfHeroBackground });
+    },
+    async setForceCssLoaderThemes(forceCssLoaderThemes: boolean) {
+      const s = liveSettings();
+      if (!s || s.forceCssLoaderThemes === forceCssLoaderThemes) return;
+      await persist({ ...s, forceCssLoaderThemes });
+    },
+    async setGlobalHeroEnabled(globalHeroEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).globalHeroEnabled === globalHeroEnabled) return;
+      await persist({ ...s, globalHeroEnabled } as any);
     },
     async setGlobalMatchNativeSize(globalMatchNativeSize: boolean) {
       const s = liveSettings();
@@ -334,7 +389,7 @@ export function useSettingsController() {
       } catch { return false; }
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false };
       try {
         const ls = globalThis.localStorage;
         if (ls) {

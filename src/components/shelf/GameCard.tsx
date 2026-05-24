@@ -1,8 +1,10 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
+import { getHotCachedImageSrc, warmCacheBackground } from "../../core/imageCache";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -53,7 +55,7 @@ const xCircleSvg = (
   </svg>
 );
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -61,6 +63,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
   const featuredW = cardW;
   const artH = artHProp ?? cardH;
+  // Size off the per-shelf --ds-eff-* vars (set by DeckRow when matchNativeSize
+  // is on) so a native-dims change reflows the card through CSS with no
+  // re-render. The prop is the fallback: when the var is absent — non-native
+  // shelves, or the brief window before ensureStyles sets the root vars — the
+  // card keeps its prior prop-driven size.
+  const cssW = `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`;
+  const cssH = `var(${featured ? "--ds-eff-feat-h" : "--ds-eff-card-h"}, ${cardH}px)`;
+  const cssArtH = `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${artH}px)`;
 
   const [nativeCardClass, setNativeCardClass] = useState('');
   const [imgFailed, setImgFailed] = useState(false);
@@ -192,19 +202,37 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     return urls;
   }, [item.portraitUrl, item.heroUrl, appid, featured]);
 
+  // Track the *original* (non-blob) URL for each fallback step. Used by
+  // onImgError so we always advance through the original URL chain even
+  // when the current src is a cached blob URL.
+  const currentOriginalUrl = useRef<string>("");
+
   useEffect(() => {
     fallbackIdx.current = 0;
     setImgFailed(false);
     setImgLoaded(false);
     if (imgRef.current && allUrls[0]) {
-      imgRef.current.src = allUrls[0];
+      const original = allUrls[0];
+      currentOriginalUrl.current = original;
+      // Hot-cache hit: use the blob URL for instant render. Cache miss:
+      // use the original URL (browser loads as usual) and queue a
+      // background fetch so the next visit is instant. cacheable() inside
+      // the cache module already skips local /customimages/ and /assets/
+      // so SteamGridDB-style local updates aren't blocked.
+      const cached = getHotCachedImageSrc(original);
+      imgRef.current.src = cached ?? original;
+      if (!cached) warmCacheBackground(original);
     }
   }, [allUrls]);
 
   const onImgError = useCallback(() => {
     fallbackIdx.current += 1;
     if (imgRef.current && fallbackIdx.current < allUrls.length) {
-      imgRef.current.src = allUrls[fallbackIdx.current];
+      const next = allUrls[fallbackIdx.current];
+      currentOriginalUrl.current = next;
+      const cached = getHotCachedImageSrc(next);
+      imgRef.current.src = cached ?? next;
+      if (!cached) warmCacheBackground(next);
     } else {
       setImgFailed(true);
     }
@@ -212,6 +240,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   const onImgLoad = useCallback(() => {
     setImgLoaded(true);
+    // Persist successfully-loaded URL so the next visit is a hot hit.
+    // warmCacheBackground dedupes if already cached / in-flight.
+    if (currentOriginalUrl.current) warmCacheBackground(currentOriginalUrl.current);
   }, []);
 
   const firstUrl = allUrls[0] ?? "";
@@ -234,6 +265,179 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const showNewBadge = !hideNewBadge && item.isNew === true;
   const discount = item.discountPercent;
   const showDiscountBadge = typeof discount === 'number' && discount > 0;
+  const hasBadge = showNewBadge || showDiscountBadge;
+
+  // Portal-positioned badge host: rendered into BP's <body> so it escapes
+  // the card / home-root stacking context (Steam's FocusRingRoot is z:10000
+  // and would otherwise paint above the badge). Position tracks the card's
+  // viewport rect, updated on focus/blur, scroll, resize, and during the
+  // focus zoom transition.
+  const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [portalFocused, setPortalFocused] = useState(false);
+  const [overlayActive, setOverlayActive] = useState(false);
+  useEffect(() => {
+    if (!hasBadge) { setPortalRect(null); return; }
+    const el = cardRef.current;
+    if (!el) return;
+
+    // Detect when QAM / main menu / any Steam overlay is active by hit-
+    // testing the viewport center: if the topmost element there is NOT
+    // inside our home root, something is painting over it. Single point
+    // probe is fast; works for any overlay type regardless of class hash.
+    const doc = el.ownerDocument;
+    const win = doc.defaultView ?? window;
+    const detectOverlay = (): boolean => {
+      try {
+        const homeRoot = doc.getElementById('deck-shelves-home-root');
+        if (!homeRoot) return false;
+        const cx = win.innerWidth / 2;
+        const cy = win.innerHeight / 2;
+        const top = doc.elementFromPoint(cx, cy);
+        if (!top) return false;
+        return !homeRoot.contains(top);
+      } catch { return false; }
+    };
+
+    // Hot-path sync: ONLY updates portalRect, with a tolerance check so
+    // React doesnt re-render on sub-pixel jitter. Reads the same values
+    // setPortalFocused / setOverlayActive used to read — but those are
+    // now updated by their own event paths (class observer, focus/overlay
+    // events) so this stays cheap on every rAF / scroll tick.
+    let lastLeft = -Infinity, lastTop = -Infinity, lastWidth = -Infinity;
+    const sync = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) { setPortalRect(null); return; }
+      // sub-pixel jitter from scale transitions causes noisy re-renders
+      if (Math.abs(r.left - lastLeft) < 0.5 && Math.abs(r.top - lastTop) < 0.5 && Math.abs(r.width - lastWidth) < 0.5) return;
+      lastLeft = r.left; lastTop = r.top; lastWidth = r.width;
+      setPortalRect({ left: r.left, top: r.top, width: r.width });
+    };
+    // Initial sync also seeds focus + overlay state.
+    sync();
+    setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
+    setOverlayActive(detectOverlay());
+
+    // Overlay state updates on dedicated events — never inside sync(), so
+    // the rAF tick doesnt force a layout-flushing elementFromPoint call
+    // per frame.
+    const reCheckOverlay = () => setOverlayActive(detectOverlay());
+    const bodyObs = new MutationObserver(reCheckOverlay);
+    bodyObs.observe(doc.body, { childList: true });
+    const recheckTargets: EventTarget[] = [doc, win];
+    for (const t of recheckTargets) {
+      t.addEventListener('focusin', reCheckOverlay, true);
+      t.addEventListener('focusout', reCheckOverlay, true);
+    }
+
+    // Focus state updates on class changes — split from sync() so the
+    // setPortalFocused setState only fires when focus actually transitions,
+    // not every rAF tick.
+    const updateFocused = () => setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
+    const obs = new MutationObserver(() => { updateFocused(); sync(); });
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    el.addEventListener('focus', () => { updateFocused(); sync(); }, true);
+    el.addEventListener('blur', () => { updateFocused(); sync(); }, true);
+
+    // Scroll listeners on every scrollable ancestor — the row-scroll for
+    // horizontal nav, plus any vertical scroll container above it for
+    // inter-shelf navigation. Listening only on row-scroll left badges
+    // stale by ~100px when the home scrolled vertically. The sync() above
+    // is cheap (single setState with tolerance), so multiple listeners
+    // firing per event is fine.
+    const scrollTargets: EventTarget[] = [];
+    let p: HTMLElement | null = el.parentElement;
+    while (p) {
+      const cs = doc.defaultView?.getComputedStyle(p);
+      if (cs && (cs.overflow !== 'visible' || cs.overflowY !== 'visible' || cs.overflowX !== 'visible')) {
+        scrollTargets.push(p);
+      }
+      p = p.parentElement;
+    }
+    scrollTargets.push(win);
+    for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
+    win.addEventListener('resize', sync);
+
+    // rAF loop only while focused (covers the 0.3s scale transition)
+    let rafId = 0;
+    let rafActive = false;
+    let rafStopTimeoutId = 0;
+    const startRaf = () => {
+      if (rafStopTimeoutId) { clearTimeout(rafStopTimeoutId); rafStopTimeoutId = 0; }
+      if (rafActive) return;
+      rafActive = true;
+      const tick = () => {
+        sync();
+        rafId = requestAnimationFrame(tick);
+      };
+      tick();
+    };
+    const stopRaf = () => { rafActive = false; if (rafId) cancelAnimationFrame(rafId); };
+    // When focus leaves, keep rAF running for ~400ms so the badge follows
+    // the card through its 0.3s scale-down transition and any inter-shelf
+    // scroll animation. Without this the badge "lags" or stays slightly
+    // higher than the unfocused card for a frame.
+    const scheduleStopRaf = () => {
+      if (rafStopTimeoutId) clearTimeout(rafStopTimeoutId);
+      rafStopTimeoutId = win.setTimeout(() => { rafStopTimeoutId = 0; stopRaf(); }, 400);
+    };
+    const focusObs = new MutationObserver(() => {
+      if (el.classList.contains('gpfocus')) startRaf(); else scheduleStopRaf();
+    });
+    focusObs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    if (el.classList.contains('gpfocus')) startRaf();
+
+    return () => {
+      obs.disconnect();
+      focusObs.disconnect();
+      bodyObs.disconnect();
+      if (rafStopTimeoutId) clearTimeout(rafStopTimeoutId);
+      stopRaf();
+      for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
+      win.removeEventListener('resize', sync);
+      for (const t of recheckTargets) {
+        t.removeEventListener('focusin', reCheckOverlay, true);
+        t.removeEventListener('focusout', reCheckOverlay, true);
+      }
+    };
+  }, [hasBadge]);
+
+  // Build the badge content (used inside the portal). Skip rendering while
+  // a QAM / modal overlay is active so the badge doesn't paint sharp on top
+  // of the blurred home.
+  const badgeContent = hasBadge && portalRect && !overlayActive ? (
+    <div
+      className="ds-card-badge-host ds-card-badge-host--portal"
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        left: portalRect.left,
+        width: portalRect.width,
+        top: portalFocused ? portalRect.top - 10 : portalRect.top - 2,
+        height: 24,
+        pointerEvents: 'none',
+        zIndex: 1000,
+        isolation: 'isolate',
+      }}
+    >
+      {showDiscountBadge && (
+        <div className="ds-new-badge-band">
+          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
+            {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+          </div>
+        </div>
+      )}
+      {showNewBadge && !showDiscountBadge && (
+        <div className="ds-new-badge-band">
+          <div className="ds-new-badge">{t('badge_new')}</div>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  // Portal target: BP document's body (same doc as the card). Falls back to
+  // local document if Steam's preferred doc isn't ready yet.
+  const portalDoc = cardRef.current?.ownerDocument ?? getPreferredSteamDocument() ?? document;
+  const portalEl = badgeContent ? createPortal(badgeContent, portalDoc.body) : null;
 
   return (
     <Focusable
@@ -247,18 +451,19 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       onContextMenu={item.onMenuButton}
       data-appid={appid || undefined}
       data-shelfid={item.shelfId || undefined}
+      data-ds-card-index={cardIndex !== undefined ? String(cardIndex) : undefined}
       style={{
         position: "relative",
-        width: featuredW,
-        minWidth: featuredW,
-        height: cardH,
+        width: cssW,
+        minWidth: cssW,
+        height: cssH,
         flexShrink: 0,
         padding: 0,
         margin: 0,
         background: "transparent",
         cursor: "pointer",
         overflow: "visible",
-        ["--ds-card-art-h" as string]: artH < cardH ? `${artH}px` : "100%",
+        ["--ds-card-art-h" as string]: cssArtH,
         // Per-card height/width ratio used by the TiltedHome compat CSS to
         // compute the exact zoom scale that covers the skewed parallelogram
         // — featured (landscape) and portrait cards need different scale
@@ -267,6 +472,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
+      {/* Badge host moved to a portal at BP <body> level so it escapes the
+          card / home-root stacking context (Steam's FocusRingRoot is z:10000
+          and would otherwise paint above the badge). See `portalEl` below. */}
+      {portalEl}
       <div
         className="ds-card-art"
         style={{
@@ -291,26 +500,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
           </div>
         )}
-        {showDiscountBadge && (
-          <div className="ds-new-badge-band">
-            <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-              {t('badge_discount', { count: discount }) ?? `${discount}% off`}
-            </div>
-          </div>
-        )}
-        {showNewBadge && !showDiscountBadge && (
-          <div className="ds-new-badge-band">
-            <div className="ds-new-badge">{t('badge_new')}</div>
-          </div>
-        )}
       </div>
       <div
         className={`ds-card-label${hideStatusLine ? ' ds-card-label--compact' : ''}`}
         style={{
           position: "absolute",
-          top: artH < cardH ? artH : "100%",
+          top: cssArtH,
           left: 0,
-          width: featuredW + 20,
+          width: `calc(${cssW} + 20px)`,
           paddingTop: 10,
           pointerEvents: "none",
           display: "flex",

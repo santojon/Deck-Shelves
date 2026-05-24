@@ -53,7 +53,19 @@ def _normalize_path(path: Any) -> str:
     path = path.strip().strip('"').strip("'")
     if path.startswith("file://"):
         path = path[7:]
-    return os.path.expanduser(path)
+    if not path:
+        return ""
+    try:
+        resolved = os.path.realpath(os.path.expanduser(path))
+    except Exception:
+        return ""
+    # Confine to the user's home directory. Realpath collapses `..` so a
+    # traversal like `~/../../../etc/passwd` resolves to `/etc/passwd` and
+    # gets rejected here. Absolute system paths fall into the same branch.
+    home = os.path.realpath(os.path.expanduser("~"))
+    if resolved != home and not resolved.startswith(home + os.sep):
+        return ""
+    return resolved
 
 
 
@@ -101,6 +113,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_install_indicator = bool(s.get("hideInstallIndicator", False))
         hide_see_more = bool(s.get("hideSeeMore", False))
         hide_refresh_card = bool(s.get("hideRefreshCard", False))
+        hero_enabled = bool(s.get("heroEnabled", False))
         valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"}
         shelf_sort = str(s.get("sort") or "")
         raw_manual = s.get("manualOrder")
@@ -156,6 +169,8 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             "hideSeeMore": hide_see_more,
             "hideRefreshCard": hide_refresh_card,
         }
+        if hero_enabled:
+            shelf_entry["heroEnabled"] = True
         if shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
         if highlighted_ids:
@@ -229,7 +244,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(ss_filter_group, dict):
             entry["filterGroup"] = ss_filter_group
         # Visual overrides mirrored from regular shelves.
-        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard"):
+        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "hideStatusLine", "hideNewBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard", "heroEnabled"):
             if bool_key in ss:
                 entry[bool_key] = bool(ss.get(bool_key, False))
         raw_ss_highlighted = ss.get("highlightedAppIds")
@@ -244,6 +259,20 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                     continue
             if ss_highlighted_ids:
                 entry["highlightedAppIds"] = ss_highlighted_ids
+        # `hiddenAppIds`: per-shelf exclusion list. Mirrors the regular shelf
+        # field — only positive integers persist.
+        raw_ss_hidden = ss.get("hiddenAppIds")
+        if isinstance(raw_ss_hidden, list):
+            ss_hidden_ids: list = []
+            for v in raw_ss_hidden:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        ss_hidden_ids.append(n)
+                except Exception:
+                    continue
+            if ss_hidden_ids:
+                entry["hiddenAppIds"] = ss_hidden_ids
         # refreshIntervalMinutes: optional positive int in [1, 43200] (= 30 days).
         # Missing / unparseable / out-of-range values fall back to the resolver's
         # default 60-minute TTL.
@@ -338,7 +367,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
     update_dismissed = settings.get("updateNotifyDismissedVersion")
     update_dismissed = str(update_dismissed)[:64] if isinstance(update_dismissed, str) else None
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False))}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False))}
 
 
 class Plugin:
@@ -455,12 +484,26 @@ class Plugin:
         reliable source is its settings file on disk.
         Returns { tabs: [{ id, title, position, filters, filtersMode }] }
         """
+        try:
+            decky.logger.info("get_tabmaster_tabs: invoked")
+        except Exception:
+            pass
         decky_home = os.environ.get("DECKY_HOME") or os.path.expanduser("~/homebrew")
         settings_path = os.path.join(decky_home, "settings", "TabMaster", "settings.json")
         try:
+            if not os.path.exists(settings_path):
+                try:
+                    decky.logger.info(f"get_tabmaster_tabs: file not found at {settings_path}")
+                except Exception:
+                    pass
+                return {"tabs": [], "error": "file_not_found"}
             data = _safe_read_json(settings_path)
             users_dict = data.get("usersDict", {})
             if not users_dict:
+                try:
+                    decky.logger.info("get_tabmaster_tabs: usersDict empty")
+                except Exception:
+                    pass
                 return {"tabs": [], "error": "no_users"}
             # Use the first (and usually only) user entry
             user_data = next(iter(users_dict.values()))
@@ -478,6 +521,11 @@ class Plugin:
                 })
             # Sort by position: visible (>= 0) first ascending, then hidden (-1)
             tabs.sort(key=lambda t: (t["position"] < 0, t["position"]))
+            try:
+                visible = sum(1 for t in tabs if t["position"] >= 0)
+                decky.logger.info(f"get_tabmaster_tabs: returning {len(tabs)} tabs ({visible} visible)")
+            except Exception:
+                pass
             return {"tabs": tabs}
         except Exception as e:
             try:

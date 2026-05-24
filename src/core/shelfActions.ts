@@ -6,7 +6,16 @@ import {
   patchShelfInSettings,
 } from "../domain/settings";
 import { randomShelfId } from "../domain/defaults";
-import type { Shelf } from "../types";
+import type { Shelf, SmartShelf } from "../types";
+
+/** Returns whether the given id belongs to the smart-shelves list. Regular
+ *  and smart shelves have disjoint id spaces in practice but we look at the
+ *  smart list directly to avoid relying on naming conventions. */
+function isSmartShelfId(id: string): boolean {
+  const s = getCurrentSettings();
+  if (!s) return false;
+  return (s.smartShelves ?? []).some((sh: SmartShelf) => sh.id === id);
+}
 
 /**
  * Non-React shelf-action handlers callable from places that don't have a
@@ -41,6 +50,11 @@ export async function patchShelfById(id: string, patch: Partial<Shelf>): Promise
 export async function toggleShelfHiddenById(id: string): Promise<void> {
   const s = getCurrentSettings();
   if (!s) return;
+  if (isSmartShelfId(id)) {
+    const updated = (s.smartShelves ?? []).map((sh) => sh.id === id ? { ...sh, hidden: !sh.hidden } : sh);
+    await saveSettings({ ...s, smartShelves: updated });
+    return;
+  }
   const shelf = s.shelves.find((sh) => sh.id === id);
   if (!shelf) return;
   await saveSettings(patchShelfInSettings(s, id, { hidden: !shelf.hidden }));
@@ -49,12 +63,35 @@ export async function toggleShelfHiddenById(id: string): Promise<void> {
 export async function moveShelfById(id: string, direction: -1 | 1): Promise<void> {
   const s = getCurrentSettings();
   if (!s) return;
+  if (isSmartShelfId(id)) {
+    const list = [...(s.smartShelves ?? [])];
+    const idx = list.findIndex((sh) => sh.id === id);
+    if (idx < 0) return;
+    const target = idx + direction;
+    if (target < 0 || target >= list.length) return;
+    [list[idx], list[target]] = [list[target], list[idx]];
+    await saveSettings({ ...s, smartShelves: list });
+    return;
+  }
   await saveSettings(moveShelfInSettings(s, id, direction));
 }
 
 export async function duplicateShelfById(id: string, copySuffix: string): Promise<void> {
   const s = getCurrentSettings();
   if (!s) return;
+  if (isSmartShelfId(id)) {
+    const list = s.smartShelves ?? [];
+    const source = list.find((sh) => sh.id === id);
+    if (!source) return;
+    const dup: SmartShelf = JSON.parse(JSON.stringify(source));
+    dup.id = randomShelfId();
+    dup.title = `${source.title} ${copySuffix}`.trim();
+    const idx = list.findIndex((sh) => sh.id === id);
+    const next = [...list];
+    next.splice(idx + 1, 0, dup);
+    await saveSettings({ ...s, smartShelves: next });
+    return;
+  }
   const sourceShelf = s.shelves.find((sh) => sh.id === id);
   if (!sourceShelf) return;
   const duplicate: Shelf = JSON.parse(JSON.stringify(sourceShelf));
@@ -66,6 +103,10 @@ export async function duplicateShelfById(id: string, copySuffix: string): Promis
 export async function deleteShelfById(id: string): Promise<void> {
   const s = getCurrentSettings();
   if (!s) return;
+  if (isSmartShelfId(id)) {
+    await saveSettings({ ...s, smartShelves: (s.smartShelves ?? []).filter((sh) => sh.id !== id) });
+    return;
+  }
   await saveSettings(deleteShelfFromSettings(s, id));
 }
 

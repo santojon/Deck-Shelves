@@ -1,7 +1,56 @@
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
-import { discoverNativeCardDimensions, type NativeCardDims } from "../../core/webpackCompat";
+import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
+import { discoverNativeCardDimensions, getRuntimeClassMap, type NativeCardDims } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
+import { subscribeShelfRefresh } from "../../core/shelfRefresh";
+import { isFocusRoundCompatActive } from "../../core/cssLoaderDetect";
 import { CARD_W, CARD_ART_H, CARD_GAP } from "./types";
+
+const FOCUS_RING_STYLE_ID = "deck-shelves-focus-ring-suppress";
+
+// Suppress the Steam native FocusRing overlay (separate DOM element with
+// its own animation/border) when the Focus Highlight Color > Round
+// Compatibility patch is on. The hash is resolved at runtime via the
+// classmap; CSS rule is injected in every Steam document so it reaches BP.
+function ensureFocusRingSuppress() {
+  try {
+    const active = isFocusRoundCompatActive();
+    const docs: Document[] = [];
+    const seen = new Set<Document>();
+    const add = (d: Document | null | undefined) => {
+      if (!d || seen.has(d)) return;
+      seen.add(d);
+      docs.push(d);
+    };
+    add(document);
+    add(getPreferredSteamDocument());
+    for (const d of getAllSteamDocuments()) add(d);
+
+    if (!active) {
+      for (const d of docs) {
+        const s = d.getElementById(FOCUS_RING_STYLE_ID);
+        if (s) s.remove();
+      }
+      return;
+    }
+
+    const map = getRuntimeClassMap(getPreferredSteamDocument() ?? document);
+    const ringClass = map?.nativeFocusRing;
+    if (!ringClass) return;
+
+    const cssText = `[class~="${ringClass}"]{animation:none !important;border:none !important;opacity:0 !important;}`;
+    for (const d of docs) {
+      let s = d.getElementById(FOCUS_RING_STYLE_ID) as HTMLStyleElement | null;
+      if (!s) {
+        s = d.createElement("style");
+        s.id = FOCUS_RING_STYLE_ID;
+        d.head.appendChild(s);
+      }
+      if (s.textContent !== cssText) s.textContent = cssText;
+    }
+  } catch (e) {
+    logInfo("HOME", "ensureFocusRingSuppress failed", String(e));
+  }
+}
 
 const STYLE_ID = "deck-shelves-row-style";
 
@@ -9,22 +58,41 @@ const STYLE_ID = "deck-shelves-row-style";
 const DIMS_TOL_PX = 4;            // ignore jitter smaller than this
 const DIMS_STABLE_POLLS = 2;      // consecutive matches required before accepting
 const DIMS_DEBOUNCE_MS = 500;     // notify listeners after the churn settles
-const STYLES_POLL_MS = 3000;      // how often ensureStyles re-runs
+const STYLES_POLL_MS = 3000;      // fast cadence while dims aren't stable
+const STYLES_POLL_MS_IDLE = 30000;// slower cadence once featured dims are cached
 
-// Persisted cache (cold-start reflow avoidance)
+// Persisted cache (cold-start reflow avoidance).
+// v3 stores ONE entry per viewport fingerprint so switching displays
+// (1440p external ↔ 800p Deck) restores the previously-measured dims for
+// each resolution instead of falling back to constants when the live
+// recents is hidden and can't be re-measured.
 const DIMS_CACHE_KEY = "ds-cardsize";
-const DIMS_CACHE_VERSION = 2;
-type PersistedDims = { v: number; dims: NativeCardDims; vw: number; vh: number; dpr: number };
+const DIMS_CACHE_VERSION = 3;
+type PersistedDimsV3 = { v: number; entries: Array<{ fp: { vw: number; vh: number; dpr: number }; dims: NativeCardDims }> };
+// Legacy v2 shape — read once on first run to migrate the prior single-entry
+// cache into the new multi-entry map so users don't lose their tuned dims.
+type PersistedDimsV2 = { v: number; dims: NativeCardDims; vw: number; vh: number; dpr: number };
+
+function fpMatches(a: { vw: number; vh: number; dpr: number }, b: { vw: number; vh: number; dpr: number }): boolean {
+  return a.vw === b.vw && a.vh === b.vh && Math.abs(a.dpr - b.dpr) <= 0.05;
+}
 
 let cachedCardRadius = "0px";
-let cachedNewBadgeRadius = "0px";
+let cachedNewBadgeRadius = "";
 let cachedNativeDims: NativeCardDims | null = null;
+// Fingerprint at the time cachedNativeDims was last measured — used to detect
+// resolution changes mid-session without waiting for the stability cycle.
+let cachedDimsFp: { vw: number; vh: number; dpr: number } | null = null;
 const nativeDimsListeners = new Set<() => void>();
 
 // Confirmation cycle: new dims must be stable for N consecutive polls before accepting.
 // This prevents flicker from transient measurements (focus scale, hover, animation frames).
 let pendingDims: NativeCardDims | null = null;
 let pendingDimsCount = 0;
+// When the viewport changes (resolution swap) we want the very next valid
+// measurement to apply without waiting for the 2-poll stability cycle —
+// otherwise cards stay at the wrong size for tens of seconds after the swap.
+let acceptNextMeasurementImmediately = false;
 
 function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
   // SharedJSContext has window.innerWidth/Height = 1, so reading from
@@ -41,13 +109,35 @@ function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
   };
 }
 
-function loadPersistedDims(): NativeCardDims | null {
+// Read the full persisted entries map (one entry per viewport fingerprint).
+// Migrates v2 (single entry) into v3 (entries array) on first read so users
+// don't lose their previously-tuned dims.
+function loadPersistedEntries(): PersistedDimsV3 {
   try {
     const raw = (globalThis as any)?.localStorage?.getItem(DIMS_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedDims;
-    if (!parsed || parsed.v !== DIMS_CACHE_VERSION || !parsed.dims) return null;
-    return parsed.dims;
+    if (!raw) return { v: DIMS_CACHE_VERSION, entries: [] };
+    const parsed = JSON.parse(raw);
+    if (parsed?.v === DIMS_CACHE_VERSION && Array.isArray(parsed.entries)) return parsed as PersistedDimsV3;
+    // v2 migration: convert the single { dims, vw, vh, dpr } into a v3 entry.
+    if (parsed?.v === 2 && parsed.dims && typeof parsed.vw === 'number') {
+      const v2 = parsed as PersistedDimsV2;
+      return { v: DIMS_CACHE_VERSION, entries: [{ fp: { vw: v2.vw, vh: v2.vh, dpr: v2.dpr ?? 1 }, dims: v2.dims }] };
+    }
+  } catch {}
+  return { v: DIMS_CACHE_VERSION, entries: [] };
+}
+
+function loadPersistedDims(): { dims: NativeCardDims; fp: { vw: number; vh: number; dpr: number } } | null {
+  try {
+    const fp = viewportFingerprint();
+    // When BigPic isn't ready yet at module load we can't pick the right
+    // entry — leave cachedNativeDims null and let the polling tick re-seed
+    // once a real viewport is observable.
+    if (fp.vw < 100 || fp.vh < 100) return null;
+    const all = loadPersistedEntries();
+    const match = all.entries.find((e) => fpMatches(e.fp, fp));
+    if (!match) return null;
+    return { dims: match.dims, fp: match.fp };
   } catch { return null; }
 }
 
@@ -55,14 +145,57 @@ function persistDims(dims: NativeCardDims) {
   try {
     const fp = viewportFingerprint();
     if (fp.vw < 100 || fp.vh < 100) return;
-    const payload: PersistedDims = { v: DIMS_CACHE_VERSION, dims, ...fp };
-    (globalThis as any)?.localStorage?.setItem(DIMS_CACHE_KEY, JSON.stringify(payload));
+    const all = loadPersistedEntries();
+    // Replace existing entry for the current fp, or append.
+    const idx = all.entries.findIndex((e) => fpMatches(e.fp, fp));
+    if (idx >= 0) all.entries[idx] = { fp, dims };
+    else all.entries.push({ fp, dims });
+    // Cap to a small number of resolutions to avoid unbounded growth.
+    if (all.entries.length > 8) all.entries = all.entries.slice(-8);
+    (globalThis as any)?.localStorage?.setItem(DIMS_CACHE_KEY, JSON.stringify(all));
+  } catch {}
+}
+
+// Returns the persisted dims for a specific viewport fingerprint, or null.
+// Used by the fp poll to restore previously-measured dims when the user
+// switches to a viewport we've already seen — avoids the wait for a fresh
+// measurement (which may never complete when native recents stays hidden).
+function lookupPersistedForFp(fp: { vw: number; vh: number; dpr: number }): NativeCardDims | null {
+  try {
+    const all = loadPersistedEntries();
+    const match = all.entries.find((e) => fpMatches(e.fp, fp));
+    return match ? match.dims : null;
+  } catch { return null; }
+}
+
+// Propagates the in-memory `cachedNativeDims` to CSS variables on every
+// known Steam document's `<html>`. `ensureStyles` already does this, but
+// only when a new measurement was accepted in the same call. When we set
+// `cachedNativeDims` from the persisted store (fp poll lookup, cold-start
+// seed) without a fresh measurement, the variables would stay stale unless
+// we propagate here.
+function applyCachedDimsToCssVars(): void {
+  try {
+    const docs: Document[] = [];
+    try { docs.push(document); } catch {}
+    try { docs.push(getPreferredSteamDocument()); } catch {}
+    const seen = new Set<Document>();
+    for (const doc of docs) {
+      if (!doc || seen.has(doc)) continue;
+      seen.add(doc);
+      try { for (const [k, v] of nativeDimVarEntries()) doc.documentElement.style.setProperty(k, v); } catch {}
+    }
   } catch {}
 }
 
 // Seed from last-session cache so cold boot skips the CARD_W/CARD_ART_H fallback
 // and avoids the reflow when native dims are discovered shortly after.
-cachedNativeDims = loadPersistedDims();
+// Seed cachedDimsFp from the cache's STORED fp (not the live one) so a viewport
+// change since the cache was written is detected on the next ensureStyles tick.
+{
+  const persisted = loadPersistedDims();
+  if (persisted) { cachedNativeDims = persisted.dims; cachedDimsFp = persisted.fp; }
+}
 
 let dimsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedNotifyDims(_dims: NativeCardDims) {
@@ -72,10 +205,8 @@ function debouncedNotifyDims(_dims: NativeCardDims) {
     nativeDimsListeners.forEach(cb => cb());
   }, DIMS_DEBOUNCE_MS);
 }
-function notifyDimsNow() {
-  if (dimsDebounceTimer) { clearTimeout(dimsDebounceTimer); dimsDebounceTimer = null; }
-  nativeDimsListeners.forEach(cb => cb());
-}
+// notifyDimsNow kept as dead code — all paths now use debouncedNotifyDims
+// to avoid jarring full-screen re-renders when dims first arrive.
 
 export function getCachedCardRadius(): string { return cachedCardRadius; }
 export function getCachedNativeDims(): NativeCardDims | null { return cachedNativeDims; }
@@ -105,6 +236,11 @@ function detectNativeCardRadius(): string {
   return "0px";
 }
 
+/**
+ * Reads the native NEW badge radius so DS badges match SteamOS. Returns
+ * "" when no native badge is rendered (recents hidden / no qualifying
+ * game) so the CSS fallback chain stays in effect for Round-family themes.
+ */
 function detectNativeNewBadgeRadius(): string {
   try {
     const docs = [getPreferredSteamDocument(), document];
@@ -118,15 +254,96 @@ function detectNativeNewBadgeRadius(): string {
         if (t !== 'Novo' && t !== 'NEW' && t !== 'New') continue;
         const cs = getComputedStyle(el);
         if (cs.backgroundColor !== 'rgb(26, 159, 255)') continue;
-        return cs.borderRadius || '0px';
+        return cs.borderRadius || '';
       }
     }
   } catch {}
-  return "0px";
+  return "";
+}
+
+// Native card-dimension CSS variables. Cards reference these through the
+// per-shelf --ds-eff-* vars, so a dims change reflows every card via CSS
+// alone — no React re-render of the 800+ GameCards on the home screen.
+// The fallbacks mirror the dims computation in DeckRow exactly.
+function nativeDimVarEntries(): [string, string][] {
+  const nd = cachedNativeDims;
+  const w = nd?.width ?? CARD_W;
+  const h = nd?.height ?? CARD_ART_H;
+  return [
+    ['--ds-native-card-w', `${w}px`],
+    ['--ds-native-card-h', `${h}px`],
+    ['--ds-native-card-gap', `${nd?.gap ?? CARD_GAP}px`],
+    ['--ds-native-card-art-h', `${nd?.imgHeight ?? h}px`],
+    ['--ds-native-feat-w', `${nd?.featuredWidth ?? Math.round(w * 3.21)}px`],
+    ['--ds-native-feat-h', `${nd?.featuredHeight ?? h}px`],
+    ['--ds-native-feat-art-h', `${nd?.featuredImgHeight ?? nd?.featuredHeight ?? h}px`],
+  ];
+}
+
+// Fallback measurement that briefly un-hides native recents to get a
+// measurable card, then immediately re-hides — all in one synchronous block.
+// The compositor only paints DOM state at animation-frame boundaries, so the
+// transient unhidden state is never shown to the user (no visible flash).
+// Used when `discoverNativeCardDimensions` returns null because hideRecents
+// is active and there are no other measurable native portrait cards on screen.
+function discoverViaBriefUnhide(steamDoc: Document): NativeCardDims | null {
+  try {
+    const mount = steamDoc.getElementById('deck-shelves-home-root') as HTMLElement | null;
+    if (!mount) return null;
+    const recentsEl = mount.previousElementSibling as HTMLElement | null;
+    if (!recentsEl) return null;
+    // Hide can come from either the dedicated <style#hide-recents> element OR
+    // from inline `display:none` set by applyHideRecents on the recents
+    // element itself (the classmap may not have native-recents tokens, in
+    // which case homePatch only sets the inline style and skips the CSS rule).
+    const hideStyle = steamDoc.getElementById('deck-shelves-hide-recents-style') as HTMLStyleElement | null;
+    const styleText = hideStyle?.textContent ?? '';
+    const hiddenViaInline = recentsEl.style.display === 'none' || recentsEl.style.visibility === 'hidden';
+    const hiddenViaStyleRule = !!styleText && styleText.includes('display: none');
+    if (!hiddenViaInline && !hiddenViaStyleRule) return null;
+    // Save anything we may touch
+    const savedDisplay = recentsEl.style.display;
+    const savedVisibility = recentsEl.style.visibility;
+    const savedHeight = recentsEl.style.height;
+    const savedOverflow = recentsEl.style.overflow;
+    try {
+      if (hideStyle && hiddenViaStyleRule) hideStyle.textContent = '';
+      // Clear inline hiding too — applyHideRecents may have set both.
+      recentsEl.style.display = '';
+      recentsEl.style.visibility = '';
+      recentsEl.style.height = '';
+      recentsEl.style.overflow = '';
+      // Force synchronous layout so getBoundingClientRect sees the unhidden cards.
+      void recentsEl.offsetHeight;
+      return discoverNativeCardDimensions(steamDoc);
+    } finally {
+      // Restore before the next paint so the user never sees recents flash.
+      if (hideStyle && hiddenViaStyleRule) hideStyle.textContent = styleText;
+      recentsEl.style.display = savedDisplay;
+      recentsEl.style.visibility = savedVisibility;
+      recentsEl.style.height = savedHeight;
+      recentsEl.style.overflow = savedOverflow;
+    }
+  } catch { return null; }
 }
 
 function ensureStyles() {
   try {
+    // If the viewport fingerprint changed (resolution / DPI switch), discard
+    // the in-memory dims immediately so the very next measurement applies
+    // without waiting for the 2-poll stability cycle. Without this, the idle
+    // poll interval (30 s) means a resolution change takes up to 60 s to
+    // reflect on featured-card sizing when matchNativeSize is on.
+    if (cachedNativeDims && cachedDimsFp) {
+      const fp = viewportFingerprint();
+      if (fp.vw >= 100 && fp.vh >= 100 &&
+          (fp.vw !== cachedDimsFp.vw || fp.vh !== cachedDimsFp.vh || Math.abs(fp.dpr - cachedDimsFp.dpr) > 0.05)) {
+        cachedNativeDims = null;
+        cachedDimsFp = null;
+        pendingDims = null;
+        pendingDimsCount = 0;
+      }
+    }
     const newRadius = detectNativeCardRadius();
     const radiusChanged = newRadius !== cachedCardRadius;
     cachedCardRadius = newRadius;
@@ -134,7 +351,24 @@ function ensureStyles() {
     const newBadgeRadiusChanged = newBadgeRadius !== cachedNewBadgeRadius;
     cachedNewBadgeRadius = newBadgeRadius;
     const steamDoc = getPreferredSteamDocument();
-    const newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
+    let newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
+    // Fallback: when hideRecents is active there are no measurable native
+    // portraits on screen — discover by briefly un-hiding (sync block, no
+    // visible flash). Without this, post-display-swap dims stay at fallback
+    // constants until the user opens library and comes back.
+    if (!newDims) newDims = discoverViaBriefUnhide(steamDoc);
+    // Sanity: discard measurements that don't make sense for the current
+    // viewport — happens when Steam hasn't yet re-laid out after a display
+    // swap and our brief-unhide reads cards still sized for the previous
+    // viewport. Native portrait cards take roughly 8-15% of viewport width;
+    // anything above ~22% is almost certainly leftover layout from the
+    // previous resolution and would poison the per-fp cache.
+    if (newDims) {
+      const fpNow = viewportFingerprint();
+      if (fpNow.vw >= 100 && newDims.width / fpNow.vw > 0.22) {
+        newDims = null;
+      }
+    }
     // Only accept new dims when the change exceeds tolerance (avoids flicker
     // from focus-scale, rounding, or animation mid-frame measurements).
     // When newDims is null (e.g. recents hidden, or focus present), keep the cached dims.
@@ -159,22 +393,27 @@ function ensureStyles() {
       tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
     );
     if (dimsChanged && newDims) {
-      const hadDims = cachedNativeDims !== null;
       // Fast path: when the cache has no featuredWidth but the new measurement does,
       // accept immediately. The featured card would otherwise render at the fallback
       // landscape ratio for 6+ seconds (2 × poll interval) before resizing — visible
       // as a slow enlarge on cold boot when matchNativeSize is on.
+      // Also accept immediately when a viewport change was just detected — the
+      // stability cycle would otherwise hold cards at the wrong size for tens of
+      // seconds after a display-resolution swap.
       const acquiredFeatured = !!newDims.featuredWidth && !cachedNativeDims?.featuredWidth;
-      if (acquiredFeatured) {
+      if (acquiredFeatured || acceptNextMeasurementImmediately) {
+        acceptNextMeasurementImmediately = false;
         cachedNativeDims = newDims;
+        cachedDimsFp = viewportFingerprint();
         persistDims(newDims);
         pendingDims = null;
         pendingDimsCount = 0;
-        // If portrait dims were already cached (override mode on reload), debounce to
-        // avoid a resize flash when early polls fire before the layout stabilises.
-        // On a true cold boot (no prior dims), snap immediately — no visible card exists yet.
-        if (hadDims) debouncedNotifyDims(newDims);
-        else notifyDimsNow();
+        // Always debounce — even on first acquisition (hadDims=false).
+        // notifyDimsNow() on first measurement causes all DeckRows to
+        // re-render mid-interaction ("prateleiras recarregam"), which is
+        // jarring on the first navigation after a restart. The debounce
+        // (~100ms) is imperceptible but prevents the full-screen reload.
+        debouncedNotifyDims(newDims);
       } else {
       // Require 2 consecutive polls showing the same new values before accepting
       const matchesPending = pendingDims &&
@@ -185,6 +424,7 @@ function ensureStyles() {
         pendingDimsCount++;
         if (pendingDimsCount >= DIMS_STABLE_POLLS) {
           cachedNativeDims = newDims;
+          cachedDimsFp = viewportFingerprint();
           persistDims(newDims);
           pendingDims = null;
           pendingDimsCount = 0;
@@ -197,11 +437,15 @@ function ensureStyles() {
       }
     } else if (!cachedNativeDims && newDims) {
       cachedNativeDims = newDims;
+      cachedDimsFp = viewportFingerprint();
       persistDims(newDims);
     } else {
       pendingDims = null;
       pendingDimsCount = 0;
     }
+    // Runtime-hash-based focus ring suppression — injected/removed every
+    // ensureStyles tick so it tracks theme toggle + classmap availability.
+    ensureFocusRingSuppress();
     // Update CSS variables without removing/recreating the stylesheet to avoid style flicker
     const docs = [document, steamDoc];
     for (const doc of docs) {
@@ -214,12 +458,14 @@ function ensureStyles() {
       } else if (radiusChanged || dimsChanged || newBadgeRadiusChanged) {
         // Update CSS variables in-place instead of removing the stylesheet
         doc.documentElement.style.setProperty('--ds-card-radius', cachedCardRadius);
-        doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
-        doc.documentElement.style.setProperty('--ds-native-card-w', `${cachedNativeDims?.width ?? CARD_W}px`);
-        doc.documentElement.style.setProperty('--ds-native-card-h', `${cachedNativeDims?.height ?? CARD_ART_H}px`);
-        doc.documentElement.style.setProperty('--ds-native-card-gap', `${cachedNativeDims?.gap ?? CARD_GAP}px`);
+        if (cachedNewBadgeRadius) doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
+        else doc.documentElement.style.removeProperty('--ds-new-badge-radius');
+        for (const [k, v] of nativeDimVarEntries()) doc.documentElement.style.setProperty(k, v);
       }
-      doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
+      // Only persist a detected value — leaving the var unset lets the
+      // CSS fallback chain (var(--ds-new-badge-radius, var(--round-radius-size, 0))) pick up theme radius.
+      if (cachedNewBadgeRadius) doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
+      else doc.documentElement.style.removeProperty('--ds-new-badge-radius');
 
       // Detect page background color from the scrollable viewport or body
       try {
@@ -241,6 +487,15 @@ function ensureStyles() {
         else doc.documentElement.style.setProperty('--ds-page-bg', 'rgb(0, 0, 0)');
       } catch {}
 
+      // Obsidian theme detection — the theme sets `--obsidian-main-color` on
+      // :root. Per-shelf hero images should inherit the same grayscale+contrast
+      // filter that Obsidian applies to native hero images so they match visually.
+      try {
+        const obs = getComputedStyle(doc.documentElement).getPropertyValue('--obsidian-main-color').trim();
+        if (obs !== '') doc.documentElement.setAttribute('data-ds-obsidian', '1');
+        else doc.documentElement.removeAttribute('data-ds-obsidian');
+      } catch {}
+
       // SLH theme defense — that CSS Loader theme locks the home page to
       // viewport height with absolutely-positioned containers, so our
       // shelves below the visible area become unreachable (no native page
@@ -252,6 +507,33 @@ function ensureStyles() {
         const slh = getComputedStyle(doc.documentElement).getPropertyValue('--SLH-lift-hero-px').trim();
         if (slh !== '') doc.documentElement.setAttribute('data-ds-slh', '1');
         else doc.documentElement.removeAttribute('data-ds-slh');
+      } catch {}
+
+      // Centered Home detection — the theme sets a padding/inset custom
+      // property on :root to shift the home page content into a centered
+      // column. Variable name varies across versions, so probe a known set
+      // and copy the first non-empty value into our own `--ds-centered-pad`
+      // so the CSS rule below has a single, stable variable to read from.
+      try {
+        const root = doc.documentElement;
+        const cs = getComputedStyle(root);
+        const candidates = [
+          '--center-home-padding', '--centered-home-padding',
+          '--center-home-padding-x', '--center-home-x',
+          '--ch-padding', '--centered-padding',
+        ];
+        let chVal = '';
+        for (const name of candidates) {
+          const v = cs.getPropertyValue(name).trim();
+          if (v !== '') { chVal = v; break; }
+        }
+        if (chVal !== '') {
+          root.setAttribute('data-ds-centered', '1');
+          root.style.setProperty('--ds-centered-pad', chVal);
+        } else {
+          root.removeAttribute('data-ds-centered');
+          root.style.removeProperty('--ds-centered-pad');
+        }
       } catch {}
 
       try {
@@ -293,6 +575,10 @@ function buildStylesheet(): string {
       --ds-native-card-w: ${cachedNativeDims?.width ?? CARD_W}px;
       --ds-native-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-native-card-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
+      --ds-native-card-art-h: ${cachedNativeDims?.imgHeight ?? cachedNativeDims?.height ?? CARD_ART_H}px;
+      --ds-native-feat-w: ${cachedNativeDims?.featuredWidth ?? Math.round((cachedNativeDims?.width ?? CARD_W) * 3.21)}px;
+      --ds-native-feat-h: ${cachedNativeDims?.featuredHeight ?? cachedNativeDims?.height ?? CARD_ART_H}px;
+      --ds-native-feat-art-h: ${cachedNativeDims?.featuredImgHeight ?? cachedNativeDims?.featuredHeight ?? cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-card-h: ${cachedNativeDims?.height ?? CARD_ART_H}px;
       --ds-row-base-gap: ${cachedNativeDims?.gap ?? CARD_GAP}px;
     }
@@ -302,16 +588,86 @@ function buildStylesheet(): string {
     .ds-row-scroll { scrollbar-width: none; -ms-overflow-style: none; }
     .ds-row-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
-    /* The Opção B promotion adds the native wrapper class to our first
-       shelf so theme rules (Obsidian backgrounds, Delly fades, ArtHero
+    /* The Opção B promotion adds the native wrapper class to our shelves
+       so theme rules (Obsidian backgrounds, Delly fades, ArtHero
        hero/mask, etc.) reach our shelf naturally. But that wrapper class
        also drags in the native rule ._39tNvaLedsTrVh0fFsP4Jm { height:
-       105vh }, which would inflate our shelf to 5% past the viewport.
-       Reset it to auto unconditionally so the shelf is compact (just
-       title + row) by default. The ArtHero-specific layout below then
-       opts back into the tall flex container only when needed. */
-    .ds-shelf[data-ds-recents-slot="true"] {
+       105vh }, which would inflate the shelf to 5% past the viewport.
+       Reset every DS shelf to auto unconditionally so it stays compact
+       (just title + row) by default — forceCssLoaderThemes adds the
+       wrapper class to ALL shelves, so the reset must cover all of them,
+       not only the promoted one. The ArtHero-specific layout below has
+       higher specificity and still opts the promoted shelf back into the
+       tall flex container when needed. */
+    .Panel.ds-shelf {
       height: auto !important;
+    }
+
+    /* ── SLH alt C shim (data-ds-slh="1") ─────────────────────────────────
+       Problem: the SLH theme uses position:absolute/bottom:0 on the native
+       recents grid inside a height:100vh/overflow:hidden container. When DS
+       hides the native recents (height:0), that grid disappears but the
+       fixed-height container stays. Our promoted shelf
+       (data-ds-recents-slot="true") sits OUTSIDE that container inside
+       #deck-shelves-home-root, so it is not caught by the theme's
+       absolute-positioning rule and ends up at the top instead of the bottom.
+
+       Fix: expand #deck-shelves-home-root to viewport height and pin the
+       promoted shelf to its bottom via absolute positioning — mirroring the
+       theme's layout contract without touching any native class names.
+
+       NOTE: Requires validation on a real Deck with the theme active. The
+       56px header offset is based on CDP observations from 2026-05-14. */
+    [data-ds-slh="1"] #deck-shelves-home-root {
+      height: calc(100vh - 56px);
+      position: relative;
+      overflow: visible;
+    }
+    [data-ds-slh="1"] .deck-shelves-root {
+      height: 100%;
+      position: relative;
+    }
+    [data-ds-slh="1"] .ds-shelf[data-ds-recents-slot="true"] {
+      position: absolute !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      height: auto !important;
+      /* SLH pads the grid top by the lift amount so the hero image above
+         it doesn't overlap the card row. Mirror via the same variable. */
+      padding-top: calc(var(--SLH-lift-hero-px, 0px) + 6px);
+    }
+    /* SLH + ArtHero: the ArtHero flex column still applies inside the
+       absolute-positioned promoted shelf. */
+    [data-ds-slh="1"] .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
+      display: flex !important;
+      flex-direction: column;
+    }
+
+    /* ── Centered Home shim (data-ds-centered="1") ─────────────────────────
+       The Centered Home theme (by Morz) shifts the library home content into
+       a centered column using a left padding defined by --center-home-padding.
+       DS shelves sit in a portal outside that column and therefore stay
+       full-width, not centered. We compensate by applying the same left-padding
+       variable so DS shelves align with native content.
+
+       NOTE: --center-home-padding name needs verification on a real Deck with
+       the theme active. If the theme uses a different property name, update the
+       detection in ensureStyles() and this rule together. */
+    [data-ds-centered="1"] #deck-shelves-home-root,
+    [data-ds-centered="1"] .deck-shelves-root {
+      padding-left: var(--ds-centered-pad, var(--center-home-padding, 0px));
+      padding-right: var(--ds-centered-pad, var(--center-home-padding, 0px));
+      box-sizing: border-box;
+    }
+    /* The row's own left padding (2.8vw, inline-styled) compounds with the
+       container padding above and offsets cards too far right. Override to 0
+       so cards sit flush with the centered native column. */
+    [data-ds-centered="1"] .ds-shelf .ds-row-scroll {
+      padding-left: 0 !important;
+    }
+    [data-ds-centered="1"] .ds-shelf .ds-shelf-title {
+      padding-left: 0 !important;
     }
 
     /* ArtHero (and any future hero-label theme) opts into the full layout:
@@ -334,14 +690,17 @@ function buildStylesheet(): string {
     }
 
     /* Hero-label overlay (ArtHero etc.): when the active theme requires the
-       focused card's info to be shown above the row, HeroBackground clones
+       focused card's info to be shown above the row, PerShelfHero clones
        the .ds-card-label DOM into a wrapper here. The cloned label keeps
        its own classes (so all formatting matches the in-card label exactly)
        but its inline position:absolute / top:artH was meaningful only
        inside the card — reset it to static here so it lays out naturally
-       in the wrapper. The original in-card label is hidden so the focused
-       card doesn't render the same label twice. */
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label {
+       in the wrapper. The original IN-CARD label is hidden so the focused
+       card doesn't render the same label twice — scoped to the
+       ".ds-card .ds-card-label" descendant so it does NOT also hide the
+       cloned overlay label, which lives in .ds-promoted-hero-label and
+       not inside a card. */
+    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card .ds-card-label {
       display: none !important;
     }
     .ds-promoted-hero-label .ds-card-label {
@@ -351,15 +710,19 @@ function buildStylesheet(): string {
       width: auto !important;
       padding-top: 0 !important;
       opacity: 1 !important;
+      display: block !important;
     }
-    /* Match native ArtHero text scale: 22px / weight 800 for the name,
-       ~14.7px / weight 700 for the status. Status icons are dropped — the
-       native overlay shows just text (e.g. "Last two weeks: 2 min"), no
-       download / play / update icons. */
+    /* Match the native ArtHero recents game-info overlay exactly (values
+       read via CDP from the native recents shelf):
+         name   — 22px / weight 800 / rgb(255,255,255)
+         status — 14.67px / weight 700 / rgba(255,255,255,0.5) /
+                  uppercase / letter-spacing 0.5px
+       Status icons are dropped — the native overlay shows just text. */
     .ds-promoted-hero-label .ds-card-label-name {
       font-size: 22px !important;
       font-weight: 800 !important;
       line-height: 1.15 !important;
+      color: rgb(255, 255, 255) !important;
       white-space: nowrap !important;
       text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
     }
@@ -367,8 +730,10 @@ function buildStylesheet(): string {
       font-size: 14.6667px !important;
       font-weight: 700 !important;
       opacity: 1 !important;
-      text-transform: none !important;
-      letter-spacing: 0 !important;
+      color: rgba(255, 255, 255, 0.5) !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
+      margin-top: 2px !important;
       text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
     }
     /* Hide only the play icon (installed + no pending update). The download
@@ -379,13 +744,19 @@ function buildStylesheet(): string {
     }
     .ds-card {
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
-      overflow: hidden;
-      filter: brightness(var(--ds-card-dim, 0.9));
-      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1), transform 0.4s;
+      /* overflow: visible so the badge host can extend above the card on
+         focus without being clipped. The art (.ds-card-art) keeps its own
+         overflow: hidden + border-radius so the cover image stays clipped. */
+      overflow: visible;
+      transition: transform 0.3s cubic-bezier(0.16, 0.86, 0.43, 0.99);
       scroll-margin-top: 90px;
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
     }
+    /* Cancel native brightness on .ds-card so it does not create a stacking
+       context that traps the badge host's z-index. Brightness is applied to
+       .ds-card-art below instead. */
+    #deck-shelves-home-root .ds-card { filter: none !important; }
     #deck-shelves-home-root .deck-shelves-root:focus,
     #deck-shelves-home-root .deck-shelves-root.gpfocus,
     #deck-shelves-home-root .deck-shelves-root.gpfocuswithin,
@@ -412,8 +783,57 @@ function buildStylesheet(): string {
          only the drop shadow shows. */
       box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px, 0 0 0 2px var(--custom-sp-color-border, transparent) !important;
       z-index: 12;
-      filter: brightness(1);
     }
+    /* Suppress our focus drop shadow when the "Focus Highlight Color" theme's
+       Round Compatibility patch is on — that patch removes the native card
+       focus indicator, so DS cards should match. Spec needs the #id prefix
+       to beat the (1,2,0) original focus rule. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
+      box-shadow: none !important;
+    }
+    /* Also kill the Game Cover Shine ::after animation/opacity under the same
+       flag — that pseudo paints over the card on focus and isn't controlled
+       by the Round Compat patch on its own. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus::after,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus::after,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover::after {
+      opacity: 0 !important;
+      animation: none !important;
+    }
+    #deck-shelves-home-root { z-index: 10 !important; }
+    /* Round Compat ON: hide the FocusRing entirely. Gated on the html-level
+       flag so the rule can reach the FocusRing's subtree (which sits outside
+       .deck-shelves-root). Hash kept in sync with classmap entry for
+       FocusRing — if a Steam release breaks this, update the class below. */
+    html[data-ds-theme-focus-round-compat="true"] ._1wPplsegQqCoe06wXPhzKT {
+      animation: none !important;
+      border: none !important;
+      outline: none !important;
+      opacity: 0 !important;
+    }
+    /* Round Compat OFF: the FocusRing carries TWO visual layers — a static
+       white border (Steam native) and a themed colored outline (animated
+       blinker). Suppress the border AND switch box-sizing to border-box so
+       the ring's box stays the exact card size on all four sides (default
+       content-box made the border push the right/bottom edges 4px out).
+       Then outline-offset: 1px places the colored outline 1px outside the
+       card edge symmetrically. Scoped via :has() to apply only when a
+       ds-card is the focused element, leaving other Steam screens alone. */
+    html:has(.ds-card.gpfocus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT,
+    html:has(.ds-card:focus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT {
+      box-sizing: border-box !important;
+      border: 0 none transparent !important;
+      margin: 0 !important;
+      outline-offset: 1px !important;
+    }
+    /* Layout-only ::after: matches the card's art height/radius so any
+       theme overlay (e.g. Game Cover Shine focus animation) targets the
+       right region. Opacity is NOT forced here — the cover-shine theme
+       relies on opacity 0 by default + opacity 0.8 on :focus to run its
+       shine animation. Forcing opacity 1 made the shine gradient static-
+       visible on every card (purple stripe at bottom-right). */
     #deck-shelves-home-root .ds-card::after {
       content: '' !important;
       position: absolute !important;
@@ -424,8 +844,6 @@ function buildStylesheet(): string {
       height: var(--ds-card-art-h, 100%) !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       pointer-events: none !important;
-      z-index: 4 !important;
-      opacity: 1 !important;
       display: inline !important;
     }
     #deck-shelves-home-root .ds-card.gpfocus::after,
@@ -476,54 +894,60 @@ function buildStylesheet(): string {
       padding-top: 0 !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius});
       overflow: hidden;
+      filter: brightness(var(--ds-card-dim, 0.9)) !important;
+      transition: filter 0.4s cubic-bezier(0, 0.73, 0.48, 1);
     }
     .ds-card-art img {
       border-radius: var(--ds-card-radius, ${cachedCardRadius});
     }
-    .ds-card.gpfocus .ds-card-art,
-    .ds-card:focus .ds-card-art,
-    .ds-card:hover .ds-card-art {
+    #deck-shelves-home-root .ds-card.gpfocus .ds-card-art,
+    #deck-shelves-home-root .ds-card:focus .ds-card-art,
+    #deck-shelves-home-root .ds-card:hover .ds-card-art {
       z-index: 2;
+      filter: brightness(1) !important;
     }
 
-    /* TiltedHome (Renaissance) compat — universal: when a CSS Loader theme
-       sets --ren-tilt-angle on :root, our cards mirror the same skew the
-       theme applies to native recents tiles. var() without a fallback on
-       the angle means the whole transform is invalid (and dropped) when no
-       theme defines it — zero GPU/composite cost in the no-theme case.
+    /* TiltedHome (Renaissance) compat — universal: mirrors whatever transform
+       the theme applies to native recents tiles. Two methods are supported:
+       - skew  (default): parallelogram tilt via skewX(--ren-tilt-angle)
+       - rotate3d: perspective 3-D tilt via rotateY(--ren-tilt-angle)
+       --ren-tilt-method controls which branch fires; when neither var is
+       defined the whole transform is invalid and dropped — zero cost in the
+       no-theme case. Gated by @supports to avoid syntax errors on older
+       WebKit that doesn't understand custom-property-in-transform. */
 
-       The skew is on .ds-card (the visual card wrapper) so the entire card
-       structure tilts as a parallelogram — image, label, focus glow, and
-       blank-card variants (MoreCard, RefreshCard) all participate. .ds-card
-       already has overflow:hidden so children clip to the skewed bounds,
-       matching native TiltedHome. Focus adds scale(1.02) only — native
-       TiltedHome's focused-tile rule. */
-    .ds-card {
-      transform: skew(var(--ren-tilt-angle));
+    /* method: skew (default when --ren-tilt-method is unset or "skew") */
+    :root:not([style*="--ren-tilt-method"]) .ds-card,
+    :root[style*="--ren-tilt-method: skew"] .ds-card {
+      transform: skew(var(--ren-tilt-angle, 0deg));
     }
-    /* Focus state — covers gpfocus (gamepad focus on the card itself),
-       is-selected (Steam's selected-tile marker), and the live :focus /
-       :hover pseudos. NOTE: .gpfocuswithin is intentionally excluded — it
-       fires on EVERY card whenever a descendant of the row has focus, so
-       including it would scale every card and erase the focus indicator.
+    :root:not([style*="--ren-tilt-method"]) .ds-card.gpfocus,
+    :root:not([style*="--ren-tilt-method"]) .ds-card.is-selected,
+    :root:not([style*="--ren-tilt-method"]) .ds-card:focus,
+    :root:not([style*="--ren-tilt-method"]) .ds-card:hover,
+    :root[style*="--ren-tilt-method: skew"] .ds-card.gpfocus,
+    :root[style*="--ren-tilt-method: skew"] .ds-card.is-selected,
+    :root[style*="--ren-tilt-method: skew"] .ds-card:focus,
+    :root[style*="--ren-tilt-method: skew"] .ds-card:hover {
+      transform: skew(var(--ren-tilt-angle, 0deg)) scale(1.04) translateZ(15px) !important;
+    }
 
-       Steam also injects a higher-specificity rule
-       (.BasicUI .NATIVE-CLASS.Focusable:focus { transform: translateZ(15px) })
-       that strips our skew on the truly-focused card. !important wins the
-       cascade; translateZ(15px) preserves the native depth lift so the
-       focused card still floats above its neighbors. */
-    .ds-card.gpfocus,
-    .ds-card.is-selected,
-    .ds-card:focus,
-    .ds-card:hover {
-      transform: skew(var(--ren-tilt-angle)) scale(1.02) translateZ(15px) !important;
+    /* method: rotate3d — perspective tilt (Renaissance "3D" variant) */
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card {
+      transform: perspective(600px) rotateY(var(--ren-tilt-angle, 0deg));
     }
-    /* No row-gap compensation: native TiltedHome accepts visual overlap of
-       adjacent skewed cards as part of the aesthetic, and trying to widen
-       the gap to fully separate parallelograms leaves obvious empty space
-       between focused cards (the focus glow then has to travel through
-       that gap). Match native: cards skewed, gap stays at the row's
-       configured value, parallelograms gently overlap. */
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card.gpfocus,
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card.is-selected,
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card:focus,
+    :root[style*="--ren-tilt-method: rotate3d"] .ds-card:hover {
+      transform: perspective(600px) rotateY(var(--ren-tilt-angle, 0deg)) scale(1.04) translateZ(15px) !important;
+    }
+
+    /* NOTE: .gpfocuswithin intentionally excluded — fires on EVERY card when
+       any descendant has focus, erasing the focused-card indicator. Steam also
+       injects a higher-specificity rule that strips our transform on the truly-
+       focused card; !important above wins the cascade while translateZ(15px)
+       preserves the native depth lift. */
 
     .ds-card .ds-card-label {
       opacity: 0;
@@ -561,25 +985,45 @@ function buildStylesheet(): string {
     body.ds-hide-non-steam-badges .nonsteam-badge,
     .ds-card--hide-non-steam-badge .nonsteam-badge { display: none !important; }
     .ds-new-badge-band {
-      position: absolute; top: -2px; left: 0; right: 0;
+      position: absolute; top: 0px; left: 0; right: 0;
       height: 24px;
       display: flex; justify-content: center; align-items: flex-start;
       pointer-events: none;
-      z-index: 20;
+      z-index: 21;
+    }
+    /* Badge host: 2px above the card top by default, rises to 12px on
+       focus/hover. */
+    .ds-card .ds-card-badge-host {
+      top: -2px;
+      height: calc(100% + 2px);
+      transition: top 0.15s ease, height 0.15s ease;
+    }
+    .ds-card.gpfocus .ds-card-badge-host,
+    .ds-card:focus .ds-card-badge-host,
+    .ds-card:hover .ds-card-badge-host,
+    .ds-card.is-selected .ds-card-badge-host {
+      top: -10px;
+      height: calc(100% + 10px);
     }
     .ds-new-badge {
-      /* Mirrors the native SteamOS "Novo" badge color resolution:
+      /* Mirrors the native SteamOS "New" badge color resolution:
          themes may override --ds-new-badge-bg directly; otherwise the
          badge falls back to --colored-toggles-main-color (the same var
          the native badge uses, set by themes like Colored Toggles), and
-         finally to the Steam-default blue when no theme is active. */
+         finally to the Steam-default blue when no theme is active.
+         Round / More Round themes set --round-radius-size on :root —
+         badges (new + discount, both share this class) inherit it
+         unconditionally so the round always applies regardless of
+         force / promoted-slot state. */
       background: var(--ds-new-badge-bg, var(--colored-toggles-main-color, rgb(26, 159, 255)));
       color: var(--ds-new-badge-color, #fff);
       font: 700 10px/20px "Motiva Sans", Helvetica, Arial, sans-serif;
       letter-spacing: 0.5px; text-transform: uppercase;
-      padding: 2px 12px; border-radius: var(--ds-new-badge-radius, 0px);
+      padding: 2px 12px;
+      border-radius: var(--ds-new-badge-radius, var(--round-radius-size, 0px));
       box-shadow: rgb(37, 53, 83) 0 1px 8px 0;
       pointer-events: none;
+      z-index: 21;
     }
     .ds-shelf-title {
       color: var(--ds-native-heading-color, inherit);
@@ -638,20 +1082,234 @@ function buildStylesheet(): string {
       word-break: break-word;
     }
     .ds-card.ds-card--featured .ds-card-art img { object-position: center top; }
+
+    /* ── Per-shelf hero art ─────────────────────────────────────────────────
+       Hero images rendered by PerShelfHero (in DeckRow when heroEnabled=true).
+       Subtle zoom animation mirrors the 25s native Steam hero zoom. */
+    @keyframes ds-per-shelf-hero-zoom {
+      from { transform: scale(1); }
+      to   { transform: scale(var(--ds-hero-zoom-scale, 1.06)); }
+    }
+    .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
+      animation: ds-per-shelf-hero-zoom var(--ds-hero-zoom-duration, 25s) var(--ds-hero-zoom-ease, ease) infinite alternate;
+      transition: opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83),
+                  filter 0.35s ease;
+      /* Respect theme overrides via CSS variables for fit/position/filter */
+      object-fit: var(--ds-hero-fit, cover);
+      object-position: var(--ds-hero-position, 50% 18%);
+      filter: var(--ds-hero-appearance-filter, none);
+      mask-image: var(--ds-hero-mask, none);
+      -webkit-mask-image: var(--ds-hero-mask, none);
+    }
+
+    /* Global promoted hero background container — themes can override the
+       mask via --ds-hero-mask on :root. Fallback mirrors the native linear
+       bottom fade when no theme provides a mask. */
+    .ds-hero-background {
+      mask-image: var(--ds-hero-mask, linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px)));
+      -webkit-mask-image: var(--ds-hero-mask, linear-gradient(rgb(0,0,0) 90%, rgba(0,0,0,0) calc(100% - 5px)));
+    }
+
+    /* Obsidian without ArtHero: apply grayscale+contrast to per-shelf hero
+       images so they match the first shelf. When ArtHero is also active
+       (data-ds-hero-label set on .deck-shelves-root), the first shelf shows
+       colour — so skip grayscale on all per-shelf heroes to match. */
+    [data-ds-obsidian="1"] .deck-shelves-root:not([data-ds-hero-label="true"]) .ds-shelf[data-ds-hero-enabled="true"] .ds-per-shelf-hero-img {
+      filter: grayscale(1) contrast(1.1);
+    }
+
+    /* Theme inheritance for promoted (recents-slot) shelves. The slot
+       attribute scopes these rules to the first shelf (hideRecents) or to
+       every shelf (force on). */
+
+    /* Carousel transparency: only the portrait artwork dims. Label keeps
+       its own opacity:0 default (visible on focus); badge band stays at 1
+       because it's not in the selector. Specificity bump (#deck-shelves-
+       home-root) outranks the carousel theme's gpfocuswithin rule. */
+    #deck-shelves-home-root .ds-card:not(.gpfocus):not(.is-selected):not(:hover):not(:focus) .ds-card-art {
+      opacity: var(--carousel-opacity, 1) !important;
+      transition: opacity 0.2s ease-in-out;
+    }
+    #deck-shelves-home-root .ds-card.gpfocus .ds-card-art,
+    #deck-shelves-home-root .ds-card:focus .ds-card-art,
+    #deck-shelves-home-root .ds-card:hover .ds-card-art,
+    #deck-shelves-home-root .ds-card.is-selected .ds-card-art {
+      opacity: 1 !important;
+    }
+    .ds-card { opacity: 1 !important; }
+
+    /* First DS shelf below native (hideRecents off): 150px upward bleed
+       with a 6-stop top fade that lands opaque at the shelf top. Bottom
+       fade is extended to 132px / 5 stops for a smoother blend into the
+       next shelf. */
+    .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -150px;
+      --ds-hero-h: calc(100% + 150px);
+      --ds-hero-mask: linear-gradient(to bottom,
+        transparent 0,
+        rgba(0,0,0,0.08) 30px,
+        rgba(0,0,0,0.25) 60px,
+        rgba(0,0,0,0.5) 90px,
+        rgba(0,0,0,0.78) 120px,
+        black 150px,
+        black calc(100% - 140px),
+        rgba(0,0,0,0.78) calc(100% - 105px),
+        rgba(0,0,0,0.45) calc(100% - 70px),
+        rgba(0,0,0,0.2) calc(100% - 35px),
+        transparent calc(100% - 8px));
+    }
+
+    /* Second DS shelf top bleed — tuned based on what the first is.
+       Default inline -140 stays for force/other cases. */
+
+    /* No force + native visible: larger bleed for the second (170). */
+    .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) + .ds-shelf [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -170px;
+      --ds-hero-h: calc(100% + 170px);
+    }
+
+    /* No force + recents hidden: smaller bleed for the second (110). */
+    .deck-shelves-root > .ds-shelf[data-ds-recents-slot="true"]:first-child + .ds-shelf:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -110px;
+      --ds-hero-h: calc(100% + 110px);
+    }
+
+    /* No Hero Gradient — strip mask/zoom on promoted heroes. */
+    [data-ds-theme-no-hero-gradient="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-per-shelf-hero-img {
+      mask-image: none !important;
+      -webkit-mask-image: none !important;
+      filter: none !important;
+      opacity: 1 !important;
+      animation: none !important;
+    }
+
+    /* Hero Fullscreen — promoted shelves take the full viewport. Hero
+       vars set inline in PerShelfHero are overridden here via CSS. */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"] .ds-shelf[data-ds-recents-slot="true"] {
+      height: 100vh !important;
+      --ds-hero-top: 0px;
+      --ds-hero-h: 100vh;
+    }
+    /* First DS shelf pulled UP 56px only when recents are hidden (no
+       native content above) — covers the transparent header band without
+       overlapping native when it stays visible. */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
+      margin-top: -56px;
+    }
+    /* FORCE: clean page-per-shelf (no margin, no hero fade). */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf {
+      margin-bottom: 0 !important;
+    }
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf[data-ds-recents-slot="true"] [data-ds-per-shelf-hero="true"] {
+      mask-image: none !important;
+      -webkit-mask-image: none !important;
+    }
+
+    /* No Home Text — only engages under force (per user spec). */
+    [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card-label,
+    [data-ds-force-themes="true"][data-ds-theme-no-home-text="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-promoted-hero-label {
+      visibility: hidden !important;
+    }
   `;
 }
 
 // Single global timer for ensureStyles — shared by all DeckRow instances.
 let globalStyleRefCount = 0;
 let globalStyleTimer: ReturnType<typeof setInterval> | null = null;
+let globalStyleTimerPeriod: number = STYLES_POLL_MS;
 let globalResizeHandler: (() => void) | null = null;
+
+// Re-arm the steady poll at the appropriate cadence. Fast (3s) while featured
+// dims aren't cached yet; slow (30s) once they are — most theme changes also
+// fire resize/hashchange, which immediately re-invoke ensureStyles regardless.
+function rearmStyleTimer() {
+  const wantPeriod = cachedNativeDims?.featuredWidth ? STYLES_POLL_MS_IDLE : STYLES_POLL_MS;
+  if (globalStyleTimer && globalStyleTimerPeriod === wantPeriod) return;
+  if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
+  globalStyleTimerPeriod = wantPeriod;
+  globalStyleTimer = setInterval(() => {
+    ensureStyles();
+    rearmStyleTimer();
+  }, wantPeriod);
+}
+
+// Track which windows we've attached the resize handler to so we can detach
+// them all on stop. The plugin code runs in SharedJSContext but the visual
+// viewport that changes on display switch (1440p external → 800p internal)
+// is the BigPicture window — resize events fire there, not on SWC. Without
+// also listening on BigPic, `ensureStyles` only re-runs on the 30 s idle
+// poll, leaving cards at the old size for up to 30 s after the display swap.
+const resizeListenerWindows = new Set<Window>();
+// Independent viewport-fingerprint poll. Resize listeners on BigPic require
+// the SteamUIStore main window to be ready at `globalStylesStart` time, which
+// isn't guaranteed (DeckRow can mount before SteamUIStore exposes the main
+// window instance). A light 2 s fp poll catches display-resolution swaps
+// regardless of when the listener attached.
+let globalFpPollTimer: ReturnType<typeof setInterval> | null = null;
+let lastObservedFp: { vw: number; vh: number; dpr: number } | null = null;
+let globalShelfRefreshUnsub: (() => void) | null = null;
 
 export function globalStylesStart() {
   if (++globalStyleRefCount === 1) {
     ensureStyles();
-    globalStyleTimer = setInterval(ensureStyles, STYLES_POLL_MS);
+    rearmStyleTimer();
     globalResizeHandler = () => ensureStyles();
-    window.addEventListener('resize', globalResizeHandler);
+    const attach = (w: any) => {
+      if (!w || resizeListenerWindows.has(w)) return;
+      try { w.addEventListener('resize', globalResizeHandler!); resizeListenerWindows.add(w); } catch {}
+    };
+    attach(window);
+    // Retry the BigPic attach for a few seconds — SteamUIStore.WindowStore may
+    // not yet expose GamepadUIMainWindowInstance when this effect first runs.
+    const tryAttachBig = () => {
+      try { attach((globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch {}
+    };
+    tryAttachBig();
+    for (const d of [500, 1500, 3000, 6000]) setTimeout(tryAttachBig, d);
+    // Independent viewport fingerprint poll — catches resolution swaps even
+    // if the resize event never fires (e.g. attach to BigPic failed silently).
+    lastObservedFp = viewportFingerprint();
+    globalFpPollTimer = setInterval(() => {
+      try {
+        const fp = viewportFingerprint();
+        if (fp.vw < 100 || fp.vh < 100) return;
+        if (!lastObservedFp ||
+            fp.vw !== lastObservedFp.vw ||
+            fp.vh !== lastObservedFp.vh ||
+            Math.abs(fp.dpr - (lastObservedFp.dpr ?? 1)) > 0.05) {
+          lastObservedFp = fp;
+          // 1) If we've already measured this exact viewport in a prior
+          //    session, restore those dims immediately — cards re-size before
+          //    any measurement attempt.
+          const stored = lookupPersistedForFp(fp);
+          if (stored) {
+            cachedNativeDims = stored;
+            cachedDimsFp = fp;
+            pendingDims = null;
+            pendingDimsCount = 0;
+            // Push the cached dims into CSS variables NOW — `ensureStyles`
+            // below only updates them when a new measurement is accepted in
+            // the same tick. With recents hidden, that measurement returns
+            // null, so without this manual propagation the cards stay at the
+            // previous viewport's dims even though the cache was updated.
+            applyCachedDimsToCssVars();
+            debouncedNotifyDims(stored);
+          } else {
+            // First time at this viewport: clear so ensureStyles measures fresh.
+            cachedNativeDims = null;
+            cachedDimsFp = null;
+            pendingDims = null;
+            pendingDimsCount = 0;
+          }
+          // Skip the 2-poll stability gate on the next measurement — a real
+          // viewport swap is a legit change. Retry 500 ms later in case Steam
+          // is still re-laying out under the new viewport at the first call.
+          acceptNextMeasurementImmediately = true;
+          ensureStyles();
+          setTimeout(() => { try { acceptNextMeasurementImmediately = true; ensureStyles(); } catch {} }, 500);
+        }
+      } catch {}
+    }, 2000);
     // Short burst of early polls to catch native dims as soon as Steam's home
     // renders its recents — otherwise we wait a full STYLES_POLL_MS (3s) for
     // the first chance, which visibly delays the featured card sizing.
@@ -663,6 +1321,11 @@ export function globalStylesStart() {
         ensureStyles();
       }, d);
     }
+    // Piggy-back on the shelf-refresh emitter — every refresh cycle (30 s
+    // fallback + Steam app/collection change events) re-runs measurement.
+    // Pairs well with `discoverViaBriefUnhide`, which makes measurement
+    // succeed even when hideRecents leaves no measurable native portraits.
+    globalShelfRefreshUnsub = subscribeShelfRefresh(() => { try { ensureStyles(); } catch {} });
   }
 }
 
@@ -670,7 +1333,16 @@ export function globalStylesStop() {
   if (--globalStyleRefCount <= 0) {
     globalStyleRefCount = 0;
     if (globalStyleTimer) { clearInterval(globalStyleTimer); globalStyleTimer = null; }
-    if (globalResizeHandler) { window.removeEventListener('resize', globalResizeHandler); globalResizeHandler = null; }
+    globalStyleTimerPeriod = STYLES_POLL_MS;
+    if (globalFpPollTimer) { clearInterval(globalFpPollTimer); globalFpPollTimer = null; }
+    if (globalShelfRefreshUnsub) { try { globalShelfRefreshUnsub(); } catch {} globalShelfRefreshUnsub = null; }
+    if (globalResizeHandler) {
+      for (const w of resizeListenerWindows) {
+        try { w.removeEventListener('resize', globalResizeHandler); } catch {}
+      }
+      resizeListenerWindows.clear();
+      globalResizeHandler = null;
+    }
   }
 }
 
