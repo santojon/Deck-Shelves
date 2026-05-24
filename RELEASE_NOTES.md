@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-05-24
+
 ### Added
 
 - **Hero art behind your shelves (#41).** Each shelf (regular or smart) has an "Enable hero art" toggle in the edit modal's Visual tab — turn it on and the focused game's artwork appears behind that shelf, following it wherever it sits. A new global toggle in the QAM (Visual section) turns hero art on for *every* shelf at once.

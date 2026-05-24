@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-05-24
+
 ### Added
 
 - **Per-shelf hero art (#41).** New `heroEnabled?: boolean` on `ShelfSchema` and `SmartShelfSchema`. When on, `PerShelfHero` renders the focused card's background art *inside* that `.ds-shelf` (`position: absolute`), so the hero follows the shelf instead of being anchored to the top of the page. The edit modal's Visual tab exposes the per-shelf toggle.
