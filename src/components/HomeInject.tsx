@@ -1005,6 +1005,27 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       if (on) root.setAttribute(attr, 'true');
       else root.removeAttribute(attr);
     };
+    // Mirror a flag onto <html> of every reachable Steam document. Needed
+    // when a rule must target an element OUTSIDE .deck-shelves-root (e.g.
+    // the native FocusRing overlay, which lives in its own subtree).
+    const setHtmlFlag = (attr: string, on: boolean) => {
+      try {
+        const docs: Document[] = [];
+        const seen = new Set<Document>();
+        const add = (d: Document | null | undefined) => {
+          if (!d || seen.has(d)) return;
+          seen.add(d);
+          docs.push(d);
+        };
+        add(document);
+        add(getPreferredSteamDocument());
+        for (const d of getAllSteamDocuments()) add(d);
+        for (const d of docs) {
+          if (on) d.documentElement.setAttribute(attr, 'true');
+          else d.documentElement.removeAttribute(attr);
+        }
+      } catch {}
+    };
     const apply = () => {
       try {
         setFlag('data-ds-hero-label', isArtHeroActive());
@@ -1013,7 +1034,12 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
         setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
-        setFlag('data-ds-theme-focus-round-compat', isFocusRoundCompatActive());
+        const roundCompat = isFocusRoundCompatActive();
+        setFlag('data-ds-theme-focus-round-compat', roundCompat);
+        // Also mirror to <html> so the static FocusRing suppression rule
+        // in buildStylesheet() can reach the FocusRing element (which sits
+        // outside .deck-shelves-root in a separate React overlay subtree).
+        setHtmlFlag('data-ds-theme-focus-round-compat', roundCompat);
         // Force-themes flag — gates theme rules that should only engage
         // under force (e.g. No Home Text per user spec).
         setFlag('data-ds-force-themes', forceCssLoaderThemes);
@@ -1053,6 +1079,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         root.removeAttribute('data-ds-force-themes');
         root.removeAttribute('data-ds-recents-hidden');
       } catch {}
+      setHtmlFlag('data-ds-theme-focus-round-compat', false);
     };
   }, [mountEl, forceCssLoaderThemes, hideRecentsSetting]);
 

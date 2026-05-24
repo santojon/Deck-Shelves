@@ -1,8 +1,56 @@
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
-import { discoverNativeCardDimensions, type NativeCardDims } from "../../core/webpackCompat";
+import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
+import { discoverNativeCardDimensions, getRuntimeClassMap, type NativeCardDims } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
 import { subscribeShelfRefresh } from "../../core/shelfRefresh";
+import { isFocusRoundCompatActive } from "../../core/cssLoaderDetect";
 import { CARD_W, CARD_ART_H, CARD_GAP } from "./types";
+
+const FOCUS_RING_STYLE_ID = "deck-shelves-focus-ring-suppress";
+
+// Suppress the Steam native FocusRing overlay (separate DOM element with
+// its own animation/border) when the Focus Highlight Color > Round
+// Compatibility patch is on. The hash is resolved at runtime via the
+// classmap; CSS rule is injected in every Steam document so it reaches BP.
+function ensureFocusRingSuppress() {
+  try {
+    const active = isFocusRoundCompatActive();
+    const docs: Document[] = [];
+    const seen = new Set<Document>();
+    const add = (d: Document | null | undefined) => {
+      if (!d || seen.has(d)) return;
+      seen.add(d);
+      docs.push(d);
+    };
+    add(document);
+    add(getPreferredSteamDocument());
+    for (const d of getAllSteamDocuments()) add(d);
+
+    if (!active) {
+      for (const d of docs) {
+        const s = d.getElementById(FOCUS_RING_STYLE_ID);
+        if (s) s.remove();
+      }
+      return;
+    }
+
+    const map = getRuntimeClassMap(getPreferredSteamDocument() ?? document);
+    const ringClass = map?.nativeFocusRing;
+    if (!ringClass) return;
+
+    const cssText = `[class~="${ringClass}"]{animation:none !important;border:none !important;opacity:0 !important;}`;
+    for (const d of docs) {
+      let s = d.getElementById(FOCUS_RING_STYLE_ID) as HTMLStyleElement | null;
+      if (!s) {
+        s = d.createElement("style");
+        s.id = FOCUS_RING_STYLE_ID;
+        d.head.appendChild(s);
+      }
+      if (s.textContent !== cssText) s.textContent = cssText;
+    }
+  } catch (e) {
+    logInfo("HOME", "ensureFocusRingSuppress failed", String(e));
+  }
+}
 
 const STYLE_ID = "deck-shelves-row-style";
 
@@ -395,6 +443,9 @@ function ensureStyles() {
       pendingDims = null;
       pendingDimsCount = 0;
     }
+    // Runtime-hash-based focus ring suppression — injected/removed every
+    // ensureStyles tick so it tracks theme toggle + classmap availability.
+    ensureFocusRingSuppress();
     // Update CSS variables without removing/recreating the stylesheet to avoid style flicker
     const docs = [document, steamDoc];
     for (const doc of docs) {
@@ -735,12 +786,33 @@ function buildStylesheet(): string {
     }
     /* Suppress our focus drop shadow when the "Focus Highlight Color" theme's
        Round Compatibility patch is on — that patch removes the native card
-       focus indicator, so DS cards should match. The flag attribute sits on
-       .deck-shelves-root (inside #deck-shelves-home-root). */
-    .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus,
-    .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus,
-    .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
+       focus indicator, so DS cards should match. Spec needs the #id prefix
+       to beat the (1,2,0) original focus rule. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
       box-shadow: none !important;
+    }
+    /* Also kill the Game Cover Shine ::after animation/opacity under the same
+       flag — that pseudo paints over the card on focus and isn't controlled
+       by the Round Compat patch on its own. */
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:focus::after,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card.gpfocus::after,
+    #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover::after {
+      opacity: 0 !important;
+      animation: none !important;
+    }
+    /* Steam's native FocusRing element (separate React-rendered overlay
+       outside .ds-card) is what draws the visible focus border + animated
+       color the user reported. Gate the suppression on data-ds-theme-focus-
+       round-compat being set on <html> (HomeInject mirrors the flag to
+       documentElement so this rule can reach the FocusRing's subtree).
+       Hash kept in sync with Steam's classmap entry for FocusRing — if a
+       Steam release breaks this, update the class name below to match. */
+    html[data-ds-theme-focus-round-compat="true"] ._1wPplsegQqCoe06wXPhzKT {
+      animation: none !important;
+      border: none !important;
+      opacity: 0 !important;
     }
     /* Layout-only ::after: matches the card's art height/radius so any
        theme overlay (e.g. Game Cover Shine focus animation) targets the
@@ -758,7 +830,6 @@ function buildStylesheet(): string {
       height: var(--ds-card-art-h, 100%) !important;
       border-radius: var(--ds-card-radius, ${cachedCardRadius}) !important;
       pointer-events: none !important;
-      z-index: 4 !important;
       display: inline !important;
     }
     #deck-shelves-home-root .ds-card.gpfocus::after,
