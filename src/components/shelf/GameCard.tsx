@@ -252,18 +252,37 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // focus zoom transition.
   const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const [portalFocused, setPortalFocused] = useState(false);
+  const [overlayActive, setOverlayActive] = useState(false);
   useEffect(() => {
     if (!hasBadge) { setPortalRect(null); return; }
     const el = cardRef.current;
     if (!el) return;
+
+    // Detect when QAM / modal overlay is active: Steam toggles the
+    // `WindowFocus` class on <body> based on whether the Big Picture window
+    // has focus. When QAM (or any other Steam window) takes focus, the
+    // class is removed. Cheap to read and a stable signal — much lighter
+    // than scanning every element for backdrop-filter on each mutation.
+    const doc = el.ownerDocument;
+    const detectOverlay = (): boolean => {
+      try { return !doc.body.classList.contains('WindowFocus'); }
+      catch { return false; }
+    };
 
     const sync = () => {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) { setPortalRect(null); return; }
       setPortalRect({ left: r.left, top: r.top, width: r.width });
       setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
+      setOverlayActive(detectOverlay());
     };
     sync();
+
+    // Watch ONLY the body's class attribute (single element, no subtree) —
+    // Steam adds/removes `WindowFocus` here when focus moves between the
+    // BP window and other windows (QAM, main menu).
+    const bodyObs = new MutationObserver(() => setOverlayActive(detectOverlay()));
+    bodyObs.observe(doc.body, { attributes: true, attributeFilter: ['class'] });
 
     // Watch class changes (gpfocus add/remove) and focus/blur events
     const obs = new MutationObserver(sync);
@@ -278,7 +297,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       scrollTargets.push(p);
       p = p.parentElement;
     }
-    const doc = el.ownerDocument;
     const win = doc.defaultView ?? window;
     scrollTargets.push(win);
     for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
@@ -306,6 +324,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     return () => {
       obs.disconnect();
       focusObs.disconnect();
+      bodyObs.disconnect();
       stopRaf();
       el.removeEventListener('focus', sync, true);
       el.removeEventListener('blur', sync, true);
@@ -314,8 +333,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     };
   }, [hasBadge]);
 
-  // Build the badge content (used inside the portal).
-  const badgeContent = hasBadge && portalRect ? (
+  // Build the badge content (used inside the portal). Skip rendering while
+  // a QAM / modal overlay is active so the badge doesn't paint sharp on top
+  // of the blurred home.
+  const badgeContent = hasBadge && portalRect && !overlayActive ? (
     <div
       className="ds-card-badge-host ds-card-badge-host--portal"
       aria-hidden="true"
@@ -326,10 +347,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         top: portalFocused ? portalRect.top - 10 : portalRect.top - 2,
         height: 24,
         pointerEvents: 'none',
-        /* z:1000 sits above BasicUI (z:5) so the badge wins against the
-         * FocusRingRoot (z:10000 INSIDE BasicUI = z:5 globally), but stays
-         * below Steam overlays (FullModalOverlay z:1500, QAM panels
-         * z:6000-7001) so they cover the badge when active. */
         zIndex: 1000,
         isolation: 'isolate',
       }}
