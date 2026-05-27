@@ -1,4 +1,5 @@
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
+import { triggerShelfRefresh } from "./shelfRefresh";
 import {
   addShelfToSettings,
   deleteShelfFromSettings,
@@ -35,7 +36,7 @@ export function clearOnlineShelfCache(): void {
   ];
   try {
     for (const k of keys) (globalThis as any).localStorage?.removeItem?.(k);
-    (globalThis as any).window?.dispatchEvent?.(new CustomEvent("ds-shelf-refresh"));
+    triggerShelfRefresh();
   } catch {}
 }
 

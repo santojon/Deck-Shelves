@@ -9,7 +9,7 @@ import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards";
 import { showGameMenu, buildShelfContextMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
-import { subscribeShelfRefresh } from "../core/shelfRefresh";
+import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
@@ -100,10 +100,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // rapid-toggles sort or edits the filter while the previous fetch is
   // still pending).
   const resolveGenRef = useRef(0);
-  // Exposed so the in-row refresh card (smart shelves with a refresh interval)
-  // can re-trigger this shelf's resolve() without going through the global
-  // refresh emitter — only this shelf's appIds need to flip.
-  const resolveRef = useRef<() => void>(() => {});
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
@@ -166,7 +162,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
 
     // Initial load
     resolve();
-    resolveRef.current = resolve;
 
     // Subscribe to global refresh emitter (replaces per-shelf polling timer)
     const unsubRefresh = subscribeShelfRefresh(resolve);
@@ -198,7 +193,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         try { return [appid, await platform.getAppMeta(appid)]; }
         catch { return [appid, { appid, name: `App ${appid}` }]; }
       }));
-      if (!cancelled) setItems(new Map(results));
+      // Merge instead of replace: keeps the prior meta for any appid that
+      // survived the refresh visible during the brief gap before the new
+      // results arrive. Without this, the regular branch in `rowItems`
+      // strips cards whose meta name still matches `App \d+` (the synthetic
+      // fallback) while waiting — visible to the user as cards vanishing
+      // mid-refresh and only reappearing on scroll/reflow.
+      if (!cancelled) setItems((prev) => {
+        const next = new Map(prev);
+        for (const [id, meta] of results) next.set(id, meta);
+        return next;
+      });
     })();
     return () => { cancelled = true; };
   }, [platform, appIds?.join(","), metaVersion]);
@@ -400,7 +405,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
           } else {
             invalidateRandomSortCache(shelf.id);
           }
-          resolveRef.current();
+          // Single unified refresh path — same as the context-menu
+          // "Refresh cache" action. Triggers every subscribed shelf so
+          // online cache clears (which affect every online shelf at once)
+          // reload consistently across the home.
+          triggerShelfRefresh();
         },
       });
     }

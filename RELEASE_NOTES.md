@@ -15,6 +15,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **Refresh on online shelves now reloads the row visibly from every entry point.** The in-row Refresh card, the per-card menu, the per-shelf QAM menu and the shelf-manage page all clear the same caches and trigger the same row reload — no more "menu does nothing" / "card cards flicker out then back".
+- **Cards no longer vanish mid-refresh on online shelves.** Cards that survived a refresh stay visible while new metadata loads, instead of momentarily disappearing and reappearing on scroll.
 - **The per-card "Refresh" entry on online shelves now reads "Refresh cache" — and was already actually clearing the cache.** The label said "Refresh" but the underlying action was the same cache-clear used by the QAM shelf menu. The label now matches what the action does.
 - **Crash on shelves backed by a Filter source after a while.** Some filter results match games whose artwork all fall back to a placeholder; that path was hitting a React rendering error after some time and freezing the row. Fixed — the placeholder cards now render cleanly without ever tripping the error.
 

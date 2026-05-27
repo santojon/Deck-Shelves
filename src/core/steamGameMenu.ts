@@ -14,6 +14,7 @@ import { patchShelfInSettings } from "../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "./focusRestore";
 import { invalidateRandomSortCache } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
+import { triggerShelfRefresh } from "./shelfRefresh";
 import { clearOnlineShelfCache } from "./shelfActions";
 
 /**
@@ -640,7 +641,7 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
           if (isSmart || src?.type === "smart") invalidateSmartShelfCache(shelfId);
           else if (isOnline) clearOnlineShelfCache();
           else invalidateRandomSortCache(shelfId);
-          (globalThis as any).window?.dispatchEvent?.(new CustomEvent("ds-shelf-refresh"));
+          triggerShelfRefresh();
         } catch {}
       }),
     ] : []),

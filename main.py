@@ -4,10 +4,59 @@ import os
 import re
 import sqlite3
 import ssl
+import sys
 from subprocess import run as _sp_run
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional
+
+
+def _steam_install_candidates() -> List[str]:
+    """Candidate Steam install roots ordered by platform priority.
+
+    Each platform contributes the paths that exist in the wild — the
+    callers append the file-specific suffix (`config/htmlcache/Default/Cookies`,
+    `userdata`, etc.) and pick the first one that resolves. Adding
+    support for a new OS is a one-liner here; nothing else in this file
+    needs platform-conditional logic for path discovery.
+
+    Linux roots cover native Steam (`~/.local/share/Steam`,
+    `~/.steam/steam`) and the Flatpak sandbox layout (default on
+    Bazzite / ChimeraOS); both Flatpak variants are listed because the
+    flatpak version determines which path is populated.
+
+    Windows roots cover the standard installer paths under Program
+    Files and an `APPDATA`-based fallback for portable installs. The
+    cookie file lives under `config/htmlcache/Default/Cookies` on
+    Windows too, so the same suffix appended by callers applies.
+
+    macOS root is the standard Application Support directory; the
+    htmlcache subtree is laid out identically to Linux.
+    """
+    candidates: List[str] = []
+    if sys.platform.startswith("linux"):
+        candidates += [
+            os.path.expanduser("~/.local/share/Steam"),
+            os.path.expanduser("~/.steam/steam"),
+            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam"),
+            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/data/Steam"),
+        ]
+    elif sys.platform == "win32":
+        for env in ("ProgramFiles(x86)", "ProgramFiles", "ProgramW6432"):
+            base = os.environ.get(env)
+            if base:
+                candidates.append(os.path.join(base, "Steam"))
+        appdata = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if appdata:
+            candidates.append(os.path.join(appdata, "Steam"))
+    elif sys.platform == "darwin":
+        candidates.append(os.path.expanduser("~/Library/Application Support/Steam"))
+    # Always include the home-relative POSIX fallback as a final attempt
+    # so unconventional layouts still resolve when present.
+    fallback = os.path.expanduser("~/.local/share/Steam")
+    if fallback not in candidates:
+        candidates.append(fallback)
+    return candidates
 
 # SteamOS ships with an incomplete CA bundle; urllib fails SSL verification
 # for steam.* and steamcommunity.* URLs. Since we only call trusted
@@ -618,17 +667,12 @@ class Plugin:
         Chromium on Linux stores cookies with AES-128-CBC (v10 prefix),
         key derived via PBKDF2-SHA1 from b"peanuts" + salt b"saltysalt", 1 iteration.
         """
-        # Native Steam first; Flatpak Steam paths last so Bazzite / ChimeraOS
-        # / any distro shipping Steam through Flatpak still resolves the
-        # cookie store. The Flatpak sandbox rewrites $HOME under
-        # ~/.var/app/com.valvesoftware.Steam/, and both layout variants
-        # (`data/Steam` and `.local/share/Steam`) have been observed in the
-        # wild depending on the Flatpak version.
+        # Path discovery is centralised in `_steam_install_candidates()` so
+        # adding a new platform (Windows / macOS / new Flatpak variant) is a
+        # one-line change in that helper.
         cookie_paths = [
-            os.path.expanduser("~/.local/share/Steam/config/htmlcache/Default/Cookies"),
-            os.path.expanduser("~/.steam/steam/config/htmlcache/Default/Cookies"),
-            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam/config/htmlcache/Default/Cookies"),
-            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/data/Steam/config/htmlcache/Default/Cookies"),
+            os.path.join(root, "config", "htmlcache", "Default", "Cookies")
+            for root in _steam_install_candidates()
         ]
         for path in cookie_paths:
             if not os.path.exists(path):
@@ -670,12 +714,9 @@ class Plugin:
         (the lower 32 bits of SteamID64). SteamID64 = SteamID3 + 76561197960265728.
         No cookie or authentication needed — just a directory listing.
         """
-        # Same Flatpak fallback chain as `_get_steam_cookie` — first match wins.
+        # Same install-root list as `_get_steam_cookie` — first match wins.
         userdata_candidates = [
-            os.path.expanduser("~/.local/share/Steam/userdata"),
-            os.path.expanduser("~/.steam/steam/userdata"),
-            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata"),
-            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/data/Steam/userdata"),
+            os.path.join(root, "userdata") for root in _steam_install_candidates()
         ]
         try:
             userdata = next((p for p in userdata_candidates if os.path.isdir(p)), None)

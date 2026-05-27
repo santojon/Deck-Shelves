@@ -8,6 +8,7 @@ import { openManagedModal } from '../common/openManagedModal'
 import { clearOnlineShelfCache } from '../../../core/shelfActions'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
+import { triggerShelfRefresh } from '../../../core/shelfRefresh'
 
 function isOnlineSource(source: any): boolean {
   return source?.type === 'wishlist' || source?.type === 'store'
@@ -31,7 +32,7 @@ function refreshShelfCache(shelf: Shelf): void {
   } else {
     invalidateRandomSortCache(shelf.id)
   }
-  try { (globalThis as any).window?.dispatchEvent?.(new CustomEvent('ds-shelf-refresh')) } catch {}
+  try { triggerShelfRefresh() } catch {}
 }
 
 export function showDeleteConfirm(controller: SettingsController, shelf: Shelf) {
