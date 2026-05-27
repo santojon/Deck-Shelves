@@ -25,14 +25,12 @@ function isRandomOrSmart(shelf: Shelf): boolean {
 function refreshShelfCache(shelf: Shelf): void {
   if (isOnlineSource(shelf.source)) {
     clearOnlineShelfCache()
-    return
-  }
-  if ((shelf.source as any)?.type === 'smart') {
+  } else if ((shelf.source as any)?.type === 'smart') {
     invalidateSmartShelfCache(shelf.id)
   } else {
     invalidateRandomSortCache(shelf.id)
   }
-  try { triggerShelfRefresh() } catch {}
+  try { triggerShelfRefresh({ manual: true, shelfId: shelf.id }) } catch {}
 }
 
 export function showDeleteConfirm(controller: SettingsController, shelf: Shelf) {

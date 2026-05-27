@@ -70,7 +70,7 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
       invalidateRandomSortCache(shelf.id);
     }
     try {
-      triggerShelfRefresh();
+      triggerShelfRefresh({ manual: true, shelfId: shelf.id });
     } catch {}
     closeRoute();
   };

@@ -641,7 +641,7 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
           if (isSmart || src?.type === "smart") invalidateSmartShelfCache(shelfId);
           else if (isOnline) clearOnlineShelfCache();
           else invalidateRandomSortCache(shelfId);
-          triggerShelfRefresh();
+          triggerShelfRefresh({ manual: true, shelfId });
         } catch {}
       }),
     ] : []),
