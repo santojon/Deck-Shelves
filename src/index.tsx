@@ -15,8 +15,9 @@ import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
-import { checkForUpdate } from "./core/updateNotifier";
-import { getCurrentSettings } from "./store/settingsStore";
+import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
+import { isOnline } from "./core/connectivity";
+import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
 import { toaster } from "./shims/decky-api";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
@@ -139,23 +140,75 @@ export default definePlugin((serverAPI?: any) => {
   // toggle (default ON). The 24h cache lives in localStorage so subsequent
   // boots short-circuit; failures are silent. On a positive result, fire a
   // toast so the user sees the notification even without opening QAM.
-  try {
-    const s = getCurrentSettings();
-    if (s?.updateNotifyEnabled !== false) {
-      void checkForUpdate().then((r) => {
-        if (
-          r.hasUpdate &&
-          r.latestVersion &&
-          r.latestVersion !== s?.updateNotifyDismissedVersion
-        ) {
-          toaster.toast({
-            title: i18next.t("pluginName"),
-            body: i18next.t("update_available", { version: r.latestVersion }),
-          });
-        }
-      }).catch(() => {});
+  //
+  // `runUpdateProbe()` is the single entry point used by every trigger
+  // (boot, toggle false→true, QAM banner re-mount). It honours the
+  // toggle, invalidates the 24h cache when the device is online (so the
+  // probe always reflects the latest release rather than yesterday's
+  // snapshot — covers the post-self-upgrade case where the cached
+  // `latestVersion` is older than the running build), then runs the
+  // network probe and toasts on a fresh release the user hasn't already
+  // dismissed. Offline → cache reused as-is so the boot path stays
+  // silent on flaky links.
+  const runUpdateProbe = async (reason: string): Promise<void> => {
+    try {
+      (globalThis as any).__dsUpdateProbe = { reason, at: Date.now(), step: 'start' };
+      const s = getCurrentSettings();
+      (globalThis as any).__dsUpdateProbe.step = 'settings';
+      (globalThis as any).__dsUpdateProbe.settingsLoaded = !!s;
+      (globalThis as any).__dsUpdateProbe.notifyEnabled = s?.updateNotifyEnabled;
+      if (s?.updateNotifyEnabled === false) {
+        (globalThis as any).__dsUpdateProbe.step = 'skipped-toggle-off';
+        return;
+      }
+      try {
+        const online = await isOnline();
+        (globalThis as any).__dsUpdateProbe.online = online;
+        if (online) __resetUpdateCheckCache();
+      } catch (e) { (globalThis as any).__dsUpdateProbe.onlineErr = String(e); }
+      (globalThis as any).__dsUpdateProbe.step = 'checking';
+      const r = await checkForUpdate();
+      (globalThis as any).__dsUpdateProbe.result = { hasUpdate: r.hasUpdate, latest: r.latestVersion, current: r.currentVersion };
+      if (
+        r.hasUpdate &&
+        r.latestVersion &&
+        r.latestVersion !== s?.updateNotifyDismissedVersion
+      ) {
+        (globalThis as any).__dsUpdateProbe.step = 'firing-toast';
+        toaster.toast({
+          title: i18next.t("pluginName"),
+          body: i18next.t("update_available", { version: r.latestVersion }),
+        });
+        (globalThis as any).__dsUpdateProbe.step = 'toast-fired';
+      } else {
+        (globalThis as any).__dsUpdateProbe.step = 'no-update-or-dismissed';
+        (globalThis as any).__dsUpdateProbe.dismissed = s?.updateNotifyDismissedVersion ?? null;
+      }
+    } catch (e) {
+      (globalThis as any).__dsUpdateProbe = (globalThis as any).__dsUpdateProbe || {};
+      (globalThis as any).__dsUpdateProbe.err = String(e);
     }
-  } catch {}
+  };
+  // Defer the boot probe so Steam's network stack + `refreshSettings()`
+  // have time to come up — without this, `isOnline()` often returns false
+  // on a cold boot (DNS not ready yet) and the cache invalidation step is
+  // skipped, leaving a stale cached `latestVersion` to suppress the toast
+  // for the rest of the 24h cache window.
+  (globalThis as any).__dsUpdateProbeScheduled = Date.now();
+  setTimeout(() => { void runUpdateProbe('boot'); }, 3000);
+
+  // Re-probe whenever the user flips the notify toggle OFF → ON in the
+  // QAM. `subscribeSettings` fires once immediately with the current
+  // value (consumed to seed `lastToggle`), then on every settings
+  // mutation; we trigger only on the upward edge so flipping OFF doesn't
+  // spam toasts, and flipping it ON re-runs the same online-first probe
+  // the boot path uses.
+  let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
+  const unsubUpdateNotify = subscribeSettings((s) => {
+    const now = s?.updateNotifyEnabled !== false;
+    if (!lastToggle && now) void runUpdateProbe('toggle-on');
+    lastToggle = now;
+  });
 
   // Log system environment for easier support debugging
   try {
@@ -195,6 +248,7 @@ export default definePlugin((serverAPI?: any) => {
         uninstallRefresh();
         uninstallSystemEvents();
         uninstallPluginApi();
+        unsubUpdateNotify();
       } catch (error) {
         logError("RUNTIME", "failed to remove patch", String(error));
       }

@@ -119,7 +119,15 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
     } catch {}
   }
   const cached = readCache();
-  if (cached && now - cached.ts < CACHE_TTL_MS) {
+  // Auto-invalidate when the cached `latestVersion` is older than what we're
+  // currently running — sign that the user upgraded the plugin locally
+  // since the cache was last written. Without this, a stale cache (e.g.
+  // recorded at "no update" right before the user upgraded) keeps reporting
+  // `hasUpdate=false` for the full 24h window even after a newer release
+  // has been published.
+  const current = (pkg as any).version ?? "0.0.0";
+  const cacheStaleVsLocal = !!(cached?.latestVersion && compareSemver(current, cached.latestVersion) > 0);
+  if (cached && now - cached.ts < CACHE_TTL_MS && !cacheStaleVsLocal) {
     return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
   }
   if (inFlight) return inFlight;

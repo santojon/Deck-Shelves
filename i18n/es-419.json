@@ -326,6 +326,7 @@
   "hero_enabled_desc": "Muestra una imagen hero detrás de este estante al enfocar una carta.",
   "hero_enabled_label": "Activar hero art",
   "hide_compat_icons": "Ocultar iconos de compatibilidad",
+  "hide_discount_badge": "Ocultar insignia \"descuento\"",
   "hide_from_shelf": "Ocultar del estante",
   "hide_game_name": "Ocultar nombre del juego",
   "hide_game_names": "Ocultar nombres de los juegos",

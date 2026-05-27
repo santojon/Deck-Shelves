@@ -21,6 +21,7 @@ export type EditableShelfState = {
   manualOrder: number[]
   hideStatusLine: boolean
   hideNewBadge: boolean
+  hideDiscountBadge: boolean
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
   hideShelfTitle: boolean

@@ -654,6 +654,7 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
     item("ds-d-names",     checked(!!shelf.hideGameNames,     lbl("hide_game_name",      "Hide game names")),     () => toggleFlag("hideGameNames")),
     item("ds-d-status",    checked(!!shelf.hideStatusLine,    lbl("hide_status_line",    "Hide status line")),    () => toggleFlag("hideStatusLine")),
     item("ds-d-badge",     checked(!!shelf.hideNewBadge,      lbl("hide_new_badge",      "Hide new badge")),      () => toggleFlag("hideNewBadge")),
+    item("ds-d-discount",  checked(!!shelf.hideDiscountBadge, lbl("hide_discount_badge", "Hide discount badge")), () => toggleFlag("hideDiscountBadge")),
     item("ds-d-compat",    checked(!!shelf.hideCompatIcons,   lbl("hide_compat_icons",   "Hide compat icons")),   () => toggleFlag("hideCompatIcons")),
     item("ds-d-nsbadge",   checked(!!shelf.hideNonSteamBadge, lbl("hide_non_steam_badge","Hide non-Steam badge")),() => toggleFlag("hideNonSteamBadge")),
     item("ds-d-install",   checked(!!shelf.hideInstallIndicator, lbl("hide_install_indicator","Hide install indicator")), () => toggleFlag("hideInstallIndicator")),

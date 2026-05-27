@@ -355,6 +355,25 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     else setVisible(false);
   }, []);
 
+  // Per-slot loaded state: gates the <img> opacity AND the shimmer overlay
+  // so a broken / still-loading image never paints (placeholder is fully
+  // transparent of the exact hero art dimensions, with a subtle shimmer
+  // sweep on top — same visual cue the game cards use during their own
+  // image loads).
+  //
+  // Tracking by URL (not boolean) is required: when `slotA` changes (focus
+  // → new game), React updates the `<img>` src prop in the SAME render
+  // pass that resets the boolean — but the browser keeps the old image
+  // painted until the new one decodes, which is a frame where the prior
+  // loaded=true would have left opacity at 1 and shown the previous image
+  // as if it were the current one. By deriving `slotALoaded` from
+  // `loadedSrcA === slotA`, the flip to "not loaded" is synchronous with
+  // the src change — no stale visible frame.
+  const [loadedSrcA, setLoadedSrcA] = useState<string | null>(null);
+  const [loadedSrcB, setLoadedSrcB] = useState<string | null>(null);
+  const slotALoaded = !!slotA && loadedSrcA === slotA;
+  const slotBLoaded = !!slotB && loadedSrcB === slotB;
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -564,7 +583,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // Full-viewport-width also satisfies "image spans 100% of the viewport".
       left: 0, right: 0,
       zIndex: -1, pointerEvents: 'none', overflow: 'hidden',
-      opacity: visible ? 1 : 0,
+      // Hide the entire hero wrapper until at least one slot has decoded
+      // its image — matches the "hero disabled" visual state instead of
+      // showing a dark fill / shimmer placeholder while loading.
+      opacity: visible && (slotALoaded || slotBLoaded) ? 1 : 0,
       transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
       // OUR linear mask stays on the root — it carries the inter-shelf
       // overlap+fade (each hero bleeds `topBleed`px up over the shelf above
@@ -583,14 +605,25 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotA} onError={onError('A')}
-              className={`ds-per-shelf-hero-img${nativeHeroImgClass ? ' ' + nativeHeroImgClass : ''}`}
+              onLoad={(e) => {
+                // Only mark as loaded if the image actually decoded with a
+                // non-zero natural size — Steam CDN occasionally returns
+                // 200 OK with a placeholder/corrupt body which still fires
+                // `onLoad` but paints as a broken image. Treating that as a
+                // load failure routes it through the fallback chain.
+                const img = e.currentTarget;
+                if ((img.naturalWidth || 0) > 0 && (img.naturalHeight || 0) > 0) {
+                  setLoadedSrcA(slotA);
+                } else {
+                  onError('A')();
+                }
+              }}
+              className={`ds-per-shelf-hero-img${slotALoaded ? ' is-loaded' : ''}${nativeHeroImgClass ? ' ' + nativeHeroImgClass : ''}`}
               style={{
                 width: '100%', height: '100%', display: 'block',
                 // Anchor the art to the top — the pre-change framing the user
                 // wants (the native img class otherwise centres it at 50%).
                 objectPosition: '50% 18%',
-                // Dark fill so a loading/broken image never flashes white.
-                background: 'rgb(0,0,0)',
                 // When the theme supplies its own zoom (native zoom class on
                 // the wrapper), disable ours — running both compounds the
                 // scale and drifts the framing off-centre.
@@ -607,7 +640,15 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotB} onError={onError('B')}
-              className={`ds-per-shelf-hero-img${nativeHeroImgClass ? ' ' + nativeHeroImgClass : ''}`}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                if ((img.naturalWidth || 0) > 0 && (img.naturalHeight || 0) > 0) {
+                  setLoadedSrcB(slotB);
+                } else {
+                  onError('B')();
+                }
+              }}
+              className={`ds-per-shelf-hero-img${slotBLoaded ? ' is-loaded' : ''}${nativeHeroImgClass ? ' ' + nativeHeroImgClass : ''}`}
               style={{ width: '100%', height: '100%', display: 'block' }} />
           </div>
         </div>
@@ -652,7 +693,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
   const visuallyForced = forceExpanded || forceLayoutAsRecents;
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
@@ -1252,6 +1293,7 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
               cardIndex={idx}
               hideStatusLine={hideStatusLine}
               hideNewBadge={hideNewBadge}
+              hideDiscountBadge={hideDiscountBadge}
               hideCompatIcons={hideCompatIcons}
               hideNonSteamBadge={hideNonSteamBadge}
               hideGameName={hideGameNames}

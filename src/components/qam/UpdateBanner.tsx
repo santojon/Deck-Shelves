@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DialogButton, Focusable } from "@decky/ui";
 import type { SettingsController } from "../../features/settings/controller";
-import { checkForUpdate, type UpdateCheckResult } from "../../core/updateNotifier";
+import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from "../../core/updateNotifier";
+import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
 
 /**
@@ -19,10 +20,28 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   const enabled = settings?.updateNotifyEnabled ?? true;
   const dismissed = settings?.updateNotifyDismissedVersion;
 
+  // Track previous toggle value to detect a within-session OFF → ON flip.
+  // On that edge (and only that edge), invalidate the 24h cache before the
+  // network probe — matches the boot-time behaviour in `index.tsx` so the
+  // user's explicit re-enable always reflects the latest release rather
+  // than a stale cached answer. Initial mount + plain re-renders go
+  // through the cached path as before (the banner does NOT spam the
+  // network on every QAM open).
+  const prevEnabledRef = useRef<boolean>(enabled);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) { prevEnabledRef.current = false; return; }
+    const wasOff = !prevEnabledRef.current;
+    prevEnabledRef.current = true;
     let cancelled = false;
-    checkForUpdate().then((r) => { if (!cancelled) setResult(r); }).catch((e) => logInfo("UPDATE", "banner check failed", String(e)));
+    (async () => {
+      if (wasOff) {
+        try { if (await isOnline()) __resetUpdateCheckCache(); } catch {}
+      }
+      try {
+        const r = await checkForUpdate();
+        if (!cancelled) setResult(r);
+      } catch (e) { logInfo("UPDATE", "banner check failed", String(e)); }
+    })();
     return () => { cancelled = true; };
   }, [enabled]);
 

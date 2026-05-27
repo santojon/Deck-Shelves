@@ -326,6 +326,7 @@
   "hero_enabled_desc": "Zeigt ein Hero-Bild hinter diesem Regal an, wenn eine Karte fokussiert ist.",
   "hero_enabled_label": "Hero-Art aktivieren",
   "hide_compat_icons": "Kompatibilitätssymbole ausblenden",
+  "hide_discount_badge": "Abzeichen \"Rabatt\" ausblenden",
   "hide_from_shelf": "Aus Regal ausblenden",
   "hide_game_name": "Spielname ausblenden",
   "hide_game_names": "Spielnamen ausblenden",

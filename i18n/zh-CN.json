@@ -326,6 +326,7 @@
   "hero_enabled_desc": "当卡片获得焦点时,在此货架后方显示 hero 图像。",
   "hero_enabled_label": "启用 hero 美术",
   "hide_compat_icons": "隐藏兼容性图标",
+  "hide_discount_badge": "隐藏\"折扣\"徽章",
   "hide_from_shelf": "从书架隐藏",
   "hide_game_name": "隐藏游戏名称",
   "hide_game_names": "隐藏游戏名称",

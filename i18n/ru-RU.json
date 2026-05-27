@@ -326,6 +326,7 @@
   "hero_enabled_desc": "Показывает hero-изображение за этой полкой при фокусе на карточке.",
   "hero_enabled_label": "Включить hero art",
   "hide_compat_icons": "Скрыть значки совместимости",
+  "hide_discount_badge": "Скрыть значок \"скидка\"",
   "hide_from_shelf": "Скрыть с полки",
   "hide_game_name": "Скрыть название игры",
   "hide_game_names": "Скрыть названия игр",

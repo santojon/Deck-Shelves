@@ -326,6 +326,7 @@
   "hero_enabled_desc": "Показує hero-зображення позаду цієї полиці, коли картку зосереджено.",
   "hero_enabled_label": "Увімкнути hero art",
   "hide_compat_icons": "Приховати значки сумісності",
+  "hide_discount_badge": "Приховати значок \"знижка\"",
   "hide_from_shelf": "Сховати з полиці",
   "hide_game_name": "Сховати назву гри",
   "hide_game_names": "Сховати назви ігор",
