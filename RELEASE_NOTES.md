@@ -5,6 +5,15 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Changed
+
+- **No more discount tag on games you already own.** The green % off badge stops appearing on cards from your library — only games you don't own (wishlist / store) keep showing the discount.
+- **"Open options" hint is now translated.** The action label next to the ⋯ button on each shelf now shows in your language instead of plain English.
+
+### Fixed
+
+- **Crash on shelves backed by a Filter source after a while.** Some filter results match games whose artwork all fall back to a placeholder; that path was hitting a React rendering error after some time and freezing the row. Fixed — the placeholder cards now render cleanly without ever tripping the error.
+
 ## [2.3.0] - 2026-05-24
 
 ### Added

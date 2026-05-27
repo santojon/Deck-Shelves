@@ -40,7 +40,7 @@ function SmartShelfActionsButton({ controller, shelf }: { controller: SettingsCo
       style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }}
       onClick={onClick}
       onOKButton={onClick}
-      onOKActionDescription='Open options'
+      onOKActionDescription={controller.t('open_options')}
     >
       {icons.ellipsis}
     </DialogButton>

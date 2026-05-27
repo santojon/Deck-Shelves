@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Discount badge no longer shows on owned games.** The cached price discount is now only attached to online-source cards that render the games not in the local library; cards backed by a local `AppOverview` (always owned/in-library) no longer carry `discountPercent`, so the green discount tag stops decorating games you already own.
+- **"Open options" / "Open shelf options" action descriptions translated.** The OK-button hint shown next to the ⋯ button on each smart shelf and shelf row now reads in the user's language across all 19 locales.
+
+### Fixed
+
+- **React error #300 on shelves whose images fail every fallback (most often filter sources).** `GameCard` previously short-circuited to `PlaceholderCard` before the badge-portal hooks were called; once `imgFailed` flipped, the next render called fewer hooks and crashed the row. The placeholder fallback is now returned only after every hook has been declared, so the hook count stays stable across renders.
+
 ## [2.3.0] - 2026-05-24
 
 ### Added

@@ -66,7 +66,7 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
 export function ShelfActionsButton({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
   const onClick = () => showContextMenu(<ShelfActionsContextMenu controller={controller} shelf={shelf} />)
   return (
-    <DialogButton data-ds-shelf-actions='true' style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }} onClick={onClick} onOKButton={onClick} onOKActionDescription='Open shelf options'>
+    <DialogButton data-ds-shelf-actions='true' style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }} onClick={onClick} onOKButton={onClick} onOKActionDescription={controller.t('open_shelf_options')}>
       {icons.ellipsis}
     </DialogButton>
   )

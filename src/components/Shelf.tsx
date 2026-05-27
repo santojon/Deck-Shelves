@@ -367,7 +367,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         isSteam: item.isSteam,
         isNew,
         statusText: item.installed != true ? t('status_not_installed') : undefined,
-        discountPercent: getCachedDiscount(appid) ?? undefined,
         shelfId: shelf.id,
       }];
     });
