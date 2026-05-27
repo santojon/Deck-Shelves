@@ -61,6 +61,7 @@ type EditState = {
   highlightedAppIds: number[]
   hideStatusLine: boolean
   hideNewBadge: boolean
+  hideDiscountBadge: boolean
   hideCompatIcons: boolean
   hideNonSteamBadge: boolean
   hideShelfTitle: boolean
@@ -100,6 +101,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     highlightedAppIds: (shelf as any).highlightedAppIds ?? [],
     hideStatusLine: (shelf as any).hideStatusLine ?? false,
     hideNewBadge: (shelf as any).hideNewBadge ?? false,
+    hideDiscountBadge: (shelf as any).hideDiscountBadge ?? false,
     hideCompatIcons: (shelf as any).hideCompatIcons ?? false,
     hideNonSteamBadge: (shelf as any).hideNonSteamBadge ?? false,
     hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
@@ -331,6 +333,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).highlightedAppIds = (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined
       ;(patch as any).hideStatusLine = state.hideStatusLine
       ;(patch as any).hideNewBadge = state.hideNewBadge
+      ;(patch as any).hideDiscountBadge = state.hideDiscountBadge
       ;(patch as any).hideCompatIcons = state.hideCompatIcons
       ;(patch as any).hideNonSteamBadge = state.hideNonSteamBadge
       ;(patch as any).hideShelfTitle = state.hideShelfTitle
@@ -711,7 +714,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <DisplayTabContent
                       t={t}
-                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
+                      display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                       setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       hasNonSteamBadges={hasNonSteamBadges}
                       dedupeByExactName={state.dedupeByExactName}

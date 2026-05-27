@@ -860,22 +860,50 @@ _DASH_JS = r"""
   const PASS='#4ade80',FAIL='#f87171',SKIP='#94a3b8';
   const $=id=>document.getElementById(id);
   let runs=Array.isArray(window.__BAKED_RUNS__)?window.__BAKED_RUNS__:[];
-  let currentScope='all';
+  let currentScope='all', currentDeck='all', currentStress='all';
 
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
   function scopeOf(r){return r._scope||r.scope||''}
-  function filterRuns(rs,sc){return sc==='all'?rs:rs.filter(r=>scopeOf(r)===sc)}
+  function hasDeck(r){return scopeOf(r)==='local'}
+  function hasStress(r){return !!r.stress}
+  function filterRuns(rs,sc,dk,st){
+    return rs.filter(r=>
+      (sc==='all'||scopeOf(r)===sc) &&
+      (dk==='all'||(dk==='yes'?hasDeck(r):!hasDeck(r))) &&
+      (st==='all'||(st==='yes'?hasStress(r):!hasStress(r)))
+    );
+  }
   function sortRuns(rs){return rs.slice().sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||'')))}
   function dedupe(rs){const m=new Map();for(const r of rs){const k=(r.ts||'')+'|'+scopeOf(r);if(!m.has(k))m.set(k,r);}return Array.from(m.values())}
 
   function pills(rs){
-    const total=rs.length;if(!total)return '';
+    // Counts ALWAYS reflect the full runs array (not the current filter
+    // view) so the pills never vanish when a filter combination ends up
+    // empty — the user must be able to click the active pill again to
+    // reverse out of a zero-result state. The active styling still tracks
+    // currentDeck / currentStress so the UI shows what's selected.
+    const total=rs.length;
     const withDeck=rs.filter(r=>scopeOf(r)==='local').length;
     const stress=rs.filter(r=>r.stress).length;
-    const items=[['with Deck',withDeck,'#60a5fa'],['without Deck',total-withDeck,'#818cf8'],
-                 ['with stress',stress,'#f59e0b'],['no stress',total-stress,'#6b7280']];
+    // The pills double as filter toggles. `axis` (deck|stress) and `value`
+    // (yes|no) map to currentDeck/currentStress; clicking re-runs render()
+    // with the new filter (toggle off if already active). Visual state =
+    // a brighter background + thicker border when active.
+    const items=[
+      ['with Deck',   withDeck,        '#60a5fa','deck',  'yes'],
+      ['without Deck',total-withDeck,  '#818cf8','deck',  'no'],
+      ['with stress', stress,          '#f59e0b','stress','yes'],
+      ['no stress',   total-stress,    '#6b7280','stress','no'],
+    ];
     return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">'+
-      items.map(([n,v,c])=>`<span style="background:${c}22;color:${c};border:1px solid ${c}44;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">${esc(n)} <b>${v}</b></span>`).join('')+
+      items.map(([n,v,c,axis,val])=>{
+        const active=(axis==='deck'&&currentDeck===val)||(axis==='stress'&&currentStress===val);
+        const bg=active?(c+'55'):(c+'22');
+        const border=active?(c+'cc'):(c+'44');
+        return `<button type="button" data-pill-axis="${axis}" data-pill-value="${val}" `+
+          `style="background:${bg};color:${c};border:1px solid ${border};padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;${active?'box-shadow:0 0 0 1px '+c+'66;':''}">`+
+          `${esc(n)} <b>${v}</b></button>`;
+      }).join('')+
       '</div>';
   }
 
@@ -976,11 +1004,17 @@ _DASH_JS = r"""
   }
 
   function render(){
-    const view=filterRuns(runs,currentScope);
+    const view=filterRuns(runs,currentScope,currentDeck,currentStress);
     const empty=view.length===0;
-    $('pills').innerHTML=pills(view);
+    // Pills always render against the full `runs` array so an empty
+    // filtered view still leaves the pills visible + clickable for
+    // un-toggling. See `pills()` for the count semantics.
+    $('pills').innerHTML=pills(runs);
+    const sel=[currentScope!=='all'?currentScope:null,
+               currentDeck!=='all'?('deck='+currentDeck):null,
+               currentStress!=='all'?('stress='+currentStress):null].filter(Boolean).join(' · ')||'all';
     $('kpis-host').innerHTML=empty
-      ? `<div class="empty-scope">No <strong>${esc(currentScope)}</strong> runs yet. Run <code>pnpm validate:full</code> (local) or push to a tracked branch (CI) to see data here.</div>`
+      ? `<div class="empty-scope">No <strong>${esc(sel)}</strong> runs yet. Run <code>pnpm validate:full</code> (local) or push to a tracked branch (CI) to see data here.</div>`
       : kpis(view);
     $('line').innerHTML=svgLine(view);
     $('suites').innerHTML=suiteBars(view);
@@ -993,17 +1027,57 @@ _DASH_JS = r"""
     $('footer-count').textContent=view.length;
   }
 
+  function syncHash(){
+    const parts=[];
+    if(currentScope!=='all')parts.push('scope='+currentScope);
+    if(currentDeck!=='all')parts.push('deck='+currentDeck);
+    if(currentStress!=='all')parts.push('stress='+currentStress);
+    try{history.replaceState(null,'',parts.length?('#'+parts.join('&')):'#')}catch(_){}
+  }
   function setScope(s){
     if(!['all','local','ci','release'].includes(s))return;
     currentScope=s;
-    document.querySelectorAll('.filter-chips button').forEach(b=>b.classList.toggle('active',b.dataset.filter===s));
-    try{history.replaceState(null,'','#'+s)}catch(_){}
-    render();
+    document.querySelectorAll('.filter-chips button')
+      .forEach(b=>b.classList.toggle('active',b.dataset.filter===s));
+    syncHash(); render();
+  }
+  // Click on a pill toggles its axis. Re-clicking an active pill resets
+  // that axis to 'all' so the user can quickly clear the filter without
+  // a separate reset control.
+  function togglePill(axis,value){
+    if(axis==='deck'){currentDeck=(currentDeck===value?'all':value);}
+    else if(axis==='stress'){currentStress=(currentStress===value?'all':value);}
+    syncHash(); render();
   }
 
-  document.querySelectorAll('.filter-chips button').forEach(b=>b.addEventListener('click',()=>setScope(b.dataset.filter)));
-  const init=(location.hash||'').replace('#','');
-  if(init)setScope(init);else render();
+  document.querySelectorAll('.filter-chips button')
+    .forEach(b=>b.addEventListener('click',()=>setScope(b.dataset.filter)));
+  // Delegated on #pills since the buttons are re-rendered by render().
+  document.getElementById('pills').addEventListener('click',(e)=>{
+    const btn=e.target.closest('button[data-pill-axis]');
+    if(!btn)return;
+    togglePill(btn.dataset.pillAxis,btn.dataset.pillValue);
+  });
+
+  // Parse `#scope=local&deck=yes&stress=no` (current format) or the legacy
+  // single-token form `#local` (compat with bookmarks predating the
+  // multi-axis filter).
+  const hash=(location.hash||'').replace(/^#/,'');
+  if(hash){
+    if(hash.includes('=')){
+      for(const kv of hash.split('&')){
+        const [k,v]=kv.split('=');
+        if(k==='scope')setScope(v);
+        else if(k==='deck'&&['yes','no'].includes(v))currentDeck=v;
+        else if(k==='stress'&&['yes','no'].includes(v))currentStress=v;
+      }
+      render();
+    } else {
+      setScope(hash);
+    }
+  } else {
+    render();
+  }
 
   // Augment with live manifests. file:// in Chromium blocks fetch — that's
   // OK, the baked data already in the page is the fallback. Firefox file://

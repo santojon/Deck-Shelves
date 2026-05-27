@@ -326,6 +326,7 @@
   "hero_enabled_desc": "カードがフォーカスされたとき、この棚の後ろにヒーロー画像を表示します。",
   "hero_enabled_label": "ヒーローアートを有効にする",
   "hide_compat_icons": "互換性アイコンを非表示",
+  "hide_discount_badge": "「割引」バッジを非表示",
   "hide_from_shelf": "シェルフから非表示",
   "hide_game_name": "ゲーム名を隠す",
   "hide_game_names": "ゲーム名を隠す",

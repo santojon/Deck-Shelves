@@ -34,6 +34,10 @@ jobs:
       - name: Generate report
         run: pnpm run validate:ci
 
+      - name: Rebuild aggregates
+        if: always()
+        run: pnpm run reports:rebuild
+
       - name: Upload release report
         if: always()
         uses: actions/upload-artifact@v4
@@ -41,6 +45,12 @@ jobs:
           name: ci-release-report-${{ github.run_id }}
           path: reports/ci/
           retention-days: 90
+
+      - name: Commit release report
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/commit-report.sh
 
       - name: Build plugin (release mode)
         run: pnpm run build:release

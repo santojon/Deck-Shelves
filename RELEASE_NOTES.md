@@ -5,6 +5,15 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Separate toggles for the NEW and DISCOUNT tags** — globally (QAM Visual section) and per-shelf (Edit Shelf / Smart Shelf Display tab and per-card menu). You can now hide one without hiding the other.
+- **Hero art behind shelves now shows a subtle shimmer placeholder while loading** (same look as the game card shimmer), and a corrupt response from Steam's CDN is now treated as a load failure — so a broken image never paints, even briefly.
+
+### Fixed
+
+- **Update notification works again after you self-upgrade.** Previously the daily cache could "remember" the version you just installed and silently report "no update" for up to 24 hours. The notifier now refreshes its cache before the boot check (whenever the Steam Deck is online), so a fresh release shows up the next time Steam starts. Toggling the notification OFF and back ON inside the QAM (with network) does the same — and now also clears any previously-dismissed version, so a release you dismissed earlier (or hit dismiss on by accident) can resurface. The boot check is also delayed a few seconds so the network has time to come up.
+
 ## [2.3.1] - 2026-05-27
 
 ### Changed

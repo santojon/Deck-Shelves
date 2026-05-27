@@ -82,6 +82,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     manualOrder: (shelf as any).manualOrder ?? [],
     hideStatusLine: shelf.hideStatusLine ?? false,
     hideNewBadge: shelf.hideNewBadge ?? false,
+    hideDiscountBadge: (shelf as any).hideDiscountBadge ?? false,
     hideCompatIcons: shelf.hideCompatIcons ?? false,
     hideNonSteamBadge: shelf.hideNonSteamBadge ?? false,
     hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
@@ -507,7 +508,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
       const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
@@ -697,7 +698,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 content: (
                   <DisplayTabContent
                     t={t}
-                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
+                    display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
                     setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                     hasNonSteamBadges={hasNonSteamBadges}
                     dedupeByExactName={state.dedupeByExactName}

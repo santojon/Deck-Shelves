@@ -45,7 +45,7 @@ if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || al
 }
 
 function qaAllShelvesFixture(): Shelf[] {
-  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
   return [
     { ...base, id: "qa_update_pending", title: "QA: Update pending", source: { type: "filter", filter: { updatePending: true, sort: "alphabetical" } } },
     { ...base, id: "qa_recents", title: "QA: Recents", source: { type: "filter", filter: { sort: "recent" } } },
@@ -64,7 +64,7 @@ function qaAllShelvesFixture(): Shelf[] {
  * `!appIds.length` guard in `Shelf.tsx`). Useful as a regression smoke test.
  */
 function qaCollectionEmptyFixture(): Shelf[] {
-  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
   return [
     { ...base, id: "qa_collection_missing", title: "QA: Collection (missing) — should be empty",
       source: { type: "filter", filter: { sort: "alphabetical", filterGroup: { mode: "and", items: [
@@ -81,7 +81,7 @@ function qaCollectionEmptyFixture(): Shelf[] {
  * confirm the inverted-collection toggle is working.
  */
 function qaCollectionInvertedFixture(): Shelf[] {
-  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+  const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
   return [
     { ...base, id: "qa_collection_in", title: "QA: In Favorites",
       source: { type: "filter", filter: { sort: "alphabetical", filterGroup: { mode: "and", items: [
@@ -199,7 +199,7 @@ function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
 
 // ─── Fixture: all source types + sort options + filter combinations ──────────
 function qaSourcesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
-  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
 
   const shelves: Shelf[] = [
     // ── Tab sources ──────────────────────────────────────────────────────
@@ -296,7 +296,7 @@ function qaSourcesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
 
 // ─── Fixture: one shelf per template (regular + online + smart) ───────────────
 function qaTemplatesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
-  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
+  const b = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
 
   const shelves: Shelf[] = [
     // ── Regular templates ────────────────────────────────────────────────

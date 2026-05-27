@@ -864,6 +864,15 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, 4px);
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
+    /* Hero img opacity gating. The wrapper above hides itself entirely
+       (opacity:0) while no slot is loaded — matches the "hero disabled"
+       state — so this rule mainly defends against a brief pre-wrapper-
+       fade window where the img would otherwise paint a broken-image
+       glyph. ID-scoped under #deck-shelves-home-root to beat the
+       no-hero-gradient theme rule which forces opacity:1 with (0,4,0)
+       specificity; the ID bumps us to (1,2,0). */
+    #deck-shelves-home-root .ds-per-shelf-hero-img { opacity: 0 !important; transition: opacity 0.18s ease !important; }
+    #deck-shelves-home-root .ds-per-shelf-hero-img.is-loaded { opacity: 1 !important; }
     /* Refresh icon spin — driven by class added on click via DOM (not React
        state) so the animation survives the upstream setAppIds() that may
        reconcile the row while playing. The class is re-added each click via

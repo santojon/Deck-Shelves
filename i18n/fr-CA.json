@@ -326,6 +326,7 @@
   "hero_enabled_desc": "Affiche une image hero derrière cette étagère lorsqu'une carte est focalisée.",
   "hero_enabled_label": "Activer hero art",
   "hide_compat_icons": "Masquer les icônes de compatibilité",
+  "hide_discount_badge": "Masquer le badge \"rabais\"",
   "hide_from_shelf": "Masquer de l'étagère",
   "hide_game_name": "Masquer le nom du jeu",
   "hide_game_names": "Masquer les noms des jeux",

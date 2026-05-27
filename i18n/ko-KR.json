@@ -326,6 +326,7 @@
   "hero_enabled_desc": "카드에 포커스가 있을 때 이 셸프 뒤에 히어로 이미지를 표시합니다.",
   "hero_enabled_label": "히어로 아트 활성화",
   "hide_compat_icons": "호환성 아이콘 숨기기",
+  "hide_discount_badge": "\"할인\" 배지 숨기기",
   "hide_from_shelf": "선반에서 숨기기",
   "hide_game_name": "게임 이름 숨기기",
   "hide_game_names": "게임 이름 숨기기",
