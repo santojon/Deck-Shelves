@@ -9,6 +9,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **No more discount tag on games you already own.** The green % off badge stops appearing on cards from your library — only games you don't own (wishlist / store) keep showing the discount.
 - **"Open options" hint is now translated.** The action label next to the ⋯ button on each shelf now shows in your language instead of plain English.
+- **"Reorder" / "Save Order" X-button hints on the QAM shelves list are now translated** across all 19 supported languages, matching the rest of the QAM.
+- **Import / Export now points to the right Downloads folder on Bazzite and other non-SteamOS systems.** The defaults stopped assuming the user account is named `deck` — the modal opens at your actual `~/Downloads` regardless of distro or login name.
+- **Wishlist on Bazzite (Flatpak Steam) now works.** Steam cookie and user-ID lookups now also check `~/.var/app/com.valvesoftware.Steam/...`, so wishlist-sourced shelves resolve on systems shipping Steam via Flatpak.
 
 ### Fixed
 

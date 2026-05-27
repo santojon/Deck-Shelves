@@ -409,6 +409,8 @@
   "refresh": "Оновити",
   "refresh_cache": "Оновити кеш",
   "remove_highlight": "Видалити виділення",
+  "reorder_label": "Змінити порядок",
+  "reorder_save_order": "Зберегти порядок",
   "reset_all_button": "Скинути все",
   "reset_all_confirm_desc": "Це остаточно видалить усі полиці, налаштування та кеш Deck Shelves. Скасувати неможливо.",
   "reset_all_confirm_ok": "Скинути",

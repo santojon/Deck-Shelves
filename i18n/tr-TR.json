@@ -409,6 +409,8 @@
   "refresh": "Yenile",
   "refresh_cache": "Önbelleği güncelle",
   "remove_highlight": "Vurguyu kaldır",
+  "reorder_label": "Yeniden sırala",
+  "reorder_save_order": "Sıralamayı kaydet",
   "reset_all_button": "Tümünü sıfırla",
   "reset_all_confirm_desc": "Bu, Deck Shelves'e ait tüm rafları, ayarları ve önbelleği kalıcı olarak siler. Geri alınamaz.",
   "reset_all_confirm_ok": "Sıfırla",

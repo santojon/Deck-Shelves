@@ -618,9 +618,17 @@ class Plugin:
         Chromium on Linux stores cookies with AES-128-CBC (v10 prefix),
         key derived via PBKDF2-SHA1 from b"peanuts" + salt b"saltysalt", 1 iteration.
         """
+        # Native Steam first; Flatpak Steam paths last so Bazzite / ChimeraOS
+        # / any distro shipping Steam through Flatpak still resolves the
+        # cookie store. The Flatpak sandbox rewrites $HOME under
+        # ~/.var/app/com.valvesoftware.Steam/, and both layout variants
+        # (`data/Steam` and `.local/share/Steam`) have been observed in the
+        # wild depending on the Flatpak version.
         cookie_paths = [
             os.path.expanduser("~/.local/share/Steam/config/htmlcache/Default/Cookies"),
             os.path.expanduser("~/.steam/steam/config/htmlcache/Default/Cookies"),
+            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam/config/htmlcache/Default/Cookies"),
+            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/data/Steam/config/htmlcache/Default/Cookies"),
         ]
         for path in cookie_paths:
             if not os.path.exists(path):
@@ -662,9 +670,16 @@ class Plugin:
         (the lower 32 bits of SteamID64). SteamID64 = SteamID3 + 76561197960265728.
         No cookie or authentication needed — just a directory listing.
         """
+        # Same Flatpak fallback chain as `_get_steam_cookie` — first match wins.
+        userdata_candidates = [
+            os.path.expanduser("~/.local/share/Steam/userdata"),
+            os.path.expanduser("~/.steam/steam/userdata"),
+            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata"),
+            os.path.expanduser("~/.var/app/com.valvesoftware.Steam/data/Steam/userdata"),
+        ]
         try:
-            userdata = os.path.expanduser("~/.local/share/Steam/userdata")
-            if not os.path.isdir(userdata):
+            userdata = next((p for p in userdata_candidates if os.path.isdir(p)), None)
+            if not userdata:
                 return None
             candidates = [
                 d for d in os.listdir(userdata)

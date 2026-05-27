@@ -26,6 +26,16 @@ export const Dropdown = decky.Dropdown ?? passthroughComponent;
 export const DropdownItem = decky.DropdownItem ?? decky.Dropdown ?? passthroughComponent;
 export const Field = decky.Field ?? passthroughComponent;
 export const Focusable = decky.Focusable ?? passthroughComponent;
+// Runtime enum that Decky exposes via FooterLegend. Required for
+// gamepad-button comparison in the local ReorderableList. Fallback keeps
+// the numeric values stable (see @decky/ui FooterLegend.d.ts) so any
+// destructuring still works when Decky's global hasn't initialised yet.
+export const GamepadButton = decky.GamepadButton ?? {
+  INVALID: 0, OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,
+  BUMPER_LEFT: 5, BUMPER_RIGHT: 6, TRIGGER_LEFT: 7, TRIGGER_RIGHT: 8,
+  DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12,
+  SELECT: 13, START: 14, LSTICK_CLICK: 15, RSTICK_CLICK: 16,
+};
 export const Menu = decky.Menu ?? passthroughMenu;
 export const MenuGroup = decky.MenuGroup ?? passthroughMenu;
 export const MenuItem = decky.MenuItem ?? passthroughComponent;

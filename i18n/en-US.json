@@ -409,6 +409,8 @@
   "refresh": "Refresh",
   "refresh_cache": "Refresh cache",
   "remove_highlight": "Remove highlight",
+  "reorder_label": "Reorder",
+  "reorder_save_order": "Save Order",
   "reset_all_button": "Reset everything",
   "reset_all_confirm_desc": "This permanently deletes all shelves, settings and cached data for Deck Shelves. This cannot be undone.",
   "reset_all_confirm_ok": "Reset",

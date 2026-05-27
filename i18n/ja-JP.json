@@ -409,6 +409,8 @@
   "refresh": "更新",
   "refresh_cache": "キャッシュ更新",
   "remove_highlight": "ハイライトを外す",
+  "reorder_label": "並び替え",
+  "reorder_save_order": "順序を保存",
   "reset_all_button": "すべてリセット",
   "reset_all_confirm_desc": "Deck Shelves のすべての棚、設定、キャッシュを完全に削除します。元に戻せません。",
   "reset_all_confirm_ok": "リセット",

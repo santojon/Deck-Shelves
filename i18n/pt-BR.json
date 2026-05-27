@@ -409,6 +409,8 @@
   "refresh": "Atualizar",
   "refresh_cache": "Atualizar cache",
   "remove_highlight": "Remover destaque",
+  "reorder_label": "Reordenar",
+  "reorder_save_order": "Salvar ordem",
   "reset_all_button": "Redefinir tudo",
   "reset_all_confirm_desc": "Isso apaga permanentemente todas as prateleiras, configurações e caches do Deck Shelves. Não pode ser desfeito.",
   "reset_all_confirm_ok": "Redefinir",

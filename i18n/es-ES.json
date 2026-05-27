@@ -409,6 +409,8 @@
   "refresh": "Actualizar",
   "refresh_cache": "Actualizar caché",
   "remove_highlight": "Quitar destacado",
+  "reorder_label": "Reordenar",
+  "reorder_save_order": "Guardar orden",
   "reset_all_button": "Restablecer todo",
   "reset_all_confirm_desc": "Esto eliminará permanentemente todas las estanterías, ajustes y cachés de Deck Shelves. No se puede deshacer.",
   "reset_all_confirm_ok": "Restablecer",

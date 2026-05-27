@@ -409,6 +409,8 @@
   "refresh": "Aggiorna",
   "refresh_cache": "Aggiorna cache",
   "remove_highlight": "Rimuovi evidenziazione",
+  "reorder_label": "Riordina",
+  "reorder_save_order": "Salva ordine",
   "reset_all_button": "Ripristina tutto",
   "reset_all_confirm_desc": "Questo eliminerà definitivamente tutti gli scaffali, le impostazioni e le cache di Deck Shelves. Operazione irreversibile.",
   "reset_all_confirm_ok": "Ripristina",

@@ -409,6 +409,8 @@
   "refresh": "Odśwież",
   "refresh_cache": "Odśwież cache",
   "remove_highlight": "Usuń wyróżnienie",
+  "reorder_label": "Zmień kolejność",
+  "reorder_save_order": "Zapisz kolejność",
   "reset_all_button": "Zresetuj wszystko",
   "reset_all_confirm_desc": "Spowoduje to trwałe usunięcie wszystkich półek, ustawień i pamięci podręcznej Deck Shelves. Operacja nieodwracalna.",
   "reset_all_confirm_ok": "Resetuj",

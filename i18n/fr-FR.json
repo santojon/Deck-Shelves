@@ -409,6 +409,8 @@
   "refresh": "Actualiser",
   "refresh_cache": "Actualiser le cache",
   "remove_highlight": "Supprimer la mise en avant",
+  "reorder_label": "Réorganiser",
+  "reorder_save_order": "Enregistrer l'ordre",
   "reset_all_button": "Tout réinitialiser",
   "reset_all_confirm_desc": "Ceci supprime définitivement toutes les étagères, réglages et caches de Deck Shelves. Irréversible.",
   "reset_all_confirm_ok": "Réinitialiser",

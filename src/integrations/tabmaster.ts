@@ -99,7 +99,8 @@ export interface TabMasterTabEntry {
  *
  * TabMaster does NOT expose tabs via React context, globals, or inter-plugin IPC.
  * The only reliable source is its settings file on disk, which our backend reads
- * at /home/deck/homebrew/settings/TabMaster/settings.json.
+ * at `$DECKY_HOME/settings/TabMaster/settings.json` (falls back to
+ * `~/homebrew/settings/TabMaster/settings.json` when the env var is absent).
  *
  * Tabs are sorted by position: visible (position >= 0) first, then hidden (-1).
  */
