@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-05-27
+
 ### Added
 
 - **Separate toggles for the NEW and DISCOUNT tags** — globally (QAM Visual section) and per-shelf (Edit Shelf / Smart Shelf Display tab and per-card menu). You can now hide one without hiding the other.

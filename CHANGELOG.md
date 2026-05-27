@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-05-27
+
 ### Added
 
 - **Discount badge gains its own toggle pair, independent from the NEW badge.** New per-shelf `hideDiscountBadge` (ShelfSchema) + global `globalHideDiscountBadge` (SettingsSchema), wired through `Shelf` → `DeckRow` → `GameCard` (gates `showDiscountBadge` separately from `showNewBadge`). New i18n key `hide_discount_badge` in all 19 locales. Toggle exposed in QAM (Global Visual section, next to the existing NEW toggle), in the Edit Shelf / Edit Smart Shelf Display tab, and in the per-card `Deck Shelves > Display` submenu. `main.py` sanitizer whitelist + `DEFAULT_SETTINGS` updated; `defaultSettings()` and the controller's empty-state literals carry the new field.
