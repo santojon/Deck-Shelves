@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-05-27
+
 ### Changed
 
 - **No more discount tag on games you already own.** The green % off badge stops appearing on cards from your library — only games you don't own (wishlist / store) keep showing the discount.

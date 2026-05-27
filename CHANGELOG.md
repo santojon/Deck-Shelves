@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-05-27
+
 ### Changed
 
 - **Discount badge no longer shows on owned games.** The cached price discount is now only attached to online-source cards that render the games not in the local library; cards backed by a local `AppOverview` (always owned/in-library) no longer carry `discountPercent`, so the green discount tag stops decorating games you already own.
