@@ -13,7 +13,7 @@ import { PlatformProvider, getPlatform } from "../runtime/platformContext";
 import { showEditShelfModal, showDeleteConfirm } from "./qam/list/ShelfActions";
 import { clearOnlineShelfCache } from "../core/shelfActions";
 import { invalidateRandomSortCache } from "../steam";
-import { subscribeShelfRefresh } from "../core/shelfRefresh";
+import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
 
 /** Parses the shelfId out of the current URL path. Route is registered as
  *  /deck-shelves/manage/:shelfId. */
@@ -70,7 +70,7 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
       invalidateRandomSortCache(shelf.id);
     }
     try {
-      (globalThis as any).window?.dispatchEvent?.(new CustomEvent('ds-shelf-refresh'));
+      triggerShelfRefresh({ manual: true, shelfId: shelf.id });
     } catch {}
     closeRoute();
   };

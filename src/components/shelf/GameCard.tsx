@@ -247,11 +247,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   const firstUrl = allUrls[0] ?? "";
 
-  // If all image URLs failed, render PlaceholderCard instead
-  if (imgFailed || !firstUrl) {
-    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} artH={artH} featured={featured} />;
-  }
-
   const compat = item.deckCompatCategory ?? 0;
   const playtime = formatPlaytime(item.playtimeMinutes);
 
@@ -438,6 +433,12 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // local document if Steam's preferred doc isn't ready yet.
   const portalDoc = cardRef.current?.ownerDocument ?? getPreferredSteamDocument() ?? document;
   const portalEl = badgeContent ? createPortal(badgeContent, portalDoc.body) : null;
+
+  // Placeholder fallback must be returned AFTER all hooks above so the
+  // hook count stays stable across renders (React error #300 otherwise).
+  if (imgFailed || !firstUrl) {
+    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} artH={artH} featured={featured} />;
+  }
 
   return (
     <Focusable

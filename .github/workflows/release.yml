@@ -34,6 +34,14 @@ jobs:
       - name: Generate report
         run: pnpm run validate:ci
 
+      - name: Upload release report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-release-report-${{ github.run_id }}
+          path: reports/ci/
+          retention-days: 90
+
       - name: Build plugin (release mode)
         run: pnpm run build:release
 

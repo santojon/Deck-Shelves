@@ -14,6 +14,7 @@ import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
 import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations'
 import { isCssLoaderActive } from '../core/cssLoaderDetect'
+import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
 
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
@@ -90,12 +91,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const isFirstRun = shelves.length === 0 && !settings.enabled
   const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
-  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves-shelves.json'} scope='shelves' />)
-  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='shelves' />)
-  const handleImportSmart = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves-smart-shelves.json'} scope='smart' />)
-  const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='smart' />)
-  const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={'/home/deck/Downloads/deck-shelves.json'} scope='all' />)
-  const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} scope='all' />)
+  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-shelves.json')} scope='shelves' />)
+  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='shelves' />)
+  const handleImportSmart = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-smart-shelves.json')} scope='smart' />)
+  const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='smart' />)
+  const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves.json')} scope='all' />)
+  const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='all' />)
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   // CSS Loader presence — the force-themes toggle only shows when at least

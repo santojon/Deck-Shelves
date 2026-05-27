@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from 'react'
-import { ReorderableList, ReorderableEntry } from '@decky/ui'
+import { ReorderableList, type ReorderableEntry } from '../../ui/ReorderableList'
 import { ShelfListLabel } from './ShelfListLabel'
 import { useContainerDragReorder } from '../../../core/reorder'
 

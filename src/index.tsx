@@ -14,6 +14,7 @@ import { installPluginApi } from "./core/pluginApi";
 import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
+import { prewarmUserPaths } from "./core/userPaths";
 import { checkForUpdate } from "./core/updateNotifier";
 import { getCurrentSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
@@ -81,6 +82,9 @@ export default definePlugin((serverAPI?: any) => {
     const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
     schedule(() => { import("./core/imageCache").then(m => m.pruneCache()).catch(() => {}); });
   } catch {}
+  // Resolve `~/Downloads` from the backend so import/export defaults work
+  // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).
+  void prewarmUserPaths();
   const enableHomePatch = typeof __DECK_SHELVES_ENABLE_HOME_PATCH__ !== "undefined" ? __DECK_SHELVES_ENABLE_HOME_PATCH__ : true;
   const routerHook = serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook

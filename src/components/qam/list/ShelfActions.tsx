@@ -8,6 +8,7 @@ import { openManagedModal } from '../common/openManagedModal'
 import { clearOnlineShelfCache } from '../../../core/shelfActions'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
+import { triggerShelfRefresh } from '../../../core/shelfRefresh'
 
 function isOnlineSource(source: any): boolean {
   return source?.type === 'wishlist' || source?.type === 'store'
@@ -24,14 +25,12 @@ function isRandomOrSmart(shelf: Shelf): boolean {
 function refreshShelfCache(shelf: Shelf): void {
   if (isOnlineSource(shelf.source)) {
     clearOnlineShelfCache()
-    return
-  }
-  if ((shelf.source as any)?.type === 'smart') {
+  } else if ((shelf.source as any)?.type === 'smart') {
     invalidateSmartShelfCache(shelf.id)
   } else {
     invalidateRandomSortCache(shelf.id)
   }
-  try { (globalThis as any).window?.dispatchEvent?.(new CustomEvent('ds-shelf-refresh')) } catch {}
+  try { triggerShelfRefresh({ manual: true, shelfId: shelf.id }) } catch {}
 }
 
 export function showDeleteConfirm(controller: SettingsController, shelf: Shelf) {
@@ -66,7 +65,7 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
 export function ShelfActionsButton({ controller, shelf }: { controller: SettingsController; shelf: Shelf }) {
   const onClick = () => showContextMenu(<ShelfActionsContextMenu controller={controller} shelf={shelf} />)
   return (
-    <DialogButton data-ds-shelf-actions='true' style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }} onClick={onClick} onOKButton={onClick} onOKActionDescription='Open shelf options'>
+    <DialogButton data-ds-shelf-actions='true' style={{ height: '40px', minWidth: '40px', width: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }} onClick={onClick} onOKButton={onClick} onOKActionDescription={controller.t('open_shelf_options')}>
       {icons.ellipsis}
     </DialogButton>
   )

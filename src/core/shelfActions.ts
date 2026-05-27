@@ -35,8 +35,11 @@ export function clearOnlineShelfCache(): void {
   ];
   try {
     for (const k of keys) (globalThis as any).localStorage?.removeItem?.(k);
-    (globalThis as any).window?.dispatchEvent?.(new CustomEvent("ds-shelf-refresh"));
   } catch {}
+  // No `triggerShelfRefresh()` here: callers know which shelf the user
+  // clicked, so they fire the trigger with a `shelfId` scope so only that
+  // shelf shows the visual indicator. Triggering from inside this helper
+  // would force every online shelf to flash on a single-shelf click.
 }
 
 export async function patchShelfById(id: string, patch: Partial<Shelf>): Promise<void> {

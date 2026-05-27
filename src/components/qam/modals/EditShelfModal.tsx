@@ -208,13 +208,20 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
 
             if (shouldHideOwned) {
               const ownedAppIds = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
+              // Mirrors Shelf.tsx: name-based dedup uses a broader set
+              // (always includes non-Steam + cloud) than the appid-based
+              // dedup, so a wishlist entry whose name matches a non-Steam
+              // local title is filtered even when the non-Steam sub-toggle
+              // is off — keeps the modal "found X" count consistent with
+              // what the home shelf renders.
+              const ownedSetForNames = getLocalLibraryAppIds(true, true)
               const all = await getAllAppOverviews()
               const ownedNames = new Set<string>()
               const allById = new Map<number, any>()
               for (const a of all) {
                 const id = Number((a as any)?.appid)
                 if (Number.isFinite(id)) allById.set(id, a)
-                if (!ownedAppIds.has(id)) continue
+                if (!ownedSetForNames.has(id)) continue
                 const n = (a as any)?.display_name ?? (a as any)?.name
                 if (typeof n === 'string' && n) ownedNames.add(n.trim().toLowerCase())
               }

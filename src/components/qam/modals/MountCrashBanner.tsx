@@ -1,6 +1,7 @@
 import { Focusable, DialogButton, showModal } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { resetMountFailed } from '../../../runtime/homePatch'
+import { getUserDownloadsDir } from '../../../core/userPaths'
 import { ExportAndClearModal } from './ExportAndClearModal'
 
 export function MountCrashBanner({ controller, error, onDismiss }: { controller: SettingsController; error: string | null; onDismiss: () => void }) {
@@ -14,7 +15,7 @@ export function MountCrashBanner({ controller, error, onDismiss }: { controller:
         if (handle?.closeModal) return handle.closeModal()
       } catch {}
     }
-    handle = showModal(<ExportAndClearModal closeModal={close} controller={controller} folderPath={'/home/deck/Downloads'} />)
+    handle = showModal(<ExportAndClearModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} />)
   }
   return (
     <div style={{ margin: '8px 16px', padding: '12px 14px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 6 }}>

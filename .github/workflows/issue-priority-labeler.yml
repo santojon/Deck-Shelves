@@ -20,24 +20,83 @@ jobs:
             if (!issue) return;
             const labels = (issue.labels ?? []).map(l => (l.name || "").toLowerCase());
             const has = (...names) => names.some(n => labels.includes(n.toLowerCase()));
-            const hasAnyMatching = (rx) => labels.some(l => rx.test(l));
 
-            // Skip when a priority::* is already present (manual override).
-            if (hasAnyMatching(/^priority::/)) return;
+            // Manual overrides (anything that isn't `priority::low` set by
+            // us on a previous run) are honoured. The auto-applied `low` is
+            // explicitly re-evaluated so the OS / mode signals arriving in
+            // a subsequent `labeled` event can upgrade the bucket — without
+            // this carve-out the early exit pins the issue at `low` for the
+            // rest of its life.
+            const existingPrio = labels.find(l => /^priority::/.test(l)) || null;
+            const allowReeval = existingPrio === "priority::low";
+            if (existingPrio && !allowReeval) return;
 
-            // Anything not running on SteamOS is always low priority —
-            // SteamOS is the only first-class target. Within SteamOS,
-            // bugs are high and enhancements/features/docs are low.
+            // Inline title/body fallback for OS / mode signals. The
+            // OS labeler runs in parallel with this workflow on `opened`,
+            // so on the very first run the payload often lacks the
+            // auto-added OS::* and mode::* labels — without this fallback
+            // the initial evaluation always falls through to the
+            // non-SteamOS catch-all and pins the issue at `priority::low`
+            // until the `labeled` event for `OS::SteamOS` arrives.
+            // Matches the OS labeler's own patterns so both detect the
+            // same way; bug type still requires the explicit label since
+            // it's reporter-supplied via the issue form dropdown.
+            const titleBlob = (issue.title || "").toLowerCase();
+            const bodyBlob = (issue.body || "").toLowerCase();
+            const text = `${titleBlob}\n${bodyBlob}`;
+            const textHas = (rx) => rx.test(text);
+
+            // Priority buckets (most-specific first):
+            //  - SteamOS + Game Mode                      → medium
+            //    Game Mode on SteamOS is the primary target surface —
+            //    bugs and enhancements alike land here as the baseline,
+            //    above the catch-all `low`. Race-condition note: this
+            //    workflow runs in parallel with the OS labeler, so the
+            //    first run can fall through to the `!isSteamOs → low`
+            //    branch before `OS::SteamOS` / `mode::GameMode` arrive;
+            //    the `allowReeval` carve-out below lets the subsequent
+            //    `labeled` event upgrade `priority::low` → `priority::
+            //    medium` once both signals are present.
+            //  - SteamOS bug (BigPicture / unspecified)   → high
+            //  - SteamOS enhancement / feature / docs     → low
+            //  - Everything else not on SteamOS           → low
             let priority = null;
-            if (!has("os::steamos")) {
-              priority = "priority::low";
-            } else if (has("type::bug")) {
+            const isBug = has("type::bug");
+            const isGameMode = has("mode::gamemode") ||
+              textHas(/\bgame\s*mode\b/i) ||
+              textHas(/\bgamepad\s*ui\b/i) ||
+              textHas(/\bsteam\s*deck\s*(home|ui)\b/i);
+            const isSteamOs = has("os::steamos") ||
+              textHas(/\bsteam\s*os\b/i) ||
+              textHas(/\bsteamos\b/i) ||
+              textHas(/\bvalve\s*os\b/i);
+
+            if (isSteamOs && isGameMode) {
+              priority = "priority::medium";
+            } else if (isSteamOs && isBug) {
               priority = "priority::high";
-            } else if (has("type::enhancement", "type::feature", "area::docs")) {
+            } else if (isSteamOs && has("type::enhancement", "type::feature", "area::docs")) {
+              priority = "priority::low";
+            } else if (!isSteamOs) {
               priority = "priority::low";
             }
 
-            if (!priority) return;
+            if (!priority || priority === existingPrio) return;
+
+            // When upgrading from auto-low, remove the old label first so
+            // the issue doesn't end up tagged with both buckets.
+            if (existingPrio === "priority::low" && priority !== "priority::low") {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  name: "priority::low",
+                });
+              } catch (e) {
+                core.warning(`removeLabel(priority::low) failed: ${e?.message ?? e}`);
+              }
+            }
 
             try {
               await github.rest.issues.addLabels({

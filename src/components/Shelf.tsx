@@ -9,7 +9,7 @@ import { DeckRow, type DeckRowItem } from "./DeckRow";
 import { shouldShowMoreCard, shouldShowRefreshCard } from "./shelf/trailingCards";
 import { showGameMenu, buildShelfContextMenu } from "../core/steamGameMenu";
 import { saveFocusTarget } from "../core/focusRestore";
-import { subscribeShelfRefresh } from "../core/shelfRefresh";
+import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
@@ -100,10 +100,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // rapid-toggles sort or edits the filter while the previous fetch is
   // still pending).
   const resolveGenRef = useRef(0);
-  // Exposed so the in-row refresh card (smart shelves with a refresh interval)
-  // can re-trigger this shelf's resolve() without going through the global
-  // refresh emitter — only this shelf's appIds need to flip.
-  const resolveRef = useRef<() => void>(() => {});
+  // Visual "I just refreshed" indicator. Driven by `manual: true` arriving
+  // from `triggerShelfRefresh()` (user-clicked refresh card, context-menu
+  // "Refresh cache", manage page). Held for at least 320 ms even when the
+  // resolver is instant so the user perceives the action when the data
+  // hasn't actually changed. Auto-poll refreshes (every 30 s) and Steam-
+  // event-driven refreshes pass no `manual` flag and remain silent.
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
@@ -111,9 +115,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     let cancelled = false;
     if (!shelf.enabled) return;
 
-    const resolve = () => {
+    const resolve = (opts?: { manual?: boolean }) => {
       if (cancelled) return;
       const gen = ++resolveGenRef.current;
+      if (opts?.manual) {
+        setRefreshing(true);
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = setTimeout(() => {
+          refreshTimerRef.current = null;
+          setRefreshing(false);
+        }, 320);
+      }
       try {
         mark(`shelf.resolve:${shelf.id}:start`);
         // On manual sort, resolve using the configured base sort (default
@@ -166,10 +178,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
 
     // Initial load
     resolve();
-    resolveRef.current = resolve;
 
-    // Subscribe to global refresh emitter (replaces per-shelf polling timer)
-    const unsubRefresh = subscribeShelfRefresh(resolve);
+    // Subscribe to global refresh emitter (replaces per-shelf polling
+    // timer). The wrapper scopes the `manual` visual indicator: every
+    // shelf still re-resolves, but only the one matching `opts.shelfId`
+    // (or all when no shelfId is set, as a defensive fallback for any
+    // future caller that doesn't carry a scope) shows the dim flash.
+    const unsubRefresh = subscribeShelfRefresh((opts) => {
+      const showVisual = !!opts?.manual && (!opts.shelfId || opts.shelfId === shelf.id);
+      resolve(showVisual ? { manual: true } : undefined);
+    });
 
     // Immediate re-resolve on settings change (source or limit changed)
     const onSettings = () => { if (!cancelled) resolve(); };
@@ -179,6 +197,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       cancelled = true;
       unsubRefresh();
       globalThis.removeEventListener("deck-shelves-settings-changed", onSettings);
+      if (refreshTimerRef.current) { clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
     };
   }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? "", (shelf as any).sortReverse === true, (shelf as any).manualBaseSortReverse === true, (shelf as any).hiddenAppIds?.join(",") ?? ""]);
 
@@ -198,7 +217,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         try { return [appid, await platform.getAppMeta(appid)]; }
         catch { return [appid, { appid, name: `App ${appid}` }]; }
       }));
-      if (!cancelled) setItems(new Map(results));
+      // Merge instead of replace: keeps the prior meta for any appid that
+      // survived the refresh visible during the brief gap before the new
+      // results arrive. Without this, the regular branch in `rowItems`
+      // strips cards whose meta name still matches `App \d+` (the synthetic
+      // fallback) while waiting — visible to the user as cards vanishing
+      // mid-refresh and only reappearing on scroll/reflow.
+      if (!cancelled) setItems((prev) => {
+        const next = new Map(prev);
+        for (const [id, meta] of results) next.set(id, meta);
+        return next;
+      });
     })();
     return () => { cancelled = true; };
   }, [platform, appIds?.join(","), metaVersion]);
@@ -240,15 +269,23 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     if (!shouldHideOwned) { setOwnedAppIds(null); setOwnedNames(null); return; }
     setOwnedAppIds(getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud));
     let cancelled = false;
-    // Name-based dedup: sourced from the library appids (not all overviews,
-    // which leak wishlist/store-viewed entries).
+    // Name-based dedup intentionally uses a BROADER ownership set than the
+    // appid-based dedup above — it always includes non-Steam shortcuts
+    // (and cloud-play entries) regardless of the user's "include non-Steam"
+    // sub-toggle. Rationale: appid dedup is exact and respects the user's
+    // explicit scope choice (Steam-only vs cross-provider). Name dedup is
+    // a heuristic safety net: if the user owns "Hades" from any local
+    // source (Steam, Epic via Unifideck, etc.), they almost never want
+    // their wishlist / store row to keep advertising it. Cross-provider
+    // name match is provider-agnostic by design and shouldn't be silently
+    // disabled when the sub-toggle is off.
     getAllAppOverviews().then((apps) => {
       if (cancelled) return;
-      const ownedSet = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud);
+      const ownedSetForNames = getLocalLibraryAppIds(true, true);
       const names = new Set<string>();
       for (const a of apps) {
         const id = Number((a as any)?.appid);
-        if (!ownedSet.has(id)) continue;
+        if (!ownedSetForNames.has(id)) continue;
         const n = (a as any)?.display_name ?? (a as any)?.name;
         if (typeof n === 'string' && n) names.add(n.trim().toLowerCase());
       }
@@ -367,7 +404,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         isSteam: item.isSteam,
         isNew,
         statusText: item.installed != true ? t('status_not_installed') : undefined,
-        discountPercent: getCachedDiscount(appid) ?? undefined,
         shelfId: shelf.id,
       }];
     });
@@ -401,7 +437,13 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
           } else {
             invalidateRandomSortCache(shelf.id);
           }
-          resolveRef.current();
+          // Single unified refresh path — same as the context-menu
+          // "Refresh cache" action. Every subscribed shelf still receives
+          // the trigger so online cache clears (which affect every online
+          // shelf at once) reload consistently across the home — but
+          // `shelfId` scopes the visual indicator to this shelf so a
+          // single-shelf click doesn't dim the entire home.
+          triggerShelfRefresh({ manual: true, shelfId: shelf.id });
         },
       });
     }
@@ -453,7 +495,13 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveHideShelfTitle = globalHideShelfTitle === true ? true : ((shelf as any).hideShelfTitle === true);
   const effectiveHideGameNames = globalHideGameNames === true ? true : ((shelf as any).hideGameNames === true);
   const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
-  return <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
+  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
+  // Brief opacity dip while a user-triggered refresh is in flight so the
+  // click is never ambiguous — even when the resolver returns identical
+  // data, the shelf visibly fades and recovers, signalling that the
+  // refresh actually fired.
+  if (!refreshing) return row;
+  return <div style={{ opacity: 0.45, transition: 'opacity 0.18s ease' }}>{row}</div>;
 }
 
 // Shallow-prop memo: settings changes in unrelated sections (e.g. toggling a

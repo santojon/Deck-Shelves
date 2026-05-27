@@ -5,6 +5,21 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Changed
+
+- **No more discount tag on games you already own.** The green % off badge stops appearing on cards from your library — only games you don't own (wishlist / store) keep showing the discount.
+- **"Open options" hint is now translated.** The action label next to the ⋯ button on each shelf now shows in your language instead of plain English.
+- **"Reorder" / "Save Order" X-button hints on the QAM shelves list are now translated** across all 19 supported languages, matching the rest of the QAM.
+- **Import / Export now points to the right Downloads folder on Bazzite and other non-SteamOS systems.** The defaults stopped assuming the user account is named `deck` — the modal opens at your actual `~/Downloads` regardless of distro or login name.
+- **Wishlist on Bazzite (Flatpak Steam) now works.** Steam cookie and user-ID lookups now also check `~/.var/app/com.valvesoftware.Steam/...`, so wishlist-sourced shelves resolve on systems shipping Steam via Flatpak.
+
+### Fixed
+
+- **Refresh on a shelf now shows a brief visual dim on that one shelf only** — so you can see the click took effect even when the cached result hasn't changed, without the whole home flashing at once.
+- **Cards no longer vanish mid-refresh on online shelves.** Cards that survived a refresh stay visible while new metadata loads, instead of momentarily disappearing and reappearing on scroll.
+- **The per-card "Refresh" entry on online shelves now reads "Refresh cache" — and was already actually clearing the cache.** The label said "Refresh" but the underlying action was the same cache-clear used by the QAM shelf menu. The label now matches what the action does.
+- **Crash on shelves backed by a Filter source after a while.** Some filter results match games whose artwork all fall back to a placeholder; that path was hitting a React rendering error after some time and freezing the row. Fixed — the placeholder cards now render cleanly without ever tripping the error.
+
 ## [2.3.0] - 2026-05-24
 
 ### Added

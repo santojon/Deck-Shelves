@@ -13,7 +13,21 @@
  *  - Explicit pause/resume for suspend/resume cycles (via systemEvents)
  */
 
-type RefreshListener = () => void;
+/** Hint from the trigger site about why the refresh fired. The auto-poll
+ *  and Steam-event-driven paths run silently; user-triggered actions
+ *  (refresh card, context-menu "Refresh cache", manage page) pass
+ *  `manual: true` so subscribers can show a brief visual indicator —
+ *  otherwise a refresh that returns identical data leaves the user
+ *  wondering whether the click did anything.
+ *
+ *  `shelfId` scopes that visual indicator to a single shelf. Every
+ *  subscribed shelf still receives the trigger (online cache clears,
+ *  for example, affect every online shelf at once and they should all
+ *  re-resolve), but only the matching shelf flashes — without
+ *  `shelfId`, every shelf on the home would dim simultaneously and
+ *  the click would look like a full-page reload. */
+export type RefreshOptions = { manual?: boolean; shelfId?: string };
+type RefreshListener = (opts?: RefreshOptions) => void;
 
 const listeners = new Set<RefreshListener>();
 let pollId: ReturnType<typeof setInterval> | null = null;
@@ -21,12 +35,12 @@ let suspended = false;
 
 import { mark, measure } from './perf';
 
-function emit(): void {
+function emit(opts?: RefreshOptions): void {
   if (suspended) return;
   try {
     mark('shelfRefresh.emit:start');
     for (const listener of listeners) {
-      try { listener(); } catch {}
+      try { listener(opts); } catch {}
     }
   } finally {
     measure('shelfRefresh.emit', 'shelfRefresh.emit:start');
@@ -50,9 +64,11 @@ export function resumeShelfRefresh(): void {
   emit();
 }
 
-/** Trigger an immediate refresh of all subscribed shelves (e.g. after cache invalidation). */
-export function triggerShelfRefresh(): void {
-  emit();
+/** Trigger an immediate refresh of all subscribed shelves (e.g. after
+ *  cache invalidation). Pass `{ manual: true }` for user-triggered
+ *  refresh actions so subscribers can render a brief visual indicator. */
+export function triggerShelfRefresh(opts?: RefreshOptions): void {
+  emit(opts);
 }
 
 /**
