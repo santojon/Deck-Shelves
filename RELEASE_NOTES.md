@@ -12,6 +12,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **The per-card "Refresh" entry on online shelves now reads "Refresh cache" — and was already actually clearing the cache.** The label said "Refresh" but the underlying action was the same cache-clear used by the QAM shelf menu. The label now matches what the action does.
 - **Crash on shelves backed by a Filter source after a while.** Some filter results match games whose artwork all fall back to a placeholder; that path was hitting a React rendering error after some time and freezing the row. Fixed — the placeholder cards now render cleanly without ever tripping the error.
 
 ## [2.3.0] - 2026-05-24

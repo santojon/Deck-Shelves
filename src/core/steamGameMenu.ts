@@ -635,7 +635,7 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
     item("ds-move-up",   lbl("move_up", "Move up"),     () => { void moveShelfById(shelfId, -1); }, idx <= 0),
     item("ds-move-down", lbl("move_down", "Move down"),  () => { void moveShelfById(shelfId, 1); }, idx >= listLen - 1),
     ...(isRandomOrSmart ? [
-      item("ds-refresh", lbl("refresh", isOnline ? "refresh_cache" : "Refresh"), () => {
+      item("ds-refresh", isOnline ? lbl("refresh_cache", "Refresh cache") : lbl("refresh", "Refresh"), () => {
         try {
           if (isSmart || src?.type === "smart") invalidateSmartShelfCache(shelfId);
           else if (isOnline) clearOnlineShelfCache();

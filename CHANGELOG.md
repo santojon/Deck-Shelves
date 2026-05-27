@@ -11,9 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Discount badge no longer shows on owned games.** The cached price discount is now only attached to online-source cards that render the games not in the local library; cards backed by a local `AppOverview` (always owned/in-library) no longer carry `discountPercent`, so the green discount tag stops decorating games you already own.
 - **"Open options" / "Open shelf options" action descriptions translated.** The OK-button hint shown next to the ⋯ button on each smart shelf and shelf row now reads in the user's language across all 19 locales.
+- **Release workflow now uploads the generated CI report as an artifact** (`ci-release-report-<run-id>`, 90-day retention) so the report produced alongside the build/package steps stops being silently discarded.
+- **`commit-report.sh` falls back to a PR when direct push is rejected.** Branch-protection rules on the target branch no longer silently break the report commit: the script pushes to `auto/reports-<run-id>`, opens a PR via `gh`, and enables `--auto --squash --delete-branch` so the report still lands on the target without touching the protection rules.
 
 ### Fixed
 
+- **Per-card "Deck Shelves > Refresh" label on online shelves now reads "Refresh cache".** `lbl("refresh", isOnline ? "refresh_cache" : "Refresh")` always looked up the `refresh` key (the second argument is only a fallback when the i18n lookup misses), so online-source shelves were labelled "Refresh" even though `clearOnlineShelfCache()` was already being called underneath. The label now matches the action — the cache is, and was, actually cleared.
 - **React error #300 on shelves whose images fail every fallback (most often filter sources).** `GameCard` previously short-circuited to `PlaceholderCard` before the badge-portal hooks were called; once `imgFailed` flipped, the next render called fewer hooks and crashed the row. The placeholder fallback is now returned only after every hook has been declared, so the hook count stays stable across renders.
 
 ## [2.3.0] - 2026-05-24
