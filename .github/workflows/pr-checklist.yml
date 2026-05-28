@@ -84,9 +84,21 @@ jobs:
 
           errors = []
 
+          # Bot-generated chore(report) PRs (from scripts/ci/commit-report.sh
+          # when SUBMIT_TOKEN isn't enough to bypass branch protection) ship
+          # only the CI/report HTML — no human-authored content, no semver
+          # impact, no i18n keys. They have nothing to check off and would
+          # otherwise stay perpetually red. Short-circuit success here so
+          # the auto-merge path is unblocked, AND so the version-bump
+          # workflow's title-prefix filter (which requires [FIX]/[FEATURE]/
+          # etc.) never accidentally fires for them.
+          title = os.environ.get('PR_TITLE', '').strip()
+          if title.startswith('chore(report)') or title.startswith('chore(reports)'):
+              print(f'PR title "{title}" is a bot-generated report PR; checklist skipped.')
+              sys.exit(0)
+
           # --- PR title: must start with a recognized tag.
           VALID_TAGS = {'FIX', 'ENHANCEMENT', 'PERF', 'QA', 'FEATURE', 'CLEANUP', 'REFACTOR'}
-          title = os.environ.get('PR_TITLE', '').strip()
           title_match = re.match(r'^\[([A-Z]+)\]', title)
           if not title_match or title_match.group(1) not in VALID_TAGS:
               errors.append(
