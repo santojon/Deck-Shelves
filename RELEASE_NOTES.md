@@ -5,6 +5,15 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Combine multiple sources in a single shelf.** In the Edit Shelf modal, pick a primary source (collection, tab, filter, wishlist, store), then click **+ Adicionar fonte** to stack extras inline. A combine dropdown appears (Union shows games in any source, Intersection shows games in every source). The same source type can be reused as long as you pick different values (e.g. collection A + collection B); once a type is exhausted (only one filter per shelf, etc.) it disappears from the picker.
+- **Multi-key sort (primary + tiebreakers).** The "Add secondary sort" button on the sort row now adds tiebreaker keys. E.g. picking `discount %` + `metacritic` orders by discount, with metacritic breaking ties between games at the same discount. Each key has its own asc/desc toggle.
+
+### Fixed
+
+- **Online shelves no longer hide games you don't actually own.** On devices with many cloud-play shortcuts (Xbox Cloud via Unifideck Microsoft, etc.), the wishlist / store-on-sale shelves were name-matching against those cloud entries and hiding wishlist items that share a title with a game you have access to via subscription but don't own. The name-based dedup now respects the same "include cloud-play games" toggle the appid-based dedup uses — so flip that off (or leave it off, which is the default) and the cloud-play entries stop polluting the owned set.
+
 ## [2.3.2] - 2026-05-27
 
 ### Added

@@ -1,8 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Focusable } from '@decky/ui'
-import { GameCard } from '../../../shelf/GameCard'
-import { MoreCard } from '../../../shelf/MoreCard'
-import { RefreshCard } from '../../../shelf/RefreshCard'
+import { ShelfRow } from '../../../shelf/ShelfRow'
 import type { DeckRowItem } from '../../../shelf/types'
 import { shouldShowMoreCard, shouldShowRefreshCard } from '../../../shelf/trailingCards'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
@@ -63,7 +61,7 @@ export interface ShelfPreviewProps {
   // Source + sort drive whether the trailing MoreCard / RefreshCard render
   // (refreshable smart, random non-smart, etc.) — same rules as Shelf.tsx.
   shelfSource?: any
-  shelfSort?: string
+  shelfSort?: string | string[]
   hideStatusLine: boolean
   hideNewBadge: boolean
   hideCompatIcons: boolean
@@ -88,11 +86,40 @@ export function ShelfPreview({
   highlightFirst, highlightAll, highlightedAppIds, onRefresh,
 }: ShelfPreviewProps) {
   const rowRef = useRef<HTMLDivElement>(null)
-  const highlightedSet = new Set(highlightedAppIds)
+  const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
   const cappedIds = (typeof limit === 'number' && limit >= 0) ? ids.slice(0, limit) : ids
   const trailingInput = { source: shelfSource, sort: shelfSort, hideSeeMore, hideRefreshCard }
   const showRefresh = shelfSource ? shouldShowRefreshCard(trailingInput) : !hideRefreshCard
   const showMore = shelfSource ? shouldShowMoreCard(trailingInput) : !hideSeeMore
+
+  // Build the items list (game cards + trailing refresh/more) so the
+  // shared <ShelfRow> can drive the entire row. Featured sizing comes
+  // from the per-game-card branch (preview uses 3.21× cardW for
+  // highlighted items, art height stays constant).
+  const rowItems = useMemo<DeckRowItem[]>(() => {
+    const out: DeckRowItem[] = []
+    for (const id of cappedIds) {
+      const m = meta.get(id)
+      if (!m) continue
+      const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
+      out.push({
+        id,
+        appid: id,
+        name: m.name,
+        portraitUrl: m.portraitUrl,
+        heroUrl: m.heroUrl,
+        isInstalled: m.installed,
+        isSteam: m.isSteam,
+        deckCompatCategory: m.deckCompatCategory,
+        playtimeMinutes: m.playtimeMinutes,
+        updatePending: m.updatePending,
+        isNew,
+      })
+    }
+    if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
+    if (showMore) out.push({ id: '__more', name: t('view_more'), isMoreLink: true })
+    return out
+  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t])
 
   // Keep the focused card in view as the user navigates horizontally — same
   // pattern HighlightRow uses on the home shelf. Without this, fast L/R input
@@ -153,60 +180,24 @@ export function ShelfPreview({
           alignItems: 'flex-start',
         }}
       >
-        {cappedIds.flatMap((id, idx) => {
-          const m: PlatformAppMeta | undefined = meta.get(id)
-          if (!m) return []
-          const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
-          const item: DeckRowItem = {
-            id,
-            appid: id,
-            name: m.name,
-            portraitUrl: m.portraitUrl,
-            heroUrl: m.heroUrl,
-            isInstalled: m.installed,
-            isSteam: m.isSteam,
-            deckCompatCategory: m.deckCompatCategory,
-            playtimeMinutes: m.playtimeMinutes,
-            updatePending: m.updatePending,
-            isNew,
-          }
-          const isFeatured = highlightAll || (highlightFirst && idx === 0) || highlightedSet.has(id)
-          return (
-            <GameCard
-              key={id}
-              item={item}
-              cardW={isFeatured ? FEATURED_CARD_W : PREVIEW_CARD_W}
-              // Wrapper = image only; label sits absolutely at top:100% so the
-              // focus ring stays on the image (matches home shelf behaviour).
-              cardH={PREVIEW_ART_H}
-              featured={isFeatured}
-              hideStatusLine={hideStatusLine}
-              hideNewBadge={hideNewBadge}
-              hideCompatIcons={hideCompatIcons}
-              hideNonSteamBadge={hideNonSteamBadge}
-              hideGameName={hideGameNames}
-              hideInstallIndicator={hideInstallIndicator}
-            />
-          )
-        })}
-        {showRefresh && (
-          <RefreshCard
-            key="__refresh"
-            item={{ id: '__refresh', name: t('refresh'), onActivate: onRefresh }}
-            cardW={PREVIEW_CARD_W}
-            cardH={PREVIEW_ART_H}
-            interactive={!!onRefresh}
-          />
-        )}
-        {showMore && (
-          <MoreCard
-            key="__more"
-            item={{ id: '__more', name: t('view_more') }}
-            cardW={PREVIEW_CARD_W}
-            cardH={PREVIEW_ART_H}
-            interactive={false}
-          />
-        )}
+        <ShelfRow
+          items={rowItems}
+          cardW={PREVIEW_CARD_W}
+          cardH={PREVIEW_ART_H}
+          featuredW={FEATURED_CARD_W}
+          featuredH={PREVIEW_ART_H}
+          highlightFirst={highlightFirst}
+          highlightAll={highlightAll}
+          highlightedSet={highlightedSet}
+          hideStatusLine={hideStatusLine}
+          hideNewBadge={hideNewBadge}
+          hideCompatIcons={hideCompatIcons}
+          hideNonSteamBadge={hideNonSteamBadge}
+          hideGameName={hideGameNames}
+          hideInstallIndicator={hideInstallIndicator}
+          refreshInteractive={!!onRefresh}
+          moreInteractive={false}
+        />
       </Focusable>
     </div>
   )

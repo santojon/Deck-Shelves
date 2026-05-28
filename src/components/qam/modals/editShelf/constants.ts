@@ -1,6 +1,9 @@
 export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store'
 export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display'
 
+// `composite` is implicit: the user picks a primary source then adds
+// extra ones inline via `+ Add source`. Two or more sources collapse to
+// a composite on save. `filter` is mutually exclusive and never combines.
 export const BASE_SOURCE_TYPES: SourceType[] = ['collection', 'tab', 'filter']
 
 export const SORT_OPTIONS = [

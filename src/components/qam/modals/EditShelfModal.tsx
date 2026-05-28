@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
+  DialogButton,
   DropdownItem,
   Focusable,
   SliderField,
@@ -59,15 +60,25 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     ? controllerTabs : NATIVE_FALLBACK_TABS
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
-  const initialSourceType = shelf.source.type as SourceType
-  const initialFilter = normalizeFilter(shelf.source)
+  // Composite shelves load by promoting `sources[0]` into the primary
+  // source fields; the remaining children populate `additionalSources`.
+  // This way the editor exposes a uniform "pick one source, optionally
+  // add more" UX whether the saved shape is a single source or a
+  // composite of N.
+  const compositeChildren: any[] = shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
+    ? (shelf.source as any).sources : []
+  const primarySource: any = shelf.source.type === 'composite'
+    ? (compositeChildren[0] ?? { type: 'tab', tab: 'all' })
+    : shelf.source
+  const initialSourceType = (primarySource?.type ?? 'tab') as SourceType
+  const initialFilter = normalizeFilter(primarySource)
   const initialFilterGroup = getEffectiveFilterGroup(initialFilter)
   const [state, setState] = useState<EditableShelfState>({
     title: shelf.title,
     sourceType: initialSourceType,
-    collectionId: shelf.source.type === 'collection' ? shelf.source.collectionId : String(collections[0]?.id ?? ''),
-    tab: shelf.source.type === 'tab' ? shelf.source.tab : String(platformTabs[0]?.id ?? 'all'),
-    externalSourceId: shelf.source.type === 'external' ? shelf.source.sourceId : (externalSources[0]?.id ?? ''),
+    collectionId: primarySource?.type === 'collection' ? primarySource.collectionId : String(collections[0]?.id ?? ''),
+    tab: primarySource?.type === 'tab' ? primarySource.tab : String(platformTabs[0]?.id ?? 'all'),
+    externalSourceId: primarySource?.type === 'external' ? primarySource.sourceId : (externalSources[0]?.id ?? ''),
     filter: initialFilter,
     filterGroup: initialFilterGroup,
     sort: (shelf as any).sort ?? 'alphabetical',
@@ -102,6 +113,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       }
       return { mode: 'and', items: [] }
     })(),
+    compositeCombine: (shelf.source.type === 'composite' && (shelf.source as any).combine === 'intersection') ? 'intersection' : 'union',
+    additionalSources: compositeChildren.slice(1) as any[],
   })
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [previewCount, setPreviewCount] = useState<number | null>(null)
@@ -147,18 +160,28 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
 
   const previewSource = useMemo(() => {
     const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
-    if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
-    if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(childFilter ? { childFilter } : {}) }
-    if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
-    if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any
-    if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any }
-    // When manual sort is active, use the configured base sort for the
-    // preview so the mini-card row reflects the actual order of non-manual
-    // positions at runtime (matches what Shelf.tsx resolves on home).
-    const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
-    const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
-    return { type: 'filter' as const, filter: effectiveFilter }
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud])
+    const buildPrimary = (): any => {
+      if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
+      if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(childFilter ? { childFilter } : {}) }
+      if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
+      if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) }
+      if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } }
+      // When manual sort is active, use the configured base sort for the
+      // preview so the mini-card row reflects the actual order of non-manual
+      // positions at runtime (matches what Shelf.tsx resolves on home).
+      const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
+      const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
+      return { type: 'filter' as const, filter: effectiveFilter }
+    }
+    const primary = buildPrimary()
+    // Multi-source shelves combine via composite. Filter is mutually
+    // exclusive and never combines, so additionalSources is ignored
+    // whenever the primary is a filter.
+    if (state.sourceType !== 'filter' && state.additionalSources.length > 0) {
+      return { type: 'composite' as const, combine: state.compositeCombine, sources: [primary, ...state.additionalSources] } as any
+    }
+    return primary
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources])
 
   useEffect(() => {
     let cancelled = false
@@ -175,13 +198,15 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       const previewReverse = isManualSort
         ? !!state.manualBaseSortReverse
         : !!state.sortReverse
-      let previewSort: string | undefined
+      let previewSort: string | string[] | undefined
       if (state.sourceType === 'filter') {
         previewSort = undefined
       } else if (isManualSort) {
         previewSort = state.manualBaseSort || 'alphabetical'
       } else {
-        previewSort = state.sort || (previewReverse ? 'alphabetical' : undefined)
+        previewSort = (state.sort && (Array.isArray(state.sort) ? state.sort.length : true))
+          ? state.sort
+          : (previewReverse ? 'alphabetical' : undefined)
       }
       // Resolve with a generous limit, then apply the same render-time
       // filters Shelf.tsx applies so the modal count matches the shelf.
@@ -312,8 +337,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     if (!hiddenPickerOpen) return
     let cancelled = false
     const timer = setTimeout(() => {
-      const isManualS = state.sort === 'manual' || state.filter.sort === 'manual'
-      const previewSort = state.sourceType === 'filter'
+      const primarySortKey = Array.isArray(state.sort) ? state.sort[0] : state.sort
+      const primaryFilterSort = Array.isArray(state.filter.sort) ? state.filter.sort[0] : state.filter.sort
+      const isManualS = primarySortKey === 'manual' || primaryFilterSort === 'manual'
+      const previewSort: string | string[] | undefined = state.sourceType === 'filter'
         ? undefined
         : (isManualS ? (state.manualBaseSort || 'alphabetical') : (state.sort || undefined))
       resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
@@ -462,30 +489,113 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     [t, isOnlineSourceType]
   )
 
+  // Exhaustion: each "single-instance" source type (filter/wishlist/store)
+  // is capped at one across the primary + additional rows. Tabs and
+  // collections cap at the total catalog size — once every tab/collection
+  // is used, the type disappears from the picker. `excludeRow` lets a
+  // row see itself as "free" when computing its own available options
+  // (otherwise the row's current pick would appear exhausted).
+  const computeUsage = (excludeRow?: number | 'primary') => {
+    const filterCount = (state.sourceType === 'filter' && excludeRow !== 'primary' ? 1 : 0)
+      + state.additionalSources.filter((s: any, i: number) => i !== excludeRow && s?.type === 'filter').length
+    const storeCount = (state.sourceType === 'store' && excludeRow !== 'primary' ? 1 : 0)
+      + state.additionalSources.filter((s: any, i: number) => i !== excludeRow && s?.type === 'store').length
+    const wishlistCount = (state.sourceType === 'wishlist' && excludeRow !== 'primary' ? 1 : 0)
+      + state.additionalSources.filter((s: any, i: number) => i !== excludeRow && s?.type === 'wishlist').length
+    const usedTabs = new Set<string>()
+    if (state.sourceType === 'tab' && excludeRow !== 'primary') usedTabs.add(state.tab)
+    state.additionalSources.forEach((s: any, i: number) => {
+      if (i !== excludeRow && s?.type === 'tab') usedTabs.add(String(s.tab))
+    })
+    const usedCollections = new Set<string>()
+    if (state.sourceType === 'collection' && excludeRow !== 'primary') usedCollections.add(state.collectionId)
+    state.additionalSources.forEach((s: any, i: number) => {
+      if (i !== excludeRow && s?.type === 'collection') usedCollections.add(String(s.collectionId))
+    })
+    return { filterCount, storeCount, wishlistCount, usedTabs, usedCollections }
+  }
+  const onlineLabel = (key: 'source_wishlist' | 'source_store') => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><OnlineIcon size={14} style={{ opacity: 0.7 }} />{t(key)}</span>
+  ) as any
+  const buildChildTypeOptions = (excludeRow: number): SingleDropdownOption[] => {
+    const u = computeUsage(excludeRow)
+    const opts: SingleDropdownOption[] = []
+    // Exhaustion: only hide collection/tab when the catalog is non-empty
+    // AND every entry is already in use. With an empty catalog (no Steam
+    // collections discovered yet, or `listCollections` raced the modal
+    // open) we keep the type visible — the value picker falls back to
+    // the placeholder, matching the primary source dropdown's behaviour.
+    if (collectionOptions.length === 0 || u.usedCollections.size < collectionOptions.length) {
+      opts.push({ data: 'collection', label: t('source_collection') })
+    }
+    if (tabOptions.length === 0 || u.usedTabs.size < tabOptions.length) {
+      opts.push({ data: 'tab', label: t('source_tab') })
+    }
+    if (settings?.onlineFeaturesEnabled) {
+      if (u.wishlistCount < 1) opts.push({ data: 'wishlist', label: onlineLabel('source_wishlist') })
+      if (u.storeCount < 1) opts.push({ data: 'store', label: onlineLabel('source_store') })
+    }
+    if (u.filterCount < 1) opts.push({ data: 'filter', label: t('source_filter') })
+    return opts
+  }
+  const buildCollectionValueOpts = (excludeRow: number): SingleDropdownOption[] => {
+    const u = computeUsage(excludeRow)
+    return collectionOptions.filter((o) => !u.usedCollections.has(String(o.data)))
+  }
+  const buildTabValueOpts = (excludeRow: number): SingleDropdownOption[] => {
+    const u = computeUsage(excludeRow)
+    return tabOptions.filter((o) => !u.usedTabs.has(String(o.data)))
+  }
+  // First-available descriptor used when the user clicks "+ Add source".
+  // Falls back to undefined when every source type is exhausted (button
+  // is disabled in that case).
+  const pickNextAvailable = (): any => {
+    const opts = buildChildTypeOptions(-1)
+    const t0 = opts[0]?.data
+    if (t0 === 'collection') {
+      const c = buildCollectionValueOpts(-1)[0]
+      return { type: 'collection', collectionId: String(c?.data ?? '') }
+    }
+    if (t0 === 'tab') {
+      const tab = buildTabValueOpts(-1)[0]
+      return { type: 'tab', tab: String(tab?.data ?? 'all') }
+    }
+    if (t0 === 'wishlist') return { type: 'wishlist' }
+    if (t0 === 'store') return { type: 'store' }
+    if (t0 === 'filter') return { type: 'filter', filter: { sort: 'alphabetical' } }
+    return null
+  }
+  const canAddSource = buildChildTypeOptions(-1).length > 0
+
   const changeSourceType = (type: SourceType) => {
     setState((prev) => {
+      // Filter is mutually exclusive — drop any stacked additional sources
+      // when the user switches into it. Composite combines aren't valid
+      // alongside a filter primary, so the user is steered toward filter
+      // merge for multi-criteria predicates.
+      const wipeExtras = type === 'filter' ? { additionalSources: [] } : {}
       if (type === 'collection') {
         const first = collectionOptions[0]
         const nextTitle = String(first?.label ?? t('newShelf'))
-        return { ...prev, sourceType: type, title: nextTitle, collectionId: String(first?.data ?? ''), filter: normalizeFilter({ type: 'filter', filter: prev.filter }) }
+        return { ...prev, sourceType: type, title: nextTitle, collectionId: String(first?.data ?? ''), filter: normalizeFilter({ type: 'filter', filter: prev.filter }), ...wipeExtras }
       }
       if (type === 'tab') {
         const first = tabOptions[0]
         const nextTitle = first ? (tabTextLabels.get(String(first.data)) ?? t('newShelf')) : t('newShelf')
-        return { ...prev, sourceType: type, title: nextTitle, tab: String(first?.data ?? 'all') }
+        return { ...prev, sourceType: type, title: nextTitle, tab: String(first?.data ?? 'all'), ...wipeExtras }
       }
       if (type === 'external') {
         const first = externalOptions[0]
         const nextTitle = String(first?.label ?? t('newShelf'))
-        return { ...prev, sourceType: type, title: nextTitle, externalSourceId: String(first?.data ?? '') }
+        return { ...prev, sourceType: type, title: nextTitle, externalSourceId: String(first?.data ?? ''), ...wipeExtras }
       }
       if (type === 'wishlist') {
-        return { ...prev, sourceType: type, childFilterGroup: { mode: 'and', items: [] } }
+        return { ...prev, sourceType: type, childFilterGroup: { mode: 'and', items: [] }, ...wipeExtras }
       }
       if (type === 'store') {
-        return { ...prev, sourceType: type }
+        return { ...prev, sourceType: type, ...wipeExtras }
       }
-      return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }) }
+      return { ...prev, sourceType: type, filter: normalizeFilter({ type: 'filter', filter: prev.filter }), ...wipeExtras }
     })
     if (type !== 'filter' && activeTab === 'filters') setActiveTab('source')
     if (type !== 'collection' && type !== 'tab' && type !== 'wishlist' && type !== 'store' && activeTab === 'childFilters') setActiveTab('source')
@@ -511,17 +621,30 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
-      if (state.sourceType === 'collection') { patch.source = { type: 'collection', collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
+      // Build the primary source from the per-type fields. Sort goes on
+      // the shelf for non-filter primaries; for filter, sort lives inside
+      // the filter object (filterGroupToFilter handles that).
+      let primarySource: any
+      if (state.sourceType === 'collection') primarySource = { type: 'collection', collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
       else if (state.sourceType === 'tab') {
         const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
         const baseSource = selectedTab?.source ?? { type: 'tab', tab: state.tab }
-        patch.source = (childFilter ? { ...baseSource, childFilter } : baseSource) as any;
-        patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined;
+        primarySource = childFilter ? { ...baseSource, childFilter } : baseSource
       }
-      else if (state.sourceType === 'external') { patch.source = { type: 'external', sourceId: state.externalSourceId }; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
-      else if (state.sourceType === 'wishlist') { patch.source = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
-      else if (state.sourceType === 'store') { const cf = childFilter; patch.source = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } as any; patch.sort = state.sort !== 'alphabetical' ? state.sort : undefined; }
-      else patch.source = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) };
+      else if (state.sourceType === 'external') primarySource = { type: 'external', sourceId: state.externalSourceId }
+      else if (state.sourceType === 'wishlist') primarySource = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) }
+      else if (state.sourceType === 'store') { const cf = childFilter; primarySource = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } }
+      else primarySource = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) }
+      // Stack extras into a composite. Single-source shelves keep the
+      // flat shape for back-compat with older readers.
+      if (state.sourceType !== 'filter' && state.additionalSources.length > 0) {
+        patch.source = { type: 'composite', combine: state.compositeCombine, sources: [primarySource, ...state.additionalSources] } as any
+      } else {
+        patch.source = primarySource
+      }
+      if (state.sourceType !== 'filter') {
+        patch.sort = (Array.isArray(state.sort) ? state.sort.length > 0 : state.sort !== 'alphabetical') ? state.sort : undefined
+      }
       if (mode === 'create') {
         // Modal-driven create: nothing was persisted on open. Build the full
         // shelf locally and commit only on Save. Cancel/close discards.
@@ -583,6 +706,138 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                         {t('source_store_hint')}
                       </div>
                     )}
+                    {/* Multi-source stacking: stack additional sources on top of
+                        any primary (including filter — multi-filter is the
+                        only thing forbidden, and the exhaustion logic in
+                        buildChildTypeOptions takes filter out of the dropdown
+                        as soon as one is in play). Saving collapses 2+
+                        sources into a composite; single-source shelves keep
+                        the flat shape. Combine operator only renders once
+                        at least one extra is present. */}
+                    {(state.additionalSources.length > 0 || canAddSource) && (
+                      <>
+                        {state.additionalSources.map((child: any, idx: number) => {
+                          const rawType = child?.type;
+                          const childType: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' =
+                            rawType === 'collection' || rawType === 'wishlist' || rawType === 'store' || rawType === 'filter' ? rawType : 'tab';
+                          const needsValuePicker = childType === 'collection' || childType === 'tab';
+                          const childValue = childType === 'collection'
+                            ? String(child?.collectionId ?? '')
+                            : childType === 'tab'
+                              ? String(child?.tab ?? 'all')
+                              : '';
+                          // Per-row value pickers exclude tabs/collections that
+                          // are already in use elsewhere — the row keeps its
+                          // OWN current pick available (excludeRow=idx).
+                          const innerOpts = childType === 'collection' ? buildCollectionValueOpts(idx) : childType === 'tab' ? buildTabValueOpts(idx) : [];
+                          const typeOpts = buildChildTypeOptions(idx);
+                          // Type options exclude exhausted sources for this
+                          // row. The row's CURRENT type is always present
+                          // (excludeRow=idx surfaces it) so the dropdown can
+                          // show what's actually selected.
+                          if (!typeOpts.some((o) => o.data === childType)) {
+                            typeOpts.unshift({
+                              data: childType,
+                              label: childType === 'collection' ? t('source_collection')
+                                : childType === 'tab' ? t('source_tab')
+                                : childType === 'wishlist' ? t('source_wishlist')
+                                : childType === 'filter' ? t('source_filter')
+                                : t('source_store'),
+                            });
+                          }
+                          const onTypeChange = (next: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter') => {
+                            setState((prev) => {
+                              const updated = prev.additionalSources.slice();
+                              if (next === 'collection') {
+                                const avail = buildCollectionValueOpts(idx)[0];
+                                updated[idx] = { type: 'collection', collectionId: String(avail?.data ?? '') } as any;
+                              } else if (next === 'tab') {
+                                const avail = buildTabValueOpts(idx)[0];
+                                updated[idx] = { type: 'tab', tab: String(avail?.data ?? 'all') } as any;
+                              } else if (next === 'wishlist') {
+                                updated[idx] = { type: 'wishlist' } as any;
+                              } else if (next === 'filter') {
+                                updated[idx] = { type: 'filter', filter: { sort: 'alphabetical' } } as any;
+                              } else {
+                                updated[idx] = { type: 'store' } as any;
+                              }
+                              return { ...prev, additionalSources: updated };
+                            });
+                          };
+                          const onValueChange = (val: string) => {
+                            setState((prev) => {
+                              const updated = prev.additionalSources.slice();
+                              if (childType === 'collection') updated[idx] = { type: 'collection', collectionId: val } as any;
+                              else if (childType === 'tab') updated[idx] = { type: 'tab', tab: val } as any;
+                              return { ...prev, additionalSources: updated };
+                            });
+                          };
+                          const onRemove = () => setState((prev) => ({ ...prev, additionalSources: prev.additionalSources.filter((_: any, i: number) => i !== idx) }));
+                          const childTypeLabel =
+                            childType === 'collection' ? t('source_collection')
+                            : childType === 'tab' ? t('source_tab')
+                            : childType === 'wishlist' ? t('source_wishlist')
+                            : childType === 'filter' ? t('source_filter')
+                            : t('source_store');
+                          return (
+                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0', borderTop: idx === 0 ? '1px solid rgba(255,255,255,0.08)' : 'none', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                              {/* Focusable wrapper so Steam's gamepad nav
+                                  treats the dropdown + × as horizontal
+                                  siblings (DOM order = visual order =
+                                  left-to-right). Without it the X button
+                                  is reached via DOWN, which is awkward. */}
+                              <Focusable style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <DropdownItem
+                                    label={`${t('composite_source_label')} ${idx + 2}`}
+                                    rgOptions={typeOpts}
+                                    selectedOption={childType}
+                                    onChange={(opt: unknown) => {
+                                      const v = String(optionData(opt));
+                                      onTypeChange(v === 'collection' || v === 'wishlist' || v === 'store' || v === 'filter' ? v : 'tab');
+                                    }}
+                                    bottomSeparator='none'
+                                  />
+                                </div>
+                                <DialogButton onClick={onRemove} onOKButton={onRemove} style={{ minWidth: 40, width: 40, padding: 8 }} onOKActionDescription={t('composite_remove_source')}>×</DialogButton>
+                              </Focusable>
+                              {needsValuePicker && (
+                                <DropdownItem
+                                  label={childTypeLabel}
+                                  rgOptions={innerOpts}
+                                  selectedOption={childValue}
+                                  onChange={(opt: unknown) => onValueChange(String(optionData(opt)))}
+                                  bottomSeparator='none'
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                        {state.additionalSources.length > 0 && (
+                          <DropdownItem
+                            label={t('composite_combine_label')}
+                            rgOptions={[
+                              { data: 'union', label: t('composite_combine_union') },
+                              { data: 'intersection', label: t('composite_combine_intersection') },
+                            ]}
+                            selectedOption={state.compositeCombine}
+                            onChange={(opt: unknown) => setState((prev) => ({ ...prev, compositeCombine: (String(optionData(opt)) === 'intersection' ? 'intersection' : 'union') }))}
+                            bottomSeparator='thick'
+                          />
+                        )}
+                        {canAddSource && (
+                          <DialogButton
+                            onClick={() => setState((prev) => {
+                              const next = pickNextAvailable()
+                              if (!next) return prev
+                              return { ...prev, additionalSources: [...prev.additionalSources, next] }
+                            })}
+                            onOKActionDescription={t('composite_add_source')}
+                            style={{ width: '100%' }}
+                          >+ {t('composite_add_source')}</DialogButton>
+                        )}
+                      </>
+                    )}
                     {(state.sourceType === 'wishlist' || state.sourceType === 'store') && (
                       <>
                         <ToggleField
@@ -617,17 +872,20 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       onSortChange={(next) => setState((prev) => prev.sourceType === 'filter'
                         ? { ...prev, filter: { ...prev.filter, sort: next as ShelfFilter['sort'] } }
                         : { ...prev, sort: next })}
-                      reverse={state.sortReverse}
-                      onReverseChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
+                      reverse={state.sourceType === 'filter' ? (state.filter.sortReverse ?? false) : state.sortReverse}
+                      onReverseChange={(next) => setState((prev) => prev.sourceType === 'filter'
+                        ? { ...prev, filter: { ...prev.filter, sortReverse: next } }
+                        : { ...prev, sortReverse: next })}
+                      allowMultiKey
                     />
                     {isManualSort && (
                       <SortField
                         label={t('manual_base_sort')}
                         options={baseSortOptions}
                         sort={state.manualBaseSort}
-                        onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: next }))}
+                        onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: typeof next === 'string' ? next : (next[0] ?? 'alphabetical') }))}
                         reverse={state.manualBaseSortReverse}
-                        onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
+                        onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: typeof next === 'boolean' ? next : !!next[0] }))}
                       />
                     )}
                     <SliderField

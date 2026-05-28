@@ -60,14 +60,25 @@ export const FilterSchema = z.object({
   nameIncludes: z.string().optional(),
   nameRegex: z.string().optional(),
   deckCompatibility: z.array(z.enum(["verified", "playable", "unsupported", "unknown"])).optional(),
-  // Allow known sort enums but accept unknown strings for forward compatibility
+  // Allow known sort enums but accept unknown strings for forward compatibility.
+  // String OR array-of-strings: when array, sorts apply as primary, secondary,
+  // tertiary keys (stable chain via right-to-left iteration in
+  // `applySortToIds`). Single-key shelves keep writing the string form for
+  // back-compat with older readers.
   sort: z.union([
     z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score"]),
     z.string(),
+    z.array(z.union([
+      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score"]),
+      z.string(),
+    ])),
   ]).optional(),
   // When true, reverse the sort result. Ignored for `manual` and `random`
   // (re-orderings would be meaningless). Default false.
-  sortReverse: z.boolean().optional(),
+  // Boolean OR array-of-booleans: per-key reverse aligned with the sort
+  // array. When sort is a string and sortReverse is an array (or vice versa),
+  // the union is treated as if the missing axis were repeated for every key.
+  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   minPlaytimeMinutes: z.number().int().min(0).optional(),
   maxPlaytimeMinutes: z.number().int().min(0).optional(),
   updatePending: z.boolean().optional(),
@@ -106,10 +117,18 @@ export const SmartShelfSchema = z.object({
   // `sort` overrides the mode's default ordering (supports the same values as
   // regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
   // `filterGroup` narrows the mode's candidate pool with additional filters.
-  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]), z.string()]).optional(),
+  sort: z.union([
+    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
+    z.string(),
+    z.array(z.union([
+      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
+      z.string(),
+    ])),
+  ]).optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
-  // `manual` and `random`. Default false.
-  sortReverse: z.boolean().optional(),
+  // `manual` and `random`. Default false. Array form is per-key reverse
+  // aligned with the `sort` array; see FilterSchema.sortReverse.
+  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
   manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
   // When true, reverse the manual base sort. Default false.
@@ -161,7 +180,25 @@ export const SmartShelfSchema = z.object({
 });
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
-export const ShelfSourceSchema = z.union([
+// `composite` is recursive (a composite source contains other sources,
+// which themselves can be composite). Zod requires `z.lazy()` to break
+// the self-reference at definition time. Because Zod can't infer the
+// type through a lazy schema, the type is declared explicitly first and
+// the schema is constrained with `ZodType<ShelfSource>`. Depth is
+// bounded at resolve time (`MAX_COMPOSITE_DEPTH` in `steam/index.ts`);
+// the schema accepts arbitrary nesting so power users editing JSON can
+// go deeper than the editor exposes.
+export type ShelfSource =
+  | { type: "collection"; collectionId: string; childFilter?: FilterGroup }
+  | { type: "tab"; tab: string; childFilter?: FilterGroup }
+  | { type: "filter"; filter: ShelfFilter }
+  | { type: "external"; sourceId: string }
+  | { type: "smart"; mode: SmartShelfMode }
+  | { type: "wishlist"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
+  | { type: "store"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
+  | { type: "composite"; combine: "union" | "intersection"; sources: ShelfSource[] };
+
+export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
   z.object({ type: z.literal("collection"), collectionId: z.string(), childFilter: FilterGroupSchema.optional() }),
   z.object({ type: z.literal("tab"), tab: z.string().min(1), childFilter: FilterGroupSchema.optional() }),
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
@@ -169,9 +206,8 @@ export const ShelfSourceSchema = z.union([
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
   z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
   z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
-]);
-
-export type ShelfSource = z.infer<typeof ShelfSourceSchema>;
+  z.object({ type: z.literal("composite"), combine: z.enum(["union", "intersection"]), sources: z.array(ShelfSourceSchema) }),
+]) as unknown as z.ZodType<ShelfSource>);
 export type ShelfFilter = z.infer<typeof FilterSchema>;
 
 export const ShelfSchema = z.object({
@@ -180,10 +216,18 @@ export const ShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).default(20),
-  sort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]), z.string()]).optional(),
+  sort: z.union([
+    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
+    z.string(),
+    z.array(z.union([
+      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
+      z.string(),
+    ])),
+  ]).optional(),
   // When true, reverse the sort result (asc/desc toggle). Ignored for
-  // `manual` and `random`. Default false.
-  sortReverse: z.boolean().optional(),
+  // `manual` and `random`. Default false. Array form is per-key reverse
+  // aligned with the `sort` array; see FilterSchema.sortReverse.
+  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
   // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
   // Defaults to "alphabetical" when absent; must not be "manual" itself.

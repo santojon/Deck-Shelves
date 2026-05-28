@@ -299,7 +299,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
 
       <CollapsibleSection id='shelves' icon={<StackIcon />} title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
         <Field className='no-sep'>
-          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex' }}>
               <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
               <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_shelves')} /></div>
@@ -372,7 +372,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             <div style={{ marginTop: 8 }} />
             <div className='deck-shelves-separator' />
             <Field className='no-sep'>
-              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
                 <div style={{ display: 'flex' }}>
                   <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
                   <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
@@ -438,7 +438,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
 
       <Field className='no-sep'>
-        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex' }}>
             <ActionButton iconNode={icons.import} onClick={handleImportAll} okDescription={t('import_settings')} />
             <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportAll} okDescription={t('export_settings')} /></div>

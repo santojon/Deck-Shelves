@@ -2127,7 +2127,69 @@ export function applyManualOrder(ids: number[], manualOrder?: number[]): number[
   return [...inOrder, ...rest];
 }
 
-function applySortToIds(ids: number[], sort: string, all: AppOverview[], shelfId?: string, reverse?: boolean): number[] {
+// Builds a comparator for a single sort key. Returns null for keys that
+// can't participate in a multi-key chain (`manual`, `random`, async-only
+// price keys, unregistered external sorts) so the multi-key path can
+// drop them from the chain without falling back to alphabetical.
+function buildKeyComparator(key: string, isReversed: boolean): ((a: AppOverview, b: AppOverview) => number) | null {
+  if (key === "manual" || key === "random") return null;
+  const sign = isReversed ? -1 : 1;
+  if (key === "recent") return (a, b) => sign * (lastPlayedOf(b) - lastPlayedOf(a));
+  if (key === "playtime") return (a, b) => sign * ((b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
+  if (key === "release_date") return (a, b) => sign * (((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
+  if (key === "size_on_disk") return (a, b) => sign * (Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
+  if (key === "metacritic") return (a, b) => sign * (((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
+  if (key === "review_score") return (a, b) => sign * (((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
+  if (key === "added") return (a, b) => sign * compareByAdded(a, b);
+  if (key === "app_status") return (a, b) => sign * (((a as any).display_status ?? 0) - ((b as any).display_status ?? 0));
+  if (key === "deck_compat") return (a, b) => sign * (((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0));
+  if (key === "controller_support") return (a, b) => sign * (((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0));
+  if (key === "price_low" || key === "discount_high" || key === "original_price_high") {
+    // Price keys need an async fetch (applyPriceSort) and have no
+    // comparator usable here; fall through to alphabetical as a stable
+    // sub-key when chained.
+    return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+  }
+  if (key === "alphabetical") {
+    return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+  }
+  // Unknown key (could be an external sort plugin id) — external sorts
+  // don't expose a comparator, so they degrade to alphabetical inside a
+  // multi-key chain. Single-key dispatch still calls into the registry.
+  return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+}
+
+export function applySortToIds(ids: number[], sort: string | string[], all: AppOverview[], shelfId?: string, reverse?: boolean | boolean[]): number[] {
+  // Multi-key: walk each key in declaration order via a single composite
+  // comparator so JS's stable sort preserves the primary order when the
+  // secondary key ties. Earlier we chained right-to-left + reverse() at
+  // each pass — but reverse() flips tied items, undoing the previous
+  // pass's tiebreaker (see applySortToIds.test.ts for the regression).
+  // Per-key reverse picks the aligned index when `reverse` is also an
+  // array; a boolean applies to every key.
+  if (Array.isArray(sort)) {
+    const keys = sort.filter((k) => typeof k === "string" && k.length > 0) as string[];
+    if (keys.length === 0) return ids.slice();
+    if (keys.length === 1) return applySortToIds(ids, keys[0], all, shelfId, Array.isArray(reverse) ? !!reverse[0] : reverse);
+    const comparators: ((a: AppOverview, b: AppOverview) => number)[] = [];
+    keys.forEach((k, i) => {
+      const r = Array.isArray(reverse) ? !!reverse[i] : !!reverse;
+      const cmp = buildKeyComparator(k, r);
+      if (cmp) comparators.push(cmp);
+    });
+    if (comparators.length === 0) return ids.slice();
+    const byId = new Map<number, AppOverview>();
+    for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
+    const apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+    apps.sort((a, b) => {
+      for (const cmp of comparators) {
+        const r = cmp(a, b);
+        if (r !== 0) return r;
+      }
+      return 0;
+    });
+    return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+  }
   const byId = new Map<number, AppOverview>();
   for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
   let apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
@@ -2209,7 +2271,38 @@ async function applyPriceSort(ids: number[], sort: "price_low" | "discount_high"
   }
 }
 
-export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string, shelfId?: string, sortReverse?: boolean, options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }): Promise<number[]> {
+// Composite source recursion bound. A composite-of-composite chain
+// deeper than this returns `[]` at the deepest level — keeps a
+// pathological user JSON (or an external plugin) from spinning the
+// resolver. UI exposes at most 1 level of nesting; the schema permits
+// the full depth for power users editing the JSON directly.
+const MAX_COMPOSITE_DEPTH = 4;
+
+// Pure merge for composite child results. Extracted so unit tests can
+// cover the operator semantics without resolving real Steam sources.
+// - union: first child's order, then each subsequent child's items not
+//   already in the result. De-dupes while preserving the
+//   first-source-wins ordering the editor implies.
+// - intersection: membership in EVERY child; iteration order follows
+//   the first child so users get a predictable primary ordering.
+export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<number>>, combine: "union" | "intersection"): number[] {
+  if (childResults.length === 0) return [];
+  if (combine === "intersection") {
+    const others = childResults.slice(1).map((arr) => new Set(arr));
+    const first = childResults[0] ?? [];
+    return first.filter((id) => others.every((s) => s.has(id)));
+  }
+  const seen = new Set<number>();
+  const merged: number[] = [];
+  for (const arr of childResults) {
+    for (const id of arr) {
+      if (!seen.has(id)) { seen.add(id); merged.push(id); }
+    }
+  }
+  return merged;
+}
+
+export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string | string[], shelfId?: string, sortReverse?: boolean | boolean[], options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }, _depth: number = 0): Promise<number[]> {
   const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
   // Overshoot for render-time filters: hidden*2 for the picker, plus
   // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
@@ -2501,6 +2594,27 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       filtered = filtered.filter((a) => !a.update_pending);
     }
 
+    // Multi-key sort: when `f.sort` is an array, delegate to applySortToIds
+    // for the stable primary/secondary chain. Single-key paths keep the
+    // inline branches below for back-compat (no behavior change).
+    if (Array.isArray(f.sort)) {
+      const sortedIds = applySortToIds(
+        filtered.map((a) => appIdOf(a)).filter(Number.isFinite),
+        f.sort,
+        all,
+        shelfId,
+        (f as any).sortReverse ?? sortReverse,
+      );
+      const ids = deduplicateNonSteam(sortedIds, all);
+      if (!ids.length) {
+        logWarn("STEAM", "resolveShelfAppIds(filter) empty", {
+          filter: f, allCount: all.length,
+        });
+      } else {
+        logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
+      }
+      return finish(ids.slice(0, overShootLimit));
+    }
     if (f.sort === "recent" || typeof f.playedWithinDays === "number") {
       filtered = filtered.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
     } else if (f.sort === "playtime") {
@@ -2608,7 +2722,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         ids = [...sortedLocal, ...remoteIds];
       }
       if (isPriceSort) {
-        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", sortReverse);
+        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse);
       }
       logInfo("STEAM", "resolveShelfAppIds(wishlist) resolved", { count: ids.length });
       return finish(ids.slice(0, overShootLimit));
@@ -2670,7 +2784,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         const sortedLocal = applySortToIds(localIds, sort, all, shelfId, sortReverse);
         ids = [...sortedLocal, ...remoteIds];
       } else if (isPriceSort) {
-        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", sortReverse);
+        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse);
       }
       logInfo("STEAM", "resolveShelfAppIds(store) resolved", { count: ids.length });
       return finish(ids.slice(0, overShootLimit));
@@ -2727,6 +2841,31 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     } catch {
       return [];
     }
+  }
+
+  if (source.type === "composite") {
+    if (_depth >= MAX_COMPOSITE_DEPTH) {
+      logWarn("STEAM", "resolveShelfAppIds(composite) depth cap reached", { depth: _depth, max: MAX_COMPOSITE_DEPTH });
+      return finish([]);
+    }
+    const combine = source.combine === "intersection" ? "intersection" : "union";
+    const childSources: Array<{ type: string; [k: string]: any }> = Array.isArray(source.sources) ? source.sources : [];
+    if (!childSources.length) return finish([]);
+    // Each child source resolves with its OWN sort embedded (filter
+    // sources carry `source.filter.sort`; other types use the shelf-
+    // level sort passed through). We forward `sort` + `sortReverse` so
+    // composite is transparent to those child resolvers — but cap each
+    // child at `overShootLimit` so a single greedy child can't blow up
+    // the merged set before de-dupe.
+    const childResults = await Promise.all(
+      childSources.map((child) =>
+        resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1)
+          .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; }),
+      ),
+    );
+    const merged = mergeCompositeResults(childResults, combine);
+    logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length });
+    return finish(merged.slice(0, overShootLimit));
   }
 
   return [];

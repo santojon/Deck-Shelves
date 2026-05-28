@@ -77,14 +77,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const platform = usePlatform();
   const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}-${(shelf as any).sortReverse ? 'r1' : 'r0'}-${(shelf as any).manualBaseSortReverse ? 'r1' : 'r0'}`;
   const effectiveSort = shelf.source?.type === "filter"
-    ? (((shelf.source as any).filter?.sort as string | undefined) ?? shelf.sort)
+    ? (((shelf.source as any).filter?.sort as string | string[] | undefined) ?? shelf.sort)
     : shelf.sort;
+  // Manual order applies only when the PRIMARY sort key is "manual".
+  // Multi-key shelves treat the first array entry as primary.
+  const primaryEffectiveSort = Array.isArray(effectiveSort) ? effectiveSort[0] : effectiveSort;
   const [appIds, setAppIds] = useState<number[] | null>(() => {
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { ts, ids } = JSON.parse(raw);
-        if (Date.now() - ts < 86400000) return effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids; // 24h expiry
+        if (Date.now() - ts < 86400000) return primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids; // 24h expiry
       }
     } catch (e) { logInfo("HOME", "shelf cache read failed", String(e)); }
     return null;
@@ -134,13 +137,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         // `source.filter.sort` (the third arg is ignored by that branch),
         // so we clone the source and swap `filter.sort` to the base sort.
         const baseSort = (shelf as any).manualBaseSort ?? "alphabetical";
-        const isManual = effectiveSort === "manual";
+        const isManual = primaryEffectiveSort === "manual";
         // Asc/desc inversion. When manual, the base sort's reverse flag
         // applies. Otherwise the top-level shelf flag applies. `manual` and
         // `random` are skipped at the resolver level regardless.
-        const resolveReverse = isManual
+        // Multi-key shelves carry an aligned boolean[] in sortReverse;
+        // pass it through as-is. Single-key shelves keep the legacy
+        // boolean. Manual base sort is always single-key.
+        const rawShelfReverse = (shelf as any).sortReverse;
+        const resolveReverse: boolean | boolean[] = isManual
           ? !!(shelf as any).manualBaseSortReverse
-          : !!(shelf as any).sortReverse;
+          : (Array.isArray(rawShelfReverse) ? rawShelfReverse : !!rawShelfReverse);
         // When reverse is on but no explicit sort is persisted (regular shelf
         // default = "alphabetical" stored as undefined), force `alphabetical`
         // so the resolver actually calls `applySortToIds` and the reverse
@@ -158,7 +165,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined })
           .then((ids) => {
             if (cancelled || gen !== resolveGenRef.current) return;
-            const finalIds = effectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
+            const finalIds = primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
             setAppIds(finalIds);
             setMetaVersion((v) => v + 1);
             firstLoad.current = false;
@@ -269,19 +276,20 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     if (!shouldHideOwned) { setOwnedAppIds(null); setOwnedNames(null); return; }
     setOwnedAppIds(getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud));
     let cancelled = false;
-    // Name-based dedup intentionally uses a BROADER ownership set than the
-    // appid-based dedup above — it always includes non-Steam shortcuts
-    // (and cloud-play entries) regardless of the user's "include non-Steam"
-    // sub-toggle. Rationale: appid dedup is exact and respects the user's
-    // explicit scope choice (Steam-only vs cross-provider). Name dedup is
-    // a heuristic safety net: if the user owns "Hades" from any local
-    // source (Steam, Epic via Unifideck, etc.), they almost never want
-    // their wishlist / store row to keep advertising it. Cross-provider
-    // name match is provider-agnostic by design and shouldn't be silently
-    // disabled when the sub-toggle is off.
+    // Name-based dedup must honor the same scope toggles the appid-based
+    // dedup does. Earlier this used `getLocalLibraryAppIds(true, true)`
+    // unconditionally, on the rationale that "if the user owns Hades
+    // anywhere, they don't want it on the wishlist". On devices with a
+    // large Unifideck Microsoft library (cloud-play shortcuts the user
+    // does NOT actually own) that broad scope hid wishlist items the
+    // user genuinely doesn't have — exactly the symptom of "games I
+    // don't own are being hidden". Scoping the name set with the same
+    // effective flags keeps the heuristic for real local titles while
+    // letting the cloud-play sub-toggle suppress the over-aggressive
+    // matches.
     getAllAppOverviews().then((apps) => {
       if (cancelled) return;
-      const ownedSetForNames = getLocalLibraryAppIds(true, true);
+      const ownedSetForNames = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud);
       const names = new Set<string>();
       for (const a of apps) {
         const id = Number((a as any)?.appid);

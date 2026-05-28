@@ -49,8 +49,8 @@ type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'di
 type EditState = {
   title: string
   limit: number
-  sort: string
-  sortReverse: boolean
+  sort: string | string[]
+  sortReverse: boolean | boolean[]
   manualBaseSort: string
   manualBaseSortReverse: boolean
   manualOrder: number[]
@@ -195,7 +195,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
 
-  const isManual = state.sort === 'manual'
+  const primarySortKey = Array.isArray(state.sort) ? state.sort[0] : state.sort
+  const isManual = primarySortKey === 'manual'
   const effectiveManualOrder = useMemo(() => {
     if (!isManual) return resolvedIds
     const idSet = new Set(resolvedIds)
@@ -257,13 +258,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       // Mirror Shelf.tsx wiring: forward asc/desc inversion to the resolver
       // and substitute `alphabetical` for an unset sort when reverse is on
       // (so applySortToIds runs and the reverse flag has somewhere to apply).
-      const isManualSort = state.sort === 'manual'
-      const previewReverse = isManualSort
+      const isManualSort = primarySortKey === 'manual'
+      const previewReverse: boolean | boolean[] = isManualSort
         ? !!state.manualBaseSortReverse
-        : !!state.sortReverse
-      const previewSort = isManualSort
+        : (Array.isArray(state.sortReverse) ? state.sortReverse : !!state.sortReverse)
+      const previewSort: string | string[] | undefined = isManualSort
         ? (state.manualBaseSort || 'alphabetical')
-        : (state.sort || (previewReverse ? 'alphabetical' : undefined))
+        : (state.sort || ((Array.isArray(previewReverse) ? previewReverse[0] : previewReverse) ? 'alphabetical' : undefined))
       resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse)
         .then((ids) => {
           if (cancelled) return
@@ -296,8 +297,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     if (!hiddenPickerOpen) return
     let cancelled = false
     const timer = setTimeout(() => {
-      const isManualSort = state.sort === 'manual'
-      const previewSort = isManualSort
+      const isManualSort = primarySortKey === 'manual'
+      const previewSort: string | string[] | undefined = isManualSort
         ? (state.manualBaseSort || 'alphabetical')
         : (state.sort || undefined)
       resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
@@ -440,15 +441,16 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         onSortChange={(next) => setState((prev) => ({ ...prev, sort: next }))}
                         reverse={state.sortReverse}
                         onReverseChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
+                        allowMultiKey
                       />
                       {isManual && (
                         <SortField
                           label={t('manual_base_sort')}
                           options={baseSortOptions}
                           sort={state.manualBaseSort}
-                          onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: next }))}
+                          onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: Array.isArray(next) ? (next[0] ?? 'alphabetical') : next }))}
                           reverse={state.manualBaseSortReverse}
-                          onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
+                          onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: Array.isArray(next) ? !!next[0] : next }))}
                         />
                       )}
                       <Field

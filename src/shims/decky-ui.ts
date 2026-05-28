@@ -16,6 +16,82 @@ const passthroughComponent = (props: any) => props?.children ?? null;
 const passthroughMenu = (props: any) => props?.children ?? null;
 const noop = () => {};
 
+// Decky resolves `Field` via `findModuleExport` against a Steam-internal
+// string ("shift-children-below"). When Steam refactors that source, the
+// match breaks and `decky.Field` becomes undefined. The previous fallback
+// (`passthroughComponent`) silently dropped `label` and `description`,
+// hiding shelf-list titles and the EditShelfModal title input. This
+// fallback renders both visibly with the standard Decky row layout so
+// the plugin remains usable while Decky catches up.
+import { createElement } from 'react';
+const fieldFallback = (props: any) => {
+  const { label, description, children, icon, bottomSeparator, indentLevel, childrenLayout } = props ?? {};
+  const indentPx = (indentLevel || 0) * 16;
+  const border = bottomSeparator === 'none' ? 'none' : '1px solid rgba(255,255,255,0.08)';
+  const stackChildren = childrenLayout === 'below';
+  const labelEl = label != null
+    ? createElement(
+        'div',
+        {
+          style: {
+            display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500,
+            flex: 1, minWidth: 0,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          },
+        },
+        icon ?? null,
+        label,
+      )
+    : null;
+  const row = (label != null || children != null)
+    ? createElement(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            flexDirection: stackChildren ? 'column' : 'row',
+            alignItems: stackChildren ? 'stretch' : 'center',
+            gap: 8, width: '100%',
+          },
+        },
+        labelEl,
+        children != null
+          ? createElement('div', {
+              // When there's no label the children container should
+              // expand to fill the row — otherwise an inner Focusable
+              // with `width: 100%` collapses to the children's natural
+              // width and right-aligned items (justify-content:
+              // space-between) end up flush against the left buttons.
+              style: {
+                display: 'flex', alignItems: 'center',
+                flexGrow: label != null ? 0 : 1,
+                flexShrink: label != null ? 0 : 1,
+                minWidth: 0,
+              },
+            }, children)
+          : null,
+      )
+    : null;
+  return createElement(
+    'div',
+    {
+      // Horizontal padding matches Decky's native Field (~16 px each
+      // side) so labels and right-aligned children don't touch the QAM
+      // scope edges. Without it the shelf-list rows sat flush with the
+      // Quick Access panel borders.
+      style: {
+        display: 'flex', flexDirection: 'column', gap: 4,
+        padding: '8px 16px', marginLeft: indentPx, borderBottom: border,
+        color: 'inherit', width: '100%', boxSizing: 'border-box',
+      },
+    },
+    row,
+    description != null
+      ? createElement('div', { style: { fontSize: 12, opacity: 0.85, width: '100%' } }, description)
+      : null,
+  );
+};
+
 export const ButtonItem = decky.ButtonItem ?? passthroughComponent;
 export const ConfirmModal = decky.ConfirmModal ?? passthroughComponent;
 export const DialogBody = decky.DialogBody ?? passthroughComponent;
@@ -24,7 +100,7 @@ export const DialogButton = decky.DialogButton ?? decky.ButtonItem ?? passthroug
 export const DialogCheckbox = decky.DialogCheckbox ?? passthroughComponent;
 export const Dropdown = decky.Dropdown ?? passthroughComponent;
 export const DropdownItem = decky.DropdownItem ?? decky.Dropdown ?? passthroughComponent;
-export const Field = decky.Field ?? passthroughComponent;
+export const Field = decky.Field ?? fieldFallback;
 export const Focusable = decky.Focusable ?? passthroughComponent;
 // Runtime enum that Decky exposes via FooterLegend. Required for
 // gamepad-button comparison in the local ReorderableList. Fallback keeps

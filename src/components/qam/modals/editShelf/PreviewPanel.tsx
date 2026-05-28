@@ -61,7 +61,7 @@ export type PreviewPanelProps = {
   // smart, random non-smart, deterministic smart, etc.).
   limit?: number
   shelfSource?: any
-  shelfSort?: string
+  shelfSort?: string | string[]
   // When provided, the preview's RefreshCard becomes focusable and clicking
   // it re-resolves the preview's app ids (parent owns the resolver).
   onRefresh?: () => void

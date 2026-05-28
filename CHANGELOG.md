@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-key sort** — `sort` accepts a string OR an array of keys for primary/secondary chaining. Picking `["discount_high", "metacritic"]` orders by discount, with metacritic breaking ties. `sortReverse` mirrors the shape: boolean (applies to every key) or aligned `boolean[]` (per-key direction). The editor's "Adicionar ordenação secundária" button adds tiebreaker rows; `manual`/`random` only valid as the single primary. Implemented via a composite comparator that walks each key until one returns non-zero — `Array.sort().reverse()` per key was tried first but inverted ties (regression covered by `src/test/steam/applySortToIds.test.ts`).
+- **Multi-source shelves** — pick a primary source then "+ Add source" stacks extras inline (same UX as multi-sort). The list saves flat for single source, collapses to `{ type: 'composite', combine: 'union' | 'intersection', sources: [...] }` for 2+. Union/intersection operator dropdown appears once at least one extra is in play. Per-shelf exhaustion: filter/wishlist/store cap at 1; tabs/collections cap at the catalog size; once exhausted the type disappears from the picker. The same source can still appear on multiple shelves — exhaustion is per-shelf only.
+
+### Fixed
+
+- **Online shelves were hiding games the user doesn't own** (reverts the 2.3.1 regression in commit 547c67f). The render-time name-based dedup in `Shelf.tsx` ran `getLocalLibraryAppIds(true, true)` unconditionally — pulling every non-Steam shortcut AND every cloud-play entry into the "owned name" set. On devices with a large Unifideck Microsoft library (cloud-play shortcuts the user has access to via subscription but does NOT own), wishlist items matched cloud-play names by string and got hidden. The name set now honors the same `effectiveNonSteam` / `effectiveCloud` flags the appid set already uses — restoring the 2.3.0 behaviour where the nested toggles work as documented: "Ignore games I have" → Steam-only; "+Include non-Steam shortcuts" → adds local non-Steam (Epic / GOG / Amazon / Ubisoft); "+Include non-Steam cloud" → adds cloud-play (Xbox via Unifideck Microsoft). On-device probe confirms: cloud-play set = 554 ids, name set with cloud excluded = 1737 unique names including all non-Steam local titles. Re-verified via `scripts/devtools/deck/diag/diag_online_owned_filter.cjs`.
+
+### Tests
+
+- `src/test/steam/applySortToIds.test.ts` — 12 cases covering single-key sort directions, multi-key chains (recent + alphabetical tiebreaker, three-key playtime → recent → alphabetical), per-key reverse arrays, boolean reverse applied uniformly, and the regression that pinned the composite-comparator over right-to-left chained sort+reverse.
+- `src/test/steam/mergeCompositeResults.test.ts` — 13 cases on the extracted `mergeCompositeResults` helper: union order/de-dup, intersection ordering follows the first child, no mutation of input arrays, identity edge cases.
+- `src/test/test_main.py` — 7 new cases for the Python sanitizer: multi-key array passthrough (shelves + smart shelves), per-key `sortReverse` array, all-false arrays omitted (matching single-key bool=False), unknown string passthrough inside arrays (external sort plugins), empty array treated as missing, single-key back-compat unchanged.
+
 ## [2.3.2] - 2026-05-27
 
 ### Added

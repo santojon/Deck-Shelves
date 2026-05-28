@@ -165,7 +165,19 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_refresh_card = bool(s.get("hideRefreshCard", False))
         hero_enabled = bool(s.get("heroEnabled", False))
         valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"}
-        shelf_sort = str(s.get("sort") or "")
+        # Sort may be a single string (back-compat) OR an array of keys
+        # for primary + tiebreakers. Plain `str(s.get("sort"))` would
+        # have flattened the array to `"['recent', 'alphabetical']"`,
+        # failing the valid_sorts check and dropping the field silently
+        # — which is why multi-key sort wasn't reaching the resolver.
+        raw_sort = s.get("sort")
+        shelf_sort: Any = ""
+        if isinstance(raw_sort, list):
+            cleaned_keys = [str(k) for k in raw_sort if isinstance(k, str) and k]
+            if cleaned_keys:
+                shelf_sort = cleaned_keys
+        elif raw_sort:
+            shelf_sort = str(raw_sort)
         raw_manual = s.get("manualOrder")
         manual_ids: list = []
         if isinstance(raw_manual, list):
@@ -222,7 +234,12 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         }
         if hero_enabled:
             shelf_entry["heroEnabled"] = True
-        if shelf_sort and shelf_sort in valid_sorts:
+        if isinstance(shelf_sort, list):
+            # Multi-key array passes through unchanged; client + resolver
+            # accept unknown strings for forward-compat (registered
+            # external sort options).
+            shelf_entry["sort"] = shelf_sort
+        elif shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
         if highlighted_ids:
             shelf_entry["highlightedAppIds"] = highlighted_ids
@@ -236,8 +253,14 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if manual_base_sort and manual_base_sort in valid_sorts and manual_base_sort != "manual":
             shelf_entry["manualBaseSort"] = manual_base_sort
         # Asc/desc invert flags. Persisted only when explicitly true to keep
-        # storage minimal; resolver treats absence as false.
-        if bool(s.get("sortReverse", False)):
+        # storage minimal; resolver treats absence as false. Array form
+        # mirrors the `sort` array's per-key direction.
+        raw_reverse = s.get("sortReverse")
+        if isinstance(raw_reverse, list):
+            cleaned_rev = [bool(b) for b in raw_reverse]
+            if any(cleaned_rev):
+                shelf_entry["sortReverse"] = cleaned_rev
+        elif bool(raw_reverse):
             shelf_entry["sortReverse"] = True
         if bool(s.get("manualBaseSortReverse", False)):
             shelf_entry["manualBaseSortReverse"] = True
@@ -268,14 +291,26 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if ss.get("limit") is not None:
             entry["limit"] = ss_limit
         # Optional user overrides on top of the mode's natural output.
-        ss_sort = str(ss.get("sort") or "")
-        if ss_sort and ss_sort in valid_sorts:
-            entry["sort"] = ss_sort
+        # Multi-key sort: same array passthrough as regular shelves.
+        raw_ss_sort = ss.get("sort")
+        if isinstance(raw_ss_sort, list):
+            cleaned_keys = [str(k) for k in raw_ss_sort if isinstance(k, str) and k]
+            if cleaned_keys:
+                entry["sort"] = cleaned_keys
+        else:
+            ss_sort_str = str(raw_ss_sort or "")
+            if ss_sort_str and ss_sort_str in valid_sorts:
+                entry["sort"] = ss_sort_str
         ss_base = str(ss.get("manualBaseSort") or "")
         if ss_base and ss_base in valid_sorts and ss_base != "manual":
             entry["manualBaseSort"] = ss_base
         # Asc/desc invert flags. Same minimal-storage convention as regular shelves.
-        if bool(ss.get("sortReverse", False)):
+        raw_ss_rev = ss.get("sortReverse")
+        if isinstance(raw_ss_rev, list):
+            cleaned_rev = [bool(b) for b in raw_ss_rev]
+            if any(cleaned_rev):
+                entry["sortReverse"] = cleaned_rev
+        elif bool(raw_ss_rev):
             entry["sortReverse"] = True
         if bool(ss.get("manualBaseSortReverse", False)):
             entry["manualBaseSortReverse"] = True

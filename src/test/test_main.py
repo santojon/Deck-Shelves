@@ -325,3 +325,84 @@ def test_sanitize_settings_sortReverse_smart_shelf():
                           "sortReverse": True}]
     })
     assert result["smartShelves"][0].get("sortReverse") is True
+
+
+# ─── Multi-key sort persistence (regression) ────────────────────────────────
+# Pre-fix, `str(s.get("sort"))` coerced arrays into their Python repr
+# ("['recent', 'alphabetical']") which failed the valid_sorts check and
+# dropped the field silently. The editor's multi-key chains never reached
+# the JS resolver because of this. These tests pin the array passthrough.
+
+def test_sanitize_settings_sort_multi_key_array_passthrough():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "all"},
+                     "sort": ["recent", "alphabetical"]}]
+    })
+    assert result["shelves"][0].get("sort") == ["recent", "alphabetical"]
+
+
+def test_sanitize_settings_sortReverse_multi_key_array_passthrough():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "all"},
+                     "sort": ["recent", "alphabetical"],
+                     "sortReverse": [True, False]}]
+    })
+    assert result["shelves"][0].get("sortReverse") == [True, False]
+
+
+def test_sanitize_settings_sortReverse_all_false_array_omitted():
+    # `[False, False]` carries no real signal — the sanitizer omits the
+    # field, matching the single-key bool=False omission policy.
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "all"},
+                     "sort": ["recent", "alphabetical"],
+                     "sortReverse": [False, False]}]
+    })
+    assert "sortReverse" not in result["shelves"][0]
+
+
+def test_sanitize_settings_sort_array_with_unknown_string_passes_through():
+    # Unknown sort ids (external sort plugins) ride alongside known
+    # enums in the array. The sanitizer must NOT filter them, since the
+    # registry that knows them lives in the frontend.
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "all"},
+                     "sort": ["external:my_plugin_sort", "alphabetical"]}]
+    })
+    assert result["shelves"][0].get("sort") == ["external:my_plugin_sort", "alphabetical"]
+
+
+def test_sanitize_settings_sort_array_empty_treated_as_missing():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "all"},
+                     "sort": []}]
+    })
+    assert "sort" not in result["shelves"][0]
+
+
+def test_sanitize_settings_smart_sort_multi_key_array_passthrough():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
+                          "sort": ["playtime", "alphabetical"],
+                          "sortReverse": [True, False]}]
+    })
+    assert result["smartShelves"][0].get("sort") == ["playtime", "alphabetical"]
+    assert result["smartShelves"][0].get("sortReverse") == [True, False]
+
+
+def test_sanitize_settings_single_key_sort_still_works():
+    # Back-compat: single-key string sort behavior unchanged after the
+    # multi-key extension.
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "all"},
+                     "sort": "recent",
+                     "sortReverse": True}]
+    })
+    assert result["shelves"][0].get("sort") == "recent"
+    assert result["shelves"][0].get("sortReverse") is True

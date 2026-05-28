@@ -110,6 +110,57 @@ match by name.
 | `random` | Stable random shuffle, refreshes every 24 h |
 | `manual` | User-defined order (`manualOrder`); ids not in the list fall through to `manualBaseSort` |
 
+### Multi-key sort
+
+`sort` accepts either a single key (back-compat) or an array of keys for a primary/secondary chain. `sortReverse` mirrors the same shape — a boolean to invert every key, or an aligned `boolean[]` for per-key direction.
+
+```json
+{ "sort": ["discount_high", "metacritic"], "sortReverse": [false, false] }
+```
+
+The first entry is primary; subsequent entries break ties. Internally a single composite comparator walks each key in order until one returns a non-zero result, then JavaScript's stable sort preserves the established order across passes. Using `Array.sort().reverse()` per key would have inverted tied items and undone the secondary ordering — see `src/test/steam/applySortToIds.test.ts` for the pinned regression case.
+
+`manual` and `random` cannot appear in a multi-key chain (non-deterministic — they wouldn't behave as tiebreakers). The editor only exposes them as the single-key primary choice; the resolver drops them from chained arrays.
+
+Per-key `sortReverse` works for any key the multi-key path supports. When `sort` is an array and `sortReverse` is a boolean, the boolean applies to every key.
+
+## Multi-source shelves
+
+A shelf can stack multiple sources and combine their result sets. The editor exposes this implicitly: pick a primary source, then click **+ Adicionar fonte** to stack extras. Single-source shelves persist their source flat (back-compat); two or more collapse into a `composite` source on save:
+
+```json
+{
+  "source": {
+    "type": "composite",
+    "combine": "union",
+    "sources": [
+      { "type": "collection", "collectionId": "my-favorites" },
+      { "type": "wishlist" },
+      { "type": "tab", "tab": "installed" }
+    ]
+  }
+}
+```
+
+### Combine operators
+
+- `union` — games that appear in **any** child source. The first child's order wins; subsequent children append their items in declaration order, de-duped.
+- `intersection` — games that appear in **every** child source. Iteration order follows the first child, so users get a predictable primary ordering.
+
+### Per-shelf exhaustion rules
+
+A single shelf cannot stack two identical sources (e.g. *Collection A* + *Collection A*). The editor enforces this per-shelf via an exhaustion check:
+
+- **filter / wishlist / store** — capped at 1 per shelf. Once one is in the source list, the type disappears from the "+ Adicionar fonte" dropdown for that shelf.
+- **tab / collection** — capped at the total Steam catalog size. Each tab/collection used reduces the available options; once every tab (or collection) is in use on this shelf, the type disappears.
+- The same source CAN appear on multiple shelves — exhaustion is per-shelf, not global.
+
+For multi-criteria predicates on a single source, use the [`merge` filter](#merge--nested-predicate-groups) instead of stacking multiple `filter` sources.
+
+### Depth cap
+
+Composite sources may nest (the schema permits it for power users editing JSON directly). The resolver caps recursion at 4 levels deep — beyond that the branch returns an empty result and logs a warning. The editor only exposes one level of nesting.
+
 ## Legacy Filter Format
 
 > **Note:** if you are importing shelves from a backup or from TabMaster, the conversion to the group format happens automatically — you do not need to migrate manually.

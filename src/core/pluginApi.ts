@@ -485,7 +485,7 @@ function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
     let pub: PublicShelfSource | null = null;
     if (src?.type === "collection") pub = { type: "collection", collectionId: String(src.collectionId ?? "") };
     else if (src?.type === "tab") pub = { type: "tab", tab: String(src.tab ?? "") };
-    else if (src?.type === "filter") pub = { type: "filter", filter: { sort: src.filter?.sort, group: src.filter?.group as any } };
+    else if (src?.type === "filter") pub = { type: "filter", filter: { sort: Array.isArray(src.filter?.sort) ? src.filter?.sort[0] : src.filter?.sort, group: src.filter?.group as any } };
     else if (src?.type === "external") pub = { type: "external", sourceId: String(src.sourceId ?? "") };
     else if (src?.type === "smart") pub = { type: "smart", mode: String(src.mode ?? "") };
     if (!pub) continue;
@@ -495,7 +495,10 @@ function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
       enabled: sh.enabled !== false,
       hidden: !!sh.hidden,
       limit: sh.limit ?? 20,
-      sort: sh.sort,
+      // Public API surface stays single-key: external consumers see only
+      // the primary sort even when the underlying shelf uses multi-key.
+      // A future Plugin API v3 bump could expose the full array.
+      sort: Array.isArray(sh.sort) ? sh.sort[0] : sh.sort,
       source: pub,
     });
   }

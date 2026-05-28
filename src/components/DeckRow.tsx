@@ -21,6 +21,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H, CARD_GAP } from "./shelf/types";
 import { GameCard } from "./shelf/GameCard";
 import { MoreCard } from "./shelf/MoreCard";
 import { RefreshCard } from "./shelf/RefreshCard";
+import { ShelfRow } from "./shelf/ShelfRow";
 import {
   getCachedNativeDims,
   globalStylesStart,
@@ -1275,30 +1276,25 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
           }}
           {...flowChildrenProps("horizontal")}
         >
-          {items.map((item, idx) => {
-            if (item.isRefresh) {
-              return <RefreshCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />;
-            }
-            if (item.isMoreLink) {
-              return <MoreCard key={item.id} item={item} cardW={effectiveW} cardH={effectiveH} />;
-            }
-            const isFeatured = highlightAll
-              || (highlightFirst && idx === 0)
-              || (!!highlightedSet && item.appid !== undefined && highlightedSet.has(item.appid));
-            return <GameCard key={item.id} item={item}
-              cardW={isFeatured ? finalFeaturedW : effectiveW}
-              cardH={isFeatured ? finalFeaturedH : effectiveH}
-              artH={isFeatured ? finalFeaturedArtH : effectiveArtH}
-              featured={isFeatured}
-              cardIndex={idx}
-              hideStatusLine={hideStatusLine}
-              hideNewBadge={hideNewBadge}
-              hideDiscountBadge={hideDiscountBadge}
-              hideCompatIcons={hideCompatIcons}
-              hideNonSteamBadge={hideNonSteamBadge}
-              hideGameName={hideGameNames}
-              hideInstallIndicator={hideInstallIndicator} />;
-          })}
+          <ShelfRow
+            items={items}
+            cardW={effectiveW}
+            cardH={effectiveH}
+            artH={effectiveArtH}
+            featuredW={finalFeaturedW}
+            featuredH={finalFeaturedH}
+            featuredArtH={finalFeaturedArtH}
+            highlightFirst={highlightFirst}
+            highlightAll={highlightAll}
+            highlightedSet={highlightedSet ?? undefined}
+            hideStatusLine={hideStatusLine}
+            hideNewBadge={hideNewBadge}
+            hideDiscountBadge={hideDiscountBadge}
+            hideCompatIcons={hideCompatIcons}
+            hideNonSteamBadge={hideNonSteamBadge}
+            hideGameName={hideGameNames}
+            hideInstallIndicator={hideInstallIndicator}
+          />
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>
       )}
