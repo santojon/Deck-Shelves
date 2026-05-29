@@ -2010,18 +2010,20 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
     }
     case "discount": {
       // Reads discount % from the price cache (populated by onlineStore.ts).
-      // Games without price data (F2P, no price_overview) return FALSE so
-      // they are excluded — discount is only meaningful for priced games.
-      // If the entire cache is missing (feature just enabled, no data yet)
-      // pass through so the shelf isn't completely empty on first load.
+      // Discount only applies to PRICED games. Permanently-free titles
+      // (F2P with no `price_overview`, region-blocked, etc.) are cached
+      // with `unpriced: true` and always excluded — a "100% off" shelf
+      // must surface only games that have a base price and are
+      // currently discounted, not F2P entries that are simply $0.
       try {
         const appid = appIdOf(app);
         if (!appid) { result = false; break; }
         const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
-        if (!raw) { result = true; break; } // no cache yet → pass through
-        const cache: Record<number, { ts: number; data: { discount: number } }> = JSON.parse(raw);
+        if (!raw) { result = true; break; } // no cache yet → pass through (first-time bootstrap)
+        const cache: Record<number, { ts: number; data: { discount?: number; unpriced?: boolean } }> = JSON.parse(raw);
         const entry = cache[appid];
-        if (!entry?.data) { result = false; break; } // not in cache = no price = F2P → exclude
+        if (!entry?.data) { result = false; break; } // not in this fetch round → exclude
+        if (entry.data.unpriced === true) { result = false; break; } // F2P / no price_overview → never matches a discount filter
         const disc = entry.data.discount ?? 0;
         const min = Number(item.params?.minDiscount ?? 0);
         const max = Number(item.params?.maxDiscount ?? 100);

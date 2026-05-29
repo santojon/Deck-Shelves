@@ -2,6 +2,7 @@ import { memo } from "react";
 import { GameCard } from "./GameCard";
 import { MoreCard } from "./MoreCard";
 import { RefreshCard } from "./RefreshCard";
+import { SyntheticCard } from "./SyntheticCard";
 import type { DeckRowItem } from "./types";
 
 // Shared `items.map → GameCard/RefreshCard/MoreCard` loop used by both the
@@ -54,6 +55,18 @@ function ShelfRowImpl({
   return (
     <>
       {items.map((item, idx) => {
+        if (item.synthetic) {
+          const isFeat = item.synthetic.size === "featured";
+          return (
+            <SyntheticCard
+              key={item.id}
+              item={item}
+              cardW={isFeat && featuredW !== undefined ? featuredW : cardW}
+              cardH={isFeat && featuredH !== undefined ? featuredH : cardH}
+              featuredW={featuredW}
+            />
+          );
+        }
         if (item.isRefresh) {
           return (
             <RefreshCard

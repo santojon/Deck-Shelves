@@ -1,5 +1,5 @@
 export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store'
-export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display'
+export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display' | 'decoration'
 
 // `composite` is implicit: the user picks a primary source then adds
 // extra ones inline via `+ Add source`. Two or more sources collapse to

@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+// Same primitives, routed through
+// the HostApi adapter so this surface is migration-ready when the
+// standalone host swap happens.
 import {
   ConfirmModal,
   DialogButton,
@@ -7,7 +10,7 @@ import {
   SliderField,
   Tabs,
   ToggleField,
-} from '@decky/ui'
+} from '../../../runtime/host/decky'
 import type { SingleDropdownOption } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
@@ -25,6 +28,7 @@ import { BASE_SOURCE_TYPES, SORT_OPTIONS, type SourceType, type EditTab } from '
 import type { EditableShelfState } from './editShelf/types'
 import { optionData } from './editShelf/utils'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
+import { DecorationTab } from './editShelf/DecorationTab'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { FunnelIcon, EyeIcon, SteamIcon, OnlineIcon } from '../../icons'
@@ -152,10 +156,39 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     })(),
     compositeCombine: (shelf.source.type === 'composite' && (shelf.source as any).combine === 'intersection') ? 'intersection' : 'union',
     additionalSources: compositeChildren.slice(1) as any[],
+    syntheticCards: (((shelf as any).syntheticCards) as any[] | undefined)?.map((c: any) => ({
+      position: Number(c?.position ?? 0),
+      image: c?.image,
+      text: c?.text,
+      link: c?.link,
+      size: c?.size === 'featured' ? 'featured' : 'normal',
+      alpha: typeof c?.alpha === 'number' ? c.alpha : undefined,
+      placeholder: c?.placeholder === true,
+    })) ?? [],
   })
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [previewCount, setPreviewCount] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<EditTab>('source')
+  const [activeTab, setActiveTab] = useState<EditTab>(() => {
+    // Pending-tab hint set by dispatchShelfModal({ initialTab }) — used
+    // when the user picks "Decoração" from the card context menu so the
+    // modal lands directly on that tab. Cleared after read so it doesn't
+    // bleed into subsequent opens.
+    try {
+      const g: any = globalThis as any
+      const t = g.__DECK_SHELVES_PENDING_TAB__
+      if (typeof t === 'string' && t.length) {
+        delete g.__DECK_SHELVES_PENDING_TAB__
+        const valid = ['source', 'filters', 'childFilters', 'visual', 'display', 'decoration']
+        if (valid.includes(t)) return t as EditTab
+      }
+    } catch {}
+    return 'source'
+  })
+  // Index of the currently-focused card in the preview row. New
+  // synthetic decorations land at this slot when the user clicks
+  // "+ Add decoration"; falls back to the end of the row when nothing
+  // is focused yet. Bumped by ShelfPreview via onFocusedIndexChange.
+  const [previewFocusedIndex, setPreviewFocusedIndex] = useState<number>(0)
   const [resolvedIds, setResolvedIds] = useState<number[]>([])
   const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
   // Bumped by the preview's RefreshCard to force a re-resolve in any tab.
@@ -177,15 +210,55 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const activeSort = state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort
   const isManualSort = activeSort === 'manual'
+  // Synthetic cards are encoded as negative ids when interleaved with
+  // the manual-sort row so the user can drag them alongside real games.
+  // Encoding: `-(syntheticIndex + 1)`. The reorder handler splits them
+  // back out before persisting (positive ids → manualOrder; negative
+  // ids → syntheticCards[i].position = their new slot index).
+  const SYNTH_SENTINEL = (i: number) => -(i + 1)
+  const synthIndexOfSentinel = (id: number) => (id < 0 ? -id - 1 : -1)
+
   const effectiveManualOrder = useMemo(() => {
     if (!isManualSort) return resolvedIds
     const idSet = new Set(resolvedIds)
-    const out: number[] = []
-    for (const id of state.manualOrder) if (idSet.has(id) && !out.includes(id)) out.push(id)
-    for (const id of resolvedIds) if (!out.includes(id)) out.push(id)
+    const gameOrder: number[] = []
+    for (const id of state.manualOrder) {
+      if (id < 0) continue // legacy / unexpected sentinel — recomputed below
+      if (idSet.has(id) && !gameOrder.includes(id)) gameOrder.push(id)
+    }
+    for (const id of resolvedIds) if (!gameOrder.includes(id)) gameOrder.push(id)
+    if (!state.syntheticCards.length) return gameOrder
+    // Interleave decoration sentinels at their persisted `position`.
+    // Sorted asc so earlier slots splice before later ones (later splice
+    // positions stay valid as the array grows).
+    const synthEntries = state.syntheticCards
+      .map((c, i) => ({ pos: Math.max(0, Number(c.position) || 0), sentinel: SYNTH_SENTINEL(i) }))
+      .sort((a, b) => a.pos - b.pos)
+    const out = gameOrder.slice()
+    for (const { pos, sentinel } of synthEntries) {
+      out.splice(Math.min(pos, out.length), 0, sentinel)
+    }
     return out
-  }, [isManualSort, resolvedIds, state.manualOrder])
-  const reorderManual = (nextOrder: number[]) => setState((prev) => ({ ...prev, manualOrder: nextOrder }))
+  }, [isManualSort, resolvedIds, state.manualOrder, state.syntheticCards])
+
+  const reorderManual = (nextOrder: number[]) => setState((prev) => {
+    // Persist ONLY game appids in `manualOrder`. Synthetic positions
+    // live in `syntheticCards[].position` (updated below) so adding /
+    // removing decoration cards never needs to remap sentinels in
+    // manualOrder. Result: manualOrder stays a clean appid list, and
+    // dragging a decoration around the grid just shifts its `position`.
+    const nextManualOrder: number[] = []
+    const nextSynth = prev.syntheticCards.slice()
+    for (let i = 0; i < nextOrder.length; i++) {
+      const id = nextOrder[i]
+      if (id >= 0) { nextManualOrder.push(id); continue }
+      const synthIdx = synthIndexOfSentinel(id)
+      if (synthIdx >= 0 && synthIdx < nextSynth.length) {
+        nextSynth[synthIdx] = { ...nextSynth[synthIdx], position: i }
+      }
+    }
+    return { ...prev, manualOrder: nextManualOrder, syntheticCards: nextSynth }
+  })
   const effectiveHiddenCandidateIds = useMemo(() => {
     if (!isManualSort || !hiddenCandidateIds.length) return hiddenCandidateIds
     const idSet = new Set(hiddenCandidateIds)
@@ -658,6 +731,9 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: (isManualSort && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: (isManualSort && state.manualBaseSortReverse) || undefined, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
+      // synthetic cards. Only persist when at least one row
+      // exists; empty list drops the field for storage minimality.
+      ;(patch as any).syntheticCards = state.syntheticCards.length ? state.syntheticCards : undefined
       // Build the primary source from the per-type fields. Sort goes on
       // the shelf for non-filter primaries; for filter, sort lives inside
       // the filter object (filterGroupToFilter handles that).
@@ -988,6 +1064,32 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 ),
               },
               {
+                id: 'decoration',
+                title: t('edit_tab_decoration'),
+                content: (
+                  <DecorationTab
+                    t={t}
+                    cards={state.syntheticCards}
+                    setCards={(next: any) => setState((prev) => ({ ...prev, syntheticCards: next }))}
+                    defaultPosition={previewFocusedIndex}
+                    onFirstCardAdded={() => setState((prev) => {
+                      // Auto-engage manual sort + seed manualOrder from
+                      // the currently resolved row so the decoration
+                      // can later be reordered alongside real games.
+                      const isAlreadyManual = prev.sort === 'manual'
+                      if (isAlreadyManual) return prev
+                      return {
+                        ...prev,
+                        sort: 'manual',
+                        sortReverse: false,
+                        manualBaseSort: typeof prev.sort === 'string' ? prev.sort : (Array.isArray(prev.sort) ? prev.sort[0] : 'alphabetical'),
+                        manualOrder: resolvedIds.slice(),
+                      }
+                    })}
+                  />
+                ),
+              },
+              {
                 id: 'display',
                 title: (<TabLabel icon={<EyeIcon />} text={t('edit_tab_display')} />) as unknown as string,
                 content: (
@@ -1014,7 +1116,23 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             activeTab={activeTab}
             resolvedIds={resolvedIds}
             effectiveManualOrder={effectiveManualOrder}
-            resolvedMeta={resolvedMeta}
+            resolvedMeta={(() => {
+              // Merge resolvedMeta with synthetic-card sentinel entries
+              // so the manual-sort row can render decoration cards as
+              // mini-cards alongside game cards. Sentinel id =
+              // -(syntheticIndex + 1) per the encoding in
+              // effectiveManualOrder.
+              if (!state.syntheticCards.length) return resolvedMeta
+              const m = new Map(resolvedMeta)
+              state.syntheticCards.forEach((c, i) => {
+                m.set(SYNTH_SENTINEL(i), {
+                  appid: SYNTH_SENTINEL(i),
+                  name: c.text ? c.text : (c.image ? '🖼' : '◇'),
+                  portraitUrl: c.image,
+                } as any)
+              })
+              return m
+            })()}
             isManualSort={isManualSort}
             onReorderManual={reorderManual}
             highlightFirst={state.highlightFirst}
@@ -1042,6 +1160,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             shelfSource={previewSource}
             shelfSort={state.sort}
             onRefresh={refreshPreview}
+            onFocusedIndexChange={setPreviewFocusedIndex}
+            syntheticCards={state.syntheticCards}
           />
           </div>
         </Focusable>

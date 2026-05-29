@@ -126,6 +126,16 @@ class Session:
         payload = {"id": msg_id, "method": method}
         if params:
             payload["params"] = params
+        # Extend the underlying socket recv timeout to match this call's
+        # CDP-level deadline (+5 s buffer for the trailing handshake bytes
+        # to flush). The socket was created with `settimeout(15)` during
+        # handshake; without raising it here, any single Runtime.evaluate
+        # whose JS deadline exceeds 15 s gets cut short with `socket.timeout`
+        # ("timed out") long before our `TimeoutError` deadline below fires.
+        try:
+            self.sock.settimeout(max(timeout + 5.0, 15.0))
+        except Exception:
+            pass
         _ws_send(self.sock, json.dumps(payload))
         deadline = time.time() + timeout
         while time.time() < deadline:

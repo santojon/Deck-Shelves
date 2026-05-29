@@ -117,7 +117,7 @@ export function applyHideRecents(hidden: boolean): void {
   // Deliberately NOT using display:none (re-enters the gamepad nav tree
   // inconsistently across SteamOS builds) nor off-screen positioning (broke
   // ArtHero shelf placement on restart). The known trade-off — D-pad needs
-  // two "up" presses to reach the search bar — is accepted/roadmapped.
+  // two "up" presses to reach the search bar — is known limitation.
   if (cachedRecentsEl) {
     try {
       cachedRecentsEl.style.visibility = hidden ? "hidden" : "";

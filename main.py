@@ -264,13 +264,46 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             shelf_entry["sortReverse"] = True
         if bool(s.get("manualBaseSortReverse", False)):
             shelf_entry["manualBaseSortReverse"] = True
+        # synthetic cards. Trust the client schema's
+        # superRefine for rule enforcement; here just clamp types,
+        # positions, and sizes so a malformed write can't crash boot.
+        raw_synth = s.get("syntheticCards")
+        if isinstance(raw_synth, list) and raw_synth:
+            cleaned_synth = []
+            for c in raw_synth:
+                if not isinstance(c, dict):
+                    continue
+                try:
+                    pos = int(c.get("position") or 0)
+                except Exception:
+                    continue
+                pos = max(0, min(pos, 999))
+                entry_c: Dict[str, Any] = {"position": pos}
+                if isinstance(c.get("image"), str) and c["image"]:
+                    entry_c["image"] = c["image"][:1024]
+                if isinstance(c.get("text"), str) and c["text"]:
+                    entry_c["text"] = c["text"][:64]
+                lk = c.get("link")
+                if isinstance(lk, dict) and lk.get("type") in ("app", "url") and isinstance(lk.get("value"), str) and lk["value"]:
+                    entry_c["link"] = {"type": lk["type"], "value": lk["value"][:512]}
+                sz = c.get("size")
+                entry_c["size"] = sz if sz in ("normal", "featured") else "normal"
+                if isinstance(c.get("alpha"), (int, float)):
+                    a = float(c["alpha"])
+                    if 0.0 <= a <= 1.0:
+                        entry_c["alpha"] = a
+                if c.get("placeholder") is True:
+                    entry_c["placeholder"] = True
+                cleaned_synth.append(entry_c)
+            if cleaned_synth:
+                shelf_entry["syntheticCards"] = cleaned_synth
         sanitized.append(shelf_entry)
     # Sanitize smart shelves
     raw_smart = settings.get("smartShelves", [])
     if not isinstance(raw_smart, list):
         raw_smart = []
     sanitized_smart = []
-    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played", "long_session", "non_steam", "random_pick", "forgotten", "spare_time", "custom"}
+    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played", "long_session", "non_steam", "random_pick", "forgotten", "spare_time", "soundtracks", "videos", "demos", "cloud_games", "backlog_rescue", "forgotten_gems", "weekly_rotation", "custom"}
     for ss in raw_smart:
         if not isinstance(ss, dict):
             continue
@@ -451,9 +484,54 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if not sf_id or not sf_name or sf_group is None:
             continue
         sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
+    # saved smart filter groups. Schema mirrors SavedSmartFilter
+    # in src/types.ts; client-side Zod is the authoritative validator.
+    raw_saved_smart = settings.get("savedSmartFilters", [])
+    if not isinstance(raw_saved_smart, list):
+        raw_saved_smart = []
+    sanitized_saved_smart = []
+    for sf in raw_saved_smart:
+        if not isinstance(sf, dict):
+            continue
+        sf_id = str(sf.get("id") or "")[:64]
+        sf_name = sf.get("name") if isinstance(sf.get("name"), str) else ""
+        sf_name = sf_name.strip()[:64] if sf_name else ""
+        sf_mode = str(sf.get("mode") or "")[:64]
+        if not sf_id or not sf_name or not sf_mode:
+            continue
+        entry_ss: Dict[str, Any] = {"id": sf_id, "name": sf_name, "mode": sf_mode}
+        sp = sf.get("smartParams")
+        if isinstance(sp, dict):
+            cleaned_sp = {str(k): float(v) for k, v in sp.items() if isinstance(v, (int, float))}
+            if cleaned_sp:
+                entry_ss["smartParams"] = cleaned_sp
+        if isinstance(sf.get("filterGroup"), dict):
+            entry_ss["filterGroup"] = sf["filterGroup"]
+        sf_sort = sf.get("sort")
+        if isinstance(sf_sort, list):
+            cleaned_sort = [str(s) for s in sf_sort if isinstance(s, str) and s]
+            if cleaned_sort:
+                entry_ss["sort"] = cleaned_sort
+        elif isinstance(sf_sort, str) and sf_sort:
+            entry_ss["sort"] = sf_sort
+        sf_rev = sf.get("sortReverse")
+        if isinstance(sf_rev, list):
+            entry_ss["sortReverse"] = [bool(b) for b in sf_rev]
+        elif sf_rev is True:
+            entry_ss["sortReverse"] = True
+        try:
+            if sf.get("limit") is not None:
+                entry_ss["limit"] = max(1, min(int(sf["limit"]), 100))
+        except Exception:
+            pass
+        if isinstance(sf.get("visibleHours"), list):
+            entry_ss["visibleHours"] = [int(h) for h in sf["visibleHours"] if isinstance(h, (int, float)) and 0 <= int(h) <= 23]
+        if isinstance(sf.get("visibleDaysOfWeek"), list):
+            entry_ss["visibleDaysOfWeek"] = [int(d) for d in sf["visibleDaysOfWeek"] if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
+        sanitized_saved_smart.append(entry_ss)
     update_dismissed = settings.get("updateNotifyDismissedVersion")
     update_dismissed = str(update_dismissed)[:64] if isinstance(update_dismissed, str) else None
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False))}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "savedSmartFilters": sanitized_saved_smart, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False))}
 
 
 class Plugin:

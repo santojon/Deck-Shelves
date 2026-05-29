@@ -45,4 +45,16 @@ export type EditableShelfState = {
   // primary is `filter` (filter is exclusive — use filter merge instead).
   compositeCombine: 'union' | 'intersection'
   additionalSources: ShelfSource[]
+  // Synthetic cards. Stored separately from `additionalSources`
+  // — these are decorations / placeholders / gaps interleaved at fixed
+  // slots, not source results.
+  syntheticCards: Array<{
+    position: number
+    image?: string
+    text?: string
+    link?: { type: 'app' | 'url'; value: string }
+    size: 'normal' | 'featured'
+    alpha?: number
+    placeholder?: boolean
+  }>
 }

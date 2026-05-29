@@ -241,6 +241,12 @@ function isGameContextMenuItems(items: any[], dfl: any): boolean {
 const DS_ROOT_KEYS = new Set([
   "ds-deck-shelves", "ds-shelf-root",
   "ds-card-highlight", "ds-card-hide",
+  // Add/Remove-shelf groups (both the in-shelf and library-card paths).
+  // Missing these from the dedup set caused the "Add to shelf" submenu
+  // to inject twice on shelves where both the boot-patch render and the
+  // shouldComponentUpdate hook fired against the same menu instance.
+  "ds-card-add-shelf", "ds-card-remove-shelf",
+  "ds-lib-add-shelf", "ds-lib-remove-shelf",
   "ds-sep-boot",
 ]);
 function dedupDsMenuItems(items: any[]): void {
@@ -354,7 +360,16 @@ function patchDeepestRender(prototype: any): void {
           try { curAppid = Number(this?.props?.overview?.appid) || 0; } catch {}
         }
         const curShelfId = resolveShelfIdByAppid(curAppid);
-        if (!curShelfId) return ret2;
+        if (!curShelfId) {
+          // Library-card path (game isn't in any DS shelf). Still
+          // surface the Add-to-shelf submenu so the user can append
+          // it to one of their manual shelves from the native menu.
+          if (curAppid > 0) {
+            const libItems = buildLibraryAddToShelfItems(curAppid, dfl, R);
+            if (libItems.length) spliceDsItems(menuItems, libItems, dfl, R);
+          }
+          return ret2;
+        }
         const items = buildDeckShelvesMenuItems(curShelfId, dfl, R, curAppid);
         if (!items.length) return ret2;
         spliceDsItems(menuItems, items, dfl, R);
@@ -386,7 +401,16 @@ function patchDeepestRender(prototype: any): void {
             try { curAppid = Number(this?.props?.overview?.appid) || 0; } catch {}
           }
           const curShelfId = resolveShelfIdByAppid(curAppid);
-          if (!curShelfId) return shouldUpdate;
+          if (!curShelfId) {
+            if (curAppid > 0) {
+              const libItems = buildLibraryAddToShelfItems(curAppid, dfl, R);
+              if (libItems.length) {
+                dedupDsMenuItems(nextChildren);
+                spliceDsItems(nextChildren, libItems, dfl, R);
+              }
+            }
+            return shouldUpdate;
+          }
           dedupDsMenuItems(nextChildren);
           const items = buildDeckShelvesMenuItems(curShelfId, dfl, R, curAppid);
           if (items.length) spliceDsItems(nextChildren, items, dfl, R);
@@ -620,6 +644,9 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
   // ── Management submenu ────────────────────────────────────────────────
   const mgmt = [
     item("ds-edit",      lbl("editShelf", "Edit"),      () => dispatchShelfModal("edit", shelfId)),
+    item("ds-decoration", lbl("menu_decoration", "Decoration"), () => dispatchShelfModal("edit", shelfId, { initialTab: "decoration" }),
+      // Smart shelves don't expose the Decoration tab (resolver is mode-driven, not slot-driven).
+      isSmart),
     item("ds-duplicate", lbl("duplicateShelf", "Duplicate"), () => {
       void duplicateShelfById(shelfId, lbl("copySuffix", "(Copy)"));
     }),
@@ -753,6 +780,82 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
         }
       },
     ));
+
+    // ── Add-to-shelf submenu ────────────────────────────────────────────
+    // Lists regular (non-smart) shelves the user could append this game
+    // to. Filtered to exclude:
+    //   - the current shelf (the game is already here)
+    //   - shelves whose appid pool already contains this id (via
+    //     manualOrder — that's the source of truth for manual shelves)
+    //   - shelves at or above their per-shelf limit
+    //   - shelves with 50+ manual entries (hard cap to keep the UX sane)
+    //
+    // Selecting an entry: the target shelf is patched with `sort='manual'`
+    // (if not already), manualOrder gains the appid at the end, and any
+    // previously-engaged manual sort keeps its prior order.
+    const ABSOLUTE_MAX = 50;
+    const candidateShelves: any[] = (settings.shelves ?? []).filter((sh: any) => {
+      if (sh.id === shelfId) return false;
+      const manual: number[] = sh.manualOrder ?? [];
+      if (manual.includes(focusedAppId)) return false;
+      const cap = Math.min(typeof sh.limit === "number" ? sh.limit : ABSOLUTE_MAX, ABSOLUTE_MAX);
+      if (manual.length >= cap) return false;
+      return true;
+    });
+    if (candidateShelves.length > 0) {
+      const addItems = candidateShelves.map((sh: any) => item(
+        `ds-card-add-${sh.id}`,
+        sh.title ?? sh.id,
+        () => {
+          const s = getCurrentSettings();
+          if (!s) return;
+          const tgt: any = (s.shelves ?? []).find((row: any) => row.id === sh.id);
+          if (!tgt) return;
+          const manual: number[] = tgt.manualOrder ?? [];
+          const wasManual = tgt.sort === "manual";
+          const patch: Record<string, any> = {
+            sort: "manual",
+            sortReverse: false,
+            manualOrder: [...manual, focusedAppId],
+          };
+          if (!wasManual) {
+            // Preserve the current natural order so the rest of the row
+            // doesn't reshuffle when we engage manual mode.
+            patch.manualBaseSort = typeof tgt.sort === "string" ? tgt.sort : "alphabetical";
+          }
+          void saveSettings(patchShelfInSettings(s, sh.id, patch));
+        },
+      ));
+      cardActions.push(group("ds-card-add-shelf", lbl("menu_add_to_shelf", "Add to shelf"), ...addItems));
+    }
+
+    // ── Remove-from-shelf submenu ──────────────────────────────────────
+    // Lists every regular shelf whose manualOrder currently contains
+    // this appid (excluding the shelf the menu is rooted on — the
+    // existing "Hide from shelf" entry handles the current shelf).
+    // Selecting an entry strips the appid from that shelf's manualOrder.
+    const removableShelves: any[] = (settings.shelves ?? []).filter((sh: any) => {
+      if (sh.id === shelfId) return false;
+      const manual: number[] = sh.manualOrder ?? [];
+      return manual.includes(focusedAppId);
+    });
+    if (removableShelves.length > 0) {
+      const rmItems = removableShelves.map((sh: any) => item(
+        `ds-card-rm-${sh.id}`,
+        sh.title ?? sh.id,
+        () => {
+          const s = getCurrentSettings();
+          if (!s) return;
+          const tgt: any = (s.shelves ?? []).find((row: any) => row.id === sh.id);
+          if (!tgt) return;
+          const manual: number[] = tgt.manualOrder ?? [];
+          void saveSettings(patchShelfInSettings(s, sh.id, {
+            manualOrder: manual.filter((id) => id !== focusedAppId),
+          }));
+        },
+      ));
+      cardActions.push(group("ds-card-remove-shelf", lbl("menu_remove_from_shelf", "Remove from shelf"), ...rmItems));
+    }
   }
 
   // Card-level items sit at the same level as "Prateleira", before it.
@@ -1479,6 +1582,82 @@ export function extractAppContextMenu(): boolean {
  */
 export function buildShelfContextMenu(shelfId: string, appid: number, dfl: any, R: any): any[] {
   return buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
+}
+
+/**
+ * Library-card Add/Remove-to-shelf injection. Emits up to two groups for
+ * the supplied appid:
+ *   - "Adicionar à prateleira" — every regular shelf that could accept
+ *     the appid (skips shelves that already contain it, at their
+ *     per-shelf limit, or past the 50-entry absolute cap).
+ *   - "Remover da prateleira" — every regular shelf whose manualOrder
+ *     currently contains the appid.
+ *
+ * Returns `[]` when neither group has any candidates (avoids inserting
+ * empty groups into Steam's native menu).
+ */
+export function buildLibraryAddToShelfItems(appid: number, dfl: any, R: any): any[] {
+  if (!dfl?.MenuItem || !dfl?.MenuGroup || !R?.createElement) return [];
+  if (!appid) return [];
+  const s = getCurrentSettings?.();
+  if (!s) return [];
+  const ABSOLUTE_MAX = 50;
+  const eligible: any[] = (s.shelves ?? []).filter((sh: any) => {
+    const manual: number[] = sh.manualOrder ?? [];
+    if (manual.includes(appid)) return false;
+    const cap = Math.min(typeof sh.limit === "number" ? sh.limit : ABSOLUTE_MAX, ABSOLUTE_MAX);
+    if (manual.length >= cap) return false;
+    return true;
+  });
+  const removable: any[] = (s.shelves ?? []).filter((sh: any) => (sh.manualOrder ?? []).includes(appid));
+  if (!eligible.length && !removable.length) return [];
+  const lblFn = (key: string, fallback: string): string => {
+    try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
+  };
+  const item = (key: string, label: string, onSelected: () => void) =>
+    R.createElement(dfl.MenuItem, { key, onSelected }, label);
+
+  const groups: any[] = [];
+  if (eligible.length > 0) {
+    const addChildren = eligible.map((sh: any) => item(
+      `ds-lib-add-${sh.id}`,
+      sh.title ?? sh.id,
+      () => {
+        const cur = getCurrentSettings();
+        if (!cur) return;
+        const tgt: any = (cur.shelves ?? []).find((row: any) => row.id === sh.id);
+        if (!tgt) return;
+        const manual: number[] = tgt.manualOrder ?? [];
+        const wasManual = tgt.sort === "manual";
+        const patch: Record<string, any> = {
+          sort: "manual",
+          sortReverse: false,
+          manualOrder: [...manual, appid],
+        };
+        if (!wasManual) patch.manualBaseSort = typeof tgt.sort === "string" ? tgt.sort : "alphabetical";
+        void saveSettings(patchShelfInSettings(cur, sh.id, patch));
+      },
+    ));
+    groups.push(R.createElement(dfl.MenuGroup, { key: "ds-lib-add-shelf", label: lblFn("menu_add_to_shelf", "Add to shelf") }, ...addChildren));
+  }
+  if (removable.length > 0) {
+    const rmChildren = removable.map((sh: any) => item(
+      `ds-lib-rm-${sh.id}`,
+      sh.title ?? sh.id,
+      () => {
+        const cur = getCurrentSettings();
+        if (!cur) return;
+        const tgt: any = (cur.shelves ?? []).find((row: any) => row.id === sh.id);
+        if (!tgt) return;
+        const manual: number[] = tgt.manualOrder ?? [];
+        void saveSettings(patchShelfInSettings(cur, sh.id, {
+          manualOrder: manual.filter((id) => id !== appid),
+        }));
+      },
+    ));
+    groups.push(R.createElement(dfl.MenuGroup, { key: "ds-lib-remove-shelf", label: lblFn("menu_remove_from_shelf", "Remove from shelf") }, ...rmChildren));
+  }
+  return groups;
 }
 
 export function showGameMenu(appid: number, shelfId?: string): void {

@@ -1,6 +1,7 @@
 import type { AppOverview } from "./index";
 import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
+import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
 
 const resolverCache = new Map<string, { ts: number; ids: number[] }>();
 const DEFAULT_SMART_TTL_MS = 60 * 60 * 1000;
@@ -231,9 +232,10 @@ function resolveCloudGames(apps: AppOverview[], limit: number): number[] {
   // Non-Steam shortcuts that Unifideck (or any future provider) tagged
   // as cloud-play. Re-uses the same detection the resolver already
   // applies for the "hideOwnedNonSteamCloud" toggle: the appid lives in
-  // a `[Unifideck] microsoft`-style collection. Falls back to the raw
-  // `non_steam` set when the cloud-play set is empty, so the template
-  // isn't permanently empty on devices without Unifideck.
+  // a `[Unifideck] microsoft`-style collection. Returns an empty shelf
+  // when no cloud collection is detected — the template is purposely
+  // about cloud-play entries only, so falling back to "any non-Steam"
+  // would mis-label the row on devices without Unifideck.
   try {
     // Lazy require to avoid a circular import — smartShelves.ts is
     // imported by steam/index.ts at module load.
@@ -242,9 +244,7 @@ function resolveCloudGames(apps: AppOverview[], limit: number): number[] {
       getUnifideckCloudPlaySet?: () => Set<number>;
     };
     const cloud = typeof getUnifideckCloudPlaySet === "function" ? getUnifideckCloudPlaySet() : new Set<number>();
-    if (cloud.size === 0) {
-      return apps.filter((a) => a.is_non_steam).sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a)).slice(0, limit).map((a) => a.appid);
-    }
+    if (cloud.size === 0) return [];
     return apps
       .filter((a) => a.is_non_steam && cloud.has(a.appid))
       .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
@@ -320,6 +320,80 @@ function resolveSpareTime(apps: AppOverview[], limit: number, params?: SmartPara
     .map((a) => a.appid);
 }
 
+// v2 heuristic templates. Each composes the primitives in
+// `./heuristics.ts` so behaviour stays inspectable + tunable via
+// `SMART_PARAM_DEFAULTS`.
+
+/** Backlog rescue — installed games with playtime > 0 but stale, ranked
+ *  by a composite of (playtime, time-since-last-played decay, deck
+ *  compat). Cooldown skips items surfaced in the last 14 days so the
+ *  shelf rotates through the backlog instead of pinning the same set. */
+function resolveBacklogRescue(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
+  const minPt = getParam("backlog_rescue", params, "minPlaytimeMinutes");
+  const stalenessDays = getParam("backlog_rescue", params, "stalenessDays");
+  const cooldownDays = getParam("backlog_rescue", params, "cooldownDays");
+  const minDeck = getParam("backlog_rescue", params, "minDeckLevel");
+  const cutoff = Math.floor(Date.now() / 1000) - stalenessDays * 86400;
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    a.installed &&
+    playtimeMinutes(a) >= minPt &&
+    lastPlayedSec(a) > 0 && lastPlayedSec(a) < cutoff &&
+    deckCompat(a) >= minDeck,
+  );
+  // Weighted composite — caller-tunable weights via smartParams.
+  const ranked = weightedRank(
+    pool,
+    [
+      { key: "playtime", get: (a) => Math.min(playtimeMinutes(a), 6000) },
+      { key: "staleness", get: (a) => 1 - timeDecayScore(lastPlayedSec(a), 60) },
+      { key: "deck", get: (a) => deckCompat(a) * 100 },
+    ],
+    { playtime: 1, staleness: 200, deck: 1 },
+  );
+  return applyCooldown(ranked, `backlog_rescue:${shelfId ?? "_"}`, cooldownDays, limit).map((a) => (a as any).appid);
+}
+
+/** Forgotten gems — owned but never played + high metacritic / review
+ *  score. Multi-factor: review_score primary, metacritic secondary,
+ *  recency-of-acquisition tertiary. */
+function resolveForgottenGems(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const minMeta = getParam("forgotten_gems", params, "minMetacritic");
+  const minReview = getParam("forgotten_gems", params, "minReviewScore");
+  const minDeck = getParam("forgotten_gems", params, "minDeckLevel");
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    playtimeMinutes(a) === 0 &&
+    lastPlayedSec(a) === 0 &&
+    (((a as any).review_percentage ?? 0) >= minReview ||
+      ((a as any).metacritic_score ?? 0) >= minMeta) &&
+    deckCompat(a) >= minDeck,
+  );
+  const ranked = multiFactorRank(pool, [
+    { get: (a) => ((a as any).review_percentage ?? 0) },
+    { get: (a) => ((a as any).metacritic_score ?? 0) },
+    { get: (a) => Number((a as any).rt_purchased_time ?? 0) },
+  ]);
+  return ranked.slice(0, limit).map((a) => (a as any).appid);
+}
+
+/** Weekly rotation — round-robin slice over a fixed candidate pool
+ *  (installed games), advancing once per `rotateEveryDays`. Same
+ *  shelf shows the same slice all week, then advances. */
+function resolveWeeklyRotation(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
+  const rotateDays = getParam("weekly_rotation", params, "rotateEveryDays");
+  const minDeck = getParam("weekly_rotation", params, "minDeckLevel");
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    a.installed &&
+    deckCompat(a) >= minDeck,
+  );
+  return rotateWindow(pool, `weekly_rotation:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
+}
+
 /**
  * Resolve the appids for a smart shelf.
  *
@@ -371,6 +445,9 @@ export function resolveSmartShelf(
         case "videos":          return resolveVideos(apps, limit);
         case "demos":           return resolveDemos(apps, limit);
         case "cloud_games":     return resolveCloudGames(apps, limit);
+        case "backlog_rescue":  return resolveBacklogRescue(apps, limit, params, shelfId);
+        case "forgotten_gems":  return resolveForgottenGems(apps, limit, params);
+        case "weekly_rotation": return resolveWeeklyRotation(apps, limit, params, shelfId);
         // "custom" is dispatched via `resolveShelfAppIds` in `src/steam/index.ts`
         // (it needs filterGroup + sort which aren't exposed here). Reaching
         // this case directly means a buggy caller — return [] to fail soft.
@@ -515,6 +592,9 @@ export const INTERNAL_SMART_MODES: ReadonlySet<string> = new Set([
   "videos",
   "demos",
   "cloud_games",
+  "backlog_rescue",
+  "forgotten_gems",
+  "weekly_rotation",
   "custom",
 ]);
 

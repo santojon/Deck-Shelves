@@ -65,6 +65,21 @@ export type PreviewPanelProps = {
   // When provided, the preview's RefreshCard becomes focusable and clicking
   // it re-resolves the preview's app ids (parent owns the resolver).
   onRefresh?: () => void
+  // Emitted by the ShelfPreview row whenever focus moves between cards.
+  // Used by the Decoration tab to decide where the "+ Add decoration"
+  // button should insert the next synthetic card.
+  onFocusedIndexChange?: (idx: number) => void
+  // Synthetic decoration cards persisted on the shelf — forwarded to
+  // ShelfPreview so it can splice them into its row at the right slots.
+  syntheticCards?: Array<{
+    position: number;
+    image?: string;
+    text?: string;
+    link?: { type: 'app' | 'url'; value: string };
+    size: 'normal' | 'featured';
+    alpha?: number;
+    placeholder?: boolean;
+  }>
 }
 
 export function PreviewPanel(props: PreviewPanelProps) {
@@ -79,7 +94,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
     hiddenCandidateIds, hiddenCandidateMeta,
     hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
     hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
-    limit, shelfSource, shelfSort, onRefresh,
+    limit, shelfSource, shelfSort, onRefresh, onFocusedIndexChange,
+    syntheticCards,
   } = props
 
   const loading = (
@@ -187,6 +203,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
         highlightAll={highlightAll}
         highlightedAppIds={highlightedAppIds}
         onRefresh={onRefresh}
+        onFocusedIndexChange={onFocusedIndexChange}
+        syntheticCards={syntheticCards}
       />
     )
   }

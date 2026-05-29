@@ -186,6 +186,10 @@ export interface PriceData {
   discount: number;     // 0–100
   currency: string;
   isFree: boolean;
+  // True when Steam returned no `price_overview` for this appid. Cached
+  // as a negative entry so we don't re-issue the fetch on every shelf
+  // resolve; the discount filter treats this as "no discount data".
+  unpriced?: boolean;
 }
 
 type PriceCache = Record<number, { ts: number; data: PriceData }>;
@@ -235,9 +239,12 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
   try {
     if (Date.now() < (backoffUntil[PRICE_KEY] ?? 0)) return result;
 
-    // Limit to the first 200 IDs to avoid stalling the shelf resolver.
-    // Additional IDs are left uncached and evaluated as "no price data".
-    const limited = toFetch.slice(0, 200);
+    // Fetch budget is bounded by `deadline` below — the per-call cap was
+    // raised from 200 to 800 so store-source resolves with a discount
+    // filter (e.g. "100% off" / "Free now") actually cover the full
+    // specials list. Past 200, otherwise-promoted-free games slipped
+    // through uncached and the discount filter rejected them.
+    const limited = toFetch.slice(0, 800);
 
     const BATCH = 50;
     const deadline = Date.now() + 8000; // 8 s total budget for all batches
@@ -261,9 +268,25 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
 
       for (const appid of batch) {
         const entry = json?.[appid];
-        if (!entry?.success) continue;
+        if (!entry?.success) {
+          // Steam returned `success: false` — record a negative entry so
+          // we don't re-issue this fetch every resolve. Same effect as
+          // "no price_overview" downstream.
+          const data: PriceData = { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: false, unpriced: true };
+          result.set(appid, data);
+          writePriceCacheEntry(appid, data);
+          continue;
+        }
         const po = entry.data?.price_overview;
-        if (!po) continue;
+        if (!po) {
+          // Permanently free / region-blocked — also cached as negative
+          // entry. Avoids the "first 200 always re-fetched" pattern when
+          // the store source returns many F2P games.
+          const data: PriceData = { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: true, unpriced: true };
+          result.set(appid, data);
+          writePriceCacheEntry(appid, data);
+          continue;
+        }
         const data: PriceData = {
           price: po.final ?? 0,
           originalPrice: po.initial ?? po.final ?? 0,

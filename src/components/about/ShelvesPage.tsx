@@ -37,6 +37,11 @@ export function ShelvesPage() {
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_shelves_multi_source_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_shelves_multi_source_body')}</span>} />
       <DocCallout variant="tip">{t('docs_shelves_multi_source_tip')}</DocCallout>
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_shelves_decoration_title' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_shelves_decoration_body' as any)}</span>} />
+      <DocCallout variant="tip">{t('docs_shelves_decoration_tip' as any)}</DocCallout>
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_shelves_quickactions_title' as any)}</span>} />
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_shelves_quickactions_body' as any)}</span>} />
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_shelves_display_options_title' as any)}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_shelves_display_options_body' as any)}</span>} />
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_shelves_manage_title')}</span>} />

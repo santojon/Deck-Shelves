@@ -28,7 +28,7 @@ community include:
   overall community
 * Respecting project scope, technical decisions, and maintainers' time when
   discussing features, support requests, or architectural changes
-* Contributing constructively and responsibly, including reviewing AI-assisted
+* Contributing constructively and responsibly, including reviewing tool-assisted
   contributions before submission
 
 Examples of unacceptable behavior include:

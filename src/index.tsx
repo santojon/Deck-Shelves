@@ -24,7 +24,16 @@ import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@de
 import { AboutPage } from "./components/AboutPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
+import { createDeckyHostApi } from "./runtime/host/decky";
+import type { HostApi } from "./runtime/host/contract";
 initI18n();
+
+// HostApi singleton — instantiated once at boot, exposed for the pilot
+// migration (EditShelfModal). Future sprints route every `@decky/*`
+// dependency through this contract.
+let _hostApi: HostApi | null = null;
+export function getHostApi(): HostApi { if (!_hostApi) throw new Error("HostApi not booted"); return _hostApi; }
+export function __setHostApiForTest(h: HostApi | null) { _hostApi = h; }
 
 const ABOUT_ROUTE = "/deck-shelves/about";
 const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
@@ -90,6 +99,7 @@ export default definePlugin((serverAPI?: any) => {
   const routerHook = serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
+  _hostApi = createDeckyHostApi(routerHook);
   const patch = enableHomePatch ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = installRecentsReplace(routerHook);
   const uninstallRefresh = installShelfRefreshEmitter();

@@ -17,6 +17,17 @@ export type DeckRowItem = {
   isSteam?: boolean;
   isNew?: boolean;
   discountPercent?: number;
+  // Synthetic-card slot. When set, ShelfRow renders the
+  // SyntheticCard instead of a game card; the rules from
+  // `ShelfSchema.syntheticCards.superRefine` govern focus + content.
+  synthetic?: {
+    image?: string;
+    text?: string;
+    link?: { type: "app" | "url"; value: string };
+    size: "normal" | "featured";
+    alpha?: number;
+    placeholder?: boolean;
+  };
 };
 
 export const CARD_W = 134;

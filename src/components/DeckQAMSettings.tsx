@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+// See DeckyHostApi adapter.
 import {
   ConfirmModal,
   Field,
@@ -6,7 +7,7 @@ import {
   SliderField,
   ToggleField,
   showModal,
-} from '@decky/ui'
+} from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'

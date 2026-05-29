@@ -18,9 +18,6 @@ export { PlaceholderCard } from "./shelf/PlaceholderCard";
 // Mention card constants and image sizing for compatibility checks
 // CARD_W = CARD_ART_H = object-fit: cover
 import { type DeckRowItem, CARD_W, CARD_ART_H, CARD_GAP } from "./shelf/types";
-import { GameCard } from "./shelf/GameCard";
-import { MoreCard } from "./shelf/MoreCard";
-import { RefreshCard } from "./shelf/RefreshCard";
 import { ShelfRow } from "./shelf/ShelfRow";
 import {
   getCachedNativeDims,

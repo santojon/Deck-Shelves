@@ -11,6 +11,33 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 import { resolveNativeCardClass } from "./cardUtils";
+import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
+import { patchShelfInSettings } from "../../domain/settings";
+
+// Y-button quick-action: toggle a per-card highlight (entry in
+// `highlightedAppIds`). When the card was being highlighted via the
+// shelf-level highlightAll / highlightFirst flags, this clears the
+// shelf-level source instead so the user gets a predictable visual
+// "off". Mirrors the context-menu "Highlight this game" path.
+function toggleCardHighlight(shelfId: string | undefined, appid: number): void {
+  if (!shelfId || !appid) return;
+  const s = getCurrentSettings();
+  if (!s) return;
+  const shelves = (s.shelves ?? []) as any[];
+  const shelf = shelves.find((sh) => sh.id === shelfId);
+  if (!shelf) return;
+  const ids: number[] = shelf.highlightedAppIds ?? [];
+  const wasInIds = ids.includes(appid);
+  const wasViaAll = !!shelf.highlightAll;
+  const patch: Record<string, any> = {};
+  if (wasInIds || wasViaAll) {
+    if (wasInIds) patch.highlightedAppIds = ids.filter((id) => id !== appid);
+    if (wasViaAll) patch.highlightAll = false;
+  } else {
+    patch.highlightedAppIds = [...ids, appid];
+  }
+  void saveSettings(patchShelfInSettings(s, shelfId, patch));
+}
 
 const downloadIcon = (
   <span className="ds-card-status-icon">
@@ -434,6 +461,17 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       onOKButton={activate}
       onMenuButton={item.onMenuButton}
       onContextMenu={item.onMenuButton}
+      // Y button — quick toggle of the per-card highlight without
+      // opening the context menu. Decky's Focusable maps the Y button
+      // to `onOptionsButton` / `onOptionsActionDescription` (X is the
+      // `onSecondary*` slot — see ReorderableList.tsx for the in-repo
+      // precedent). The label reflects the current featured state so
+      // it reads "Highlight" vs "Remove highlight" instead of a glyph.
+      // No-op + no label when the card has no appid (refresh / more).
+      onOptionsActionDescription={appid
+        ? i18n.t(featured ? 'remove_highlight' : 'highlight_this')
+        : undefined}
+      onOptionsButton={appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
       data-appid={appid || undefined}
       data-shelfid={item.shelfId || undefined}
       data-ds-card-index={cardIndex !== undefined ? String(cardIndex) : undefined}

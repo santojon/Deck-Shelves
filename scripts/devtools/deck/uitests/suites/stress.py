@@ -9,13 +9,18 @@ Then run:
 
 What it measures
 ----------------
-- Home render time with 12 regular + 6 smart shelves at limit=50 each
+- Home render time with 19 regular + 9 smart shelves at limit=50 each
+  (includes composite source, multi-key sort, decoration cards, and the
+  three 2.4.0 heuristic templates)
 - rAF max/avg frame gap during vertical navigation (shelf-to-shelf)
 - rAF max/avg frame gap during horizontal navigation (card-to-card, 10 steps)
 - rAF max/avg frame gap during combined navigation (vertical + horizontal interleaved)
 - Time to enter a game detail page and return (A → B pattern)
 - Scroll-to-bottom / scroll-to-top continuous frame gap
 - Error count throughout all steps
+- Decoration cards under load — render + scroll frame budget
+- Composite source + multi-key sort resolve time within mount budget
+- Y-button secondary action — no per-press render storm
 
 Thresholds
 ----------
@@ -178,7 +183,7 @@ def _shelf_ids(ctx):
 """) or []
 
 
-_STRESS_MIN_SHELVES = 10  # stress fixture has 16 regular + 6 smart = 22 total
+_STRESS_MIN_SHELVES = 10  # stress fixture has 19 regular + 9 smart = 28 total (2.4.0)
 
 
 def _require_stress_fixture(ctx) -> None:
@@ -195,7 +200,7 @@ def _require_stress_fixture(ctx) -> None:
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-@s.test("home render — 18 shelves / 50 cards each under 5 s")
+@s.test("home render — 28 shelves / 50 cards each under mount budget")
 def _(ctx) -> None:
     _require_stress_fixture(ctx)
     ctx.eval(_INSTALL_COLLECTOR)
@@ -605,3 +610,91 @@ def _(ctx) -> None:
     for row in (summary.get("perShelf") or []):
         print(f"  │   {row['id'][:40]:40s} → {row['cards']} cards")
     print("  └─────────────────────────────────────────────────────────")
+
+
+# ── 2.4.0 stress additions ────────────────────────────────────────────────────
+
+@s.test("decoration cards under load — render + scroll budget")
+def _(ctx) -> None:
+    """When the stress fixture seeds synthetic cards on multiple shelves, verify
+    they render without spiking the frame budget. Skips when the fixture wasn't
+    deployed with `DS_QA_TEMPLATES_FIXTURE=1` (which seeds decoration shelves)."""
+    _require_stress_fixture(ctx)
+    ctx.navigate("/library/home", settle_ms=1500)
+    decorated = ctx.eval("""
+(async function(){
+    const deadline = Date.now() + 6000;
+    while (Date.now() < deadline) {
+        const synths = document.querySelectorAll('.ds-card--synthetic');
+        if (synths.length > 0) return synths.length;
+        await new Promise(r => setTimeout(r, 200));
+    }
+    return 0;
+})()
+""", timeout=10) or 0
+    if decorated == 0:
+        from ..lib.runner import SkipTest
+        raise SkipTest("stress fixture doesn't include synthetic cards on this device")
+    ctx.eval(_INSTALL_COLLECTOR)
+    ctx.eval(_CLEAR_ERRORS)
+    # Scroll the row containing the synth cards to surface them — frame
+    # budget on first paint of the deco-bearing shelves matters most.
+    stats = _sample_frames(ctx, steps=30, settle_ms=500, wait_for_shelves=True)
+    print(f"  → decoration render: synths={decorated} max={stats['max']}ms avg={stats['avg']}ms")
+    assert stats["max"] < NAV_FRAME_MAX_MS, f"decoration frame {stats['max']}ms > {NAV_FRAME_MAX_MS}ms"
+    _assert_no_errors(ctx, "decoration render")
+
+
+@s.test("multi-source / multi-key shelves resolve within budget")
+def _(ctx) -> None:
+    """Composite source + multi-key sort runs the resolver harder than a
+    single-source / single-key shelf. Verify the result still arrives
+    inside the configured mount budget."""
+    _require_stress_fixture(ctx)
+    ctx.navigate("/library/home", settle_ms=500)
+    composite = ctx.eval("""
+(function(){
+    try {
+        const raw = localStorage.getItem('deck-shelves-settings-cache-v3')
+                 || JSON.stringify(window.__DECK_SHELVES_SHARED_SETTINGS__ || {});
+        const s = JSON.parse(raw || '{}');
+        const composites = (s.shelves || []).filter(sh => (sh.source || {}).type === 'composite');
+        const multiKey = (s.shelves || []).filter(sh => Array.isArray(sh.sort) && sh.sort.length >= 2);
+        return { composites: composites.length, multiKey: multiKey.length };
+    } catch { return { composites: 0, multiKey: 0 }; }
+})()
+""") or {}
+    if (composite.get("composites", 0) + composite.get("multiKey", 0)) == 0:
+        from ..lib.runner import SkipTest
+        raise SkipTest("stress fixture lacks composite + multi-key shelves")
+    t0 = time.time()
+    n = _wait_for_shelves(ctx, min_count=_STRESS_MIN_SHELVES, timeout_s=20.0)
+    elapsed = int((time.time() - t0) * 1000)
+    print(f"  → composite+multikey: composites={composite['composites']} multiKey={composite['multiKey']} shelves={n} mount={elapsed}ms")
+    assert elapsed < MOUNT_WARN_MS, f"composite+multikey mount {elapsed}ms > {MOUNT_WARN_MS}ms"
+    _assert_no_errors(ctx, "composite+multikey")
+
+
+@s.test("Y-button (secondary action) does not blow the frame budget")
+def _(ctx) -> None:
+    """Fire a synthetic Y press on a focused card 5× and sample frames between.
+    The handler only mutates settings (highlight toggle), so a short batch
+    shouldn't cause a re-render storm."""
+    _require_stress_fixture(ctx)
+    ctx.navigate("/library/home", settle_ms=800)
+    _wait_for_shelves(ctx, min_count=3, timeout_s=12.0)
+    ctx.eval(_INSTALL_COLLECTOR)
+    ctx.eval(_CLEAR_ERRORS)
+    has_card = ctx.eval("(function(){ return !!document.querySelector('.ds-card[data-appid]'); })()")
+    if has_card is not True:
+        from ..lib.runner import SkipTest
+        raise SkipTest("no focusable game card present to fire Y on")
+    # Y maps to KeyY on the BP keyboard. Real Steam Deck input goes through
+    # Steam's gamepad layer — we approximate via key dispatch which exercises
+    # the same React handler chain.
+    for _ in range(5):
+        _key(ctx, "KeyY", pause_ms=120)
+    stats = _sample_frames(ctx, steps=30)
+    print(f"  → Y press ×5: max={stats['max']}ms avg={stats['avg']}ms")
+    assert stats["max"] < NAV_FRAME_MAX_MS, f"Y press frame {stats['max']}ms > {NAV_FRAME_MAX_MS}ms"
+    _assert_no_errors(ctx, "Y press ×5")

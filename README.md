@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-288%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/tests-305%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -27,6 +27,9 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - Inject custom shelves into `library/home`
 - Shelves backed by **collections**, **library tabs**, or **custom filters**
 - **Multiple sources per shelf** — stack collections + tabs + wishlist + store into one shelf via Union (games in any source) or Intersection (games in every source). Filter source stays exclusive; use the filter `merge` for multi-criteria predicates instead.
+- **Decoration cards** — pin fixed-slot cards at any position in a shelf: text label, image banner, focusable URL shortcut, or a transparent gap. New cards land at the slot focused in the preview and inherit the row's current order via manual sort.
+- **Quick add to shelf** — every game's context menu (in DS shelves AND the native library) exposes "Adicionar à prateleira" with the eligible shelves only (skips shelves at their limit, the 50-entry cap, or already containing the game).
+- **Y-button highlight toggle** — focus a game, press Y to toggle the per-card highlight without opening the context menu.
 - **Advanced filter groups** with AND/OR logic for complex game queries
 - Filter games by:
   - Favorites, installed, hidden, non-Steam
@@ -60,7 +63,8 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
 - **Per-day time-window overrides for smart shelves** — a Smart Filters toggle opens a dedicated Overrides tab where each weekday can have its own hour ranges, on top of the shelf-level default hours and day filter
 - **Live shelf preview in the editor** — the preview area shows real cards as they appear on the home (title, name, status line, compat / new / non-Steam badges, See more / Refresh tiles) and reflects every Display-tab toggle in real time
-- **Smart Shelves** — fifteen heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match (Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten); ordered by probability of results in the picker
+- **Smart Shelves** — 22 heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match. Game-focused: Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten. Heuristic templates: Backlog Rescue, Forgotten Gems, Weekly Rotation (each with tunable cooldown / staleness / review-floor / rotation knobs). Media-focused: Soundtracks, Videos, Demos, Cloud games. Ordered by probability of results in the picker
+- **Saved smart shelf templates** — persist a fully-tuned smart shelf config and reuse it from the template picker; exposed to plugins via the public API
 - **Surprise Me** — sub-toggle that hides the manual smart shelf list and lets the system pick 1–5 templates each day automatically; configurable count slider (0 = system decides)
 - **Shelf templates** — 11 presets (Favorites, Recently Played, Installed, Most Played, Recently Added, Awaiting Update, Non-Steam, Long Sessions, Steam Cloud, Deck Verified, Top Reviewed) in a 2-column grid picker. Picking any template — Blank, regular preset, smart preset, or Custom — opens the edit modal first; **nothing is persisted until you press Save**, so cancelling discards the draft cleanly.
 - Reorder and toggle shelf visibility from the QAM

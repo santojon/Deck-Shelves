@@ -15,7 +15,7 @@ import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
 import { normalizeTitleForMatch } from "../steam/dedupe";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
-import { clearOnlineShelfCache, dispatchShelfModal, toggleShelfHiddenById, moveShelfById, duplicateShelfById } from "../core/shelfActions";
+import { clearOnlineShelfCache } from "../core/shelfActions";
 import { fetchGameNames } from "../core/onlineStore";
 import { getCurrentSettings } from "../store/settingsStore";
 
@@ -489,8 +489,35 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         onActivate: moreActivate,
       });
     }
+    // interleave synthetic cards at their fixed slots.
+    // Insert is order-preserving: a card with position N lands at index
+    // N of the final array (clamped to the array length). Multiple
+    // syntheticCards with the same position are inserted in declaration
+    // order, each pushing the next one forward. Positions are applied
+    // AFTER trailing cards so a position past the last game still lands
+    // in the visible row.
+    const synth = (shelf as any).syntheticCards as Array<any> | undefined;
+    if (synth && synth.length) {
+      const sorted = synth.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      for (const c of sorted) {
+        const pos = Math.max(0, Math.min(base.length, Number(c.position) || 0));
+        base.splice(pos, 0, {
+          id: `${shelf.id}__synthetic__${pos}__${base.length}`,
+          name: c.text ?? "",
+          shelfId: shelf.id,
+          synthetic: {
+            image: c.image,
+            text: c.text,
+            link: c.link,
+            size: c.size === "featured" ? "featured" : "normal",
+            alpha: c.alpha,
+            placeholder: c.placeholder === true,
+          },
+        });
+      }
+    }
     return base;
-  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard]);
+  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, JSON.stringify((shelf as any).syntheticCards ?? null)]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;

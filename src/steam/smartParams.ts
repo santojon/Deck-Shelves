@@ -48,6 +48,12 @@ export const DEFAULT_SORT_FOR_MODE: Record<SmartShelfMode, string> = {
   videos:          "alphabetical",
   demos:           "recent",
   cloud_games:     "recent",
+  // Heuristic templates — internal ordering takes precedence,
+  // so the sort field is the post-resolve fallback applied after the
+  // heuristic ranks the candidate pool.
+  backlog_rescue:  "recent",
+  forgotten_gems:  "review_score",
+  weekly_rotation: "alphabetical",
   custom:          "alphabetical",
 };
 
@@ -73,6 +79,12 @@ export const SMART_PARAM_DEFAULTS: Record<SmartShelfMode, SmartParams> = {
   videos:          {},
   demos:           {},
   cloud_games:     {},
+  // heuristic templates. Defaults chosen so the resolver
+  // surfaces a reasonable shelf on a fresh install without forcing the
+  // user into the smart-params editor.
+  backlog_rescue:  { minPlaytimeMinutes: 60, stalenessDays: 30, cooldownDays: 14, minDeckLevel: 0 },
+  forgotten_gems:  { minMetacritic: 80, minReviewScore: 85, minDeckLevel: 0 },
+  weekly_rotation: { rotateEveryDays: 7, minDeckLevel: 0 },
   custom:          {},
 };
 
@@ -124,6 +136,12 @@ export const SMART_PARAM_META: Record<string, SmartParamMeta> = {
       { value: 3, labelKey: "smart_deck_level_verified" },
     ],
   },
+  // Heuristic-template knobs.
+  stalenessDays:    { labelKey: "smart_param_staleness_days",   min: 7,  max: 365, step: 7, unitKey: "smart_unit_days" },
+  cooldownDays:     { labelKey: "smart_param_cooldown_days",    min: 0,  max: 60,  step: 1, unitKey: "smart_unit_days" },
+  minMetacritic:    { labelKey: "smart_param_min_metacritic",   min: 0,  max: 100, step: 5 },
+  minReviewScore:   { labelKey: "smart_param_min_review_score", min: 0,  max: 100, step: 5 },
+  rotateEveryDays:  { labelKey: "smart_param_rotate_every_days", min: 1, max: 30,  step: 1, unitKey: "smart_unit_days" },
 };
 
 /**

@@ -93,17 +93,39 @@ export interface ShelfPreviewProps {
   // invokes this callback to re-resolve the preview's app ids (matches the
   // behaviour the home shelf gives the user).
   onRefresh?: () => void
+  // Emitted whenever focus moves between cards in the preview row.
+  // Drives the Decoration tab's "insert at currently focused slot"
+  // behaviour without coupling that tab to the preview's DOM.
+  onFocusedIndexChange?: (idx: number) => void
+  // Synthetic decoration cards to interleave at their `position` slots.
+  // Same shape Shelf.tsx splices on the home — kept identical here so the
+  // preview matches the real shelf 1:1.
+  syntheticCards?: Array<{
+    position: number;
+    image?: string;
+    text?: string;
+    link?: { type: 'app' | 'url'; value: string };
+    size: 'normal' | 'featured';
+    alpha?: number;
+    placeholder?: boolean;
+  }>
 }
 
 export function ShelfPreview({
   t, ids, meta, limit, shelfSource, shelfSort,
   hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
   hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
-  highlightFirst, highlightAll, highlightedAppIds, onRefresh,
+  highlightFirst, highlightAll, highlightedAppIds, onRefresh, onFocusedIndexChange,
+  syntheticCards,
 }: ShelfPreviewProps) {
   const rowRef = useRef<HTMLDivElement>(null)
   const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
-  const cappedIds = (typeof limit === 'number' && limit >= 0) ? ids.slice(0, limit) : ids
+  // Filter out synthetic sentinels (negative ids) the modal injects into
+  // `effectiveManualOrder` for the manual-sort drag grid. The preview
+  // splices its own synthetic items below from `syntheticCards[].position`
+  // so they appear regardless of the sort mode.
+  const gameOnlyIds = useMemo(() => ids.filter((id) => id >= 0), [ids])
+  const cappedIds = (typeof limit === 'number' && limit >= 0) ? gameOnlyIds.slice(0, limit) : gameOnlyIds
   const trailingInput = { source: shelfSource, sort: shelfSort, hideSeeMore, hideRefreshCard }
   const showRefresh = shelfSource ? shouldShowRefreshCard(trailingInput) : !hideRefreshCard
   const showMore = shelfSource ? shouldShowMoreCard(trailingInput) : !hideSeeMore
@@ -149,8 +171,31 @@ export function ShelfPreview({
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
     if (showMore) out.push({ id: '__more', name: t('view_more'), isMoreLink: true })
+    // Splice synthetic decoration cards at their persisted `position`
+    // slots. Sorted asc so earlier slots splice before later ones (later
+    // splice positions stay valid as the array grows). Same logic as
+    // Shelf.tsx's home rowItems builder — keeps the preview 1:1 with
+    // what the user will see on the home shelf.
+    if (syntheticCards && syntheticCards.length) {
+      const sorted = syntheticCards.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      sorted.forEach((c, i) => {
+        const pos = Math.max(0, Math.min(out.length, Number(c.position) || 0))
+        out.splice(pos, 0, {
+          id: `__synth_preview_${i}_${pos}`,
+          name: c.text ?? '',
+          synthetic: {
+            image: c.image,
+            text: c.text,
+            link: c.link,
+            size: c.size === 'featured' ? 'featured' : 'normal',
+            alpha: c.alpha,
+            placeholder: c.placeholder === true,
+          },
+        })
+      })
+    }
     return out
-  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t])
+  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null)])
 
   // Keep the focused card in view as the user navigates horizontally — same
   // pattern HighlightRow uses on the home shelf. Without this, fast L/R input
@@ -164,6 +209,14 @@ export function ShelfPreview({
       const target = e.target as HTMLElement | null
       const card = target?.closest('.ds-card') as HTMLElement | null
       if (!card || !row.contains(card)) return
+      // Emit the focused card's index (sibling position among .ds-card
+      // children of the row). Used by EditShelfModal's Decoration tab
+      // to decide where to insert the next synthetic card.
+      try {
+        const cards = Array.from(row.querySelectorAll('.ds-card'))
+        const idx = cards.indexOf(card)
+        if (idx >= 0) onFocusedIndexChange?.(idx)
+      } catch {}
       if (raf !== null) cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
         raf = null
@@ -179,7 +232,7 @@ export function ShelfPreview({
       row.removeEventListener('focusin', onFocusIn)
       if (raf !== null) cancelAnimationFrame(raf)
     }
-  }, [])
+  }, [onFocusedIndexChange])
 
   return (
     <div data-ds-shelf-preview="1">

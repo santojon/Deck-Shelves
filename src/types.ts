@@ -48,6 +48,25 @@ export const SavedFilterSchema = z.object({
 });
 export type SavedFilter = z.infer<typeof SavedFilterSchema>;
 
+// saved smart shelf templates. Mirrors SavedFilter but
+// captures every knob a smart shelf carries (mode + smartParams +
+// optional refinements). Stored at settings level; readable via
+// `__DECK_SHELVES_API__.getSavedSmartFilters()` so external plugins
+// can reuse them.
+export const SavedSmartFilterSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().min(1).max(64),
+  mode: z.string().min(1).max(64),
+  smartParams: z.record(z.string(), z.number()).optional(),
+  filterGroup: FilterGroupSchema.optional(),
+  sort: z.union([z.string(), z.array(z.string())]).optional(),
+  sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  visibleHours: z.array(z.number().int().min(0).max(23)).optional(),
+  visibleDaysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+});
+export type SavedSmartFilter = z.infer<typeof SavedSmartFilterSchema>;
+
 // --- Legacy flat filter schema (kept for backwards compatibility) ---
 
 export const FilterSchema = z.object({
@@ -106,6 +125,10 @@ export const SmartShelfModeSchema = z.enum([
   "videos",
   "demos",
   "cloud_games",
+  // v2 heuristic templates (see src/steam/heuristics.ts).
+  "backlog_rescue",
+  "forgotten_gems",
+  "weekly_rotation",
   "custom",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
@@ -259,7 +282,40 @@ export const ShelfSchema = z.object({
   heroEnabled: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
-  source: ShelfSourceSchema
+  source: ShelfSourceSchema,
+  // synthetic cards (decorations / gaps / placeholders) that
+  // sit at a fixed slot in the rendered row regardless of source. Rules
+  // enforced by `superRefine`:
+  //   - `text` and `image` are mutually exclusive; both may be absent
+  //     (becomes a pure spacer / placeholder).
+  //   - `link` is only valid when `text` OR `image` is set. Without
+  //     either, the card has no focusable surface and becomes a
+  //     non-focusable visual gap (focus skips over it).
+  //   - `placeholder=true` shows the standard card background fill
+  //     (same look as a loading slot); default is fully transparent.
+  // Size is restricted to `normal` / `featured` here; `reduced` / `stack`
+  // ship with the render-mode suite later.
+  syntheticCards: z.array(
+    z.object({
+      position: z.number().int().min(0),
+      image: z.string().optional(),
+      text: z.string().max(64).optional(),
+      link: z.object({
+        type: z.enum(["app", "url"]),
+        value: z.string().min(1),
+      }).optional(),
+      size: z.enum(["normal", "featured"]).default("normal"),
+      alpha: z.number().min(0).max(1).optional(),
+      placeholder: z.boolean().optional(),
+    }).superRefine((c, ctx) => {
+      if (c.text !== undefined && c.image !== undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "synthetic card may not carry both `text` and `image`" });
+      }
+      if (c.link !== undefined && c.text === undefined && c.image === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "synthetic card with `link` must also set `text` or `image`" });
+      }
+    })
+  ).optional(),
 });
 
 export type Shelf = z.infer<typeof ShelfSchema>;
@@ -292,6 +348,7 @@ export const SettingsSchema = z.object({
   smartSurpriseMe: z.boolean().default(false),
   smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
   savedFilters: z.array(SavedFilterSchema).default([]),
+  savedSmartFilters: z.array(SavedSmartFilterSchema).default([]),
   // `nullable()` is mandatory: the Python sanitizer in `main.py` returns `null`
   // for these when the user hasn't set them, and Zod's `optional()` alone
   // rejects null — which previously failed `safeParse` on the entire Settings

@@ -264,6 +264,21 @@ export interface PublicSavedFilter {
   readonly group: PublicFilterGroup;
 }
 
+// saved smart shelf template, readable through the public
+// API so external plugins can clone / list / build on top of them.
+export interface PublicSavedSmartFilter {
+  readonly id: string;
+  readonly name: string;
+  readonly mode: string;
+  readonly smartParams?: Readonly<Record<string, number>>;
+  readonly filterGroup?: PublicFilterGroup;
+  readonly sort?: string | ReadonlyArray<string>;
+  readonly sortReverse?: boolean | ReadonlyArray<boolean>;
+  readonly limit?: number;
+  readonly visibleHours?: ReadonlyArray<number>;
+  readonly visibleDaysOfWeek?: ReadonlyArray<number>;
+}
+
 // ---------------------------------------------------------------------------
 // 2. API SURFACE — what `window.__DECK_SHELVES_API__` exposes
 // ---------------------------------------------------------------------------
@@ -305,6 +320,8 @@ export interface DeckShelvesPublicAPI {
   getShelves(): ReadonlyArray<PublicShelf>;
   getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
   getSavedFilters(): ReadonlyArray<PublicSavedFilter>;
+  /** saved smart shelf templates persisted by the user. */
+  getSavedSmartFilters(): ReadonlyArray<PublicSavedSmartFilter>;
   subscribeToShelves(cb: (shelves: ReadonlyArray<PublicShelf>) => void): Unsubscribe;
   subscribeToSmartShelves(cb: (shelves: ReadonlyArray<PublicSmartShelf>) => void): Unsubscribe;
   subscribeToSavedFilters(cb: (filters: ReadonlyArray<PublicSavedFilter>) => void): Unsubscribe;
@@ -529,6 +546,23 @@ function projectSavedFilters(s: Settings | null): ReadonlyArray<PublicSavedFilte
   }));
 }
 
+function projectSavedSmartFilters(s: Settings | null): ReadonlyArray<PublicSavedSmartFilter> {
+  if (!s) return [];
+  const list = ((s as any).savedSmartFilters ?? []) as any[];
+  return list.map((f: any) => ({
+    id: String(f.id),
+    name: String(f.name ?? ""),
+    mode: String(f.mode ?? ""),
+    smartParams: f.smartParams && typeof f.smartParams === "object" ? f.smartParams : undefined,
+    filterGroup: f.filterGroup as PublicFilterGroup | undefined,
+    sort: f.sort,
+    sortReverse: f.sortReverse,
+    limit: typeof f.limit === "number" ? f.limit : undefined,
+    visibleHours: Array.isArray(f.visibleHours) ? f.visibleHours : undefined,
+    visibleDaysOfWeek: Array.isArray(f.visibleDaysOfWeek) ? f.visibleDaysOfWeek : undefined,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // 7. API CONSTRUCTOR
 // ---------------------------------------------------------------------------
@@ -593,6 +627,7 @@ function makeApi(): DeckShelvesPublicAPI {
     getShelves() { return projectShelves(getCurrentSettings()); },
     getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
     getSavedFilters() { return projectSavedFilters(getCurrentSettings()); },
+    getSavedSmartFilters() { return projectSavedSmartFilters(getCurrentSettings()); },
     subscribeToShelves(cb) {
       let last = JSON.stringify(projectShelves(getCurrentSettings()));
       return subscribeSettings((s) => {
