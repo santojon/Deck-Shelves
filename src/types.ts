@@ -102,6 +102,10 @@ export const SmartShelfModeSchema = z.enum([
   "random_pick",
   "forgotten",
   "spare_time",
+  "soundtracks",
+  "videos",
+  "demos",
+  "cloud_games",
   "custom",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;

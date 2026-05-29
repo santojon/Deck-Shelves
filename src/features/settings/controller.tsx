@@ -82,14 +82,32 @@ export function useSettingsController() {
       setSelectedId((current) => current ?? next.shelves[0]?.id ?? null);
     });
     refreshSettings().catch((error) => logDiagnostic("error", "Failed to load settings", String(error)));
-    platform.listCollections().then(setCollections).catch((error) => {
-      setCollections([]);
-      logDiagnostic("error", "Failed to load collections", String(error));
-    });
+    // Collection refresh — same shape as tabs. Steam's collectionStore is
+    // a MobX store that races plugin boot: a single call at mount time
+    // sometimes returned [] (computed not ready), leaving the Edit Shelf
+    // modal's collection picker permanently empty. The periodic refresh
+    // fills the picker as soon as Steam exposes the data, and survives
+    // QAM hot-reloads / settings round-trips. The setter no-ops when the
+    // new list matches the current one so React doesn't churn.
+    const refreshCollections = () => {
+      platform.listCollections().then((next) => {
+        setCollections((current) => {
+          const a = JSON.stringify(current.map((c) => ({ id: c.id, name: c.name })));
+          const b = JSON.stringify(next.map((c) => ({ id: c.id, name: c.name })));
+          return a === b ? current : next;
+        });
+      }).catch((error) => {
+        // Keep the previous list if any — never zero out a working picker.
+        logDiagnostic("error", "Failed to load collections", String(error));
+      });
+    };
+    refreshCollections();
     refreshTabs();
     const tabTimer = window.setInterval(refreshTabs, 30000);
+    const colTimer = window.setInterval(refreshCollections, 30000);
     return () => {
       window.clearInterval(tabTimer);
+      window.clearInterval(colTimer);
       unsub();
     };
   }, [platform]);

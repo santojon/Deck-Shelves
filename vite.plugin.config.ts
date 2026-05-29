@@ -63,6 +63,19 @@ export default defineConfig(({ mode }) => {
           entryFileNames: "index.js",
           chunkFileNames: "chunks/[name]-[hash].js",
           assetFileNames: "assets/[name]-[hash][extname]",
+          // Force `onlineStore` into its own chunk. Without this, Rollup
+          // co-locates it with the steam chunk (because the resolver does
+          // `await import("../core/onlineStore")`) but rewrites the dynamic
+          // import target to `../index.js` (the main bundle), which has no
+          // onlineStore exports — so `getWishlistIds`, `getPriceMap`,
+          // `getStoreGameIds` all come back undefined at runtime and the
+          // wishlist / store branches throw "X is not a function". A
+          // dedicated chunk makes the dynamic import resolve to its real
+          // location.
+          manualChunks(id: string) {
+            if (id.includes("/src/core/onlineStore")) return "onlineStore";
+            return undefined;
+          },
         },
       },
     },

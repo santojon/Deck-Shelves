@@ -34,6 +34,10 @@ export interface ShelfRowProps {
   hideInstallIndicator?: boolean;
   refreshInteractive?: boolean;
   moreInteractive?: boolean;
+  // Render badges inside the card instead of via the BP-body portal.
+  // The modal preview needs this because the portal's overlay-detection
+  // sees the modal blocking the home root and hides the badge.
+  inlineBadges?: boolean;
 }
 
 function ShelfRowImpl({
@@ -45,6 +49,7 @@ function ShelfRowImpl({
   hideCompatIcons = false, hideNonSteamBadge = false,
   hideGameName = false, hideInstallIndicator = false,
   refreshInteractive, moreInteractive,
+  inlineBadges = false,
 }: ShelfRowProps) {
   return (
     <>
@@ -90,6 +95,7 @@ function ShelfRowImpl({
             hideNonSteamBadge={hideNonSteamBadge}
             hideGameName={hideGameName}
             hideInstallIndicator={hideInstallIndicator}
+            inlineBadges={inlineBadges}
           />
         );
       })}

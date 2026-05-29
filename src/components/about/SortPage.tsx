@@ -32,6 +32,9 @@ export function SortPage() {
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_sort_direction_title')}</span>} />
       <DocCallout variant="tip">{t('docs_sort_direction_tip')}</DocCallout>
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_sort_direction_body')}</span>} />
+      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('docs_sort_multikey_title')}</span>} />
+      <DocCallout variant="tip">{t('docs_sort_multikey_tip')}</DocCallout>
+      <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('docs_sort_multikey_body')}</span>} />
     </DocSection>
   )
 }

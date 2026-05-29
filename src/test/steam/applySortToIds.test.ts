@@ -111,6 +111,33 @@ describe('applySortToIds — multi-key (primary + tiebreakers)', () => {
     expect(sorted).toEqual([3, 1, 2])
   })
 
+  it('price keys participate in the chain when a priceMap is provided', () => {
+    // Three apps with overlapping discounts so a metacritic tiebreaker
+    // is required. The price comparator was previously the chain's
+    // dead-end (no synchronous data → fall through to alphabetical),
+    // which let the secondary key dominate. With the priceMap threaded
+    // in by the wishlist / store resolver, discount drives the primary
+    // order and metacritic only breaks ties.
+    const apps = [
+      mk(1, 'Alpha', undefined, 0),
+      mk(2, 'Bravo', undefined, 0),
+      mk(3, 'Charlie', undefined, 0),
+    ] as any[]
+    apps[0].metacritic_score = 80
+    apps[1].metacritic_score = 95
+    apps[2].metacritic_score = 70
+    const priceMap = new Map([
+      [1, { price: 0, originalPrice: 100, discount: 50 }],
+      [2, { price: 0, originalPrice: 100, discount: 50 }],
+      [3, { price: 0, originalPrice: 100, discount: 90 }],
+    ])
+    const sorted = (applySortToIds as any)(
+      [1, 2, 3], ['discount_high', 'metacritic'], apps, undefined, [false, false], priceMap,
+    )
+    // Charlie (90% off) primary; Bravo (95 meta) beats Alpha (80 meta) at 50% off.
+    expect(sorted).toEqual([3, 2, 1])
+  })
+
   it('boolean reverse (single) applies to every key in the chain', () => {
     const apps = [
       mk(1, 'Alpha', undefined, 100),

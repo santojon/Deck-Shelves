@@ -298,8 +298,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
 
       <CollapsibleSection id='shelves' icon={<StackIcon />} title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
-        <Field className='no-sep'>
-          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
+        {/* `childrenLayout="below"` + `childrenContainerWidth="max"` make
+            Decky's Field hand the entire row width to children — without
+            them the empty-label slot grabs ~half the row and the
+            `justify-content: space-between` Focusable overflows to the
+            right (CDP probe: Focusable rendered at width=150 inside a
+            300 wide scope, pushing the rightmost button to right=457). */}
+        <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
+          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
             <div style={{ display: 'flex' }}>
               <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
               <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_shelves')} /></div>
@@ -371,8 +377,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <>
             <div style={{ marginTop: 8 }} />
             <div className='deck-shelves-separator' />
-            <Field className='no-sep'>
-              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
+            <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
+              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
                 <div style={{ display: 'flex' }}>
                   <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
                   <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
@@ -437,7 +443,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </CollapsibleSection>
       )}
 
-      <Field className='no-sep'>
+      <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
         <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex' }}>
             <ActionButton iconNode={icons.import} onClick={handleImportAll} okDescription={t('import_settings')} />

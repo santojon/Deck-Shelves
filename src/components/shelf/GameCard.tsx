@@ -55,7 +55,7 @@ const xCircleSvg = (
   </svg>
 );
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, inlineBadges = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; inlineBadges?: boolean }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -267,11 +267,18 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // and would otherwise paint above the badge). Position tracks the card's
   // viewport rect, updated on focus/blur, scroll, resize, and during the
   // focus zoom transition.
+  //
+  // `inlineBadges` disables the entire portal path — the modal preview
+  // can't use the portal (overlayActive detection always returns true
+  // because the modal blocks the home root), and the preview's CSS
+  // strips focus rings so the badge wins stacking just by being inside
+  // the card. Skipping the portal also drops the per-card observers /
+  // listeners for the preview (zero overhead).
   const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const [portalFocused, setPortalFocused] = useState(false);
   const [overlayActive, setOverlayActive] = useState(false);
   useEffect(() => {
-    if (!hasBadge) { setPortalRect(null); return; }
+    if (inlineBadges || !hasBadge) { setPortalRect(null); return; }
     const el = cardRef.current;
     if (!el) return;
 
@@ -352,41 +359,18 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
     win.addEventListener('resize', sync);
 
-    // rAF loop only while focused (covers the 0.3s scale transition)
-    let rafId = 0;
-    let rafActive = false;
-    let rafStopTimeoutId = 0;
-    const startRaf = () => {
-      if (rafStopTimeoutId) { clearTimeout(rafStopTimeoutId); rafStopTimeoutId = 0; }
-      if (rafActive) return;
-      rafActive = true;
-      const tick = () => {
-        sync();
-        rafId = requestAnimationFrame(tick);
-      };
-      tick();
-    };
-    const stopRaf = () => { rafActive = false; if (rafId) cancelAnimationFrame(rafId); };
-    // When focus leaves, keep rAF running for ~400ms so the badge follows
-    // the card through its 0.3s scale-down transition and any inter-shelf
-    // scroll animation. Without this the badge "lags" or stays slightly
-    // higher than the unfocused card for a frame.
-    const scheduleStopRaf = () => {
-      if (rafStopTimeoutId) clearTimeout(rafStopTimeoutId);
-      rafStopTimeoutId = win.setTimeout(() => { rafStopTimeoutId = 0; stopRaf(); }, 400);
-    };
-    const focusObs = new MutationObserver(() => {
-      if (el.classList.contains('gpfocus')) startRaf(); else scheduleStopRaf();
-    });
-    focusObs.observe(el, { attributes: true, attributeFilter: ['class'] });
-    if (el.classList.contains('gpfocus')) startRaf();
+    // Earlier this useEffect ran a per-frame rAF loop while the card was
+    // focused so the portal badge could track the 0.3s scale-up
+    // transition pixel-perfect. The trade-off was sub-pixel jitter on
+    // every scroll / focus event ("badges feel like they move with the
+    // screen"). Drop the rAF entirely: scroll + focus events are
+    // enough to keep the badge anchored, and the 4% scale during the
+    // focus zoom is small enough that staying at the un-zoomed rect
+    // looks better than jitter.
 
     return () => {
       obs.disconnect();
-      focusObs.disconnect();
       bodyObs.disconnect();
-      if (rafStopTimeoutId) clearTimeout(rafStopTimeoutId);
-      stopRaf();
       for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
       win.removeEventListener('resize', sync);
       for (const t of recheckTargets) {
@@ -394,12 +378,12 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         t.removeEventListener('focusout', reCheckOverlay, true);
       }
     };
-  }, [hasBadge]);
+  }, [hasBadge, inlineBadges]);
 
   // Build the badge content (used inside the portal). Skip rendering while
   // a QAM / modal overlay is active so the badge doesn't paint sharp on top
   // of the blurred home.
-  const badgeContent = hasBadge && portalRect && !overlayActive ? (
+  const badgeContent = !inlineBadges && hasBadge && portalRect && !overlayActive ? (
     <div
       className="ds-card-badge-host ds-card-badge-host--portal"
       aria-hidden="true"
@@ -477,6 +461,39 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           card / home-root stacking context (Steam's FocusRingRoot is z:10000
           and would otherwise paint above the badge). See `portalEl` below. */}
       {portalEl}
+      {/* Inline badge for the modal preview (and any caller passing
+          `inlineBadges`). Sits at top:-10 inside the card so the visible
+          band overlaps the top edge — same offset the portal uses on
+          focus — and rides at z:50 which the preview's CSS overrides
+          push above the (stripped) focus ring. */}
+      {inlineBadges && hasBadge && (
+        <div
+          className="ds-card-badge-host ds-card-badge-host--inline"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: -10,
+            left: 0,
+            right: 0,
+            height: 24,
+            pointerEvents: 'none',
+            zIndex: 50,
+          }}
+        >
+          {showDiscountBadge && (
+            <div className="ds-new-badge-band">
+              <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
+                {t('badge_discount', { count: discount }) ?? `${discount}% off`}
+              </div>
+            </div>
+          )}
+          {showNewBadge && !showDiscountBadge && (
+            <div className="ds-new-badge-band">
+              <div className="ds-new-badge">{t('badge_new')}</div>
+            </div>
+          )}
+        </div>
+      )}
       <div
         className="ds-card-art"
         style={{

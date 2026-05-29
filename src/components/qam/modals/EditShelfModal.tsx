@@ -51,7 +51,44 @@ const NATIVE_FALLBACK_TABS: import('../../../runtime/platform').PlatformTab[] = 
 ]
 
 export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: Shelf; mode?: 'create' | 'edit' }) {
-  const { t, tabs: controllerTabs, collections, actions } = controller
+  const { t, tabs: controllerTabs, collections: controllerCollections, actions } = controller
+  // openManagedModal captures `controller` at click-time. If Steam's
+  // collectionStore hadn't populated when the user opened the modal,
+  // `controllerCollections` stays at the stale `[]` for the modal's
+  // entire lifetime — even though the controller's hook updates the
+  // outer state later (periodic refresh). Re-fetch inside the modal
+  // so the picker fills as soon as Steam exposes the data.
+  const [modalCollections, setModalCollections] = useState<typeof controllerCollections>(controllerCollections)
+  const modalPlatform = usePlatform()
+  useEffect(() => {
+    let cancelled = false
+    const refresh = () => {
+      modalPlatform.listCollections().then((next) => {
+        if (cancelled) return
+        setModalCollections((current) => {
+          const a = JSON.stringify(current.map((c) => ({ id: c.id, name: c.name })))
+          const b = JSON.stringify(next.map((c) => ({ id: c.id, name: c.name })))
+          return a === b ? current : next
+        })
+      }).catch(() => {})
+    }
+    refresh()
+    // Short retry cadence while the picker is open: Steam's collectionStore
+    // can take a few seconds after plugin boot to expose the map. The
+    // controller-level 30 s refresh is still the long-term safety net.
+    const t1 = window.setTimeout(refresh, 500)
+    const t2 = window.setTimeout(refresh, 2000)
+    const interval = window.setInterval(refresh, 10000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.clearInterval(interval)
+    }
+  }, [modalPlatform])
+  // Prefer the modal's own fresh fetch when it has data; fall back to the
+  // controller's reference until the first refresh resolves.
+  const collections = modalCollections.length > 0 ? modalCollections : controllerCollections
   // Guard the dropdown against any failure mode in the controller's async
   // `listLibraryTabs`: empty array, undefined, or never-resolved. Native
   // defaults below are the same 5 IDs `listLibraryTabs` would have
@@ -170,7 +207,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       // preview so the mini-card row reflects the actual order of non-manual
       // positions at runtime (matches what Shelf.tsx resolves on home).
       const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
-      const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'])
+      const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'], state.filter.sortReverse)
       return { type: 'filter' as const, filter: effectiveFilter }
     }
     const primary = buildPrimary()
@@ -181,7 +218,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       return { type: 'composite' as const, combine: state.compositeCombine, sources: [primary, ...state.additionalSources] } as any
     }
     return primary
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources])
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.filter.sortReverse, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources])
 
   useEffect(() => {
     let cancelled = false
@@ -634,7 +671,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       else if (state.sourceType === 'external') primarySource = { type: 'external', sourceId: state.externalSourceId }
       else if (state.sourceType === 'wishlist') primarySource = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) }
       else if (state.sourceType === 'store') { const cf = childFilter; primarySource = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } }
-      else primarySource = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort) }
+      else primarySource = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort, state.filter.sortReverse) }
       // Stack extras into a composite. Single-source shelves keep the
       // flat shape for back-compat with older readers.
       if (state.sourceType !== 'filter' && state.additionalSources.length > 0) {

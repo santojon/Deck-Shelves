@@ -46,7 +46,13 @@ function resolveQuickPlay(apps: AppOverview[], limit: number, params?: SmartPara
 function resolveNotStarted(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const minDeck = getParam("not_started", params, "minDeckLevel");
   return apps
-    .filter((a) => !a.is_non_steam && playtimeMinutes(a) === 0 && lastPlayedSec(a) === 0 && deckCompat(a) >= minDeck)
+    .filter((a) =>
+      !a.is_non_steam &&
+      // Game-only: exclude DLC, tools, redistributables, soundtracks etc.
+      (a.app_type === undefined || a.app_type === 1) &&
+      playtimeMinutes(a) === 0 && lastPlayedSec(a) === 0 &&
+      deckCompat(a) >= minDeck,
+    )
     .sort((a, b) => deckCompat(b) - deckCompat(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -94,7 +100,12 @@ function resolveInterrupted(apps: AppOverview[], limit: number, params?: SmartPa
   const maxPt = getParam("interrupted", params, "maxPlaytimeMinutes");
   const minDeck = getParam("interrupted", params, "minDeckLevel");
   return apps
-    .filter((a) => playtimeMinutes(a) >= minPt && playtimeMinutes(a) <= maxPt && deckCompat(a) >= minDeck)
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      playtimeMinutes(a) >= minPt && playtimeMinutes(a) <= maxPt &&
+      deckCompat(a) >= minDeck,
+    )
     .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -119,7 +130,14 @@ function resolveTimeOfDay(apps: AppOverview[], limit: number, params?: SmartPara
 
 function resolveDailyPick(apps: AppOverview[], limit: number): number[] {
   const dayIndex = Math.floor(Date.now() / 86400000);
-  const eligible = apps.filter((a) => a.installed || playtimeMinutes(a) > 0);
+  // Game-focused: rotate through games only. Without this filter, a
+  // library with many DLCs / soundtracks would surface those as the
+  // "daily pick" — not what the user expects from the template's name.
+  const eligible = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    (a.installed || playtimeMinutes(a) > 0),
+  );
   if (!eligible.length) return [];
   const start = dayIndex % eligible.length;
   const rotated = [...eligible.slice(start), ...eligible.slice(0, start)];
@@ -144,7 +162,11 @@ function resolveRecentlyPlayed(apps: AppOverview[], limit: number, params?: Smar
   const days = getParam("recently_played", params, "daysAgo");
   const cutoff = Math.floor(Date.now() / 1000) - days * 24 * 3600;
   return apps
-    .filter((a) => lastPlayedSec(a) > cutoff)
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      lastPlayedSec(a) > cutoff,
+    )
     .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -154,7 +176,13 @@ function resolveLongSession(apps: AppOverview[], limit: number, params?: SmartPa
   const minPt = getParam("long_session", params, "minPlaytimeMinutes");
   const minDeck = getParam("long_session", params, "minDeckLevel");
   return apps
-    .filter((a) => a.installed && playtimeMinutes(a) > minPt && deckCompat(a) >= minDeck)
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      a.installed &&
+      playtimeMinutes(a) > minPt &&
+      deckCompat(a) >= minDeck,
+    )
     .sort((a, b) => playtimeMinutes(b) - playtimeMinutes(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -168,8 +196,73 @@ function resolveNonSteam(apps: AppOverview[], limit: number): number[] {
     .map((a) => a.appid);
 }
 
+// Media / non-game template resolvers — each filters the local pool to
+// a specific Steam EAppType bit-flag so users can carve a shelf for
+// soundtracks, videos, demos etc. that the game-focused templates above
+// would otherwise hide. See `shortcutType` filter for the full app_type
+// table.
+
+function resolveSoundtracks(apps: AppOverview[], limit: number): number[] {
+  return apps
+    .filter((a) => !a.is_non_steam && a.app_type === 8192)
+    .sort((a, b) => String((a as any).sort_as ?? a.display_name ?? "").localeCompare(String((b as any).sort_as ?? b.display_name ?? "")))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function resolveVideos(apps: AppOverview[], limit: number): number[] {
+  return apps
+    .filter((a) => !a.is_non_steam && a.app_type === 2048)
+    .sort((a, b) => String((a as any).sort_as ?? a.display_name ?? "").localeCompare(String((b as any).sort_as ?? b.display_name ?? "")))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function resolveDemos(apps: AppOverview[], limit: number): number[] {
+  return apps
+    .filter((a) => !a.is_non_steam && a.app_type === 8)
+    .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a)
+      || String((a as any).sort_as ?? a.display_name ?? "").localeCompare(String((b as any).sort_as ?? b.display_name ?? "")))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function resolveCloudGames(apps: AppOverview[], limit: number): number[] {
+  // Non-Steam shortcuts that Unifideck (or any future provider) tagged
+  // as cloud-play. Re-uses the same detection the resolver already
+  // applies for the "hideOwnedNonSteamCloud" toggle: the appid lives in
+  // a `[Unifideck] microsoft`-style collection. Falls back to the raw
+  // `non_steam` set when the cloud-play set is empty, so the template
+  // isn't permanently empty on devices without Unifideck.
+  try {
+    // Lazy require to avoid a circular import — smartShelves.ts is
+    // imported by steam/index.ts at module load.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getUnifideckCloudPlaySet } = require("./index") as {
+      getUnifideckCloudPlaySet?: () => Set<number>;
+    };
+    const cloud = typeof getUnifideckCloudPlaySet === "function" ? getUnifideckCloudPlaySet() : new Set<number>();
+    if (cloud.size === 0) {
+      return apps.filter((a) => a.is_non_steam).sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a)).slice(0, limit).map((a) => a.appid);
+    }
+    return apps
+      .filter((a) => a.is_non_steam && cloud.has(a.appid))
+      .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
+      .slice(0, limit)
+      .map((a) => a.appid);
+  } catch {
+    return [];
+  }
+}
+
 function resolveRandomPick(apps: AppOverview[], limit: number): number[] {
-  const arr = [...apps];
+  // Game-only random pick: shuffle from games (Steam app_type 1 / undefined)
+  // only so tools, DLCs and soundtracks don't dominate the result on
+  // libraries with many of them.
+  const arr = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1),
+  );
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -215,7 +308,13 @@ function resolveSpareTime(apps: AppOverview[], limit: number, params?: SmartPara
   const maxPt = getParam("spare_time", params, "maxPlaytimeMinutes");
   const minDeck = getParam("spare_time", params, "minDeckLevel");
   return apps
-    .filter((a) => a.installed && playtimeMinutes(a) <= maxPt && deckCompat(a) >= minDeck)
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      a.installed &&
+      playtimeMinutes(a) <= maxPt &&
+      deckCompat(a) >= minDeck,
+    )
     .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
     .slice(0, limit)
     .map((a) => a.appid);
@@ -268,6 +367,10 @@ export function resolveSmartShelf(
         case "random_pick":     return resolveRandomPick(apps, limit);
         case "forgotten":       return resolveForgotten(apps, limit, params);
         case "spare_time":      return resolveSpareTime(apps, limit, params);
+        case "soundtracks":     return resolveSoundtracks(apps, limit);
+        case "videos":          return resolveVideos(apps, limit);
+        case "demos":           return resolveDemos(apps, limit);
+        case "cloud_games":     return resolveCloudGames(apps, limit);
         // "custom" is dispatched via `resolveShelfAppIds` in `src/steam/index.ts`
         // (it needs filterGroup + sort which aren't exposed here). Reaching
         // this case directly means a buggy caller — return [] to fail soft.
@@ -408,6 +511,10 @@ export const INTERNAL_SMART_MODES: ReadonlySet<string> = new Set([
   "random_pick",
   "forgotten",
   "spare_time",
+  "soundtracks",
+  "videos",
+  "demos",
+  "cloud_games",
   "custom",
 ]);
 

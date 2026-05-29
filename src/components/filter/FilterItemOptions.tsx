@@ -65,7 +65,15 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     }
 
     case "shortcutType": {
-      const KINDS = ["game", "software", "tool", "link"] as const;
+      // Mirror Steam's EAppType — see the resolver's `shortcutType`
+      // branch for the full mapping. Ordered roughly by how often a
+      // user would actually pick each kind.
+      const KINDS = [
+        "game", "software", "tool", "demo", "dlc",
+        "music", "video", "comic", "guide",
+        "driver", "config", "hardware", "beta",
+        "link",
+      ] as const;
       const kinds: string[] = Array.isArray(p.kinds) ? p.kinds : ["game"];
       const kindSet = new Set(kinds);
       return (

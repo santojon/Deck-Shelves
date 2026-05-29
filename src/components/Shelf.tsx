@@ -13,6 +13,7 @@ import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh
 import { mark, measure } from "../core/perf";
 import { logInfo } from "../runtime/logger";
 import { applyManualOrder, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from "../steam";
+import { normalizeTitleForMatch } from "../steam/dedupe";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
 import { clearOnlineShelfCache, dispatchShelfModal, toggleShelfHiddenById, moveShelfById, duplicateShelfById } from "../core/shelfActions";
 import { fetchGameNames } from "../core/onlineStore";
@@ -295,7 +296,15 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         const id = Number((a as any)?.appid);
         if (!ownedSetForNames.has(id)) continue;
         const n = (a as any)?.display_name ?? (a as any)?.name;
-        if (typeof n === 'string' && n) names.add(n.trim().toLowerCase());
+        // Cross-source name matching: same normalisation as the wishlist
+        // compare below so "Kingdom Come Deliverance" (non-Steam local)
+        // matches "Kingdom Come: Deliverance" (Steam wishlist). The
+        // previous `n.trim().toLowerCase()` left punctuation intact and
+        // silently leaked owned titles through to the row.
+        if (typeof n === 'string' && n) {
+          const key = normalizeTitleForMatch(n);
+          if (key) names.add(key);
+        }
       }
       setOwnedNames(names);
     }).catch(() => {});
@@ -349,8 +358,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       if (isStoreFallback && !isOnlineSource) return [];
 
       // Name-based dedup against the truly-owned local titles.
+      // normalizeTitleForMatch strips punctuation so colon / dash
+      // differences between Steam's official title and the user's
+      // non-Steam shortcut name don't block the match.
       if (shouldHideOwned && ownedNames && isOnlineSource) {
-        const itemName = (item.name && !isStoreFallback ? item.name : storeNames.get(appid) ?? '').trim().toLowerCase();
+        const rawName = item.name && !isStoreFallback ? item.name : storeNames.get(appid) ?? '';
+        const itemName = normalizeTitleForMatch(rawName);
         if (itemName && ownedNames.has(itemName)) return [];
       }
 

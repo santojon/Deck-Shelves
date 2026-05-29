@@ -44,6 +44,10 @@ export const DEFAULT_SORT_FOR_MODE: Record<SmartShelfMode, string> = {
   random_pick:     "random",
   forgotten:       "added",
   spare_time:      "recent",
+  soundtracks:     "alphabetical",
+  videos:          "alphabetical",
+  demos:           "recent",
+  cloud_games:     "recent",
   custom:          "alphabetical",
 };
 
@@ -63,6 +67,12 @@ export const SMART_PARAM_DEFAULTS: Record<SmartShelfMode, SmartParams> = {
   random_pick:     {},
   forgotten:       { yearsAgo: 3 },
   spare_time:      { maxPlaytimeMinutes: 120, minDeckLevel: 0 },
+  // Media + cloud-only templates take no tuning knobs — the filter is
+  // entirely defined by their app_type / collection match.
+  soundtracks:     {},
+  videos:          {},
+  demos:           {},
+  cloud_games:     {},
   custom:          {},
 };
 

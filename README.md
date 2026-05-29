@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-271%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/tests-288%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -26,17 +26,20 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 
 - Inject custom shelves into `library/home`
 - Shelves backed by **collections**, **library tabs**, or **custom filters**
+- **Multiple sources per shelf** — stack collections + tabs + wishlist + store into one shelf via Union (games in any source) or Intersection (games in every source). Filter source stays exclusive; use the filter `merge` for multi-criteria predicates instead.
 - **Advanced filter groups** with AND/OR logic for complex game queries
 - Filter games by:
   - Favorites, installed, hidden, non-Steam
-  - **Shortcut type** — filter by entry kind: Games, Software, Tools, or Non-Steam links
+  - **Shortcut type** — 15 kinds covering Games, Software, Tools, Demos, DLC, Music / Soundtracks, Videos, Comics, Guides, Drivers, Configs, Hardware, Betas, Applications, and Non-Steam links
+  - **App status** — 14 options for Running, Launching, Installing, Validating, Downloading (compound + fine-grained), Queued, Paused, Reconfiguring, Staging, Committing, Not installed, Installed (idle)
   - Name (substring or regex)
   - Deck compatibility level
   - Playtime range (min / max minutes)
   - Played within N days
   - Update pending
   - Store tags, achievement count, friends who own
-- Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, or review score — each direction (ascending or descending) togglable per shelf via an icon button next to the sort dropdown
+- Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, review score, discount %, price, original price — each direction (asc / desc) togglable per shelf via an icon button next to the sort dropdown
+- **Multi-key sort** — chain a primary sort with one or more tiebreakers (e.g. *biggest discount → metacritic score* breaks ties between games at the same discount). Each row has its own asc/desc toggle. Stable chain — secondary keys only kick in when the primary genuinely ties.
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
 - **Dynamic card sizing** — shelves match native card dimensions and from themes
 - **Highlight first game** — first card renders as a landscape featured card

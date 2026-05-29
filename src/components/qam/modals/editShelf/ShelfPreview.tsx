@@ -49,7 +49,23 @@ const PREVIEW_STYLE_TAG = `
 [data-ds-preview-row="1"] .ds-card:hover::after,
 [data-ds-preview-row="1"] .ds-card:focus::after,
 [data-ds-preview-row="1"] .ds-card.gpfocus::after { animation: none !important; opacity: 0 !important; }
-`
+/* Badge sizing — the home defaults to 10 px / 24 px band assuming
+   200+ px cards; the preview cards are 78 px wide, so the same
+   band looks chunky and eats roughly 1/3 of the card height.
+   Scale font + padding + band height down proportionally. */
+[data-ds-preview-row="1"] .ds-new-badge { font: 700 8px/13px "Motiva Sans", Helvetica, Arial, sans-serif !important; padding: 1px 6px !important; letter-spacing: 0.3px !important; }
+[data-ds-preview-row="1"] .ds-new-badge-band { height: 16px !important; }
+/* Preview badge — kept inside the card top edge (top:0) so the modal
+   stays bounded (the earlier overflow:visible cascade let the focus
+   scale leak past the modal). z:9999 on the host AND on every descendant
+   so it wins inside the focused card's z:12 stacking context against
+   the position:absolute .ds-card-art fill that otherwise covers it. */
+[data-ds-preview-row="1"] .ds-card-badge-host--inline { top: 0 !important; height: 16px !important; z-index: 9999 !important; }
+[data-ds-preview-row="1"] .ds-card-badge-host--inline .ds-new-badge-band,
+[data-ds-preview-row="1"] .ds-card-badge-host--inline .ds-new-badge { z-index: 9999 !important; position: relative !important; }
+/* The band absolutely-positions itself at top:0 of the host. With the
+   host at top:0 (no overhang), the band sits at the card's top edge
+   and the bottom-of-card art is fully visible. */`
 
 export interface ShelfPreviewProps {
   t: (k: any, opts?: any) => string
@@ -96,7 +112,21 @@ export function ShelfPreview({
   // shared <ShelfRow> can drive the entire row. Featured sizing comes
   // from the per-game-card branch (preview uses 3.21× cardW for
   // highlighted items, art height stays constant).
+  //
+  // `discountPercent` is pulled from the same localStorage price cache
+  // the home shelf consults — without it the preview's cards would
+  // never have discount data, so the green discount badge wouldn't
+  // render even when `inlineBadges` is on.
   const rowItems = useMemo<DeckRowItem[]>(() => {
+    let priceCache: any = null
+    try {
+      const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1')
+      if (raw) priceCache = JSON.parse(raw)
+    } catch {}
+    const readDiscount = (id: number): number | undefined => {
+      const d = priceCache?.[id]?.data?.discount
+      return typeof d === 'number' && d > 0 ? d : undefined
+    }
     const out: DeckRowItem[] = []
     for (const id of cappedIds) {
       const m = meta.get(id)
@@ -114,6 +144,7 @@ export function ShelfPreview({
         playtimeMinutes: m.playtimeMinutes,
         updatePending: m.updatePending,
         isNew,
+        discountPercent: readDiscount(id),
       })
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
@@ -197,6 +228,7 @@ export function ShelfPreview({
           hideInstallIndicator={hideInstallIndicator}
           refreshInteractive={!!onRefresh}
           moreInteractive={false}
+          inlineBadges
         />
       </Focusable>
     </div>

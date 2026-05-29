@@ -1,6 +1,37 @@
 import type { AppOverview } from "./index";
 
 /**
+ * Normalize a game title for cross-source name matching.
+ *
+ * Online wishlist / store entries arrive with the official Steam title
+ * (e.g. "Kingdom Come: Deliverance"), while non-Steam shortcuts that
+ * the user created or that Unifideck imported often spell the same
+ * game without punctuation (e.g. "Kingdom Come Deliverance"). Exact
+ * lowercase compare misses these matches and leaves the wishlist row
+ * advertising games the user already owns locally.
+ *
+ * The normalisation:
+ *   - lowercases
+ *   - strips trademark / copyright / registered marks
+ *   - replaces every non-alphanumeric character (incl. punctuation and
+ *     accented punctuation) with a single space
+ *   - collapses whitespace and trims
+ *
+ * Accented letters are preserved so locale-specific titles still match
+ * across sources ("Hadès" stays distinct from "Hades" only when one
+ * side genuinely uses the accent).
+ */
+export function normalizeTitleForMatch(name: string | undefined | null): string {
+  if (!name) return "";
+  return String(name)
+    .toLowerCase()
+    .replace(/[™®©]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Collapse duplicate names in an app list.
  *
  * Within each exact-name group (case-sensitive, trim only):

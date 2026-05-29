@@ -13,6 +13,18 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 ### Fixed
 
 - **Online shelves no longer hide games you don't actually own.** On devices with many cloud-play shortcuts (Xbox Cloud via Unifideck Microsoft, etc.), the wishlist / store-on-sale shelves were name-matching against those cloud entries and hiding wishlist items that share a title with a game you have access to via subscription but don't own. The name-based dedup now respects the same "include cloud-play games" toggle the appid-based dedup uses — so flip that off (or leave it off, which is the default) and the cloud-play entries stop polluting the owned set.
+- **Filter shelves with multi-key sort + reverse now apply correctly.** Configuring a filter shelf with e.g. "discount %" + "metacritic" and inverting one of the keys used to save the sort keys but silently drop the reverse flag — the resulting shelf would order in default direction. The reverse flag now persists alongside the keys.
+- **Edit Shelf modal: collection picker no longer empty after Steam boot.** If you opened the modal right after launch and the collection dropdown was empty (Steam's collection store wasn't ready yet), the picker stayed empty until you closed and reopened the QAM. The picker now refreshes every 30 s and fills as soon as Steam exposes the data.
+- **QAM action row alignment** — the `+ / import / export` row above each shelf list now aligns the left buttons with the shelf-list titles and the right buttons with the `[...]` end, regardless of Steam version. Previously the right buttons were pushed past the QAM edge.
+- **Edit Shelf preview now shows the discount and NEW badges.** The badge architecture used by the home shelf hid itself when the modal was open; the preview now uses an inline badge mode so promo / new tags show up there too.
+- **Preview badges are now sized to the preview cards** (smaller font, slimmer band) and sit ABOVE the focus indicator instead of behind it.
+- **Home-shelf badges no longer jitter with scrolling.** The per-frame position tracker that ran while a card was focused has been removed — badges re-anchor on scroll, resize, focus, and blur only.
+- **Filter for "app status"** gained 10 fine-grained options on top of the existing 4 groups: Launching, Reconfiguring, Validating, Downloading (active), Staging, Committing, Update queued, Update paused, Not installed, Installed (idle). Existing filters keep working.
+- **Filter for "shortcut type"** gained 10 more Steam app types: Demos, DLC, Music / Soundtracks, Videos, Comics, Guides, Drivers, Configs, Hardware, Betas, Applications — on top of the original Games, Software, Tools, and Non-Steam links.
+- **Four new smart shelf templates:** Soundtracks, Videos, Demos, and Cloud games. Game-focused templates (Quick Play, Recently Played, Long Sessions, Daily Pick, Random, Spare Time, etc.) now exclude non-game entries like DLCs / soundtracks / tools so they only surface real games.
+- **Home shelf badges** (NEW / discount tags) no longer jitter while scrolling.
+- **Wishlist + store shelves** render again on devices that had configured a multi-key sort with a price metric (e.g. "biggest discount, metacritic as tiebreaker"). The shelf was returning zero games after a recent change; now it sorts the part of the wishlist you already own with the full multi-key chain and keeps the rest in their wishlist order at the tail.
+- **Edit Shelf preview badges** are sized proportionally to the smaller preview cards, never clipped at the top, and sit cleanly above the focus indicator.
 
 ## [2.3.2] - 2026-05-27
 

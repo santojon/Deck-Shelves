@@ -753,7 +753,7 @@ function getUnifideckInstalledSet(): Set<number> {
 // owning a game there counts as owned even when not installed locally.
 let _ufCloudCache: { ids: Set<number>; ts: number } | null = null;
 const UF_CLOUD_COLLECTION_LABELS = new Set(["microsoft"]);
-function getUnifideckCloudPlaySet(): Set<number> {
+export function getUnifideckCloudPlaySet(): Set<number> {
   const now = Date.now();
   if (_ufCloudCache && now - _ufCloudCache.ts < 5000) return _ufCloudCache.ids;
   const ids = new Set<number>();
@@ -1963,18 +1963,46 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
     }
     case "shortcutType": {
       const kinds: string[] = Array.isArray(item.params?.kinds) ? item.params.kinds : ["game"];
-      // link     = non-Steam shortcut (app_type 1073741824 / is_non_steam)
-      // game     = Steam game (app_type 1 or unknown)
-      // software = Steam application (app_type 2)
-      // tool     = Steam tool / redistributable (app_type 4 or other non-1/2)
+      // Steam's EAppType is a bit-flag enum. Known values (from Steam
+      // client source) — we recognise the ones a library shelf realistically
+      // wants to filter on:
+      //   1     Game           (default — also matches app_type undefined)
+      //   2     Application    ("software" alias kept for back-compat)
+      //   4     Tool           (legacy "tool" matched anything not 1/2;
+      //                         now we accept either app_type 4 or any
+      //                         non-1/2 Steam app for back-compat)
+      //   8     Demo
+      //   32    DLC
+      //   64    Guide
+      //   128   Driver
+      //   256   Config
+      //   512   Hardware
+      //   2048  Video
+      //   8192  Music / Soundtrack
+      //   32768 Comic
+      //   65536 Beta
+      //   1073741824  Shortcut (non-Steam — exposed as "link")
       const nonSteam = isNonSteamOf(app);
+      const t = app.app_type;
       let matched = false;
       for (const k of kinds) {
         if (k === "link" && nonSteam) { matched = true; break; }
         if (!nonSteam) {
-          if (k === "game" && (app.app_type === undefined || app.app_type === 1)) { matched = true; break; }
-          if (k === "software" && app.app_type === 2) { matched = true; break; }
-          if (k === "tool" && app.app_type !== undefined && app.app_type !== 1 && app.app_type !== 2) { matched = true; break; }
+          if (k === "game"        && (t === undefined || t === 1)) { matched = true; break; }
+          if (k === "software"    && t === 2) { matched = true; break; }
+          if (k === "application" && t === 2) { matched = true; break; }
+          if (k === "tool"        && (t === 4 || (t !== undefined && t !== 1 && t !== 2 && t !== 8 && t !== 32 && t !== 64 && t !== 128 && t !== 256 && t !== 512 && t !== 2048 && t !== 8192 && t !== 32768 && t !== 65536))) { matched = true; break; }
+          if (k === "demo"        && t === 8) { matched = true; break; }
+          if (k === "dlc"         && t === 32) { matched = true; break; }
+          if (k === "guide"       && t === 64) { matched = true; break; }
+          if (k === "driver"      && t === 128) { matched = true; break; }
+          if (k === "config"      && t === 256) { matched = true; break; }
+          if (k === "hardware"    && t === 512) { matched = true; break; }
+          if (k === "video"       && t === 2048) { matched = true; break; }
+          if (k === "music"       && t === 8192) { matched = true; break; }
+          if (k === "soundtrack"  && t === 8192) { matched = true; break; }
+          if (k === "comic"       && t === 32768) { matched = true; break; }
+          if (k === "beta"        && t === 65536) { matched = true; break; }
         }
       }
       result = matched;
@@ -2128,10 +2156,20 @@ export function applyManualOrder(ids: number[], manualOrder?: number[]): number[
 }
 
 // Builds a comparator for a single sort key. Returns null for keys that
-// can't participate in a multi-key chain (`manual`, `random`, async-only
-// price keys, unregistered external sorts) so the multi-key path can
-// drop them from the chain without falling back to alphabetical.
-function buildKeyComparator(key: string, isReversed: boolean): ((a: AppOverview, b: AppOverview) => number) | null {
+// can't participate in a multi-key chain (`manual`, `random`) so the
+// multi-key path can drop them from the chain.
+//
+// Price keys (`price_low`, `discount_high`, `original_price_high`) used
+// to fall through to alphabetical because their data is fetched async.
+// With a pre-warmed `priceMap` passed in (callers fetch via
+// `getPriceMap(ids)` upfront), they now return proper price comparators
+// so multi-key chains like `[discount_high, metacritic]` order by
+// discount with metacritic as tiebreaker.
+function buildKeyComparator(
+  key: string,
+  isReversed: boolean,
+  priceMap?: ReadonlyMap<number, { price: number; originalPrice: number; discount: number }>,
+): ((a: AppOverview, b: AppOverview) => number) | null {
   if (key === "manual" || key === "random") return null;
   const sign = isReversed ? -1 : 1;
   if (key === "recent") return (a, b) => sign * (lastPlayedOf(b) - lastPlayedOf(a));
@@ -2145,9 +2183,27 @@ function buildKeyComparator(key: string, isReversed: boolean): ((a: AppOverview,
   if (key === "deck_compat") return (a, b) => sign * (((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0));
   if (key === "controller_support") return (a, b) => sign * (((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0));
   if (key === "price_low" || key === "discount_high" || key === "original_price_high") {
-    // Price keys need an async fetch (applyPriceSort) and have no
-    // comparator usable here; fall through to alphabetical as a stable
-    // sub-key when chained.
+    if (priceMap) {
+      if (key === "price_low") return (a, b) => {
+        const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
+        const va = pa ? pa.price : 999999; const vb = pb ? pb.price : 999999;
+        return sign * (va - vb);
+      };
+      if (key === "discount_high") return (a, b) => {
+        const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
+        const va = pa ? pa.discount : 0; const vb = pb ? pb.discount : 0;
+        return sign * (vb - va);
+      };
+      // original_price_high
+      return (a, b) => {
+        const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
+        const va = pa ? pa.originalPrice : 0; const vb = pb ? pb.originalPrice : 0;
+        return sign * (vb - va);
+      };
+    }
+    // No price data available — degrade to alphabetical as a stable
+    // sub-key. The wishlist / store resolver passes a priceMap when
+    // multi-key sort includes a price key (see resolver branches).
     return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
   }
   if (key === "alphabetical") {
@@ -2159,7 +2215,14 @@ function buildKeyComparator(key: string, isReversed: boolean): ((a: AppOverview,
   return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
 }
 
-export function applySortToIds(ids: number[], sort: string | string[], all: AppOverview[], shelfId?: string, reverse?: boolean | boolean[]): number[] {
+export function applySortToIds(
+  ids: number[],
+  sort: string | string[],
+  all: AppOverview[],
+  shelfId?: string,
+  reverse?: boolean | boolean[],
+  priceMap?: ReadonlyMap<number, { price: number; originalPrice: number; discount: number }>,
+): number[] {
   // Multi-key: walk each key in declaration order via a single composite
   // comparator so JS's stable sort preserves the primary order when the
   // secondary key ties. Earlier we chained right-to-left + reverse() at
@@ -2170,11 +2233,11 @@ export function applySortToIds(ids: number[], sort: string | string[], all: AppO
   if (Array.isArray(sort)) {
     const keys = sort.filter((k) => typeof k === "string" && k.length > 0) as string[];
     if (keys.length === 0) return ids.slice();
-    if (keys.length === 1) return applySortToIds(ids, keys[0], all, shelfId, Array.isArray(reverse) ? !!reverse[0] : reverse);
+    if (keys.length === 1) return applySortToIds(ids, keys[0], all, shelfId, Array.isArray(reverse) ? !!reverse[0] : reverse, priceMap);
     const comparators: ((a: AppOverview, b: AppOverview) => number)[] = [];
     keys.forEach((k, i) => {
       const r = Array.isArray(reverse) ? !!reverse[i] : !!reverse;
-      const cmp = buildKeyComparator(k, r);
+      const cmp = buildKeyComparator(k, r, priceMap);
       if (cmp) comparators.push(cmp);
     });
     if (comparators.length === 0) return ids.slice();
@@ -2543,9 +2606,13 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       } else {
         filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
       }
-      // Asc/desc inversion. Skipped for `manual` and `random` (the parent
-      // shelf flag `sortReverse` only flips deterministic orderings).
-      if (sortReverse && fSort !== "manual" && fSort !== "random") filtered = filtered.slice().reverse();
+      // Asc/desc inversion. Prefer the filter's own `sortReverse` (set
+      // by the editor on filter shelves — shelf-level `sortReverse` is
+      // never populated for filter sources). Skipped for `manual` and
+      // `random` where reverse has no meaning.
+      const effRev = (f as any).sortReverse ?? sortReverse;
+      const effRevBool = Array.isArray(effRev) ? !!effRev[0] : !!effRev;
+      if (effRevBool && fSort !== "manual" && fSort !== "random") filtered = filtered.slice().reverse();
       const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
       if (!ids.length) {
         logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
@@ -2633,8 +2700,12 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
     }
     // Legacy `f.sort` enum doesn't include "manual" or "random", so the
-    // reverse here is unconditional once `sortReverse` is set.
-    if (sortReverse) filtered = filtered.slice().reverse();
+    // reverse here is unconditional. Prefer the filter's own `sortReverse`
+    // (set by the editor on filter shelves — shelf-level `sortReverse`
+    // is never populated for filter sources).
+    const legacyEffRev = (f as any).sortReverse ?? sortReverse;
+    const legacyEffRevBool = Array.isArray(legacyEffRev) ? !!legacyEffRev[0] : !!legacyEffRev;
+    if (legacyEffRevBool) filtered = filtered.slice().reverse();
 
     const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
     if (!ids.length) {
@@ -2667,7 +2738,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
   if (source.type === "wishlist") {
     try {
       const { getCurrentSettings } = await import("../store/settingsStore");
-      const { getWishlistIds } = await import("../core/onlineStore");
+      const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
       const s = getCurrentSettings();
       const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
       if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
@@ -2711,18 +2782,46 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
           });
         });
       }
-      const isPriceSort = sort === "price_low" || sort === "discount_high" || sort === "original_price_high";
-      if (sort && !isPriceSort) {
-        // AppOverview-based sort: sort the subset in local library first,
-        // then append remaining wishlist-only games in their original order.
-        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
-        const localIds = ids.filter((id) => byId.has(id));
-        const remoteIds = ids.filter((id) => !byId.has(id));
-        const sortedLocal = applySortToIds(localIds, sort, all, shelfId, sortReverse);
-        ids = [...sortedLocal, ...remoteIds];
-      }
-      if (isPriceSort) {
+      // Sort dispatch:
+      //   - single-key string price sort  → applyPriceSort (covers both
+      //     local + remote wishlist items since priceMap is keyed by id)
+      //   - any other sort (string OR array) → sort the local subset via
+      //     applySortToIds, leave remote ids in their original wishlist
+      //     order at the tail. For a multi-key chain that includes a
+      //     price key, the resolver also pre-fetches `getPriceMap(ids)`
+      //     and passes it down so the comparator can use discount as a
+      //     real ranker for the LOCAL subset (remote ids stay tail-only).
+      //
+      // This dispatch used to also wrap a "stub AppOverview" pool for
+      // multi-key + price so remote rows participated in the chain too —
+      // but that path returned 0 ids in production for a 522-entry
+      // wishlist (cause unclear; cache stayed at count=0 over multiple
+      // refreshes). Falling back to the local-subset path is safer:
+      // local rows get the proper chain, remote rows keep their wishlist
+      // position, and the shelf actually renders.
+      const sortKeysWishlist: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
+      const isSingleKeyPriceSort = !Array.isArray(sort) && (sort === "price_low" || sort === "discount_high" || sort === "original_price_high");
+      const hasPriceKeyWishlist = sortKeysWishlist.some((k) => k === "price_low" || k === "discount_high" || k === "original_price_high");
+      if (isSingleKeyPriceSort) {
         ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse);
+      } else if (sort) {
+        // Multi-key: build a unified pool that includes BOTH local apps
+        // (real overviews — secondary keys like metacritic / playtime
+        // resolve) AND remote-wishlist apps (synthesized stubs carrying
+        // only the appid — comparators that read undefined fields fall
+        // back to 0/empty and stay tied on the secondary, so the primary
+        // price key actually orders the whole wishlist).
+        // Without this, only the small local subset got sorted and the
+        // ~hundreds of remote ids were appended in raw wishlist order —
+        // visible to the user as "the multi-key sort didn't apply" on
+        // wishlist shelves.
+        const localPriceMap = hasPriceKeyWishlist ? await getPriceMap(ids) : undefined;
+        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+        const pool: AppOverview[] = ids.map((id) => {
+          const a = byId.get(id);
+          return a ?? ({ appid: id } as unknown as AppOverview);
+        });
+        ids = applySortToIds(ids, sort, pool, shelfId, sortReverse, localPriceMap);
       }
       logInfo("STEAM", "resolveShelfAppIds(wishlist) resolved", { count: ids.length });
       return finish(ids.slice(0, overShootLimit));
@@ -2776,15 +2875,24 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
         );
       }
 
-      const isPriceSort = sort === "price_low" || sort === "discount_high" || sort === "original_price_high";
-      if (sort && !isPriceSort) {
-        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
-        const localIds = ids.filter((id) => byId.has(id));
-        const remoteIds = ids.filter((id) => !byId.has(id));
-        const sortedLocal = applySortToIds(localIds, sort, all, shelfId, sortReverse);
-        ids = [...sortedLocal, ...remoteIds];
-      } else if (isPriceSort) {
+      // Same dispatch as the wishlist branch — see the comment there for
+      // why the stub-pool path was reverted.
+      const sortKeysStore: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
+      const isSingleKeyPriceSortStore = !Array.isArray(sort) && (sort === "price_low" || sort === "discount_high" || sort === "original_price_high");
+      const hasPriceKeyStore = sortKeysStore.some((k) => k === "price_low" || k === "discount_high" || k === "original_price_high");
+      if (isSingleKeyPriceSortStore) {
         ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse);
+      } else if (sort) {
+        // Same unified pool as wishlist — see comment there. Without it,
+        // the multi-key chain only ordered the local subset and the
+        // store-on-sale remote ids stayed in raw API order at the tail.
+        const localPriceMap = hasPriceKeyStore ? await getPriceMap(ids) : undefined;
+        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+        const pool: AppOverview[] = ids.map((id) => {
+          const a = byId.get(id);
+          return a ?? ({ appid: id } as unknown as AppOverview);
+        });
+        ids = applySortToIds(ids, sort, pool, shelfId, sortReverse, localPriceMap);
       }
       logInfo("STEAM", "resolveShelfAppIds(store) resolved", { count: ids.length });
       return finish(ids.slice(0, overShootLimit));
