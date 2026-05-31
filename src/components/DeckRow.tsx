@@ -142,6 +142,132 @@ function getHeroUrls(appid: number): string[] {
 // shelf under forceCssLoaderThemes.
 const HERO_HEIGHT = '70vh';
 
+// Module-level shared discovery of the active CSS Loader theme's hero
+// class chain. Before: each PerShelfHero instance owned its own MO on
+// the head + ran an `img` scan + getComputedStyle walk on EVERY head
+// mutation. With N hero shelves, every CSS Loader tick triggered N
+// expensive scans — the source of the user-reported "shelves take too
+// long to load / reload too often" regression once per-shelf hero
+// went beyond the first shelf. Now: ONE MO + ONE scan, results pushed
+// to all subscribers. Each shelf decides whether to apply (it depends
+// on its own `isPromoted` state, which stays per-instance).
+type NativeHeroClasses = {
+  imgClass: string | null;
+  zoomClass: string | null;
+  innerClass: string | null;
+  rootClass: string | null;
+};
+const EMPTY_HERO_CLASSES: NativeHeroClasses = { imgClass: null, zoomClass: null, innerClass: null, rootClass: null };
+let nativeHeroClasses: NativeHeroClasses = EMPTY_HERO_CLASSES;
+const nativeHeroSubscribers = new Set<(c: NativeHeroClasses) => void>();
+let nativeHeroDiscoveryStarted = false;
+let nativeHeroLastDiscoverAt = 0;
+let nativeHeroDiscoverPending: any = null;
+
+function nativeHeroClassesEqual(a: NativeHeroClasses, b: NativeHeroClasses): boolean {
+  return a.imgClass === b.imgClass && a.zoomClass === b.zoomClass && a.innerClass === b.innerClass && a.rootClass === b.rootClass;
+}
+
+function publishNativeHeroClasses(next: NativeHeroClasses): void {
+  if (nativeHeroClassesEqual(nativeHeroClasses, next)) return;
+  nativeHeroClasses = next;
+  for (const cb of nativeHeroSubscribers) {
+    try { cb(next); } catch {}
+  }
+}
+
+function discoverNativeHeroClasses(): NativeHeroClasses {
+  if (!isArtHeroActive()) return EMPTY_HERO_CLASSES;
+  try {
+    for (const doc of getAllSteamDocuments()) {
+      const win = doc.defaultView ?? window;
+      const imgs = doc.querySelectorAll<HTMLImageElement>('img');
+      for (let i = 0; i < imgs.length; i++) {
+        const img = imgs[i];
+        if (img.closest('.ds-card, .ds-per-shelf-hero-img')) continue;
+        const r = img.getBoundingClientRect();
+        if (r.width < 400 || r.height < 120) continue;
+        const imgClass = ((img.className as any) || '').toString().trim() || null;
+        let node: HTMLElement | null = img.parentElement;
+        let zoomClass: string | null = null;
+        let innerClass: string | null = null;
+        let rootClass: string | null = null;
+        for (let depth = 0; node && depth < 6; depth++, node = node.parentElement) {
+          const cs = win.getComputedStyle(node);
+          const wm = (cs as any).webkitMaskImage;
+          const hasMask = (cs.maskImage && cs.maskImage !== 'none') || (wm && wm !== 'none');
+          const hasAnim = cs.animationName && cs.animationName !== 'none';
+          const cls = ((node.className as any) || '').toString().trim();
+          if (hasAnim && !zoomClass && !innerClass && cls) zoomClass = cls;
+          else if (hasMask && !innerClass) innerClass = cls || null;
+          else if (innerClass && !rootClass && cls) rootClass = cls;
+        }
+        if (innerClass || zoomClass) {
+          return { imgClass, zoomClass, innerClass, rootClass };
+        }
+      }
+    }
+  } catch {}
+  return EMPTY_HERO_CLASSES;
+}
+
+function scheduleNativeHeroDiscovery(): void {
+  // Coalesce bursts of head mutations into ONE rAF-deferred scan; the
+  // scan itself is expensive (getComputedStyle on N ancestors of every
+  // image in every Steam document) so we want it at most once per
+  // frame even when the theme is rewriting head styles aggressively.
+  if (nativeHeroDiscoverPending != null) return;
+  nativeHeroDiscoverPending = requestAnimationFrame(() => {
+    nativeHeroDiscoverPending = null;
+    nativeHeroLastDiscoverAt = Date.now();
+    publishNativeHeroClasses(discoverNativeHeroClasses());
+  });
+}
+
+function startNativeHeroDiscovery(): void {
+  if (nativeHeroDiscoveryStarted) return;
+  nativeHeroDiscoveryStarted = true;
+  scheduleNativeHeroDiscovery();
+  // CSS Loader takes a beat to inject hashed theme styles; two
+  // staggered re-checks catch the late ones without polling forever.
+  setTimeout(scheduleNativeHeroDiscovery, 1200);
+  setTimeout(scheduleNativeHeroDiscovery, 3000);
+  const doc = getPreferredSteamDocument();
+  const head = doc?.head ?? doc?.documentElement;
+  if (head) {
+    const mo = new MutationObserver(scheduleNativeHeroDiscovery);
+    mo.observe(head, { childList: true });
+    // Intentionally never disconnect — discovery is a singleton for the
+    // life of the BP window. Module-level cleanup isn't needed; the
+    // observer is bound to the BP head which outlives every shelf.
+  }
+}
+
+function useNativeHeroClasses(applyGate: boolean): NativeHeroClasses {
+  const [state, setState] = useState<NativeHeroClasses>(applyGate ? nativeHeroClasses : EMPTY_HERO_CLASSES);
+  useEffect(() => {
+    if (!applyGate) {
+      setState(EMPTY_HERO_CLASSES);
+      return;
+    }
+    startNativeHeroDiscovery();
+    const cb = (next: NativeHeroClasses) => setState(next);
+    nativeHeroSubscribers.add(cb);
+    // Sync immediately with the latest published state — covers the
+    // case where the singleton already ran a discovery before this
+    // shelf mounted (typical for shelves 2..N).
+    setState(nativeHeroClasses);
+    // Trigger a fresh discovery if it's been a while since the last
+    // one — the head MO is the primary signal but a newly-mounted
+    // shelf might benefit from a re-check (e.g. theme just toggled).
+    if (Date.now() - nativeHeroLastDiscoverAt > 5000) {
+      scheduleNativeHeroDiscovery();
+    }
+    return () => { nativeHeroSubscribers.delete(cb); };
+  }, [applyGate]);
+  return state;
+}
+
 function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecents }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean; forceLayoutAsRecents: boolean }) {
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
@@ -163,15 +289,33 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Drives the conditional top fade under `forceLayoutAsRecents` (force-on
   // secondary shelves): opaque top while selected, subtle fade while not.
   const [isShelfSelected, setIsShelfSelected] = useState(false);
-  const [nativeHeroInnerClass, setNativeHeroInnerClass] = useState<string | null>(null);
-  const [nativeHeroRootClass, setNativeHeroRootClass] = useState<string | null>(null);
-  const [nativeHeroZoomClass, setNativeHeroZoomClass] = useState<string | null>(null);
-  const [nativeHeroImgClass, setNativeHeroImgClass] = useState<string | null>(null);
+  // Native hero classes — pulled from the module-level shared cache so
+  // we don't pay the discover-per-shelf cost (see useNativeHeroClasses).
+  // The `applyGate` decides whether THIS shelf adopts the theme classes
+  // (matches the promotion CSS: only promoted shelves OR force-themes
+  // get the theme's hashed hero classes; otherwise the built-in look).
+  // `readForceThemes` is cached per render via getCurrentSettings's
+  // localStorage cache so it's cheap.
+  const readForceThemes = (): boolean => {
+    try {
+      const raw = (globalThis as any).localStorage?.getItem('deck-shelves-settings-cache-v3');
+      if (!raw) return false;
+      return JSON.parse(raw)?.forceCssLoaderThemes === true;
+    } catch { return false; }
+  };
+  const heroClasses = useNativeHeroClasses(isArtHeroActive() && (readForceThemes() || isPromoted));
+  const nativeHeroImgClass = heroClasses.imgClass;
+  const nativeHeroZoomClass = heroClasses.zoomClass;
+  const nativeHeroInnerClass = heroClasses.innerClass;
+  const nativeHeroRootClass = heroClasses.rootClass;
   const activeSlotRef = useRef<'A' | 'B'>('A');
   const currentAppid = useRef(0);
   const fallbackIdx = useRef(0);
   const allUrls = useRef<string[]>([]);
   const userHasFocusedRef = useRef(false);
+  // Debounce timer that gates the slot swap during rapid focus
+  // navigation — see `update()` for the rationale. Cleared on unmount.
+  const heroSwapTimerRef = useRef<any>(null);
   useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
 
   // 80px bleed for first / promoted (anchored to page top); 140px for
@@ -247,88 +391,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     return () => obs.disconnect();
   }, [containerRef]);
 
-  // Discover the active CSS Loader theme's hero class chain from the native
-  // recents hero, so our per-shelf hero inherits ALL of the theme's hero
-  // styling — appearance, alignment, fit, gradient, z-order, the 25s zoom
-  // animation — exactly how the old single-hero did it. The theme styles
-  // hashed classes on the native hero's `img > zoom > heroInner > wrapper`
-  // chain; we mirror every level's class onto our matching layers so the
-  // theme's CSS cascades into our hero. When no theme touches the hero,
-  // everything is cleared and the built-in look is kept.
-  useEffect(() => {
-    const readForceThemes = () => {
-      try {
-        const w = globalThis as any;
-        const raw = w.localStorage?.getItem('deck-shelves-settings-cache-v3');
-        if (!raw) return false;
-        const s = JSON.parse(raw);
-        return s?.forceCssLoaderThemes === true;
-      } catch { return false; }
-    };
-    const clearAll = () => {
-      setNativeHeroImgClass((prev) => (prev === null ? prev : null));
-      setNativeHeroZoomClass((prev) => (prev === null ? prev : null));
-      setNativeHeroInnerClass((prev) => (prev === null ? prev : null));
-      setNativeHeroRootClass((prev) => (prev === null ? prev : null));
-    };
-    const discover = () => {
-      try {
-        // Gate matches the promotion CSS: only adopt the theme's hero class
-        // chain on a promoted shelf, otherwise the theme's hashed classes
-        // intermittently hide our hero on d-pad navigation.
-        const shouldApply = isArtHeroActive() && (readForceThemes() || isPromoted);
-        if (!shouldApply) { clearAll(); return; }
-        for (const doc of getAllSteamDocuments()) {
-          const win = doc.defaultView ?? window;
-          const imgs = doc.querySelectorAll<HTMLImageElement>('img');
-          for (let i = 0; i < imgs.length; i++) {
-            const img = imgs[i];
-            if (img.closest('.ds-card, .ds-per-shelf-hero-img')) continue;
-            const r = img.getBoundingClientRect();
-            if (r.width < 400 || r.height < 120) continue;
-            const imgClass = ((img.className as any) || '').toString().trim() || null;
-            let node: HTMLElement | null = img.parentElement;
-            let zoomClass: string | null = null;
-            let innerClass: string | null = null;
-            let rootClass: string | null = null;
-            for (let depth = 0; node && depth < 6; depth++, node = node.parentElement) {
-              const cs = win.getComputedStyle(node);
-              const wm = (cs as any).webkitMaskImage;
-              const hasMask = (cs.maskImage && cs.maskImage !== 'none') || (wm && wm !== 'none');
-              const hasAnim = cs.animationName && cs.animationName !== 'none';
-              const cls = ((node.className as any) || '').toString().trim();
-              // zoom: the first ancestor carrying an animation (ArtHero's 25s
-              // zoom keyframes) — sits between the img and heroInner.
-              if (hasAnim && !zoomClass && !innerClass && cls) zoomClass = cls;
-              // heroInner: first ancestor masked by the theme.
-              else if (hasMask && !innerClass) innerClass = cls || null;
-              // wrapper above heroInner — context for theme selectors.
-              else if (innerClass && !rootClass && cls) rootClass = cls;
-            }
-            if (innerClass || zoomClass) {
-              setNativeHeroImgClass((prev) => (prev === imgClass ? prev : imgClass));
-              setNativeHeroZoomClass((prev) => (prev === zoomClass ? prev : zoomClass));
-              setNativeHeroInnerClass((prev) => (prev === innerClass ? prev : innerClass));
-              setNativeHeroRootClass((prev) => (prev === rootClass ? prev : rootClass));
-              return;
-            }
-          }
-        }
-        // No themed native hero found — clear so the built-in look is used.
-        clearAll();
-      } catch {}
-    };
-    discover();
-    // CSS Loader injects/removes theme styles after mount; re-discover so the
-    // hero follows ArtHero/Obsidian being toggled at runtime.
-    const t1 = setTimeout(discover, 1200);
-    const t2 = setTimeout(discover, 3000);
-    const doc = getPreferredSteamDocument();
-    const head = doc?.head ?? doc?.documentElement;
-    const mo = head ? new MutationObserver(discover) : null;
-    if (head && mo) mo.observe(head, { childList: true });
-    return () => { clearTimeout(t1); clearTimeout(t2); mo?.disconnect(); };
-  }, [containerRef, isPromoted]);
+  // Native hero class discovery — moved to a module-level singleton
+  // (see `useNativeHeroClasses` and `startNativeHeroDiscovery` above).
+  // One observer + one scan serves every hero shelf instead of N per
+  // shelf, which is what was making 2nd+ hero shelves slow to load.
 
   // Assign decreasing z-index to the shelf divs so each shelf's stacking
   // context sits above the shelf below it. Without this, DOM order (later =
@@ -452,40 +518,76 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (appid !== currentAppid.current) {
         currentAppid.current = appid;
         if (showArt) {
-          // Trigger Steam's own hero-data load first. Without this the
-          // hashed CDN URL is unavailable until the user happens to focus
-          // the game in a native shelf (observed for Candellum).
-          prefetchNativeAppData(appid);
-          const urls = getHeroUrls(appid);
-          allUrls.current = urls;
-          fallbackIdx.current = 0;
-          const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
-          const url0 = urls[0] ?? null;
-          if (next === 'A') setSlotA(url0); else setSlotB(url0);
-          setActiveSlot(next);
-          // Steam's hero data lands asynchronously. Re-resolve a moment
-          // later and swap in place if the first URL changed (typically
-          // the hashless static fallback → hashed high-quality CDN URL).
-          // Bail out if the user navigated away in the meantime.
+          // Debounce the actual slot swap so rapid d-pad navigation
+          // doesn't fire a hero-load cycle for every intermediate card
+          // (each cycle triggers React renders + a CSS cross-fade +
+          // an HTTP fetch the browser can't cache before the next swap
+          // cancels it). 60 ms is short enough to feel instant when
+          // the user lands on a card, but long enough to skip cards
+          // the user just blew past on the way to one further over.
+          if (heroSwapTimerRef.current) clearTimeout(heroSwapTimerRef.current);
           const swapAppid = appid;
-          setTimeout(() => {
+          heroSwapTimerRef.current = setTimeout(() => {
+            heroSwapTimerRef.current = null;
+            // Bail if focus moved on in the meantime.
             if (currentAppid.current !== swapAppid) return;
-            const fresh = getHeroUrls(swapAppid);
-            const newFirst = fresh[0] ?? null;
-            if (!newFirst || newFirst === url0) return;
-            allUrls.current = fresh;
+            // Trigger Steam's own hero-data load first. Without this
+            // the hashed CDN URL is unavailable until the user happens
+            // to focus the game in a native shelf (observed for
+            // Candellum).
+            prefetchNativeAppData(swapAppid);
+            // Was Steam's native (hashed, high-quality) URL already
+            // available at this call? If yes, we don't need the 700 ms
+            // refine pass — we already loaded the optimal URL the first
+            // time, so the visible "reload" from fallback → hashed is
+            // skipped entirely. Cuts hero-load cycles per card in half
+            // for any game whose overview Steam has already populated.
+            const native = getNativeHeroUrls(swapAppid);
+            const urls = (native && native.length) ? native : getHeroUrls(swapAppid);
+            const usedNative = !!(native && native.length);
+            allUrls.current = urls;
             fallbackIdx.current = 0;
-            // Same slot the user is currently seeing — swap without a
-            // cross-fade so it looks like the image just sharpened.
-            const slot = activeSlotRef.current;
-            if (slot === 'A') setSlotA(newFirst); else setSlotB(newFirst);
-          }, 700);
+            const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
+            const url0 = urls[0] ?? null;
+            if (next === 'A') setSlotA(url0); else setSlotB(url0);
+            setActiveSlot(next);
+            if (usedNative) return;
+            // Fallback path: wait briefly for Steam's hero data to
+            // land, then swap in the hashed URL when it arrives. Bails
+            // when the user navigated to a different card.
+            setTimeout(() => {
+              if (currentAppid.current !== swapAppid) return;
+              const fresh = getHeroUrls(swapAppid);
+              const newFirst = fresh[0] ?? null;
+              if (!newFirst || newFirst === url0) return;
+              allUrls.current = fresh;
+              fallbackIdx.current = 0;
+              const slot = activeSlotRef.current;
+              if (slot === 'A') setSlotA(newFirst); else setSlotB(newFirst);
+            }, 700);
+          }, 60);
         }
       }
       setVisible(true);
     };
     el.addEventListener('focusin', update);
-    const obs = new MutationObserver(() => update());
+    // rAF-throttle subtree mutations — without this every label text /
+    // class change in the row triggers a full update() (DOM query +
+    // getBoundingClientRect + multiple setStates + possible hero swap),
+    // and with N hero shelves mounted every focus tick fires update()
+    // for every shelf. Coalescing to one rAF per shelf brings load /
+    // re-render frequency back to roughly what the single-hero layout
+    // had pre-regression. focusin still calls update synchronously so
+    // the hero swap visually tracks the focus change with no lag.
+    let updatePending: number | null = null;
+    const scheduleUpdate = () => {
+      if (updatePending != null) return;
+      updatePending = requestAnimationFrame(() => {
+        updatePending = null;
+        update();
+      });
+    };
+    const obs = new MutationObserver(scheduleUpdate);
     // characterData (with subtree) catches the async name resolution on
     // online shelves — the card label's text changes from "#appid" to the
     // real name, which is neither a class nor a childList mutation.
@@ -507,6 +609,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     return () => {
       el.removeEventListener('focusin', update); obs.disconnect();
       row?.removeEventListener('scroll', onRowScroll);
+      if (updatePending != null) cancelAnimationFrame(updatePending);
+      if (heroSwapTimerRef.current) { clearTimeout(heroSwapTimerRef.current); heroSwapTimerRef.current = null; }
     };
   }, [containerRef, showArt]);
 

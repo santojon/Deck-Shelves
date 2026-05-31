@@ -1,5 +1,4 @@
 import { ShelfPreview } from './ShelfPreview'
-import { ManualSortRow } from './ManualSortRow'
 import { HighlightRow } from './HighlightRow'
 import { HighlightMiniCard } from './HighlightMiniCard'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
@@ -124,32 +123,15 @@ export function PreviewPanel(props: PreviewPanelProps) {
   // overlay so the row stays identical across every editor tab.
   if (resolvedIds.length === 0) {
     body = loading
-  } else if (isManualSort && activeTab === 'source') {
-    body = (
-      <ManualSortRow
-        order={effectiveManualOrder}
-        meta={resolvedMeta as any}
-        onReorder={onReorderManual}
-        t={t}
-        highlightFirst={highlightFirst}
-        highlightAll={highlightAll}
-        highlightedAppIds={highlightedAppIds}
-        highlightPickerOpen={highlightPickerOpen}
-        shelfSource={shelfSource}
-        hideStatusLine={hideStatusLine}
-        hideNewBadge={hideNewBadge}
-        hideCompatIcons={hideCompatIcons}
-        hideNonSteamBadge={hideNonSteamBadge}
-        hideGameNames={hideGameNames}
-        hideInstallIndicator={hideInstallIndicator}
-        syntheticCards={syntheticCards}
-        removableSet={removableSet}
-        onRemoveCard={onRemoveCard}
-      />
-    )
   } else {
+    // Single render path for ALL tabs. Source-tab manual sort just turns
+    // ON drag mode; everything else (cap, trailing, synth splice, X
+    // buttons, hide flags, discount gating, focus behaviour) renders
+    // identically across every tab and across both shelf modal types.
     body = (
       <ShelfPreview
+        manualSortMode={isManualSort && activeTab === 'source'}
+        onReorder={onReorderManual}
         t={t}
         ids={effectiveManualOrder}
         meta={resolvedMeta}

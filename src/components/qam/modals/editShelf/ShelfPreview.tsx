@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Focusable } from '@decky/ui'
 import { ShelfRow } from '../../../shelf/ShelfRow'
 import type { DeckRowItem } from '../../../shelf/types'
 import { shouldShowMoreCard, shouldShowRefreshCard } from '../../../shelf/trailingCards'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
+import { computeCenteredScrollLeft } from '../../../../core/scrollUtils'
+import { DIR_LEFT, DIR_RIGHT, HOLD_MS } from './constants'
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 // Portrait card. Featured cards are 3.21× wider — same ratio the home shelf
@@ -126,6 +128,20 @@ export interface ShelfPreviewProps {
   // removal updates local state (Save/Cancel semantics preserved).
   removableSet?: Set<number>
   onRemoveCard?: (appid: number) => void
+  // Manual-sort drag mode. When enabled, the preview gains:
+  //   - Hold-to-grab (long-press) and chevron-shift interactions for
+  //     reordering cards via gamepad / pointer.
+  //   - A 'grabbed' overlay on the currently held card.
+  //   - Emits the new sentinel-bearing order via `onReorder` (synth
+  //     cards encoded as `-(synthIdx + 1)` so the modal's reorderManual
+  //     can split the result back into manualOrder + syntheticCards
+  //     positions).
+  // Off by default — non-source / non-manual tabs stay view-only,
+  // exactly like before. The visible card set and rendering are the
+  // SAME whether drag is on or off (cap, trailing, synth, X buttons,
+  // discount gating, focus behaviour) — drag is purely additive.
+  manualSortMode?: boolean
+  onReorder?: (next: number[]) => void
 }
 
 export function ShelfPreview({
@@ -135,9 +151,18 @@ export function ShelfPreview({
   highlightFirst, highlightAll, highlightedAppIds, onRefresh, onFocusedIndexChange,
   syntheticCards, selectionMode, selectionSet, onToggleSelection,
   removableSet, onRemoveCard,
+  manualSortMode = false, onReorder,
 }: ShelfPreviewProps) {
   const rowRef = useRef<HTMLDivElement>(null)
   const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
+  // Manual-sort drag state — used only when `manualSortMode` is true.
+  // Lifted here so the rowItems builder can paint the 'grabbed' mark on
+  // the right card. `cappedOrder` is computed AFTER rowItems so drag
+  // operations have the visible sentinel-bearing order to work with.
+  const [grabbedAppid, setGrabbedAppid] = useState<number | null>(null)
+  const grabbedRef = useRef<number | null>(null)
+  const cappedOrderRef = useRef<number[]>([])
+  useEffect(() => { grabbedRef.current = grabbedAppid }, [grabbedAppid])
   // Filter out synthetic sentinels (negative ids) the modal injects into
   // `effectiveManualOrder` for the manual-sort drag grid. The preview
   // splices its own synthetic items below from `syntheticCards[].position`
@@ -204,7 +229,12 @@ export function ShelfPreview({
       const m = meta.get(id)
       if (!m) continue
       const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
+      // Selection-mark precedence: grabbed (manual-sort drag) wins over
+      // highlight/hidden picker overlays — the user is actively moving
+      // this card and the visual feedback should reflect that.
+      const isGrabbed = manualSortMode && grabbedAppid === id
       const isMarked = !!selectionMode && !!selectionSet?.has(id)
+      const mark: DeckRowItem['selectionMark'] = isGrabbed ? 'grabbed' : (isMarked ? selectionMode : undefined)
       out.push({
         id,
         appid: id,
@@ -221,8 +251,11 @@ export function ShelfPreview({
         // Picker mode: paint the overlay when this id is currently
         // selected. The toggle handler always fires (lets the user
         // both ADD and REMOVE selection by clicking the same card).
-        selectionMark: isMarked ? selectionMode : undefined,
-        onToggleSelection: selectionMode ? () => onToggleSelection?.(id) : undefined,
+        // In manualSortMode, clicking toggles grab instead.
+        selectionMark: mark,
+        onToggleSelection: manualSortMode
+          ? () => setGrabbedAppid((g) => (g === id ? null : id))
+          : (selectionMode ? () => onToggleSelection?.(id) : undefined),
       })
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
@@ -232,12 +265,19 @@ export function ShelfPreview({
     // splice positions stay valid as the array grows). Same logic as
     // Shelf.tsx's home rowItems builder — keeps the preview 1:1 with
     // what the user will see on the home shelf.
+    //
+    // Synth `id` is the sentinel `-(origIdx + 1)` so the manual-sort
+    // drag flow can reorder them as first-class citizens (same encoding
+    // the modal's `reorderManual` already understands). Even in
+    // non-drag mode this is harmless — ShelfRow keys on item.id and
+    // routes to SyntheticCard via item.synthetic.
     if (syntheticCards && syntheticCards.length) {
-      const sorted = syntheticCards.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-      sorted.forEach((c, i) => {
+      const indexed = syntheticCards.map((c, origIdx) => ({ c, origIdx }))
+      indexed.sort((a, b) => (a.c.position ?? 0) - (b.c.position ?? 0))
+      for (const { c, origIdx } of indexed) {
         const pos = Math.max(0, Math.min(out.length, Number(c.position) || 0))
         out.splice(pos, 0, {
-          id: `__synth_preview_${i}_${pos}`,
+          id: -origIdx - 1,
           name: c.text ?? '',
           synthetic: {
             image: c.image,
@@ -248,10 +288,10 @@ export function ShelfPreview({
             placeholder: c.placeholder === true,
           },
         })
-      })
+      }
     }
     return out
-  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource])
+  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid])
 
   // Keep the focused card in view as the user navigates horizontally — same
   // pattern HighlightRow uses on the home shelf. Without this, fast L/R input
@@ -290,6 +330,196 @@ export function ShelfPreview({
     }
   }, [onFocusedIndexChange])
 
+  // Orderable id list (positive appids + negative synth sentinels, no
+  // trailing). Drag operates on this; reorder emits the new sequence.
+  const orderableIds = useMemo(() => {
+    const out: number[] = []
+    for (const it of rowItems) {
+      if (it.isRefresh || it.isMoreLink) continue
+      if (typeof it.id === 'number') out.push(it.id)
+    }
+    return out
+  }, [rowItems])
+  useEffect(() => { cappedOrderRef.current = orderableIds }, [orderableIds])
+
+  // Drag interaction — only wires when manualSortMode is true. Mirrors
+  // the old ManualSortRow logic (long-press hold-to-grab, d-pad / arrow
+  // shift, pointer-drag for desktop). The reorder emit format is the
+  // same sentinel-bearing array the modal's `reorderManual` already
+  // accepts, so the modal needs zero changes.
+  const findCardEl = (appid: number) => {
+    const rowEl = rowRef.current
+    if (!rowEl || !appid) return null
+    return rowEl.querySelector<HTMLElement>(`.ds-card[data-appid="${appid}"]`)
+  }
+  const centerCard = (appid: number) => {
+    const rowEl = rowRef.current
+    if (!rowEl) return
+    const target = findCardEl(appid)
+    if (!target) return
+    const final = computeCenteredScrollLeft(
+      { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
+      { left: target.offsetLeft, top: target.offsetTop, width: target.offsetWidth, height: target.offsetHeight }
+    )
+    try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
+  }
+  const refocusGrabbed = () => {
+    const id = grabbedRef.current
+    if (id === null) return
+    const el = findCardEl(id)
+    try { el?.focus?.() } catch {}
+  }
+  const shiftGrabbed = (delta: number) => {
+    if (!manualSortMode || !onReorder) return
+    const id = grabbedRef.current
+    if (id === null) return
+    const base = cappedOrderRef.current.slice()
+    const from = base.indexOf(id)
+    if (from === -1) return
+    const to = Math.max(0, Math.min(base.length - 1, from + delta))
+    if (to === from) return
+    const [picked] = base.splice(from, 1)
+    base.splice(to, 0, picked)
+    cappedOrderRef.current = base
+    onReorder(base)
+    // Two rAFs — first to let React commit, second so layout is settled
+    // before focus + scroll follow the moved card. Without this, the
+    // focus stays on the previous DOM index and the row over-scrolls.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        refocusGrabbed()
+        if (typeof picked === 'number') centerCard(picked)
+      })
+    })
+  }
+
+  useEffect(() => {
+    if (!manualSortMode || grabbedAppid === null) return
+    const rowEl = rowRef.current
+    if (!rowEl) return
+    const doc = rowEl.ownerDocument ?? document
+    // Capture directional input while grabbed: native gamepad nav would
+    // move focus to a sibling row; we want it to shift the grabbed
+    // card instead. Patches DispatchVirtualButtonClick (gamepad) and
+    // listens for keyboard arrows as a desktop fallback.
+    const ctrl: any = (globalThis as any).FocusNavController
+      ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller
+    let origDispatch: ((button: number, ...args: any[]) => any) | null = null
+    try {
+      if (ctrl && typeof ctrl.DispatchVirtualButtonClick === 'function') {
+        const orig = ctrl.DispatchVirtualButtonClick.bind(ctrl)
+        origDispatch = orig
+        ctrl.DispatchVirtualButtonClick = (button: number, ...args: any[]) => {
+          if (button === DIR_LEFT) { shiftGrabbed(-1); return }
+          if (button === DIR_RIGHT) { shiftGrabbed(+1); return }
+          if (button === 9 || button === 10) {
+            requestAnimationFrame(refocusGrabbed)
+            return
+          }
+          return orig(button, ...args)
+        }
+      }
+    } catch {}
+    requestAnimationFrame(refocusGrabbed)
+    const onDir = (e: Event) => {
+      const btn = (e as CustomEvent<any>).detail?.button
+      try { (e as any).stopImmediatePropagation?.(); e.preventDefault?.() } catch {}
+      if (btn === DIR_LEFT || btn === DIR_RIGHT) {
+        shiftGrabbed(btn === DIR_LEFT ? -1 : +1)
+        return
+      }
+      requestAnimationFrame(refocusGrabbed)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.stopPropagation(); e.preventDefault()
+        shiftGrabbed(e.key === 'ArrowLeft' ? -1 : +1)
+        return
+      }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.stopPropagation(); e.preventDefault()
+        requestAnimationFrame(refocusGrabbed)
+      }
+    }
+    const onFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as HTMLElement | null
+      if (next && rowEl.contains(next)) return
+      requestAnimationFrame(refocusGrabbed)
+    }
+    doc.addEventListener('vgp_ondirection', onDir, true)
+    doc.addEventListener('keydown', onKey, true)
+    rowEl.addEventListener('focusout', onFocusOut)
+    return () => {
+      doc.removeEventListener('vgp_ondirection', onDir, true)
+      doc.removeEventListener('keydown', onKey, true)
+      rowEl.removeEventListener('focusout', onFocusOut)
+      try { if (ctrl && origDispatch) ctrl.DispatchVirtualButtonClick = origDispatch } catch {}
+    }
+  }, [manualSortMode, grabbedAppid])
+
+  // Delegated pointerdown — hits whichever .ds-card the user pressed
+  // and starts the hold-to-grab + drag-to-reorder flow. Lives on the
+  // row wrapper so we don't have to wrap each card individually (which
+  // would fork ShelfRow). Only active in manualSortMode.
+  const holdTimerRef = useRef<any>(null)
+  const pointerHeldRef = useRef(false)
+  const onRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!manualSortMode || !onReorder) return
+    const card = (e.target as HTMLElement | null)?.closest('.ds-card[data-appid]') as HTMLElement | null
+    if (!card) return
+    const appid = Number(card.getAttribute('data-appid')) || 0
+    if (!appid) return
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
+    pointerHeldRef.current = false
+    const startX = e.clientX
+    holdTimerRef.current = setTimeout(() => {
+      pointerHeldRef.current = true
+      setGrabbedAppid(appid)
+    }, HOLD_MS)
+    const doc = rowRef.current?.ownerDocument ?? document
+    const move = (ev: any) => {
+      if (!pointerHeldRef.current) {
+        if (Math.abs(ev.clientX - startX) > 8) {
+          if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null }
+          doc.removeEventListener('pointermove', move)
+          doc.removeEventListener('pointerup', up)
+        }
+        return
+      }
+      const rowEl = rowRef.current
+      if (!rowEl) return
+      const cards = Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card[data-appid]'))
+      for (let i = 0; i < cards.length; i++) {
+        const r = cards[i].getBoundingClientRect()
+        if (ev.clientX >= r.left && ev.clientX <= r.right) {
+          const current = grabbedRef.current
+          if (current === null) return
+          const cardId = Number(cards[i].getAttribute('data-appid')) || 0
+          const base = cappedOrderRef.current.slice()
+          const from = base.indexOf(current)
+          const to = base.indexOf(cardId)
+          if (from === -1 || to === -1 || from === to) return
+          const [picked] = base.splice(from, 1)
+          base.splice(to, 0, picked)
+          cappedOrderRef.current = base
+          onReorder(base)
+          return
+        }
+      }
+    }
+    const up = () => {
+      doc.removeEventListener('pointermove', move)
+      doc.removeEventListener('pointerup', up)
+      if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null }
+      if (pointerHeldRef.current) {
+        pointerHeldRef.current = false
+        setGrabbedAppid(null)
+      }
+    }
+    doc.addEventListener('pointermove', move)
+    doc.addEventListener('pointerup', up)
+  }
+
   return (
     <div data-ds-shelf-preview="1">
       <style>{PREVIEW_STYLE_TAG}</style>
@@ -297,6 +527,7 @@ export function ShelfPreview({
         ref={rowRef}
         data-ds-preview-row="1"
         noFocusRing
+        onPointerDown={onRowPointerDown}
         onFocus={(e: any) => {
           // When Steam's nav lands on the wrapper, delegate to the first card —
           // same pattern as DeckRow on the home screen.

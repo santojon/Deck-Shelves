@@ -309,6 +309,32 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
 
+  // Meta for menu-added games (state.manualOrder entries NOT in
+  // resolvedIds — see EditShelfModal for the rationale). Without this
+  // the preview's `meta.get(tailId)` returns undefined and menu-added
+  // cards never render in non-source tabs.
+  useEffect(() => {
+    const resolvedSet = new Set(resolvedIds)
+    const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)
+    if (!tail.length) return
+    let cancelled = false
+    ;(async () => {
+      const results = await Promise.all(tail.map(async (id): Promise<[number, PlatformAppMeta]> => {
+        try { const m = await platform.getAppMeta(id); return [id, m ?? { appid: id, name: `App ${id}` }] }
+        catch { return [id, { appid: id, name: `App ${id}` }] }
+      }))
+      if (cancelled) return
+      setResolvedMeta((prev) => {
+        const next = new Map(prev)
+        for (const [id, m] of results) {
+          if (!next.has(id)) next.set(id, m)
+        }
+        return next
+      })
+    })()
+    return () => { cancelled = true }
+  }, [platform, resolvedIds.join(','), state.manualOrder.join(',')])
+
   useEffect(() => {
     if (!hiddenPickerOpen) return
     let cancelled = false

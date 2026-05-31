@@ -471,6 +471,35 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(','), state.sourceType])
 
+  // Meta for menu-added games — games appended to `manualOrder` via the
+  // library context menu's "Add to shelf". They're NOT in resolvedIds
+  // (the resolver returned only source items), so the effect above
+  // never fetches their meta and the preview's `meta.get(id)` returns
+  // undefined → the card silently disappears from the row. Fetch here
+  // and merge into resolvedMeta so menu-added cards render in every
+  // preview tab.
+  useEffect(() => {
+    const resolvedSet = new Set(resolvedIds)
+    const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)
+    if (!tail.length) return
+    let cancelled = false
+    ;(async () => {
+      const results = await Promise.all(tail.map(async (id): Promise<[number, PlatformAppMeta]> => {
+        try { return [id, await platform.getAppMeta(id)] }
+        catch { return [id, { appid: id, name: `App ${id}` }] }
+      }))
+      if (cancelled) return
+      setResolvedMeta((prev) => {
+        const next = new Map(prev)
+        for (const [id, m] of results) {
+          if (!next.has(id)) next.set(id, m)
+        }
+        return next
+      })
+    })()
+    return () => { cancelled = true }
+  }, [platform, resolvedIds.join(','), state.manualOrder.join(',')])
+
   // Fetch overshoot candidates for hidden-games picker: uses limit*3 without
   // hiddenAppIds applied, so the user sees all slots they can fill/hide.
   useEffect(() => {
