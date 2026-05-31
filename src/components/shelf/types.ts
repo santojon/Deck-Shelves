@@ -23,7 +23,7 @@ export type DeckRowItem = {
   // user can see which entries are selected. `grabbed` is used by the
   // manual-sort row to mark the card currently held in grab mode. All
   // fields are absent on the home shelf — game cards behave normally.
-  selectionMark?: 'highlight' | 'hidden' | 'grabbed';
+  selectionMark?: 'highlight' | 'hidden' | 'grabbed' | 'added';
   onToggleSelection?: () => void;
   // Synthetic-card slot. When set, ShelfRow renders the
   // SyntheticCard instead of a game card; the rules from

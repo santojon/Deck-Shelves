@@ -224,10 +224,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     // Mirror applyManualOrder's split: in-source manual entries lead,
     // source items not drag-ordered follow, manual entries appended via
     // the library context menu (not in the source set) go at the very
-    // END so they're always visible. Hidden picker is handled by a
-    // sibling memo — when it's NOT open, drop hidden ids from both
-    // manual branches so they don't resurface via the append-tail.
-    const hidden = (!highlightPickerOpen && !hiddenPickerOpen && state.hiddenAppIds.length) ? new Set(state.hiddenAppIds) : null
+    // END so they're always visible. Hidden cards STAY in the preview
+    // (overlaid with the ✕ marker by ShelfPreview) so the user can see
+    // which games are hidden in every tab. The home shelf still
+    // filters them via `applyManualOrder`'s hiddenAppIds arg — preview
+    // and home intentionally diverge on this point.
     const gameOrder: number[] = []
     const appendTail: number[] = []
     const seen = new Set<number>()
@@ -235,7 +236,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       if (id < 0) continue // legacy / unexpected sentinel — recomputed below
       if (seen.has(id)) continue
       seen.add(id)
-      if (hidden && hidden.has(id)) continue
       if (idSet.has(id)) gameOrder.push(id)
       else appendTail.push(id)
     }
@@ -253,7 +253,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       out.splice(Math.min(pos, out.length), 0, sentinel)
     }
     return out
-  }, [isManualSort, resolvedIds, state.manualOrder, state.syntheticCards, state.hiddenAppIds, highlightPickerOpen, hiddenPickerOpen])
+  }, [isManualSort, resolvedIds, state.manualOrder, state.syntheticCards])
 
   const reorderManual = (nextOrder: number[]) => setState((prev) => {
     // Persist ONLY game appids in `manualOrder`. Synthetic positions

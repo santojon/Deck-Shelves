@@ -680,7 +680,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
                 ? '0 0 0 2px #ffd54f, 0 0 0 5px rgba(255, 213, 79, 0.35)'
                 : item.selectionMark === 'hidden'
                   ? '0 0 0 2px #ef5350'
-                  : '0 0 0 2px #4caf50',
+                  : item.selectionMark === 'added'
+                    ? '0 0 0 2px #2196f3'
+                    : '0 0 0 2px #4caf50',
             zIndex: 4,
           }}
         >
@@ -701,6 +703,15 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#f44336' strokeWidth='2.5' strokeLinecap='round' style={{ position: 'absolute', top: 4, left: 4 }}>
               <line x1='18' y1='6' x2='6' y2='18' />
               <line x1='6' y1='6' x2='18' y2='18' />
+            </svg>
+          )}
+          {item.selectionMark === 'added' && (
+            // Same line-art grammar as check / X — 14px, viewBox 24x24,
+            // strokeWidth 2.5. Blue (#2196f3) marks "manually added to
+            // shelf" (in manualOrder but not in the resolved source).
+            <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#2196f3' strokeWidth='2.5' strokeLinecap='round' style={{ position: 'absolute', top: 4, left: 4 }}>
+              <line x1='12' y1='5' x2='12' y2='19' />
+              <line x1='5' y1='12' x2='19' y2='12' />
             </svg>
           )}
         </div>

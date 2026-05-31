@@ -200,27 +200,22 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const effectiveManualOrder = useMemo(() => {
     if (!isManual) return resolvedIds
     const idSet = new Set(resolvedIds)
-    // Same semantics as the regular EditShelfModal preview — see comment
-    // there. In-source manual entries lead; source items not drag-ordered
-    // follow; manual entries the source doesn't include (typically games
-    // appended via the library context menu) go at the END so they're
-    // always visible. Hidden ids are dropped when the hidden picker is
-    // closed (when it's open the user is editing them).
-    const hidden = (!highlightPickerOpen && !hiddenPickerOpen && state.hiddenAppIds.length) ? new Set(state.hiddenAppIds) : null
+    // See EditShelfModal — hidden cards stay in the preview (overlaid
+    // with the ✕ marker by ShelfPreview); home filters them via
+    // applyManualOrder.
     const out: number[] = []
     const tail: number[] = []
     const seen = new Set<number>()
     for (const id of state.manualOrder) {
       if (seen.has(id)) continue
       seen.add(id)
-      if (hidden && hidden.has(id)) continue
       if (idSet.has(id)) out.push(id)
       else tail.push(id)
     }
     for (const id of resolvedIds) if (!seen.has(id)) out.push(id)
     out.push(...tail)
     return out
-  }, [isManual, resolvedIds, state.manualOrder, state.hiddenAppIds, highlightPickerOpen, hiddenPickerOpen])
+  }, [isManual, resolvedIds, state.manualOrder])
   const effectiveHiddenCandidateIds = useMemo(() => {
     if (!isManual || !hiddenCandidateIds.length) return hiddenCandidateIds
     const idSet = new Set(hiddenCandidateIds)

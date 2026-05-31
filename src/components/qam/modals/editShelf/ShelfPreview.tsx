@@ -91,6 +91,12 @@ export interface ShelfPreviewProps {
   highlightFirst: boolean
   highlightAll: boolean
   highlightedAppIds: number[]
+  // Hidden ids drive the always-on 'hidden' overlay (red ring + dark
+  // tint + ✕). Even when the hidden picker is CLOSED, hidden cards
+  // appear in the preview with this overlay so the user can see which
+  // games are hidden across every tab. Home shelf still filters them
+  // out (Shelf.tsx applies the filter at the resolver level).
+  hiddenAppIds?: number[]
   // When provided, the trailing RefreshCard is focusable + clickable and
   // invokes this callback to re-resolve the preview's app ids (matches the
   // behaviour the home shelf gives the user).
@@ -148,7 +154,7 @@ export function ShelfPreview({
   t, ids, meta, limit, shelfSource, shelfSort,
   hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
   hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
-  highlightFirst, highlightAll, highlightedAppIds, onRefresh, onFocusedIndexChange,
+  highlightFirst, highlightAll, highlightedAppIds, hiddenAppIds, onRefresh, onFocusedIndexChange,
   syntheticCards, selectionMode, selectionSet, onToggleSelection,
   removableSet, onRemoveCard,
   manualSortMode = false, onReorder,
@@ -224,17 +230,30 @@ export function ShelfPreview({
       const d = priceCache?.[id]?.data?.discount
       return typeof d === 'number' && d > 0 ? d : undefined
     }
+    const hiddenSet = hiddenAppIds && hiddenAppIds.length ? new Set(hiddenAppIds) : null
     const out: DeckRowItem[] = []
+    let cardIdx = -1
     for (const id of cappedIds) {
       const m = meta.get(id)
       if (!m) continue
+      cardIdx++
       const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
-      // Selection-mark precedence: grabbed (manual-sort drag) wins over
-      // highlight/hidden picker overlays — the user is actively moving
-      // this card and the visual feedback should reflect that.
+      // Always-on intrinsic marks. Precedence (top → bottom): grabbed
+      // beats everything (active interaction); hidden beats highlight/
+      // added (the dark overlay signals "off"); highlight beats added
+      // (the user explicitly featured this card); added is the
+      // baseline marker for menu-added games. Pickers don't override
+      // these — they just enable click-to-toggle via `selectionMode`.
       const isGrabbed = manualSortMode && grabbedAppid === id
-      const isMarked = !!selectionMode && !!selectionSet?.has(id)
-      const mark: DeckRowItem['selectionMark'] = isGrabbed ? 'grabbed' : (isMarked ? selectionMode : undefined)
+      const isHidden = !!hiddenSet?.has(id)
+      const isAdded = !!removableSet?.has(id)
+      const isHighlighted = highlightAll || (highlightFirst && cardIdx === 0) || highlightedSet.has(id)
+      let mark: DeckRowItem['selectionMark']
+      if (isGrabbed) mark = 'grabbed'
+      else if (isHidden) mark = 'hidden'
+      else if (isHighlighted) mark = 'highlight'
+      else if (isAdded) mark = 'added'
+      else mark = undefined
       out.push({
         id,
         appid: id,
@@ -291,7 +310,7 @@ export function ShelfPreview({
       }
     }
     return out
-  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid])
+  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid, hiddenAppIds?.join(','), removableSet, highlightedSet, highlightAll, highlightFirst])
 
   // Keep the focused card in view as the user navigates horizontally — same
   // pattern HighlightRow uses on the home shelf. Without this, fast L/R input

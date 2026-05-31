@@ -149,6 +149,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
         highlightFirst={highlightFirst}
         highlightAll={highlightAll}
         highlightedAppIds={highlightedAppIds}
+        hiddenAppIds={hiddenAppIds}
         onRefresh={onRefresh}
         onFocusedIndexChange={onFocusedIndexChange}
         syntheticCards={syntheticCards}
