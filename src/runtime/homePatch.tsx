@@ -1161,12 +1161,25 @@ export function installHomePatch(_routerHook?: any) {
       if (existing?.dataset?.deckShelvesRenderer === "react") return;
 
       if (!isHomeVisible()) {
-        if (fallbackRoot) {
-          fallbackRoot.unmount();
-          fallbackRoot = null;
-          fallbackMountId = null;
-        }
-        fallbackRetries = 0; // Reset counter when home not visible
+        // Do NOT unmount the React tree when the home view is hidden
+        // (e.g. user navigated to a game detail page or settings).
+        //
+        // Unmounting here was the root cause of "ao voltar de outra
+        // tela, as prateleiras recarregam tudo": destroying the tree
+        // wiped every Shelf's resolved appIds, every GameCard's
+        // imgLoaded state, every PerShelfHero's slot URL, and every
+        // useEffect's accumulated work. On return, Steam re-shows the
+        // mount → tryFallbackRender ran again → fresh createRoot →
+        // every shelf re-resolved, every card flashed through the
+        // shimmer, every hero slot reloaded from CDN.
+        //
+        // Keeping the tree alive while invisible costs ~MB of memory
+        // (153 cards × tiny state each) — negligible on Deck and a
+        // small price for state preservation across navigation. When
+        // the mount element gets replaced (the only case where the
+        // tree truly needs rebuilding), the `fallbackMountId !==
+        // mount.id` check below catches it and we rebuild then.
+        fallbackRetries = 0;
         return;
       }
 
