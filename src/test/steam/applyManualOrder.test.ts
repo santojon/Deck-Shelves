@@ -19,8 +19,11 @@ describe('applyManualOrder', () => {
     expect(applyManualOrder([10, 20, 30, 40, 50], [40])).toEqual([40, 10, 20, 30, 50])
   })
 
-  it('drops manual ids that are not in the incoming list', () => {
-    expect(applyManualOrder([1, 2, 3], [99, 2, 100])).toEqual([2, 1, 3])
+  it('appends manual ids not in the incoming list at the end', () => {
+    // Library-context-menu "Add to shelf" appends to manualOrder regardless
+    // of whether the appid is in the shelf's underlying source. Those entries
+    // must remain visible (at the tail) instead of being silently dropped.
+    expect(applyManualOrder([1, 2, 3], [99, 2, 100])).toEqual([2, 1, 3, 99, 100])
   })
 
   it('deduplicates repeated manual ids', () => {

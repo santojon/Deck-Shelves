@@ -43,9 +43,14 @@ export function normalizeTitleForMatch(name: string | undefined | null): string 
 export function dedupeByName(
   apps: { appid: number; name: string; isSteam: boolean }[],
 ): number[] {
-  const seen = new Map<string, number>(); // name → appid of winner
+  // Use the same normalisation the online-shelves name-dedup uses
+  // (lowercases, strips trademark glyphs, collapses non-alphanumeric
+  // runs). Without this, "Kingdom Come Deliverance" and "Kingdom Come:
+  // Deliverance" stayed as separate buckets even with dedup on.
+  const seen = new Map<string, number>(); // normalised name → appid of winner
   for (const a of apps) {
-    const key = a.name.trim();
+    const key = normalizeTitleForMatch(a.name);
+    if (!key) continue; // empty after normalise — can't compare
     if (!seen.has(key)) {
       seen.set(key, a.appid);
     } else if (a.isSteam) {

@@ -17,6 +17,14 @@ export type DeckRowItem = {
   isSteam?: boolean;
   isNew?: boolean;
   discountPercent?: number;
+  // Editor-only overlays: when the user is in the highlight or hidden
+  // picker, the preview shifts the click target from "open game" to
+  // "toggle selection" and paints a tinted layer over each card so the
+  // user can see which entries are selected. `grabbed` is used by the
+  // manual-sort row to mark the card currently held in grab mode. All
+  // fields are absent on the home shelf — game cards behave normally.
+  selectionMark?: 'highlight' | 'hidden' | 'grabbed';
+  onToggleSelection?: () => void;
   // Synthetic-card slot. When set, ShelfRow renders the
   // SyntheticCard instead of a game card; the rules from
   // `ShelfSchema.syntheticCards.superRefine` govern focus + content.

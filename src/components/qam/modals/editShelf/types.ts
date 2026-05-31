@@ -13,8 +13,11 @@ export type EditableShelfState = {
   // hold an array of sort keys + per-key reverse flags (aligned indices).
   sort: string | string[]
   sortReverse: boolean | boolean[]
-  manualBaseSort: string
-  manualBaseSortReverse: boolean
+  // Manual base sort accepts a string OR a multi-key chain — when sort
+  // is "manual", `manualOrder` overrides positions of specific games
+  // and the base order falls through to this chain.
+  manualBaseSort: string | string[]
+  manualBaseSortReverse: boolean | boolean[]
   limit: number
   matchNativeSize: boolean
   highlightFirst: boolean

@@ -396,7 +396,7 @@
   "highlight_pattern_even_odd": "Even/Odd",
   "highlight_pattern_odd_even": "Odd/Even",
   "highlight_specific_games": "Highlight specific games",
-  "highlight_this": "Highlight this game",
+  "highlight_this": "Highlight",
   "import": "Import",
   "import_from_tabmaster": "Import from TabMaster",
   "import_from_tabmaster_desc": "Import your TabMaster library tabs and convert them into shelves.",

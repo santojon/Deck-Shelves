@@ -445,7 +445,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
 
       <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
-        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
+        {/* `padding: 0 16px` matches the per-section action rows above
+            so the trailing import / export / reset trio aligns with the
+            shelf-list left and right edges (16 px from each side). */}
+        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
           <div style={{ display: 'flex' }}>
             <ActionButton iconNode={icons.import} onClick={handleImportAll} okDescription={t('import_settings')} />
             <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportAll} okDescription={t('export_settings')} /></div>

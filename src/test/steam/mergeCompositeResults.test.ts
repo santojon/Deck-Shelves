@@ -6,11 +6,17 @@ describe('mergeCompositeResults — union', () => {
     expect(mergeCompositeResults([], 'union')).toEqual([])
   })
 
-  it('preserves the first child order and appends new ids from the second', () => {
-    expect(mergeCompositeResults([[3, 1, 2], [4, 1, 5]], 'union')).toEqual([3, 1, 2, 4, 5])
+  it('round-robin interleaves children so each contributes to the head', () => {
+    // Round 1: take 3 (child 0), then 4 (child 1).
+    // Round 2: child 0's next is 1 (fresh) → push. Child 1's next is 1 (seen) → skip to 5 → push.
+    // Round 3: child 0's next is 2 (fresh) → push. Child 1's cursor past end. → stop.
+    expect(mergeCompositeResults([[3, 1, 2], [4, 1, 5]], 'union')).toEqual([3, 4, 1, 5, 2])
   })
 
   it('de-duplicates ids that appear in multiple children (first occurrence wins)', () => {
+    // Round 1: 1 (child 0), then 2 (child 1's first fresh — its 2 hasn't been seen yet, child 0 already pushed 1).
+    // Wait — round 1: child 0 → 1, child 1 → 2.
+    // Round 2: child 0 → 2 (seen, skip) → end of arr. Child 1 → 1 (seen, skip) → 3 (fresh).
     expect(mergeCompositeResults([[1, 2], [2, 1, 3]], 'union')).toEqual([1, 2, 3])
   })
 
@@ -18,8 +24,22 @@ describe('mergeCompositeResults — union', () => {
     expect(mergeCompositeResults([[7, 8, 9]], 'union')).toEqual([7, 8, 9])
   })
 
-  it('handles three+ children stacking in declaration order', () => {
+  it('handles three+ children stacking round-robin in declaration order', () => {
+    // Round 1: 1 (child 0), 2 (child 1), 3 (child 2).
+    // Round 2: child 0 exhausted, child 1 exhausted, child 2 → 1 (seen) → 2 (seen) → end. → stop.
     expect(mergeCompositeResults([[1], [2], [3, 1, 2]], 'union')).toEqual([1, 2, 3])
+  })
+
+  it('keeps secondary source visible in the head even when primary is large', () => {
+    // Regression for the "filter as last source disappears" bug — the
+    // previous concat-then-slice merge dropped secondary items from the
+    // tail. Round-robin interleaves so filter ids reach the head of
+    // the result before the final overShootLimit slice cuts.
+    const primary = [10, 11, 12, 13, 14]
+    const filter = [99]
+    const merged = mergeCompositeResults([primary, filter], 'union')
+    expect(merged.indexOf(99)).toBeLessThan(merged.length - 1)
+    expect(merged).toEqual([10, 99, 11, 12, 13, 14])
   })
 })
 

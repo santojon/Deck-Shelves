@@ -6,6 +6,7 @@ import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 import { usePlatform } from "../../runtime/platformContext";
 import { showSyntheticCardMenu } from "../../core/syntheticCardMenu";
+import { resolveLocalImage, subscribeLocalImage } from "../../core/localImage";
 
 // Synthetic card — decoration / placeholder / gap slot.
 //
@@ -28,6 +29,11 @@ export function SyntheticCard({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState("");
+  // Forces a re-render whenever the local-image cache resolves a path
+  // the backend RPC was reading. Counter rather than state-of-the-url
+  // so multiple cards using the same path all refresh together.
+  const [, setImageTick] = useState(0);
+  useEffect(() => subscribeLocalImage(() => setImageTick((n) => n + 1)), []);
   const platform = usePlatform();
   const synth = item.synthetic;
 
@@ -89,14 +95,22 @@ export function SyntheticCard({
         ...innerBg,
       }}
     >
-      {synth.image ? (
-        <img
-          src={synth.image}
-          alt=""
-          draggable={false}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }}
-        />
-      ) : synth.text ? (
+      {synth.image ? (() => {
+        // Local paths go through the backend → base64 data URL cache.
+        // The first render returns `null` (RPC in flight); the cache
+        // subscription above triggers a re-render once the data lands.
+        // Remote URLs (http/https/data:) pass through unchanged.
+        const resolved = resolveLocalImage(synth.image);
+        if (!resolved) return null;
+        return (
+          <img
+            src={resolved}
+            alt=""
+            draggable={false}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }}
+          />
+        );
+      })() : synth.text ? (
         <span
           className="ds-synthetic-text"
           style={{
@@ -120,7 +134,7 @@ export function SyntheticCard({
     return (
       <div
         ref={cardRef as any}
-        className={`ds-card ds-card--synthetic${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
+        className={`ds-card ds-card--synthetic${synth.placeholder ? "" : " ds-card--synthetic-noshadow"}${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
         style={containerStyle}
         data-ds-synthetic-gap={hasContent ? undefined : "1"}
       >
@@ -130,10 +144,29 @@ export function SyntheticCard({
   }
 
   const handleActivate = () => {
-    const link = synth.link!;
+    const link = synth.link;
+    if (!link) return;
     try {
       if (link.type === "url") {
-        Navigation?.NavigateToExternalWeb?.(link.value);
+        const raw = String(link.value ?? "").trim();
+        if (!raw) return;
+        // Coerce bare hosts ("example.com") into https URLs and reject
+        // anything that still doesn't look like one — invalid URLs sent
+        // to `Navigation.NavigateToExternalWeb` could leave the Big
+        // Picture router in a state that broke the home re-mount.
+        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+        try { new URL(url); } catch { return; }
+        // Prefer SteamClient.System.OpenInSystemBrowser (used by the
+        // rest of the plugin for external links — see Shelf.tsx) so the
+        // URL opens in the system browser without touching Steam's
+        // internal router. NavigateToExternalWeb is a last-resort
+        // fallback for builds where the SteamClient bridge is absent.
+        const sc: any = (globalThis as any).SteamClient;
+        if (typeof sc?.System?.OpenInSystemBrowser === "function") {
+          sc.System.OpenInSystemBrowser(url);
+          return;
+        }
+        try { Navigation?.NavigateToExternalWeb?.(url); } catch {}
       } else {
         const appid = Number(link.value);
         if (Number.isFinite(appid)) platform.navigateToApp(appid);

@@ -77,9 +77,14 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
         {t('decoration_intro')}
       </div>
       {cards.map((c, idx) => {
-        const hasImage = typeof c.image === 'string' && c.image.length > 0
-        const hasText = typeof c.text === 'string' && c.text.length > 0
-        const hasContent = hasImage || hasText
+        // Mode is derived from which field is DEFINED (not just non-empty).
+        // Picking "text" in the dropdown sets `text: ''` initially; checking
+        // `length > 0` flipped the mode back to 'none' so the input never
+        // mounted. Using `!== undefined` keeps the chosen mode sticky while
+        // the user types.
+        const hasImage = typeof c.image === 'string'
+        const hasText = typeof c.text === 'string'
+        const hasContent = (hasImage && (c.image ?? '').length > 0) || (hasText && (c.text ?? '').length > 0)
         const mode: 'text' | 'image' | 'none' = hasImage ? 'image' : hasText ? 'text' : 'none'
         const setMode = (next: 'text' | 'image' | 'none') => {
           if (next === 'image') updateCard(idx, { text: undefined, image: c.image ?? '' })
@@ -128,9 +133,14 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
               onChange={(opt: any) => updateCard(idx, { size: ((opt?.data ?? opt) === 'featured' ? 'featured' : 'normal') })}
             />
             <ToggleField label={t('decoration_placeholder')} checked={c.placeholder === true} onChange={(v: boolean) => updateCard(idx, { placeholder: v })} />
-            <div style={{ opacity: hasContent ? 1 : 0.4, pointerEvents: hasContent ? 'auto' : ('none' as any) }}>
+            {/* Link only appears when the card has text or image —
+                a non-focusable gap with a link makes no UX sense (the
+                user can never reach it) and the schema strips it on
+                save anyway. Hiding the field entirely prevents typing
+                a URL into a card that would silently lose it. */}
+            {hasContent && (
               <TextField label={t('decoration_link_url')} value={linkUrl} onChange={(e: any) => setLinkUrl(String(e.target?.value ?? ''))} />
-            </div>
+            )}
             <Focusable style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
               <DialogButton onClick={() => removeCard(idx)} style={{ minWidth: 100 }}>{t('remove')}</DialogButton>
             </Focusable>

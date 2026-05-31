@@ -82,7 +82,7 @@ const xCircleSvg = (
   </svg>
 );
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, inlineBadges = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; inlineBadges?: boolean }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, inlineBadges = false, previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -107,8 +107,12 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // vgp_onok (listened below), so a single A-press can invoke item.onActivate
   // up to 3× — pushing multiple history entries and requiring 2× B to exit.
   const lastActivateRef = useRef(0);
-  const onActivateRef = useRef(item.onActivate);
-  onActivateRef.current = item.onActivate;
+  // When the editor sets `item.onToggleSelection`, the click target
+  // switches from "open game" to "toggle selection" — keeps the preview
+  // unified across highlight / hidden picker tabs (same real-card
+  // render, just a different click handler + an overlay marker below).
+  const onActivateRef = useRef(item.onToggleSelection ?? item.onActivate);
+  onActivateRef.current = item.onToggleSelection ?? item.onActivate;
   const activate = useCallback(() => {
     const now = Date.now();
     if (now - lastActivateRef.current < 400) return;
@@ -467,11 +471,36 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // `onSecondary*` slot — see ReorderableList.tsx for the in-repo
       // precedent). The label reflects the current featured state so
       // it reads "Highlight" vs "Remove highlight" instead of a glyph.
-      // No-op + no label when the card has no appid (refresh / more).
-      onOptionsActionDescription={appid
+      // No-op + no label when the card has no appid (refresh / more),
+      // or when rendered inside a modal preview (the modal owns
+      // highlight via its picker — pressing Y here would write straight
+      // to settings and bypass the modal's Save/Cancel flow).
+      onOptionsActionDescription={!previewMode && appid
         ? i18n.t(featured ? 'remove_highlight' : 'highlight_this')
         : undefined}
-      onOptionsButton={appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
+      onOptionsButton={!previewMode && appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
+      // X button — context-aware:
+      //   * If this card was menu-added (in `removableSet` = manualOrder
+      //     entries NOT in the shelf's resolved source), pressing X
+      //     REMOVES it from the shelf (the card disappears). Modal
+      //     preview supplies a state-updating callback; home saves.
+      //   * Otherwise X TOGGLES hide for this card (label reflects the
+      //     current hidden state). Hidden cards still occupy a slot but
+      //     get the dark tint + ✕ overlay. Only bound when the parent
+      //     supplies `onHideCard` — modal preview leaves it out so X
+      //     stays silent there (the modal owns hide via its picker).
+      onSecondaryActionDescription={
+        appid && removableSet?.has(appid) && onRemoveCard
+          ? i18n.t('menu_remove_from_shelf')
+          : appid && onHideCard
+            ? i18n.t(hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
+            : undefined}
+      onSecondaryButton={
+        appid && removableSet?.has(appid) && onRemoveCard
+          ? () => { try { onRemoveCard(appid); } catch {} }
+          : appid && onHideCard
+            ? () => { try { onHideCard(appid); } catch {} }
+            : undefined}
       data-appid={appid || undefined}
       data-shelfid={item.shelfId || undefined}
       data-ds-card-index={cardIndex !== undefined ? String(cardIndex) : undefined}
@@ -623,6 +652,59 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           return null;
         })()}
       </div>
+      {/* Editor picker markers — siblings of the art / label, anchored
+          to the Focusable's positioned wrapper. The colored ring uses
+          the SAME box-shadow shape as the native focus ring (see
+          shelfStyles.ts: `box-shadow: 0 0 0 2px ...`) so it sits at
+          the OUTSIDE edge of the card — matches the focus position
+          exactly across every preview tab. Dim layer + corner icon
+          stay inside the art for hidden-state readability. */}
+      {item.selectionMark && (
+        <div
+          aria-hidden='true'
+          style={{
+            position: 'absolute',
+            // Confine to the art rectangle (top:0 + cssArtH) — the
+            // label area sits at top:100% with absolute positioning
+            // outside this overlay, so it stays unobscured.
+            top: 0, left: 0, right: 0, height: cssArtH,
+            pointerEvents: 'none',
+            borderRadius: 'var(--ds-card-radius, 0)',
+            // Outset ring at the SAME offset Steam's focus ring uses
+            // — 2px outside the card edge. The colored ring lives on
+            // this container's box-shadow so themes (Round / Outrun)
+            // keep the corner curve and the line never crosses into
+            // the art interior.
+            boxShadow:
+              item.selectionMark === 'grabbed'
+                ? '0 0 0 2px #ffd54f, 0 0 0 5px rgba(255, 213, 79, 0.35)'
+                : item.selectionMark === 'hidden'
+                  ? '0 0 0 2px #ef5350'
+                  : '0 0 0 2px #4caf50',
+            zIndex: 4,
+          }}
+        >
+          {item.selectionMark === 'hidden' && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', borderRadius: 'inherit' }} />
+          )}
+          {item.selectionMark === 'highlight' && (
+            // Match the legacy `CheckIcon` exactly (14px, viewBox 24x24,
+            // stroke #4caf50 width 2.5, polyline `20 6 9 17 4 12`).
+            <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#4caf50' strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round' style={{ position: 'absolute', top: 4, left: 4 }}>
+              <polyline points='20 6 9 17 4 12' />
+            </svg>
+          )}
+          {item.selectionMark === 'hidden' && (
+            // Mirror the CheckIcon style: line-only X (no filled
+            // circle). Same 14px / viewBox 24x24 / strokeWidth 2.5
+            // grammar so check + X read as a coherent pair.
+            <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#f44336' strokeWidth='2.5' strokeLinecap='round' style={{ position: 'absolute', top: 4, left: 4 }}>
+              <line x1='18' y1='6' x2='6' y2='18' />
+              <line x1='6' y1='6' x2='18' y2='18' />
+            </svg>
+          )}
+        </div>
+      )}
     </Focusable>
   );
 }

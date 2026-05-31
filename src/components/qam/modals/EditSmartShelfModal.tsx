@@ -200,11 +200,27 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const effectiveManualOrder = useMemo(() => {
     if (!isManual) return resolvedIds
     const idSet = new Set(resolvedIds)
+    // Same semantics as the regular EditShelfModal preview — see comment
+    // there. In-source manual entries lead; source items not drag-ordered
+    // follow; manual entries the source doesn't include (typically games
+    // appended via the library context menu) go at the END so they're
+    // always visible. Hidden ids are dropped when the hidden picker is
+    // closed (when it's open the user is editing them).
+    const hidden = (!highlightPickerOpen && !hiddenPickerOpen && state.hiddenAppIds.length) ? new Set(state.hiddenAppIds) : null
     const out: number[] = []
-    for (const id of state.manualOrder) if (idSet.has(id) && !out.includes(id)) out.push(id)
-    for (const id of resolvedIds) if (!out.includes(id)) out.push(id)
+    const tail: number[] = []
+    const seen = new Set<number>()
+    for (const id of state.manualOrder) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      if (hidden && hidden.has(id)) continue
+      if (idSet.has(id)) out.push(id)
+      else tail.push(id)
+    }
+    for (const id of resolvedIds) if (!seen.has(id)) out.push(id)
+    out.push(...tail)
     return out
-  }, [isManual, resolvedIds, state.manualOrder])
+  }, [isManual, resolvedIds, state.manualOrder, state.hiddenAppIds, highlightPickerOpen, hiddenPickerOpen])
   const effectiveHiddenCandidateIds = useMemo(() => {
     if (!isManual || !hiddenCandidateIds.length) return hiddenCandidateIds
     const idSet = new Set(hiddenCandidateIds)
@@ -765,6 +781,38 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             shelfSource={previewSource}
             shelfSort={state.sort}
             onRefresh={refreshPreview}
+            selectionMode={
+              activeTab === 'visual' && highlightPickerOpen ? 'highlight'
+                : activeTab === 'display' && hiddenPickerOpen ? 'hidden'
+                : undefined
+            }
+            selectionSet={
+              activeTab === 'visual' && highlightPickerOpen ? new Set(state.highlightedAppIds)
+                : activeTab === 'display' && hiddenPickerOpen ? new Set(state.hiddenAppIds)
+                : undefined
+            }
+            onToggleSelection={
+              activeTab === 'visual' && highlightPickerOpen
+                ? (id: number) => setState((prev) => {
+                    setAlternatingMode(null)
+                    prePatternHighlightsRef.current = null
+                    const has = prev.highlightedAppIds.includes(id)
+                    return { ...prev, highlightedAppIds: has ? prev.highlightedAppIds.filter((x) => x !== id) : [...prev.highlightedAppIds, id] }
+                  })
+                : activeTab === 'display' && hiddenPickerOpen
+                  ? (id: number) => setState((prev) => {
+                      const has = prev.hiddenAppIds.includes(id)
+                      return { ...prev, hiddenAppIds: has ? prev.hiddenAppIds.filter((x) => x !== id) : [...prev.hiddenAppIds, id] }
+                    })
+                  : undefined
+            }
+            removableSet={(() => {
+              if (!state.manualOrder.length) return undefined
+              const inSource = new Set(resolvedIds)
+              const tail = state.manualOrder.filter((id) => !inSource.has(id))
+              return tail.length ? new Set(tail) : undefined
+            })()}
+            onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
           />
           </div>
         </Focusable>

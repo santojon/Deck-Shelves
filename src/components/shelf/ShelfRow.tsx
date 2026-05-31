@@ -39,6 +39,20 @@ export interface ShelfRowProps {
   // The modal preview needs this because the portal's overlay-detection
   // sees the modal blocking the home root and hides the badge.
   inlineBadges?: boolean;
+  // Suppress per-card quick actions whose effect bypasses the parent's
+  // edit-state (currently Y → highlight). Set by the modal preview.
+  previewMode?: boolean;
+  // Per-card X-button binding. `removableSet` = appids that get the
+  // "Remove from shelf" action — the manualOrder entries NOT present in
+  // the resolved source (typically games appended via the library menu
+  // "Add to shelf"). Drag-ordered cards stay OUT of this set so X
+  // doesn't pretend to remove them (it'd just re-pop them from source).
+  // For cards NOT in `removableSet`, X falls back to "Hide from shelf"
+  // when `onHideCard` is provided.
+  removableSet?: Set<number>;
+  onRemoveCard?: (appid: number) => void;
+  hiddenSet?: Set<number>;
+  onHideCard?: (appid: number) => void;
 }
 
 function ShelfRowImpl({
@@ -51,6 +65,11 @@ function ShelfRowImpl({
   hideGameName = false, hideInstallIndicator = false,
   refreshInteractive, moreInteractive,
   inlineBadges = false,
+  previewMode = false,
+  removableSet,
+  onRemoveCard,
+  hiddenSet,
+  onHideCard,
 }: ShelfRowProps) {
   return (
     <>
@@ -109,6 +128,11 @@ function ShelfRowImpl({
             hideGameName={hideGameName}
             hideInstallIndicator={hideInstallIndicator}
             inlineBadges={inlineBadges}
+            previewMode={previewMode}
+            removableSet={removableSet}
+            onRemoveCard={onRemoveCard}
+            hiddenSet={hiddenSet}
+            onHideCard={onHideCard}
           />
         );
       })}

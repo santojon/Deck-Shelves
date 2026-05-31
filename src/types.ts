@@ -157,9 +157,21 @@ export const SmartShelfSchema = z.object({
   // aligned with the `sort` array; see FilterSchema.sortReverse.
   sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
-  manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
-  // When true, reverse the manual base sort. Default false.
-  manualBaseSortReverse: z.boolean().optional(),
+  // Base sort applied to the rows NOT covered by `manualOrder` when
+  // sort === "manual". Accepts a single key OR a multi-key chain so the
+  // user can have e.g. recent + alphabetical tiebreaker as the base
+  // order under a manual override.
+  manualBaseSort: z.union([
+    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
+    z.string(),
+    z.array(z.union([
+      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
+      z.string(),
+    ])),
+  ]).optional(),
+  // Reverse flag for the manual base sort. Mirrors `sortReverse`: boolean
+  // applies uniformly, `boolean[]` aligned with the multi-key chain.
+  manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   filterGroup: FilterGroupSchema.optional(),
   // Visual overrides — mirrored from `ShelfSchema` so smart shelves can
   // share the regular-shelf visual customization surface.
@@ -258,9 +270,21 @@ export const ShelfSchema = z.object({
   manualOrder: z.array(z.number().int()).optional(),
   // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
   // Defaults to "alphabetical" when absent; must not be "manual" itself.
-  manualBaseSort: z.union([z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]), z.string()]).optional(),
-  // When true, reverse the manual base sort. Default false.
-  manualBaseSortReverse: z.boolean().optional(),
+  // Base sort applied to the rows NOT covered by `manualOrder` when
+  // sort === "manual". Accepts a single key OR a multi-key chain so the
+  // user can have e.g. recent + alphabetical tiebreaker as the base
+  // order under a manual override.
+  manualBaseSort: z.union([
+    z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
+    z.string(),
+    z.array(z.union([
+      z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
+      z.string(),
+    ])),
+  ]).optional(),
+  // Reverse flag for the manual base sort. Mirrors `sortReverse`: boolean
+  // applies uniformly, `boolean[]` aligned with the multi-key chain.
+  manualBaseSortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   matchNativeSize: z.boolean().default(false),
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),
@@ -307,13 +331,36 @@ export const ShelfSchema = z.object({
       size: z.enum(["normal", "featured"]).default("normal"),
       alpha: z.number().min(0).max(1).optional(),
       placeholder: z.boolean().optional(),
-    }).superRefine((c, ctx) => {
-      if (c.text !== undefined && c.image !== undefined) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "synthetic card may not carry both `text` and `image`" });
+    }).transform((c) => {
+      // Sanitise instead of failing validation. A prior version used
+      // `superRefine` with `addIssue` which rejected any synthetic
+      // card carrying an empty-string text + a link, OR text + image
+      // together — that rejection nuked the entire shelf during boot
+      // and the plugin appeared to "break". Cleaning the bad shape
+      // here lets old persisted state survive:
+      //   - empty strings collapse to `undefined` (the editor used to
+      //     persist `text: ''` from the mode-switch UI without the
+      //     fix in DecorationTab).
+      //   - text + image: image wins (last write).
+      //   - link with neither text nor image: link dropped — the
+      //     card becomes a non-focusable gap and never throws.
+      //   - link with an invalid URL: link dropped.
+      const out: any = { ...c };
+      if (typeof out.text === "string" && out.text.length === 0) out.text = undefined;
+      if (typeof out.image === "string" && out.image.length === 0) out.image = undefined;
+      if (out.text !== undefined && out.image !== undefined) out.text = undefined;
+      const hasContent = out.text !== undefined || out.image !== undefined;
+      if (out.link) {
+        if (!hasContent) {
+          out.link = undefined;
+        } else if (out.link.type === "url") {
+          const raw = String(out.link.value ?? "").trim();
+          const url = /^https?:\/\//i.test(raw) ? raw : (raw ? `https://${raw}` : "");
+          try { if (url) new URL(url); else throw new Error(); }
+          catch { out.link = undefined; }
+        }
       }
-      if (c.link !== undefined && c.text === undefined && c.image === undefined) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "synthetic card with `link` must also set `text` or `image`" });
-      }
+      return out;
     })
   ).optional(),
 });

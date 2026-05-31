@@ -1833,6 +1833,28 @@ function collectCollectionIdsFromGroup(group: FilterGroup): string[] {
   return ids;
 }
 
+// Walk a filter group looking for `developer` / `publisher` items so the
+// resolver can warm those caches before evaluation. Without the warmup,
+// `getAppDeveloperCached` / `getAppPublisherCached` return "" on the
+// home (cache only ever populated by the editor's developer/publisher
+// pickers), so a `developer: ["Ubisoft"]` filter matched zero apps and
+// looked like the filter source was being ignored.
+function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean; needsPub: boolean } {
+  let needsDev = false;
+  let needsPub = false;
+  const walk = (g: FilterGroup) => {
+    for (const item of g.items ?? []) {
+      if (item.type === "developer") needsDev = true;
+      else if (item.type === "publisher") needsPub = true;
+      else if (item.type === "merge" && Array.isArray(item.params?.items)) {
+        walk({ mode: (item.params.mode ?? "and") as "and" | "or", items: item.params.items as FilterItem[] });
+      }
+    }
+  };
+  walk(group);
+  return { needsDev, needsPub };
+}
+
 function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   let result: boolean;
   switch (item.type) {
@@ -2147,14 +2169,34 @@ export function invalidateRandomSortCache(shelfId?: string): void {
   } catch {}
 }
 
-export function applyManualOrder(ids: number[], manualOrder?: number[]): number[] {
+export function applyManualOrder(ids: number[], manualOrder?: number[], hiddenAppIds?: number[]): number[] {
   if (!manualOrder?.length) return ids;
+  // Split manualOrder into entries already in the source vs entries the
+  // source doesn't include. In-source entries lead (drag-order semantics
+  // the manual-sort UI was built for); source items not drag-ordered
+  // follow in their natural order; entries the source doesn't cover
+  // (typically games appended via the library context menu's "Add to
+  // shelf" — which writes to `manualOrder` regardless of source) go at
+  // the very END so they're always visible without disturbing existing
+  // drag-orderings.
+  // Hidden entries are dropped from BOTH manualOrder branches so a hidden
+  // game never resurfaces via the manual-append tail (the resolver
+  // already filters `ids` itself; this just covers the appended-by-menu
+  // ids the resolver never saw).
+  const hidden = hiddenAppIds?.length ? new Set(hiddenAppIds) : null;
   const idSet = new Set(ids);
-  const inOrder: number[] = [];
-  for (const id of manualOrder) if (idSet.has(id) && !inOrder.includes(id)) inOrder.push(id);
-  const inOrderSet = new Set(inOrder);
-  const rest = ids.filter((id) => !inOrderSet.has(id));
-  return [...inOrder, ...rest];
+  const inSource: number[] = [];
+  const notInSource: number[] = [];
+  const seen = new Set<number>();
+  for (const id of manualOrder) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (hidden && hidden.has(id)) continue;
+    if (idSet.has(id)) inSource.push(id);
+    else notInSource.push(id);
+  }
+  const rest = ids.filter((id) => !seen.has(id));
+  return [...inSource, ...rest, ...notInSource];
 }
 
 // Builds a comparator for a single sort key. Returns null for keys that
@@ -2255,6 +2297,12 @@ export function applySortToIds(
     });
     return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
   }
+  // Single-key path. Normalise `reverse` to a strict boolean — callers
+  // that recently held a multi-key chain may leave `sortReverse` as a
+  // 1-element array (`[false]` / `[true]`), which the legacy `if (reverse)`
+  // check at the bottom treated as truthy regardless of the inner value
+  // (a non-empty array is truthy), silently reversing every "asc" shelf.
+  const reverseBool: boolean = Array.isArray(reverse) ? !!reverse[0] : !!reverse;
   const byId = new Map<number, AppOverview>();
   for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
   let apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
@@ -2305,7 +2353,7 @@ export function applySortToIds(
   // and `random` (already non-deterministic; reversing the per-shelf shuffle
   // adds no signal). All other sorts treat their natural order as desc and
   // reverse to asc when requested.
-  if (reverse && sort !== "manual" && sort !== "random") apps = apps.reverse();
+  if (reverseBool && sort !== "manual" && sort !== "random") apps = apps.reverse();
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
@@ -2345,9 +2393,14 @@ const MAX_COMPOSITE_DEPTH = 4;
 
 // Pure merge for composite child results. Extracted so unit tests can
 // cover the operator semantics without resolving real Steam sources.
-// - union: first child's order, then each subsequent child's items not
-//   already in the result. De-dupes while preserving the
-//   first-source-wins ordering the editor implies.
+// - union: round-robin interleave across children — take 1 from child 0,
+//   then 1 from child 1, ..., wrap, until every child is exhausted.
+//   De-dupes while keeping each child equally represented in the head
+//   of the merged result. The previous "first child fully first, then
+//   the rest" shape meant a long primary source consumed the entire
+//   final overShootLimit slice and secondary sources (a filter pinned
+//   as the last entry, typically) disappeared from the visible row.
+//   Round-robin guarantees the filter's items survive the final cap.
 // - intersection: membership in EVERY child; iteration order follows
 //   the first child so users get a predictable primary ordering.
 export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<number>>, combine: "union" | "intersection"): number[] {
@@ -2359,9 +2412,21 @@ export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<
   }
   const seen = new Set<number>();
   const merged: number[] = [];
-  for (const arr of childResults) {
-    for (const id of arr) {
-      if (!seen.has(id)) { seen.add(id); merged.push(id); }
+  const cursors = childResults.map(() => 0);
+  let advanced = true;
+  while (advanced) {
+    advanced = false;
+    for (let i = 0; i < childResults.length; i++) {
+      const arr = childResults[i];
+      // Skip past already-merged ids (de-dupe) until this child yields a
+      // fresh entry or exhausts its list.
+      while (cursors[i] < arr.length && seen.has(arr[cursors[i]])) cursors[i]++;
+      if (cursors[i] < arr.length) {
+        const id = arr[cursors[i]++];
+        seen.add(id);
+        merged.push(id);
+        advanced = true;
+      }
     }
   }
   return merged;
@@ -2584,6 +2649,20 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
           ctx.collectionAppIds.set(colId, new Set(ids));
         } catch {}
       }));
+      // Warm the developer / publisher cache before evaluation when the
+      // filter group uses those item types — otherwise the home shelf
+      // sees a cold cache and the filter matches zero apps. The editor
+      // already warms these via its filter pickers, but the home runs
+      // without that path. Only fires when the relevant items exist;
+      // empty filter groups still resolve in O(1) on cached data.
+      const needs = filterGroupNeedsDevPubPreload(filterGroup);
+      if (needs.needsDev || needs.needsPub) {
+        const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
+        await Promise.all([
+          needs.needsDev ? preloadDeveloperData(allAppIds).catch(() => {}) : Promise.resolve(),
+          needs.needsPub ? preloadPublisherData(allAppIds).catch(() => {}) : Promise.resolve(),
+        ]);
+      }
       let filtered = evaluateFilterGroup(filterGroup, all, ctx);
       const fSort = (source.filter as any)?.sort as string | undefined;
       if (fSort === "recent") {

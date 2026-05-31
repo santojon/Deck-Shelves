@@ -396,7 +396,7 @@
   "highlight_pattern_even_odd": "Чёт/Нечёт",
   "highlight_pattern_odd_even": "Нечёт/Чёт",
   "highlight_specific_games": "Выделить отдельные игры",
-  "highlight_this": "Выделить эту игру",
+  "highlight_this": "Выделить",
   "import": "Импорт",
   "import_from_tabmaster": "Импорт из TabMaster",
   "import_from_tabmaster_desc": "Импортируйте вкладки библиотеки TabMaster и преобразуйте их в полки.",

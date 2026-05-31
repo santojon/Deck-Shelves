@@ -88,12 +88,19 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { ts, ids } = JSON.parse(raw);
-        if (Date.now() - ts < 86400000) return primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids; // 24h expiry
+        if (Date.now() - ts < 86400000) return primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, (shelf as any).hiddenAppIds) : ids; // 24h expiry
       }
     } catch (e) { logInfo("HOME", "shelf cache read failed", String(e)); }
     return null;
   });
   const [items, setItems] = useState<Map<number, PlatformAppMeta>>(new Map());
+  // Resolver's pre-applyManualOrder ids — used to compute the X-button
+  // "Remove from shelf" set on the home shelf. Cards in manualOrder but
+  // NOT in `sourceIds` are the menu-added games (truly removable);
+  // drag-ordered manualOrder entries that ARE in sourceIds get X=hide
+  // instead so removing them doesn't just bounce them back to the
+  // source-default slot.
+  const [sourceIds, setSourceIds] = useState<number[] | null>(null);
   const [storeNames, setStoreNames] = useState<Map<number, string>>(new Map());
   const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null);
   const firstLoad = useRef(true);
@@ -137,17 +144,17 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         // natural order. For filter sources the sort lives inside
         // `source.filter.sort` (the third arg is ignored by that branch),
         // so we clone the source and swap `filter.sort` to the base sort.
-        const baseSort = (shelf as any).manualBaseSort ?? "alphabetical";
+        // Base sort can be a string OR a multi-key chain (string[]).
+        const baseSort: string | string[] = (shelf as any).manualBaseSort ?? "alphabetical";
         const isManual = primaryEffectiveSort === "manual";
         // Asc/desc inversion. When manual, the base sort's reverse flag
-        // applies. Otherwise the top-level shelf flag applies. `manual` and
-        // `random` are skipped at the resolver level regardless.
-        // Multi-key shelves carry an aligned boolean[] in sortReverse;
-        // pass it through as-is. Single-key shelves keep the legacy
-        // boolean. Manual base sort is always single-key.
+        // applies (now also accepts boolean[] aligned with the multi-key
+        // chain). Otherwise the top-level shelf flag applies. `manual`
+        // and `random` are skipped at the resolver level regardless.
         const rawShelfReverse = (shelf as any).sortReverse;
+        const rawBaseReverse = (shelf as any).manualBaseSortReverse;
         const resolveReverse: boolean | boolean[] = isManual
-          ? !!(shelf as any).manualBaseSortReverse
+          ? (Array.isArray(rawBaseReverse) ? rawBaseReverse : !!rawBaseReverse)
           : (Array.isArray(rawShelfReverse) ? rawShelfReverse : !!rawShelfReverse);
         // When reverse is on but no explicit sort is persisted (regular shelf
         // default = "alphabetical" stored as undefined), force `alphabetical`
@@ -166,8 +173,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined })
           .then((ids) => {
             if (cancelled || gen !== resolveGenRef.current) return;
-            const finalIds = primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder) : ids;
+            const finalIds = primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, hiddenAppIds) : ids;
             setAppIds(finalIds);
+            setSourceIds(ids);
             setMetaVersion((v) => v + 1);
             firstLoad.current = false;
             try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
@@ -351,7 +359,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     const base = appIds.flatMap((appid): DeckRowItem[] => {
       const item = items.get(appid) ?? { appid, name: `App ${appid}` };
       const isStoreFallback = /^App \d+$/.test(item.name);
-      const isOnlineSource = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
+      // Online treatment also applies when the shelf is a composite
+      // whose children include a wishlist / store source — those
+      // children return remote-only appids that won't be in the local
+      // appStore, so the stub `App {id}` name is legitimate and the
+      // CDN-art branch below must render them instead of dropping them.
+      const isOnlineSource =
+        shelf.source.type === 'wishlist' ||
+        shelf.source.type === 'store' ||
+        (shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
+          && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'));
 
       // Hide owned games on online shelves via the collectionStore-based set.
       if (isOnlineSource && shouldHideOwned && ownedAppIds && ownedAppIds.has(appid)) return [];
@@ -544,7 +561,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveHideShelfTitle = globalHideShelfTitle === true ? true : ((shelf as any).hideShelfTitle === true);
   const effectiveHideGameNames = globalHideGameNames === true ? true : ((shelf as any).hideGameNames === true);
   const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
-  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
+  // Menu-added games (in manualOrder, not in resolved source) — DeckRow
+  // uses this to bind X=Remove on those cards (vs X=Hide on the rest).
+  const removableSet = (() => {
+    const manual: number[] = (shelf as any).manualOrder ?? [];
+    if (!manual.length || !sourceIds) return undefined;
+    const inSrc = new Set(sourceIds);
+    const tail = manual.filter((id) => !inSrc.has(id));
+    return tail.length ? new Set(tail) : undefined;
+  })();
+  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
   // Brief opacity dip while a user-triggered refresh is in flight so the
   // click is never ambiguous — even when the resolver returns identical
   // data, the shelf visibly fades and recovers, signalling that the

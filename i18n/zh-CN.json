@@ -396,7 +396,7 @@
   "highlight_pattern_even_odd": "偶/奇",
   "highlight_pattern_odd_even": "奇/偶",
   "highlight_specific_games": "突出显示特定游戏",
-  "highlight_this": "高亮此游戏",
+  "highlight_this": "突出显示",
   "import": "导入",
   "import_from_tabmaster": "从TabMaster导入",
   "import_from_tabmaster_desc": "导入您的TabMaster库标签页并将其转换为书架。",

@@ -396,7 +396,7 @@
   "highlight_pattern_even_odd": "偶数/奇数",
   "highlight_pattern_odd_even": "奇数/偶数",
   "highlight_specific_games": "特定のゲームを強調",
-  "highlight_this": "このゲームをハイライト",
+  "highlight_this": "強調",
   "import": "インポート",
   "import_from_tabmaster": "TabMasterからインポート",
   "import_from_tabmaster_desc": "TabMasterのライブラリタブをインポートしてシェルフに変換します。",

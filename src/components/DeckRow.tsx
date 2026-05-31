@@ -25,6 +25,8 @@ import {
   globalStylesStop,
   onNativeDimsChange,
 } from "./shelf/shelfStyles";
+import { getCurrentSettings, saveSettings } from "../store/settingsStore";
+import { patchShelfInSettings } from "../domain/settings";
 
 // Cached prototype of Steam's native asset <img> component (any class
 // instance whose props include `eAssetType`). Discovered once via the live
@@ -691,12 +693,46 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
   const visuallyForced = forceExpanded || forceLayoutAsRecents;
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
   }, [highlightedAppIds]);
+  // X-button binding. `removableSet` is fed in by Shelf.tsx (which has
+  // access to the pre-applyManualOrder resolved source ids — DeckRow
+  // only sees the post-merge `items`, so it can't compute the set
+  // itself). `hiddenSet` is read from settings each render for the
+  // Hide/Show label toggle; both callbacks below persist directly.
+  const hiddenSet = useMemo(() => {
+    if (!shelfId) return undefined;
+    const s = getCurrentSettings();
+    const sh: any = s?.shelves?.find((row: any) => row.id === shelfId);
+    const h: number[] | undefined = sh?.hiddenAppIds;
+    return h?.length ? new Set(h) : undefined;
+  }, [shelfId, items]);
+  const onRemoveCard = useCallback((appid: number) => {
+    if (!shelfId || !appid) return;
+    const s = getCurrentSettings();
+    if (!s) return;
+    const sh: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
+    if (!sh) return;
+    const m: number[] = sh.manualOrder ?? [];
+    if (!m.includes(appid)) return;
+    void saveSettings(patchShelfInSettings(s, shelfId, {
+      manualOrder: m.filter((id) => id !== appid),
+    }));
+  }, [shelfId]);
+  const onHideCard = useCallback((appid: number) => {
+    if (!shelfId || !appid) return;
+    const s = getCurrentSettings();
+    if (!s) return;
+    const sh: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
+    if (!sh) return;
+    const h: number[] = sh.hiddenAppIds ?? [];
+    const next = h.includes(appid) ? h.filter((id) => id !== appid) : [...h, appid];
+    void saveSettings(patchShelfInSettings(s, shelfId, { hiddenAppIds: next }));
+  }, [shelfId]);
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }
   const rowRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -1291,6 +1327,10 @@ function DeckRowImpl({ title, items, shelfId, matchNativeSize = false, highlight
             hideNonSteamBadge={hideNonSteamBadge}
             hideGameName={hideGameNames}
             hideInstallIndicator={hideInstallIndicator}
+            removableSet={removableSet}
+            onRemoveCard={onRemoveCard}
+            hiddenSet={hiddenSet}
+            onHideCard={onHideCard}
           />
           <div style={{ minWidth: "2.8vw", minHeight: 1, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
         </Focusable>

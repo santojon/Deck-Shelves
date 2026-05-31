@@ -396,7 +396,7 @@
   "highlight_pattern_even_odd": "Parzyste/Nieparzyste",
   "highlight_pattern_odd_even": "Nieparzyste/Parzyste",
   "highlight_specific_games": "Wyróżnij wybrane gry",
-  "highlight_this": "Wyróżnij tę grę",
+  "highlight_this": "Wyróżnij",
   "import": "Importuj",
   "import_from_tabmaster": "Importuj z TabMaster",
   "import_from_tabmaster_desc": "Zaimportuj karty biblioteki z TabMaster i przekształć je w półki.",

@@ -249,9 +249,17 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             shelf_entry["dedupeByExactName"] = True
         if manual_ids:
             shelf_entry["manualOrder"] = manual_ids
-        manual_base_sort = str(s.get("manualBaseSort") or "")
-        if manual_base_sort and manual_base_sort in valid_sorts and manual_base_sort != "manual":
-            shelf_entry["manualBaseSort"] = manual_base_sort
+        # manualBaseSort accepts either a single key or a multi-key
+        # chain (list of strings). Unknown strings are passed through so
+        # external sort plugins survive a round-trip; "manual" is
+        # rejected (would be circular).
+        raw_base = s.get("manualBaseSort")
+        if isinstance(raw_base, list):
+            cleaned_base = [str(k) for k in raw_base if isinstance(k, str) and k and k != "manual"]
+            if cleaned_base:
+                shelf_entry["manualBaseSort"] = cleaned_base
+        elif isinstance(raw_base, str) and raw_base and raw_base != "manual":
+            shelf_entry["manualBaseSort"] = raw_base
         # Asc/desc invert flags. Persisted only when explicitly true to keep
         # storage minimal; resolver treats absence as false. Array form
         # mirrors the `sort` array's per-key direction.
@@ -262,7 +270,14 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                 shelf_entry["sortReverse"] = cleaned_rev
         elif bool(raw_reverse):
             shelf_entry["sortReverse"] = True
-        if bool(s.get("manualBaseSortReverse", False)):
+        # Same shape for manualBaseSortReverse — accepts boolean or
+        # boolean[] aligned with the multi-key base.
+        raw_base_rev = s.get("manualBaseSortReverse")
+        if isinstance(raw_base_rev, list):
+            cleaned_base_rev = [bool(b) for b in raw_base_rev]
+            if any(cleaned_base_rev):
+                shelf_entry["manualBaseSortReverse"] = cleaned_base_rev
+        elif bool(raw_base_rev):
             shelf_entry["manualBaseSortReverse"] = True
         # synthetic cards. Trust the client schema's
         # superRefine for rule enforcement; here just clamp types,
@@ -772,6 +787,46 @@ class Plugin:
         except Exception as e:
             try:
                 decky.logger.error(f"Failed reading json from {path}: {e}")
+            except Exception:
+                pass
+            return {"ok": False}
+
+    async def read_image_b64(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
+        # Reads a local image as a base64 data URL so the frontend can
+        # render it directly via `<img src="data:...">`. CEF blocks
+        # bare `file://` urls under the home shelf, and the decoration
+        # editor lets the user pick any image from `~/Pictures` etc.
+        # Returns `{ok: true, dataUrl}` on success; `{ok: false}` when
+        # the file is missing, oversized, or outside the home dir.
+        # Size cap: 8 MiB — anything larger is almost certainly a
+        # mistake (Steam Deck card art ranges 30-300 KiB).
+        import base64
+        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        if not path or not os.path.exists(path) or not os.path.isfile(path):
+            return {"ok": False}
+        try:
+            size = os.path.getsize(path)
+            if size > 8 * 1024 * 1024:
+                return {"ok": False}
+            ext = os.path.splitext(path)[1].lower().lstrip(".")
+            mime_by_ext = {
+                "png": "image/png",
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "webp": "image/webp",
+                "gif": "image/gif",
+                "bmp": "image/bmp",
+            }
+            mime = mime_by_ext.get(ext)
+            if not mime:
+                return {"ok": False}
+            with open(path, "rb") as f:
+                raw = f.read()
+            data_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+            return {"ok": True, "dataUrl": data_url}
+        except Exception as e:
+            try:
+                decky.logger.error(f"Failed reading image from {path}: {e}")
             except Exception:
                 pass
             return {"ok": False}

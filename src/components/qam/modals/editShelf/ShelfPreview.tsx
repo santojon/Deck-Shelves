@@ -109,6 +109,23 @@ export interface ShelfPreviewProps {
     alpha?: number;
     placeholder?: boolean;
   }>
+  // Editor picker mode: when set, every card carries an overlay marker
+  // (`highlight` blue tint + ★ / `hidden` dark tint + ✕) and its
+  // activate handler toggles membership in the selection set instead of
+  // opening the game. Lets the highlight + hidden picker tabs render
+  // through the same ShelfPreview as everywhere else, only adding the
+  // overlay + click rebinding for their specific affordance.
+  selectionMode?: 'highlight' | 'hidden'
+  selectionSet?: Set<number>
+  onToggleSelection?: (appid: number) => void
+  // X-button "Remove from shelf": appids in this set are the menu-added
+  // games (manualOrder entries NOT in the resolved source). They get
+  // the remove action AND are always kept by the limit cap below so
+  // they appear in every preview tab — not just the Source tab whose
+  // ManualSortRow renders with no cap. Modal owns the callback so the
+  // removal updates local state (Save/Cancel semantics preserved).
+  removableSet?: Set<number>
+  onRemoveCard?: (appid: number) => void
 }
 
 export function ShelfPreview({
@@ -116,7 +133,8 @@ export function ShelfPreview({
   hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
   hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
   highlightFirst, highlightAll, highlightedAppIds, onRefresh, onFocusedIndexChange,
-  syntheticCards,
+  syntheticCards, selectionMode, selectionSet, onToggleSelection,
+  removableSet, onRemoveCard,
 }: ShelfPreviewProps) {
   const rowRef = useRef<HTMLDivElement>(null)
   const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
@@ -125,7 +143,22 @@ export function ShelfPreview({
   // splices its own synthetic items below from `syntheticCards[].position`
   // so they appear regardless of the sort mode.
   const gameOnlyIds = useMemo(() => ids.filter((id) => id >= 0), [ids])
-  const cappedIds = (typeof limit === 'number' && limit >= 0) ? gameOnlyIds.slice(0, limit) : gameOnlyIds
+  // Limit cap — always keep `removableSet` entries (menu-added games at
+  // the manualOrder tail) so they appear in every tab, matching the
+  // Source tab's ManualSortRow which renders without a cap. Without
+  // this carve-out, limit would slice them off and the user's added
+  // games would only be visible while editing the source tab.
+  const cappedIds = useMemo(() => {
+    if (typeof limit !== 'number' || limit < 0) return gameOnlyIds
+    if (!removableSet?.size) return gameOnlyIds.slice(0, limit)
+    const sourceSide: number[] = []
+    const removableSide: number[] = []
+    for (const id of gameOnlyIds) {
+      if (removableSet.has(id)) removableSide.push(id)
+      else sourceSide.push(id)
+    }
+    return [...sourceSide.slice(0, limit), ...removableSide]
+  }, [gameOnlyIds, limit, removableSet])
   const trailingInput = { source: shelfSource, sort: shelfSort, hideSeeMore, hideRefreshCard }
   const showRefresh = shelfSource ? shouldShowRefreshCard(trailingInput) : !hideRefreshCard
   const showMore = shelfSource ? shouldShowMoreCard(trailingInput) : !hideSeeMore
@@ -139,13 +172,30 @@ export function ShelfPreview({
   // the home shelf consults — without it the preview's cards would
   // never have discount data, so the green discount badge wouldn't
   // render even when `inlineBadges` is on.
+  // Discount badges only make sense on online (wishlist/store) shelves
+  // — they advertise "this game is on sale, buy it". On non-online
+  // shelves (collection / tab / filter / installed) the user already
+  // owns the game so the badge is noise. Mirrors what Shelf.tsx does
+  // on the home (it only sets `discountPercent` for online sources).
+  const isOnlineShelfSource = (() => {
+    const s: any = shelfSource
+    if (!s || typeof s !== 'object') return false
+    if (s.type === 'wishlist' || s.type === 'store') return true
+    if (s.type === 'composite' && Array.isArray(s.sources)) {
+      return s.sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store')
+    }
+    return false
+  })()
   const rowItems = useMemo<DeckRowItem[]>(() => {
     let priceCache: any = null
-    try {
-      const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1')
-      if (raw) priceCache = JSON.parse(raw)
-    } catch {}
+    if (isOnlineShelfSource) {
+      try {
+        const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1')
+        if (raw) priceCache = JSON.parse(raw)
+      } catch {}
+    }
     const readDiscount = (id: number): number | undefined => {
+      if (!isOnlineShelfSource) return undefined
       const d = priceCache?.[id]?.data?.discount
       return typeof d === 'number' && d > 0 ? d : undefined
     }
@@ -154,6 +204,7 @@ export function ShelfPreview({
       const m = meta.get(id)
       if (!m) continue
       const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
+      const isMarked = !!selectionMode && !!selectionSet?.has(id)
       out.push({
         id,
         appid: id,
@@ -167,6 +218,11 @@ export function ShelfPreview({
         updatePending: m.updatePending,
         isNew,
         discountPercent: readDiscount(id),
+        // Picker mode: paint the overlay when this id is currently
+        // selected. The toggle handler always fires (lets the user
+        // both ADD and REMOVE selection by clicking the same card).
+        selectionMark: isMarked ? selectionMode : undefined,
+        onToggleSelection: selectionMode ? () => onToggleSelection?.(id) : undefined,
       })
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
@@ -195,7 +251,7 @@ export function ShelfPreview({
       })
     }
     return out
-  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null)])
+  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource])
 
   // Keep the focused card in view as the user navigates horizontally — same
   // pattern HighlightRow uses on the home shelf. Without this, fast L/R input
@@ -282,6 +338,9 @@ export function ShelfPreview({
           refreshInteractive={!!onRefresh}
           moreInteractive={false}
           inlineBadges
+          previewMode
+          removableSet={removableSet}
+          onRemoveCard={onRemoveCard}
         />
       </Focusable>
     </div>

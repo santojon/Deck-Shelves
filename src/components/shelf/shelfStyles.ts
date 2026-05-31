@@ -793,6 +793,28 @@ function buildStylesheet(): string {
     #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
       box-shadow: none !important;
     }
+    /* Synthetic decoration cards with placeholder=false (the default)
+       render no background fill - the native card class still carries
+       a baseline drop shadow from the theme, which paints against
+       nothing and looks like a floating shadow with no card. Suppress
+       it across every state (idle / focus / hover) for transparent
+       decoration slots; placeholder=true keeps the shadow so the
+       grey card panel reads as a real card. */
+    #deck-shelves-home-root .ds-card--synthetic-noshadow,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:focus,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow.gpfocus,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:hover {
+      box-shadow: none !important;
+    }
+    /* Same suppression for the native shine ::after layer — paints
+       over a transparent card it can't visually anchor against. */
+    #deck-shelves-home-root .ds-card--synthetic-noshadow::after,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:focus::after,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow.gpfocus::after,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:hover::after {
+      opacity: 0 !important;
+      animation: none !important;
+    }
     /* Also kill the Game Cover Shine ::after animation/opacity under the same
        flag — that pseudo paints over the card on focus and isn't controlled
        by the Round Compat patch on its own. */

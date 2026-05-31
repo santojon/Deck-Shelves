@@ -50,15 +50,20 @@ describe("ShelfSchema.syntheticCards", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("rejects text AND image together", () => {
+  it("sanitises text AND image together (image wins, text dropped)", () => {
+    // The schema used to reject; now it sanitises silently so old
+    // persisted state can boot the plugin. Image wins (last write).
     const parsed = ShelfSchema.safeParse({
       ...base,
       syntheticCards: [{ position: 0, text: "X", image: "/y.png", size: "normal" }],
     });
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
+    const card = parsed.success ? (parsed.data.syntheticCards ?? [])[0] : null;
+    expect(card?.image).toBe("/y.png");
+    expect(card?.text).toBeUndefined();
   });
 
-  it("rejects link without text or image (would be a non-focusable card with a link)", () => {
+  it("sanitises link without text or image (link dropped, card becomes a gap)", () => {
     const parsed = ShelfSchema.safeParse({
       ...base,
       syntheticCards: [{
@@ -66,7 +71,51 @@ describe("ShelfSchema.syntheticCards", () => {
         link: { type: "url", value: "https://example.com" },
       }],
     });
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
+    const card = parsed.success ? (parsed.data.syntheticCards ?? [])[0] : null;
+    expect(card?.link).toBeUndefined();
+  });
+
+  it("sanitises link with invalid URL (link dropped)", () => {
+    const parsed = ShelfSchema.safeParse({
+      ...base,
+      syntheticCards: [{
+        position: 0, size: "normal", text: "Open",
+        link: { type: "url", value: "not a url at all" },
+      }],
+    });
+    expect(parsed.success).toBe(true);
+    const card = parsed.success ? (parsed.data.syntheticCards ?? [])[0] : null;
+    expect(card?.text).toBe("Open");
+    expect(card?.link).toBeUndefined();
+  });
+
+  it("coerces bare hostnames in URL links to https://", () => {
+    const parsed = ShelfSchema.safeParse({
+      ...base,
+      syntheticCards: [{
+        position: 0, size: "normal", text: "Open",
+        link: { type: "url", value: "example.com" },
+      }],
+    });
+    expect(parsed.success).toBe(true);
+    const card = parsed.success ? (parsed.data.syntheticCards ?? [])[0] : null;
+    // Schema preserves the raw value (so the editor shows what the user
+    // typed); the URL coercion + validation only gates whether the link
+    // is kept. A bare hostname is treated as https://example.com for
+    // validation purposes — link kept.
+    expect(card?.link?.value).toBe("example.com");
+  });
+
+  it("collapses empty-string text/image to undefined", () => {
+    const parsed = ShelfSchema.safeParse({
+      ...base,
+      syntheticCards: [{ position: 0, size: "normal", text: "", image: "" }],
+    });
+    expect(parsed.success).toBe(true);
+    const card = parsed.success ? (parsed.data.syntheticCards ?? [])[0] : null;
+    expect(card?.text).toBeUndefined();
+    expect(card?.image).toBeUndefined();
   });
 
   it("rejects sizes other than normal / featured (reduced / stack land later)", () => {
