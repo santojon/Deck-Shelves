@@ -27,6 +27,7 @@ import {
 } from "./shelf/shelfStyles";
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import { patchShelfInSettings } from "../domain/settings";
+import { getHotCachedImageSrc, warmCacheBackground } from "../core/imageCache";
 
 // Cached prototype of Steam's native asset <img> component (any class
 // instance whose props include `eAssetType`). Discovered once via the live
@@ -316,6 +317,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Debounce timer that gates the slot swap during rapid focus
   // navigation — see `update()` for the rationale. Cleared on unmount.
   const heroSwapTimerRef = useRef<any>(null);
+  // Track whether `update()` has fired its FIRST slot swap. Initial
+  // mount (e.g. user comes back to home after going to another
+  // screen) skips the debounce so the hero appears instantly —
+  // there's no rapid-navigation thrash to coalesce on a fresh mount.
+  const isFirstSlotSwapRef = useRef(true);
   useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
 
   // 80px bleed for first / promoted (anchored to page top); 140px for
@@ -417,7 +423,15 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const onError = useCallback((slot: 'A' | 'B') => () => {
     fallbackIdx.current += 1;
     const next = allUrls.current[fallbackIdx.current];
-    if (next) { if (slot === 'A') setSlotA(next); else setSlotB(next); }
+    if (next) {
+      let finalUrl: string = next;
+      try {
+        const hot = getHotCachedImageSrc(next);
+        if (hot) finalUrl = hot;
+        else warmCacheBackground(next);
+      } catch {}
+      if (slot === 'A') setSlotA(finalUrl); else setSlotB(finalUrl);
+    }
     else setVisible(false);
   }, []);
 
@@ -522,12 +536,24 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           // doesn't fire a hero-load cycle for every intermediate card
           // (each cycle triggers React renders + a CSS cross-fade +
           // an HTTP fetch the browser can't cache before the next swap
-          // cancels it). 60 ms is short enough to feel instant when
-          // the user lands on a card, but long enough to skip cards
-          // the user just blew past on the way to one further over.
+          // cancels it). 30 ms — half of typical d-pad repeat (80-150
+          // ms) so a single deliberate press triggers a swap, but two
+          // rapid presses skip the middle card. Combined with the
+          // 250 ms cross-fade and async decode below, the hero feels
+          // like it arrives within one frame of landing on a card.
+          //
+          // Initial mount (`isFirstSlotSwapRef`) skips the debounce
+          // entirely — when the user comes back to home after going
+          // to settings/another screen, there's no navigation thrash
+          // to coalesce; we want the hero to appear immediately, and
+          // if its URL is already in the hot cache (from this session
+          // or via Cache Storage from a previous session), the slot
+          // resolves to a blob URL in the same tick the swap runs.
           if (heroSwapTimerRef.current) clearTimeout(heroSwapTimerRef.current);
           const swapAppid = appid;
-          heroSwapTimerRef.current = setTimeout(() => {
+          const wasFirst = isFirstSlotSwapRef.current;
+          isFirstSlotSwapRef.current = false;
+          const doSwap = () => {
             heroSwapTimerRef.current = null;
             // Bail if focus moved on in the meantime.
             if (currentAppid.current !== swapAppid) return;
@@ -549,7 +575,23 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             fallbackIdx.current = 0;
             const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
             const url0 = urls[0] ?? null;
-            if (next === 'A') setSlotA(url0); else setSlotB(url0);
+            // Single-card cache lookup — same pattern GameCard uses
+            // for portraits (proven safe). Hot-cache hit → blob URL
+            // (no network, no decode round-trip). Cache miss → use
+            // the original URL AND queue a background fetch so the
+            // next visit (this session OR after a restart, since the
+            // Cache Storage layer is persistent) is a hot hit. NO
+            // fan-out, NO parallel calls — exactly one cache lookup
+            // and at most one warmCacheBackground per slot swap.
+            let resolvedUrl: string | null = url0;
+            if (url0) {
+              try {
+                const hot = getHotCachedImageSrc(url0);
+                if (hot) resolvedUrl = hot;
+                else warmCacheBackground(url0);
+              } catch {}
+            }
+            if (next === 'A') setSlotA(resolvedUrl); else setSlotB(resolvedUrl);
             setActiveSlot(next);
             if (usedNative) return;
             // Fallback path: wait briefly for Steam's hero data to
@@ -563,9 +605,22 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
               allUrls.current = fresh;
               fallbackIdx.current = 0;
               const slot = activeSlotRef.current;
-              if (slot === 'A') setSlotA(newFirst); else setSlotB(newFirst);
+              let finalUrl: string | null = newFirst;
+              try {
+                const hot2 = getHotCachedImageSrc(newFirst);
+                if (hot2) finalUrl = hot2;
+                else warmCacheBackground(newFirst);
+              } catch {}
+              if (slot === 'A') setSlotA(finalUrl); else setSlotB(finalUrl);
             }, 700);
-          }, 60);
+          };
+          if (wasFirst) {
+            // Instant — no setTimeout, no rAF — so the hero is set in
+            // the same task that mounted PerShelfHero.
+            doSwap();
+          } else {
+            heroSwapTimerRef.current = setTimeout(doSwap, 30);
+          }
         }
       }
       setVisible(true);
@@ -612,6 +667,85 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (updatePending != null) cancelAnimationFrame(updatePending);
       if (heroSwapTimerRef.current) { clearTimeout(heroSwapTimerRef.current); heroSwapTimerRef.current = null; }
     };
+  }, [containerRef, showArt]);
+
+  // Idle-time pre-warm of every card's hero in this shelf, so lateral
+  // navigation through the row reads from cache instead of going to the
+  // network on each focus. Key safety properties (the previous attempt
+  // froze the deck — see feedback_hero_perf in memory):
+  //   1. Sequential, NOT parallel — one `warmCacheBackground` at a
+  //      time, walking the card list with `requestIdleCallback`. The
+  //      cache module's inflight dedup makes overlap impossible.
+  //   2. Boot stagger — a per-shelf random delay (500-2500 ms) before
+  //      the walk starts, so N hero shelves don't all kick off the
+  //      first fetch at the same instant when BP loads.
+  //   3. Idle-gated — `requestIdleCallback` yields to user
+  //      interaction. If the user is actively navigating, pre-warm
+  //      pauses until the next idle window.
+  //   4. One-time per mount — runs once per shelf mount, NOT on every
+  //      focus event (the previous design's fan-out trigger).
+  // Combined: a 10-hero-shelf home with 100 cards each pre-warms in
+  // the background without ever firing more than 1 concurrent fetch
+  // in the steady state, persists in Cache Storage across restarts,
+  // and dovetails with the per-card cache lookup so the first focus
+  // on a pre-warmed card is an instant blob-URL hit.
+  useEffect(() => {
+    if (!showArt) return;
+    const el = containerRef.current;
+    if (!el) return;
+    let cancelled = false;
+    let idleHandle: any = null;
+    let backoffHandle: any = null;
+    const cancelScheduled = () => {
+      if (backoffHandle) { clearTimeout(backoffHandle); backoffHandle = null; }
+      if (idleHandle && typeof (window as any).cancelIdleCallback === 'function') {
+        try { (window as any).cancelIdleCallback(idleHandle); } catch {}
+        idleHandle = null;
+      }
+    };
+    const schedule = (fn: () => void) => {
+      if (cancelled) return;
+      const ric: any = (window as any).requestIdleCallback;
+      if (typeof ric === 'function') {
+        idleHandle = ric(fn, { timeout: 3000 });
+      } else {
+        backoffHandle = setTimeout(fn, 250);
+      }
+    };
+    const start = setTimeout(() => {
+      if (cancelled) return;
+      const allCards = Array.from(el.querySelectorAll<HTMLElement>('.ds-card[data-appid]'));
+      let idx = 0;
+      const tick = () => {
+        if (cancelled) return;
+        while (idx < allCards.length) {
+          const aid = Number(allCards[idx++].getAttribute('data-appid')) || 0;
+          if (aid <= 0) continue;
+          try {
+            const u = getHeroUrls(aid)[0];
+            if (u) warmCacheBackground(u);
+          } catch {}
+          // One per tick so the cache module's `caches.open` /
+          // `fetch` calls never burst — proven culprit of the boot
+          // freeze. Yield to idle, then continue.
+          if (idx < allCards.length) {
+            schedule(tick);
+          }
+          return;
+        }
+      };
+      schedule(tick);
+    }, 500 + Math.random() * 2000);
+    return () => {
+      cancelled = true;
+      clearTimeout(start);
+      cancelScheduled();
+    };
+    // Runs once per mount + when hero toggles on; cards added/removed
+    // later don't re-trigger pre-warm, but they'll be cached on the
+    // user's first focus of them (single-card lookup in the slot swap
+    // above), so the worst case is one network fetch per genuinely-
+    // new card rather than the full row.
   }, [containerRef, showArt]);
 
   const hasArt = showArt && !!(slotA || slotB);
@@ -705,10 +839,31 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         <div className={nativeHeroInnerClass ?? undefined} style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
           opacity: activeSlot === 'A' ? 1 : 0,
-          transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+          // 250ms cross-fade (was 500ms) — the long version felt sluggish
+          // when the user d-padded onto a card and waited for the hero to
+          // visibly arrive. Quarter-second matches Steam's own UI cadence
+          // closely enough that it reads as instant without flicker.
+          transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotA} onError={onError('A')}
+              // Off-main-thread decode — large hero JPEGs (~1920×620)
+              // decode on the main thread when they finish downloading,
+              // blocking the renderer for 20-100 ms each time and
+              // showing up as a navigation stutter. `decoding="async"`
+              // hands the decode to the image pipeline thread.
+              decoding="async"
+              ref={(el) => {
+                // Eager is-loaded: if the browser already has this
+                // src cached + decoded (hot blob URL / HTTP-cache
+                // hit on a repeat visit), `el.complete + naturalWidth`
+                // is true the same tick React assigns `src`. Flip
+                // loadedSrc synchronously so the cached case skips
+                // the onLoad round trip AND the opacity-gate flash.
+                if (el && el.complete && (el.naturalWidth || 0) > 0 && slotA && loadedSrcA !== slotA) {
+                  setLoadedSrcA(slotA);
+                }
+              }}
               onLoad={(e) => {
                 // Only mark as loaded if the image actually decoded with a
                 // non-zero natural size — Steam CDN occasionally returns
@@ -740,10 +895,16 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         <div className={nativeHeroInnerClass ?? undefined} style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
           opacity: activeSlot === 'B' ? 1 : 0,
-          transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+          transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotB} onError={onError('B')}
+              decoding="async"
+              ref={(el) => {
+                if (el && el.complete && (el.naturalWidth || 0) > 0 && slotB && loadedSrcB !== slotB) {
+                  setLoadedSrcB(slotB);
+                }
+              }}
               onLoad={(e) => {
                 const img = e.currentTarget;
                 if ((img.naturalWidth || 0) > 0 && (img.naturalHeight || 0) > 0) {

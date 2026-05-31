@@ -7,11 +7,21 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  if grep -Riq "outrun" "$src" 2>/dev/null; then
-    echo "  ❌ Source references 'outrun' (may indicate theme-specific coupling)"
+  # Only flag references outside of comment lines — TS/JS comments
+  # that mention Outrun for documentation purposes (e.g. explaining a
+  # CSS pattern that accommodates Round/Outrun/ArtHero) aren't
+  # theme-specific coupling. Same comment-exclude grammar the
+  # TabMaster check uses (see checks/plugins/tabmaster.sh).
+  local code_hits
+  code_hits=$(grep -Riln "outrun" "$src" 2>/dev/null | while IFS= read -r f; do
+    if grep -iv '^\s*[/*]' "$f" 2>/dev/null | grep -iq "outrun"; then echo "$f"; fi
+  done)
+  if [ -n "$code_hits" ]; then
+    echo "  ❌ Source references 'outrun' outside comments (may indicate theme-specific coupling)"
+    echo "     Files: $code_hits"
     ((fail++))
   else
-    echo "  ✅ No 'outrun' references found"
+    echo "  ✅ No 'outrun' references in code (comments OK)"
     ((pass++))
   fi
 

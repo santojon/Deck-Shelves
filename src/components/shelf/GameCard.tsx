@@ -238,32 +238,55 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // when the current src is a cached blob URL.
   const currentOriginalUrl = useRef<string>("");
 
+  // Resolve the initial src by walking the fallback chain and using
+  // the FIRST hot-cached URL we find (its blob URL). On remount
+  // (e.g. user goes to settings and comes back home) this lets a
+  // previously-loaded card render its image instantly without first
+  // cycling through /customimages/{appid}p.png 404 → onError → next
+  // URL, which is what was causing "home recarrega tudo" — each
+  // remount did 1-2 useless local-path 404s before reaching the
+  // cached CDN URL. `startIdx` is also passed to onImgError so the
+  // fallback chain advances from the position the cache picked, not
+  // from 0.
+  const { initialSrc, initialOriginal, startIdx } = useMemo(() => {
+    if (!allUrls.length) return { initialSrc: "", initialOriginal: "", startIdx: 0 };
+    for (let i = 0; i < allUrls.length; i++) {
+      try {
+        const cached = getHotCachedImageSrc(allUrls[i]);
+        if (cached) return { initialSrc: cached, initialOriginal: allUrls[i], startIdx: i };
+      } catch {}
+    }
+    return { initialSrc: allUrls[0], initialOriginal: allUrls[0], startIdx: 0 };
+  }, [allUrls]);
+
   useEffect(() => {
-    fallbackIdx.current = 0;
+    fallbackIdx.current = startIdx;
     setImgFailed(false);
     setImgLoaded(false);
-    if (imgRef.current && allUrls[0]) {
-      const original = allUrls[0];
-      currentOriginalUrl.current = original;
-      // Hot-cache hit: use the blob URL for instant render. Cache miss:
-      // use the original URL (browser loads as usual) and queue a
-      // background fetch so the next visit is instant. cacheable() inside
-      // the cache module already skips local /customimages/ and /assets/
-      // so SteamGridDB-style local updates aren't blocked.
-      const cached = getHotCachedImageSrc(original);
-      imgRef.current.src = cached ?? original;
-      if (!cached) warmCacheBackground(original);
+    currentOriginalUrl.current = initialOriginal;
+    // Cache miss path: queue a background fetch so the next visit is
+    // a hot hit. cacheable() inside the cache module already skips
+    // local /customimages/ and /assets/ paths so SteamGridDB-style
+    // local updates aren't blocked. No-op when initialSrc is already
+    // a blob URL (hot hit) — we'd be warming it again uselessly
+    // otherwise.
+    if (initialOriginal && initialSrc === initialOriginal) {
+      try { warmCacheBackground(initialOriginal); } catch {}
     }
-  }, [allUrls]);
+  }, [allUrls, startIdx, initialSrc, initialOriginal]);
 
   const onImgError = useCallback(() => {
     fallbackIdx.current += 1;
     if (imgRef.current && fallbackIdx.current < allUrls.length) {
       const next = allUrls[fallbackIdx.current];
       currentOriginalUrl.current = next;
-      const cached = getHotCachedImageSrc(next);
-      imgRef.current.src = cached ?? next;
-      if (!cached) warmCacheBackground(next);
+      let resolved: string = next;
+      try {
+        const cached = getHotCachedImageSrc(next);
+        if (cached) resolved = cached;
+        else warmCacheBackground(next);
+      } catch {}
+      imgRef.current.src = resolved;
     } else {
       setImgFailed(true);
     }
@@ -276,7 +299,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     if (currentOriginalUrl.current) warmCacheBackground(currentOriginalUrl.current);
   }, []);
 
-  const firstUrl = allUrls[0] ?? "";
+  const firstUrl = initialSrc;
 
   const compat = item.deckCompatCategory ?? 0;
   const playtime = formatPlaytime(item.playtimeMinutes);
@@ -569,11 +592,32 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         }}
       >
         <img
-          ref={imgRef}
+          ref={(el) => {
+            imgRef.current = el;
+            // Eager-load detection: if the browser already has the
+            // image decoded (hot blob URL, HTTP-cache hit), the
+            // refCallback fires AFTER React has assigned `src` and
+            // `el.complete + el.naturalWidth > 0` is true the same
+            // tick. Mark loaded synchronously so cached images skip
+            // the opacity-gate flash and never need a `onLoad` round
+            // trip. Cold loads stay gated (no broken-icon flash) and
+            // flip via the onLoad handler below.
+            if (el && el.complete && (el.naturalWidth || 0) > 0 && !imgLoaded) {
+              setImgLoaded(true);
+            }
+          }}
           src={firstUrl}
           alt={item.name}
           onError={onImgError}
           onLoad={onImgLoad}
+          decoding="async"
+          // opacity-gated again — `onError` swaps src through the
+          // fallback chain (/customimages/* → CDN), and each failing
+          // URL would otherwise briefly render the browser's broken-
+          // image glyph before the next fallback kicks in. The gate
+          // hides it; the ref callback above eliminates the visible
+          // wait for cached images so this is "instant for cached,
+          // glyph-free for cold".
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
           loading="eager"
           fetchPriority="high"

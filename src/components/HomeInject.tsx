@@ -723,6 +723,34 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     applyPatches();
     if (hasPendingFocus()) beginFocusRestoreLoop();
 
+    // rAF-throttled wrappers for the high-frequency callers below.
+    // Before: every subtree mutation (shimmer pulse, focus class flip,
+    // online-shelf label text resolution, img onload class) and every
+    // document-level focusin synchronously ran the full `applyPatches`
+    // (8 install functions including reparentNavTreeNodes which walks
+    // the entire gamepad nav tree). On a populated home with hero
+    // animations, this fired hundreds of times per second and was the
+    // main source of "como se algo estivesse rodando na mesma thread
+    // da UI, travando o sistema". Coalescing to one call per frame
+    // brings the cost down to ~60/sec while still catching every
+    // structural change Steam triggers between frames.
+    let applyPending: number | null = null;
+    const scheduleApplyPatches = () => {
+      if (applyPending != null) return;
+      applyPending = requestAnimationFrame(() => {
+        applyPending = null;
+        applyPatches();
+      });
+    };
+    let reparentPending: number | null = null;
+    const scheduleReparentOnly = () => {
+      if (reparentPending != null) return;
+      reparentPending = requestAnimationFrame(() => {
+        reparentPending = null;
+        reparentOnly();
+      });
+    };
+
     // Lazy-load assist for the `LibraryContextMenu` webpack chunk.
     // applyHideRecents now keeps native recents OFF-SCREEN (position
     // absolute at -99999px) instead of display:none, so React keeps the
@@ -751,7 +779,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     // native menu (e.g. in the library game detail view).
 
     // Observer 1: mutations inside our mount (shelf render, collapse/expand)
-    const obs = new MutationObserver(applyPatches);
+    const obs = new MutationObserver(scheduleApplyPatches);
     obs.observe(mountEl, { childList: true, subtree: true });
 
     // Observer 2: mutations on mount's PARENT — catches Steam's native home
@@ -759,7 +787,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     // node at the wrong tree level. Only listens to direct-child changes.
     let parentObs: MutationObserver | null = null;
     if (mountEl.parentElement) {
-      parentObs = new MutationObserver(reparentOnly);
+      parentObs = new MutationObserver(scheduleReparentOnly);
       parentObs.observe(mountEl.parentElement, { childList: true });
     }
 
@@ -773,11 +801,19 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
     // Focus events also signal Steam-driven tree changes; run reparent on
     // focusin at the document level (cheap; guard will no-op when correct).
+    // rAF-throttled — focusin fires for EVERY focus change (rapid d-pad
+    // navigation = many per frame), and reparentOnly's nav-tree walk +
+    // stability guard each take measurable time.
     const doc = mountEl.ownerDocument;
-    const onFocusIn = () => reparentOnly();
+    const onFocusIn = () => scheduleReparentOnly();
     doc?.addEventListener("focusin", onFocusIn, true);
 
     const win = getPreferredSteamWindow();
+    // popstate/hashchange are one-shot per nav (cheap to handle without
+    // throttling) AND we want them to run synchronously so focus
+    // restoration begins immediately on return from game detail —
+    // delaying by a frame can let Steam's own focus-first-card reflex
+    // race ahead and steal focus. So no throttle here.
     const onNavEvent = () => { applyPatches(); if (hasPendingFocus()) beginFocusRestoreLoop(); };
     win.addEventListener("popstate", onNavEvent);
     win.addEventListener("hashchange", onNavEvent);
@@ -790,6 +826,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       doc?.removeEventListener("focusin", onFocusIn, true);
       win.removeEventListener("popstate", onNavEvent);
       win.removeEventListener("hashchange", onNavEvent);
+      if (applyPending != null) cancelAnimationFrame(applyPending);
+      if (reparentPending != null) cancelAnimationFrame(reparentPending);
     };
   }, [mountEl]);
 
