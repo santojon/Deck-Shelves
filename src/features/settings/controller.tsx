@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings, writeJsonFile, readJsonFile } from "../../settingsStore";
-import type { FilterGroup, SavedFilter, Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../../types";
+import type { FilterGroup, SavedFilter, SavedSmartFilter, Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../../types";
 import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
@@ -388,6 +388,34 @@ export function useSettingsController() {
       if (!trimmed) return;
       const next = (s.savedFilters ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f));
       await persist({ ...s, savedFilters: next });
+    },
+    // saved smart filter CRUD. Mirrors saveFilter / deleteSavedFilter /
+    // renameSavedFilter shape so the QAM list and EditSmartShelfModal can
+    // both manage the saved-smart-filter catalogue with the same vocabulary.
+    async saveSmartFilter(name: string, payload: Omit<SavedSmartFilter, "id" | "name">): Promise<SavedSmartFilter | null> {
+      const s = liveSettings();
+      if (!s) return null;
+      const trimmed = (name || "").trim().slice(0, 64);
+      if (!trimmed) return null;
+      const id = `ssf_${Math.random().toString(36).slice(2, 10)}`;
+      const entry: SavedSmartFilter = { id, name: trimmed, ...payload };
+      const existing = s.savedSmartFilters ?? [];
+      await persist({ ...s, savedSmartFilters: [...existing, entry] });
+      return entry;
+    },
+    async deleteSavedSmartFilter(id: string) {
+      const s = liveSettings();
+      if (!s) return;
+      const next = (s.savedSmartFilters ?? []).filter((f) => f.id !== id);
+      await persist({ ...s, savedSmartFilters: next });
+    },
+    async renameSavedSmartFilter(id: string, name: string) {
+      const s = liveSettings();
+      if (!s) return;
+      const trimmed = (name || "").trim().slice(0, 64);
+      if (!trimmed) return;
+      const next = (s.savedSmartFilters ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f));
+      await persist({ ...s, savedSmartFilters: next });
     },
     async resetShelves() {
       const s = liveSettings();

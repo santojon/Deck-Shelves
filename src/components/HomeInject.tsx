@@ -627,6 +627,11 @@ export function HomeShelves() {
             filterGroup: (s as any).filterGroup,
             smartParams: (s as any).smartParams,
             refreshIntervalMinutes: (s as any).refreshIntervalMinutes,
+            // Composite source mixing — forwarded so the resolver can union /
+            // intersect multiple smart-mode candidate sets when the user has
+            // configured a composite shelf.
+            compositeModes: (s as any).compositeModes,
+            compositeCombine: (s as any).compositeCombine,
           } as any,
           // Surface user-configured overrides so resolveShelfAppIds +
           // Shelf.tsx can apply them on top of the mode's candidates.

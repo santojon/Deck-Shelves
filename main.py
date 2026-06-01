@@ -477,6 +477,17 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                 except Exception:
                     continue
             entry["visibleDaysOfWeek"] = sorted(cleaned_days)
+        # compositeModes / compositeCombine: optional source-mixing fields.
+        # compositeModes is a list of mode strings; compositeCombine is
+        # either "union" or "intersection". Both are dropped when invalid.
+        raw_cmodes = ss.get("compositeModes")
+        if isinstance(raw_cmodes, list):
+            cleaned_cmodes = [str(m)[:64] for m in raw_cmodes if isinstance(m, str) and m][:5]
+            if cleaned_cmodes:
+                entry["compositeModes"] = cleaned_cmodes
+        raw_ccombine = ss.get("compositeCombine")
+        if raw_ccombine in ("union", "intersection"):
+            entry["compositeCombine"] = raw_ccombine
         sanitized_smart.append(entry)
 
     try:
@@ -539,8 +550,28 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                 entry_ss["limit"] = max(1, min(int(sf["limit"]), 100))
         except Exception:
             pass
+        # visibleHours: array of { start, end, days? } ranges (mirrors
+        # SmartShelf.visibleHours so saved entries round-trip cleanly).
         if isinstance(sf.get("visibleHours"), list):
-            entry_ss["visibleHours"] = [int(h) for h in sf["visibleHours"] if isinstance(h, (int, float)) and 0 <= int(h) <= 23]
+            cleaned_hours = []
+            for r in sf["visibleHours"]:
+                if not isinstance(r, dict):
+                    continue
+                try:
+                    start_h = int(r.get("start"))
+                    end_h = int(r.get("end"))
+                except (TypeError, ValueError):
+                    continue
+                if not (0 <= start_h <= 23 and 0 <= end_h <= 23):
+                    continue
+                entry_h: Dict[str, Any] = {"start": start_h, "end": end_h}
+                if isinstance(r.get("days"), list):
+                    days = [int(d) for d in r["days"] if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
+                    if days:
+                        entry_h["days"] = days
+                cleaned_hours.append(entry_h)
+            if cleaned_hours:
+                entry_ss["visibleHours"] = cleaned_hours
         if isinstance(sf.get("visibleDaysOfWeek"), list):
             entry_ss["visibleDaysOfWeek"] = [int(d) for d in sf["visibleDaysOfWeek"] if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
         sanitized_saved_smart.append(entry_ss)

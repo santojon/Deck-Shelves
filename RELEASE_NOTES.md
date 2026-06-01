@@ -7,6 +7,17 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
+- **Smart-shelf mode is now editable.** The Source tab of the smart-shelf editor has a mode dropdown (was read-only). Change the data source of a smart shelf without recreating it.
+- **Combine smart-shelf modes.** A new "Combine modes" picker on the smart-shelf editor lets you mix multiple smart modes into one shelf — pick Union (any mode matches) or Intersection (all modes match). Same mental model as combining sources on regular shelves.
+- **6 new smart-shelf templates** that read live device + Steam data:
+  - **Low battery mode** — when the Deck is on battery below 30% (tunable), surfaces the smallest, shortest-playtime games first. On AC / unknown battery, falls back to the Short battery candidates so the shelf isn't empty.
+  - **Almost finished** — games with achievement progress at or above 70% (tunable). Best-effort: relies on Steam achievement data being cached for each game.
+  - **Couch gaming** — games tagged with Shared/Split Screen multi-player.
+  - **Co-op ready** — games tagged with Co-op or Online Co-op.
+  - **Party games** — games tagged with Local Multi-Player / Local PvP / Party.
+  - **Friends playing** — games your Steam friends are playing right now (or, optionally, played in the last 14 days). Requires Online features to be on; reuses the existing Online toggle.
+  - The category-based templates depend on Steam's store category data being reachable. First paint may be empty; subsequent refresh ticks populate.
+
 - **Decoration cards.** A new "Decoration" tab lets you pin fixed-slot cards in any shelf: a text label, an image banner, a focusable URL shortcut, or a transparent gap that focus skips over. New cards land at the slot you focused in the preview, and the shelf auto-switches to manual sort so you can drag them around later.
 - **Combine sources in a single shelf.** Pick a primary source, then "+ Add source" stacks extras inline. A Union / Intersection toggle appears as soon as a second source is added.
 - **Multi-key sort (primary + tiebreakers).** "Add secondary sort" adds extra keys; e.g. picking `discount %` + `metacritic` orders by discount with metacritic breaking ties. Each key has its own asc/desc toggle. `manual` and `random` only valid as a single primary.
@@ -25,6 +36,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **"Decoration" entry on the shelf context menu** sits at the same visual level as Display and Visual, no longer buried under Management.
 
 ### Fixed
+
+- **"100% off" / "Free now" store shelves were rendering empty even when matching games existed on the Steam store.** Root cause: free-weekend / free-play-days titles aren't returned by Steam's regular "Specials" query alone — they require a combined "Specials AND Free" query that we weren't running. Added that fourth endpoint and forced existing users to refresh the store cache. Free-weekend titles now show up correctly on "100% off" and "Free now" shelves.
 
 - **Returning from a game detail page no longer "reloads" everything.** Previously, navigating to a game (or any other screen) was destroying the entire home React tree, so coming back triggered every shelf to re-resolve, every card to flash through the shimmer, and every hero art to re-fetch. Now the tree stays alive while the home is invisible — when you come back, everything is exactly where you left it, instant.
 - **"Add to shelf" actually adds the game.** The library context menu's "Adicionar à prateleira" wasn't taking effect — the appid was being silently dropped because it wasn't in the shelf's underlying source. Menu-added games now appear at the end of the shelf (and the preview shows them with the new blue + marker).

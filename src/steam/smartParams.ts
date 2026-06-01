@@ -51,10 +51,26 @@ export const DEFAULT_SORT_FOR_MODE: Record<SmartShelfMode, string> = {
   // Heuristic templates — internal ordering takes precedence,
   // so the sort field is the post-resolve fallback applied after the
   // heuristic ranks the candidate pool.
-  backlog_rescue:  "recent",
-  forgotten_gems:  "review_score",
-  weekly_rotation: "alphabetical",
-  custom:          "alphabetical",
+  backlog_rescue:        "recent",
+  forgotten_gems:        "review_score",
+  weekly_rotation:       "alphabetical",
+  // Second-wave heuristic templates.
+  short_battery:         "recent",
+  long_session_night:    "playtime",
+  travel_mode:           "size_on_disk",
+  hidden_gems:           "review_score",
+  never_touched_classics:"added",
+  recent_hidden_installs:"added",
+  monthly_spotlight:     "alphabetical",
+  seasonal_rotation:     "alphabetical",
+  // Runtime-aware templates (battery / achievements / store categories).
+  low_battery_mode:      "recent",
+  almost_finished:       "review_score",
+  couch_gaming:          "recent",
+  coop_ready:            "recent",
+  party_games:           "recent",
+  friends_playing:       "recent",
+  custom:                "alphabetical",
 };
 
 export const SMART_PARAM_DEFAULTS: Record<SmartShelfMode, SmartParams> = {
@@ -82,10 +98,31 @@ export const SMART_PARAM_DEFAULTS: Record<SmartShelfMode, SmartParams> = {
   // heuristic templates. Defaults chosen so the resolver
   // surfaces a reasonable shelf on a fresh install without forcing the
   // user into the smart-params editor.
-  backlog_rescue:  { minPlaytimeMinutes: 60, stalenessDays: 30, cooldownDays: 14, minDeckLevel: 0 },
-  forgotten_gems:  { minMetacritic: 80, minReviewScore: 85, minDeckLevel: 0 },
-  weekly_rotation: { rotateEveryDays: 7, minDeckLevel: 0 },
-  custom:          {},
+  backlog_rescue:         { minPlaytimeMinutes: 60, stalenessDays: 30, cooldownDays: 14, minDeckLevel: 0 },
+  forgotten_gems:         { minMetacritic: 80, minReviewScore: 85, minDeckLevel: 0 },
+  weekly_rotation:        { rotateEveryDays: 7, minDeckLevel: 0 },
+  // Second-wave heuristic templates.
+  short_battery:          { maxPlaytimeMinutes: 120, maxSizeMb: 4096, minDeckLevel: 2 },
+  long_session_night:     { minPlaytimeMinutes: 180, minDeckLevel: 0 },
+  travel_mode:            { maxSizeMb: 5120, minDeckLevel: 2 },
+  hidden_gems:            { minReviewScore: 85, minDeckLevel: 0 },
+  never_touched_classics: { yearsAgo: 3, minDeckLevel: 0 },
+  recent_hidden_installs: { daysAgo: 30, minDeckLevel: 0 },
+  monthly_spotlight:      { rotateEveryDays: 30, minDeckLevel: 0 },
+  seasonal_rotation:      { rotateEveryDays: 90, minDeckLevel: 0 },
+  // Runtime-aware templates.
+  low_battery_mode:       { batteryThresholdPct: 30, maxPlaytimeMinutes: 120, maxSizeMb: 4096, minDeckLevel: 2 },
+  almost_finished:        { minAchievementPct: 70, minDeckLevel: 0 },
+  couch_gaming:           { minDeckLevel: 0 },
+  coop_ready:             { minDeckLevel: 0 },
+  party_games:            { minDeckLevel: 0 },
+  // includeRecentlyPlayed: 0 = only currently in-game RIGHT NOW; 1 = also
+  // include apps any friend was seen playing in the last ~14 days. Default
+  // 1 because "no friends in-game right this second" is the common case
+  // even with a healthy friends list; the recently-played fallback keeps
+  // the shelf populated.
+  friends_playing:        { minDeckLevel: 0, includeRecentlyPlayed: 1 },
+  custom:                 {},
 };
 
 export type SmartParamKind = "slider" | "text" | "dropdown";
@@ -141,7 +178,21 @@ export const SMART_PARAM_META: Record<string, SmartParamMeta> = {
   cooldownDays:     { labelKey: "smart_param_cooldown_days",    min: 0,  max: 60,  step: 1, unitKey: "smart_unit_days" },
   minMetacritic:    { labelKey: "smart_param_min_metacritic",   min: 0,  max: 100, step: 5 },
   minReviewScore:   { labelKey: "smart_param_min_review_score", min: 0,  max: 100, step: 5 },
-  rotateEveryDays:  { labelKey: "smart_param_rotate_every_days", min: 1, max: 30,  step: 1, unitKey: "smart_unit_days" },
+  rotateEveryDays:  { labelKey: "smart_param_rotate_every_days", min: 1, max: 120, step: 1, unitKey: "smart_unit_days" },
+  // Second-wave heuristic-template knobs.
+  maxSizeMb:        { labelKey: "smart_param_max_size_mb",       min: 256, max: 51200, step: 256, unitKey: "smart_unit_mb", kind: "text" },
+  // Runtime-aware template knobs.
+  batteryThresholdPct: { labelKey: "smart_param_battery_threshold", min: 5, max: 100, step: 5, unitKey: "smart_unit_pct" },
+  minAchievementPct:   { labelKey: "smart_param_min_achievement",   min: 0, max: 99, step: 5, unitKey: "smart_unit_pct" },
+  includeRecentlyPlayed: {
+    labelKey: "smart_param_include_recently_played",
+    min: 0, max: 1, step: 1,
+    kind: "dropdown",
+    options: [
+      { value: 0, labelKey: "smart_param_recently_played_no" },
+      { value: 1, labelKey: "smart_param_recently_played_yes" },
+    ],
+  },
 };
 
 /**

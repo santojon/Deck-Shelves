@@ -10,6 +10,8 @@ import { installHomePatch } from "./runtime/homePatch";
 import { installRecentsReplace } from "./runtime/recentsReplace";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
+import { installBatteryState } from "./runtime/batteryState";
+import { installFriendsState } from "./runtime/friendsState";
 import { installPluginApi } from "./core/pluginApi";
 import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
@@ -104,6 +106,8 @@ export default definePlugin((serverAPI?: any) => {
   const recentsReplacePatch = installRecentsReplace(routerHook);
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
+  const uninstallBatteryState = installBatteryState();
+  const uninstallFriendsState = installFriendsState();
   const uninstallPluginApi = installPluginApi();
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
@@ -257,6 +261,8 @@ export default definePlugin((serverAPI?: any) => {
         routerHook?.removeRoute?.(MANAGE_ROUTE);
         uninstallRefresh();
         uninstallSystemEvents();
+        uninstallBatteryState();
+        uninstallFriendsState();
         uninstallPluginApi();
         unsubUpdateNotify();
       } catch (error) {

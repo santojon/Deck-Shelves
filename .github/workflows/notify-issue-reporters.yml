@@ -1,0 +1,212 @@
+name: Notify Issue Reporters
+
+# Posts a comment on every issue referenced by the PRs included in a newly
+# published release, pinging the original reporter so they can verify whether
+# the shipped work addresses their report.
+#
+# Trigger: fires AFTER the release is published by `release.yml` — the
+# `release: published` webhook event runs this workflow as a separate job.
+# Manual dispatch is also supported (pass `tag`) to re-run for a past release.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to scan (defaults to the latest published release)'
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (full history — needed for git log between tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve target release
+        id: rel
+        env:
+          REPO: ${{ github.repository }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ -n "$INPUT_TAG" ]; then
+              REL_JSON=$(gh api "repos/$REPO/releases/tags/$INPUT_TAG")
+            else
+              REL_JSON=$(gh api "repos/$REPO/releases/latest")
+            fi
+          else
+            # release:published event payload carries the release object
+            REL_JSON=$(jq -c '.release' "$GITHUB_EVENT_PATH")
+          fi
+          TAG=$(echo "$REL_JSON" | jq -r '.tag_name')
+          URL=$(echo "$REL_JSON" | jq -r '.html_url')
+          NAME=$(echo "$REL_JSON" | jq -r '.name // empty')
+          if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+            echo "No release tag resolved — nothing to do."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Resolved release: $TAG ($URL)"
+
+      - name: Find previous release tag
+        if: steps.rel.outputs.skip != '1'
+        id: prev
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.rel.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Walk published releases (newest first) and pick the first tag that
+          # isn't ours. Drafts / prereleases are skipped so the diff window
+          # matches what users actually see in the Releases page.
+          PREV=$(gh api "repos/$REPO/releases?per_page=30" \
+            --jq "[.[] | select(.draft == false and .prerelease == false) | .tag_name] | map(select(. != \"$TAG\")) | .[0]")
+          if [ -z "$PREV" ] || [ "$PREV" = "null" ]; then
+            echo "No previous release found — will fall back to the last 50 commits."
+            echo "prev_tag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Previous release tag: $PREV"
+            echo "prev_tag=$PREV" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect merged PRs included in this release
+        if: steps.rel.outputs.skip != '1'
+        id: prs
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.rel.outputs.tag }}
+          PREV_TAG: ${{ steps.prev.outputs.prev_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Resolve the commit range. When a previous tag exists, use the
+          # standard "tag..tag" range. Otherwise fall back to the last 50
+          # commits — bounded so a first-release scan doesn't try to walk
+          # the entire repo history.
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${TAG}"
+          else
+            RANGE=$(git log --format='%H' -n 50 "$TAG" | tail -1)..${TAG}
+          fi
+          echo "Commit range: $RANGE"
+
+          # For each commit in the range, ask the GitHub API which PRs it
+          # belongs to (the merge commit's "associated PRs"). De-duplicate
+          # the resulting PR numbers.
+          PRS=""
+          for sha in $(git log --format='%H' "$RANGE"); do
+            ASSOC=$(gh api "repos/$REPO/commits/$sha/pulls" --jq '.[].number' 2>/dev/null || true)
+            if [ -n "$ASSOC" ]; then
+              PRS="$PRS"$'\n'"$ASSOC"
+            fi
+          done
+          UNIQUE_PRS=$(printf '%s\n' "$PRS" | grep -v '^$' | sort -un | tr '\n' ' ' | sed 's/ $//')
+          echo "PRs in this release: ${UNIQUE_PRS:-<none>}"
+          # Emit as space-separated; downstream loop iterates.
+          {
+            echo "list<<EOF"
+            echo "$UNIQUE_PRS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment on referenced issues
+        if: steps.rel.outputs.skip != '1' && steps.prs.outputs.list != ''
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.rel.outputs.tag }}
+          URL: ${{ steps.rel.outputs.url }}
+          NAME: ${{ steps.rel.outputs.name }}
+          PR_LIST: ${{ steps.prs.outputs.list }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          REL_DISPLAY="${NAME:-$TAG}"
+
+          # Collect all issue numbers referenced by any PR in this release.
+          # Recognised patterns (case-insensitive, GitHub's auto-link set):
+          #   Closes #N        Closed #N
+          #   Fix #N           Fixes #N           Fixed #N
+          #   Resolve #N       Resolves #N        Resolved #N
+          #   Refs #N          Ref #N
+          #   Related to #N
+          # Cross-repo references (owner/repo#N) are intentionally skipped —
+          # we only comment on issues in this repository.
+          declare -A SEEN_ISSUES
+          for pr in $PR_LIST; do
+            BODY=$(gh pr view "$pr" --repo "$REPO" --json body --jq '.body' 2>/dev/null || true)
+            if [ -z "$BODY" ]; then continue; fi
+            # Extract the issue numbers, normalize, dedupe per release.
+            ISSUES=$(printf '%s' "$BODY" \
+              | grep -oiE '(close[ds]?|fix(e[ds])?|resolve[ds]?|ref[s]?|related to)[: ]+#[0-9]+' \
+              | grep -oE '#[0-9]+' \
+              | tr -d '#' \
+              | sort -un || true)
+            for issue in $ISSUES; do
+              if [ -n "${SEEN_ISSUES[$issue]:-}" ]; then continue; fi
+              SEEN_ISSUES[$issue]=1
+
+              # Fetch the issue's reporter + state. Skip if the issue doesn't
+              # exist or is a PR (PRs share the issues namespace; we only
+              # want real issues).
+              ISSUE_JSON=$(gh api "repos/$REPO/issues/$issue" 2>/dev/null || true)
+              if [ -z "$ISSUE_JSON" ]; then
+                echo "Issue #$issue: not found — skipping."
+                continue
+              fi
+              IS_PR=$(echo "$ISSUE_JSON" | jq -r '.pull_request // empty')
+              if [ -n "$IS_PR" ]; then
+                echo "Issue #$issue: actually a PR — skipping."
+                continue
+              fi
+              REPORTER=$(echo "$ISSUE_JSON" | jq -r '.user.login // empty')
+              if [ -z "$REPORTER" ]; then
+                echo "Issue #$issue: no reporter — skipping."
+                continue
+              fi
+
+              # Idempotency: if a previous workflow run already commented for
+              # this tag (e.g. workflow retried after a partial failure), skip.
+              EXISTING=$(gh api "repos/$REPO/issues/$issue/comments?per_page=100" \
+                --jq "[.[] | select(.user.login == \"github-actions[bot]\") | .body] | map(select(contains(\"$TAG\"))) | length")
+              if [ "${EXISTING:-0}" -gt 0 ]; then
+                echo "Issue #$issue: already commented for $TAG — skipping."
+                continue
+              fi
+
+              # Post the comment. Tag the reporter + link the release.
+              # Body assembled via printf to avoid heredoc-vs-YAML indentation
+              # pitfalls (YAML `|` strips common indent; bash heredoc closer
+              # needs column 0 after the strip — finicky to get right).
+              COMMENT=$(printf '%s\n\n%s\n\n%s\n' \
+                "Hi @$REPORTER — the latest release [${REL_DISPLAY}](${URL}) ships work that referenced this issue." \
+                "Could you try the new version and confirm whether it resolves what you reported here? If it does, feel free to close the issue. If something's still off, drop a note with what's different and we'll take another look." \
+                "Thanks for the report!")
+              echo "Issue #$issue: commenting (@$REPORTER)…"
+              gh api "repos/$REPO/issues/$issue/comments" \
+                -f body="$COMMENT" \
+                --silent
+            done
+          done
+
+          if [ ${#SEEN_ISSUES[@]} -eq 0 ]; then
+            echo "No issues referenced by any PR in this release — nothing to comment."
+          else
+            echo "Posted reporter notifications for ${#SEEN_ISSUES[@]} issue(s)."
+          fi

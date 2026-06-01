@@ -33,6 +33,7 @@ import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
 import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
+import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 import { CollapsibleSection } from './ui'
@@ -81,6 +82,19 @@ function SavedFiltersList({ controller }: { controller: SettingsController }) {
   return (
     <div className='deck-shelves-shelf-list'>
       {saved.map((f) => <SavedFilterRow key={f.id} controller={controller} savedFilter={f} />)}
+    </div>
+  )
+}
+
+function SavedSmartFiltersList({ controller }: { controller: SettingsController }) {
+  const { t, settings } = controller
+  const saved = settings?.savedSmartFilters ?? []
+  if (saved.length === 0) {
+    return <div style={{ padding: '4px 16px', opacity: 0.7 }}>{t('saved_smart_filter_empty' as any)}</div>
+  }
+  return (
+    <div className='deck-shelves-shelf-list'>
+      {saved.map((f) => <SavedSmartFilterRow key={f.id} controller={controller} savedSmartFilter={f} />)}
     </div>
   )
 }
@@ -441,6 +455,17 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         count={settings.savedFilters?.length ?? 0}
       >
         <SavedFiltersList controller={controller} />
+      </CollapsibleSection>
+      )}
+
+      {settings.enabled && (settings.savedSmartFilters?.length ?? 0) > 0 && (
+      <CollapsibleSection
+        id='saved_smart_filters'
+        icon={<BookmarkIcon />}
+        title={t('saved_smart_filters_section' as any)}
+        count={settings.savedSmartFilters?.length ?? 0}
+      >
+        <SavedSmartFiltersList controller={controller} />
       </CollapsibleSection>
       )}
 

@@ -62,7 +62,14 @@ export const SavedSmartFilterSchema = z.object({
   sort: z.union([z.string(), z.array(z.string())]).optional(),
   sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   limit: z.number().int().min(1).max(100).optional(),
-  visibleHours: z.array(z.number().int().min(0).max(23)).optional(),
+  // Same shape as SmartShelf.visibleHours so a saved entry round-trips
+  // cleanly through apply / save without lossy conversion. Array of
+  // { start, end, days? } ranges; OR-combined; days optional per range.
+  visibleHours: z.array(z.object({
+    start: z.number().int().min(0).max(23),
+    end: z.number().int().min(0).max(23),
+    days: z.array(z.number().int().min(0).max(6)).optional(),
+  })).optional(),
   visibleDaysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
 });
 export type SavedSmartFilter = z.infer<typeof SavedSmartFilterSchema>;
@@ -129,6 +136,37 @@ export const SmartShelfModeSchema = z.enum([
   "backlog_rescue",
   "forgotten_gems",
   "weekly_rotation",
+  // v2 heuristic templates — second wave (composes existing AppOverview
+  // signals: playtime, last_played, deck_compatibility_category, size_on_disk,
+  // review_percentage, rt_purchased_time). No new backend signals needed.
+  "short_battery",
+  "long_session_night",
+  "travel_mode",
+  "hidden_gems",
+  "never_touched_classics",
+  "recent_hidden_installs",
+  "monthly_spotlight",
+  "seasonal_rotation",
+  // Battery-aware template: only resolves to its candidate pool when the
+  // device is actually on battery below the threshold. When battery is OK
+  // / charging / unknown, the resolver returns the same candidates as
+  // short_battery (Deck-friendly + small) so the shelf isn't empty.
+  "low_battery_mode",
+  // Achievement-aware: nearly-complete achievement progress per app.
+  // Best-effort against SteamClient.Apps appDetails; returns empty when
+  // achievement data isn't reachable.
+  "almost_finished",
+  // store_categories-aware: local multi-player / co-op / party. Best-effort
+  // against SteamClient.Apps.RegisterForAppDetails(.vecCategories); returns
+  // empty when category data isn't reachable.
+  "couch_gaming",
+  "coop_ready",
+  "party_games",
+  // Online-gated runtime template: reads Steam friends presence via
+  // `friendStore.allFriends`. Returns empty when onlineFeaturesEnabled is
+  // off (reuses the existing master toggle — no new toggle needed since
+  // friends presence is conceptually network-sourced).
+  "friends_playing",
   "custom",
 ]);
 export type SmartShelfMode = z.infer<typeof SmartShelfModeSchema>;
@@ -201,6 +239,15 @@ export const SmartShelfSchema = z.object({
   // (see `SMART_PARAM_META` in `src/steam/smartParams.ts`); values are
   // numbers. Missing entries fall back to the resolver's hardcoded defaults.
   smartParams: z.record(z.string(), z.number()).optional(),
+  // Source mixing for smart shelves: when populated, the resolver evaluates
+  // each `compositeModes` entry independently (each shares the parent's
+  // `smartParams`) and merges the results per `compositeCombine`. The
+  // primary `mode` is treated as the first item of the composite so older
+  // clients that don't read these fields keep getting the single-mode
+  // behaviour. Mirrors regular `ShelfSource = "composite"` semantics so
+  // both shelf kinds expose the same mental model.
+  compositeModes: z.array(SmartShelfModeSchema).max(5).optional(),
+  compositeCombine: z.enum(["union", "intersection"]).optional(),
   // Optional visibility windows. When non-empty, the shelf only appears
   // when the current local time falls inside ANY of the ranges (OR across
   // the array). Each range has `start`/`end` hours in `[0, 23]`. Empty

@@ -2,6 +2,10 @@ import type { AppOverview } from "./index";
 import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
+import { getBatteryState } from "../runtime/batteryState";
+import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
+import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
+import { getCurrentSettings } from "../store/settingsStore";
 
 const resolverCache = new Map<string, { ts: number; ids: number[] }>();
 const DEFAULT_SMART_TTL_MS = 60 * 60 * 1000;
@@ -394,6 +398,319 @@ function resolveWeeklyRotation(apps: AppOverview[], limit: number, params?: Smar
   return rotateWindow(pool, `weekly_rotation:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
 }
 
+// Second-wave heuristic templates (Sprint 8 closure). Each composes existing
+// AppOverview signals (size_on_disk, review_percentage, rt_purchased_time)
+// + the rotateWindow primitive — no new backend signals required.
+
+function sizeOnDiskBytes(app: AppOverview): number {
+  return Number((app as any).size_on_disk ?? 0);
+}
+
+/** Short battery — installed games small enough + Deck-friendly + short
+ *  playtime threshold. Heuristic proxy for "quick session that won't
+ *  drain the deck": cap install size + cap playtime + require Deck
+ *  Verified/Playable. */
+function resolveShortBattery(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const maxPt = getParam("short_battery", params, "maxPlaytimeMinutes");
+  const maxSizeMb = getParam("short_battery", params, "maxSizeMb");
+  const minDeck = getParam("short_battery", params, "minDeckLevel");
+  const maxBytes = maxSizeMb * 1024 * 1024;
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      a.installed &&
+      playtimeMinutes(a) <= maxPt &&
+      sizeOnDiskBytes(a) > 0 && sizeOnDiskBytes(a) <= maxBytes &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Long session night — same pool/filter as long_session; differentiation
+ *  is the template-level default visibleHours preset (19h–23h), wired in
+ *  createDefaultSmartShelf. Resolver-side behaviour mirrors long_session
+ *  so users get the same ranking. */
+function resolveLongSessionNight(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const minPt = getParam("long_session_night", params, "minPlaytimeMinutes");
+  const minDeck = getParam("long_session_night", params, "minDeckLevel");
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      a.installed &&
+      playtimeMinutes(a) > minPt &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => playtimeMinutes(b) - playtimeMinutes(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Travel mode — installed games small enough to fit alongside others on
+ *  a microSD or modest internal SSD. Same Deck-compat floor as
+ *  short_battery; differentiation is the larger default size cap (5 GB
+ *  vs 4 GB) and no playtime cap (any installed small game). */
+function resolveTravelMode(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const maxSizeMb = getParam("travel_mode", params, "maxSizeMb");
+  const minDeck = getParam("travel_mode", params, "minDeckLevel");
+  const maxBytes = maxSizeMb * 1024 * 1024;
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      a.installed &&
+      sizeOnDiskBytes(a) > 0 && sizeOnDiskBytes(a) <= maxBytes &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => sizeOnDiskBytes(a) - sizeOnDiskBytes(b))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Hidden gems — owned games with high review percentage AND zero
+ *  playtime. Same shape as forgotten_gems but without the metacritic
+ *  axis (review_percentage only) and without the acquisition-time
+ *  bias. */
+function resolveHiddenGems(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const minReview = getParam("hidden_gems", params, "minReviewScore");
+  const minDeck = getParam("hidden_gems", params, "minDeckLevel");
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      playtimeMinutes(a) === 0 &&
+      lastPlayedSec(a) === 0 &&
+      ((a as any).review_percentage ?? 0) >= minReview &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => (((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0)))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Never touched classics — games acquired years ago that you've never
+ *  launched. rt_purchased_time is the proxy for "in the library for a
+ *  long time"; ordering surfaces oldest acquisitions first. */
+function resolveNeverTouchedClassics(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const years = getParam("never_touched_classics", params, "yearsAgo");
+  const minDeck = getParam("never_touched_classics", params, "minDeckLevel");
+  const cutoff = Math.floor(Date.now() / 1000) - years * 365 * 24 * 3600;
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      playtimeMinutes(a) === 0 &&
+      lastPlayedSec(a) === 0 &&
+      rtAcquired(a) > 0 &&
+      rtAcquired(a) < cutoff &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => rtAcquired(a) - rtAcquired(b))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Recent hidden installs — installed in the last N days but never
+ *  launched. Differs from forgotten/never_touched_classics in that it
+ *  surfaces RECENT acquisitions that fell through the cracks rather
+ *  than ancient ones. */
+function resolveRecentHiddenInstalls(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const days = getParam("recent_hidden_installs", params, "daysAgo");
+  const minDeck = getParam("recent_hidden_installs", params, "minDeckLevel");
+  const cutoff = Math.floor(Date.now() / 1000) - days * 24 * 3600;
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      a.installed &&
+      playtimeMinutes(a) === 0 &&
+      lastPlayedSec(a) === 0 &&
+      rtAcquired(a) >= cutoff &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => rtAcquired(b) - rtAcquired(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Monthly spotlight — round-robin over installed games, rotating every
+ *  30 days by default. Same primitive as weekly_rotation with a longer
+ *  default window. */
+function resolveMonthlySpotlight(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
+  const rotateDays = getParam("monthly_spotlight", params, "rotateEveryDays");
+  const minDeck = getParam("monthly_spotlight", params, "minDeckLevel");
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    a.installed &&
+    deckCompat(a) >= minDeck,
+  );
+  return rotateWindow(pool, `monthly_spotlight:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
+}
+
+/** Seasonal rotation — round-robin over installed games, rotating every
+ *  90 days by default (one season). Same primitive as weekly_rotation
+ *  with a 90-day window. */
+function resolveSeasonalRotation(apps: AppOverview[], limit: number, params?: SmartParams, shelfId?: string): number[] {
+  const rotateDays = getParam("seasonal_rotation", params, "rotateEveryDays");
+  const minDeck = getParam("seasonal_rotation", params, "minDeckLevel");
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    a.installed &&
+    deckCompat(a) >= minDeck,
+  );
+  return rotateWindow(pool, `seasonal_rotation:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
+}
+
+// Runtime-aware templates: consult battery state / appDetails cache. Each
+// falls back to a deterministic empty / heuristic result when the runtime
+// data isn't available, so the shelf never crashes — it just renders empty
+// (consistent with other empty-source semantics across the plugin).
+
+/** Low battery mode — only surfaces a candidate set when the device is
+ *  actually on battery + below the configured threshold. When the runtime
+ *  battery probe is unavailable OR battery is OK / charging, returns the
+ *  same candidates as short_battery so the shelf is non-empty under common
+ *  conditions (desktop preview, dock, etc.). */
+function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const threshold = getParam("low_battery_mode", params, "batteryThresholdPct") / 100;
+  const maxPt = getParam("low_battery_mode", params, "maxPlaytimeMinutes");
+  const maxSizeMb = getParam("low_battery_mode", params, "maxSizeMb");
+  const minDeck = getParam("low_battery_mode", params, "minDeckLevel");
+  const maxBytes = maxSizeMb * 1024 * 1024;
+  const battery = getBatteryState();
+  const isOnBatteryLow = battery?.hasBattery === true && battery.state === "discharging" && battery.level > 0 && battery.level <= threshold;
+  // Same selection rules as short_battery (installed + small + Deck-friendly
+  // + short playtime). The differentiation is the visibility-on-low-battery
+  // semantic: when battery is OK, the shelf still renders but with the same
+  // candidates as short_battery — users get a useful set in any device state.
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    a.installed &&
+    playtimeMinutes(a) <= maxPt &&
+    Number((a as any).size_on_disk ?? 0) > 0 &&
+    Number((a as any).size_on_disk ?? 0) <= maxBytes &&
+    deckCompat(a) >= minDeck,
+  );
+  // When battery IS low: hoist the focused subset to the front (small + low
+  // playtime first). Otherwise normal ordering (Deck level + recent).
+  if (isOnBatteryLow) {
+    return pool
+      .sort((a, b) => (Number((a as any).size_on_disk ?? 0) - Number((b as any).size_on_disk ?? 0)) || (playtimeMinutes(a) - playtimeMinutes(b)))
+      .slice(0, limit)
+      .map((a) => a.appid);
+  }
+  return pool
+    .sort((a, b) => deckCompat(b) - deckCompat(a) || lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+/** Almost finished — installed games with achievement progress ≥ threshold.
+ *  Consults the appDetailsCache (lazy-populated via SteamClient.Apps
+ *  appDetails). Returns empty when achievement data isn't yet cached for
+ *  any app; the next refresh tick (after cache warms) populates the shelf. */
+function resolveAlmostFinished(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  const minPct = getParam("almost_finished", params, "minAchievementPct");
+  const minDeck = getParam("almost_finished", params, "minDeckLevel");
+  // Pre-filter to a tractable pool (installed Steam games with playtime > 0)
+  // then schedule a batch preload so subsequent refreshes have full data.
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    a.installed &&
+    playtimeMinutes(a) > 0 &&
+    deckCompat(a) >= minDeck,
+  );
+  preloadAppDetailsSummaries(pool.map((a) => a.appid));
+  return pool
+    .map((a) => ({ app: a, pct: getAppAchievementPct(a.appid) }))
+    .filter((x) => Number.isFinite(x.pct) && x.pct >= minPct && x.pct < 100)
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, limit)
+    .map((x) => x.app.appid);
+}
+
+// store_categories-aware templates. Substring-match (case-insensitive)
+// against Steam's category names — built-in keywords cover the canonical
+// English names; localized installs may not match, in which case the shelf
+// is empty. Fix is to extend the keyword list per locale (i18n).
+
+const COUCH_GAMING_KEYWORDS = ["shared/split screen", "shared screen", "split screen", "couch"];
+const COOP_KEYWORDS = ["co-op", "coop", "online co-op", "online coop"];
+const PARTY_KEYWORDS = ["local multi-player", "local multiplayer", "local pvp", "party"];
+
+function resolveByCategoryKeywords(apps: AppOverview[], limit: number, params: SmartParams | undefined, paramKey: any, keywords: string[]): number[] {
+  const minDeck = getParam(paramKey, params, "minDeckLevel");
+  const pool = apps.filter((a) =>
+    !a.is_non_steam &&
+    (a.app_type === undefined || a.app_type === 1) &&
+    deckCompat(a) >= minDeck,
+  );
+  preloadAppDetailsSummaries(pool.map((a) => a.appid));
+  return pool
+    .filter((a) => appHasAnyCategory(a.appid, keywords))
+    .sort((a, b) => lastPlayedSec(b) - lastPlayedSec(a))
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
+function resolveCouchGaming(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  return resolveByCategoryKeywords(apps, limit, params, "couch_gaming", COUCH_GAMING_KEYWORDS);
+}
+
+function resolveCoopReady(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  return resolveByCategoryKeywords(apps, limit, params, "coop_ready", COOP_KEYWORDS);
+}
+
+function resolvePartyGames(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  return resolveByCategoryKeywords(apps, limit, params, "party_games", PARTY_KEYWORDS);
+}
+
+/** Friends playing — apps any friend is in-game RIGHT NOW (and, when
+ *  `includeRecentlyPlayed` = 1, apps any friend was seen playing in the
+ *  last ~14 days). Online-gated: returns empty when `onlineFeaturesEnabled`
+ *  is off OR when the friend cache is empty (offline / not signed in).
+ *  Resolves against the user's library so the shelf only surfaces games
+ *  the user actually owns. */
+function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
+  // Online gate: reuse the same master toggle as wishlist / store. When the
+  // user has online features off, friends data is treated as off too —
+  // consistent with the rest of the online-gated UX. Local friend cache
+  // may still have stale entries; gating here prevents the resolver from
+  // surfacing them.
+  try {
+    const s = getCurrentSettings();
+    if (s?.onlineFeaturesEnabled !== true) return [];
+  } catch { return []; }
+  const minDeck = getParam("friends_playing", params, "minDeckLevel");
+  const includeRecent = getParam("friends_playing", params, "includeRecentlyPlayed") === 1;
+  const liveSet = getFriendsPlayingAppIds();
+  const friendSet = includeRecent ? getFriendsRecentlyPlayedAppIds() : liveSet;
+  if (friendSet.size === 0) return [];
+  return apps
+    .filter((a) =>
+      !a.is_non_steam &&
+      (a.app_type === undefined || a.app_type === 1) &&
+      friendSet.has(a.appid) &&
+      deckCompat(a) >= minDeck,
+    )
+    .sort((a, b) => {
+      // Currently-playing friends rank first; recent-only fallback to last_played.
+      const aLive = liveSet.has(a.appid) ? 1 : 0;
+      const bLive = liveSet.has(b.appid) ? 1 : 0;
+      if (aLive !== bLive) return bLive - aLive;
+      return lastPlayedSec(b) - lastPlayedSec(a);
+    })
+    .slice(0, limit)
+    .map((a) => a.appid);
+}
+
 /**
  * Resolve the appids for a smart shelf.
  *
@@ -445,9 +762,23 @@ export function resolveSmartShelf(
         case "videos":          return resolveVideos(apps, limit);
         case "demos":           return resolveDemos(apps, limit);
         case "cloud_games":     return resolveCloudGames(apps, limit);
-        case "backlog_rescue":  return resolveBacklogRescue(apps, limit, params, shelfId);
-        case "forgotten_gems":  return resolveForgottenGems(apps, limit, params);
-        case "weekly_rotation": return resolveWeeklyRotation(apps, limit, params, shelfId);
+        case "backlog_rescue":         return resolveBacklogRescue(apps, limit, params, shelfId);
+        case "forgotten_gems":         return resolveForgottenGems(apps, limit, params);
+        case "weekly_rotation":        return resolveWeeklyRotation(apps, limit, params, shelfId);
+        case "short_battery":          return resolveShortBattery(apps, limit, params);
+        case "long_session_night":     return resolveLongSessionNight(apps, limit, params);
+        case "travel_mode":            return resolveTravelMode(apps, limit, params);
+        case "hidden_gems":            return resolveHiddenGems(apps, limit, params);
+        case "never_touched_classics": return resolveNeverTouchedClassics(apps, limit, params);
+        case "recent_hidden_installs": return resolveRecentHiddenInstalls(apps, limit, params);
+        case "monthly_spotlight":      return resolveMonthlySpotlight(apps, limit, params, shelfId);
+        case "seasonal_rotation":      return resolveSeasonalRotation(apps, limit, params, shelfId);
+        case "low_battery_mode":       return resolveLowBatteryMode(apps, limit, params);
+        case "almost_finished":        return resolveAlmostFinished(apps, limit, params);
+        case "couch_gaming":           return resolveCouchGaming(apps, limit, params);
+        case "coop_ready":             return resolveCoopReady(apps, limit, params);
+        case "party_games":            return resolvePartyGames(apps, limit, params);
+        case "friends_playing":        return resolveFriendsPlaying(apps, limit, params);
         // "custom" is dispatched via `resolveShelfAppIds` in `src/steam/index.ts`
         // (it needs filterGroup + sort which aren't exposed here). Reaching
         // this case directly means a buggy caller — return [] to fail soft.
@@ -595,6 +926,20 @@ export const INTERNAL_SMART_MODES: ReadonlySet<string> = new Set([
   "backlog_rescue",
   "forgotten_gems",
   "weekly_rotation",
+  "short_battery",
+  "long_session_night",
+  "travel_mode",
+  "hidden_gems",
+  "never_touched_classics",
+  "recent_hidden_installs",
+  "monthly_spotlight",
+  "seasonal_rotation",
+  "low_battery_mode",
+  "almost_finished",
+  "couch_gaming",
+  "coop_ready",
+  "party_games",
+  "friends_playing",
   "custom",
 ]);
 

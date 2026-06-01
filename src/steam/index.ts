@@ -3007,7 +3007,42 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       // let the post-process branch (filterGroup + sort + slice) do the work.
       const { INTERNAL_SMART_MODES } = await import("./smartShelves");
       let rawIds: number[];
-      if (source.mode === "custom") {
+      // Composite smart source — when populated, evaluate the primary mode
+      // PLUS every additional mode in `compositeModes`, then merge via
+      // `compositeCombine` (default union). Each child shares the parent's
+      // `smartParams` for now; per-child params is a follow-up. Mirrors the
+      // regular `composite` source semantics so both shelf kinds expose the
+      // same mental model. Cache namespacing is per shelf, not per child,
+      // so refreshing the shelf invalidates all branches at once.
+      const compositeModes = Array.isArray((source as any).compositeModes) ? ((source as any).compositeModes as string[]) : [];
+      if (compositeModes.length > 0) {
+        const combine = (source as any).compositeCombine === "intersection" ? "intersection" : "union";
+        const allModes: string[] = [source.mode, ...compositeModes];
+        const seen = new Set<string>();
+        const uniqueModes = allModes.filter((m) => {
+          if (seen.has(m)) return false;
+          seen.add(m);
+          return true;
+        });
+        const childResults: number[][] = [];
+        for (const m of uniqueModes) {
+          try {
+            if (m === "custom") {
+              childResults.push(apps.map((a) => appIdOf(a)).filter(Number.isFinite));
+            } else if (INTERNAL_SMART_MODES.has(m)) {
+              childResults.push(resolveSmartShelf(m as any, apps, smartFetchLimit, smartParams, ttlMs, shelfId ? `${shelfId}:${m}` : undefined));
+            } else if (hasExternalSmartSource(m)) {
+              childResults.push(await resolveExternalSmartSource(m, smartFetchLimit, smartParams ?? {}));
+            } else {
+              childResults.push([]);
+            }
+          } catch (e) {
+            logWarn("STEAM", "composite smart child failed", { mode: m, err: String(e) });
+            childResults.push([]);
+          }
+        }
+        rawIds = mergeCompositeResults(childResults, combine);
+      } else if (source.mode === "custom") {
         rawIds = apps.map((a) => appIdOf(a)).filter(Number.isFinite);
       } else if (INTERNAL_SMART_MODES.has(source.mode)) {
         rawIds = resolveSmartShelf(source.mode, apps, smartFetchLimit, smartParams, ttlMs, shelfId);

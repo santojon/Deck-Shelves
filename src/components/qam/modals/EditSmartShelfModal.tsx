@@ -15,7 +15,7 @@ import { flowChildrenProps } from '../../../core/steamOSVersion'
 import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS } from '../../../steam/smartShelves'
 import type { SingleDropdownOption } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
-import type { FilterGroup, SmartShelf } from '../../../types'
+import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
@@ -36,6 +36,7 @@ import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
+import { SavedSmartFiltersBar } from './editShelf/SavedSmartFiltersBar'
 import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
 
@@ -44,10 +45,35 @@ import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_
 // pre-fill the edit field so users see the actual current cadence.
 const DEFAULT_REFRESH_MINUTES = 60
 
+// Ordered list of every internal smart-shelf mode, used by the Source-tab
+// mode dropdown + the composite-mixing picker. Order mirrors the catalogue
+// in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
+// is excluded — it's a special-purpose mode for filter-only shelves and
+// switching INTO it would silently strip the user's smart-mode tuning.
+const SMART_MODE_OPTIONS: SmartShelfMode[] = [
+  'daily_pick', 'deck_picks', 'on_deck', 'recently_played',
+  'long_session', 'long_session_night', 'random_pick', 'not_started',
+  'best_unplayed', 'quick_play', 'short_battery', 'low_battery_mode',
+  'interrupted', 'non_steam', 'spare_time', 'time_of_day',
+  'rediscover', 'forgotten',
+  'backlog_rescue', 'forgotten_gems', 'hidden_gems', 'almost_finished',
+  'couch_gaming', 'coop_ready', 'party_games', 'friends_playing',
+  'travel_mode', 'never_touched_classics', 'recent_hidden_installs',
+  'weekly_rotation', 'monthly_spotlight', 'seasonal_rotation',
+]
+
 type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display'
 
 type EditState = {
   title: string
+  /** Editable smart-shelf mode. Initialized from shelf.mode; user can switch
+   *  via the Source-tab dropdown. Changing mode resets `smartParams` to the
+   *  new mode's defaults. */
+  mode: SmartShelfMode
+  /** Optional source-mixing — when non-empty, the resolver evaluates each
+   *  mode in `[mode, ...compositeModes]` and merges by `compositeCombine`. */
+  compositeModes: SmartShelfMode[]
+  compositeCombine: 'union' | 'intersection'
   limit: number
   sort: string | string[]
   sortReverse: boolean | boolean[]
@@ -88,6 +114,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const [activeTab, setActiveTab] = useState<Tab>('source')
   const [state, setState] = useState<EditState>({
     title: shelf.title,
+    mode: shelf.mode,
+    compositeModes: Array.isArray((shelf as any).compositeModes) ? (shelf as any).compositeModes : [],
+    compositeCombine: (shelf as any).compositeCombine === 'intersection' ? 'intersection' : 'union',
     limit: shelf.limit ?? 20,
     sort: (shelf as any).sort ?? DEFAULT_SORT_FOR_MODE[shelf.mode] ?? 'alphabetical',
     sortReverse: (shelf as any).sortReverse ?? false,
@@ -166,8 +195,27 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   // collapsing it back to the default. Committed to numeric state on blur.
   const [refreshDraft, setRefreshDraft] = useState<string>(String((shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES))
 
-  const paramKeys = useMemo(() => paramKeysForMode(shelf.mode), [shelf.mode])
+  const paramKeys = useMemo(() => paramKeysForMode(state.mode), [state.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
+  // Switching mode resets smartParams + drafts to the new mode's defaults.
+  // The mode field on a smart shelf is the "data source" — picking another
+  // mode means picking a different candidate-set heuristic, so the previous
+  // mode's tuning knobs no longer apply.
+  const handleModeChange = (nextMode: SmartShelfMode) => {
+    if (nextMode === state.mode) return
+    const nextDefaults = SMART_PARAM_DEFAULTS[nextMode] ?? {}
+    const nextDrafts: Record<string, string> = {}
+    for (const k of Object.keys(nextDefaults)) nextDrafts[k] = String((nextDefaults as any)[k] ?? 0)
+    setParamDrafts(nextDrafts)
+    setState((prev) => ({
+      ...prev,
+      mode: nextMode,
+      smartParams: { ...nextDefaults },
+      // Sort default also tracks mode — only reset if the previous sort was
+      // the previous mode's default (i.e. user hadn't overridden it).
+      sort: prev.sort === DEFAULT_SORT_FOR_MODE[prev.mode] ? (DEFAULT_SORT_FOR_MODE[nextMode] ?? 'alphabetical') : prev.sort,
+    }))
+  }
   // Buffered text representations of `kind === 'text'` params (e.g. playtime
   // minutes). Kept separate from `state.smartParams` so the user can clear /
   // partially edit the input without committing intermediate values.
@@ -251,16 +299,21 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   )
 
   const smartParamsKey = JSON.stringify(state.smartParams)
+  const compositeKey = state.compositeModes.join(',') + ':' + state.compositeCombine
   const previewSource = useMemo(() => {
-    const base: any = { type: 'smart' as const, mode: shelf.mode }
+    const base: any = { type: 'smart' as const, mode: state.mode }
     if (state.filterGroup.items.length > 0) base.filterGroup = state.filterGroup
     if (paramKeys.length) base.smartParams = state.smartParams
     if (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES) {
       base.refreshIntervalMinutes = state.refreshIntervalMinutes
     }
+    if (state.compositeModes.length > 0) {
+      base.compositeModes = state.compositeModes
+      base.compositeCombine = state.compositeCombine
+    }
     return base
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shelf.mode, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length])
+  }, [state.mode, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length, compositeKey])
 
   useEffect(() => {
     let cancelled = false
@@ -387,9 +440,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
         ? state.refreshIntervalMinutes
         : undefined
+      // Persist the (possibly changed) mode + composite mixing fields.
+      ;(patch as any).mode = state.mode
+      ;(patch as any).compositeModes = state.compositeModes.length > 0 ? state.compositeModes : undefined
+      ;(patch as any).compositeCombine = state.compositeModes.length > 0 ? state.compositeCombine : undefined
       // Only persist params that diverge from the mode's defaults — keeps the
       // settings JSON minimal and lets future default tweaks reach existing shelves.
-      const defaults = SMART_PARAM_DEFAULTS[shelf.mode] ?? {}
+      const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
       const overrides: Record<string, number> = {}
       for (const k of paramKeys) {
         if (state.smartParams[k] !== defaults[k]) overrides[k] = state.smartParams[k]
@@ -459,9 +516,135 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   title: t('edit_tab_source'),
                   content: (
                     <FieldContainer scrollable>
+                      {/* Smart-mode picker + inline saved-smart-filter dropdown.
+                          The mode IS the smart shelf's "data source"; saved
+                          smart filters are full configurations the user has
+                          previously stored. Both live side-by-side per the
+                          Source-tab UX. */}
                       <Field label={t('smart_mode')}>
-                        <div style={{ padding: '4px 0', opacity: 0.85 }}>{t(`smart_template_${shelf.mode}` as any)}</div>
+                        <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Dropdown
+                              rgOptions={SMART_MODE_OPTIONS.map((opt) => ({ data: opt, label: t(`smart_template_${opt}` as any) }))}
+                              selectedOption={state.mode}
+                              onChange={(opt: unknown) => {
+                                const next = String(optionData(opt) ?? state.mode) as SmartShelfMode
+                                handleModeChange(next)
+                              }}
+                            />
+                          </div>
+                        </Focusable>
                       </Field>
+                      {/* Composite mode mixing — optional. When at least one
+                          additional mode is added, the resolver evaluates each
+                          mode and merges (union / intersection). Same mental
+                          model as regular shelves' composite source. */}
+                      <Field label={t('smart_composite_label' as any)} description={t('smart_composite_desc' as any)} bottomSeparator='standard'>
+                        <Focusable style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <Dropdown
+                              rgOptions={[
+                                { data: 'union', label: t('smart_composite_union' as any) },
+                                { data: 'intersection', label: t('smart_composite_intersection' as any) },
+                              ]}
+                              selectedOption={state.compositeCombine}
+                              onChange={(opt: unknown) => {
+                                const next = String(optionData(opt) ?? 'union') as 'union' | 'intersection'
+                                setState((prev) => ({ ...prev, compositeCombine: next }))
+                              }}
+                            />
+                          </div>
+                          {state.compositeModes.length > 0 && (
+                            <Focusable style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {state.compositeModes.map((m) => (
+                                <DialogButton
+                                  key={m}
+                                  style={{ height: 32, minWidth: 0, padding: '0 10px', display: 'flex', alignItems: 'center', gap: 6 }}
+                                  onClick={() => setState((prev) => ({ ...prev, compositeModes: prev.compositeModes.filter((x) => x !== m) }))}
+                                  onOKActionDescription={t('smart_composite_remove' as any)}
+                                >{t(`smart_template_${m}` as any)} ✕</DialogButton>
+                              ))}
+                            </Focusable>
+                          )}
+                          {state.compositeModes.length < 4 && (
+                            <Dropdown
+                              rgOptions={[
+                                { data: '__add_placeholder__', label: t('smart_composite_add' as any) },
+                                ...SMART_MODE_OPTIONS
+                                  .filter((m) => m !== state.mode && !state.compositeModes.includes(m))
+                                  .map((m) => ({ data: m, label: t(`smart_template_${m}` as any) })),
+                              ]}
+                              selectedOption={'__add_placeholder__'}
+                              onChange={(opt: unknown) => {
+                                const v = String(optionData(opt) ?? '__add_placeholder__')
+                                if (v === '__add_placeholder__') return
+                                setState((prev) => ({ ...prev, compositeModes: [...prev.compositeModes, v as SmartShelfMode] }))
+                              }}
+                            />
+                          )}
+                        </Focusable>
+                      </Field>
+                      {/* Saved smart filter picker — applies a previously-saved
+                          full configuration (mode + smartParams + filterGroup +
+                          sort + limit + visibility) to the current shelf. */}
+                      <SavedSmartFiltersBar
+                        controller={controller}
+                        currentPayload={{
+                          mode: state.mode,
+                          smartParams: (() => {
+                            const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
+                            const out: Record<string, number> = {}
+                            for (const k of paramKeys) {
+                              if (state.smartParams[k] !== defaults[k]) out[k] = state.smartParams[k]
+                            }
+                            return Object.keys(out).length ? out : undefined
+                          })(),
+                          filterGroup: state.filterGroup.items.length > 0 ? state.filterGroup : undefined,
+                          sort: state.sort || undefined,
+                          sortReverse: state.sortReverse || undefined,
+                          limit: state.limit,
+                          visibleHours: (() => {
+                            if (!state.visibleHoursEnabled) return undefined
+                            const all = [
+                              ...state.defaultHours,
+                              ...Object.entries(state.dayOverrides).flatMap(([dayStr, ranges]) =>
+                                ranges.map((r) => ({ ...r, days: [Number(dayStr)] }))
+                              ),
+                            ]
+                            return all.length ? all : undefined
+                          })(),
+                          visibleDaysOfWeek: state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort(),
+                        }}
+                        onApply={(filter) => {
+                          const incomingHours = Array.isArray(filter.visibleHours) ? filter.visibleHours : []
+                          const defaults = incomingHours.filter((r: any) => !Array.isArray(r.days) || r.days.length === 0).map((r: any) => ({ start: Number(r.start) || 0, end: Number(r.end) || 0 }))
+                          const overrides: Record<string, Array<{ start: number; end: number }>> = {}
+                          for (const r of incomingHours as any[]) {
+                            if (Array.isArray(r.days) && r.days.length > 0) {
+                              for (const day of r.days) {
+                                const k = String(day)
+                                if (!overrides[k]) overrides[k] = []
+                                overrides[k].push({ start: Number(r.start) || 0, end: Number(r.end) || 0 })
+                              }
+                            }
+                          }
+                          const nextMode = (filter.mode || state.mode) as SmartShelfMode
+                          setState((prev) => ({
+                            ...prev,
+                            mode: nextMode,
+                            smartParams: { ...(SMART_PARAM_DEFAULTS[nextMode] ?? {}), ...(filter.smartParams ?? {}) },
+                            filterGroup: filter.filterGroup ?? { mode: 'and', items: [] },
+                            sort: (Array.isArray(filter.sort) ? filter.sort[0] : filter.sort) ?? prev.sort,
+                            sortReverse: (Array.isArray(filter.sortReverse) ? filter.sortReverse[0] : filter.sortReverse) ?? false,
+                            limit: filter.limit ?? prev.limit,
+                            visibleHoursEnabled: incomingHours.length > 0,
+                            defaultHours: defaults.length ? defaults : prev.defaultHours,
+                            dayOverrides: Object.keys(overrides).length ? overrides : prev.dayOverrides,
+                            allowDayOverrides: Object.keys(overrides).length > 0,
+                            visibleDaysOfWeek: filter.visibleDaysOfWeek ?? [0, 1, 2, 3, 4, 5, 6],
+                          }))
+                        }}
+                      />
                       <SliderField
                         label={`${t('limit')} (${state.limit})`}
                         value={state.limit}
