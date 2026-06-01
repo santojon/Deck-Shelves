@@ -1,5 +1,17 @@
 [
   {
+    "ts": "2026-06-01_12-29-14",
+    "stress": false,
+    "subdir": "ci",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "_scope": "ci"
+  },
+  {
     "ts": "2026-05-27_21-07-50",
     "stress": false,
     "subdir": "ci",
