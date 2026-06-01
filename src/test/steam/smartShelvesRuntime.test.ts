@@ -260,4 +260,45 @@ describe('friends_playing', () => {
     const ids = resolveSmartShelf('friends_playing', apps, 10, { includeRecentlyPlayed: 0 })
     expect(ids).toEqual([1])
   })
+
+  it('surfaces NON-OWNED games (friend playing a game user does not have)', () => {
+    invalidateSmartShelfCache()
+    // Friends in-game: 1 (owned by user) + 99 (NOT in user library)
+    vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set([1, 99]))
+    vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([1, 99]))
+    const apps: AppOverview[] = [
+      app({ appid: 1, last_played: 100 }),
+      // 99 NOT in apps array — represents a non-owned game
+    ]
+    const ids = resolveSmartShelf('friends_playing', apps, 10)
+    // Owned (1) comes first, then non-owned (99). Rendering layer handles
+    // metadata-fetch + store navigation for the non-owned id via the
+    // `includesNonOwned` source flag.
+    expect(ids).toContain(1)
+    expect(ids).toContain(99)
+    expect(ids.indexOf(1)).toBeLessThan(ids.indexOf(99))
+  })
+
+  it('non-owned currently-playing rank ahead of non-owned recently-played-only', () => {
+    invalidateSmartShelfCache()
+    // App 99: live (currently playing). App 88: recently-played only.
+    // Neither is in user library.
+    vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set([99]))
+    vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([88, 99]))
+    const apps: AppOverview[] = []
+    const ids = resolveSmartShelf('friends_playing', apps, 10)
+    expect(ids).toEqual([99, 88])
+  })
+
+  it('respects limit when owned + non-owned exceed it', () => {
+    invalidateSmartShelfCache()
+    vi.mocked(friendsState.getFriendsPlayingAppIds).mockReturnValue(new Set([1, 99]))
+    vi.mocked(friendsState.getFriendsRecentlyPlayedAppIds).mockReturnValue(new Set([1, 99]))
+    const apps: AppOverview[] = [
+      app({ appid: 1, last_played: 100 }),
+    ]
+    // limit=1 should keep only the owned one (it leads the array).
+    const ids = resolveSmartShelf('friends_playing', apps, 1)
+    expect(ids).toEqual([1])
+  })
 })

@@ -398,9 +398,9 @@ function resolveWeeklyRotation(apps: AppOverview[], limit: number, params?: Smar
   return rotateWindow(pool, `weekly_rotation:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
 }
 
-// Second-wave heuristic templates (Sprint 8 closure). Each composes existing
-// AppOverview signals (size_on_disk, review_percentage, rt_purchased_time)
-// + the rotateWindow primitive — no new backend signals required.
+// Second-wave heuristic templates. Each composes existing AppOverview signals
+// (size_on_disk, review_percentage, rt_purchased_time) + the rotateWindow
+// primitive — no new backend signals required.
 
 function sizeOnDiskBytes(app: AppOverview): number {
   return Number((app as any).size_on_disk ?? 0);
@@ -693,7 +693,9 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
   const liveSet = getFriendsPlayingAppIds();
   const friendSet = includeRecent ? getFriendsRecentlyPlayedAppIds() : liveSet;
   if (friendSet.size === 0) return [];
-  return apps
+  // Owned games (in user's library): full filtering + sort by Deck level /
+  // last-played / live-or-recent.
+  const ownedMatches = apps
     .filter((a) =>
       !a.is_non_steam &&
       (a.app_type === undefined || a.app_type === 1) &&
@@ -707,8 +709,35 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
       if (aLive !== bLive) return bLive - aLive;
       return lastPlayedSec(b) - lastPlayedSec(a);
     })
-    .slice(0, limit)
     .map((a) => a.appid);
+  // Non-owned games (friends playing something the user doesn't have): emit
+  // raw appids appended after the owned matches. Shelf rendering picks
+  // these up via the source's `includesNonOwned: true` flag, which routes
+  // metadata fetching through the Steam Store API name lookup (same path
+  // wishlist + store shelves already use for non-owned items). Click on
+  // such a card lands on `/library/app/<appid>`; Steam BP redirects to
+  // the store detail page when the user doesn't own the app. Live
+  // currently-playing friends rank ahead of recently-played-only ones.
+  //
+  // Library-owned set MUST be derived from the full `apps` pool (not just
+  // the post-filter `ownedMatches`), otherwise apps the user owns but
+  // that got filtered out (non-Steam shortcut, Deck level too low, etc.)
+  // would leak back as "non-owned" — wrong semantically and visible to
+  // the user as duplicate / unowned-looking cards.
+  const libraryAppIds = new Set(apps.map((a) => a.appid));
+  const nonOwnedIds: number[] = [];
+  // Walk live set first so currently-playing non-owned items lead.
+  for (const id of liveSet) {
+    if (!libraryAppIds.has(id)) nonOwnedIds.push(id);
+  }
+  if (includeRecent) {
+    const seenLive = new Set([...liveSet]);
+    for (const id of friendSet) {
+      if (seenLive.has(id) || libraryAppIds.has(id)) continue;
+      nonOwnedIds.push(id);
+    }
+  }
+  return [...ownedMatches, ...nonOwnedIds].slice(0, limit);
 }
 
 /**

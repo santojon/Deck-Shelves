@@ -9,13 +9,18 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Smart-shelf mode is now editable.** The Source tab of the smart-shelf editor has a mode dropdown (was read-only). Change the data source of a smart shelf without recreating it.
 - **Combine smart-shelf modes.** A new "Combine modes" picker on the smart-shelf editor lets you mix multiple smart modes into one shelf — pick Union (any mode matches) or Intersection (all modes match). Same mental model as combining sources on regular shelves.
+- **Press View on a focused game card to Play or Install** — invokes the game's first context-menu action directly. Steam picks Play (if installed) or Install (if not) — same call the menu's first item makes. The on-card legend reflects the dynamic label. Only shown for games in your library (wishlist / store / decoration cards don't get the View glyph since there's no install / play target).
+
+- **Y button label is now constant ("Toggle") on every card** instead of flipping between "Highlight" / "Remove highlight" based on whether the card is currently featured. Less visual noise on the legend; the action still toggles the highlight as before.
+- **"Options" tooltip on the menu button** — the start-button glyph at the bottom of the screen now shows "Options" when a game card is focused, matching the X / Y / A / B legends already shown on shelves.
+
 - **6 new smart-shelf templates** that read live device + Steam data:
   - **Low battery mode** — when the Deck is on battery below 30% (tunable), surfaces the smallest, shortest-playtime games first. On AC / unknown battery, falls back to the Short battery candidates so the shelf isn't empty.
   - **Almost finished** — games with achievement progress at or above 70% (tunable). Best-effort: relies on Steam achievement data being cached for each game.
   - **Couch gaming** — games tagged with Shared/Split Screen multi-player.
   - **Co-op ready** — games tagged with Co-op or Online Co-op.
   - **Party games** — games tagged with Local Multi-Player / Local PvP / Party.
-  - **Friends playing** — games your Steam friends are playing right now (or, optionally, played in the last 14 days). Requires Online features to be on; reuses the existing Online toggle.
+  - **Friends playing** — games your Steam friends are playing right now (or, optionally, played in the last 14 days). Shows games you own AND games you don't — non-owned cards link to the store. Requires Online features to be on; reuses the existing Online toggle.
   - The category-based templates depend on Steam's store category data being reachable. First paint may be empty; subsequent refresh ticks populate.
 
 - **Decoration cards.** A new "Decoration" tab lets you pin fixed-slot cards in any shelf: a text label, an image banner, a focusable URL shortcut, or a transparent gap that focus skips over. New cards land at the slot you focused in the preview, and the shelf auto-switches to manual sort so you can drag them around later.
@@ -24,31 +29,39 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Four media-focused smart shelf templates:** Soundtracks, Videos, Demos, and Cloud games (non-Steam shortcuts in Unifideck-style cloud collections). Game-focused templates (Quick Play, Recently Played, Long Sessions, Daily Pick, Random, Spare Time, etc.) now exclude non-game entries so they only surface real games.
 - **Three heuristic smart shelf templates:** Backlog Rescue (installed-but-stale games on rotation so the shelf advances instead of pinning the same five), Forgotten Gems (owned-but-never-played titles with strong reviews), Weekly Rotation (a different slice of your library every week). Each ships with tunable knobs (cooldown, staleness window, minimum review score, rotation cadence).
 - **Saved smart shelf templates.** Smart shelves can be saved as reusable templates and read back via the public API.
-- **Add to shelf, from any game's context menu.** Both DS shelves and the native Steam library expose "Adicionar à prateleira" — the list only shows shelves that still have room and don't already contain the game (per-shelf limit + 50-card cap).
+- **Add to shelf, from any game's context menu.** Both DS shelves and the native Steam library expose "Add to shelf" — the list only shows shelves that still have room and don't already contain the game (per-shelf limit + 50-card cap).
 - **Y-button quick action** toggles the per-card highlight without opening the context menu.
 - **"Decoration" entry on the shelf context menu** jumps the edit modal straight to the decoration tab. Decoration cards expose their own fallback menu since they aren't real apps.
 - **More filter options.** "Shortcut type" gained 10 more Steam app types (Demos, DLC, Music / Soundtracks, Videos, Comics, Guides, Drivers, Configs, Hardware, Betas, Applications). "App status" gained 10 fine-grained statuses (Launching, Reconfiguring, Validating, Downloading active, Staging, Committing, Update queued, Update paused, Not installed, Installed idle).
 
 ### Changed
 
-- **All preview tabs now look and behave the same.** Source, Filters, Visual, Display, and Decoração tabs of both shelf modal types render through one preview component — same cards, same hide flags, same trailing cards, same focus and scroll behaviour. Manual sort on the Source tab is just an interaction layer on top of the same render.
+- **All preview tabs now look and behave the same.** Source, Filters, Visual, Display, and Decoration tabs of both shelf modal types render through one preview component — same cards, same hide flags, same trailing cards, same focus and scroll behaviour. Manual sort on the Source tab is just an interaction layer on top of the same render.
 - **Always-on selection marks in preview.** Highlighted games show a green check, hidden games show a red ✕ with a dim overlay, and games you added manually via "Add to shelf" show a blue +. Marks appear in every tab whether the picker for that mode is open or not, so you can see at a glance what's highlighted / hidden / added.
 - **"Decoration" entry on the shelf context menu** sits at the same visual level as Display and Visual, no longer buried under Management.
 
 ### Fixed
 
+- **Composite shelves with a wishlist or store child** were showing those cards as `#12345` instead of real game names, and showing the install indicator + "Not installed" status text that made no sense for games you don't own. Names now come from the Steam Store API (same path wishlist / store shelves already use), and the install state visuals are hidden ONLY for the actually-non-owned cards — owned cards in the same composite keep their playtime and install state.
+
+- **Hero art on the first shelf occasionally flashed a broken-image icon for a frame** when that shelf was promoted to the recents slot. The fade-out between hero URLs (when a fallback URL kicks in) is now instant; only the fade-IN remains.
+
+- **"Shelf as recents" (experimental) was still forcing alphabetical order on shelves using manual sort.** Now the promoted shelf honours your manual order AND falls back to your chosen `manualBaseSort` (with per-key asc/desc and multi-key chains) for items outside the manual order — exactly matching what you see on the home.
+
+- **New smart shelves weren't saving.** Creating any of the new templates (friends playing, low battery mode, almost finished, couch / co-op / party games, short battery, long session night, travel mode, hidden gems, never touched classics, recent hidden installs, monthly spotlight, seasonal rotation) failed silently — the shelf disappeared right after clicking Save. The Python backend's mode allow-list wasn't updated when those shipped; it now matches the TypeScript enum.
+
 - **"100% off" / "Free now" store shelves were rendering empty even when matching games existed on the Steam store.** Root cause: free-weekend / free-play-days titles aren't returned by Steam's regular "Specials" query alone — they require a combined "Specials AND Free" query that we weren't running. Added that fourth endpoint and forced existing users to refresh the store cache. Free-weekend titles now show up correctly on "100% off" and "Free now" shelves.
 
 - **Returning from a game detail page no longer "reloads" everything.** Previously, navigating to a game (or any other screen) was destroying the entire home React tree, so coming back triggered every shelf to re-resolve, every card to flash through the shimmer, and every hero art to re-fetch. Now the tree stays alive while the home is invisible — when you come back, everything is exactly where you left it, instant.
-- **"Add to shelf" actually adds the game.** The library context menu's "Adicionar à prateleira" wasn't taking effect — the appid was being silently dropped because it wasn't in the shelf's underlying source. Menu-added games now appear at the end of the shelf (and the preview shows them with the new blue + marker).
+- **"Add to shelf" actually adds the game.** The library context menu's "Add to shelf" wasn't taking effect — the appid was being silently dropped because it wasn't in the shelf's underlying source. Menu-added games now appear at the end of the shelf (and the preview shows them with the new blue + marker).
 - **X button on a card is now context-aware.** On a game you added manually → "Remove from shelf" (the card disappears). On any other card → "Hide from shelf" / "Show in shelf". The previous unconditional remove was bouncing drag-ordered cards back to a different position when you pressed X.
-- **Library card menu shows DS submenus on every game.** "Adicionar à prateleira" and "Remover da prateleira" now appear on every card in the native Steam library, not just on cards inside DS shelves. (The previous bail-out happened on modern Steam clients that don't expose `_owner.pendingProps.overview.appid`.)
+- **Library card menu shows DS submenus on every game.** "Add to shelf" and "Remove from shelf" now appear on every card in the native Steam library, not just on cards inside DS shelves. (The previous bail-out happened on modern Steam clients that don't expose `_owner.pendingProps.overview.appid`.)
 - **Per-shelf hero art is faster to appear**, especially on home boots with multiple hero shelves. Multiple optimisations: one shared discovery of the active CSS Loader theme (was N parallel scans, one per hero shelf), throttled mutation observers, asynchronous image decoding off the main thread, persistent image cache (heroes you've seen before show instantly across sessions), short cross-fade.
 - **No more broken-image-glyph flash before a card or hero loads.** Eviction from the in-memory cache no longer invalidates the URL while a card is still using it (revocation is deferred 30 s), and the cache is now sized for populated homes (320 entries instead of 120). Cards also walk the URL fallback chain at mount time and start at the cached URL directly, skipping the 1-2 useless local-path 404s every remount used to pay.
 - **Home no longer locks the UI thread.** A storm of mutation events (shimmer pulses, focus class flips, label resolutions) was running the full set of patch installations synchronously on every event — hundreds of times per second on a populated home. Now coalesced to at most once per frame. Navigation feels noticeably snappier.
 - **Decoration / synthetic cards and menu-added games appear correctly in every preview tab** (they were only showing in the Source tab before). All previews are now strictly consistent across tabs and shelf types.
 - **No discount badge on shelves where you already own the games.** Preview now matches the home: only wishlist / store / composite-with-online-child shelves can show the % off badge.
-- **Library context menu items no longer appear twice** ("Adicionar à prateleira" 2× / "Prateleira" 2×) on certain games.
+- **Library context menu items no longer appear twice** ("Add to shelf" 2× / "Shelf" 2×) on certain games.
 
 - **Online shelves no longer hide games you don't actually own.** On devices with many cloud-play shortcuts (Xbox via Unifideck Microsoft, etc.), the wishlist / store-on-sale rows were name-matching against those cloud entries and hiding wishlist items that share a title with a game you have access to via subscription but don't own. The name-based dedup now respects the same "include cloud-play games" toggle the appid-based dedup uses, and ignores punctuation differences (so "Kingdom Come Deliverance" matches "Kingdom Come: Deliverance" cleanly).
 - **Wishlist + store shelves with a price-based multi-key sort.** The shelf was returning zero games after a recent change; it now ranks the full row by the price key first (with the secondary key as a real tiebreaker) instead of only ordering the local subset.
@@ -430,7 +443,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 ### Added
 
 - **Use first shelf as recents (experimental).** With "Hide recent games" active, the first visible shelf's games are injected into the native recents slot. You reuse 100% of the native look and feel (hero zoom, focus ring, CSS Loader support). Auto-disables with a banner if the injection runs into errors.
-- **Hide home tabs.** Hides the native novidades/amigos/recomendados area independently of "Hide recent games".
+- **Hide home tabs.** Hides the native What's New / Friends / Recommendations area independently of "Hide recent games".
 
 ### Changed
 

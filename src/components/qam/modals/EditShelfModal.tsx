@@ -930,6 +930,24 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                         at least one extra is present. */}
                     {(state.additionalSources.length > 0 || canAddSource) && (
                       <>
+                        {/* Combine dropdown placed BEFORE the source rows so
+                            the user picks the relationship up-front (mirrors
+                            the smart-shelf composite UI). Only rendered when
+                            at least one extra source is added — for a single
+                            source the combine operator is irrelevant. */}
+                        {state.additionalSources.length > 0 && (
+                          <DropdownItem
+                            label={t('composite_combine_label')}
+                            description={t('composite_combine_desc' as any)}
+                            rgOptions={[
+                              { data: 'union', label: t('composite_combine_union') },
+                              { data: 'intersection', label: t('composite_combine_intersection') },
+                            ]}
+                            selectedOption={state.compositeCombine}
+                            onChange={(opt: unknown) => setState((prev) => ({ ...prev, compositeCombine: (String(optionData(opt)) === 'intersection' ? 'intersection' : 'union') }))}
+                            bottomSeparator='standard'
+                          />
+                        )}
                         {state.additionalSources.map((child: any, idx: number) => {
                           const rawType = child?.type;
                           const childType: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' =
@@ -1027,18 +1045,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                             </div>
                           );
                         })}
-                        {state.additionalSources.length > 0 && (
-                          <DropdownItem
-                            label={t('composite_combine_label')}
-                            rgOptions={[
-                              { data: 'union', label: t('composite_combine_union') },
-                              { data: 'intersection', label: t('composite_combine_intersection') },
-                            ]}
-                            selectedOption={state.compositeCombine}
-                            onChange={(opt: unknown) => setState((prev) => ({ ...prev, compositeCombine: (String(optionData(opt)) === 'intersection' ? 'intersection' : 'union') }))}
-                            bottomSeparator='thick'
-                          />
-                        )}
                         {canAddSource && (
                           <DialogButton
                             onClick={() => setState((prev) => {
@@ -1047,7 +1053,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                               return { ...prev, additionalSources: [...prev.additionalSources, next] }
                             })}
                             onOKActionDescription={t('composite_add_source')}
-                            style={{ width: '100%' }}
+                            style={{ width: '100%', marginTop: 4 }}
                           >+ {t('composite_add_source')}</DialogButton>
                         )}
                       </>

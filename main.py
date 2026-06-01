@@ -318,7 +318,32 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(raw_smart, list):
         raw_smart = []
     sanitized_smart = []
-    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played", "long_session", "non_steam", "random_pick", "forgotten", "spare_time", "soundtracks", "videos", "demos", "cloud_games", "backlog_rescue", "forgotten_gems", "weekly_rotation", "custom"}
+    # MUST stay in sync with `INTERNAL_SMART_MODES` in src/steam/smartShelves.ts
+    # AND the `SmartShelfModeSchema` enum in src/types.ts — missing modes here
+    # silently DROP the shelf on save (it fails the `ss_mode not in valid_modes`
+    # check below). When adding a new heuristic / runtime-aware template,
+    # update all three locations.
+    valid_modes = {
+        # Round 1 — heuristic templates
+        "quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed",
+        "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played",
+        "long_session", "non_steam", "random_pick", "forgotten", "spare_time",
+        # Media templates
+        "soundtracks", "videos", "demos", "cloud_games",
+        # v2 heuristic templates (2.4.0)
+        "backlog_rescue", "forgotten_gems", "weekly_rotation",
+        # Second-wave heuristic templates
+        "short_battery", "long_session_night", "travel_mode", "hidden_gems",
+        "never_touched_classics", "recent_hidden_installs",
+        "monthly_spotlight", "seasonal_rotation",
+        # Runtime-aware templates
+        "low_battery_mode", "almost_finished",
+        "couch_gaming", "coop_ready", "party_games",
+        # Online-gated runtime template
+        "friends_playing",
+        # Custom (free-form filter shelf)
+        "custom",
+    }
     for ss in raw_smart:
         if not isinstance(ss, dict):
             continue

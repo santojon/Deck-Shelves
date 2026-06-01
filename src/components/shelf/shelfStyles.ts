@@ -897,8 +897,16 @@ function buildStylesheet(): string {
        hero swaps don't even need a render cycle to flip the class.
        ID-scoped under #deck-shelves-home-root to beat the
        no-hero-gradient theme rule's (0,4,0) specificity. */
-    #deck-shelves-home-root .ds-per-shelf-hero-img { opacity: 0 !important; transition: opacity 0.06s ease !important; }
-    #deck-shelves-home-root .ds-per-shelf-hero-img.is-loaded { opacity: 1 !important; }
+    /* Hero img opacity gating — the transition runs ONLY on the up-leg
+       (going from 0 → 1 when the image actually decodes). Going back to
+       0 (fallback chain advancing to the next URL after an error, src
+       reassigned to a different game on focus change, etc.) is instant.
+       A symmetric transition let a frame of the BROWSER'S broken-img
+       placeholder peek through during the fade-out — visible as a quick
+       broken-hero flash when the first shelf is in the recents slot
+       (there's no native hero behind to mask it). */
+    #deck-shelves-home-root .ds-per-shelf-hero-img { opacity: 0 !important; transition: none !important; }
+    #deck-shelves-home-root .ds-per-shelf-hero-img.is-loaded { opacity: 1 !important; transition: opacity 0.06s ease !important; }
     /* TiltedHome integration: see the block scoped under
        [data-ds-theme-tilted-home="true"] further down. The intermediate
        skew-based version was removed because it conflicted with the

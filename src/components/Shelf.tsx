@@ -252,6 +252,23 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // Uses the public Steam Store API (appdetails?filters=basic) which works
   // from the browser without authentication.
   const isOnlineShelf = shelf.source.type === 'wishlist' || shelf.source.type === 'store';
+  // Composite source with at least one online child (wishlist / store): the
+  // composite itself isn't `type === 'wishlist'/'store'`, but the appids it
+  // returns include non-owned ones from the online child. Without this
+  // detection, wishlist appids inside a composite render as `#12345`
+  // (no local appStore entry → fallback name) and show an install indicator
+  // that makes no sense for games the user doesn't own. Triggers the
+  // external-name fetch path AND the install-indicator hide.
+  const compositeHasOnlineChild = shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
+    && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store');
+  // Smart shelves like `friends_playing` may surface appids the user doesn't
+  // own — the resolver flags them via `includesNonOwned`. Trigger the same
+  // Steam Store API name-fetch path the online shelves use so non-owned
+  // cards show real titles instead of the generic `App <id>` fallback.
+  // Hide-owned / view-more behaviour stays gated on `isOnlineShelf` so
+  // friends_playing keeps owned cards interactive.
+  const sourceIncludesNonOwned = (shelf.source as any).includesNonOwned === true;
+  const needsExternalNames = isOnlineShelf || sourceIncludesNonOwned || compositeHasOnlineChild;
   const excludeOwned = isOnlineShelf && (shelf.source as any).excludeOwned === true;
   const excludeOwnedNonSteam = excludeOwned && (shelf.source as any).excludeOwnedNonSteam === true;
   const perShelfHideOwnedCloud = (shelf.source as any).hideOwnedNonSteamCloud;
@@ -319,7 +336,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     return () => { cancelled = true; };
   }, [shouldHideOwned, effectiveNonSteam, effectiveCloud]);
   useEffect(() => {
-    if (!isOnlineShelf || !appIds?.length) return;
+    if (!needsExternalNames || !appIds?.length) return;
     // Read previously-fetched names from localStorage cache to show instantly.
     const NAME_CACHE_KEY = 'ds-game-name-cache-v1';
     const nameCache: Record<number, string> = (() => {
@@ -352,7 +369,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       } catch {}
     })();
     return () => { cancelled = true; };
-  }, [isOnlineShelf, appIds?.join(','), items]);
+  }, [needsExternalNames, appIds?.join(','), items]);
 
   const rowItems = useMemo((): DeckRowItem[] => {
     if (!appIds?.length) return [];
@@ -560,6 +577,12 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveHideNonSteamBadge = globalHideNonSteamBadge === true ? true : (shelf.hideNonSteamBadge === true);
   const effectiveHideShelfTitle = globalHideShelfTitle === true ? true : ((shelf as any).hideShelfTitle === true);
   const effectiveHideGameNames = globalHideGameNames === true ? true : ((shelf as any).hideGameNames === true);
+  // Hide install indicator: shelf-wide global flag, per-shelf hide flag, OR
+  // when the source is direct online (wishlist / store — no cards in the
+  // row are local installs). Composite shelves with online children handle
+  // the per-card hide INSIDE GameCard (checking the appid's appStore
+  // overview presence) so owned cards in the same composite keep their
+  // indicator and only the wishlist / store items lose it.
   const effectiveHideInstallIndicator = globalHideInstallIndicator === true ? true : ((shelf as any).hideInstallIndicator === true) || isOnlineShelf;
   // Menu-added games (in manualOrder, not in resolved source) — DeckRow
   // uses this to bind X=Remove on those cards (vs X=Hide on the rest).

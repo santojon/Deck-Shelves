@@ -632,6 +632,13 @@ export function HomeShelves() {
             // configured a composite shelf.
             compositeModes: (s as any).compositeModes,
             compositeCombine: (s as any).compositeCombine,
+            // friends_playing may surface games the user doesn't own (friends
+            // currently playing OR seen playing in last 14 days). This flag
+            // tells Shelf.tsx to fall back to the Steam Store API for names +
+            // covers on non-owned appids (same path wishlist / store shelves
+            // already use). Owned appids continue to render from local
+            // appStore metadata as usual.
+            includesNonOwned: s.mode === 'friends_playing' || Array.isArray((s as any).compositeModes) && (s as any).compositeModes.includes('friends_playing'),
           } as any,
           // Surface user-configured overrides so resolveShelfAppIds +
           // Shelf.tsx can apply them on top of the mode's candidates.

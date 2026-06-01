@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Focusable, Navigation } from "@decky/ui";
+import i18n from "../../i18n";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
@@ -182,7 +183,7 @@ export function SyntheticCard({
     try {
       const shelfId = String(item.shelfId ?? "");
       if (!shelfId) return;
-      showSyntheticCardMenu(shelfId, cardRef.current);
+      showSyntheticCardMenu(shelfId, cardRef.current, synth?.text);
     } catch {}
   };
 
@@ -194,7 +195,7 @@ export function SyntheticCard({
       onActivate={handleActivate}
       onOKButton={handleActivate}
       onMenuButton={handleMenu}
-      onMenuActionDescription={"⋯"}
+      onMenuActionDescription={i18n.t('card_options')}
       style={containerStyle}
     >
       {inner}

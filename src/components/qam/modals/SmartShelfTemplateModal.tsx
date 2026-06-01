@@ -43,7 +43,7 @@ export const SMART_TEMPLATES: SmartTemplate[] = [
   { mode: "time_of_day",            titleKey: "smart_template_time_of_day",            category: "time" },
   { mode: "rediscover",             titleKey: "smart_template_rediscover",             category: "time" },
   { mode: "forgotten",              titleKey: "smart_template_forgotten",              category: "time" },
-  // v2 heuristic templates (Sprint 8 closure).
+  // Heuristic templates — composable curated rows.
   { mode: "backlog_rescue",         titleKey: "smart_template_backlog_rescue",         category: "status" },
   { mode: "forgotten_gems",         titleKey: "smart_template_forgotten_gems",         category: "status" },
   { mode: "hidden_gems",            titleKey: "smart_template_hidden_gems",            category: "status" },

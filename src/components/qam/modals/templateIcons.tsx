@@ -113,7 +113,7 @@ export const SMART_TPL_ICON: Record<string, React.ReactElement> = {
   backlog_rescue: BacklogRescue,
   forgotten_gems: Gem,
   weekly_rotation: RotateCal,
-  // Second-wave heuristic templates (Sprint 8 closure).
+  // Second-wave heuristic templates.
   short_battery: Battery,
   long_session_night: MoonClock,
   travel_mode: Suitcase,

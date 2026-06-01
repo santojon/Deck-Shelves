@@ -166,9 +166,9 @@ describe('resolveSmartShelf — v2 heuristic templates (round 1)', () => {
   })
 })
 
-// ── Second-wave heuristic templates (round 2 — Sprint 8 closure) ──────────────
+// ── Second-wave heuristic templates ─────────────────────────────────────────
 
-describe('resolveSmartShelf — second-wave heuristic templates (round 2)', () => {
+describe('resolveSmartShelf — second-wave heuristic templates', () => {
   beforeEach(() => invalidateSmartShelfCache())
 
   it('short_battery requires installed + small size + low playtime + Deck-friendly', () => {

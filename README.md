@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-336%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/tests-339%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -28,7 +28,7 @@ Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
 - Shelves backed by **collections**, **library tabs**, or **custom filters**
 - **Multiple sources per shelf** — stack collections + tabs + wishlist + store into one shelf via Union (games in any source) or Intersection (games in every source). Filter source stays exclusive; use the filter `merge` for multi-criteria predicates instead.
 - **Decoration cards** — pin fixed-slot cards at any position in a shelf: text label, image banner, focusable URL shortcut, or a transparent gap. New cards land at the slot focused in the preview and inherit the row's current order via manual sort.
-- **Quick add to shelf** — every game's context menu (in DS shelves AND the native library) exposes "Adicionar à prateleira" with the eligible shelves only (skips shelves at their limit, the 50-entry cap, or already containing the game).
+- **Quick add to shelf** — every game's context menu (in DS shelves AND the native library) exposes "Add to shelf" with the eligible shelves only (skips shelves at their limit, the 50-entry cap, or already containing the game).
 - **Y-button highlight toggle** — focus a game, press Y to toggle the per-card highlight without opening the context menu.
 - **Advanced filter groups** with AND/OR logic for complex game queries
 - Filter games by:

@@ -11,8 +11,8 @@ import {
 
 // Re-export the 19 primitives so pilot consumers can swap their
 // `@decky/ui` import with a `runtime/host/decky` import without
-// touching call sites. Future sprints absorb the remaining direct
-// imports the same way.
+// touching call sites. Remaining direct imports migrate through the
+// same path as the codebase converts.
 export {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
   Dropdown, DropdownItem, Field, Focusable, GamepadButton,

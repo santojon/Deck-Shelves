@@ -1,4 +1,4 @@
-"""Sprint-bundle feature assertions for 2.4.0.
+"""Bundled feature assertions for 2.4.0.
 
 Six functional areas:
   - Multi-source shelves (composite source: union / intersection)

@@ -30,9 +30,10 @@ import { createDeckyHostApi } from "./runtime/host/decky";
 import type { HostApi } from "./runtime/host/contract";
 initI18n();
 
-// HostApi singleton — instantiated once at boot, exposed for the pilot
-// migration (EditShelfModal). Future sprints route every `@decky/*`
-// dependency through this contract.
+// HostApi singleton — instantiated once at boot. Every `@decky/*`
+// dependency eventually routes through this contract as the migration
+// progresses; today only the pilot surfaces (EditShelfModal etc.) consume
+// it directly.
 let _hostApi: HostApi | null = null;
 export function getHostApi(): HostApi { if (!_hostApi) throw new Error("HostApi not booted"); return _hostApi; }
 export function __setHostApiForTest(h: HostApi | null) { _hostApi = h; }

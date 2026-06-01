@@ -24,6 +24,7 @@ import type { ReactElement } from "react";
 import { afterPatch, findInReactTree } from "@decky/ui";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
 import { isInVisibilityWindow } from "../steam/smartShelves";
+import { applyManualOrder } from "../steam";
 import { getPlatform } from "./platformContext";
 import { logError, logInfo, logWarn } from "./logger";
 import { toaster } from "../shims/decky-api";
@@ -223,7 +224,21 @@ function activeFirstShelf() {
 }
 
 function shelfKey(shelf: any): string {
-  return `${shelf.id}:${JSON.stringify(shelf.source)}:${shelf.limit ?? 20}`;
+  // Include sort + sortReverse + manualBaseSort + manualOrder in the cache
+  // key so the resolver re-runs when the user edits ANY of those fields on
+  // the promoted shelf. Without the manual* fields, dragging cards in the
+  // edit modal wouldn't visibly reorder the recents shelf until the cache
+  // expired.
+  const sortKey = JSON.stringify(shelf.sort ?? null);
+  const reverseKey = JSON.stringify(shelf.sortReverse ?? null);
+  const baseSortKey = JSON.stringify(shelf.manualBaseSort ?? null);
+  const baseReverseKey = JSON.stringify(shelf.manualBaseSortReverse ?? null);
+  // manualOrder can be long; use length + first/last as a cheap fingerprint
+  // rather than serialising the whole array (cache key gets compared every
+  // resolve tick).
+  const mo = Array.isArray(shelf.manualOrder) ? shelf.manualOrder : [];
+  const moKey = `${mo.length}:${mo[0] ?? ''}:${mo[mo.length - 1] ?? ''}`;
+  return `${shelf.id}:${JSON.stringify(shelf.source)}:${shelf.limit ?? 20}:${sortKey}:${reverseKey}:${baseSortKey}:${baseReverseKey}:${moKey}`;
 }
 
 function scheduleResolve(shelf: any) {
@@ -233,8 +248,49 @@ function scheduleResolve(shelf: any) {
   lastResolveKey = key;
   const platform = getPlatform();
   if (!platform) return;
+  // Forward the shelf's full sort context — without this, the resolver
+  // falls back to its default ordering (effectively alphabetical for many
+  // sources), which makes the "shelf as recents" promotion ignore the
+  // user's chosen sort. shelfKey() above already namespaces the cache
+  // entry by source so two shelves with the same source but different
+  // sorts don't collide.
+  //
+  // Manual sort needs the same two-step treatment Shelf.tsx applies on
+  // home: resolve using the user's chosen `manualBaseSort` +
+  // `manualBaseSortReverse` (the natural-order fallback for items NOT in
+  // `manualOrder`), then `applyManualOrder` re-orders the result with
+  // pinned items first. Forwarding `sort='manual'` straight to the
+  // resolver is a no-op at the comparator layer, leaving the composite
+  // source's union order (effectively dedup-insertion order, which the
+  // user reads as "alphabetical-ish"). Mirroring Shelf.tsx's manual
+  // handling here makes the promoted recents shelf honour the EXACT same
+  // ordering it would on the home — including multi-key chains and
+  // per-key asc/desc.
+  const shelfSort = (shelf as any).sort;
+  const shelfSortReverse = (shelf as any).sortReverse;
+  const manualBaseSort = (shelf as any).manualBaseSort;
+  const manualBaseSortReverse = (shelf as any).manualBaseSortReverse;
+  const manualOrder: number[] | undefined = (shelf as any).manualOrder;
+  const hiddenAppIds: number[] | undefined = (shelf as any).hiddenAppIds?.length ? (shelf as any).hiddenAppIds : undefined;
+  const primaryEffectiveSort = Array.isArray(shelfSort) ? shelfSort[0] : shelfSort;
+  const isManual = primaryEffectiveSort === 'manual';
+  const resolveSort: string | string[] | undefined = isManual
+    ? (manualBaseSort ?? 'alphabetical')
+    : shelfSort;
+  const resolveReverse: boolean | boolean[] | undefined = isManual
+    ? manualBaseSortReverse
+    : shelfSortReverse;
+  // Filter sources carry their `sort` inside `source.filter` — under
+  // manual sort the resolver looks at that nested field, not the third
+  // arg. Swap it to the base sort for this resolve only (same trick
+  // Shelf.tsx uses).
+  let resolveSource: any = shelf.source;
+  if (isManual && shelf.source?.type === 'filter') {
+    resolveSource = { ...shelf.source, filter: { ...(shelf.source as any).filter, sort: manualBaseSort ?? 'alphabetical' } };
+  }
   resolvePromise = platform
-    .resolveShelfAppIds(shelf.source, shelf.limit ?? 20)
+    .resolveShelfAppIds(resolveSource, shelf.limit ?? 20, resolveSort, shelf.id, resolveReverse)
+    .then((ids: number[]) => isManual ? applyManualOrder(ids, manualOrder, hiddenAppIds) : ids)
     .then((ids: number[]) => {
       const prev = cachedAppIds;
       const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];

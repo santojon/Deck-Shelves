@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Focusable } from "@decky/ui";
+import { Focusable, GamepadButton } from "@decky/ui";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
@@ -119,6 +119,65 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     lastActivateRef.current = now;
     onActivateRef.current?.();
   }, []);
+  // View (Select) button — invokes Steam's first context-menu action
+  // directly. `SteamClient.Apps.RunGame(appid, "", -1, 1)` is the same call
+  // the native menu's first item uses; Steam picks Play / Install / Return
+  // based on the app's current state. View was chosen because it sits in
+  // the meta-button group (Steam BP's footer renders it leftmost of the
+  // overflow slot) and isn't otherwise bound on game cards. Mouse / touch
+  // users keep the long-press affordance via pointerdown (set up below).
+  const quickLaunch = useCallback(() => {
+    if (previewMode || !appid) return;
+    try {
+      const sc = (globalThis as any).SteamClient;
+      sc?.Apps?.RunGame?.(String(appid), "", -1, 1);
+    } catch {}
+  }, [appid, previewMode]);
+  // Dynamic label that mirrors what Steam's context-menu first item shows:
+  // "Play" when the app is installed (Steam routes a Play on a running
+  // game to "return to game" implicitly), "Install" otherwise. Uses the
+  // same i18n keys (`menu_play` / `menu_install`) the native menu builder
+  // uses so the legend matches the menu the user would otherwise open.
+  const quickLaunchLabel = useMemo(() => {
+    if (previewMode || !appid) return undefined;
+    try {
+      const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
+      const installed = overview?.installed === true;
+      return i18n.t(installed ? 'menu_play' : 'menu_install');
+    } catch { return undefined; }
+  }, [appid, previewMode]);
+  // `isLibraryGame` = appid resolves to an AppOverview in the local Steam
+  // store. True for any game the user owns (installed or not, Steam or
+  // non-Steam shortcut). False for:
+  //   - decorations (synthetic cards have no appid)
+  //   - online items (wishlist / store cards the user doesn't own — Steam
+  //     never adds them to the local appStore)
+  //   - friends-playing non-owned (same: not in user library)
+  //
+  // Used to gate three things:
+  //   1. Options (menu) button — non-library items have no install/play/
+  //      update available in the context menu, so the button would either
+  //      open a stub menu or do nothing useful. Hide it AND its legend hint.
+  //   2. View / quick-launch button — RunGame against a non-library appid
+  //      doesn't have a meaningful effect (Steam can't install something
+  //      that isn't on the user's account).
+  //   3. Install indicator + "Not installed" status text — meaningless for
+  //      cards the user doesn't own. The shelf-wide `hideInstallIndicator`
+  //      prop still wins when set (global toggle / per-shelf toggle), this
+  //      flag only AUGMENTS it for the specific non-library cards.
+  const isLibraryGame = useMemo(() => {
+    if (previewMode || !appid) return false;
+    try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
+    catch { return false; }
+  }, [appid, previewMode]);
+  const buttonDownHandler = useCallback((evt: any) => {
+    if (previewMode || !appid) return;
+    try {
+      if (evt?.detail?.button === GamepadButton.SELECT) {
+        quickLaunch();
+      }
+    } catch {}
+  }, [appid, previewMode, quickLaunch]);
 
   useEffect(() => {
     function injectNativeClasses(): boolean {
@@ -486,8 +545,21 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       role="listitem"
       onActivate={activate}
       onOKButton={activate}
+      // Menu / Options button stays bound for EVERY real card (anything with
+      // an onMenuButton supplied by the parent) — `recently added` /
+      // wishlist / store shelves rely on it to surface Properties /
+      // View store / DS submenu actions. Only View (below) is gated on
+      // library presence since RunGame has no meaningful target for
+      // non-library cards.
       onMenuButton={item.onMenuButton}
+      onMenuActionDescription={!previewMode && item.onMenuButton ? i18n.t('card_options') : undefined}
       onContextMenu={item.onMenuButton}
+      // View (Select) button bound to RunGame — only when the appid is in
+      // the user's local Steam library. Wishlist / store / decoration
+      // cards have no install / play / update to dispatch to, so neither
+      // the binding nor the legend slot should appear for them.
+      onButtonDown={isLibraryGame ? buttonDownHandler : undefined}
+      actionDescriptionMap={isLibraryGame && quickLaunchLabel ? { [GamepadButton.SELECT]: quickLaunchLabel } : undefined}
       // Y button — quick toggle of the per-card highlight without
       // opening the context menu. Decky's Focusable maps the Y button
       // to `onOptionsButton` / `onOptionsActionDescription` (X is the
@@ -498,8 +570,15 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // or when rendered inside a modal preview (the modal owns
       // highlight via its picker — pressing Y here would write straight
       // to settings and bypass the modal's Save/Cancel flow).
+      //
+      // The label is intentionally STATIC ("Alternar" / "Toggle") rather
+      // than switching between "Highlight" and "Remove highlight" based on
+      // the current featured state. Toggling labels mid-focus reads as
+      // visual noise on the legend; the action (flip the highlight) is the
+      // same in both directions and the user already sees the result on
+      // screen, so one stable label is enough.
       onOptionsActionDescription={!previewMode && appid
-        ? i18n.t(featured ? 'remove_highlight' : 'highlight_this')
+        ? i18n.t('card_highlight_toggle')
         : undefined}
       onOptionsButton={!previewMode && appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
       // X button — context-aware:
@@ -516,7 +595,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         appid && removableSet?.has(appid) && onRemoveCard
           ? i18n.t('menu_remove_from_shelf')
           : appid && onHideCard
-            ? i18n.t(hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
+            // On the home (non-preview) we're directly on top of a game card —
+            // shorten "Hide from shelf" to just "Hide" / "Show" so the footer
+            // legend stays tight. The preview keeps the longer label since
+            // multiple shelves can show side-by-side and the context isn't
+            // already implied by what the user is focused on.
+            ? i18n.t(previewMode
+                ? (hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
+                : (hiddenSet?.has(appid) ? 'card_show' : 'card_hide'))
             : undefined}
       onSecondaryButton={
         appid && removableSet?.has(appid) && onRemoveCard
@@ -659,7 +745,13 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             {item.name}
           </div>
         )}
-        {!hideStatusLine && (() => {
+        {/* Non-library items (wishlist / store / friends-playing non-owned)
+            have no meaningful install state — Steam doesn't track them, so
+            "Not installed" / install glyph would be misleading. Hidden per
+            card so the rule fires only on the actually-non-owned ones in a
+            mixed composite shelf; owned cards in the same row keep their
+            indicator + status text. */}
+        {!hideStatusLine && isLibraryGame && (() => {
           const hasUpdate = item.updatePending === true;
           const isInstalled = item.isInstalled === true;
           const hasPlaytime = !!playtime && item.playtimeMinutes && item.playtimeMinutes > 0;

@@ -25,7 +25,7 @@ const lbl = (key: string, fallback: string): string => {
   try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
 };
 
-export function showSyntheticCardMenu(shelfId: string, anchor: HTMLElement | null): void {
+export function showSyntheticCardMenu(shelfId: string, anchor: HTMLElement | null, cardText?: string): void {
   const d = dfl();
   const R = react();
   if (!d?.showContextMenu || !d?.Menu || !R?.createElement) return;
@@ -41,9 +41,14 @@ export function showSyntheticCardMenu(shelfId: string, anchor: HTMLElement | nul
   // "Shelf" group at the same rank as Display / Visual.
   const shelfItems = buildShelfContextMenu(shelfId, 0, d, R);
   if (!shelfItems.length) return;
+  // Menu title: the synthetic card's own text when set (e.g. a labeled
+  // decoration card), otherwise the generic "Options" — matches the
+  // on-card menu-button hint, since neither the shelf name nor "Shelf"
+  // is the natural identity for a focused decoration card.
+  const titleText = (typeof cardText === "string" && cardText.trim()) || lbl("card_options", "Options");
   const menu = R.createElement(
     d.Menu,
-    { label: shelf.title ?? "Shelf", cancelText: lbl("cancel", "Cancel") },
+    { label: titleText, cancelText: lbl("cancel", "Cancel") },
     ...shelfItems,
   );
   try { d.showContextMenu(menu, anchor ?? null); } catch {}

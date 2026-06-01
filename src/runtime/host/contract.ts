@@ -1,6 +1,6 @@
 // HostApi contract (v1.0.0) — additive-only after this point.
 //
-// Locked early so feature sprints can target this surface from day one
+// Locked early so new features can target this surface from day one
 // instead of being retrofitted later. Two adapters fulfil the contract:
 // `DeckyHostApi` (Decky Loader runtime) and `StandaloneHostApi` (stub —
 // real impl ships with the standalone host when it lands).
