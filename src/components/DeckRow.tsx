@@ -1146,6 +1146,12 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       addMapClasses(outerRef.current, 'nativeRecentsSection', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeader', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeaderLabel', map);
+      // Native shelf-container ancestor — required for descendant-selector
+      // theme rules (TiltedHome targets
+      // `_39tNvaLedsTrVh0fFsP4Jm ... _1HIFNGSxh4-jOhPiDynR4C > div:first-child`
+      // and would otherwise never reach DS cards because our shelf root
+      // lacks that ancestor class).
+      addMapClasses(outerRef.current, 'nativeShelfContainer', map);
       // Experimental: when `forceCssLoaderThemes` is on, apply the full set
       // of DFL semantic tokens so themes targeting Title/Section/Collection/
       // GameRow/Library variants also reach DS shelves. Focus/hover state
@@ -1546,7 +1552,17 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       {(!collapsed || hideShelfTitle) && (
         <Focusable
           ref={rowRef}
-          className={`ds-row-scroll${nativeRowClass ? ` ${nativeRowClass}` : ''}`}
+          // ReactVirtualized__Grid__innerScrollContainer is the literal
+          // class name CSS Loader themes (TiltedHome, ArtHero modules,
+          // etc) use as their sibling-selector base — e.g. TiltedHome's
+          // right-side rotation override is gated on
+          // `ReactVirtualized__Grid__innerScrollContainer > div.gpfocuswithin ~ div`.
+          // DS doesn't actually use ReactVirtualized, but adding the
+          // class string makes the row visible to those theme rules so
+          // the cascade reaches DS cards without us replicating the
+          // CSS ourselves. Same intent as adding nativeShelfContainer
+          // to .ds-shelf and nativeCardWrapper to .ds-card.
+          className={`ds-row-scroll ReactVirtualized__Grid__innerScrollContainer${nativeRowClass ? ` ${nativeRowClass}` : ''}`}
           noFocusRing
           role="list"
           aria-label={title}

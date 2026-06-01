@@ -584,51 +584,62 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           )}
         </div>
       )}
-      <div
-        className="ds-card-art"
-        style={{
-          background: "var(--ds-card-bg, rgba(50, 50, 55, 0.55))",
-          overflow: "hidden",
-        }}
-      >
-        <img
-          ref={(el) => {
-            imgRef.current = el;
-            // Eager-load detection: if the browser already has the
-            // image decoded (hot blob URL, HTTP-cache hit), the
-            // refCallback fires AFTER React has assigned `src` and
-            // `el.complete + el.naturalWidth > 0` is true the same
-            // tick. Mark loaded synchronously so cached images skip
-            // the opacity-gate flash and never need a `onLoad` round
-            // trip. Cold loads stay gated (no broken-icon flash) and
-            // flip via the onLoad handler below.
-            if (el && el.complete && (el.naturalWidth || 0) > 0 && !imgLoaded) {
-              setImgLoaded(true);
-            }
+      {/* Transform-target div — mirrors native card structure where
+          theme CSS targets `_1HIFNGSxh4-jOhPiDynR4C > div:first-child`
+          (TiltedHome's perspective + rotateY, ArtHero modules, etc).
+          The Focusable wrapper above wears the nativeCardWrapper class
+          via resolveNativeCardClass, so themes that walk
+          "wrapper > div" land HERE without us replicating their CSS.
+          Inline `height: cssArtH` matches native's inline-styled
+          first-child div (native: `style="height: 201px;"`) so the
+          tilt pivot + perspective frame match the native fan exactly. */}
+      <div style={{ height: cssArtH, position: 'relative' }}>
+        <div
+          className="ds-card-art"
+          style={{
+            background: "var(--ds-card-bg, rgba(50, 50, 55, 0.55))",
+            overflow: "hidden",
           }}
-          src={firstUrl}
-          alt={item.name}
-          onError={onImgError}
-          onLoad={onImgLoad}
-          decoding="async"
-          // opacity-gated again — `onError` swaps src through the
-          // fallback chain (/customimages/* → CDN), and each failing
-          // URL would otherwise briefly render the browser's broken-
-          // image glyph before the next fallback kicks in. The gate
-          // hides it; the ref callback above eliminates the visible
-          // wait for cached images so this is "instant for cached,
-          // glyph-free for cold".
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
-          loading="eager"
-          fetchPriority="high"
-        />
-        <div className={`ds-card-shimmer${imgLoaded ? ' ds-card-shimmer--loaded' : ''}`} aria-hidden="true" />
-        {compatClass && (
-          <div className={compatClass}>
-            {deckLogoSvg}
-            {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
-          </div>
-        )}
+        >
+          <img
+            ref={(el) => {
+              imgRef.current = el;
+              // Eager-load detection: if the browser already has the
+              // image decoded (hot blob URL, HTTP-cache hit), the
+              // refCallback fires AFTER React has assigned `src` and
+              // `el.complete + el.naturalWidth > 0` is true the same
+              // tick. Mark loaded synchronously so cached images skip
+              // the opacity-gate flash and never need a `onLoad` round
+              // trip. Cold loads stay gated (no broken-icon flash) and
+              // flip via the onLoad handler below.
+              if (el && el.complete && (el.naturalWidth || 0) > 0 && !imgLoaded) {
+                setImgLoaded(true);
+              }
+            }}
+            src={firstUrl}
+            alt={item.name}
+            onError={onImgError}
+            onLoad={onImgLoad}
+            decoding="async"
+            // opacity-gated again — `onError` swaps src through the
+            // fallback chain (/customimages/* → CDN), and each failing
+            // URL would otherwise briefly render the browser's broken-
+            // image glyph before the next fallback kicks in. The gate
+            // hides it; the ref callback above eliminates the visible
+            // wait for cached images so this is "instant for cached,
+            // glyph-free for cold".
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
+            loading="eager"
+            fetchPriority="high"
+          />
+          <div className={`ds-card-shimmer${imgLoaded ? ' ds-card-shimmer--loaded' : ''}`} aria-hidden="true" />
+          {compatClass && (
+            <div className={compatClass}>
+              {deckLogoSvg}
+              {compat === 3 ? checkmarkSvg : compat === 2 ? infoCircleSvg : xCircleSvg}
+            </div>
+          )}
+        </div>
       </div>
       <div
         className={`ds-card-label${hideStatusLine ? ' ds-card-label--compact' : ''}`}

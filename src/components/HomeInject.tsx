@@ -21,7 +21,7 @@ import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelf
 import { isInVisibilityWindow, nextVisibilityBoundary, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { getRuntimeClassMap } from "../core/webpackCompat";
-import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive } from "../core/cssLoaderDetect";
+import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
 
 // Fallback for the native shelf-section token when the runtime classmap
 // hasn't been populated yet. Mirrors `FALLBACK_SHELF_SECTION` in
@@ -1074,6 +1074,33 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         setFlag('data-ds-theme-no-hero-gradient', isNoHeroGradientActive());
         setFlag('data-ds-theme-hero-fullscreen', isHeroFullscreenActive());
         setFlag('data-ds-theme-no-home-text', isNoHomeTextActive());
+        // TiltedHome flag — when set, the shelfStyles.ts CSS gates a
+        // perspective + rotateY transform onto DS cards using the
+        // SAME `--ren-tilt-angle` (and friends) variables the theme
+        // exposes at `:root`, so DS shelves match the user's tilt
+        // intensity without us having to fork the values.
+        const tilted = isTiltedHomeActive();
+        setFlag('data-ds-theme-tilted-home', tilted);
+        // TiltedHome variants — emit method + direction so shelfStyles.ts
+        // CSS can gate the precise transform on the actually-installed
+        // mode (user picks among independent CSS Loader modules). Cleared
+        // when TiltedHome isn't active.
+        const mode = tilted ? getTiltedHomeMode() : null;
+        const setStrFlag = (attr: string, val: string | null | undefined) => {
+          try {
+            const doc = getPreferredSteamDocument();
+            const docs = [doc, ...getAllSteamDocuments()].filter((x): x is Document => !!x);
+            for (const d of docs) {
+              const r = d.querySelector('.deck-shelves-root') as HTMLElement | null;
+              if (r) {
+                if (val) r.setAttribute(attr, val);
+                else r.removeAttribute(attr);
+              }
+            }
+          } catch {}
+        };
+        setStrFlag('data-ds-theme-tilt-method', mode?.method ?? null);
+        setStrFlag('data-ds-theme-tilt-direction', mode?.direction ?? null);
         const roundCompat = isFocusRoundCompatActive();
         setFlag('data-ds-theme-focus-round-compat', roundCompat);
         // Mirror to <html> so the FocusRing suppression rule can reach the
@@ -1114,6 +1141,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         root.removeAttribute('data-ds-theme-no-hero-gradient');
         root.removeAttribute('data-ds-theme-hero-fullscreen');
         root.removeAttribute('data-ds-theme-no-home-text');
+        root.removeAttribute('data-ds-theme-tilted-home');
         root.removeAttribute('data-ds-theme-focus-round-compat');
         root.removeAttribute('data-ds-force-themes');
         root.removeAttribute('data-ds-recents-hidden');

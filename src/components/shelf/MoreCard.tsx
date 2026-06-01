@@ -54,25 +54,32 @@ export function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive
     cursor: interactive ? "pointer" : "default",
     overflow: "visible",
   };
+  // Wrap art in an unclassed first-child div so theme rules that
+  // target `nativeCardWrapper > div:first-child` (TiltedHome's
+  // perspective + rotateY etc) land on the transform-target div,
+  // mirroring native card structure. See GameCard for the same
+  // pattern + rationale.
   const innerArt = (
-    <div
-      className="ds-card-art"
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: cssW,
-        height: cssH,
-        overflow: "hidden",
-        background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
-        borderRadius: cachedCardRadius,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-        boxSizing: "border-box",
-      }}
-    >
-      <span className="ds-more-card-text">{item.name}</span>
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <div
+        className="ds-card-art"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: cssW,
+          height: cssH,
+          overflow: "hidden",
+          background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
+          borderRadius: cachedCardRadius,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 20,
+          boxSizing: "border-box",
+        }}
+      >
+        <span className="ds-more-card-text">{item.name}</span>
+      </div>
     </div>
   );
 

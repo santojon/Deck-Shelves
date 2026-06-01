@@ -140,6 +140,82 @@ export function isFocusRoundCompatActive(): boolean {
     || /focusring_blinker_[\w-]*flangrande/i.test(text);
 }
 
+/**
+ * TiltedHome detection — the theme applies a tilt transform (skew or 3D
+ * perspective + rotateY) to native game tiles using a `--ren-tilt-angle`
+ * CSS variable defined at `:root`. Detection looks for that variable in
+ * any CSS Loader style block. Stable across SteamOS class-hash rotations.
+ */
+export function isTiltedHomeActive(): boolean {
+  const text = getAllStyleText();
+  return /--ren-tilt-angle\s*:/i.test(text);
+}
+
+/**
+ * Detects WHICH TiltedHome variant is installed by inspecting the actual
+ * tilt rule's transform value across all CSS Loader styles. The user
+ * picks among independent CSS Loader modules:
+ *   - method: `skew` (2D parallelogram) OR `3d` (perspective + rotateY)
+ *   - direction: `one-way` (every tile leans the same direction) OR
+ *     `opposites` (cards before focus lean one way, cards after lean
+ *     the other — the "fan" composition around the focused tile)
+ *
+ * "opposites" mode adds a sibling-selector rule that uses
+ * `> div.gpfocuswithin ~ div` somewhere in the chain to override the
+ * default tilt for cards visually right of the focused one.
+ *
+ * Returns null when TiltedHome isn't active.
+ */
+export function getTiltedHomeMode(): { method: "skew" | "3d"; direction: "one-way" | "opposites" } | null {
+  if (!isTiltedHomeActive()) return null;
+  const text = getAllStyleText();
+  // Method: 3d if any tilt rule combines perspective+rotateY with the
+  // --ren-tilt-angle var; otherwise skew (the default / most common
+  // installed variant uses skew()).
+  const method: "skew" | "3d" =
+    /transform\s*:[^;}]*rotateY[^;}]*--ren-tilt-angle/i.test(text)
+    || /transform\s*:[^;}]*perspective\([^)]*\)[^;}]*--ren-tilt-angle/i.test(text)
+      ? "3d"
+      : "skew";
+  // Direction: opposites mode injects a sibling-after-focused override
+  // (`> div.gpfocuswithin ~ div`) somewhere in the chain. one-way mode
+  // has no such override — every tile uses the same tilt direction.
+  const direction: "one-way" | "opposites" =
+    />\s*div\.gpfocuswithin\s*~\s*div/i.test(text) ? "opposites" : "one-way";
+  return { method, direction };
+}
+
+/**
+ * Reads TiltedHome's configuration variables from the active CSS theme.
+ * Returns the user-effective values (including their custom overrides) so
+ * DS shelves can mirror the user's chosen tilt intensity instead of
+ * hardcoding the theme defaults. Reads from `:root` computed style.
+ */
+export function getTiltedHomeConfig(): {
+  tiltAngle: string;
+  imageZoom: string;
+  mostRecentOffset: string;
+  viewMoreOffset: string;
+  viewMoreFocusScale: string;
+} | null {
+  if (!isTiltedHomeActive()) return null;
+  try {
+    const doc = getPreferredSteamDocument();
+    const root = doc?.documentElement;
+    if (!root) return null;
+    const cs = (doc?.defaultView ?? window).getComputedStyle(root);
+    return {
+      tiltAngle: cs.getPropertyValue("--ren-tilt-angle").trim() || "-5deg",
+      imageZoom: cs.getPropertyValue("--ren-image-zoom").trim() || "1.15",
+      mostRecentOffset: cs.getPropertyValue("--ren-most-recent-offset").trim() || "2%",
+      viewMoreOffset: cs.getPropertyValue("--ren-view-more-offset").trim() || "-7%",
+      viewMoreFocusScale: cs.getPropertyValue("--ren-view-more-focus-scale").trim() || "0.88",
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** "No Home Text": carousel game label hidden via visibility:hidden. */
 export function isNoHomeTextActive(): boolean {
   const text = getAllStyleText();

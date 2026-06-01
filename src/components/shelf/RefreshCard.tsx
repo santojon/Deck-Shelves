@@ -71,31 +71,36 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interact
     cursor: interactive ? "pointer" : "default",
     overflow: "visible",
   };
+  // Wrap art in an unclassed first-child div so theme rules that
+  // target the transform-target slot (TiltedHome etc) land here.
+  // Mirrors GameCard's native-card-structure pattern.
   const innerArt = (
-    <div
-      className="ds-card-art ds-refresh-card"
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: cssW,
-        height: cssH,
-        overflow: "hidden",
-        background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
-        borderRadius: cachedCardRadius,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 16,
-        padding: 20,
-        boxSizing: "border-box",
-        color: "rgba(255,255,255,0.92)",
-      }}
-    >
-      <span ref={iconRef} className="ds-refresh-icon" style={{ display: "inline-flex" }}>
-        {refreshIconSvg}
-      </span>
-      <span className="ds-more-card-text">{item.name}</span>
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <div
+        className="ds-card-art ds-refresh-card"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: cssW,
+          height: cssH,
+          overflow: "hidden",
+          background: "linear-gradient(313deg, rgba(51,51,51,0.667), rgba(85,85,85,0.667))",
+          borderRadius: cachedCardRadius,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          padding: 20,
+          boxSizing: "border-box",
+          color: "rgba(255,255,255,0.92)",
+        }}
+      >
+        <span ref={iconRef} className="ds-refresh-icon" style={{ display: "inline-flex" }}>
+          {refreshIconSvg}
+        </span>
+        <span className="ds-more-card-text">{item.name}</span>
+      </div>
     </div>
   );
 
