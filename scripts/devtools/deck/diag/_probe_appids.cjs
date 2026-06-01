@@ -5,9 +5,16 @@ var shelfId = process.argv[3];
 var HOST = process.env.DECK_CDP_HOST || process.env.DECK_HOST || '127.0.0.1';
 var PORT = process.env.DECK_CDP_PORT || '8081';
 var c = new ws('ws://' + HOST + ':' + PORT + '/devtools/page/' + target);
-var id = 1; var pending = {};
-function send(method, params) { return new Promise(function (res) { var i = id++; pending[i] = res; c.send(JSON.stringify({ id: i, method: method, params: params || {} })); }); }
-c.on('message', function (d) { var m = JSON.parse(d); if (m.id && pending[m.id]) { pending[m.id](m.result || m.error); delete pending[m.id]; } });
+var id = 1; var pending = new Map();
+function send(method, params) { return new Promise(function (res) { var i = id++; pending.set(i, res); c.send(JSON.stringify({ id: i, method: method, params: params || {} })); }); }
+c.on('message', function (d) {
+  var m = JSON.parse(d);
+  if (typeof m.id !== 'number') return;
+  var resolver = pending.get(m.id);
+  if (typeof resolver !== 'function') return;
+  pending.delete(m.id);
+  resolver(m.result || m.error);
+});
 c.on('open', function () {
   send('Runtime.evaluate', {
     expression: `(function(){
