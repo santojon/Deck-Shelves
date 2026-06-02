@@ -1,15 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { useTranslation } from "react-i18next";
+import i18n from "../../i18n";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
+import { toggleCardHighlight } from "./GameCard";
 
-export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH, featured = false }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean }) {
+export function PlaceholderCard({
+  item,
+  cardW = CARD_W,
+  cardH = CARD_ART_H,
+  artH,
+  featured = false,
+  previewMode = false,
+  removableSet,
+  onRemoveCard,
+  hiddenSet,
+  onHideCard,
+}: {
+  item: DeckRowItem;
+  cardW?: number;
+  cardH?: number;
+  artH?: number;
+  featured?: boolean;
+  previewMode?: boolean;
+  removableSet?: Set<number>;
+  onRemoveCard?: (appid: number) => void;
+  hiddenSet?: Set<number>;
+  onHideCard?: (appid: number) => void;
+}) {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
+  const appid = item.appid ?? 0;
 
   useEffect(() => {
     return retryWithIntervals(() => {
@@ -36,10 +61,35 @@ export function PlaceholderCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH
       className={`ds-card${featured ? ' ds-card--featured' : ''}${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
       focusClassName="gpfocus"
       role="listitem"
-      onActivate={item.onActivate}
-      onOKButton={item.onActivate}
+      onActivate={item.onToggleSelection ?? item.onActivate}
+      onOKButton={item.onToggleSelection ?? item.onActivate}
       onMenuButton={item.onMenuButton}
+      onMenuActionDescription={!previewMode && item.onMenuButton ? i18n.t('card_options') : undefined}
       onContextMenu={item.onMenuButton}
+      // Y → highlight toggle. Same gating as GameCard: only outside
+      // previewMode (the modal owns highlight via its picker) and only
+      // when the card has a real appid.
+      onOptionsActionDescription={!previewMode && appid
+        ? i18n.t('card_highlight_toggle')
+        : undefined}
+      onOptionsButton={!previewMode && appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
+      // X → remove (for menu-added cards) or hide (otherwise). Same
+      // context-aware shape as GameCard, including the short
+      // home-only labels via `card_remove` / `card_hide`.
+      onSecondaryActionDescription={
+        appid && removableSet?.has(appid) && onRemoveCard
+          ? i18n.t(previewMode ? 'menu_remove_from_shelf' : 'card_remove')
+          : appid && onHideCard
+            ? i18n.t(previewMode
+                ? (hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
+                : (hiddenSet?.has(appid) ? 'card_show' : 'card_hide'))
+            : undefined}
+      onSecondaryButton={
+        appid && removableSet?.has(appid) && onRemoveCard
+          ? () => { try { onRemoveCard(appid); } catch {} }
+          : appid && onHideCard
+            ? () => { try { onHideCard(appid); } catch {} }
+            : undefined}
       data-appid={item.appid || undefined}
       data-shelfid={item.shelfId || undefined}
       style={{

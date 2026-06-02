@@ -19,7 +19,7 @@ import { patchShelfInSettings } from "../../domain/settings";
 // shelf-level highlightAll / highlightFirst flags, this clears the
 // shelf-level source instead so the user gets a predictable visual
 // "off". Mirrors the context-menu "Highlight this game" path.
-function toggleCardHighlight(shelfId: string | undefined, appid: number): void {
+export function toggleCardHighlight(shelfId: string | undefined, appid: number): void {
   if (!shelfId || !appid) return;
   const s = getCurrentSettings();
   if (!s) return;
@@ -534,7 +534,18 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // Placeholder fallback must be returned AFTER all hooks above so the
   // hook count stays stable across renders (React error #300 otherwise).
   if (imgFailed || !firstUrl) {
-    return <PlaceholderCard item={item} cardW={cardW} cardH={cardH} artH={artH} featured={featured} />;
+    return <PlaceholderCard
+      item={item}
+      cardW={cardW}
+      cardH={cardH}
+      artH={artH}
+      featured={featured}
+      previewMode={previewMode}
+      removableSet={removableSet}
+      onRemoveCard={onRemoveCard}
+      hiddenSet={hiddenSet}
+      onHideCard={onHideCard}
+    />;
   }
 
   return (

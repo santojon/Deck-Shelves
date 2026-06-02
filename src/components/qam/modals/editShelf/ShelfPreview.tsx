@@ -5,6 +5,9 @@ import type { DeckRowItem } from '../../../shelf/types'
 import { shouldShowMoreCard, shouldShowRefreshCard } from '../../../shelf/trailingCards'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 import { computeCenteredScrollLeft } from '../../../../core/scrollUtils'
+import { getAllAppOverviews, getLocalLibraryAppIds } from '../../../../steam'
+import { normalizeTitleForMatch } from '../../../../steam/dedupe'
+import { getCurrentSettings } from '../../../../store/settingsStore'
 import { DIR_LEFT, DIR_RIGHT, HOLD_MS } from './constants'
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
@@ -217,6 +220,101 @@ export function ShelfPreview({
     }
     return false
   })()
+  // Mirror Shelf.tsx render-time owned-hide: when an online source has
+  // the "exclude owned" toggle on (per-shelf or global), drop ids that
+  // match the local library by appid OR by normalized name. For composite
+  // shelves the toggle lives on the first online child (editor propagates
+  // it uniformly), so read from there. For direct online shelves read
+  // from the source itself. Owned-locally cards (overview present in
+  // appStore) only get dropped when they came from an online child —
+  // detected here via the same `appStore.GetAppOverviewByAppID` lookup
+  // Shelf.tsx uses (offline-origin cards have a local overview → kept).
+  const ownedHideState = useMemo(() => {
+    const s: any = shelfSource
+    if (!s || typeof s !== 'object') return null
+    const directOnline = s.type === 'wishlist' || s.type === 'store'
+    const compositeOnlineChild = s.type === 'composite' && Array.isArray(s.sources)
+      ? s.sources.find((c: any) => c?.type === 'wishlist' || c?.type === 'store')
+      : null
+    if (!directOnline && !compositeOnlineChild) return null
+    const tgls = directOnline ? s : compositeOnlineChild
+    const excludeOwned = !!tgls?.excludeOwned
+    const excludeOwnedNonSteam = excludeOwned && !!tgls?.excludeOwnedNonSteam
+    const perShelfCloud = tgls?.hideOwnedNonSteamCloud
+    const cur = (() => { try { return getCurrentSettings() } catch { return null } })()
+    const globalHideOwned = cur?.onlineHideOwnedGames === true
+    const globalHideOwnedNonSteam = cur?.onlineHideOwnedNonSteam === true
+    const globalHideOwnedCloud = cur?.onlineHideOwnedNonSteamCloud === true
+    const shouldHide = globalHideOwned || excludeOwned
+    if (!shouldHide) return null
+    const effectiveNonSteam = (globalHideOwned && globalHideOwnedNonSteam) || (excludeOwned && excludeOwnedNonSteam)
+    const effectiveCloud = effectiveNonSteam && (perShelfCloud === true || (perShelfCloud === undefined && globalHideOwnedCloud))
+    return { isCompositeShelf: s.type === 'composite', effectiveNonSteam, effectiveCloud }
+  }, [shelfSource])
+  const [ownedAppIds, setOwnedAppIds] = useState<Set<number> | null>(null)
+  const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    if (!ownedHideState) { setOwnedAppIds(null); setOwnedNames(null); return }
+    const { effectiveNonSteam, effectiveCloud } = ownedHideState
+    const ownedSet = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
+    setOwnedAppIds(ownedSet)
+    // Build ownedNames via PER-ID raw `appStore.GetAppOverviewByAppID`
+    // lookup across every Steam window — `getAllAppOverviews()` falls
+    // through `normalizeAppOverview` for many users which strips entries
+    // whose display_name ends up as the "App {id}" fallback, so the
+    // resulting `apps` array doesn't include every non-Steam shortcut
+    // (Epic / Amazon / GOG titles the user owns there). Without those,
+    // the wishlist row's name-dedup misses items like "Kingdom Come:
+    // Deliverance II". Iterating `ownedSet` directly + a raw per-id
+    // lookup guarantees every owned entry contributes its name.
+    let cancelled = false
+    ;(async () => {
+      const names = new Set<string>()
+      const lookups = (id: number): string | null => {
+        try {
+          const opener: any = (globalThis as any).opener
+          const candidates = [
+            (globalThis as any).appStore,
+            opener?.appStore,
+            opener?.AppStore,
+          ].filter(Boolean)
+          for (const as of candidates) {
+            try {
+              const ov = as?.GetAppOverviewByAppID?.(id)
+              const n = (ov as any)?.display_name ?? (ov as any)?.name
+              if (typeof n === "string" && n) return n
+            } catch {}
+          }
+        } catch {}
+        return null
+      }
+      for (const id of ownedSet) {
+        const n = lookups(id)
+        if (!n) continue
+        const k = normalizeTitleForMatch(n)
+        if (k) names.add(k)
+      }
+      // Backstop: still merge whatever `getAllAppOverviews()` returns
+      // for the rare case where the raw appStore lookup misses an entry
+      // a fallback path captured.
+      try {
+        const apps = await getAllAppOverviews()
+        if (cancelled) return
+        for (const a of apps) {
+          const id = Number((a as any)?.appid)
+          if (!ownedSet.has(id)) continue
+          const n = (a as any)?.display_name ?? (a as any)?.name
+          if (typeof n === 'string' && n) {
+            const k = normalizeTitleForMatch(n)
+            if (k) names.add(k)
+          }
+        }
+      } catch {}
+      if (cancelled) return
+      setOwnedNames(names)
+    })()
+    return () => { cancelled = true }
+  }, [ownedHideState])
   const rowItems = useMemo<DeckRowItem[]>(() => {
     let priceCache: any = null
     if (isOnlineShelfSource) {
@@ -233,9 +331,36 @@ export function ShelfPreview({
     const hiddenSet = hiddenAppIds && hiddenAppIds.length ? new Set(hiddenAppIds) : null
     const out: DeckRowItem[] = []
     let cardIdx = -1
+    // Per-id owned-overview lookup used to mirror Shelf.tsx's
+    // `isStoreFallback` proxy: cards from offline children have a local
+    // overview; cards from online children don't. For composite shelves,
+    // hide-owned only applies to online-origin cards so collection items
+    // the user owns aren't filtered out by their own ownership.
+    const hasLocalOverview = (id: number): boolean => {
+      try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(id) }
+      catch { return false }
+    }
     for (const id of cappedIds) {
-      const m = meta.get(id)
-      if (!m) continue
+      // Owned-hide gate: skip ids matching the local library by appid
+      // OR by normalized name. Composite shelves restrict the gate to
+      // online-origin cards (no local overview); direct online shelves
+      // apply it to every card (they're all online by definition).
+      if (ownedHideState && (ownedAppIds || ownedNames)) {
+        const eligible = ownedHideState.isCompositeShelf ? !hasLocalOverview(id) : true
+        if (eligible) {
+          if (ownedAppIds?.has(id)) continue
+          if (ownedNames) {
+            const m0 = meta.get(id)
+            const nm = m0?.name && !/^App \d+$/.test(m0.name) && !/^#\d+$/.test(m0.name) ? m0.name : ''
+            const key = nm ? normalizeTitleForMatch(nm) : ''
+            if (key && ownedNames.has(key)) continue
+          }
+        }
+      }
+      // Don't skip on missing meta — render a placeholder so menu-added
+      // games appear immediately, even before their meta fetch lands
+      // (the home shelf does this too via the `App {id}` fallback).
+      const m = meta.get(id) ?? { appid: id, name: `#${id}` } as PlatformAppMeta
       cardIdx++
       const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
       // Always-on intrinsic marks. Precedence (top → bottom): grabbed
@@ -310,7 +435,7 @@ export function ShelfPreview({
       }
     }
     return out
-  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid, hiddenAppIds?.join(','), removableSet, highlightedSet, highlightAll, highlightFirst])
+  }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid, hiddenAppIds?.join(','), removableSet, highlightedSet, highlightAll, highlightFirst, ownedHideState, ownedAppIds, ownedNames])
 
   // Keep the focused card in view as the user navigates horizontally — same
   // pattern HighlightRow uses on the home shelf. Without this, fast L/R input

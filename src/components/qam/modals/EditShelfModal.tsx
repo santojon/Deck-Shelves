@@ -489,7 +489,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   useEffect(() => {
     let cancelled = false
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
+    // Composite shelves with an online child also need the online name
+    // pipeline (cached name + CDN portrait + name fetch) — without it
+    // wishlist items render as "App {id}" placeholders in the preview.
     const isOnlineSource = state.sourceType === 'wishlist' || state.sourceType === 'store'
+      || (state.sourceType !== 'filter' && state.additionalSources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'))
     ;(async () => {
       const rawResults = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
         try { return [id, await platform.getAppMeta(id)] }
@@ -537,7 +541,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       })
     })()
     return () => { cancelled = true }
-  }, [platform, resolvedIds.join(','), state.sourceType])
+  }, [platform, resolvedIds.join(','), state.sourceType, state.additionalSources.map((s: any) => s?.type).join(',')])
 
   // Meta for menu-added games — games appended to `manualOrder` via the
   // library context menu's "Add to shelf". They're NOT in resolvedIds

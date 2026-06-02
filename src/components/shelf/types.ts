@@ -35,6 +35,11 @@ export type DeckRowItem = {
     size: "normal" | "featured";
     alpha?: number;
     placeholder?: boolean;
+    // Persisted index into `shelf.syntheticCards`. Used by the home
+    // shelf's SyntheticCard X (remove) / Y (toggle size) bindings to
+    // patch the right entry. Optional — preview / drag modes that
+    // re-index synth cards leave it out and skip those bindings.
+    index?: number;
   };
 };
 

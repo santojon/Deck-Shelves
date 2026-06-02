@@ -561,8 +561,13 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     // in the visible row.
     const synth = (shelf as any).syntheticCards as Array<any> | undefined;
     if (synth && synth.length) {
-      const sorted = synth.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-      for (const c of sorted) {
+      // Sort by position, keep the ORIGINAL index alongside so the
+      // synthetic card can address its own entry for X (remove) / Y
+      // (toggle size) bindings even though the home array is mutated
+      // by splice order.
+      const indexed = synth.map((c, origIdx) => ({ c, origIdx }));
+      indexed.sort((a, b) => (a.c.position ?? 0) - (b.c.position ?? 0));
+      for (const { c, origIdx } of indexed) {
         const pos = Math.max(0, Math.min(base.length, Number(c.position) || 0));
         base.splice(pos, 0, {
           id: `${shelf.id}__synthetic__${pos}__${base.length}`,
@@ -575,6 +580,10 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
             size: c.size === "featured" ? "featured" : "normal",
             alpha: c.alpha,
             placeholder: c.placeholder === true,
+            // Index into the persisted `shelf.syntheticCards` array so
+            // the card's X (remove) / Y (toggle size) bindings can
+            // patch the right entry directly.
+            index: origIdx,
           },
         });
       }

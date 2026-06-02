@@ -8,6 +8,8 @@ import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 import { usePlatform } from "../../runtime/platformContext";
 import { showSyntheticCardMenu } from "../../core/syntheticCardMenu";
 import { resolveLocalImage, subscribeLocalImage } from "../../core/localImage";
+import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
+import { patchShelfInSettings } from "../../domain/settings";
 
 // Synthetic card — decoration / placeholder / gap slot.
 //
@@ -186,6 +188,39 @@ export function SyntheticCard({
       showSyntheticCardMenu(shelfId, cardRef.current, synth?.text);
     } catch {}
   };
+  // X (remove) and Y (toggle size) bindings target the synthetic
+  // entry by its persisted index — only present on the home shelf
+  // (Shelf.tsx forwards `synthetic.index`). Preview / drag mode omits
+  // the index and these bindings stay inert.
+  const shelfId = String(item.shelfId ?? "");
+  const synthIndex = typeof synth.index === "number" ? synth.index : -1;
+  const handleRemove = () => {
+    if (!shelfId || synthIndex < 0) return;
+    try {
+      const s = getCurrentSettings();
+      if (!s) return;
+      const sh: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
+      const list: any[] = Array.isArray(sh?.syntheticCards) ? sh.syntheticCards : [];
+      if (synthIndex >= list.length) return;
+      const next = list.filter((_, i) => i !== synthIndex);
+      void saveSettings(patchShelfInSettings(s, shelfId, { syntheticCards: next.length ? next : undefined } as any));
+    } catch {}
+  };
+  const handleToggleSize = () => {
+    if (!shelfId || synthIndex < 0) return;
+    try {
+      const s = getCurrentSettings();
+      if (!s) return;
+      const sh: any = (s.shelves ?? []).find((row: any) => row.id === shelfId);
+      const list: any[] = Array.isArray(sh?.syntheticCards) ? sh.syntheticCards : [];
+      if (synthIndex >= list.length) return;
+      const next = list.map((c, i) => i === synthIndex
+        ? { ...c, size: c?.size === "featured" ? "normal" : "featured" }
+        : c);
+      void saveSettings(patchShelfInSettings(s, shelfId, { syntheticCards: next } as any));
+    } catch {}
+  };
+  const canPatchSynth = synthIndex >= 0 && !!shelfId;
 
   return (
     <Focusable
@@ -196,6 +231,10 @@ export function SyntheticCard({
       onOKButton={handleActivate}
       onMenuButton={handleMenu}
       onMenuActionDescription={i18n.t('card_options')}
+      onSecondaryButton={canPatchSynth ? handleRemove : undefined}
+      onSecondaryActionDescription={canPatchSynth ? i18n.t('card_remove') : undefined}
+      onOptionsButton={canPatchSynth ? handleToggleSize : undefined}
+      onOptionsActionDescription={canPatchSynth ? i18n.t('card_synth_toggle_size') : undefined}
       style={containerStyle}
     >
       {inner}
