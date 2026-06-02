@@ -2259,6 +2259,23 @@ function buildKeyComparator(
   return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
 }
 
+// Per-id raw overview lookup for the sort-pool fallback. Returns the
+// RAW Steam overview (full shape with rt_original_release_date etc.) or
+// null if the appid isn't known to any Steam window's appStore. Used by
+// `applySortToIds` when `all` is incomplete (the GetAllAppOverviews
+// fallback path can drop owned games whose normalised display_name ends
+// up as the placeholder `App {id}`).
+function sortPoolLookup(id: number): AppOverview | null {
+  for (const win of getSteamWindows()) {
+    try {
+      const raw = (win as any)?.appStore?.GetAppOverviewByAppID?.(id)
+        ?? (win as any)?.AppStore?.GetAppOverviewByAppID?.(id);
+      if (raw) return raw as AppOverview;
+    } catch {}
+  }
+  return null;
+}
+
 export function applySortToIds(
   ids: number[],
   sort: string | string[],
@@ -2287,7 +2304,16 @@ export function applySortToIds(
     if (comparators.length === 0) return ids.slice();
     const byId = new Map<number, AppOverview>();
     for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
-    const apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+    // For ids missing from `all` (the GetAllAppOverviews fallback path
+    // strips owned games whose normalize step produces an "App {id}"
+    // placeholder, which is then filtered out at the end of
+    // `fetchAllAppOverviews` — see line 1547 — so `all` is incomplete
+    // for many users), do a per-id raw lookup via `appStore.GetAppOverviewByAppID`
+    // so timestamp fields like `rt_original_release_date` /
+    // `rt_purchased_time` reach the comparator. Without this the sort
+    // call SILENTLY DROPS owned ids that aren't in the lean `all`,
+    // causing composite collection children to lose nearly every game.
+    const apps = ids.map((id) => byId.get(id) ?? sortPoolLookup(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview[];
     apps.sort((a, b) => {
       for (const cmp of comparators) {
         const r = cmp(a, b);
@@ -2305,7 +2331,9 @@ export function applySortToIds(
   const reverseBool: boolean = Array.isArray(reverse) ? !!reverse[0] : !!reverse;
   const byId = new Map<number, AppOverview>();
   for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
-  let apps = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  // Same per-id fallback as the multi-key path above — owned ids missing
+  // from `all` must not silently disappear from the sorted output.
+  let apps = ids.map((id) => byId.get(id) ?? sortPoolLookup(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview[];
   if (sort === "recent") apps = apps.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
   else if (sort === "playtime") apps = apps.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
   else if (sort === "release_date") apps = apps.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
@@ -3073,8 +3101,53 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       return finish([]);
     }
     const combine = source.combine === "intersection" ? "intersection" : "union";
-    const childSources: Array<{ type: string; [k: string]: any }> = Array.isArray(source.sources) ? source.sources : [];
-    if (!childSources.length) return finish([]);
+    const rawChildSources: Array<{ type: string; [k: string]: any }> = Array.isArray(source.sources) ? source.sources : [];
+    if (!rawChildSources.length) return finish([]);
+    // Composite-level childFilter (the editor's "Online Filters" tab)
+    // applies ONLY to online children — discount / price predicates are
+    // meaningless for offline sources, and `evaluateFilterItem("discount")`
+    // returns `false` for any appid missing from the price cache, which
+    // would otherwise drop every owned-game id when applied post-merge.
+    // Per the design: "for a combined source, every ONLINE source applies
+    // the same online filters". So we merge the composite-level filter
+    // items into each online child's own `childFilter` before resolving,
+    // letting the wishlist / store branches handle it natively.
+    const compositeChildFilter = (source as any).childFilter;
+    const compositeFilterItems: any[] = (compositeChildFilter && Array.isArray(compositeChildFilter.items))
+      ? compositeChildFilter.items
+      : [];
+    // Legacy purge: older editor saves wrote the composite-level filter
+    // ALSO onto the primary child's `childFilter`. For offline children
+    // (collection / tab / filter) that duplicates the online predicate
+    // onto offline sources — `evaluateFilterItem("discount")` returns
+    // false for non-price-cache ids, so the offline child silently loses
+    // every game. Strip the duplicated filter at resolve-time so the
+    // user doesn't have to re-save every shelf to recover.
+    const compositeFilterSig = compositeFilterItems.length > 0 ? JSON.stringify(compositeFilterItems) : "";
+    const childSources = rawChildSources.map((child) => {
+      if (compositeFilterItems.length === 0) return child;
+      // Offline child carrying the same childFilter as the composite-level
+      // one → drop the offline copy (it was a legacy save artifact).
+      if (child?.type !== "wishlist" && child?.type !== "store") {
+        if (compositeFilterSig && child?.childFilter && Array.isArray(child.childFilter.items)) {
+          const childSig = JSON.stringify(child.childFilter.items);
+          if (childSig === compositeFilterSig) {
+            const { childFilter: _drop, ...rest } = child;
+            return rest;
+          }
+        }
+        return child;
+      }
+      const childExisting: any[] = (child.childFilter && Array.isArray(child.childFilter.items)) ? child.childFilter.items : [];
+      const mergedItems = [...childExisting, ...compositeFilterItems];
+      return {
+        ...child,
+        childFilter: {
+          mode: child.childFilter?.mode === "or" ? "or" : "and",
+          items: mergedItems,
+        },
+      };
+    });
     // Each child source resolves with its OWN sort embedded (filter
     // sources carry `source.filter.sort`; other types use the shelf-
     // level sort passed through). We forward `sort` + `sortReverse` so
@@ -3087,8 +3160,48 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
           .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; }),
       ),
     );
-    const merged = mergeCompositeResults(childResults, combine);
-    logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length });
+    let merged = mergeCompositeResults(childResults, combine);
+    // Re-sort the merged set. Each child resolved with the same `sort`
+    // independently, but `mergeCompositeResults` interleaves them via
+    // round-robin (union) or filters by membership (intersection) — both
+    // discard the per-child sort. Without this pass the row reads
+    // out-of-order whenever the parent shelf carries a sort key.
+    // Skip manual / random: manual order is layered at the Shelf level,
+    // random intentionally preserves the merge order.
+    const sortKeys: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
+    const primarySortKey = sortKeys[0];
+    if (merged.length > 1 && primarySortKey && primarySortKey !== "manual" && primarySortKey !== "random") {
+      try {
+        const hasPriceKey = sortKeys.some((k) => k === "price_low" || k === "discount_high" || k === "original_price_high");
+        const priceMap = hasPriceKey
+          ? await (await import("../core/onlineStore")).getPriceMap(merged)
+          : undefined;
+        // `all` from getAllAppOverviews() can fall through to
+        // `normalizeAppOverview` (when the primary `GetAllAppOverviews` IPC
+        // returns empty), which strips timestamp fields like
+        // `rt_original_release_date` / `rt_purchased_time` /
+        // `metacritic_score`. The comparator then sees zeros across the
+        // board and the merged order is preserved instead of resorted.
+        // Build the pool from the RAW per-id overview via
+        // appStore.GetAppOverviewByAppID so the comparators get the full
+        // shape regardless of which getAllAppOverviews path landed.
+        // Fallback: the `all` entry, then a bare stub for non-owned ids.
+        const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
+        const lookupRaw = (id: number): any | null => {
+          for (const win of getSteamWindows()) {
+            try {
+              const raw = (win as any)?.appStore?.GetAppOverviewByAppID?.(id)
+                ?? (win as any)?.AppStore?.GetAppOverviewByAppID?.(id);
+              if (raw) return raw;
+            } catch {}
+          }
+          return null;
+        };
+        const pool: AppOverview[] = merged.map((id) => (lookupRaw(id) ?? byIdAll.get(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview);
+        merged = applySortToIds(merged, sort!, pool, shelfId, sortReverse, priceMap);
+      } catch (e) { logWarn("STEAM", "composite resort failed", String(e)); }
+    }
+    logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length, hasChildFilter: !!compositeChildFilter });
     return finish(merged.slice(0, overShootLimit));
   }
 

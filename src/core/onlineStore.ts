@@ -98,7 +98,14 @@ export async function getWishlistIds(): Promise<number[] | null> {
 // the secondary api/appdetails fetch silently mis-cached free-weekend titles
 // as `unpriced: true`. Polluted entries linger in the price cache; the cache
 // replay below overwrites them on every getStoreGameIds call.
-const STORE_KEY = "ds-store-cache-v2";
+// v3 bump: extended the upstream endpoint set with two more coverage
+// sources (paginated specials pages 2/3 + the `category2=18` "Free
+// Weekend" tag). v2 caches missed currently-free titles that don't fit
+// in the first 100 specials AND aren't in the combined specials+free
+// intersection — the user-reported "still has missing free games" case.
+// Bumping forces existing users to re-fetch with the new coverage on
+// first home open.
+const STORE_KEY = "ds-store-cache-v3";
 const STORE_TTL = 6 * 60 * 60 * 1000; // 6h
 
 type StoreCacheV2 = {
@@ -172,26 +179,46 @@ export async function getStoreGameIds(): Promise<number[] | null> {
         const tid = setTimeout(() => ac.abort(), ms);
         return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(tid));
       };
-      // Why 4 endpoints (not 3): free-weekend / free-play-days titles are
-      // CURRENTLY DISCOUNTED 100% but Steam's `?specials=1` excludes them
-      // (CDP-confirmed: 3 known free-weekend titles `3771740` / `1035110` /
-      // `1070580` returned count 0 for `?specials=1`, count 0 for
-      // `?maxprice=free`, count 0 for popular, count 3 only when both
-      // `?specials=1` AND `?maxprice=free` are set together). Without the
-      // 4th combined endpoint, "100% off" / "Free now" shelves silently
-      // drop every free-weekend title. Permanent F2P games still come from
-      // the `?maxprice=free` branch.
-      const [specialsResp, freeResp, freeWeekendResp, popularResp] = await Promise.allSettled([
-        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=500&cc=us"),
+      // Coverage strategy — multiple endpoints in parallel because none
+      // alone catches every currently-free title. CDP-confirmed gaps:
+      //  - `?specials=1` caps each PAGE at 100 items regardless of the
+      //    `count` parameter (Steam-side server limit). The store has
+      //    thousands of titles on sale, so a single fetch misses
+      //    everything past rank 100. Paginating with `start=100` /
+      //    `start=200` reaches the rest — three pages = ~300 specials.
+      //  - Free-weekend / free-play-days titles currently discounted 100%
+      //    are excluded from `?specials=1` AND from `?maxprice=free`
+      //    when each is queried alone. They appear ONLY in the
+      //    intersection `?specials=1&maxprice=free` (a small set, 3-10
+      //    typically) OR via the dedicated `category2=18` "Free Weekend"
+      //    tag (broader, up to 100). Both catch slightly different
+      //    subsets — keep both.
+      //  - Permanent F2P games come from the `?maxprice=free` branch.
+      //  - Popular front-page covers the long tail.
+      // Without all seven endpoints, "100% off" / "Free now" shelves
+      // silently drop titles the user knows are currently free.
+      const [
+        specialsP1Resp, specialsP2Resp, specialsP3Resp,
+        freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
+        popularResp,
+      ] = await Promise.allSettled([
+        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=0&cc=us"),
+        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=100&cc=us"),
+        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=200&cc=us"),
         withTimeout("https://store.steampowered.com/search/results/?maxprice=free&json=1&count=200&cc=us"),
         withTimeout("https://store.steampowered.com/search/results/?specials=1&maxprice=free&json=1&count=200&cc=us"),
+        withTimeout("https://store.steampowered.com/search/results/?category2=18&json=1&count=200&cc=us"),
         withTimeout("https://store.steampowered.com/search/results/?json=1&count=100&cc=us"),
       ]);
 
       const ids = new Set<number>();
       const nameMap = new Map<number, string>();
       const priceHints: Array<{ id: number; original: number; final: number }> = [];
-      for (const result of [specialsResp, freeResp, freeWeekendResp, popularResp]) {
+      for (const result of [
+        specialsP1Resp, specialsP2Resp, specialsP3Resp,
+        freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
+        popularResp,
+      ]) {
         if (result.status !== "fulfilled") continue;
         const resp = result.value;
         if (!resp.ok) continue;

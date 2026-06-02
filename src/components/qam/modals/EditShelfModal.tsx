@@ -1,7 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-// Same primitives, routed through
-// the HostApi adapter so this surface is migration-ready when the
-// standalone host swap happens.
 import {
   ConfirmModal,
   DialogButton,
@@ -145,11 +142,38 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     heroEnabled: (shelf as any).heroEnabled ?? false,
     dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
-    excludeOwned: (shelf.source as any).excludeOwned ?? false,
-    excludeOwnedNonSteam: (shelf.source as any).excludeOwnedNonSteam ?? false,
-    hideOwnedNonSteamCloud: (shelf.source as any).hideOwnedNonSteamCloud === true,
+    // For composite shelves the exclude-owned toggles are propagated to
+    // each online (wishlist/store) child on save, so read back from any
+    // online child here (they all carry the same value).
+    excludeOwned: (() => {
+      if (shelf.source.type === 'composite') {
+        const onlineChild = (shelf.source as any).sources?.find((c: any) => c?.type === 'wishlist' || c?.type === 'store');
+        return onlineChild?.excludeOwned ?? false;
+      }
+      return (shelf.source as any).excludeOwned ?? false;
+    })(),
+    excludeOwnedNonSteam: (() => {
+      if (shelf.source.type === 'composite') {
+        const onlineChild = (shelf.source as any).sources?.find((c: any) => c?.type === 'wishlist' || c?.type === 'store');
+        return onlineChild?.excludeOwnedNonSteam ?? false;
+      }
+      return (shelf.source as any).excludeOwnedNonSteam ?? false;
+    })(),
+    hideOwnedNonSteamCloud: (() => {
+      if (shelf.source.type === 'composite') {
+        const onlineChild = (shelf.source as any).sources?.find((c: any) => c?.type === 'wishlist' || c?.type === 'store');
+        return onlineChild?.hideOwnedNonSteamCloud === true;
+      }
+      return (shelf.source as any).hideOwnedNonSteamCloud === true;
+    })(),
     childFilterGroup: (() => {
       if (shelf.source.type === 'collection' || shelf.source.type === 'tab' || shelf.source.type === 'wishlist' || shelf.source.type === 'store') {
+        return (shelf.source as any).childFilter ?? { mode: 'and', items: [] }
+      }
+      // Composite source: childFilter lives at the composite level (applies
+      // to the merged result). Editor surfaces it via the same Online
+      // Filters tab when any child is wishlist / store.
+      if (shelf.source.type === 'composite') {
         return (shelf.source as any).childFilter ?? { mode: 'and', items: [] }
       }
       return { mode: 'and', items: [] }
@@ -283,13 +307,22 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   }, [isManualSort, hiddenCandidateIds, state.manualOrder])
 
   const previewSource = useMemo(() => {
-    const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+    // In composite mode (additionalSources non-empty), the editor's
+    // childFilter belongs to the COMPOSITE PARENT (applied to the merged
+    // result via the composite resolver, which propagates it to online
+    // children). The primary source must NOT also carry it — otherwise
+    // a composite with an online discount filter would also apply that
+    // filter to the offline primary (e.g. a collection), dropping every
+    // item the collection contains that's not in the price-cache.
+    const isCompositeMode = state.sourceType !== 'filter' && state.additionalSources.length > 0
+    const childFilterRaw = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+    const childFilter = isCompositeMode ? undefined : childFilterRaw
     const buildPrimary = (): any => {
       if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
       if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(childFilter ? { childFilter } : {}) }
       if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
       if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) }
-      if (state.sourceType === 'store') { const cf = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } }
+      if (state.sourceType === 'store') { const cf = childFilter; return { type: 'store' as const, ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } }
       // When manual sort is active, use the configured base sort for the
       // preview so the mini-card row reflects the actual order of non-manual
       // positions at runtime (matches what Shelf.tsx resolves on home).
@@ -302,7 +335,42 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     // exclusive and never combines, so additionalSources is ignored
     // whenever the primary is a filter.
     if (state.sourceType !== 'filter' && state.additionalSources.length > 0) {
-      return { type: 'composite' as const, combine: state.compositeCombine, sources: [primary, ...state.additionalSources] } as any
+      // Composite-level childFilter (online filters applied to the merged
+      // result). Only meaningful when the composite has at least one
+      // online child — otherwise the filter is harmless but inert.
+      const compositeCF = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+      // Propagate exclude-owned toggles to every online child so the
+      // editor's single toggle row controls them all (no per-child UI).
+      const eo = state.excludeOwned
+      const eons = eo && state.excludeOwnedNonSteam
+      const eocloud = eons && state.hideOwnedNonSteamCloud
+      const applyOwnedToOnline = (s: any) => {
+        if (s?.type !== 'wishlist' && s?.type !== 'store') return s
+        const next: any = { ...s }
+        if (eo) next.excludeOwned = true; else delete next.excludeOwned
+        if (eons) next.excludeOwnedNonSteam = true; else delete next.excludeOwnedNonSteam
+        if (eocloud) next.hideOwnedNonSteamCloud = true; else delete next.hideOwnedNonSteamCloud
+        return next
+      }
+      // Strip composite-level childFilter from the primary too — `primary`
+      // was built without it above (composite mode branch). Defensive
+      // strip in case an upstream pathway sneaks it in.
+      const stripCompositeFilter = (s: any) => {
+        if (!s || s.type === 'wishlist' || s.type === 'store') return s
+        // Only strip if it matches the composite-level filter we're about
+        // to write — preserves any per-child childFilter the user set
+        // intentionally (collection/tab childFilter via the Filters tab
+        // on a single-source shelf, which still lives on the child).
+        if (!compositeCF || !s.childFilter) return s
+        const same = JSON.stringify(s.childFilter) === JSON.stringify(compositeCF)
+        if (!same) return s
+        const { childFilter: _drop, ...rest } = s
+        return rest
+      }
+      const allChildren = [primary, ...state.additionalSources]
+        .map(applyOwnedToOnline)
+        .map(stripCompositeFilter)
+      return { type: 'composite' as const, combine: state.compositeCombine, sources: allChildren, ...(compositeCF ? { childFilter: compositeCF } : {}) } as any
     }
     return primary
   }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.filter.sortReverse, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources])
@@ -786,7 +854,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
-      const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+      // In composite mode the editor's childFilter belongs to the COMPOSITE
+      // PARENT, not the primary child — see the matching note in
+      // `previewSource`. Strip it from the primary when composite mode is
+      // active so it doesn't get duplicated on the primary child (which
+      // would cause the primary child to filter its own items by the
+      // online predicate, dropping every offline-owned game that has no
+      // price-cache entry).
+      const isCompositeMode = state.sourceType !== 'filter' && state.additionalSources.length > 0
+      const childFilterRaw = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+      const childFilter = isCompositeMode ? undefined : childFilterRaw
       // Multi-key-aware base sort: persist as string when single key
       // (default 'alphabetical' is omitted as today), as the array when
       // the user added secondary keys. Reverse follows the same shape.
@@ -852,7 +929,40 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       // "filter source not respected" on the home. Now the editor
       // trusts what's in state.additionalSources.
       if (state.sourceType !== 'filter' && state.additionalSources.length > 0) {
-        patch.source = { type: 'composite', combine: state.compositeCombine, sources: [primarySource, ...state.additionalSources] } as any
+        // Persist composite-level childFilter when the editor's Online
+        // Filters tab has any items — applies to the merged result of
+        // every composite child source. Omitted when empty so single-
+        // source shelves stay flat in the persisted JSON.
+        const compositeCF = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+        // Propagate exclude-owned toggles to every online child so the
+        // editor's single toggle row controls them all on save (matches
+        // the previewSource memo above).
+        const eo = state.excludeOwned
+        const eons = eo && state.excludeOwnedNonSteam
+        const eocloud = eons && state.hideOwnedNonSteamCloud
+        const applyOwnedToOnline = (s: any) => {
+          if (s?.type !== 'wishlist' && s?.type !== 'store') return s
+          const next: any = { ...s }
+          if (eo) next.excludeOwned = true; else delete next.excludeOwned
+          if (eons) next.excludeOwnedNonSteam = true; else delete next.excludeOwnedNonSteam
+          if (eocloud) next.hideOwnedNonSteamCloud = true; else delete next.hideOwnedNonSteamCloud
+          return next
+        }
+        // Defensive: also drop the composite-level filter from any child
+        // if it was previously written there by an older save (this purges
+        // legacy duplicate state on the next save the user does).
+        const stripCompositeFilter = (s: any) => {
+          if (!s || s.type === 'wishlist' || s.type === 'store') return s
+          if (!compositeCF || !s.childFilter) return s
+          const same = JSON.stringify(s.childFilter) === JSON.stringify(compositeCF)
+          if (!same) return s
+          const { childFilter: _drop, ...rest } = s
+          return rest
+        }
+        const allChildren = [primarySource, ...state.additionalSources]
+          .map(applyOwnedToOnline)
+          .map(stripCompositeFilter)
+        patch.source = { type: 'composite', combine: state.compositeCombine, sources: allChildren, ...(compositeCF ? { childFilter: compositeCF } : {}) } as any
       } else {
         patch.source = primarySource
       }
@@ -1058,33 +1168,42 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                         )}
                       </>
                     )}
-                    {(state.sourceType === 'wishlist' || state.sourceType === 'store') && (
-                      <>
-                        <ToggleField
-                          label={t('exclude_owned_label')}
-                          checked={state.excludeOwned}
-                          onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwned: v, excludeOwnedNonSteam: v ? prev.excludeOwnedNonSteam : false }))}
-                        />
-                        {state.excludeOwned && (
-                          <div style={{ paddingLeft: 16 }}>
-                            <ToggleField
-                              label={t('hide_owned_non_steam')}
-                              checked={state.excludeOwnedNonSteam}
-                              onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwnedNonSteam: v }))}
-                            />
-                            {state.excludeOwnedNonSteam && (
-                              <div style={{ paddingLeft: 16 }}>
-                                <ToggleField
-                                  label={t('hide_owned_non_steam_cloud')}
-                                  checked={state.hideOwnedNonSteamCloud}
-                                  onChange={(v: boolean) => setState((prev) => ({ ...prev, hideOwnedNonSteamCloud: v }))}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
+                    {(() => {
+                      // Show owned-exclusion toggles when the primary source is
+                      // online OR any additional source is online (composite
+                      // with an online child). Composite save propagates the
+                      // toggle value to every online child uniformly.
+                      const primaryOnline = state.sourceType === 'wishlist' || state.sourceType === 'store'
+                      const compositeOnlineChild = state.sourceType !== 'filter' && state.additionalSources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store')
+                      if (!primaryOnline && !compositeOnlineChild) return null
+                      return (
+                        <>
+                          <ToggleField
+                            label={t('exclude_owned_label')}
+                            checked={state.excludeOwned}
+                            onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwned: v, excludeOwnedNonSteam: v ? prev.excludeOwnedNonSteam : false }))}
+                          />
+                          {state.excludeOwned && (
+                            <div style={{ paddingLeft: 16 }}>
+                              <ToggleField
+                                label={t('hide_owned_non_steam')}
+                                checked={state.excludeOwnedNonSteam}
+                                onChange={(v: boolean) => setState((prev) => ({ ...prev, excludeOwnedNonSteam: v }))}
+                              />
+                              {state.excludeOwnedNonSteam && (
+                                <div style={{ paddingLeft: 16 }}>
+                                  <ToggleField
+                                    label={t('hide_owned_non_steam_cloud')}
+                                    checked={state.hideOwnedNonSteamCloud}
+                                    onChange={(v: boolean) => setState((prev) => ({ ...prev, hideOwnedNonSteamCloud: v }))}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                     <SortField
                       label={t('filter_mode')}
                       options={sortOptions}
@@ -1163,20 +1282,43 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                   ),
                 }]
               })()),
-              ...((state.sourceType === 'collection' || state.sourceType === 'tab' || state.sourceType === 'wishlist' || state.sourceType === 'store') ? [{
-                id: 'childFilters',
-                title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_additional_filters')} />) as unknown as string,
-                content: (
-                  <FieldContainer>
-                    <SavedFiltersBar
-                      controller={controller}
-                      currentGroup={state.childFilterGroup}
-                      onApply={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))}
-                    />
-                    <FilterPanel group={state.childFilterGroup} onChange={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))} controller={controller} allowOnlineFilters={state.sourceType === 'wishlist' || state.sourceType === 'store'} />
-                  </FieldContainer>
-                ),
-              }] : []),
+              ...((() => {
+                // Online Filters / Filters tab visibility:
+                //  - direct collection / tab → regular post-source filters
+                //  - direct wishlist / store → online filters (discount etc.)
+                //  - composite WITH ANY online (wishlist/store) child → online
+                //    filters applied at the composite level (after merge)
+                //  - composite without any online child → no tab (each
+                //    child source carries its OWN childFilter via its own
+                //    editor row; composite parent has nothing to filter
+                //    with online predicates)
+                const isComposite = state.additionalSources.length > 0 && state.sourceType !== 'filter';
+                const primaryOnline = state.sourceType === 'wishlist' || state.sourceType === 'store';
+                const compositeOnlineChild = isComposite
+                  && (primaryOnline || state.additionalSources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'));
+                const showTab = state.sourceType === 'collection' || state.sourceType === 'tab'
+                  || primaryOnline
+                  || compositeOnlineChild;
+                if (!showTab) return [];
+                const allowOnline = primaryOnline || compositeOnlineChild;
+                // Tab label: "Online Filters" when the filters surface
+                // online predicates (discount etc.); "Filters" otherwise.
+                const tabLabelKey = allowOnline ? 'edit_tab_online_filters' : 'edit_tab_additional_filters';
+                return [{
+                  id: 'childFilters',
+                  title: (<TabLabel icon={<FunnelIcon />} text={t(tabLabelKey as any)} />) as unknown as string,
+                  content: (
+                    <FieldContainer>
+                      <SavedFiltersBar
+                        controller={controller}
+                        currentGroup={state.childFilterGroup}
+                        onApply={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))}
+                      />
+                      <FilterPanel group={state.childFilterGroup} onChange={(group) => setState((prev) => ({ ...prev, childFilterGroup: group }))} controller={controller} allowOnlineFilters={allowOnline} />
+                    </FieldContainer>
+                  ),
+                }];
+              })()),
               {
                 id: 'visual',
                 title: t('edit_tab_visual'),

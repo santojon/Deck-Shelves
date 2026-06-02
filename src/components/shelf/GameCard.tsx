@@ -593,7 +593,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       //     stays silent there (the modal owns hide via its picker).
       onSecondaryActionDescription={
         appid && removableSet?.has(appid) && onRemoveCard
-          ? i18n.t('menu_remove_from_shelf')
+          // Same short-vs-long split as hide below: on the home we're on
+          // top of a card so just "Remove" reads fine; preview keeps the
+          // long label so it stays unambiguous when multiple shelves
+          // render side-by-side.
+          ? i18n.t(previewMode ? 'menu_remove_from_shelf' : 'card_remove')
           : appid && onHideCard
             // On the home (non-preview) we're directly on top of a game card —
             // shorten "Hide from shelf" to just "Hide" / "Show" so the footer

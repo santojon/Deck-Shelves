@@ -269,9 +269,19 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // friends_playing keeps owned cards interactive.
   const sourceIncludesNonOwned = (shelf.source as any).includesNonOwned === true;
   const needsExternalNames = isOnlineShelf || sourceIncludesNonOwned || compositeHasOnlineChild;
-  const excludeOwned = isOnlineShelf && (shelf.source as any).excludeOwned === true;
-  const excludeOwnedNonSteam = excludeOwned && (shelf.source as any).excludeOwnedNonSteam === true;
-  const perShelfHideOwnedCloud = (shelf.source as any).hideOwnedNonSteamCloud;
+  // For composite shelves the per-shelf exclude-owned toggles live on the
+  // online child (editor propagates them there uniformly). Read from the
+  // first online child so the render-time name-dedup applies to composite
+  // shelves with an online child too — without this, Steam wishlist items
+  // that the user owns via a non-Steam shortcut (e.g. Epic / Amazon / GOG)
+  // stay visible in the composite row even with the toggle on.
+  const compositeOnlineChildSource = compositeHasOnlineChild
+    ? ((shelf.source as any).sources?.find?.((c: any) => c?.type === 'wishlist' || c?.type === 'store'))
+    : null;
+  const ownedSourceForToggles = isOnlineShelf ? (shelf.source as any) : compositeOnlineChildSource;
+  const excludeOwned = !!ownedSourceForToggles && ownedSourceForToggles.excludeOwned === true;
+  const excludeOwnedNonSteam = excludeOwned && !!ownedSourceForToggles && ownedSourceForToggles.excludeOwnedNonSteam === true;
+  const perShelfHideOwnedCloud = ownedSourceForToggles?.hideOwnedNonSteamCloud;
 
   const [globalHideOwned, setGlobalHideOwned] = useState(() => getCurrentSettings()?.onlineHideOwnedGames === true);
   const [globalHideOwnedNonSteam, setGlobalHideOwnedNonSteam] = useState(() => getCurrentSettings()?.onlineHideOwnedNonSteam === true);
@@ -289,7 +299,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   }, []);
 
   // Effective filter flags: true if either global or per-shelf toggle is active.
-  const shouldHideOwned = isOnlineShelf && (globalHideOwned || excludeOwned);
+  // Composite shelves with any online child are eligible too — without
+  // this gate, the wishlist child's `excludeOwned: true` would only take
+  // effect via the resolver's appid-based dedup, missing same-name games
+  // owned via non-Steam shortcuts (no Steam appid match).
+  const shouldHideOwned = (isOnlineShelf || compositeHasOnlineChild) && (globalHideOwned || excludeOwned);
   const effectiveNonSteam = (globalHideOwned && globalHideOwnedNonSteam) || (excludeOwned && excludeOwnedNonSteam);
   // Cloud-play sub-toggle: per-shelf overrides global. Only meaningful
   // when non-Steam hiding is also on.
@@ -388,14 +402,29 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
           && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'));
 
       // Hide owned games on online shelves via the collectionStore-based set.
-      if (isOnlineSource && shouldHideOwned && ownedAppIds && ownedAppIds.has(appid)) return [];
+      // For composite shelves (which merge online + offline children), only
+      // drop ids that came from an online child — locally-owned items from
+      // a collection / tab / filter child must stay visible even when the
+      // user toggled "exclude owned games" for the online source. We can't
+      // tag merged ids with their origin source, but `isStoreFallback`
+      // is a reliable proxy: items in the local appStore have real meta
+      // (came from offline child); items rendered as `App {id}` have no
+      // local overview (came from the online child). Direct online shelves
+      // keep the prior behaviour since all their items are online.
+      const isCompositeShelf = shelf.source.type === 'composite';
+      const onlyHideOnlineOriginated = isCompositeShelf;
+      const eligibleForOwnedHide = onlyHideOnlineOriginated ? isStoreFallback : isOnlineSource;
+      if (eligibleForOwnedHide && shouldHideOwned && ownedAppIds && ownedAppIds.has(appid)) return [];
       if (isStoreFallback && !isOnlineSource) return [];
 
       // Name-based dedup against the truly-owned local titles.
       // normalizeTitleForMatch strips punctuation so colon / dash
       // differences between Steam's official title and the user's
-      // non-Steam shortcut name don't block the match.
-      if (shouldHideOwned && ownedNames && isOnlineSource) {
+      // non-Steam shortcut name don't block the match. Same composite
+      // scoping as the appid check above — name-matching against owned
+      // titles would otherwise hide collection items whose names happen
+      // to also appear in the user's library.
+      if (shouldHideOwned && ownedNames && isOnlineSource && eligibleForOwnedHide) {
         const rawName = item.name && !isStoreFallback ? item.name : storeNames.get(appid) ?? '';
         const itemName = normalizeTitleForMatch(rawName);
         if (itemName && ownedNames.has(itemName)) return [];
