@@ -27,7 +27,6 @@ jobs:
     if: >-
       (github.event_name == 'workflow_dispatch') ||
       (github.event.pull_request.merged == true &&
-       contains(github.event.pull_request.labels.*.name, 'rc') &&
        (startsWith(github.event.pull_request.title, '[FIX]') ||
         startsWith(github.event.pull_request.title, '[ENHANCEMENT]') ||
         startsWith(github.event.pull_request.title, '[PERF]') ||
@@ -151,9 +150,19 @@ jobs:
           [[ -f RELEASE_NOTES.md ]] && git add RELEASE_NOTES.md || true
 
       - name: Commit bump
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
           VERSION="${{ steps.version.outputs.new }}"
-          git commit -m "chore: bump version to v${VERSION}"
+          MSG="chore: bump version to v${VERSION}"
+          # rc.yml gates Decky-store submission on the literal '[rc]'
+          # token in the tag commit message. Only PRs carrying the 'rc'
+          # label append it — manual dispatch bumps + tags + cuts the
+          # GitHub Release but never reaches the store.
+          if echo "$PR_LABELS" | grep -q '"rc"'; then
+            MSG="$MSG [rc]"
+          fi
+          git commit -m "$MSG"
 
       - name: Tag commit
         run: |

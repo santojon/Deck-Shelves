@@ -3,11 +3,12 @@ name: RC → Store Submission
 # Fires only AFTER the Release workflow completes successfully. The chain
 # guarantees that the version bump + tag + GitHub Release are all in place
 # before store.yml builds and submits — otherwise store.yml would race
-# bump.yml and publish the OLD version on every rc-labeled PR.
+# bump.yml and publish the OLD version.
 #
-# The `rc` label is already enforced upstream in bump.yml; if bump didn't
-# run, no tag is pushed, release.yml is never triggered, and this workflow
-# is never reached.
+# Store submission is gated on the literal '[rc]' token in the tag commit
+# message. bump.yml appends '[rc]' only when the merged PR carried the
+# 'rc' label. Manual bump dispatches and PRs without the label still tag
+# + cut a GitHub Release, but never reach the Decky store.
 on:
   # No `branches:` filter here. Release runs on tag push (`tags: ['v*']`
   # in release.yml), so the `workflow_run` payload's `head_branch` is the
@@ -27,7 +28,9 @@ permissions:
 
 jobs:
   trigger-store:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      contains(github.event.workflow_run.head_commit.message, '[rc]')
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Decky Store Submission workflow
