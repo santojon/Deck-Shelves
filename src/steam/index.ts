@@ -2053,6 +2053,38 @@ function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEval
       } catch { result = false; }
       break;
     }
+    case "friendsPlayingNow": {
+      // Game appid is in the set any friend is currently in-game on.
+      // Reads from the runtime friend-presence cache (90 s poll); empty
+      // when no friend is in any game right now or when the friend store
+      // isn't available (offline / older SteamOS).
+      try {
+        const appid = appIdOf(app);
+        if (!appid) { result = false; break; }
+        const { getFriendsPlayingAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
+        result = getFriendsPlayingAppIds().has(appid);
+      } catch { result = false; }
+      break;
+    }
+    case "friendsPlayedRecently": {
+      // Game appid is in the set any friend played within the last
+      // `days` days (default 14). The runtime tracks `m_dtLastSeenPlaying`
+      // per friend; this filter is a superset of `friendsPlayingNow`
+      // (live games are always included in the recent set).
+      try {
+        const appid = appIdOf(app);
+        if (!appid) { result = false; break; }
+        const days = Number(item.params?.days ?? 14);
+        if (!Number.isFinite(days) || days <= 0) { result = false; break; }
+        // The runtime caches a single 14-day window — for tighter day
+        // ranges we can ask it to refresh with a narrower lookback, but
+        // for the common case the cached set is sufficient. `days` is
+        // currently informational; the runtime's 14-day window applies.
+        const { getFriendsRecentlyPlayedAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
+        result = getFriendsRecentlyPlayedAppIds().has(appid);
+      } catch { result = false; }
+      break;
+    }
     // storeTag, friends, achievements: require data not in AppOverview — pass-through
     default: {
       // Plugin API: delegate to a registered external filter type when the

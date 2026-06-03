@@ -751,5 +751,10 @@
   "view_more_wishlist": "Більше у\nсписку бажань",
   "view_release": "Переглянути випуск",
   "visibility": "Видимість",
-  "working": "Working…"
+  "working": "Working…",
+  "filter_type_friendsPlayingNow": "Друзі грають зараз",
+  "filter_type_friendsPlayedRecently": "Друзі грали нещодавно",
+  "filter_friends_playing_now_info": "Ігри, у які наразі грає принаймні один друг у Steam. Потребує онлайн-функцій.",
+  "filter_friends_played_recently_days": "Останні N днів",
+  "filter_friends_played_recently_info": "Ігри, у які друг у Steam грав протягом періоду. Уключає тих, хто грає зараз. Потребує онлайн-функцій."
 }

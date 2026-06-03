@@ -751,5 +751,10 @@
   "view_more_wishlist": "Ver mais\nna Lista\nde Desejos",
   "view_release": "Ver versão",
   "visibility": "Visibilidade",
-  "working": "Working…"
+  "working": "Working…",
+  "filter_type_friendsPlayingNow": "Amigos a jogar agora",
+  "filter_type_friendsPlayedRecently": "Amigos jogaram recentemente",
+  "filter_friends_playing_now_info": "Inclui jogos em que pelo menos um amigo da Steam está em jogo agora. Requer funcionalidades online.",
+  "filter_friends_played_recently_days": "Últimos N dias",
+  "filter_friends_played_recently_info": "Inclui jogos vistos a serem jogados por amigos da Steam dentro do período. Engloba quem está a jogar agora. Requer funcionalidades online."
 }

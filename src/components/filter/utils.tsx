@@ -19,6 +19,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "cloudAvailable",
   "controllerSupport",
   "friends",
+  "friendsPlayingNow",
+  "friendsPlayedRecently",
   "storeTag",
   "achievements",
   "collection",
@@ -47,6 +49,8 @@ const INVERTIBLE_SET = new Set<FilterItemType>([
   // editor for the collection type. Evaluator path is unchanged.
   "collection",
   "discount",
+  "friendsPlayingNow",
+  "friendsPlayedRecently",
 ]);
 
 export function canBeInverted(type: FilterItemType): boolean {
@@ -62,6 +66,8 @@ export function defaultParams(type: FilterItemType): Record<string, any> {
     case "nameIncludes": return { text: "" };
     case "nameRegex": return { pattern: "" };
     case "friends": return { friends: [] };
+    case "friendsPlayingNow": return {};
+    case "friendsPlayedRecently": return { days: 14 };
     case "storeTag": return { tags: [] };
     case "achievements": return {};
     case "collection": return { collectionId: "" };
@@ -106,6 +112,10 @@ export function isValidParams(item: FilterItem): boolean {
     }
     case "friends":
       return Array.isArray(p.friends) && p.friends.length > 0;
+    case "friendsPlayingNow":
+      return true;
+    case "friendsPlayedRecently":
+      return Number(p.days ?? 0) > 0;
     case "storeTag":
       return Array.isArray(p.tags) && p.tags.length > 0;
     case "achievements":
@@ -146,6 +156,8 @@ export function getTypeLabel(type: FilterItemType): string {
     nameIncludes: t("filter_type_nameIncludes"),
     nameRegex: t("filter_type_nameRegex"),
     friends: t("filter_type_friends"),
+    friendsPlayingNow: t("filter_type_friendsPlayingNow"),
+    friendsPlayedRecently: t("filter_type_friendsPlayedRecently"),
     storeTag: t("filter_type_storeTag"),
     achievements: t("filter_type_achievements"),
     collection: t("filter_type_collection"),
@@ -162,9 +174,12 @@ export function getTypeLabel(type: FilterItemType): string {
   return map[type] ?? type;
 }
 
-/** Returns true when this filter type requires online features (price cache). */
+/** Returns true when this filter type requires online features (price cache,
+ *  friend presence). The composite resolver and the editor's "Online filters"
+ *  tab use this to scope behaviour to predicates that only make sense for
+ *  online-connected runtime data. */
 export function isOnlineFilterType(type: FilterItemType): boolean {
-  return type === "discount";
+  return type === "discount" || type === "friendsPlayingNow" || type === "friendsPlayedRecently";
 }
 
 export function capitalizeFirst(s: string): string {

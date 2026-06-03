@@ -13,6 +13,8 @@ export const FilterItemTypeSchema = z.enum([
   "nameIncludes",
   "nameRegex",
   "friends",
+  "friendsPlayingNow",
+  "friendsPlayedRecently",
   "storeTag",
   "achievements",
   "collection",

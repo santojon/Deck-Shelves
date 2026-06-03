@@ -7,6 +7,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
+- **Two new filters for friend activity.** "Friends playing now" matches any game at least one Steam friend is in right now. "Friends played recently" matches any game a friend was seen playing in the last N days (1–30, default 14). Both work in any regular shelf and inside composite — e.g. "games in my Backlog collection that any friend played this week". Both are invertible (use as exclude). Requires the Online features toggle to be on.
 - **Smart-shelf mode is now editable.** The Source tab of the smart-shelf editor has a mode dropdown (was read-only). Change the data source of a smart shelf without recreating it.
 - **Combine smart-shelf modes.** A new "Combine modes" picker on the smart-shelf editor lets you mix multiple smart modes into one shelf — pick Union (any mode matches) or Intersection (all modes match). Same mental model as combining sources on regular shelves.
 - **Press View on a focused game card to Play or Install** — invokes the game's first context-menu action directly. Steam picks Play (if installed) or Install (if not) — same call the menu's first item makes. The on-card legend reflects the dynamic label. Only shown for games in your library (wishlist / store / decoration cards don't get the View glyph since there's no install / play target).

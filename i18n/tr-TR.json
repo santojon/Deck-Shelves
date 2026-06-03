@@ -751,5 +751,10 @@
   "view_more_wishlist": "İstek\nlistesinde daha\nfazla",
   "view_release": "Sürümü görüntüle",
   "visibility": "Görünürlük",
-  "working": "Working…"
+  "working": "Working…",
+  "filter_type_friendsPlayingNow": "Arkadaşlar şimdi oynuyor",
+  "filter_type_friendsPlayedRecently": "Arkadaşlar yakın zamanda oynadı",
+  "filter_friends_playing_now_info": "En az bir Steam arkadaşının şu anda oynadığı oyunları içerir. Çevrimiçi özellikleri gerektirir.",
+  "filter_friends_played_recently_days": "Son N gün",
+  "filter_friends_played_recently_info": "Belirtilen aralıkta en az bir Steam arkadaşının oynadığı oyunları içerir. Şu anda oynayanları da kapsar. Çevrimiçi özellikleri gerektirir."
 }

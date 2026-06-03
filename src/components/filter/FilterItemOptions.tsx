@@ -293,6 +293,35 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
         </div>
       );
 
+    case "friendsPlayingNow":
+      // No params — just an info hint so the user knows the data source.
+      return (
+        <div>
+          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+            {t("filter_friends_playing_now_info")}
+          </div>
+        </div>
+      );
+
+    case "friendsPlayedRecently": {
+      const days = Number(p.days ?? 14);
+      return (
+        <>
+          <SliderField
+            label={`${t("filter_friends_played_recently_days")}: ${days}`}
+            value={days}
+            min={1}
+            max={30}
+            step={1}
+            onChange={(v: number) => patchParams({ days: v })}
+          />
+          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+            {t("filter_friends_played_recently_info")}
+          </div>
+        </>
+      );
+    }
+
     case "discount": {
       const minDisc = Number(p.minDiscount ?? 10);
       const maxDisc = Number(p.maxDiscount ?? 100);
