@@ -76,6 +76,26 @@ function findNativeAssetProto(): any {
  *  smaller header crop). Instantiate the class via `Object.create` on its
  *  prototype, call `GetSourcesForAsset` with our app + `eAssetType=1` (hero),
  *  and get back exactly the URL list Steam itself would render. */
+// Allowlist of URL schemes safe to pass to `<img src>`. Anything outside
+// this set (most notably `javascript:` and `data:text/html`) returns
+// `null` so the synth-hero pipeline treats the attribute as missing.
+// Doubles as the sanitizer node CodeQL's `js/xss-through-dom` query
+// expects on the DOM-attribute → `<img src>` data flow.
+function sanitizeHeroUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  // Same-origin / path-relative — always safe.
+  if (s.startsWith("/") || s.startsWith("./") || s.startsWith("../")) return s;
+  // Allowlisted schemes. `data:` is restricted to image MIME types so a
+  // `data:text/html,...` payload can't sneak in.
+  const lower = s.toLowerCase();
+  if (lower.startsWith("http://") || lower.startsWith("https://")) return s;
+  if (lower.startsWith("blob:") || lower.startsWith("file:")) return s;
+  if (lower.startsWith("data:image/")) return s;
+  return null;
+}
+
 // Stable 32-bit FNV-1a hash of a string — used as a synthetic-card hero
 // key in PerShelfHero so re-focusing the same synth doesn't re-swap, and
 // moving between synth heroes correctly triggers a fresh load. Returned
@@ -522,7 +542,16 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // gates the `currentAppid.current !== ...` comparison so re-focusing
       // the same synth card doesn't re-swap, and so moving from synth to
       // a real game still triggers a fresh load.
-      const synthHero = focused.getAttribute('data-ds-hero-url');
+      //
+      // SECURITY: validate the scheme before passing to `<img src>`. The
+      // attribute is in principle user-controllable (decoration config
+      // owned by the user) but the browser still resolves `javascript:`
+      // and `data:text/html` srcs, and CodeQL `js/xss-through-dom` flags
+      // any DOM-attribute → `<img>` flow without a sanitizer. Allowlist
+      // image-safe schemes only; reject everything else by treating the
+      // attribute as absent (early-return below).
+      const synthHeroRaw = focused.getAttribute('data-ds-hero-url');
+      const synthHero = sanitizeHeroUrl(synthHeroRaw);
       if (synthHero) {
         // No DS-card-label to clone for synth cards — clear the overlay
         // label and leave hero label hidden.
