@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Sem imagem",
   "decoration_hero_preview_empty": "Sem hero",
   "decoration_card_select": "Editar card",
-  "decoration_card_collapse": "Voltar",
-  "decoration_card_collapse_hint": "B = voltar",
-  "decoration_card_done": "Concluir"
+  "decoration_card_done": "Concluir",
+  "docs_filter_cloud_available_desc": "O jogo tem saves em nuvem habilitados.",
+  "docs_filter_controller_support_desc": "Filtra por nível de suporte a controle (parcial / completo).",
+  "docs_filter_friends_playing_now_desc": "Jogo em que algum amigo da Steam está jogando agora. Requer recursos online.",
+  "docs_filter_friends_played_recently_desc": "Jogo que algum amigo da Steam jogou nos últimos N dias (1-30, padrão 14). Requer recursos online.",
+  "docs_filter_discount_desc": "Percentual de desconto na loja Steam dentro de uma faixa escolhida. Requer recursos online."
 }

@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "无图像",
   "decoration_hero_preview_empty": "无主图",
   "decoration_card_select": "编辑卡片",
-  "decoration_card_collapse": "返回",
-  "decoration_card_collapse_hint": "B = 返回",
-  "decoration_card_done": "完成"
+  "decoration_card_done": "完成",
+  "docs_filter_cloud_available_desc": "游戏启用了云存档。",
+  "docs_filter_controller_support_desc": "按手柄支持级别筛选（部分 / 完整）。",
+  "docs_filter_friends_playing_now_desc": "Steam 好友当前正在游玩的游戏。需要联网功能。",
+  "docs_filter_friends_played_recently_desc": "Steam 好友在最近 N 天（1-30，默认 14）内游玩过的游戏。需要联网功能。",
+  "docs_filter_discount_desc": "所选范围内的 Steam 商店折扣百分比。需要联网功能。"
 }

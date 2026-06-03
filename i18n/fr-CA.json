@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Aucune image",
   "decoration_hero_preview_empty": "Aucune hero",
   "decoration_card_select": "Modifier la carte",
-  "decoration_card_collapse": "Retour",
-  "decoration_card_collapse_hint": "B = retour",
-  "decoration_card_done": "Terminer"
+  "decoration_card_done": "Terminer",
+  "docs_filter_cloud_available_desc": "Le jeu a la sauvegarde cloud activée.",
+  "docs_filter_controller_support_desc": "Filtre par niveau de prise en charge de la manette (partiel / complet).",
+  "docs_filter_friends_playing_now_desc": "Jeu auquel un ami Steam joue actuellement. Nécessite les fonctions en ligne.",
+  "docs_filter_friends_played_recently_desc": "Jeu auquel un ami Steam a joué dans les N derniers jours (1-30, défaut 14). Nécessite les fonctions en ligne.",
+  "docs_filter_discount_desc": "Pourcentage de réduction Steam dans une plage choisie. Nécessite les fonctions en ligne."
 }

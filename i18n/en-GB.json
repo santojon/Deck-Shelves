@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "No image",
   "decoration_hero_preview_empty": "No hero",
   "decoration_card_select": "Edit card",
-  "decoration_card_collapse": "Back",
-  "decoration_card_collapse_hint": "B = back",
-  "decoration_card_done": "Done"
+  "decoration_card_done": "Done",
+  "docs_filter_cloud_available_desc": "Game has cloud saves enabled.",
+  "docs_filter_controller_support_desc": "Filter by controller support level (partial / full).",
+  "docs_filter_friends_playing_now_desc": "Game any Steam friend is currently in-game on. Requires online features.",
+  "docs_filter_friends_played_recently_desc": "Game a Steam friend played within the last N days (1-30, default 14). Requires online features.",
+  "docs_filter_discount_desc": "Steam store discount percentage in a chosen range. Requires online features."
 }

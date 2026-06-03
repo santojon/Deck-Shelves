@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "이미지 없음",
   "decoration_hero_preview_empty": "히어로 없음",
   "decoration_card_select": "카드 편집",
-  "decoration_card_collapse": "뒤로",
-  "decoration_card_collapse_hint": "B = 뒤로",
-  "decoration_card_done": "완료"
+  "decoration_card_done": "완료",
+  "docs_filter_cloud_available_desc": "클라우드 저장이 활성화된 게임.",
+  "docs_filter_controller_support_desc": "컨트롤러 지원 수준으로 필터 (부분 / 전체).",
+  "docs_filter_friends_playing_now_desc": "Steam 친구가 현재 플레이 중인 게임. 온라인 기능 필요.",
+  "docs_filter_friends_played_recently_desc": "Steam 친구가 최근 N일 (1-30, 기본 14) 내에 플레이한 게임. 온라인 기능 필요.",
+  "docs_filter_discount_desc": "선택한 범위의 Steam 상점 할인율. 온라인 기능 필요."
 }

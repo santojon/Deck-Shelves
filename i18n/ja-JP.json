@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "画像なし",
   "decoration_hero_preview_empty": "ヒーローなし",
   "decoration_card_select": "カードを編集",
-  "decoration_card_collapse": "戻る",
-  "decoration_card_collapse_hint": "B = 戻る",
-  "decoration_card_done": "完了"
+  "decoration_card_done": "完了",
+  "docs_filter_cloud_available_desc": "クラウドセーブが有効なゲーム。",
+  "docs_filter_controller_support_desc": "コントローラー対応レベルでフィルター（部分 / 完全）。",
+  "docs_filter_friends_playing_now_desc": "Steam フレンドが現在プレイ中のゲーム。オンライン機能が必要。",
+  "docs_filter_friends_played_recently_desc": "Steam フレンドが直近 N 日 (1-30、既定 14) にプレイしたゲーム。オンライン機能が必要。",
+  "docs_filter_discount_desc": "指定範囲の Steam ストア割引率。オンライン機能が必要。"
 }

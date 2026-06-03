@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Kein Bild",
   "decoration_hero_preview_empty": "Kein Hero",
   "decoration_card_select": "Karte bearbeiten",
-  "decoration_card_collapse": "Zurück",
-  "decoration_card_collapse_hint": "B = zurück",
-  "decoration_card_done": "Fertig"
+  "decoration_card_done": "Fertig",
+  "docs_filter_cloud_available_desc": "Spiel hat Cloud-Speicherungen aktiviert.",
+  "docs_filter_controller_support_desc": "Nach Controller-Unterstützung filtern (teilweise / vollständig).",
+  "docs_filter_friends_playing_now_desc": "Spiel, das ein Steam-Freund gerade spielt. Erfordert Online-Funktionen.",
+  "docs_filter_friends_played_recently_desc": "Spiel, das ein Steam-Freund in den letzten N Tagen gespielt hat (1-30, Standard 14). Erfordert Online-Funktionen.",
+  "docs_filter_discount_desc": "Rabatt im Steam-Shop in einem gewählten Bereich. Erfordert Online-Funktionen."
 }

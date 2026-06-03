@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Sin imagen",
   "decoration_hero_preview_empty": "Sin hero",
   "decoration_card_select": "Editar tarjeta",
-  "decoration_card_collapse": "Volver",
-  "decoration_card_collapse_hint": "B = volver",
-  "decoration_card_done": "Listo"
+  "decoration_card_done": "Listo",
+  "docs_filter_cloud_available_desc": "El juego tiene guardado en la nube activado.",
+  "docs_filter_controller_support_desc": "Filtra por nivel de soporte de mando (parcial / completo).",
+  "docs_filter_friends_playing_now_desc": "Juego en el que un amigo de Steam está jugando ahora. Requiere funciones en línea.",
+  "docs_filter_friends_played_recently_desc": "Juego que un amigo de Steam jugó en los últimos N días (1-30, predeterminado 14). Requiere funciones en línea.",
+  "docs_filter_discount_desc": "Porcentaje de descuento en la tienda Steam dentro del rango elegido. Requiere funciones en línea."
 }

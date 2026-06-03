@@ -238,8 +238,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   }
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf as any).highlightedAppIds?.length > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
-  const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
-  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
 
@@ -264,14 +262,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     out.push(...tail)
     return out
   }, [isManual, resolvedIds, state.manualOrder])
-  const effectiveHiddenCandidateIds = useMemo(() => {
-    if (!isManual || !hiddenCandidateIds.length) return hiddenCandidateIds
-    const idSet = new Set(hiddenCandidateIds)
-    const out: number[] = []
-    for (const id of state.manualOrder) if (idSet.has(id) && !out.includes(id)) out.push(id)
-    for (const id of hiddenCandidateIds) if (!out.includes(id)) out.push(id)
-    return out
-  }, [isManual, hiddenCandidateIds, state.manualOrder])
   const reorderManual = (nextOrder: number[]) => setState((prev) => ({ ...prev, manualOrder: nextOrder }))
 
   const sortLabel = (item: typeof SORT_OPTIONS[number]) => (
@@ -382,30 +372,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     })()
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(','), state.manualOrder.join(',')])
-
-  useEffect(() => {
-    if (!hiddenPickerOpen) return
-    let cancelled = false
-    const timer = setTimeout(() => {
-      const isManualSort = primarySortKey === 'manual'
-      const previewSort: string | string[] | undefined = isManualSort
-        ? (state.manualBaseSort || 'alphabetical')
-        : (state.sort || undefined)
-      resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
-        .then(async (ids) => {
-          if (cancelled) return
-          setHiddenCandidateIds(ids)
-          const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
-          for (const id of ids) {
-            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}`, portraitUrl: m?.portraitUrl, heroUrl: m?.heroUrl }) }
-            catch { next.set(id, { name: `App ${id}` }) }
-          }
-          if (!cancelled) setHiddenCandidateMeta(next)
-        })
-        .catch(() => { if (!cancelled) setHiddenCandidateIds([]) })
-    }, 300)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [hiddenPickerOpen, previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.hiddenAppIds.join(',')])
 
   const handleSave = () => {
     closeModal?.()
@@ -963,16 +929,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             highlightFirst={state.highlightFirst}
             highlightAll={state.highlightAll}
             highlightedAppIds={state.highlightedAppIds}
-            highlightPickerOpen={highlightPickerOpen}
-            setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
             alternatingMode={alternatingMode}
-            setAlternatingMode={setAlternatingMode}
-            prePatternHighlightsRef={prePatternHighlightsRef}
-            hiddenPickerOpen={hiddenPickerOpen}
             hiddenAppIds={state.hiddenAppIds}
-            setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
-            hiddenCandidateIds={effectiveHiddenCandidateIds}
-            hiddenCandidateMeta={hiddenCandidateMeta}
             hideStatusLine={state.hideStatusLine}
             hideNewBadge={state.hideNewBadge}
             hideCompatIcons={state.hideCompatIcons}

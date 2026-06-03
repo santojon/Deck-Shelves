@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Нет изображения",
   "decoration_hero_preview_empty": "Нет hero",
   "decoration_card_select": "Изменить карту",
-  "decoration_card_collapse": "Назад",
-  "decoration_card_collapse_hint": "B = назад",
-  "decoration_card_done": "Готово"
+  "decoration_card_done": "Готово",
+  "docs_filter_cloud_available_desc": "У игры включены облачные сохранения.",
+  "docs_filter_controller_support_desc": "Фильтр по уровню поддержки контроллера (частичная / полная).",
+  "docs_filter_friends_playing_now_desc": "Игра, в которую друг в Steam играет сейчас. Требует онлайн-функций.",
+  "docs_filter_friends_played_recently_desc": "Игра, в которую друг в Steam играл за последние N дней (1-30, по умолчанию 14). Требует онлайн-функций.",
+  "docs_filter_discount_desc": "Скидка в магазине Steam в выбранном диапазоне. Требует онлайн-функций."
 }

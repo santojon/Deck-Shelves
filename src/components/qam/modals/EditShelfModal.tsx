@@ -230,8 +230,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   }
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf.highlightedAppIds?.length ?? 0) > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
-  const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
-  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const activeSort = state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort
@@ -299,15 +297,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     }
     return { ...prev, manualOrder: nextManualOrder, syntheticCards: nextSynth }
   })
-  const effectiveHiddenCandidateIds = useMemo(() => {
-    if (!isManualSort || !hiddenCandidateIds.length) return hiddenCandidateIds
-    const idSet = new Set(hiddenCandidateIds)
-    const out: number[] = []
-    for (const id of state.manualOrder) if (idSet.has(id) && !out.includes(id)) out.push(id)
-    for (const id of hiddenCandidateIds) if (!out.includes(id)) out.push(id)
-    return out
-  }, [isManualSort, hiddenCandidateIds, state.manualOrder])
-
   const previewSource = useMemo(() => {
     // In composite mode (additionalSources non-empty), the editor's
     // childFilter belongs to the COMPOSITE PARENT (applied to the merged
@@ -573,34 +562,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     })()
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(','), state.manualOrder.join(',')])
-
-  // Fetch overshoot candidates for hidden-games picker: uses limit*3 without
-  // hiddenAppIds applied, so the user sees all slots they can fill/hide.
-  useEffect(() => {
-    if (!hiddenPickerOpen) return
-    let cancelled = false
-    const timer = setTimeout(() => {
-      const primarySortKey = Array.isArray(state.sort) ? state.sort[0] : state.sort
-      const primaryFilterSort = Array.isArray(state.filter.sort) ? state.filter.sort[0] : state.filter.sort
-      const isManualS = primarySortKey === 'manual' || primaryFilterSort === 'manual'
-      const previewSort: string | string[] | undefined = state.sourceType === 'filter'
-        ? undefined
-        : (isManualS ? (state.manualBaseSort || 'alphabetical') : (state.sort || undefined))
-      resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
-        .then(async (ids) => {
-          if (cancelled) return
-          setHiddenCandidateIds(ids)
-          const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
-          for (const id of ids) {
-            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}`, portraitUrl: m?.portraitUrl, heroUrl: m?.heroUrl }) }
-            catch { next.set(id, { name: `App ${id}` }) }
-          }
-          if (!cancelled) setHiddenCandidateMeta(next)
-        })
-        .catch(() => { if (!cancelled) setHiddenCandidateIds([]) })
-    }, 300)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [hiddenPickerOpen, previewSource, state.limit, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.hiddenAppIds.join(',')])
 
   const { settings } = controller
   const allSourceTypes: SourceType[] = [
@@ -1431,16 +1392,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
             highlightFirst={state.highlightFirst}
             highlightAll={state.highlightAll}
             highlightedAppIds={state.highlightedAppIds}
-            highlightPickerOpen={highlightPickerOpen}
-            setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
             alternatingMode={alternatingMode}
-            setAlternatingMode={setAlternatingMode}
-            prePatternHighlightsRef={prePatternHighlightsRef}
-            hiddenPickerOpen={hiddenPickerOpen}
             hiddenAppIds={state.hiddenAppIds}
-            setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
-            hiddenCandidateIds={effectiveHiddenCandidateIds}
-            hiddenCandidateMeta={hiddenCandidateMeta}
             hideStatusLine={state.hideStatusLine}
             hideNewBadge={state.hideNewBadge}
             hideCompatIcons={state.hideCompatIcons}

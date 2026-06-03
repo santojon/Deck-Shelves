@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Brak obrazu",
   "decoration_hero_preview_empty": "Brak hero",
   "decoration_card_select": "Edytuj kartę",
-  "decoration_card_collapse": "Wstecz",
-  "decoration_card_collapse_hint": "B = wstecz",
-  "decoration_card_done": "Gotowe"
+  "decoration_card_done": "Gotowe",
+  "docs_filter_cloud_available_desc": "Gra ma zapisy w chmurze.",
+  "docs_filter_controller_support_desc": "Filtruj według wsparcia kontrolera (częściowe / pełne).",
+  "docs_filter_friends_playing_now_desc": "Gra, w którą gra teraz znajomy ze Steam. Wymaga funkcji online.",
+  "docs_filter_friends_played_recently_desc": "Gra, w którą znajomy ze Steam grał w ciągu ostatnich N dni (1-30, domyślnie 14). Wymaga funkcji online.",
+  "docs_filter_discount_desc": "Zniżka w sklepie Steam w wybranym zakresie. Wymaga funkcji online."
 }

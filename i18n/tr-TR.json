@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Görsel yok",
   "decoration_hero_preview_empty": "Hero yok",
   "decoration_card_select": "Kartı düzenle",
-  "decoration_card_collapse": "Geri",
-  "decoration_card_collapse_hint": "B = geri",
-  "decoration_card_done": "Bitti"
+  "decoration_card_done": "Bitti",
+  "docs_filter_cloud_available_desc": "Oyunun bulut kayıtları açık.",
+  "docs_filter_controller_support_desc": "Kontrolcü desteğine göre filtrele (kısmi / tam).",
+  "docs_filter_friends_playing_now_desc": "Bir Steam arkadaşının şu anda oynadığı oyun. Çevrimiçi özellik gerekli.",
+  "docs_filter_friends_played_recently_desc": "Bir Steam arkadaşının son N günde (1-30, varsayılan 14) oynadığı oyun. Çevrimiçi özellik gerekli.",
+  "docs_filter_discount_desc": "Seçilen aralıkta Steam mağaza indirimi. Çevrimiçi özellik gerekli."
 }

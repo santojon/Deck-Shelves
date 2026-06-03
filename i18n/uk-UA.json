@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Без зображення",
   "decoration_hero_preview_empty": "Без hero",
   "decoration_card_select": "Редагувати картку",
-  "decoration_card_collapse": "Назад",
-  "decoration_card_collapse_hint": "B = назад",
-  "decoration_card_done": "Готово"
+  "decoration_card_done": "Готово",
+  "docs_filter_cloud_available_desc": "У гри увімкнено хмарні збереження.",
+  "docs_filter_controller_support_desc": "Фільтр за рівнем підтримки контролера (часткова / повна).",
+  "docs_filter_friends_playing_now_desc": "Гра, у яку зараз грає друг у Steam. Потребує онлайн-функцій.",
+  "docs_filter_friends_played_recently_desc": "Гра, у яку друг у Steam грав протягом останніх N днів (1-30, типово 14). Потребує онлайн-функцій.",
+  "docs_filter_discount_desc": "Знижка в Steam-магазині в обраному діапазоні. Потребує онлайн-функцій."
 }

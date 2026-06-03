@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "無圖像",
   "decoration_hero_preview_empty": "無主圖",
   "decoration_card_select": "編輯卡片",
-  "decoration_card_collapse": "返回",
-  "decoration_card_collapse_hint": "B = 返回",
-  "decoration_card_done": "完成"
+  "decoration_card_done": "完成",
+  "docs_filter_cloud_available_desc": "遊戲啟用了雲端存檔。",
+  "docs_filter_controller_support_desc": "按控制器支援等級篩選（部分 / 完整）。",
+  "docs_filter_friends_playing_now_desc": "Steam 好友目前正在遊玩的遊戲。需要連線功能。",
+  "docs_filter_friends_played_recently_desc": "Steam 好友在最近 N 天（1-30，預設 14）內遊玩過的遊戲。需要連線功能。",
+  "docs_filter_discount_desc": "所選範圍內的 Steam 商店折扣百分比。需要連線功能。"
 }

@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Geen afbeelding",
   "decoration_hero_preview_empty": "Geen hero",
   "decoration_card_select": "Kaart bewerken",
-  "decoration_card_collapse": "Terug",
-  "decoration_card_collapse_hint": "B = terug",
-  "decoration_card_done": "Klaar"
+  "decoration_card_done": "Klaar",
+  "docs_filter_cloud_available_desc": "Spel heeft cloud-opslag aan.",
+  "docs_filter_controller_support_desc": "Filter op controller-ondersteuning (gedeeltelijk / volledig).",
+  "docs_filter_friends_playing_now_desc": "Spel waar een Steam-vriend nu in zit. Vereist online-functies.",
+  "docs_filter_friends_played_recently_desc": "Spel dat een Steam-vriend in de laatste N dagen (1-30, standaard 14) speelde. Vereist online-functies.",
+  "docs_filter_discount_desc": "Steam-shop korting in een gekozen bereik. Vereist online-functies."
 }

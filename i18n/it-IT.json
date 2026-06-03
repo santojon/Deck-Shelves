@@ -767,7 +767,10 @@
   "decoration_image_preview_empty": "Nessuna immagine",
   "decoration_hero_preview_empty": "Nessuna hero",
   "decoration_card_select": "Modifica carta",
-  "decoration_card_collapse": "Indietro",
-  "decoration_card_collapse_hint": "B = indietro",
-  "decoration_card_done": "Fine"
+  "decoration_card_done": "Fine",
+  "docs_filter_cloud_available_desc": "Il gioco ha i salvataggi cloud attivi.",
+  "docs_filter_controller_support_desc": "Filtra per livello di supporto del controller (parziale / completo).",
+  "docs_filter_friends_playing_now_desc": "Gioco a cui un amico Steam sta giocando ora. Richiede le funzioni online.",
+  "docs_filter_friends_played_recently_desc": "Gioco a cui un amico Steam ha giocato negli ultimi N giorni (1-30, predefinito 14). Richiede le funzioni online.",
+  "docs_filter_discount_desc": "Percentuale di sconto Steam nell'intervallo scelto. Richiede le funzioni online."
 }

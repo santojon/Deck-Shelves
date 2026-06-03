@@ -1,8 +1,5 @@
 import { ShelfPreview } from './ShelfPreview'
-import { HighlightRow } from './HighlightRow'
-import { HighlightMiniCard } from './HighlightMiniCard'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
-import type { MutableRefObject } from 'react'
 
 /**
  * Bottom preview region rendered by both `EditShelfModal` and
@@ -34,17 +31,14 @@ export type PreviewPanelProps = {
   highlightAll: boolean
   highlightedAppIds: number[]
 
-  highlightPickerOpen: boolean
-  setHighlightedAppIds: (next: number[]) => void
+  // Picker selection drives `selectionMode` / `selectionSet` / `onToggleSelection`
+  // forwarded below; the legacy `highlightPickerOpen` / `hiddenPickerOpen` +
+  // alternating-mode + pre-pattern ref props used to drive a separate
+  // mini-card render mode here. ShelfPreview now owns the whole picker flow
+  // via the unified selection trio, so this surface only forwards what's
+  // still consumed.
   alternatingMode: 'odd' | 'even' | null
-  setAlternatingMode: (m: 'odd' | 'even' | null) => void
-  prePatternHighlightsRef: MutableRefObject<number[] | null>
-
-  hiddenPickerOpen: boolean
   hiddenAppIds: number[]
-  setHiddenAppIds: (next: number[]) => void
-  hiddenCandidateIds: number[]
-  hiddenCandidateMeta: Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>
 
   hideStatusLine: boolean
   hideNewBadge: boolean
@@ -101,10 +95,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
     resolvedIds, effectiveManualOrder, resolvedMeta,
     isManualSort, onReorderManual,
     highlightFirst, highlightAll, highlightedAppIds,
-    highlightPickerOpen, setHighlightedAppIds,
-    alternatingMode: _alternatingMode, setAlternatingMode, prePatternHighlightsRef,
-    hiddenPickerOpen, hiddenAppIds, setHiddenAppIds,
-    hiddenCandidateIds, hiddenCandidateMeta,
+    alternatingMode: _alternatingMode,
+    hiddenAppIds,
     hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
     hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
     limit, shelfSource, shelfSort, onRefresh, onFocusedIndexChange,
