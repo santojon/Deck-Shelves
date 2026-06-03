@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-06-03
+
 ### Added
 
 - **Two new filter types — `friendsPlayingNow` and `friendsPlayedRecently`.** Externalises the friend-activity signals that previously only powered the `friends_playing` smart shelf, making them usable in any regular shelf (collection / tab / filter / composite). `friendsPlayingNow` matches any appid in the runtime cache `getFriendsPlayingAppIds()` (any friend in-game right now); `friendsPlayedRecently` matches the broader `getFriendsRecentlyPlayedAppIds()` set with a tunable `days` param (1–30, default 14). Both invertible. Both classified as online filters (`isOnlineFilterType`) so the composite resolver propagates them only to online children when applied at composite level. i18n × 19 locales for `filter_type_friendsPlayingNow`, `filter_type_friendsPlayedRecently`, `filter_friends_playing_now_info`, `filter_friends_played_recently_days`, `filter_friends_played_recently_info`.

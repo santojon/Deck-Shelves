@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-06-03
+
 ### Added
 
 - **Two new filters for friend activity.** "Friends playing now" matches any game at least one Steam friend is in right now. "Friends played recently" matches any game a friend was seen playing in the last N days (1–30, default 14). Both work in any regular shelf and inside composite — e.g. "games in my Backlog collection that any friend played this week". Both are invertible (use as exclude). Requires the Online features toggle to be on.
