@@ -38,7 +38,7 @@ function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
 }
 
 function makeSettings(shelves: Shelf[] = []): Settings {
-  return { enabled: true, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalHeroEnabled: false, globalDedupeByName: false, shelves, smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false }
+  return { enabled: true, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalHeroEnabled: false, globalDedupeByName: false, shelves, smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false }
 }
 
 describe('patchShelfInSettings', () => {
@@ -238,6 +238,39 @@ describe('filterGroupToFilter', () => {
   it('defaults sort to alphabetical', () => {
     const result = filterGroupToFilter({ mode: 'and', items: [] })
     expect(result.sort).toBe('alphabetical')
+  })
+
+  it('propagates a multi-key sort array verbatim', () => {
+    const group = { mode: 'and' as const, items: [] }
+    const result = filterGroupToFilter(group, ['recent', 'alphabetical'] as any)
+    expect(result.sort).toEqual(['recent', 'alphabetical'])
+  })
+
+  it('propagates a boolean sortReverse when truthy', () => {
+    const result = filterGroupToFilter({ mode: 'and', items: [] }, 'recent', true)
+    expect(result.sortReverse).toBe(true)
+  })
+
+  it('omits sortReverse when it is false (storage minimisation)', () => {
+    const result = filterGroupToFilter({ mode: 'and', items: [] }, 'recent', false)
+    expect(result.sortReverse).toBeUndefined()
+  })
+
+  it('propagates a per-key sortReverse array when any entry is true', () => {
+    const result = filterGroupToFilter({ mode: 'and', items: [] }, ['recent', 'alphabetical'] as any, [true, false])
+    expect(result.sortReverse).toEqual([true, false])
+  })
+
+  it('omits sortReverse when every array entry is false', () => {
+    // Matches the single-key bool=false omission policy — saves storage
+    // and stays equivalent to "no reverse" for the resolver.
+    const result = filterGroupToFilter({ mode: 'and', items: [] }, ['recent', 'alphabetical'] as any, [false, false])
+    expect(result.sortReverse).toBeUndefined()
+  })
+
+  it('omits sortReverse when undefined', () => {
+    const result = filterGroupToFilter({ mode: 'and', items: [] }, 'recent')
+    expect(result.sortReverse).toBeUndefined()
   })
 })
 

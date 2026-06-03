@@ -33,6 +33,9 @@ from .suites import qam_smart as _qam_smart_t  # noqa: E402,F401
 from .suites import qam_global_toggles as _qam_global_t  # noqa: E402,F401
 from .suites import about as _about_t  # noqa: E402,F401
 from .suites import context_menu as _ctx_menu_t  # noqa: E402,F401
+from .suites import context_menu_24 as _ctx_menu_24_t  # noqa: E402,F401
+from .suites import decoration as _decoration_t  # noqa: E402,F401
+from .suites import features_24 as _features_24_t  # noqa: E402,F401
 from .suites import crash_protection as _crash_t  # noqa: E402,F401
 from .suites import stress as _stress_t            # noqa: E402,F401
 

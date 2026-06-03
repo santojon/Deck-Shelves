@@ -3,30 +3,21 @@ import i18next from "i18next";
 import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";
 import { wrapHomeShelves } from "../qa/harness";
 const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
-import { refreshSettings } from "../settingsStore";
-import type { Shelf } from "../types";
-import { createDeckyPlatform } from "./deckyPlatform";
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow } from "./steamHost";
-import { discoverClassMap, setRuntimeClassMap, getRuntimeClassMap } from "../core/webpackCompat";
+import { getRuntimeClassMap } from "../core/webpackCompat";
 import { toaster } from "../shims/decky-api";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
-const platform = createDeckyPlatform();
 
 let observer: MutationObserver | null = null;
 let timer = 0;
-let rendering = false;
-let lastRenderKey = "";
-let homeHiddenLogged = false;
 let noAnchorLogged = false;
 let removeGlobalComponent: (() => void) | null = null;
 const uninstallHooks: Array<() => void> = [];
-let lastContextLogAt = 0;
 let lastHostSource = "";
-const rowScrollState = new Map<string, number>();
 
 // --- Crash protection ---
 let mountFailed = false;
@@ -41,7 +32,7 @@ if (__DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__) 
 
 export function getMountFailed(): boolean { return mountFailed; }
 export function getMountError(): string | null { return mountError; }
-export function resetMountFailed(): void { mountFailed = false; mountError = null; boundaryFailureCount = 0; lastRenderKey = ""; notifyMountFailedChange(); }
+export function resetMountFailed(): void { mountFailed = false; mountError = null; boundaryFailureCount = 0; notifyMountFailedChange(); }
 
 const mountFailedListeners = new Set<() => void>();
 export function subscribeMountFailed(cb: () => void): () => void {
@@ -117,7 +108,7 @@ export function applyHideRecents(hidden: boolean): void {
   // Deliberately NOT using display:none (re-enters the gamepad nav tree
   // inconsistently across SteamOS builds) nor off-screen positioning (broke
   // ArtHero shelf placement on restart). The known trade-off — D-pad needs
-  // two "up" presses to reach the search bar — is accepted/roadmapped.
+  // two "up" presses to reach the search bar — is known limitation.
   if (cachedRecentsEl) {
     try {
       cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
@@ -546,406 +537,6 @@ function ensureMount(): HTMLElement | null {
   return mount;
 }
 
-function clearMount() {
-  const { doc } = getHostContext();
-  doc.getElementById(ROOT_ID)?.remove();
-}
-
-function buildImageCandidates(appid: number, portrait?: string, hero?: string): string[] {
-  const candidates = [
-    portrait,
-    hero,
-    `/customimages/${appid}p.png`,
-    `/customimages/${appid}p.jpg`,
-    `/assets/${appid}/library_600x900.jpg`,
-    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_600x900.jpg`,
-  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
-  const seen = new Set<string>();
-  return candidates.filter((url) => {
-    const base = url.split("?")[0];
-    if (seen.has(base)) return false;
-    seen.add(base);
-    return true;
-  });
-}
-
-function injectHomeStyles(doc: Document) {
-  const STYLE_ID = "deck-shelves-home-style";
-  if (doc.getElementById(STYLE_ID)) return;
-
-  const style = doc.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = `
-    #${ROOT_ID} {
-      overflow: visible;
-      margin-top: -32px;
-    }
-    #${ROOT_ID} .deck-shelves-section { margin: 0 0 8px 0; }
-    #${ROOT_ID} .deck-shelves-header {
-      color: #ffffff;
-      font-size: 22px;
-      font-weight: 800;
-      line-height: 1.2;
-      margin: 0 0 6px 0;
-      letter-spacing: 0;
-      text-transform: none;
-    }
-    #${ROOT_ID} .deck-shelves-grid {
-      box-sizing: border-box;
-      direction: ltr;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    #${ROOT_ID} .deck-shelves-grid::-webkit-scrollbar {
-      width: 0;
-      height: 0;
-      display: none;
-    }
-    #${ROOT_ID} .deck-shelves-inner {
-      display: flex;
-      align-items: stretch;
-      min-width: max-content;
-      gap: 0;
-      overflow: visible;
-      position: relative;
-    }
-    #${ROOT_ID} .deck-shelves-item {
-      width: calc(var(--ds-native-card-w, 133px) + 12px);
-      min-width: calc(var(--ds-native-card-w, 133px) + 12px);
-      position: relative;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      text-align: left;
-      cursor: pointer;
-    }
-    #${ROOT_ID} .deck-shelves-item:focus {
-      outline: none;
-    }
-    #${ROOT_ID} .deck-shelves-card {
-      width: var(--ds-native-card-w, 133px);
-      height: calc(var(--ds-native-card-h, 200px) + 51.5px);
-      border-radius: 2px;
-      overflow: hidden;
-      background: rgba(3, 10, 30, 0.92);
-      border: none;
-      transition: transform 80ms ease;
-    }
-    #${ROOT_ID} .deck-shelves-item:focus .deck-shelves-card,
-    #${ROOT_ID} .deck-shelves-item:hover .deck-shelves-card {
-      transform: scale(1.06);
-    }
-    #${ROOT_ID} .deck-shelves-art {
-      width: 100%;
-      height: var(--ds-native-card-h, 200px);
-      object-fit: cover;
-      display: block;
-      background: #111827;
-    }
-    #${ROOT_ID} .deck-shelves-title {
-      color: #f8fafc;
-      font-size: 13px;
-      line-height: 1.2;
-      font-weight: 700;
-      padding: 10px 10px 8px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      opacity: 0;
-      transform: translateY(3px);
-      transition: opacity .14s ease, transform .14s ease;
-    }
-    #${ROOT_ID} .deck-shelves-item.is-selected .deck-shelves-title,
-    #${ROOT_ID} .deck-shelves-item:focus .deck-shelves-title,
-    #${ROOT_ID} .deck-shelves-item:hover .deck-shelves-title {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    #${ROOT_ID} .deck-shelves-more {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #e2e8f0;
-      font-size: 20px;
-      font-weight: 800;
-      background: linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.9));
-    }
-  `;
-  doc.head.appendChild(style);
-}
-
-function createShelfCard(
-  app: { appid: number; name: string; portrait?: string; hero?: string },
-  onActivate: () => void,
-  options?: { isMore?: boolean },
-): HTMLButtonElement {
-  const { doc } = getHostContext();
-  injectHomeStyles(doc);
-
-  const card = doc.createElement("button");
-  card.type = "button";
-  card.className = "deck-shelves-item Panel Focusable";
-  card.tabIndex = 0;
-  card.setAttribute("role", "button");
-  card.setAttribute("aria-label", app.name);
-
-  const img = doc.createElement("img");
-  const imageCandidates = buildImageCandidates(app.appid, app.portrait, app.hero);
-  img.src = imageCandidates[0] ?? "";
-  img.alt = app.name;
-  img.className = "deck-shelves-art";
-  let imageIdx = 1;
-  img.onerror = () => {
-    if (imageIdx >= imageCandidates.length) return;
-    img.src = imageCandidates[imageIdx++] ?? "";
-  };
-
-  const cardInner = doc.createElement("div");
-  cardInner.className = "deck-shelves-card _1HIFNGSxh4-jOhPiDynR4C Panel";
-
-  const artWrap = doc.createElement("div");
-  artWrap.style.height = "199.5px";
-  artWrap.style.position = "relative";
-  artWrap.style.overflow = "hidden";
-
-  const label = doc.createElement("div");
-  label.className = "deck-shelves-title";
-  label.textContent = app.name;
-
-  if (options?.isMore) {
-    img.remove();
-    const more = doc.createElement("div");
-    more.className = "deck-shelves-more";
-    more.textContent = "→";
-    more.style.width = "100%";
-    more.style.height = "100%";
-    artWrap.appendChild(more);
-  } else {
-    artWrap.appendChild(img);
-  }
-
-  cardInner.appendChild(artWrap);
-  cardInner.appendChild(label);
-  card.appendChild(cardInner);
-  card.addEventListener("click", onActivate);
-  card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      onActivate();
-      return;
-    }
-    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-      const row = card.closest(".deck-shelves-inner");
-      if (!row) return;
-      const cards = Array.from(row.querySelectorAll<HTMLButtonElement>(".deck-shelves-item"));
-      const idx = cards.indexOf(card);
-      if (idx < 0) return;
-      const nextIdx = event.key === "ArrowRight" ? Math.min(cards.length - 1, idx + 1) : Math.max(0, idx - 1);
-      const next = cards[nextIdx];
-      if (!next || next === card) return;
-      event.preventDefault();
-      next.focus();
-      next.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    }
-  });
-  card.addEventListener("focus", () => {
-    const row = card.closest(".deck-shelves-inner");
-    if (!row) return;
-    for (const item of Array.from(row.querySelectorAll<HTMLButtonElement>(".deck-shelves-item"))) {
-      item.classList.toggle("is-selected", item === card);
-    }
-  });
-  return card;
-}
-
-async function buildShelfNode(shelf: Shelf): Promise<HTMLElement | null> {
-  const ids = await platform.resolveShelfAppIds(shelf.source, shelf.limit, (shelf as any).sort);
-  if (!ids.length) {
-    logWarn("HOME", "shelf resolved zero apps", { shelfId: shelf.id, title: shelf.title, source: shelf.source });
-    logDiagnostic("warn", "Shelf resolved zero apps", JSON.stringify({ shelfId: shelf.id, title: shelf.title }));
-    return null;
-  }
-
-  logInfo("HOME", "shelf resolved apps", { shelfId: shelf.id, title: shelf.title, count: ids.length, sample: ids.slice(0, 8) });
-
-  const { doc } = getHostContext();
-
-  const metas = await Promise.all(ids.slice(0, Math.min(shelf.limit, 12)).map(async (appid) => {
-    try {
-      const meta = await platform.getAppMeta(appid);
-      return {
-        appid,
-        name: meta.name,
-        portrait: meta.portraitUrl,
-        hero: meta.heroUrl,
-      };
-    } catch {
-      return {
-        appid,
-        name: `App ${appid}`,
-      };
-    }
-  }));
-
-  const section = doc.createElement("div");
-  section.className = "deck-shelves-section Panel";
-
-  const header = doc.createElement("div");
-  header.style.margin = "0 0 8px";
-
-  const title = doc.createElement("h3");
-  title.className = "deck-shelves-header";
-  title.textContent = shelf.title;
-  title.style.margin = "0";
-
-  header.appendChild(title);
-
-  const row = doc.createElement("div");
-  row.className = "deck-shelves-grid ReactVirtualized__Grid _3MdH5Czolhh5rC_nofUlcQ";
-  row.setAttribute("aria-label", shelf.title || "Deck Shelves");
-  row.setAttribute("aria-readonly", "true");
-  row.setAttribute("role", "generic");
-  row.style.width = "100%";
-
-  const inner = doc.createElement("div");
-  inner.className = "deck-shelves-inner ReactVirtualized__Grid__innerScrollContainer";
-  inner.setAttribute("role", "list");
-  inner.setAttribute("aria-label", shelf.title || "Deck Shelves");
-  inner.setAttribute("data-shelf-id", shelf.id);
-
-  for (const app of metas) {
-    const listItem = doc.createElement("div");
-    listItem.setAttribute("role", "listitem");
-    listItem.style.cssText = "position:relative;flex-shrink:0;display:inline-block;";
-    listItem.appendChild(createShelfCard(app, () => platform.navigateToApp(app.appid)));
-    inner.appendChild(listItem);
-  }
-
-  const moreListItem = doc.createElement("div");
-  moreListItem.setAttribute("role", "listitem");
-  moreListItem.style.cssText = "position:relative;flex-shrink:0;display:inline-block;";
-  moreListItem.appendChild(createShelfCard(
-    { appid: -1, name: i18next.t("view_more") },
-    () => platform.navigateToShelfSource?.(shelf.source, shelf.title),
-    { isMore: true },
-  ));
-  inner.appendChild(moreListItem);
-
-  const first = inner.querySelector<HTMLButtonElement>(".deck-shelves-item");
-  if (first) first.classList.add("is-selected");
-
-  const prevScroll = rowScrollState.get(shelf.id) ?? 0;
-  if (prevScroll > 0) row.scrollLeft = prevScroll;
-  row.addEventListener("scroll", () => {
-    rowScrollState.set(shelf.id, row.scrollLeft);
-  }, { passive: true });
-
-  row.appendChild(inner);
-  section.appendChild(header);
-  section.appendChild(row);
-  return section;
-}
-
-async function renderHomeShelves() {
-  if (rendering) return;
-  rendering = true;
-  try {
-    if (!isHomeVisible()) {
-      if (!homeHiddenLogged) {
-        homeHiddenLogged = true;
-        logInfo("HOME", "home not visible yet", getContextSnapshot());
-      }
-      clearMount();
-      lastRenderKey = "";
-      return;
-    }
-    homeHiddenLogged = false;
-
-    if (document.readyState !== "complete") {
-      const now = Date.now();
-      if (now - lastContextLogAt > 5000) {
-        lastContextLogAt = now;
-        logInfo("HOME", "waiting for full document readiness", getContextSnapshot());
-      }
-      return;
-    }
-
-    // Don't attempt mount if crash protection is engaged
-    if (mountFailed) return;
-
-    const mount = ensureMount();
-    if (!mount) return;
-
-    // Apply hideRecents setting immediately after a successful mount
-    try {
-      const settingsForHide = await refreshSettings();
-      applyHideRecents(settingsForHide.hideRecents === true);
-    } catch {}
-
-    // Discover obfuscated/webpack-hashed class tokens and inject a runtime map so
-    // the rest of the plugin can rely on deterministic selectors — classes are
-    // discovered at runtime and made available to injected code before mounting UI.
-    try {
-      const hostDoc = getHostContext().doc;
-      // Always run discovery so new keys (nativeShelf, nativeShelfRow, etc.) get populated
-      // even when a bootstrap classmap already exists in localStorage. Existing values win
-      // on conflicts (bootstrap tokens are more precise); discovered fills in missing keys.
-      const existing = getRuntimeClassMap(hostDoc as Document) ?? {};
-      const discovered = discoverClassMap(hostDoc as Document) ?? {};
-      const merged: Record<string, string> = { ...discovered };
-      for (const [k, v] of Object.entries(existing)) {
-        if (v) merged[k] = v;
-      }
-      setRuntimeClassMap(hostDoc as Document, merged);
-      logInfo("HOME", "runtime class map merged", merged);
-    } catch (e) {
-      logWarn("HOME", "classmap discovery failed", String(e));
-    }
-    if (mount.dataset.deckShelvesRenderer === "react") {
-      return;
-    }
-
-    const settings = await refreshSettings();
-    const shelves = (settings.shelves ?? []).filter((s) => s.enabled && !s.hidden);
-    const renderKey = JSON.stringify({
-      enabled: settings.enabled,
-      shelves: shelves.map((s) => ({ id: s.id, title: s.title, source: s.source, limit: s.limit })),
-    });
-
-    if (renderKey === lastRenderKey) return;
-    lastRenderKey = renderKey;
-
-    mount.innerHTML = "";
-    if (!settings.enabled || !shelves.length) {
-      mount.style.display = "none";
-      return;
-    }
-    mount.style.display = "block";
-
-    const nodes = await Promise.all(shelves.map((s) => buildShelfNode(s)));
-    let rendered = 0;
-    for (const node of nodes) {
-      if (!node) continue;
-      mount.appendChild(node);
-      rendered += 1;
-    }
-
-    if (!rendered) {
-      mount.style.display = "none";
-    }
-
-    logInfo("HOME", "dom shelves rendered", { configured: shelves.length, rendered });
-    logDiagnostic("info", "Home shelves rendered", JSON.stringify({ configured: shelves.length, rendered }));
-  } catch (error) {
-    logError("HOME", "dom render failed", String(error));
-    logDiagnostic("error", "Home render failed", String(error));
-  } finally {
-    rendering = false;
-  }
-}
-
 class HomeBoundary extends React.Component<{ children: React.ReactNode }, { crashed: boolean }> {
   state = { crashed: false };
   static getDerivedStateFromError(_err: unknown) { return { crashed: true }; }
@@ -1161,12 +752,9 @@ export function installHomePatch(_routerHook?: any) {
       if (existing?.dataset?.deckShelvesRenderer === "react") return;
 
       if (!isHomeVisible()) {
-        if (fallbackRoot) {
-          fallbackRoot.unmount();
-          fallbackRoot = null;
-          fallbackMountId = null;
-        }
-        fallbackRetries = 0; // Reset counter when home not visible
+        // Do NOT unmount the React tree when the home view is hidden
+        // (e.g. user navigated to a game detail page or settings).
+        fallbackRetries = 0;
         return;
       }
 

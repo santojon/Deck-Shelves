@@ -2,17 +2,27 @@ import { REFRESHABLE_SMART_MODES } from "./types";
 
 export type TrailingCardInput = {
   source: any;
-  sort?: string;
+  // sort accepts the single-key string form (back-compat) or the
+  // multi-key array form. For trailing-card decisions we only care about
+  // whether the PRIMARY key is `random`, so the first element of the
+  // array is consulted when an array is passed.
+  sort?: string | string[];
   hideSeeMore?: boolean;
   hideRefreshCard?: boolean;
   globalHideSeeMore?: boolean;
   globalHideRefreshCard?: boolean;
 };
 
-function isRandomNonSmart(src: any, sort: string | undefined): boolean {
+function primarySort(sort: string | string[] | undefined): string | undefined {
+  if (Array.isArray(sort)) return sort[0];
+  return sort;
+}
+
+function isRandomNonSmart(src: any, sort: string | string[] | undefined): boolean {
   if (src?.type === "smart") return false;
-  if (sort === "random") return true;
-  return src?.type === "filter" && src?.filter?.sort === "random";
+  if (primarySort(sort) === "random") return true;
+  const filterSort = src?.type === "filter" ? src?.filter?.sort : undefined;
+  return primarySort(filterSort) === "random";
 }
 
 export function isOnlineShelfSource(src: any): boolean {

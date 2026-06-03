@@ -1,6 +1,37 @@
 import type { AppOverview } from "./index";
 
 /**
+ * Normalize a game title for cross-source name matching.
+ *
+ * Online wishlist / store entries arrive with the official Steam title
+ * (e.g. "Kingdom Come: Deliverance"), while non-Steam shortcuts that
+ * the user created or that Unifideck imported often spell the same
+ * game without punctuation (e.g. "Kingdom Come Deliverance"). Exact
+ * lowercase compare misses these matches and leaves the wishlist row
+ * advertising games the user already owns locally.
+ *
+ * The normalisation:
+ *   - lowercases
+ *   - strips trademark / copyright / registered marks
+ *   - replaces every non-alphanumeric character (incl. punctuation and
+ *     accented punctuation) with a single space
+ *   - collapses whitespace and trims
+ *
+ * Accented letters are preserved so locale-specific titles still match
+ * across sources ("Hadès" stays distinct from "Hades" only when one
+ * side genuinely uses the accent).
+ */
+export function normalizeTitleForMatch(name: string | undefined | null): string {
+  if (!name) return "";
+  return String(name)
+    .toLowerCase()
+    .replace(/[™®©]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Collapse duplicate names in an app list.
  *
  * Within each exact-name group (case-sensitive, trim only):
@@ -12,9 +43,14 @@ import type { AppOverview } from "./index";
 export function dedupeByName(
   apps: { appid: number; name: string; isSteam: boolean }[],
 ): number[] {
-  const seen = new Map<string, number>(); // name → appid of winner
+  // Use the same normalisation the online-shelves name-dedup uses
+  // (lowercases, strips trademark glyphs, collapses non-alphanumeric
+  // runs). Without this, "Kingdom Come Deliverance" and "Kingdom Come:
+  // Deliverance" stayed as separate buckets even with dedup on.
+  const seen = new Map<string, number>(); // normalised name → appid of winner
   for (const a of apps) {
-    const key = a.name.trim();
+    const key = normalizeTitleForMatch(a.name);
+    if (!key) continue; // empty after normalise — can't compare
     if (!seen.has(key)) {
       seen.set(key, a.appid);
     } else if (a.isSteam) {

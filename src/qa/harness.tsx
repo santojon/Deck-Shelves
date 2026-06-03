@@ -183,6 +183,29 @@ function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
     { ...base, id: "qa_st_16", title: "Stress 16 — Free now / hero art",
       source: { type: "store", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } },
       heroEnabled: true } as any,
+    // 17 — composite source (union: installed + favorites), highlightFirst
+    { ...base, id: "qa_st_17", title: "Stress 17 — Composite union / highlight first",
+      source: { type: "composite", combine: "union", sources: [
+        { type: "tab", tab: "installed" },
+        { type: "tab", tab: "favorites" },
+      ] } as any,
+      highlightFirst: true } as any,
+    // 18 — multi-key sort + manual sort with decoration cards
+    { ...base, id: "qa_st_18", title: "Stress 18 — Decorated row / manual sort",
+      source: { type: "tab", tab: "installed" },
+      sort: "manual" as any,
+      manualBaseSort: "alphabetical",
+      manualOrder: [],
+      syntheticCards: [
+        { position: 0, size: "normal" }, // pure gap
+        { position: 3, size: "normal", text: "Stress Section", placeholder: true },
+        { position: 8, size: "featured", text: "Stress Link", link: { type: "url", value: "https://store.steampowered.com" } },
+      ] as any } as any,
+    // 19 — multi-key sort (recent + alphabetical tiebreaker)
+    { ...base, id: "qa_st_19", title: "Stress 19 — Multi-key sort",
+      source: { type: "filter", filter: { sort: ["recent", "alphabetical"], sortReverse: [false, false] } as any },
+      sort: ["recent", "alphabetical"] as any,
+      sortReverse: [false, false] as any } as any,
   ];
 
   const smartShelves: SmartShelf[] = [
@@ -192,6 +215,10 @@ function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
     { id: "qa_ssm_04", title: "Stress Smart 04 — Interrupted",     mode: "interrupted",     enabled: true, hidden: false, limit: 50 },
     { id: "qa_ssm_05", title: "Stress Smart 05 — Daily pick",      mode: "daily_pick",      enabled: true, hidden: false, limit: 50 },
     { id: "qa_ssm_06", title: "Stress Smart 06 — Random pick",     mode: "random_pick",     enabled: true, hidden: false, limit: 50 },
+    // 2.4.0 — heuristic templates exercise the new primitives under load
+    { id: "qa_ssm_07", title: "Stress Smart 07 — Backlog rescue",  mode: "backlog_rescue",  enabled: true, hidden: false, limit: 50 },
+    { id: "qa_ssm_08", title: "Stress Smart 08 — Forgotten gems",  mode: "forgotten_gems",  enabled: true, hidden: false, limit: 50 },
+    { id: "qa_ssm_09", title: "Stress Smart 09 — Weekly rotation", mode: "weekly_rotation", enabled: true, hidden: false, limit: 50 },
   ];
 
   return { shelves, smartShelves };
@@ -316,6 +343,60 @@ function qaTemplatesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } 
     { ...b, id: "qa_tpl_wish_sale",title: "Tpl: Wishlist on sale",   source: { type: "wishlist", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 1, maxDiscount: 99 } }] } } },
     { ...b, id: "qa_tpl_freewish", title: "Tpl: Free wishlist",      source: { type: "wishlist", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } } },
     { ...b, id: "qa_tpl_freenow",  title: "Tpl: Free now",           source: { type: "store",    childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } } },
+    // ── 2.4.0 surfaces: multi-source, multi-key sort, decoration cards ──
+    {
+      ...b,
+      id: "qa_tpl_composite_union",
+      title: "Tpl: Composite (union)",
+      source: { type: "composite", combine: "union", sources: [
+        { type: "tab", tab: "installed" },
+        { type: "tab", tab: "favorites" },
+      ] } as any,
+    },
+    {
+      ...b,
+      id: "qa_tpl_composite_intersect",
+      title: "Tpl: Composite (intersection)",
+      source: { type: "composite", combine: "intersection", sources: [
+        { type: "tab", tab: "installed" },
+        { type: "filter", filter: { sort: "alphabetical" } as any },
+      ] } as any,
+    },
+    {
+      ...b,
+      id: "qa_tpl_multikey",
+      title: "Tpl: Multi-key sort",
+      source: { type: "filter", filter: { sort: ["recent", "alphabetical"], sortReverse: [false, false] } as any },
+      sort: ["recent", "alphabetical"] as any,
+      sortReverse: [false, false] as any,
+    },
+    {
+      ...b,
+      id: "qa_tpl_decorated",
+      title: "Tpl: Decorated row",
+      source: { type: "tab", tab: "installed" },
+      sort: "manual" as any,
+      manualBaseSort: "alphabetical",
+      manualOrder: [],
+      // Three shapes side-by-side: pure gap, text label, focusable URL with text.
+      syntheticCards: [
+        { position: 0, size: "normal" },
+        { position: 2, size: "normal", text: "Section A", placeholder: true },
+        { position: 4, size: "featured", text: "Open Steam", link: { type: "url", value: "https://store.steampowered.com" } },
+      ] as any,
+    },
+    {
+      ...b,
+      id: "qa_tpl_decorated_image",
+      title: "Tpl: Decorated row (image)",
+      source: { type: "tab", tab: "installed" },
+      sort: "manual" as any,
+      manualBaseSort: "alphabetical",
+      manualOrder: [],
+      syntheticCards: [
+        { position: 1, size: "normal", image: "https://cdn.akamai.steamstatic.com/steam/apps/220/header.jpg", link: { type: "url", value: "https://store.steampowered.com/app/220" } },
+      ] as any,
+    },
   ];
 
   const smartShelves: SmartShelf[] = [
@@ -334,6 +415,14 @@ function qaTemplatesFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } 
     { id: "qa_tsm_tod",     title: "Tpl: Time of day",      mode: "time_of_day",     enabled: true, hidden: false },
     { id: "qa_tsm_redis",   title: "Tpl: Rediscover",       mode: "rediscover",      enabled: true, hidden: false },
     { id: "qa_tsm_forgot",  title: "Tpl: Forgotten",        mode: "forgotten",       enabled: true, hidden: false },
+    // ── 2.4.0 new smart templates ────────────────────────────────────
+    { id: "qa_tsm_backlog", title: "Tpl: Backlog rescue",   mode: "backlog_rescue",  enabled: true, hidden: false },
+    { id: "qa_tsm_gems",    title: "Tpl: Forgotten gems",   mode: "forgotten_gems",  enabled: true, hidden: false },
+    { id: "qa_tsm_weekly",  title: "Tpl: Weekly rotation",  mode: "weekly_rotation", enabled: true, hidden: false },
+    { id: "qa_tsm_sound",   title: "Tpl: Soundtracks",      mode: "soundtracks",     enabled: true, hidden: false },
+    { id: "qa_tsm_videos",  title: "Tpl: Videos",           mode: "videos",          enabled: true, hidden: false },
+    { id: "qa_tsm_demos",   title: "Tpl: Demos",            mode: "demos",           enabled: true, hidden: false },
+    { id: "qa_tsm_cloud",   title: "Tpl: Cloud games",      mode: "cloud_games",     enabled: true, hidden: false },
   ];
 
   return { shelves, smartShelves };

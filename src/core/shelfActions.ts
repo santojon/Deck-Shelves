@@ -149,7 +149,10 @@ export function registerShelfModalHandler(h: ShelfModalHandler | null): void {
   }
 }
 
-export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string): void {
+export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?: { initialTab?: string }): void {
+  if (opts?.initialTab) {
+    try { (globalThis as any).__DECK_SHELVES_PENDING_TAB__ = String(opts.initialTab); } catch {}
+  }
   // Primary path: navigate to a dedicated route that mounts a standalone
   // SettingsController and opens the modal via DFL.showModal — no QAM
   // dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The

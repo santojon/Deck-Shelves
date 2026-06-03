@@ -10,6 +10,8 @@ import { installHomePatch } from "./runtime/homePatch";
 import { installRecentsReplace } from "./runtime/recentsReplace";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
+import { installBatteryState } from "./runtime/batteryState";
+import { installFriendsState } from "./runtime/friendsState";
 import { installPluginApi } from "./core/pluginApi";
 import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
@@ -24,7 +26,17 @@ import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@de
 import { AboutPage } from "./components/AboutPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
+import { createDeckyHostApi } from "./runtime/host/decky";
+import type { HostApi } from "./runtime/host/contract";
 initI18n();
+
+// HostApi singleton — instantiated once at boot. Every `@decky/*`
+// dependency eventually routes through this contract as the migration
+// progresses; today only the pilot surfaces (EditShelfModal etc.) consume
+// it directly.
+let _hostApi: HostApi | null = null;
+export function getHostApi(): HostApi { if (!_hostApi) throw new Error("HostApi not booted"); return _hostApi; }
+export function __setHostApiForTest(h: HostApi | null) { _hostApi = h; }
 
 const ABOUT_ROUTE = "/deck-shelves/about";
 const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
@@ -90,10 +102,13 @@ export default definePlugin((serverAPI?: any) => {
   const routerHook = serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
+  _hostApi = createDeckyHostApi(routerHook);
   const patch = enableHomePatch ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = installRecentsReplace(routerHook);
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
+  const uninstallBatteryState = installBatteryState();
+  const uninstallFriendsState = installFriendsState();
   const uninstallPluginApi = installPluginApi();
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
@@ -247,6 +262,8 @@ export default definePlugin((serverAPI?: any) => {
         routerHook?.removeRoute?.(MANAGE_ROUTE);
         uninstallRefresh();
         uninstallSystemEvents();
+        uninstallBatteryState();
+        uninstallFriendsState();
         uninstallPluginApi();
         unsubUpdateNotify();
       } catch (error) {

@@ -41,16 +41,17 @@ run_checks() {
     ((pass++))
   fi
 
-  # 4) Check for guarded access to shortcuts/shortcutsStore (should be optional-chained / in try/catch)
+  # 4) Check for guarded access to shortcuts/shortcutsStore (should be optional-chained / in try/catch).
+  # Match actual runtime access only — the previous pattern (bare `shortcuts`)
+  # tripped on documentation comments that mention "non-Steam shortcuts"
+  # without any real store access (e.g. `src/steam/dedupe.ts`).
   local sc_files
-  sc_files=$(grep -rln "shortcutsStore\|shortcuts\.vdf\|shortcuts" "$src" 2>/dev/null | grep -v '\.d\.ts$') || true
+  sc_files=$(grep -rln "shortcutsStore\|\.shortcuts\.vdf\|shortcutCache\|m_mapShortcuts" "$src" 2>/dev/null | grep -v '\.d\.ts$') || true
   local all_guarded=true
   for f in $sc_files; do
-    if grep -q "shortcutsStore\|shortcuts" "$f" 2>/dev/null; then
-      if ! grep -q "try {\|try$" "$f" 2>/dev/null; then
-        all_guarded=false
-        break
-      fi
+    if ! grep -q "try {\|try$" "$f" 2>/dev/null; then
+      all_guarded=false
+      break
     fi
   done
   if $all_guarded; then

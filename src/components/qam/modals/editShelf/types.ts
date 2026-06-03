@@ -1,4 +1,4 @@
-import type { FilterGroup, ShelfFilter } from '../../../../types'
+import type { FilterGroup, ShelfFilter, ShelfSource } from '../../../../types'
 import type { SourceType } from './constants'
 
 export type EditableShelfState = {
@@ -9,10 +9,15 @@ export type EditableShelfState = {
   externalSourceId: string
   filter: ShelfFilter
   filterGroup: FilterGroup
-  sort: string
-  sortReverse: boolean
-  manualBaseSort: string
-  manualBaseSortReverse: boolean
+  // Multi-key sort: single-key shelves keep `string`, multi-key shelves
+  // hold an array of sort keys + per-key reverse flags (aligned indices).
+  sort: string | string[]
+  sortReverse: boolean | boolean[]
+  // Manual base sort accepts a string OR a multi-key chain — when sort
+  // is "manual", `manualOrder` overrides positions of specific games
+  // and the base order falls through to this chain.
+  manualBaseSort: string | string[]
+  manualBaseSortReverse: boolean | boolean[]
   limit: number
   matchNativeSize: boolean
   highlightFirst: boolean
@@ -36,4 +41,25 @@ export type EditableShelfState = {
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean
   hideOwnedNonSteamCloud: boolean
+  // Extra sources stacked on top of the primary. When non-empty, the
+  // shelf saves as `{ type: 'composite', combine, sources: [primary, ...additionalSources] }`.
+  // Empty means the shelf is single-source (saves as the primary type
+  // directly — back-compat with older clients). Forced empty when the
+  // primary is `filter` (filter is exclusive — use filter merge instead).
+  compositeCombine: 'union' | 'intersection'
+  additionalSources: ShelfSource[]
+  // Synthetic cards. Stored separately from `additionalSources`
+  // — these are decorations / placeholders / gaps interleaved at fixed
+  // slots, not source results.
+  syntheticCards: Array<{
+    position: number
+    image?: string
+    text?: string
+    link?: { type: 'app' | 'url'; value: string }
+    size: 'normal' | 'featured'
+    alpha?: number
+    placeholder?: boolean
+    heroImage?: string
+    shadowMode?: 'never' | 'onFocus' | 'always'
+  }>
 }

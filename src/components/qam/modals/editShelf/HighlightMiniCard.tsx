@@ -73,7 +73,11 @@ export function HighlightMiniCard({
         boxShadow: grabbed ? '0 0 0 3px rgba(255, 213, 79, 0.35)' : hiddenMark ? '0 0 0 3px rgba(239, 83, 80, 0.25)' : undefined,
         transition: 'width 0.15s ease, outline 0.1s ease, box-shadow 0.1s ease',
         position: 'relative',
-        borderRadius: 0,
+        // Read the same border-radius the real cards use so themes like
+        // Round / Outrun / ArtHero apply consistently here too. Falls
+        // back to 0 only when the detector hasn't found a native radius
+        // yet (the cache is populated on first GameCard render).
+        borderRadius: 'var(--ds-card-radius, 0)',
         // Reserve room for the Decky Focusable focus glow that extends ~24px
         // past the card's bottom edge. `block: 'nearest'` in HighlightRow's
         // focusin handler treats the card as visible the moment its bounding

@@ -355,8 +355,48 @@ By default, smart shelves appear **before** normal shelves. The `smartShelvesAtB
 | `time_of_day` | delegate for current hour is empty | Inherits |
 | `rediscover` | no compat game with >1 h untouched for 6 months | Low–Medium |
 | `forgotten` | no 3+ year old unplayed game in library | Low |
+| `backlog_rescue` | no installed-but-stale games (cooldown 14d) | Low–Medium |
+| `forgotten_gems` | no owned-but-never-played with review ≥ 85% | Low |
+| `hidden_gems` | no never-played with review ≥ 85% | Low |
+| `short_battery` | no Deck-friendly games ≤ 4 GB + ≤ 2h | Low |
+| `long_session_night` | no installed games with >3 h playtime | Low |
+| `travel_mode` | no Deck-friendly games ≤ 5 GB | Low |
+| `never_touched_classics` | no Steam games acquired 3+ years ago + never played | Low |
+| `recent_hidden_installs` | no Steam games installed in last 30 days + never played | Low |
+| `weekly_rotation` / `monthly_spotlight` / `seasonal_rotation` | no installed games | Low (rotation slice may be empty between cycles) |
+| `low_battery_mode` | falls back to `short_battery` candidates when battery OK / unknown | Low |
+| `almost_finished` | Steam achievements cache empty OR no game ≥ threshold | High first paint; resolves once cache warms |
+| `couch_gaming` / `coop_ready` / `party_games` | Steam category cache empty OR no game with matching category | High first paint; resolves once cache warms |
+| `friends_playing` | `onlineFeaturesEnabled` is off OR no friend in-game (+ recent if enabled) OR no overlap with your library | Medium — depends on friend activity at the moment |
 
 > `daily_pick`, `deck_picks`, `on_deck`, `recently_played`, and `random_pick` are the most likely to always be visible. The template picker lists templates from highest to lowest probability.
+
+---
+
+## Composite smart shelves
+
+A smart shelf can combine multiple modes into a single result via the **Combine modes** picker in the Source tab. Same mental model as combining sources on regular shelves.
+
+- **Persisted as** `compositeModes: SmartShelfMode[]` + `compositeCombine: 'union' | 'intersection'` alongside the primary `mode`. Up to 4 additional modes per shelf (the primary counts as the 5th).
+- **Resolver:** evaluates each mode in `[primary, ...compositeModes]` independently (each shares the parent's `smartParams`), then merges:
+  - **Union** — `any of` semantics. Result is the de-duplicated union, preserving first-source order.
+  - **Intersection** — `all of` semantics. Result is appids that appear in every child's output.
+- **filterGroup + sort + limit** apply once after the merge (same way they do for a single-mode shelf).
+- **Cache:** each composite child's resolver result is cached under `${shelfId}:${childMode}`. Refreshing the shelf via the UI invalidates every branch at once.
+- **Per-child smartParams** is a follow-up; for now all children share the parent's tuning.
+
+---
+
+## Runtime-aware templates
+
+Three families consult runtime state outside `AppOverview`:
+
+- **`low_battery_mode`** — reads battery state from `SteamClient.System.RegisterForBatteryStateChanges` (via `src/runtime/batteryState.ts`). When the device is actually on battery below the threshold (default 30%), hoists smallest + shortest-playtime games first. On AC / unknown battery, falls back to the short_battery candidates so the shelf isn't empty in any state.
+- **`almost_finished`** — reads achievement progress from `SteamClient.Apps.RegisterForAppDetails` via the lazy `src/steam/appDetailsCache.ts`. First paint may be partial (cache is empty for unread apps); subsequent refresh ticks populate the shelf.
+- **`couch_gaming` / `coop_ready` / `party_games`** — read Steam store categories from the same `appDetailsCache`. Substring-matched against canonical English category names; localized installs may need keyword expansion (filed for follow-up).
+- **`friends_playing`** — reads friend presence from `friendStore.allFriends` via `src/runtime/friendsState.ts` (polls every 90 s on the home, no network calls). Surfaces apps any friend is in-game RIGHT NOW; when `includeRecentlyPlayed` = 1 (default), also includes apps any friend played in the last 14 days. **Online-gated**: hidden from the template picker AND returns empty from the resolver when `onlineFeaturesEnabled` is off. Reuses the existing master toggle — no new toggle needed since friend presence is conceptually network-sourced.
+
+All families return an **empty shelf** gracefully when the runtime data isn't reachable (older SteamOS, desktop dev environment, offline, or no matching activity). They follow the natural null-render path — the shelf simply doesn't appear until data is available.
 
 ---
 

@@ -92,8 +92,32 @@ export async function getWishlistIds(): Promise<number[] | null> {
 
 // ── Steam Store browse ────────────────────────────────────────────────────────
 
-const STORE_KEY = "ds-store-cache-v1";
+// v2 bump: the cache shape changed to include price hints (was just `{ ids }`).
+// Bumping the key forces existing users to refetch — important because the
+// previous shape lost the per-item price data the search rows carry, and
+// the secondary api/appdetails fetch silently mis-cached free-weekend titles
+// as `unpriced: true`. Polluted entries linger in the price cache; the cache
+// replay below overwrites them on every getStoreGameIds call.
+// v3 bump: extended the upstream endpoint set with two more coverage
+// sources (paginated specials pages 2/3 + the `category2=18` "Free
+// Weekend" tag). v2 caches missed currently-free titles that don't fit
+// in the first 100 specials AND aren't in the combined specials+free
+// intersection — the user-reported "still has missing free games" case.
+// Bumping forces existing users to re-fetch with the new coverage on
+// first home open.
+const STORE_KEY = "ds-store-cache-v3";
 const STORE_TTL = 6 * 60 * 60 * 1000; // 6h
+
+type StoreCacheV2 = {
+  ids: number[];
+  /** Per-item price hint captured from the search-row data (Steam's
+   *  /search/results JSON carries final_price + original_price + discounted
+   *  per item). Replay-written to the price cache on every getStoreGameIds
+   *  call so a "100% off" / "Free now" discount filter sees real data even
+   *  on warm cache, AND so previously-polluted unpriced:true entries from
+   *  before this fix get overwritten. */
+  priceHints?: Array<{ id: number; original: number; final: number }>;
+};
 
 let storeInFlight: Promise<number[] | null> | null = null;
 
@@ -106,9 +130,41 @@ let storeInFlight: Promise<number[] | null> | null = null;
  * Callers that apply a `discount` childFilter should also call
  * `getPriceMap(ids)` before evaluating the filter so the price cache is warm.
  */
+/**
+ * Replays price hints from the store cache into the price cache. Runs on
+ * every getStoreGameIds call (cache hit AND miss) so the discount filter
+ * always sees fresh, authoritative store-search data — overwriting any
+ * stale `unpriced: true` entries that may have been written by an earlier
+ * api/appdetails fetch (which often returns `success: false` for
+ * free-weekend titles).
+ */
+function replayPriceHints(hints: Array<{ id: number; original: number; final: number }> | undefined): void {
+  if (!Array.isArray(hints) || !hints.length) return;
+  for (const h of hints) {
+    if (!h || typeof h.id !== "number" || h.id <= 0) continue;
+    const op = Number(h.original) || 0;
+    const fp = Number(h.final) || 0;
+    if (op <= 0) continue;
+    const discPct = Math.max(0, Math.min(100, Math.round(((op - fp) / op) * 100)));
+    const price: PriceData = {
+      price: fp,
+      originalPrice: op,
+      discount: discPct,
+      currency: "USD",
+      isFree: false,
+    };
+    try { writePriceCacheEntry(h.id, price); } catch {}
+  }
+}
+
 export async function getStoreGameIds(): Promise<number[] | null> {
-  const cached = readCache<{ ids: number[] }>(STORE_KEY, STORE_TTL);
-  if (cached) return cached.ids;
+  const cached = readCache<StoreCacheV2>(STORE_KEY, STORE_TTL);
+  if (cached) {
+    // Replay price hints from cache so the discount filter sees fresh data
+    // even when the store cache is warm.
+    replayPriceHints(cached.priceHints);
+    return cached.ids;
+  }
 
   if (storeInFlight) return storeInFlight;
 
@@ -123,30 +179,80 @@ export async function getStoreGameIds(): Promise<number[] | null> {
         const tid = setTimeout(() => ac.abort(), ms);
         return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(tid));
       };
-      const [specialsResp, freeResp, popularResp] = await Promise.allSettled([
-        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=500&cc=us"),
+      // Coverage strategy — multiple endpoints in parallel because none
+      // alone catches every currently-free title. CDP-confirmed gaps:
+      //  - `?specials=1` caps each PAGE at 100 items regardless of the
+      //    `count` parameter (Steam-side server limit). The store has
+      //    thousands of titles on sale, so a single fetch misses
+      //    everything past rank 100. Paginating with `start=100` /
+      //    `start=200` reaches the rest — three pages = ~300 specials.
+      //  - Free-weekend / free-play-days titles currently discounted 100%
+      //    are excluded from `?specials=1` AND from `?maxprice=free`
+      //    when each is queried alone. They appear ONLY in the
+      //    intersection `?specials=1&maxprice=free` (a small set, 3-10
+      //    typically) OR via the dedicated `category2=18` "Free Weekend"
+      //    tag (broader, up to 100). Both catch slightly different
+      //    subsets — keep both.
+      //  - Permanent F2P games come from the `?maxprice=free` branch.
+      //  - Popular front-page covers the long tail.
+      // Without all seven endpoints, "100% off" / "Free now" shelves
+      // silently drop titles the user knows are currently free.
+      const [
+        specialsP1Resp, specialsP2Resp, specialsP3Resp,
+        freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
+        popularResp,
+      ] = await Promise.allSettled([
+        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=0&cc=us"),
+        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=100&cc=us"),
+        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=200&cc=us"),
         withTimeout("https://store.steampowered.com/search/results/?maxprice=free&json=1&count=200&cc=us"),
+        withTimeout("https://store.steampowered.com/search/results/?specials=1&maxprice=free&json=1&count=200&cc=us"),
+        withTimeout("https://store.steampowered.com/search/results/?category2=18&json=1&count=200&cc=us"),
         withTimeout("https://store.steampowered.com/search/results/?json=1&count=100&cc=us"),
       ]);
 
       const ids = new Set<number>();
       const nameMap = new Map<number, string>();
-      for (const result of [specialsResp, freeResp, popularResp]) {
+      const priceHints: Array<{ id: number; original: number; final: number }> = [];
+      for (const result of [
+        specialsP1Resp, specialsP2Resp, specialsP3Resp,
+        freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
+        popularResp,
+      ]) {
         if (result.status !== "fulfilled") continue;
         const resp = result.value;
         if (!resp.ok) continue;
         const ct = resp.headers.get("content-type") ?? "";
         if (!ct.includes("json")) continue;
         const json = await resp.json();
-        const items: Array<{ name?: string; logo?: string }> = json?.items ?? [];
+        // Each item carries `final_price` / `original_price` (cents) /
+        // `discounted` (bool) in addition to `name` + `logo`. Capturing
+        // these lets us pre-populate the price cache so a "100% off" /
+        // "Free now" discount filter has real data without waiting on a
+        // secondary api/appdetails fetch (which often returns success:false
+        // for free-weekend titles → cached unpriced → filter excludes them).
+        const items: Array<{ name?: string; logo?: string; final_price?: number; original_price?: number; discounted?: boolean }> = json?.items ?? [];
         for (const item of items) {
           const m = item?.logo?.match(/\/apps\/(\d+)\//);
           if (m) {
             const id = Number(m[1]);
             if (Number.isFinite(id) && id > 0) {
               ids.add(id);
-              // Cache name from search response — avoids needing api/appdetails
               if (item.name) nameMap.set(id, item.name);
+              // Capture price hint from the search row. Free-weekend titles
+              // arrive here as `original_price > 0, final_price = 0` which
+              // yields a real 100% discount; api/appdetails would miss them.
+              // Permanently-free games (`original_price === 0`) are skipped
+              // here — the regular getPriceMap negative-cache path handles
+              // them so the discount filter still excludes them. Both the
+              // immediate price-cache write AND the persisted hint are kept
+              // so the cache-hit path (replayPriceHints) overwrites stale
+              // unpriced:true entries from before this fix on every call.
+              const op = typeof item.original_price === "number" ? item.original_price : 0;
+              const fp = typeof item.final_price === "number" ? item.final_price : 0;
+              if (op > 0) {
+                priceHints.push({ id, original: op, final: fp });
+              }
             }
           }
         }
@@ -154,7 +260,10 @@ export async function getStoreGameIds(): Promise<number[] | null> {
 
       const result = [...ids];
       if (!result.length) return null;
-      writeCache(STORE_KEY, { ids: result });
+      writeCache<StoreCacheV2>(STORE_KEY, { ids: result, priceHints });
+      // Also apply hints immediately on the cold path so the next
+      // getPriceMap call inside this resolve cycle sees fresh data.
+      replayPriceHints(priceHints);
       // Persist extracted names so Shelf.tsx can display them immediately.
       if (nameMap.size) {
         try {
@@ -186,6 +295,10 @@ export interface PriceData {
   discount: number;     // 0–100
   currency: string;
   isFree: boolean;
+  // True when Steam returned no `price_overview` for this appid. Cached
+  // as a negative entry so we don't re-issue the fetch on every shelf
+  // resolve; the discount filter treats this as "no discount data".
+  unpriced?: boolean;
 }
 
 type PriceCache = Record<number, { ts: number; data: PriceData }>;
@@ -235,9 +348,12 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
   try {
     if (Date.now() < (backoffUntil[PRICE_KEY] ?? 0)) return result;
 
-    // Limit to the first 200 IDs to avoid stalling the shelf resolver.
-    // Additional IDs are left uncached and evaluated as "no price data".
-    const limited = toFetch.slice(0, 200);
+    // Fetch budget is bounded by `deadline` below — the per-call cap was
+    // raised from 200 to 800 so store-source resolves with a discount
+    // filter (e.g. "100% off" / "Free now") actually cover the full
+    // specials list. Past 200, otherwise-promoted-free games slipped
+    // through uncached and the discount filter rejected them.
+    const limited = toFetch.slice(0, 800);
 
     const BATCH = 50;
     const deadline = Date.now() + 8000; // 8 s total budget for all batches
@@ -261,9 +377,25 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
 
       for (const appid of batch) {
         const entry = json?.[appid];
-        if (!entry?.success) continue;
+        if (!entry?.success) {
+          // Steam returned `success: false` — record a negative entry so
+          // we don't re-issue this fetch every resolve. Same effect as
+          // "no price_overview" downstream.
+          const data: PriceData = { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: false, unpriced: true };
+          result.set(appid, data);
+          writePriceCacheEntry(appid, data);
+          continue;
+        }
         const po = entry.data?.price_overview;
-        if (!po) continue;
+        if (!po) {
+          // Permanently free / region-blocked — also cached as negative
+          // entry. Avoids the "first 200 always re-fetched" pattern when
+          // the store source returns many F2P games.
+          const data: PriceData = { price: 0, originalPrice: 0, discount: 0, currency: "USD", isFree: true, unpriced: true };
+          result.set(appid, data);
+          writePriceCacheEntry(appid, data);
+          continue;
+        }
         const data: PriceData = {
           price: po.final ?? 0,
           originalPrice: po.initial ?? po.final ?? 0,

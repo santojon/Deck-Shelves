@@ -84,11 +84,21 @@ export function TemplatePickerModal({ closeModal, controller }: { closeModal?: (
         onCancel={() => closeModal?.()}
       >
         <Focusable style={{ padding: 8 }}>
-          <Focusable style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
-            <DialogButton style={btnStyle} onClick={handleBlank} onOKButton={handleBlank} onOKActionDescription={t('template_blank')}>
-              <span style={btnInner}>{SHELF_TPL_ICON['blank']}<span>{t('template_blank')}</span></span>
+          {/* Blank shelf button — visually mirrors the "Custom / Blank"
+              button in SmartShelfTemplateModal: full-width row separated
+              from the categorised template grid by a thin border. Same
+              btnStyle + btnInner so the typography matches; no icon to
+              match the smart-side label which is text-only. */}
+          <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <DialogButton
+              style={btnStyle}
+              onClick={handleBlank}
+              onOKButton={handleBlank}
+              onOKActionDescription={t('template_blank')}
+            >
+              <span style={btnInner}><span>{t('template_blank')}</span></span>
             </DialogButton>
-          </Focusable>
+          </div>
           {grouped.map(({ cat, items }) => (
             <div key={cat} style={{ marginBottom: 6 }}>
               <Focusable

@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deck Shelves &mdash; CI / Automated 2026-05-29_20-16-39</title>
+<style>*,*::before,*::after{box-sizing:border-box}
+:root{font-family:system-ui,-apple-system,sans-serif;
+  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
+  --pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:#60a5fa}
+body{margin:0;background:var(--bg);color:var(--text)}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--card);border-bottom:1px solid var(--border);
+  padding:16px 28px;display:flex;align-items:center;gap:12px}
+header h1{margin:0;font-size:18px;font-weight:700;flex:1}
+.hbadge{padding:4px 14px;border-radius:99px;font-size:12px;font-weight:700}
+.hbadge.pass{background:#14532d;color:var(--pass)}.hbadge.fail{background:#7f1d1d;color:var(--fail)}
+.meta{color:var(--muted);font-size:11px;margin-top:2px}
+.back{font-size:12px;color:var(--link);margin-right:10px}
+main{max-width:1060px;margin:0 auto;padding:20px 28px}
+.summary{display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.sc{flex:1;min-width:100px;background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:13px 16px;text-align:center}
+.sc .n{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.sc .l{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.n.p{color:var(--pass)}.n.f{color:var(--fail)}.n.s{color:var(--skip)}.n.t{color:var(--muted)}
+.step{background:var(--card);border:1px solid var(--border);border-radius:9px;
+  margin-bottom:10px}
+.step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;
+  cursor:pointer;user-select:none;border-radius:9px}
+.step-hdr:hover{background:#273548}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot.pass{background:var(--pass)}.dot.fail{background:var(--fail);box-shadow:0 0 5px var(--fail)}
+.dot.skip{background:var(--skip)}
+.sname{font-weight:600;font-size:13.5px;flex:1}
+.slabel{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:4px}
+.slabel.pass{background:#14532d44;color:var(--pass)}
+.slabel.fail{background:#7f1d1d44;color:var(--fail)}
+.slabel.skip{background:#1e293b;color:var(--skip)}
+.chevron{font-size:11px;color:var(--muted)}
+.step-body{display:none;border-top:1px solid var(--border);border-radius:0 0 9px 9px}
+.step-body.open{display:block}
+.test-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;
+  background:#0d1b2a;border-bottom:1px solid var(--border);font-size:12px}
+.test-bar .tp{color:var(--pass)}.test-bar .tf{color:var(--fail)}
+.issues{padding:9px 16px;background:#1a0f0f;border-bottom:1px solid #3d1515}
+.issues h4{margin:0 0 6px;font-size:11px;color:var(--fail);text-transform:uppercase;letter-spacing:.05em}
+.issue{font-size:11px;padding:5px 8px;background:#1f1010;border-radius:4px;
+  border-left:3px solid var(--fail);margin-bottom:4px}
+pre.log{margin:0;padding:12px 16px;font-size:11px;line-height:1.65;
+  white-space:pre-wrap;word-break:break-all;background:var(--bg);color:var(--muted);
+  max-height:440px;overflow-y:auto}
+pre.log .e{color:var(--fail)}pre.log .w{color:var(--warn)}pre.log .g{color:var(--pass)}
+a.fl{color:var(--link)}
+.stress-tag{font-size:10px;color:#a5b4fc;background:#1e1b4b;
+  padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
+footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">&larr;</a>
+  <div style="flex:1">
+    <h1>Deck Shelves &mdash; CI / Automated</h1>
+    <div class="meta">May 29, 2026 at 20:16:39 &nbsp;&middot;&nbsp; 6 steps</div>
+  </div>
+  <span class="hbadge pass">PASS</span>
+</header>
+<main>
+  <div class="summary">
+    <div class="sc"><div class="n p">6</div><div class="l">Passed</div></div>
+    <div class="sc"><div class="n f">0</div><div class="l">Failed</div></div>
+    <div class="sc"><div class="n s">0</div><div class="l">Skipped</div></div>
+    <div class="sc"><div class="n t">6</div><div class="l">Total</div></div>
+  </div>
+<div class="step" id="s0"><div class="step-hdr" onclick="toggle(0)"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></div><div class="step-body" id="b0"><pre class="log">
+&gt; deck-shelves@2.3.2 typecheck /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; tsc --noEmit
+
+</pre></div></div>
+<div class="step" id="s1"><div class="step-hdr" onclick="toggle(1)"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></div><div class="step-body" id="b1"><pre class="log">
+&gt; deck-shelves@2.3.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
+
+vite v8.0.14 building client environment for production...
+
+<span class="g">transforming...✓ 289 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>      0.91 kB │ gzip:   0.47 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>             0.96 kB │ gzip:   0.45 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>         2.87 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-D-FT4OW3.js">/chunks/pluginApi-D-FT4OW3.js</a>             8.46 kB │ gzip:   2.33 kB
+dist<a class="fl" href="vscode://file//chunks/onlineStore-D-1A_1R3.js">/chunks/onlineStore-D-1A_1R3.js</a>          10.24 kB │ gzip:   3.60 kB
+dist<a class="fl" href="vscode://file//chunks/steam-BnHaQ1fF.js">/chunks/steam-BnHaQ1fF.js</a>                84.75 kB │ gzip:  20.41 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-CiV5S5vJ.js">/chunks/settingsStore-CiV5S5vJ.js</a>       130.08 kB │ gzip:  29.01 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             1,809.46 kB │ gzip: 504.14 kB
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/imageCache.ts">src/core/imageCache.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/index.ts">src/index.ts</a>x but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/shelf/GameCard.ts">src/components/shelf/GameCard.ts</a>x, dynamic import will not move module into another chunk.
+
+<span class="g">✓ built in 530ms</span>
+</pre></div></div>
+<div class="step" id="s2"><div class="step-hdr" onclick="toggle(2)"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></div><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 22 passed</span></div><pre class="log">
+&gt; deck-shelves@2.3.2 test /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; vitest run
+
+
+ RUN  v4.1.7 /home/runner/work/Deck-Shelves/Deck-Shelves
+
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/settings.test.ts">src/test/domain/settings.test.ts</a> (43 tests) 31ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applySortToIds.test.ts">src/test/steam/applySortToIds.test.ts</a> (13 tests) 22ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/webpackCompat.test.ts">src/test/core/webpackCompat.test.ts</a> (7 tests) 189ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/regression.test.ts">src/test/regression.test.ts</a> (36 tests) 49ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/syntheticCards.test.ts">src/test/domain/syntheticCards.test.ts</a> (8 tests) 17ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/schemas.test.ts">src/test/domain/schemas.test.ts</a> (8 tests) 25ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/customfilters.test.ts">src/test/domain/customfilters.test.ts</a> (17 tests) 17ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/qa/qam-visibility.test.ts">src/test/qa/qam-visibility.test.ts</a> (10 tests) 19ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelves.test.ts">src/test/steam/smartShelves.test.ts</a> (25 tests) 22ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/shelfOrder.test.ts">src/test/domain/shelfOrder.test.ts</a> (17 tests) 10ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/evaluateFilterGroup.test.ts">src/test/steam/evaluateFilterGroup.test.ts</a> (28 tests) 17ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/heuristics.test.ts">src/test/steam/heuristics.test.ts</a> (9 tests) 11ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/compareAdded.test.ts">src/test/compareAdded.test.ts</a> (3 tests) 6ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/reorder.test.ts">src/test/core/reorder.test.ts</a> (14 tests) 17ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/mergeCompositeResults.test.ts">src/test/steam/mergeCompositeResults.test.ts</a> (14 tests) 11ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/normalizeTitleForMatch.test.ts">src/test/steam/normalizeTitleForMatch.test.ts</a> (10 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/trailingCards.test.ts">src/test/components/trailingCards.test.ts</a> (13 tests) 10ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/templates.test.ts">src/test/domain/templates.test.ts</a> (8 tests) 10ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam.test.ts">src/test/steam.test.ts</a> (8 tests) 20ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/refreshableSmartModes.test.ts">src/test/components/refreshableSmartModes.test.ts</a> (3 tests) 9ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applyManualOrder.test.ts">src/test/steam/applyManualOrder.test.ts</a> (9 tests) 9ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/scrollUtils.test.ts">src/test/scrollUtils.test.ts</a> (2 tests) 3ms</span>
+
+<span class="g"> Test Files  22 passed (22)</span>
+<span class="g">      Tests  305 passed (305)</span>
+   Start at  20:16:48
+   Duration  3.31s (transform 1.84s, setup 0ms, import 4.04s, tests 535ms, environment 965ms)
+
+</pre></div></div>
+<div class="step" id="s3"><div class="step-hdr" onclick="toggle(3)"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></div><div class="step-body" id="b3"><pre class="log">
+&gt; deck-shelves@2.3.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
+
+vite v8.0.14 building client environment for production...
+
+<span class="g">transforming...✓ 289 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>      0.91 kB │ gzip:   0.47 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>             0.96 kB │ gzip:   0.45 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>         2.87 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-D-FT4OW3.js">/chunks/pluginApi-D-FT4OW3.js</a>             8.46 kB │ gzip:   2.33 kB
+dist<a class="fl" href="vscode://file//chunks/onlineStore-D-1A_1R3.js">/chunks/onlineStore-D-1A_1R3.js</a>          10.24 kB │ gzip:   3.60 kB
+dist<a class="fl" href="vscode://file//chunks/steam-BnHaQ1fF.js">/chunks/steam-BnHaQ1fF.js</a>                84.75 kB │ gzip:  20.41 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-CiV5S5vJ.js">/chunks/settingsStore-CiV5S5vJ.js</a>       130.08 kB │ gzip:  29.01 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             1,809.46 kB │ gzip: 504.14 kB
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/imageCache.ts">src/core/imageCache.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/index.ts">src/index.ts</a>x but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/shelf/GameCard.ts">src/components/shelf/GameCard.ts</a>x, dynamic import will not move module into another chunk.
+
+<span class="g">✓ built in 507ms</span>
+[package] Created installable archive: deck-shelves-v2.3.2.zip
+[verify] Found: plugin.json
+[verify] Found: package.json
+[verify] Found: main.py
+[verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
+[verify] Found: i18n<a class="fl" href="vscode://file//en-US.js">/en-US.js</a>on
+[verify] main.py is executable
+<span class="g">[verify] plugin.json flags OK (no debug)</span>
+[verify] package.json matches repo
+[verify] Package OK: /home/runner/work/Deck-Shelves/Deck-Shelves/deck-shelves-v2.3.2.zip
+</pre></div></div>
+<div class="step" id="s4"><div class="step-hdr" onclick="toggle(4)"><div class="dot pass"></div><span class="sname">Verify package</span><span class="slabel pass">PASS</span><span class="chevron" id="c4">▶</span></div><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
+[verify] Found: package.json
+[verify] Found: main.py
+[verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
+[verify] Found: i18n<a class="fl" href="vscode://file//en-US.js">/en-US.js</a>on
+[verify] main.py is executable
+<span class="g">[verify] plugin.json flags OK (no debug)</span>
+[verify] package.json matches repo
+[verify] Package OK: deck-shelves-v2.3.2.zip
+</pre></div></div>
+<div class="step" id="s5"><div class="step-hdr" onclick="toggle(5)"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></div><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
+&gt; deck-shelves@2.3.2 validate:compat /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; bash <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/validate-compat.sh">scripts/build/validate-compat.sh</a>
+
+╔══════════════════════════════════════════════╗
+║     Deck Shelves — Compatibility Checks      ║
+╚══════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Build Output (Vite/ESM)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> exists</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> is non-empty (1809464 bytes)</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> size under 2MB</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> has ESM exports</span>
+<span class="g">  ✅ No node_modules imports in bundle</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TypeScript / Node (Build Toolchain)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ tsconfig.json exists</span>
+<span class="g">  ✅ package.json exists</span>
+<span class="g">  ✅ pnpm-lock.yaml exists (lockfile)</span>
+<span class="g">  ✅ Node.js v20.20.2</span>
+<span class="g">  ✅ pnpm 10.33.0</span>
+<span class="g">  ✅ node_modules installed</span>
+<span class="g">  ✅ Vite config exists</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Loader 3.x (API v1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ api_version == 1 (Decky 3.x compatible)</span>
+<span class="g">  ✅ Uses @decky/api package</span>
+<span class="g">  ✅ Uses @decky/ui package</span>
+<span class="g">  ✅ Plugin._main lifecycle method</span>
+<span class="g">  ✅ Plugin._unload lifecycle method</span>
+<span class="g">  ✅ Uses &#x27;import decky&#x27; (v3 style)</span>
+<span class="g">  ✅ No legacy decky_plugin imports</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Loader (API v1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json api_version == 1</span>
+<span class="g">  ✅ plugin.json has name</span>
+<span class="g">  ✅ plugin.json has author</span>
+<span class="g">  ✅ main.py exists</span>
+<span class="g">  ✅ main.py has Plugin class</span>
+<span class="g">  ✅ decky-api shim exists</span>
+<span class="g">  ✅ decky-ui shim exists</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Store (Publishing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json has publish tags</span>
+<span class="g">  ✅ plugin.json has publish description</span>
+<span class="g">  ✅ LICENSE file exists</span>
+<span class="g">  ✅ README.md exists</span>
+<span class="g">  ✅ assets/ directory exists</span>
+<span class="g">  ✅ package.json has version</span>
+
+<span class="e">  Result: 6 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Store Submission (Review Checklist)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json is valid JSON</span>
+<span class="g">  ✅ package.json name and version conform to npm standard</span>
+<span class="g">  ✅ pnpm-lock.yaml lockfileVersion: 9.0</span>
+<span class="g">  ✅ LICENSE file present</span>
+<span class="g">  ✅ No unused backend/ directory</span>
+<span class="g">  ✅ No unused defaults/ directory</span>
+<span class="g">  ✅ No remote code execution patterns in source</span>
+<span class="g">  ✅ Built output is not heavily obfuscated (34829 lines)</span>
+<span class="g">  ✅ No private/local dependencies</span>
+<span class="g">  ✅ assets/icon.png not required (store uses publish.image)</span>
+<span class="g">  ✅ No debug flag in plugin.json</span>
+
+<span class="e">  Result: 11 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CheatDeck (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ References CheatDeck without overwriting (1 files)</span>
+<span class="g">  ✅ No high z-index values that would cover CheatDeck overlay (portal-scoped badge excluded)</span>
+<span class="g">  ✅ DOM mount uses unique &#x27;deck-shelves-&#x27; prefixed ID</span>
+<span class="g">  ✅ No global-level input event listeners</span>
+<span class="g">  ✅ Apps API uses safe access patterns</span>
+<span class="g">  ✅ MutationObservers are scoped (not on document.body)</span>
+
+<span class="e">  Result: 6 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader (ArtHero Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ cssLoaderDetect helper present</span>
+<span class="g">  ✅ Detection helper exports isCssLoaderActive + isArtHeroActive</span>
+<span class="g">  ✅ HeroBackground render gated by replaceInjecting (no duplicate hero)</span>
+<span class="g">  ✅ First ds-shelf promoted to recents slot when CSS Loader active</span>
+<span class="g">  ✅ Class promotion is additive (does not strip ds-*)</span>
+<span class="g">  ✅ Native recents class read from runtime DOM (no hardcoded token)</span>
+<span class="g">  ✅ Detection probes &lt;style class=&quot;css-loader-style&quot;&gt; tags</span>
+<span class="g">  ✅ ArtHero detected by structural signature (heroInner + mask-image)</span>
+<span class="g">  ✅ Invariant 1: promotion requires hideRecentsSetting</span>
+<span class="g">  ✅ Invariant 2: promotion targets only the first visible shelf</span>
+<span class="g">  ✅ Invariant 3: promotion requires CSS Loader active</span>
+<span class="g">  ✅ HeroBackground only renders when hideRecents is true</span>
+
+<span class="e">  Result: 12 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Center Home)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No unsafe &#x27;center home&#x27; coupling (CSS custom-property detection is allowed)</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Clean Game View (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Card dimensions defined as explicit constants</span>
+<span class="g">  ✅ Card backgrounds are explicitly set or use the --ds-shell-bg variable</span>
+<span class="g">  ✅ No reliance on native Steam card hover/focus classes</span>
+<span class="g">  ✅ Focus indicator uses scoped .ds-card classes</span>
+<span class="g">  ✅ Border-radius uses --ds-card-radius custom property with fallback</span>
+<span class="g">  ✅ Card shadow defined on own .ds-card-art class</span>
+<span class="g">  ✅ Image sizing uses explicit object-fit</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Injected styles are in files with scoped selectors</span>
+<span class="g">  ✅ Style elements use unique &#x27;deck-shelves-&#x27; prefixed IDs</span>
+<span class="g">  ✅ Style injection checks for existing element (no duplicates)</span>
+<span class="g">  ✅ All !important declarations are within files using scoped selectors</span>
+<span class="g">  ✅ All className values are namespaced or from Decky UI</span>
+<span class="g">  ✅ No direct document.styleSheets manipulation</span>
+<span class="g">  ✅ Root mount element has unique deck-shelves-* ID</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Colored Compatibility Icons)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No colored compatibility-icon references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Delly Footer)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Delly Footer&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Delly Volume)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Delly Volume&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Focus Highlight Color)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ isFocusRoundCompatActive() detection present</span>
+<span class="g">  ✅ Detection uses unique keyframe signature (appportrait_blinker + flangrande)</span>
+<span class="g">  ✅ Round Compat flag set on .deck-shelves-root / &lt;html&gt;</span>
+<span class="g">  ✅ Round Compat suppression rule present in shelfStyles</span>
+<span class="g">  ✅ Theme variables read-only (no flangrande writes)</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Fullscreen Menus)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Fullscreen Menus&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Game Cover Shine Animation Color)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Native card class promoted onto .ds-card (shine reaches DS cards)</span>
+<span class="g">  ✅ ::after opacity left to the theme (no forced opacity 1)</span>
+<span class="g">  ✅ Shine ::after suppressed under Round Compat flag</span>
+<span class="g">  ✅ Theme variable read-only</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Main Menu Hide Tabs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;main menu hide tabs&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Obsidian Theme (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Custom styles scoped under #deck-shelves-home-root</span>
+<span class="g">  ✅ Font sizes inside scoped selectors or using relative units</span>
+<span class="g">  ✅ Explicit color values (15) — not dependent on theme variables</span>
+<span class="g">  ✅ Explicit background colors in components</span>
+<span class="g">  ✅ No reliance on generic Steam panel class styling</span>
+<span class="g">  ✅ z-index values are reasonable (≤ 100; portal-scoped badge excluded)</span>
+<span class="g">  ✅ Modal styles scoped under .deck-shelves-modal-scope</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Outrun)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;outrun&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (QAM Hide Tabs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;QAM hide tabs&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (QAM Select Bar Icon Hider)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;QAM selectbar icon hider&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Round (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Runtime border-radius detection from native Steam cards</span>
+<span class="g">  ✅ --ds-card-radius CSS variable allows theme override</span>
+<span class="g">  ✅ Card art border-radius reads from CSS variable</span>
+<span class="g">  ✅ Card containers use overflow:hidden (content clipped to border-radius)</span>
+<span class="g">  ✅ No hardcoded borderRadius: 0 overriding theme</span>
+<span class="g">  ✅ Radius detection uses 108 selector references for broad theme support</span>
+<span class="g">  ✅ Detected radius is cached (no repeated DOM queries)</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Switch-Like Banners)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;switch-like banners&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Switch-Like Home)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;switch-like home&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Top Bar Transparency)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;top bar transparency&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HLTB (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No HLTB namespace collision</span>
+<span class="g">  ✅ AppOverview playtime fields read-only</span>
+<span class="g">  ✅ No app detail page modifications</span>
+<span class="g">  ✅ Shelf DOM elements use unique &#x27;deck-shelves-&#x27; prefix</span>
+<span class="g">  ✅ AppOverview access patterns reviewed</span>
+<span class="g">  ✅ Playtime field access is guarded</span>
+<span class="g">  ✅ No ServerAPI fetch calls (no API contention with HLTB)</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Non-Steam Badges (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ NonSteamBadge(s) global uses optional chaining</span>
+<span class="g">  ✅ No hard dependency on nonsteam module outside integrations/</span>
+<span class="g">  ✅ No NonSteamBadges namespace collision</span>
+<span class="g">  ✅ Shortcuts/shortcutsStore access is guarded by try/catch</span>
+<span class="g">  ✅ Dynamic probing includes shortcuts/shortcutsStore</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamGridDB (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No SteamGridDB namespace collision</span>
+<span class="g">  ✅ Image fallback includes /customimages/ path (SteamGridDB writes here)</span>
+<span class="g">  ✅ Multiple image candidates per app (resilient to art replacements)</span>
+<span class="g">  ✅ Reads library_capsule from AppOverview (picks up SteamGridDB changes)</span>
+<span class="g">  ✅ Steam CDN URLs used only as final fallback (SteamGridDB custom art checked first)</span>
+<span class="g">  ✅ AppOverview art fields not mutated</span>
+<span class="e">  ✅ Image loading has error fallback</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TabMaster (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ TabMasterStore uses optional chaining</span>
+<span class="g">  ✅ TabMaster global uses optional chaining</span>
+<span class="g">  ✅ TabMaster access in files with try/catch guards</span>
+<span class="g">  ✅ No hard dependency on TabMaster outside integrations/</span>
+<span class="g">  ✅ Dynamic tab store probing includes TabMasterStore</span>
+<span class="g">  ✅ No TabMaster namespace collision</span>
+<span class="g">  ✅ Collection fallback aware of TabMaster</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  UnifiDeck (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ UnifiDeckStore uses optional chaining</span>
+<span class="g">  ✅ UnifiDeck global uses optional chaining</span>
+<span class="g">  ✅ UnifiDeck access in files with try/catch guards</span>
+<span class="g">  ✅ No hard dependency on UnifiDeck</span>
+<span class="g">  ✅ Handles both UnifiDeck and UnifyDeck spellings</span>
+<span class="g">  ✅ No UnifiDeck namespace collision</span>
+<span class="g">  ✅ Dynamic collection store probing includes UnifiDeck</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Internationalization (i18n)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ i18n/ directory exists</span>
+<span class="g">  ✅ en-US.json base locale exists</span>
+<span class="g">  ✅ All locale files are valid JSON</span>
+<span class="g">  ✅ Base locale has 669 keys</span>
+<span class="g">  ✅ All locales have consistent keys</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Python Backend (Decky Python)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ main.py syntax valid</span>
+<span class="g">  ✅ Plugin class defined</span>
+<span class="g">  ✅ _main lifecycle method found</span>
+<span class="g">  ✅ _unload lifecycle method found</span>
+<span class="g">  ✅ No dangerous module imports</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.5 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Build target compatible with SteamOS 3.5 CEF</span>
+<span class="g">  ✅ No top-level await in bundle</span>
+<span class="g">  ✅ No Python 3.10+ match/case syntax</span>
+<span class="g">  ✅ main.py parses as valid Python</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.6 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ React shim uses GamepadUI shared React</span>
+<span class="g">  ✅ ESM output format</span>
+<span class="g">  ✅ No direct window.location manipulation</span>
+<span class="g">  ✅ SP_REACTDOM used as shim fallback (backward compat)</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.7 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Platform abstraction layer exists</span>
+<span class="e">  ✅ Error boundary pattern found</span>
+<span class="g">  ✅ No hardcoded obfuscated CSS class selectors in components</span>
+<span class="g">  ✅ Home route detection present</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.8 (Preview/Beta)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Modern ES target</span>
+<span class="g">  ✅ Chunk splitting configured</span>
+<span class="g">  ✅ Uses @decky/api (v3 API)</span>
+<span class="g">  ✅ No legacy ServerAPI imports</span>
+<span class="g">  ✅ Diagnostics module for cross-version debugging</span>
+<span class="g">  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR</span>
+<span class="g">  ✅ No system path access from backend</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.9 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Modern ES target (ES2020+)</span>
+<span class="g">  ✅ Uses @decky/api (v3 API)</span>
+<span class="g">  ✅ No legacy ServerAPI imports</span>
+<span class="g">  ✅ Duck-typing / optional chaining used for API detection</span>
+<span class="g">  ✅ FocusNavController/GamepadUI pattern referenced</span>
+<span class="g">  ✅ vgp_* event patterns used</span>
+<span class="g">  ✅ Decky patcher utilities used (afterPatch/findInReactTree)</span>
+<span class="g">  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR</span>
+<span class="g">  ✅ Python 3.10+ match/case syntax available</span>
+<span class="g">  ✅ No hardcoded SteamOS version comparisons</span>
+<span class="g">  ✅ No system path access from backend</span>
+
+<span class="e">  Result: 11 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS GamepadUI (3.5–3.9)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ shims/ directory exists</span>
+<span class="g">  ✅ shim: react.ts</span>
+<span class="g">  ✅ shim: react-dom.ts</span>
+<span class="g">  ✅ shim: react-dom-client.ts</span>
+<span class="g">  ✅ shim: react-jsx-runtime.ts</span>
+<span class="g">  ✅ Vite config isolates React (shims or externals)</span>
+<span class="g">  ✅ Vite config targets ES module format</span>
+<span class="g">  ✅ No direct DOM manipulation in components</span>
+<span class="g">  ✅ Platform abstraction layer exists</span>
+<span class="g">  ✅ Diagnostics module exists</span>
+
+<span class="e">  Result: 10 passed, 0 failed</span>
+
+╔══════════════════════════════════════════════╗
+║                   Summary                    ║
+╚══════════════════════════════════════════════╝
+
+<span class="g">  ✅ Build Output (Vite/ESM)</span>
+<span class="g">  ✅ TypeScript / Node (Build Toolchain)</span>
+<span class="g">  ✅ Decky Loader 3.x (API v1)</span>
+<span class="g">  ✅ Decky Loader (API v1)</span>
+<span class="g">  ✅ Decky Store (Publishing)</span>
+<span class="g">  ✅ Decky Store Submission (Review Checklist)</span>
+<span class="g">  ✅ CheatDeck (Coexistence)</span>
+<span class="g">  ✅ CSS Loader (ArtHero Coexistence)</span>
+<span class="g">  ✅ CSS Loader Theme (Center Home)</span>
+<span class="g">  ✅ Clean Game View (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader (Coexistence)</span>
+<span class="g">  ✅ CSS Loader Theme (Colored Compatibility Icons)</span>
+<span class="g">  ✅ CSS Loader Theme (Delly Footer)</span>
+<span class="g">  ✅ CSS Loader Theme (Delly Volume)</span>
+<span class="g">  ✅ CSS Loader Theme (Focus Highlight Color)</span>
+<span class="g">  ✅ CSS Loader Theme (Fullscreen Menus)</span>
+<span class="g">  ✅ CSS Loader Theme (Game Cover Shine Animation Color)</span>
+<span class="g">  ✅ CSS Loader Theme (Main Menu Hide Tabs)</span>
+<span class="g">  ✅ Obsidian Theme (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader Theme (Outrun)</span>
+<span class="g">  ✅ CSS Loader Theme (QAM Hide Tabs)</span>
+<span class="g">  ✅ CSS Loader Theme (QAM Select Bar Icon Hider)</span>
+<span class="g">  ✅ Round (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader Theme (Switch-Like Banners)</span>
+<span class="g">  ✅ CSS Loader Theme (Switch-Like Home)</span>
+<span class="g">  ✅ CSS Loader Theme (Top Bar Transparency)</span>
+<span class="g">  ✅ HLTB (Coexistence)</span>
+<span class="g">  ✅ Non-Steam Badges (Coexistence)</span>
+<span class="g">  ✅ SteamGridDB (Coexistence)</span>
+<span class="g">  ✅ TabMaster (Coexistence)</span>
+<span class="g">  ✅ UnifiDeck (Coexistence)</span>
+<span class="g">  ✅ Internationalization (i18n)</span>
+<span class="g">  ✅ Python Backend (Decky Python)</span>
+<span class="g">  ✅ SteamOS 3.5 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.6 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.7 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.8 (Preview/Beta)</span>
+<span class="g">  ✅ SteamOS 3.9 (Stable)</span>
+<span class="g">  ✅ SteamOS GamepadUI (3.5–3.9)</span>
+
+<span class="g">  🎉 All 39 compatibility checks passed!</span>
+</pre></div></div>
+
+</main>
+<footer>Deck Shelves CI &middot; 2026-05-29_20-16-39</footer>
+<script>
+function toggle(i){
+  var b=document.getElementById('b'+i);
+  var c=document.getElementById('c'+i);
+  var open=b.classList.toggle('open');
+  c.textContent=open?'▼':'▶';
+}
+</script>
+</body>
+</html>

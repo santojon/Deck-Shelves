@@ -1,9 +1,5 @@
 import { ShelfPreview } from './ShelfPreview'
-import { ManualSortRow } from './ManualSortRow'
-import { HighlightRow } from './HighlightRow'
-import { HighlightMiniCard } from './HighlightMiniCard'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
-import type { MutableRefObject } from 'react'
 
 /**
  * Bottom preview region rendered by both `EditShelfModal` and
@@ -35,17 +31,14 @@ export type PreviewPanelProps = {
   highlightAll: boolean
   highlightedAppIds: number[]
 
-  highlightPickerOpen: boolean
-  setHighlightedAppIds: (next: number[]) => void
+  // Picker selection drives `selectionMode` / `selectionSet` / `onToggleSelection`
+  // forwarded below; the legacy `highlightPickerOpen` / `hiddenPickerOpen` +
+  // alternating-mode + pre-pattern ref props used to drive a separate
+  // mini-card render mode here. ShelfPreview now owns the whole picker flow
+  // via the unified selection trio, so this surface only forwards what's
+  // still consumed.
   alternatingMode: 'odd' | 'even' | null
-  setAlternatingMode: (m: 'odd' | 'even' | null) => void
-  prePatternHighlightsRef: MutableRefObject<number[] | null>
-
-  hiddenPickerOpen: boolean
   hiddenAppIds: number[]
-  setHiddenAppIds: (next: number[]) => void
-  hiddenCandidateIds: number[]
-  hiddenCandidateMeta: Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>
 
   hideStatusLine: boolean
   hideNewBadge: boolean
@@ -61,10 +54,39 @@ export type PreviewPanelProps = {
   // smart, random non-smart, deterministic smart, etc.).
   limit?: number
   shelfSource?: any
-  shelfSort?: string
+  shelfSort?: string | string[]
   // When provided, the preview's RefreshCard becomes focusable and clicking
   // it re-resolves the preview's app ids (parent owns the resolver).
   onRefresh?: () => void
+  // Emitted by the ShelfPreview row whenever focus moves between cards.
+  // Used by the Decoration tab to decide where the "+ Add decoration"
+  // button should insert the next synthetic card.
+  onFocusedIndexChange?: (idx: number) => void
+  // Synthetic decoration cards persisted on the shelf — forwarded to
+  // ShelfPreview so it can splice them into its row at the right slots.
+  syntheticCards?: Array<{
+    position: number;
+    image?: string;
+    text?: string;
+    link?: { type: 'app' | 'url'; value: string };
+    size: 'normal' | 'featured';
+    alpha?: number;
+    placeholder?: boolean;
+    heroImage?: string;
+    shadowMode?: 'never' | 'onFocus' | 'always';
+  }>
+  // Picker mode for the highlight / hidden tabs. When set, the preview
+  // renders the same real cards as every other tab but with a tinted
+  // overlay + a click handler that toggles selection. Lets the editor
+  // share one render path across tabs instead of branching into mini-
+  // card rows that lost the source-tab order.
+  selectionMode?: 'highlight' | 'hidden'
+  selectionSet?: Set<number>
+  onToggleSelection?: (appid: number) => void
+  // Forwarded to ShelfPreview's X-button "Remove from shelf" binding +
+  // the limit-cap carve-out that always keeps menu-added games visible.
+  removableSet?: Set<number>
+  onRemoveCard?: (appid: number) => void
 }
 
 export function PreviewPanel(props: PreviewPanelProps) {
@@ -73,13 +95,14 @@ export function PreviewPanel(props: PreviewPanelProps) {
     resolvedIds, effectiveManualOrder, resolvedMeta,
     isManualSort, onReorderManual,
     highlightFirst, highlightAll, highlightedAppIds,
-    highlightPickerOpen, setHighlightedAppIds,
-    alternatingMode: _alternatingMode, setAlternatingMode, prePatternHighlightsRef,
-    hiddenPickerOpen, hiddenAppIds, setHiddenAppIds,
-    hiddenCandidateIds, hiddenCandidateMeta,
+    alternatingMode: _alternatingMode,
+    hiddenAppIds,
     hideStatusLine, hideNewBadge, hideCompatIcons, hideNonSteamBadge,
     hideGameNames, hideInstallIndicator, hideSeeMore, hideRefreshCard,
-    limit, shelfSource, shelfSort, onRefresh,
+    limit, shelfSource, shelfSort, onRefresh, onFocusedIndexChange,
+    syntheticCards,
+    selectionMode, selectionSet, onToggleSelection,
+    removableSet, onRemoveCard,
   } = props
 
   const loading = (
@@ -87,88 +110,22 @@ export function PreviewPanel(props: PreviewPanelProps) {
   )
 
   let body: React.ReactNode
-  if (activeTab === 'display' && hiddenPickerOpen) {
-    body = hiddenCandidateIds.length === 0 ? loading : (
-      <HighlightRow>
-        {hiddenCandidateIds.map((id, idx) => {
-          const isHidden = hiddenAppIds.includes(id)
-          const inHighlighted = highlightedAppIds.includes(id)
-          const featured = highlightAll || (highlightFirst && idx === 0) || inHighlighted
-          const meta = hiddenCandidateMeta.get(id)
-          return (
-            <HighlightMiniCard
-              key={id}
-              appid={id}
-              name={meta?.name ?? `App ${id}`}
-              portraitUrl={meta?.portraitUrl}
-              heroUrl={meta?.heroUrl}
-              featured={featured}
-              selected={false}
-              hiddenMark={isHidden}
-              width={featured ? 250 : 78}
-              height={110}
-              onToggle={() => setHiddenAppIds(
-                isHidden
-                  ? hiddenAppIds.filter((x) => x !== id)
-                  : [...hiddenAppIds, id]
-              )}
-            />
-          )
-        })}
-      </HighlightRow>
-    )
-  } else if (resolvedIds.length === 0) {
+  // Manual sort grab mode is the only branch with truly custom UX
+  // (long-press grab + L/R shift). Highlight + hidden pickers used to
+  // diverge into mini-card rows that didn't share the source-tab order;
+  // now they reuse the same ShelfPreview render with a selectionMode
+  // overlay so the row stays identical across every editor tab.
+  if (resolvedIds.length === 0) {
     body = loading
-  } else if (isManualSort && activeTab === 'source') {
-    body = (
-      <ManualSortRow
-        order={effectiveManualOrder}
-        meta={resolvedMeta as any}
-        onReorder={onReorderManual}
-        t={t}
-        highlightFirst={highlightFirst}
-        highlightAll={highlightAll}
-        highlightedAppIds={highlightedAppIds}
-        highlightPickerOpen={highlightPickerOpen}
-      />
-    )
-  } else if (activeTab === 'visual' && highlightPickerOpen) {
-    body = (
-      <HighlightRow>
-        {effectiveManualOrder.map((id, idx) => {
-          const inHighlighted = highlightedAppIds.includes(id)
-          const selected = inHighlighted
-          const featured = highlightAll || (highlightFirst && idx === 0) || inHighlighted
-          const meta = resolvedMeta.get(id)
-          const toggle = () => {
-            setAlternatingMode(null)
-            prePatternHighlightsRef.current = null
-            setHighlightedAppIds(
-              highlightedAppIds.includes(id)
-                ? highlightedAppIds.filter((x) => x !== id)
-                : [...highlightedAppIds, id]
-            )
-          }
-          return (
-            <HighlightMiniCard
-              key={id}
-              appid={id}
-              name={meta?.name ?? `App ${id}`}
-              portraitUrl={meta?.portraitUrl}
-              heroUrl={meta?.heroUrl}
-              featured={featured}
-              selected={selected}
-              width={featured ? 250 : 78}
-              height={110}
-              onToggle={toggle}
-            />
-          )
-        })}
-      </HighlightRow>
-    )
   } else {
+    // Single render path for ALL tabs. Source-tab manual sort just turns
+    // ON drag mode; everything else (cap, trailing, synth splice, X
+    // buttons, hide flags, discount gating, focus behaviour) renders
+    // identically across every tab and across both shelf modal types.
     body = (
       <ShelfPreview
+        manualSortMode={isManualSort && activeTab === 'source'}
+        onReorder={onReorderManual}
         t={t}
         ids={effectiveManualOrder}
         meta={resolvedMeta}
@@ -186,7 +143,15 @@ export function PreviewPanel(props: PreviewPanelProps) {
         highlightFirst={highlightFirst}
         highlightAll={highlightAll}
         highlightedAppIds={highlightedAppIds}
+        hiddenAppIds={hiddenAppIds}
         onRefresh={onRefresh}
+        onFocusedIndexChange={onFocusedIndexChange}
+        syntheticCards={syntheticCards}
+        selectionMode={selectionMode}
+        selectionSet={selectionSet}
+        onToggleSelection={onToggleSelection}
+        removableSet={removableSet}
+        onRemoveCard={onRemoveCard}
       />
     )
   }

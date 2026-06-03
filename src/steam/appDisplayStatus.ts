@@ -42,12 +42,44 @@ export const UPDATE_PENDING_STATUSES: ReadonlyArray<number> = [
   ...UPDATE_QUEUED_STATUSES,
 ];
 
-/** Named groups exposed by the `appStatus` filter. */
+/**
+ * Named groups exposed by the `appStatus` filter.
+ *
+ * The original four ("downloading", "queued", "installing", "running")
+ * are kept as compound groups for back-compat — picking one matches
+ * the union of statuses it represents. The remainder break those
+ * groups down into individual EAppDisplayStatus values so users can
+ * scope shelves more precisely (e.g. "currently downloading bytes"
+ * vs "queued waiting for disk space" vs "validating after update").
+ *
+ * Coarse groups (compound):
+ *   - downloading: actively transferring / staging / committing / validating
+ *   - queued:      update pending but not progressing (Reconfiguring + the two paused states)
+ *   - installing:  in the middle of a fresh install
+ *   - running:     game launched (incl. the launch transition)
+ *
+ * Fine-grained groups (single status each):
+ *   - launching, reconfiguring, validating, downloading_only,
+ *     staging, committing, update_queued, update_paused,
+ *     not_installed, installed_idle
+ */
 export const APP_STATUS_GROUPS = {
+  // Coarse groups — back-compat with existing saved filters.
   downloading: UPDATE_ACTIVE_STATUSES,
   queued:      UPDATE_QUEUED_STATUSES,
   installing:  [EAppDisplayStatus.Installing] as ReadonlyArray<number>,
   running:     [EAppDisplayStatus.Running, EAppDisplayStatus.Launching] as ReadonlyArray<number>,
+  // Fine-grained groups — single status each.
+  launching:        [EAppDisplayStatus.Launching] as ReadonlyArray<number>,
+  reconfiguring:    [EAppDisplayStatus.Reconfiguring] as ReadonlyArray<number>,
+  validating:       [EAppDisplayStatus.Validating] as ReadonlyArray<number>,
+  downloading_only: [EAppDisplayStatus.Downloading] as ReadonlyArray<number>,
+  staging:          [EAppDisplayStatus.Staging] as ReadonlyArray<number>,
+  committing:       [EAppDisplayStatus.Committing] as ReadonlyArray<number>,
+  update_queued:    [EAppDisplayStatus.UpdateQueued] as ReadonlyArray<number>,
+  update_paused:    [EAppDisplayStatus.UpdatePaused] as ReadonlyArray<number>,
+  not_installed:    [EAppDisplayStatus.NotInstalled] as ReadonlyArray<number>,
+  installed_idle:   [EAppDisplayStatus.Installed] as ReadonlyArray<number>,
 } as const;
 
 export type AppStatusGroup = keyof typeof APP_STATUS_GROUPS;

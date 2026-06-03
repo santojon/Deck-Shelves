@@ -58,14 +58,18 @@ run_checks() {
     ((fail++))
   fi
 
-  # 6. Detection queries multiple selector patterns (for theme compatibility)
+  # 6. Detection queries multiple selector patterns (for theme compatibility).
+  # The radius detector lives in shelfStyles.ts (`detectNativeCardRadius`) and
+  # walks `.Panel.Focusable` panels, filtering out our own `ds-card` / `ds-row`
+  # containers; counting those tokens confirms the detection still queries the
+  # native + DS selector families.
   local selector_count
-  selector_count=$(grep -c 'appportrait\|GameCard\|libraryhome\|appportraitlaunchable' "$src/components/DeckRow.tsx" 2>/dev/null || echo "0")
+  selector_count=$(grep -c 'Panel\.Focusable\|ds-card\|ds-row\|detectNativeCardRadius' "$src/components/shelf/shelfStyles.ts" 2>/dev/null || echo "0")
   if [[ "$selector_count" -ge 3 ]]; then
-    echo "  ✅ Radius detection uses $selector_count selector variants for broad theme support"
+    echo "  ✅ Radius detection uses $selector_count selector references for broad theme support"
     ((pass++))
   else
-    echo "  ⚠️  Only $selector_count selector variants — may miss some theme configurations"
+    echo "  ⚠️  Only $selector_count selector references — may miss some theme configurations"
     ((fail++))
   fi
 

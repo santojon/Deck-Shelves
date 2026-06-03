@@ -15,7 +15,7 @@ import { flowChildrenProps } from '../../../core/steamOSVersion'
 import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS } from '../../../steam/smartShelves'
 import type { SingleDropdownOption } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
-import type { FilterGroup, SmartShelf } from '../../../types'
+import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
@@ -36,6 +36,7 @@ import { FunnelIcon, EyeIcon, SparkleIcon, OnlineIcon } from '../../icons'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
 import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
+import { SavedSmartFiltersBar } from './editShelf/SavedSmartFiltersBar'
 import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
 
@@ -44,13 +45,38 @@ import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_
 // pre-fill the edit field so users see the actual current cadence.
 const DEFAULT_REFRESH_MINUTES = 60
 
+// Ordered list of every internal smart-shelf mode, used by the Source-tab
+// mode dropdown + the composite-mixing picker. Order mirrors the catalogue
+// in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
+// is excluded — it's a special-purpose mode for filter-only shelves and
+// switching INTO it would silently strip the user's smart-mode tuning.
+const SMART_MODE_OPTIONS: SmartShelfMode[] = [
+  'daily_pick', 'deck_picks', 'on_deck', 'recently_played',
+  'long_session', 'long_session_night', 'random_pick', 'not_started',
+  'best_unplayed', 'quick_play', 'short_battery', 'low_battery_mode',
+  'interrupted', 'non_steam', 'spare_time', 'time_of_day',
+  'rediscover', 'forgotten',
+  'backlog_rescue', 'forgotten_gems', 'hidden_gems', 'almost_finished',
+  'couch_gaming', 'coop_ready', 'party_games', 'friends_playing',
+  'travel_mode', 'never_touched_classics', 'recent_hidden_installs',
+  'weekly_rotation', 'monthly_spotlight', 'seasonal_rotation',
+]
+
 type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display'
 
 type EditState = {
   title: string
+  /** Editable smart-shelf mode. Initialized from shelf.mode; user can switch
+   *  via the Source-tab dropdown. Changing mode resets `smartParams` to the
+   *  new mode's defaults. */
+  mode: SmartShelfMode
+  /** Optional source-mixing — when non-empty, the resolver evaluates each
+   *  mode in `[mode, ...compositeModes]` and merges by `compositeCombine`. */
+  compositeModes: SmartShelfMode[]
+  compositeCombine: 'union' | 'intersection'
   limit: number
-  sort: string
-  sortReverse: boolean
+  sort: string | string[]
+  sortReverse: boolean | boolean[]
   manualBaseSort: string
   manualBaseSortReverse: boolean
   manualOrder: number[]
@@ -88,6 +114,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   const [activeTab, setActiveTab] = useState<Tab>('source')
   const [state, setState] = useState<EditState>({
     title: shelf.title,
+    mode: shelf.mode,
+    compositeModes: Array.isArray((shelf as any).compositeModes) ? (shelf as any).compositeModes : [],
+    compositeCombine: (shelf as any).compositeCombine === 'intersection' ? 'intersection' : 'union',
     limit: shelf.limit ?? 20,
     sort: (shelf as any).sort ?? DEFAULT_SORT_FOR_MODE[shelf.mode] ?? 'alphabetical',
     sortReverse: (shelf as any).sortReverse ?? false,
@@ -166,8 +195,27 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   // collapsing it back to the default. Committed to numeric state on blur.
   const [refreshDraft, setRefreshDraft] = useState<string>(String((shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES))
 
-  const paramKeys = useMemo(() => paramKeysForMode(shelf.mode), [shelf.mode])
+  const paramKeys = useMemo(() => paramKeysForMode(state.mode), [state.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
+  // Switching mode resets smartParams + drafts to the new mode's defaults.
+  // The mode field on a smart shelf is the "data source" — picking another
+  // mode means picking a different candidate-set heuristic, so the previous
+  // mode's tuning knobs no longer apply.
+  const handleModeChange = (nextMode: SmartShelfMode) => {
+    if (nextMode === state.mode) return
+    const nextDefaults = SMART_PARAM_DEFAULTS[nextMode] ?? {}
+    const nextDrafts: Record<string, string> = {}
+    for (const k of Object.keys(nextDefaults)) nextDrafts[k] = String((nextDefaults as any)[k] ?? 0)
+    setParamDrafts(nextDrafts)
+    setState((prev) => ({
+      ...prev,
+      mode: nextMode,
+      smartParams: { ...nextDefaults },
+      // Sort default also tracks mode — only reset if the previous sort was
+      // the previous mode's default (i.e. user hadn't overridden it).
+      sort: prev.sort === DEFAULT_SORT_FOR_MODE[prev.mode] ? (DEFAULT_SORT_FOR_MODE[nextMode] ?? 'alphabetical') : prev.sort,
+    }))
+  }
   // Buffered text representations of `kind === 'text'` params (e.g. playtime
   // minutes). Kept separate from `state.smartParams` so the user can clear /
   // partially edit the input without committing intermediate values.
@@ -190,28 +238,30 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   }
   const [highlightPickerOpen, setHighlightPickerOpen] = useState((shelf as any).highlightedAppIds?.length > 0)
   const [hiddenPickerOpen, setHiddenPickerOpen] = useState(((shelf as any).hiddenAppIds?.length ?? 0) > 0)
-  const [hiddenCandidateIds, setHiddenCandidateIds] = useState<number[]>([])
-  const [hiddenCandidateMeta, setHiddenCandidateMeta] = useState<Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>>(new Map())
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
 
-  const isManual = state.sort === 'manual'
+  const primarySortKey = Array.isArray(state.sort) ? state.sort[0] : state.sort
+  const isManual = primarySortKey === 'manual'
   const effectiveManualOrder = useMemo(() => {
     if (!isManual) return resolvedIds
     const idSet = new Set(resolvedIds)
+    // See EditShelfModal — hidden cards stay in the preview (overlaid
+    // with the ✕ marker by ShelfPreview); home filters them via
+    // applyManualOrder.
     const out: number[] = []
-    for (const id of state.manualOrder) if (idSet.has(id) && !out.includes(id)) out.push(id)
-    for (const id of resolvedIds) if (!out.includes(id)) out.push(id)
+    const tail: number[] = []
+    const seen = new Set<number>()
+    for (const id of state.manualOrder) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      if (idSet.has(id)) out.push(id)
+      else tail.push(id)
+    }
+    for (const id of resolvedIds) if (!seen.has(id)) out.push(id)
+    out.push(...tail)
     return out
   }, [isManual, resolvedIds, state.manualOrder])
-  const effectiveHiddenCandidateIds = useMemo(() => {
-    if (!isManual || !hiddenCandidateIds.length) return hiddenCandidateIds
-    const idSet = new Set(hiddenCandidateIds)
-    const out: number[] = []
-    for (const id of state.manualOrder) if (idSet.has(id) && !out.includes(id)) out.push(id)
-    for (const id of hiddenCandidateIds) if (!out.includes(id)) out.push(id)
-    return out
-  }, [isManual, hiddenCandidateIds, state.manualOrder])
   const reorderManual = (nextOrder: number[]) => setState((prev) => ({ ...prev, manualOrder: nextOrder }))
 
   const sortLabel = (item: typeof SORT_OPTIONS[number]) => (
@@ -239,16 +289,21 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   )
 
   const smartParamsKey = JSON.stringify(state.smartParams)
+  const compositeKey = state.compositeModes.join(',') + ':' + state.compositeCombine
   const previewSource = useMemo(() => {
-    const base: any = { type: 'smart' as const, mode: shelf.mode }
+    const base: any = { type: 'smart' as const, mode: state.mode }
     if (state.filterGroup.items.length > 0) base.filterGroup = state.filterGroup
     if (paramKeys.length) base.smartParams = state.smartParams
     if (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES) {
       base.refreshIntervalMinutes = state.refreshIntervalMinutes
     }
+    if (state.compositeModes.length > 0) {
+      base.compositeModes = state.compositeModes
+      base.compositeCombine = state.compositeCombine
+    }
     return base
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shelf.mode, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length])
+  }, [state.mode, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length, compositeKey])
 
   useEffect(() => {
     let cancelled = false
@@ -257,13 +312,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       // Mirror Shelf.tsx wiring: forward asc/desc inversion to the resolver
       // and substitute `alphabetical` for an unset sort when reverse is on
       // (so applySortToIds runs and the reverse flag has somewhere to apply).
-      const isManualSort = state.sort === 'manual'
-      const previewReverse = isManualSort
+      const isManualSort = primarySortKey === 'manual'
+      const previewReverse: boolean | boolean[] = isManualSort
         ? !!state.manualBaseSortReverse
-        : !!state.sortReverse
-      const previewSort = isManualSort
+        : (Array.isArray(state.sortReverse) ? state.sortReverse : !!state.sortReverse)
+      const previewSort: string | string[] | undefined = isManualSort
         ? (state.manualBaseSort || 'alphabetical')
-        : (state.sort || (previewReverse ? 'alphabetical' : undefined))
+        : (state.sort || ((Array.isArray(previewReverse) ? previewReverse[0] : previewReverse) ? 'alphabetical' : undefined))
       resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse)
         .then((ids) => {
           if (cancelled) return
@@ -292,29 +347,31 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
 
+  // Meta for menu-added games (state.manualOrder entries NOT in
+  // resolvedIds — see EditShelfModal for the rationale). Without this
+  // the preview's `meta.get(tailId)` returns undefined and menu-added
+  // cards never render in non-source tabs.
   useEffect(() => {
-    if (!hiddenPickerOpen) return
+    const resolvedSet = new Set(resolvedIds)
+    const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)
+    if (!tail.length) return
     let cancelled = false
-    const timer = setTimeout(() => {
-      const isManualSort = state.sort === 'manual'
-      const previewSort = isManualSort
-        ? (state.manualBaseSort || 'alphabetical')
-        : (state.sort || undefined)
-      resolveShelfAppIds(previewSource, Math.min(state.limit * 3, 100), previewSort, undefined, state.sortReverse)
-        .then(async (ids) => {
-          if (cancelled) return
-          setHiddenCandidateIds(ids)
-          const next = new Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>()
-          for (const id of ids) {
-            try { const m = await platform.getAppMeta(id); next.set(id, { name: m?.name || `App ${id}`, portraitUrl: m?.portraitUrl, heroUrl: m?.heroUrl }) }
-            catch { next.set(id, { name: `App ${id}` }) }
-          }
-          if (!cancelled) setHiddenCandidateMeta(next)
-        })
-        .catch(() => { if (!cancelled) setHiddenCandidateIds([]) })
-    }, 300)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [hiddenPickerOpen, previewSource, state.limit, state.sort, state.manualBaseSort, state.sortReverse, state.hiddenAppIds.join(',')])
+    ;(async () => {
+      const results = await Promise.all(tail.map(async (id): Promise<[number, PlatformAppMeta]> => {
+        try { const m = await platform.getAppMeta(id); return [id, m ?? { appid: id, name: `App ${id}` }] }
+        catch { return [id, { appid: id, name: `App ${id}` }] }
+      }))
+      if (cancelled) return
+      setResolvedMeta((prev) => {
+        const next = new Map(prev)
+        for (const [id, m] of results) {
+          if (!next.has(id)) next.set(id, m)
+        }
+        return next
+      })
+    })()
+    return () => { cancelled = true }
+  }, [platform, resolvedIds.join(','), state.manualOrder.join(',')])
 
   const handleSave = () => {
     closeModal?.()
@@ -349,9 +406,13 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
         ? state.refreshIntervalMinutes
         : undefined
+      // Persist the (possibly changed) mode + composite mixing fields.
+      ;(patch as any).mode = state.mode
+      ;(patch as any).compositeModes = state.compositeModes.length > 0 ? state.compositeModes : undefined
+      ;(patch as any).compositeCombine = state.compositeModes.length > 0 ? state.compositeCombine : undefined
       // Only persist params that diverge from the mode's defaults — keeps the
       // settings JSON minimal and lets future default tweaks reach existing shelves.
-      const defaults = SMART_PARAM_DEFAULTS[shelf.mode] ?? {}
+      const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
       const overrides: Record<string, number> = {}
       for (const k of paramKeys) {
         if (state.smartParams[k] !== defaults[k]) overrides[k] = state.smartParams[k]
@@ -421,9 +482,135 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   title: t('edit_tab_source'),
                   content: (
                     <FieldContainer scrollable>
+                      {/* Smart-mode picker + inline saved-smart-filter dropdown.
+                          The mode IS the smart shelf's "data source"; saved
+                          smart filters are full configurations the user has
+                          previously stored. Both live side-by-side per the
+                          Source-tab UX. */}
                       <Field label={t('smart_mode')}>
-                        <div style={{ padding: '4px 0', opacity: 0.85 }}>{t(`smart_template_${shelf.mode}` as any)}</div>
+                        <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Dropdown
+                              rgOptions={SMART_MODE_OPTIONS.map((opt) => ({ data: opt, label: t(`smart_template_${opt}` as any) }))}
+                              selectedOption={state.mode}
+                              onChange={(opt: unknown) => {
+                                const next = String(optionData(opt) ?? state.mode) as SmartShelfMode
+                                handleModeChange(next)
+                              }}
+                            />
+                          </div>
+                        </Focusable>
                       </Field>
+                      {/* Composite mode mixing — optional. When at least one
+                          additional mode is added, the resolver evaluates each
+                          mode and merges (union / intersection). Same mental
+                          model as regular shelves' composite source. */}
+                      <Field label={t('smart_composite_label' as any)} description={t('smart_composite_desc' as any)} bottomSeparator='standard'>
+                        <Focusable style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <Dropdown
+                              rgOptions={[
+                                { data: 'union', label: t('smart_composite_union' as any) },
+                                { data: 'intersection', label: t('smart_composite_intersection' as any) },
+                              ]}
+                              selectedOption={state.compositeCombine}
+                              onChange={(opt: unknown) => {
+                                const next = String(optionData(opt) ?? 'union') as 'union' | 'intersection'
+                                setState((prev) => ({ ...prev, compositeCombine: next }))
+                              }}
+                            />
+                          </div>
+                          {state.compositeModes.length > 0 && (
+                            <Focusable style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {state.compositeModes.map((m) => (
+                                <DialogButton
+                                  key={m}
+                                  style={{ height: 32, minWidth: 0, padding: '0 10px', display: 'flex', alignItems: 'center', gap: 6 }}
+                                  onClick={() => setState((prev) => ({ ...prev, compositeModes: prev.compositeModes.filter((x) => x !== m) }))}
+                                  onOKActionDescription={t('smart_composite_remove' as any)}
+                                >{t(`smart_template_${m}` as any)} ✕</DialogButton>
+                              ))}
+                            </Focusable>
+                          )}
+                          {state.compositeModes.length < 4 && (
+                            <Dropdown
+                              rgOptions={[
+                                { data: '__add_placeholder__', label: t('smart_composite_add' as any) },
+                                ...SMART_MODE_OPTIONS
+                                  .filter((m) => m !== state.mode && !state.compositeModes.includes(m))
+                                  .map((m) => ({ data: m, label: t(`smart_template_${m}` as any) })),
+                              ]}
+                              selectedOption={'__add_placeholder__'}
+                              onChange={(opt: unknown) => {
+                                const v = String(optionData(opt) ?? '__add_placeholder__')
+                                if (v === '__add_placeholder__') return
+                                setState((prev) => ({ ...prev, compositeModes: [...prev.compositeModes, v as SmartShelfMode] }))
+                              }}
+                            />
+                          )}
+                        </Focusable>
+                      </Field>
+                      {/* Saved smart filter picker — applies a previously-saved
+                          full configuration (mode + smartParams + filterGroup +
+                          sort + limit + visibility) to the current shelf. */}
+                      <SavedSmartFiltersBar
+                        controller={controller}
+                        currentPayload={{
+                          mode: state.mode,
+                          smartParams: (() => {
+                            const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
+                            const out: Record<string, number> = {}
+                            for (const k of paramKeys) {
+                              if (state.smartParams[k] !== defaults[k]) out[k] = state.smartParams[k]
+                            }
+                            return Object.keys(out).length ? out : undefined
+                          })(),
+                          filterGroup: state.filterGroup.items.length > 0 ? state.filterGroup : undefined,
+                          sort: state.sort || undefined,
+                          sortReverse: state.sortReverse || undefined,
+                          limit: state.limit,
+                          visibleHours: (() => {
+                            if (!state.visibleHoursEnabled) return undefined
+                            const all = [
+                              ...state.defaultHours,
+                              ...Object.entries(state.dayOverrides).flatMap(([dayStr, ranges]) =>
+                                ranges.map((r) => ({ ...r, days: [Number(dayStr)] }))
+                              ),
+                            ]
+                            return all.length ? all : undefined
+                          })(),
+                          visibleDaysOfWeek: state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort(),
+                        }}
+                        onApply={(filter) => {
+                          const incomingHours = Array.isArray(filter.visibleHours) ? filter.visibleHours : []
+                          const defaults = incomingHours.filter((r: any) => !Array.isArray(r.days) || r.days.length === 0).map((r: any) => ({ start: Number(r.start) || 0, end: Number(r.end) || 0 }))
+                          const overrides: Record<string, Array<{ start: number; end: number }>> = {}
+                          for (const r of incomingHours as any[]) {
+                            if (Array.isArray(r.days) && r.days.length > 0) {
+                              for (const day of r.days) {
+                                const k = String(day)
+                                if (!overrides[k]) overrides[k] = []
+                                overrides[k].push({ start: Number(r.start) || 0, end: Number(r.end) || 0 })
+                              }
+                            }
+                          }
+                          const nextMode = (filter.mode || state.mode) as SmartShelfMode
+                          setState((prev) => ({
+                            ...prev,
+                            mode: nextMode,
+                            smartParams: { ...(SMART_PARAM_DEFAULTS[nextMode] ?? {}), ...(filter.smartParams ?? {}) },
+                            filterGroup: filter.filterGroup ?? { mode: 'and', items: [] },
+                            sort: (Array.isArray(filter.sort) ? filter.sort[0] : filter.sort) ?? prev.sort,
+                            sortReverse: (Array.isArray(filter.sortReverse) ? filter.sortReverse[0] : filter.sortReverse) ?? false,
+                            limit: filter.limit ?? prev.limit,
+                            visibleHoursEnabled: incomingHours.length > 0,
+                            defaultHours: defaults.length ? defaults : prev.defaultHours,
+                            dayOverrides: Object.keys(overrides).length ? overrides : prev.dayOverrides,
+                            allowDayOverrides: Object.keys(overrides).length > 0,
+                            visibleDaysOfWeek: filter.visibleDaysOfWeek ?? [0, 1, 2, 3, 4, 5, 6],
+                          }))
+                        }}
+                      />
                       <SliderField
                         label={`${t('limit')} (${state.limit})`}
                         value={state.limit}
@@ -440,15 +627,16 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         onSortChange={(next) => setState((prev) => ({ ...prev, sort: next }))}
                         reverse={state.sortReverse}
                         onReverseChange={(next) => setState((prev) => ({ ...prev, sortReverse: next }))}
+                        allowMultiKey
                       />
                       {isManual && (
                         <SortField
                           label={t('manual_base_sort')}
                           options={baseSortOptions}
                           sort={state.manualBaseSort}
-                          onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: next }))}
+                          onSortChange={(next) => setState((prev) => ({ ...prev, manualBaseSort: Array.isArray(next) ? (next[0] ?? 'alphabetical') : next }))}
                           reverse={state.manualBaseSortReverse}
-                          onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: next }))}
+                          onReverseChange={(next) => setState((prev) => ({ ...prev, manualBaseSortReverse: Array.isArray(next) ? !!next[0] : next }))}
                         />
                       )}
                       <Field
@@ -741,16 +929,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             highlightFirst={state.highlightFirst}
             highlightAll={state.highlightAll}
             highlightedAppIds={state.highlightedAppIds}
-            highlightPickerOpen={highlightPickerOpen}
-            setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
             alternatingMode={alternatingMode}
-            setAlternatingMode={setAlternatingMode}
-            prePatternHighlightsRef={prePatternHighlightsRef}
-            hiddenPickerOpen={hiddenPickerOpen}
             hiddenAppIds={state.hiddenAppIds}
-            setHiddenAppIds={(next) => setState((prev) => ({ ...prev, hiddenAppIds: next }))}
-            hiddenCandidateIds={effectiveHiddenCandidateIds}
-            hiddenCandidateMeta={hiddenCandidateMeta}
             hideStatusLine={state.hideStatusLine}
             hideNewBadge={state.hideNewBadge}
             hideCompatIcons={state.hideCompatIcons}
@@ -763,6 +943,38 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             shelfSource={previewSource}
             shelfSort={state.sort}
             onRefresh={refreshPreview}
+            selectionMode={
+              activeTab === 'visual' && highlightPickerOpen ? 'highlight'
+                : activeTab === 'display' && hiddenPickerOpen ? 'hidden'
+                : undefined
+            }
+            selectionSet={
+              activeTab === 'visual' && highlightPickerOpen ? new Set(state.highlightedAppIds)
+                : activeTab === 'display' && hiddenPickerOpen ? new Set(state.hiddenAppIds)
+                : undefined
+            }
+            onToggleSelection={
+              activeTab === 'visual' && highlightPickerOpen
+                ? (id: number) => setState((prev) => {
+                    setAlternatingMode(null)
+                    prePatternHighlightsRef.current = null
+                    const has = prev.highlightedAppIds.includes(id)
+                    return { ...prev, highlightedAppIds: has ? prev.highlightedAppIds.filter((x) => x !== id) : [...prev.highlightedAppIds, id] }
+                  })
+                : activeTab === 'display' && hiddenPickerOpen
+                  ? (id: number) => setState((prev) => {
+                      const has = prev.hiddenAppIds.includes(id)
+                      return { ...prev, hiddenAppIds: has ? prev.hiddenAppIds.filter((x) => x !== id) : [...prev.hiddenAppIds, id] }
+                    })
+                  : undefined
+            }
+            removableSet={(() => {
+              if (!state.manualOrder.length) return undefined
+              const inSource = new Set(resolvedIds)
+              const tail = state.manualOrder.filter((id) => !inSource.has(id))
+              return tail.length ? new Set(tail) : undefined
+            })()}
+            onRemoveCard={(id) => setState((prev) => ({ ...prev, manualOrder: prev.manualOrder.filter((x) => x !== id) }))}
           />
           </div>
         </Focusable>

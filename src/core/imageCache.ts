@@ -14,7 +14,16 @@
  */
 
 const STORAGE_NAME = "ds-images-v1";
-const HOT_CACHE_LIMIT = 120;
+// 320 entries: empirically a home with many active shelves can have
+// 150-200 visible cards each holding a portrait + hero URL. The old
+// 120-entry cap caused constant eviction once the user filled the
+// row, and an evicted blob URL still referenced by a mounted card
+// renders as the browser's broken-image glyph (the cap was the
+// invisible root cause of "às vezes mostra imagem quebrada antes de
+// aparecer a certa" — the right URL is in the cache one tick and
+// evicted the next). Bumping to 320 leaves headroom without growing
+// memory significantly (~120 KB per cached blob × 320 ≈ 38 MB peak).
+const HOT_CACHE_LIMIT = 320;
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;   // 7 days  → revalidate
 const EVICT_AFTER_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days → drop
 const TIMESTAMP_HEADER = "x-ds-cached-at";
@@ -31,7 +40,13 @@ function touchHot(url: string, entry: HotEntry): void {
     if (oldestKey === undefined) break;
     const oldest = hot.get(oldestKey);
     if (oldest) {
-      try { URL.revokeObjectURL(oldest.blobUrl); } catch {}
+      // Defer revoke by 30 s — gives any card still rendering with
+      // this blob URL time to detect via onError (or re-render with a
+      // fresh resolution) before the URL becomes invalid. Immediate
+      // revocation was visible as a broken-image flash on cards whose
+      // resolved src happened to be the entry that just evicted.
+      const dead = oldest.blobUrl;
+      setTimeout(() => { try { URL.revokeObjectURL(dead); } catch {} }, 30_000);
     }
     hot.delete(oldestKey);
   }
@@ -48,9 +63,19 @@ function supported(): boolean {
  * updates artwork via SteamGridDB etc. — caching them would lock in the
  * stale version. Only remote CDN URLs (http:// / https://) benefit from
  * caching and have URL-changes-on-update via the `?c=mtime` cache-bust.
+ *
+ * `steamloopback.host` is Steam's local loopback HTTP server — it serves
+ * portrait/hero assets from the local Steam process at filesystem speed,
+ * so wrapping those in a blob URL adds zero perf benefit. Worse, with
+ * 150+ visible cards on a populated home, those URLs would dominate the
+ * hot LRU and evict the actually-remote CDN URLs (Cloudflare /
+ * akamaihd) that DO benefit from blob caching. Skip them.
  */
 function cacheable(url: string): boolean {
-  return typeof url === "string" && /^https?:\/\//i.test(url);
+  if (typeof url !== "string") return false;
+  if (!/^https?:\/\//i.test(url)) return false;
+  if (/^https?:\/\/(?:[^/]+\.)?steamloopback\.host/i.test(url)) return false;
+  return true;
 }
 
 /**

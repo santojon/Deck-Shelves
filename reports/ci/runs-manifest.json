@@ -1,6 +1,42 @@
 [
   {
+    "ts": "2026-06-03_17-51-41",
+    "stress": false,
+    "subdir": "ci",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "_scope": "ci"
+  },
+  {
+    "ts": "2026-06-03_14-10-37",
+    "stress": false,
+    "subdir": "ci",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "_scope": "ci"
+  },
+  {
     "ts": "2026-06-01_12-29-14",
+    "stress": false,
+    "subdir": "ci",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "_scope": "ci"
+  },
+  {
+    "ts": "2026-05-29_20-16-39",
     "stress": false,
     "subdir": "ci",
     "overall": "PASS",

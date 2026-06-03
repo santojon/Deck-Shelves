@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+// See DeckyHostApi adapter.
 import {
   ConfirmModal,
   Field,
@@ -6,7 +7,7 @@ import {
   SliderField,
   ToggleField,
   showModal,
-} from '@decky/ui'
+} from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
 import type { SettingsController } from '../features/settings/controller'
 import { usePlatform } from '../runtime/platformContext'
@@ -32,6 +33,7 @@ import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
 import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
+import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 import { CollapsibleSection } from './ui'
@@ -80,6 +82,19 @@ function SavedFiltersList({ controller }: { controller: SettingsController }) {
   return (
     <div className='deck-shelves-shelf-list'>
       {saved.map((f) => <SavedFilterRow key={f.id} controller={controller} savedFilter={f} />)}
+    </div>
+  )
+}
+
+function SavedSmartFiltersList({ controller }: { controller: SettingsController }) {
+  const { t, settings } = controller
+  const saved = settings?.savedSmartFilters ?? []
+  if (saved.length === 0) {
+    return <div style={{ padding: '4px 16px', opacity: 0.7 }}>{t('saved_smart_filter_empty' as any)}</div>
+  }
+  return (
+    <div className='deck-shelves-shelf-list'>
+      {saved.map((f) => <SavedSmartFilterRow key={f.id} controller={controller} savedSmartFilter={f} />)}
     </div>
   )
 }
@@ -298,8 +313,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
 
       <CollapsibleSection id='shelves' icon={<StackIcon />} title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
-        <Field className='no-sep'>
-          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+        {/* `childrenLayout="below"` + `childrenContainerWidth="max"` make
+            Decky's Field hand the entire row width to children — without
+            them the empty-label slot grabs ~half the row and the
+            `justify-content: space-between` Focusable overflows to the
+            right (CDP probe: Focusable rendered at width=150 inside a
+            300 wide scope, pushing the rightmost button to right=457). */}
+        <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
+          <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
             <div style={{ display: 'flex' }}>
               <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
               <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_shelves')} /></div>
@@ -371,8 +392,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <>
             <div style={{ marginTop: 8 }} />
             <div className='deck-shelves-separator' />
-            <Field className='no-sep'>
-              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+            <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
+              <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
                 <div style={{ display: 'flex' }}>
                   <ActionButton iconNode={icons.add} onClick={handleAddSmart} okDescription={t('smart_add_shelf')} />
                   <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImportSmart} okDescription={t('import_smart_shelves')} /></div>
@@ -437,8 +458,22 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       </CollapsibleSection>
       )}
 
-      <Field className='no-sep'>
-        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxSizing: 'border-box' }}>
+      {settings.enabled && (settings.savedSmartFilters?.length ?? 0) > 0 && (
+      <CollapsibleSection
+        id='saved_smart_filters'
+        icon={<BookmarkIcon />}
+        title={t('saved_smart_filters_section' as any)}
+        count={settings.savedSmartFilters?.length ?? 0}
+      >
+        <SavedSmartFiltersList controller={controller} />
+      </CollapsibleSection>
+      )}
+
+      <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
+        {/* `padding: 0 16px` matches the per-section action rows above
+            so the trailing import / export / reset trio aligns with the
+            shelf-list left and right edges (16 px from each side). */}
+        <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
           <div style={{ display: 'flex' }}>
             <ActionButton iconNode={icons.import} onClick={handleImportAll} okDescription={t('import_settings')} />
             <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExportAll} okDescription={t('export_settings')} /></div>

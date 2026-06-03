@@ -793,6 +793,39 @@ function buildStylesheet(): string {
     #deck-shelves-home-root .deck-shelves-root[data-ds-theme-focus-round-compat="true"] .ds-card:hover {
       box-shadow: none !important;
     }
+    /* Synthetic decoration cards with placeholder=false (the default)
+       render no background fill - the native card class still carries
+       a baseline drop shadow from the theme, which paints against
+       nothing and looks like a floating shadow with no card. Suppress
+       it across every state (idle / focus / hover) for transparent
+       decoration slots; placeholder=true keeps the shadow so the
+       grey card panel reads as a real card. */
+    #deck-shelves-home-root .ds-card--synthetic-noshadow,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:focus,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow.gpfocus,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:hover {
+      box-shadow: none !important;
+    }
+    /* Shadow-only-on-focus mode: suppress drop shadow at idle, restore it
+       on focus/hover. Mirrors the native focus shadow so the framed look
+       only kicks in when the user actually navigates to the card. */
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only {
+      box-shadow: none !important;
+    }
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only:focus,
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only.gpfocus,
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only:hover {
+      box-shadow: 0 8px 16px rgba(0,0,0,0.5) !important;
+    }
+    /* Same suppression for the native shine ::after layer — paints
+       over a transparent card it can't visually anchor against. */
+    #deck-shelves-home-root .ds-card--synthetic-noshadow::after,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:focus::after,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow.gpfocus::after,
+    #deck-shelves-home-root .ds-card--synthetic-noshadow:hover::after {
+      opacity: 0 !important;
+      animation: none !important;
+    }
     /* Also kill the Game Cover Shine ::after animation/opacity under the same
        flag — that pseudo paints over the card on focus and isn't controlled
        by the Round Compat patch on its own. */
@@ -864,15 +897,31 @@ function buildStylesheet(): string {
       border-radius: var(--ds-card-radius, 4px);
     }
     #deck-shelves-home-root .ds-card .ds-card-shimmer--loaded { display: none; }
-    /* Hero img opacity gating. The wrapper above hides itself entirely
-       (opacity:0) while no slot is loaded — matches the "hero disabled"
-       state — so this rule mainly defends against a brief pre-wrapper-
-       fade window where the img would otherwise paint a broken-image
-       glyph. ID-scoped under #deck-shelves-home-root to beat the
-       no-hero-gradient theme rule which forces opacity:1 with (0,4,0)
-       specificity; the ID bumps us to (1,2,0). */
-    #deck-shelves-home-root .ds-per-shelf-hero-img { opacity: 0 !important; transition: opacity 0.18s ease !important; }
-    #deck-shelves-home-root .ds-per-shelf-hero-img.is-loaded { opacity: 1 !important; }
+    /* Hero img opacity gate — defends against the browser's broken-
+       image glyph painting during the gap between src assignment and
+       first decoded byte (especially for slot swaps where the new
+       URL hasn't loaded yet but its wrapper is already at full
+       opacity from the cross-fade). 60 ms transition (was 180 ms) so
+       cached/cold loads alike feel near-instant. PerShelfHero sets
+       is-loaded synchronously via a ref callback when the img is
+       already decoded (hot blob URL / HTTP cache hit), so cached
+       hero swaps don't even need a render cycle to flip the class.
+       ID-scoped under #deck-shelves-home-root to beat the
+       no-hero-gradient theme rule's (0,4,0) specificity. */
+    /* Hero img opacity gating — the transition runs ONLY on the up-leg
+       (going from 0 → 1 when the image actually decodes). Going back to
+       0 (fallback chain advancing to the next URL after an error, src
+       reassigned to a different game on focus change, etc.) is instant.
+       A symmetric transition let a frame of the BROWSER'S broken-img
+       placeholder peek through during the fade-out — visible as a quick
+       broken-hero flash when the first shelf is in the recents slot
+       (there's no native hero behind to mask it). */
+    #deck-shelves-home-root .ds-per-shelf-hero-img { opacity: 0 !important; transition: none !important; }
+    #deck-shelves-home-root .ds-per-shelf-hero-img.is-loaded { opacity: 1 !important; transition: opacity 0.06s ease !important; }
+    /* TiltedHome integration: see the block scoped under
+       [data-ds-theme-tilted-home="true"] further down. The intermediate
+       skew-based version was removed because it conflicted with the
+       theme's own rotateY transforms. */
     /* Refresh icon spin — driven by class added on click via DOM (not React
        state) so the animation survives the upstream setAppIds() that may
        reconcile the row while playing. The class is re-added each click via
@@ -916,47 +965,215 @@ function buildStylesheet(): string {
       filter: brightness(1) !important;
     }
 
-    /* TiltedHome (Renaissance) compat — universal: mirrors whatever transform
-       the theme applies to native recents tiles. Two methods are supported:
-       - skew  (default): parallelogram tilt via skewX(--ren-tilt-angle)
-       - rotate3d: perspective 3-D tilt via rotateY(--ren-tilt-angle)
-       --ren-tilt-method controls which branch fires; when neither var is
-       defined the whole transform is invalid and dropped — zero cost in the
-       no-theme case. Gated by @supports to avoid syntax errors on older
-       WebKit that doesn't understand custom-property-in-transform. */
+    /* =================================================================
+       TiltedHome theme integration — single, native-equivalent
+       =================================================================
+       Activated only when isTiltedHomeActive() returns true (HomeInject
+       sets data-ds-theme-tilted-home="true" on .deck-shelves-root). The
+       prior implementation applied a 2-D skew using --ren-tilt-angle
+       blindly whenever the variable was defined, but native TiltedHome
+       uses perspective + rotateY (3-D fan), so DS cards were rendered
+       skewed while native cards rotated — visual conflict the user
+       reported as "duas implementações sobrepondo".
 
-    /* method: skew (default when --ren-tilt-method is unset or "skew") */
-    :root:not([style*="--ren-tilt-method"]) .ds-card,
-    :root[style*="--ren-tilt-method: skew"] .ds-card {
-      transform: skew(var(--ren-tilt-angle, 0deg));
+       Approach (mirrors native TiltedHome exactly):
+       - Default (cards LEFT of focus + the focused card before override):
+         perspective(600px) rotateY(2*angle) — leans toward the right
+       - Cards AFTER focused (sibling combinator ~): rotateY(-2*angle)
+         — leans toward the left, completing the fan around the focused
+         card
+       - Focused card: scale(1.05) only, no rotation — pivot of the fan
+         (matches native's .gpfocuswithin > div:first-child treatment)
+       - Trailing tiles (.ds-refresh-card / .ds-more-card): tilted +
+         scaled like native's GoToLibrary tile
+       - Row: overflow-y visible + perspective parent so tilted edges
+         aren't clipped
+
+       Reads the user's --ren-tilt-angle and --ren-view-more-focus-scale
+       directly from :root so the tilt intensity matches whatever the
+       user configured in the TiltedHome theme module. Honors gpfocus
+       AND gpfocuswithin (Steam toggles both during d-pad nav). */
+
+    /* DS-side overrides target .ds-card > .ds-card-art (the same
+       element TiltedHome's native selector targets via > div:first-child
+       on the wrapper class we add via resolveNativeCardClass). That
+       way TiltedHome's DEFAULT rule (the left-tilt rotation) reaches
+       DS cards naturally via the shared wrapper class — no need to
+       duplicate it here. We only ADD the cases TiltedHome's native
+       selectors can't reach because they rely on the ReactVirtualized
+       grid structure DS doesn't replicate:
+
+       - Right-side override: cards AFTER the focused one need the
+         opposite-sign rotation. TiltedHome's rule wraps this in a
+         ReactVirtualized__Grid__innerScrollContainer + gpfocuswithin
+         sibling selector chain that DS doesn't have, so we mirror it
+         with our own sibling combinator (.ds-card.gpfocuswithin ~
+         .ds-card).
+       - Focused override: native applies scale(1.02) to the focused
+         tile's first child; we apply slightly larger scale(1.05).
+
+       All overrides target .ds-card-art so they cascade together
+       with TiltedHome's rule on the same element (no double transform
+       on the wrapper). */
+    /* =================================================================
+       DS-side TiltedHome implementation — full mode-aware support.
+       =================================================================
+       Why DS-side and not class-adoption: Decky's Focusable puts a
+       tabindex on the same wrapper that would adopt nativeCardWrapper,
+       and some TiltedHome modules' focused-state selectors use the
+       tabindex attribute to match the focused tile — which would then
+       match EVERY DS card and replace the tilt with a flat scale on
+       all of them. Until we rebuild on a custom focus primitive
+       (NativeFocusable) that puts tabindex on a deeper element
+       matching native's hierarchy, DS implements its own tilt CSS
+       that mirrors each TiltedHome variant exactly.
+
+       Mode detection lives in cssLoaderDetect.ts:getTiltedHomeMode()
+       and is published as data attrs on .deck-shelves-root by
+       HomeInject:
+         data-ds-theme-tilt-method = "skew" | "3d"
+         data-ds-theme-tilt-direction = "one-way" | "opposites"
+
+       Variants supported:
+       - SKEW one-way: every tile gets skew(angle) — most common
+         TiltedHome install (one CSS Loader module, no opposite override)
+       - SKEW opposites: cards before focus skew(+angle), after skew(-angle)
+       - 3D one-way: every tile gets perspective + rotateY(angle)
+       - 3D opposites: same with sibling override
+
+       Tilt is applied to .ds-card ITSELF (not the wrapping div) so the
+       Focusable's box-shadow focus indicator (computed from the card's
+       bounding rect) follows the tilt — fixes the "foco aparentemente
+       alinhado por dentro do card" issue where the focus ring stayed
+       rectangular inside a tilted parallelogram visual.
+
+       The wrapping div added in GameCard / MoreCard / RefreshCard
+       intentionally stays — it lets the card art keep its existing
+       layout while the parent tilts as a single unit. PlaceholderCard
+       and SyntheticCard don't have the wrapping div but render the
+       art element directly as the card's child, which also tilts
+       because the transform is on the .ds-card parent. */
+
+    /* Row needs perspective context for 3D tilts to compose around a
+       fixed eye-point, plus overflow-y: visible so tilted edges
+       aren't clipped at the row boundary. */
+    .deck-shelves-root[data-ds-theme-tilted-home="true"] .ds-row-scroll {
+      overflow-y: visible !important;
+      perspective: 600px !important;
     }
-    :root:not([style*="--ren-tilt-method"]) .ds-card.gpfocus,
-    :root:not([style*="--ren-tilt-method"]) .ds-card.is-selected,
-    :root:not([style*="--ren-tilt-method"]) .ds-card:focus,
-    :root:not([style*="--ren-tilt-method"]) .ds-card:hover,
-    :root[style*="--ren-tilt-method: skew"] .ds-card.gpfocus,
-    :root[style*="--ren-tilt-method: skew"] .ds-card.is-selected,
-    :root[style*="--ren-tilt-method: skew"] .ds-card:focus,
-    :root[style*="--ren-tilt-method: skew"] .ds-card:hover {
-      transform: skew(var(--ren-tilt-angle, 0deg)) scale(1.04) translateZ(15px) !important;
+    /* Tilt applied to .ds-card ITSELF (the wrapper) — NOT the inner
+       first-child div — so the Focusable's box-shadow focus indicator
+       (computed from the wrapper's bounding rect) follows the tilt
+       visually. All rules use !important to beat Steam's native
+       higher-specificity :focus rule
+       (.BasicUI .WYgDg9NyCcMIVuMyZ_NBC.Focusable:focus._3VOR2AeYATx3qSE0I-Pm-5
+       { transform: translateZ(7px) }) which would otherwise zero out
+       our tilt on the focused card. We compose translateZ(7px) into
+       the focused rule so the native depth-lift effect is preserved. */
+
+    /* SKEW one-way: every card tilts same direction. */
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-card {
+      transform: skew(var(--ren-tilt-angle, -5deg)) !important;
+      transition: transform 0.4s !important;
+    }
+    /* SKEW opposites: default lean one way, sibling-after-focused flips. */
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-card {
+      transform: skew(var(--ren-tilt-angle, -5deg)) !important;
+      transition: transform 0.4s !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-card.gpfocus ~ .ds-card {
+      transform: skew(calc(-1 * var(--ren-tilt-angle, -5deg))) !important;
+    }
+    /* SKEW focused — one-way mode: KEEP the directional tilt + scale +
+       Steam's translateZ. The whole row leans the same direction so
+       the selected card stays integrated by keeping its tilt.
+       Opposites mode: focused goes FLAT (no skew, just scale +
+       translateZ) — the surrounding cards form a fan converging on
+       the focused tile, so the pivot of the fan reads correctly
+       only when it itself has no tilt (matches native behaviour). */
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-card:focus {
+      transform: skew(var(--ren-tilt-angle, -5deg)) scale(1.05) translateZ(7px) !important;
+      z-index: 3 !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-card:focus {
+      transform: scale(1.05) translateZ(7px) !important;
+      z-index: 3 !important;
     }
 
-    /* method: rotate3d — perspective tilt (Renaissance "3D" variant) */
-    :root[style*="--ren-tilt-method: rotate3d"] .ds-card {
-      transform: perspective(600px) rotateY(var(--ren-tilt-angle, 0deg));
+    /* 3D one-way: every card gets perspective + rotateY same direction. */
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-card {
+      transform: perspective(600px) rotateY(calc(2 * var(--ren-tilt-angle, -5deg))) !important;
+      transform-style: preserve-3d !important;
+      transition: transform 0.4s !important;
     }
-    :root[style*="--ren-tilt-method: rotate3d"] .ds-card.gpfocus,
-    :root[style*="--ren-tilt-method: rotate3d"] .ds-card.is-selected,
-    :root[style*="--ren-tilt-method: rotate3d"] .ds-card:focus,
-    :root[style*="--ren-tilt-method: rotate3d"] .ds-card:hover {
-      transform: perspective(600px) rotateY(var(--ren-tilt-angle, 0deg)) scale(1.04) translateZ(15px) !important;
+    /* 3D opposites: default lean left (+2*angle), sibling-after-focused
+       flips to right (-2*angle). Together these form the fan
+       composition converging on the focused card. */
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-card {
+      transform: perspective(600px) rotateY(calc(2 * var(--ren-tilt-angle, -5deg))) !important;
+      transform-style: preserve-3d !important;
+      transition: transform 0.4s !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-card.gpfocus ~ .ds-card {
+      transform: perspective(600px) rotateY(calc(-2 * var(--ren-tilt-angle, -5deg))) !important;
+    }
+    /* 3D focused — same direction rule as SKEW. One-way keeps the
+       rotation; opposites flattens the focused pivot. */
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-card:focus {
+      transform: perspective(600px) rotateY(calc(2 * var(--ren-tilt-angle, -5deg))) scale(1.05) translateZ(7px) !important;
+      z-index: 3 !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-card:focus {
+      transform: scale(1.05) translateZ(7px) !important;
+      z-index: 3 !important;
     }
 
-    /* NOTE: .gpfocuswithin intentionally excluded — fires on EVERY card when
-       any descendant has focus, erasing the focused-card indicator. Steam also
-       injects a higher-specificity rule that strips our transform on the truly-
-       focused card; !important above wins the cascade while translateZ(15px)
-       preserves the native depth lift. */
+    /* Trailing tiles (Refresh / More) — view-more / GoToLibrary
+       treatment. */
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"] .ds-refresh-card,
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"] .ds-more-card {
+      transform: skew(var(--ren-tilt-angle, -5deg)) scale(var(--ren-view-more-focus-scale, 0.88)) !important;
+      transition: transform 0.4s !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"] .ds-refresh-card,
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"] .ds-more-card {
+      transform: perspective(600px) rotateY(calc(-2 * var(--ren-tilt-angle, -5deg))) scale(var(--ren-view-more-focus-scale, 0.88)) !important;
+      transition: transform 0.4s !important;
+    }
+    /* Trailing tiles focused — same one-way-keeps-tilt /
+       opposites-flattens rule as game tiles. */
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-refresh-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="one-way"] .ds-more-card.gpfocus {
+      transform: skew(var(--ren-tilt-angle, -5deg)) scale(1.05) translateZ(7px) !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-refresh-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"][data-ds-theme-tilt-direction="opposites"] .ds-more-card.gpfocus {
+      transform: scale(1.05) translateZ(7px) !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-refresh-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="one-way"] .ds-more-card.gpfocus {
+      transform: perspective(600px) rotateY(calc(2 * var(--ren-tilt-angle, -5deg))) scale(1.05) translateZ(7px) !important;
+    }
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-refresh-card.gpfocus,
+    .deck-shelves-root[data-ds-theme-tilt-method="3d"][data-ds-theme-tilt-direction="opposites"] .ds-more-card.gpfocus {
+      transform: scale(1.05) translateZ(7px) !important;
+    }
+
+    /* Most-recent / first tile offset — mirrors native's
+       --ren-most-recent-offset shift. */
+    .deck-shelves-root[data-ds-theme-tilted-home="true"] .ds-row-scroll > .ds-card:first-child {
+      margin-left: var(--ren-most-recent-offset, 2%);
+    }
+
+    /* Counter-tilt the verified / playable badge so it reads
+       horizontally even though the card is tilted. */
+    .deck-shelves-root[data-ds-theme-tilt-method="skew"] .ds-card .ds-compat {
+      transform: skew(calc(-1 * var(--ren-tilt-angle, -5deg)));
+    }
 
     .ds-card .ds-card-label {
       opacity: 0;

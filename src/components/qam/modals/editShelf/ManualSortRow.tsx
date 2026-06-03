@@ -1,33 +1,71 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Focusable } from '@decky/ui'
 import { computeCenteredScrollLeft } from '../../../../core/scrollUtils'
-import { HighlightMiniCard } from './HighlightMiniCard'
+import { ShelfRow } from '../../../shelf/ShelfRow'
+import type { DeckRowItem } from '../../../shelf/types'
+import type { PlatformAppMeta } from '../../../../runtime/platform'
 import { DIR_LEFT, DIR_RIGHT, HOLD_MS } from './constants'
 
+// Card sizes used by the preview row. Matches ShelfPreview so the
+// manual-sort grid renders at the exact same scale as every other tab.
+const PREVIEW_CARD_W = 78
+const PREVIEW_ART_H = 110
+const FEATURED_CARD_W = Math.round(PREVIEW_CARD_W * 3.21)
+const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
+
+type SyntheticCardSpec = {
+  position: number;
+  image?: string;
+  text?: string;
+  link?: { type: 'app' | 'url'; value: string };
+  size: 'normal' | 'featured';
+  alpha?: number;
+  placeholder?: boolean;
+}
+
 /**
- * Horizontal row used in the Source tab when sort === "manual". Extends
- * HighlightRow with:
+ * Horizontal row used in the Source tab when sort === "manual". Renders
+ * through the SAME `ShelfRow` the other preview tabs use so cards (hide
+ * flags, synthetics, badges, X-button bindings, sizing) match 1:1
+ * across every tab and across both shelf modal types. The only extras
+ * here are the manual-sort interaction layer:
+ *
  * - Gamepad grab mode: A to grab, L/R d-pad to shift, A to drop. While
  *   grabbed, `FocusNavController.DispatchVirtualButtonClick` is patched so
  *   directional input is consumed before Steam moves focus away — otherwise
  *   the next A press can land on Save/Cancel instead of releasing the grab.
  * - Pointer-hold grab: hold ~300ms, drag to reorder, release to drop.
- * - Chevron clicks on each card shift by one position.
  * - Re-centers the shifted card after every move (focus-centered scroll
  *   only fires on `focusin`, which doesn't re-fire when the same card
  *   stays focused but moves in the DOM).
  */
 export function ManualSortRow({
   order, meta, onReorder, t, highlightFirst, highlightAll, highlightedAppIds, highlightPickerOpen,
+  shelfSource,
+  hideStatusLine, hideNewBadge, hideDiscountBadge, hideCompatIcons, hideNonSteamBadge,
+  hideGameNames, hideInstallIndicator,
+  syntheticCards,
+  removableSet, onRemoveCard,
 }: {
   order: number[];
-  meta: Map<number, { name: string; portraitUrl?: string; heroUrl?: string }>;
+  meta: Map<number, PlatformAppMeta>;
   onReorder: (nextOrder: number[]) => void;
   t: (k: any, opts?: any) => string;
   highlightFirst: boolean;
   highlightAll: boolean;
   highlightedAppIds: number[];
   highlightPickerOpen: boolean;
+  shelfSource?: any;
+  hideStatusLine?: boolean;
+  hideNewBadge?: boolean;
+  hideDiscountBadge?: boolean;
+  hideCompatIcons?: boolean;
+  hideNonSteamBadge?: boolean;
+  hideGameNames?: boolean;
+  hideInstallIndicator?: boolean;
+  syntheticCards?: SyntheticCardSpec[];
+  removableSet?: Set<number>;
+  onRemoveCard?: (appid: number) => void;
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
   const [grabbedAppid, setGrabbedAppid] = useState<number | null>(null)
@@ -38,60 +76,78 @@ export function ManualSortRow({
   useEffect(() => { orderRef.current = order }, [order])
   useEffect(() => { grabbedRef.current = grabbedAppid }, [grabbedAppid])
 
+  // Same discount-source rule ShelfPreview applies — only online shelves
+  // (wishlist / store / composite-with-online-child) should ever display
+  // the discount badge. On owned/installed/collection shelves the user
+  // already has the game so the % off is noise.
+  const isOnlineShelfSource = (() => {
+    const s: any = shelfSource
+    if (!s || typeof s !== 'object') return false
+    if (s.type === 'wishlist' || s.type === 'store') return true
+    if (s.type === 'composite' && Array.isArray(s.sources)) {
+      return s.sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store')
+    }
+    return false
+  })()
+
   useEffect(() => {
     const rowEl = rowRef.current
     if (!rowEl) return
     let rafPending: number | null = null
-    let throttleTimer: any = null
-    let throttled = false
-    let lastFocusedCard: HTMLElement | null = null
-    let lastScrolledOffsetLeft: number | null = null
-    const doScroll = (card: HTMLElement) => {
-      const final = computeCenteredScrollLeft(
-        { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
-        { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight }
-      )
-      try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
-      lastScrolledOffsetLeft = card.offsetLeft
-      throttled = true
-      if (throttleTimer) clearTimeout(throttleTimer)
-      throttleTimer = setTimeout(() => {
-        throttled = false
-        throttleTimer = null
-        if (lastFocusedCard && (lastFocusedCard !== card || lastFocusedCard.offsetLeft !== lastScrolledOffsetLeft)) {
-          doScroll(lastFocusedCard)
-        }
-      }, 100)
-    }
-    const handle = (card: HTMLElement) => {
-      lastFocusedCard = card
-      // Re-scroll when the focused card's position changed (after a shift the
-      // same node moves to a new offsetLeft), even within the throttle window.
-      if (throttled && lastScrolledOffsetLeft === card.offsetLeft) return
-      doScroll(card)
-    }
+    // Mirror ShelfPreview's focusin behaviour 1:1 — `scrollIntoView({
+    // block: nearest, inline: center })` is what every other preview
+    // row uses. Selector uses `.ds-card` (GameCard's class), matching
+    // every other tab.
     const onFocusIn = (e: Event) => {
       const target = e.target as HTMLElement | null
-      const card = target?.closest('.ds-highlight-mini') as HTMLElement | null
+      const card = target?.closest('.ds-card') as HTMLElement | null
       if (!card || !rowEl.contains(card)) return
       if (rafPending !== null) cancelAnimationFrame(rafPending)
-      rafPending = requestAnimationFrame(() => { rafPending = null; handle(card) })
+      rafPending = requestAnimationFrame(() => {
+        rafPending = null
+        try {
+          card.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'nearest', inline: 'center' })
+        } catch {
+          try { card.scrollIntoView({ block: 'nearest', inline: 'center' }) } catch {}
+        }
+      })
     }
     rowEl.addEventListener('focusin', onFocusIn)
     return () => {
       rowEl.removeEventListener('focusin', onFocusIn)
       if (rafPending !== null) cancelAnimationFrame(rafPending)
-      if (throttleTimer) clearTimeout(throttleTimer)
     }
   }, [])
+
+  // Look up a card's DOM element by its DeckRowItem.id (the value passed
+  // through ShelfRow → GameCard → data-appid). For game cards the id is
+  // the appid; for synthetic sentinels (negative) we encode it in
+  // data-appid too via `__synth_<sentinelKey>` — but the grab system
+  // only ever targets positive appids, so the synthetic case isn't
+  // reachable here.
+  const findCardEl = (appid: number) => {
+    const rowEl = rowRef.current
+    if (!rowEl || !appid) return null
+    return rowEl.querySelector<HTMLElement>(`.ds-card[data-appid="${appid}"]`)
+  }
 
   const refocusGrabbed = () => {
     const appid = grabbedRef.current
     if (appid === null) return
+    const el = findCardEl(appid)
+    try { el?.focus?.() } catch {}
+  }
+
+  const centerCard = (appid: number) => {
     const rowEl = rowRef.current
     if (!rowEl) return
-    const el = rowEl.querySelector<HTMLElement>(`.ds-highlight-mini[data-appid="${appid}"]`)
-    try { el?.focus?.() } catch {}
+    const target = findCardEl(appid)
+    if (!target) return
+    const final = computeCenteredScrollLeft(
+      { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
+      { left: target.offsetLeft, top: target.offsetTop, width: target.offsetWidth, height: target.offsetHeight }
+    )
+    try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
   }
 
   const shiftGrabbed = (delta: number) => {
@@ -110,22 +166,15 @@ export function ManualSortRow({
     // visible movement falls behind the keystrokes.
     orderRef.current = base
     onReorder(base)
-    // Scroll synchronously so the row tracks the keystroke instead of
-    // animating after the focus already moved. The focusin handler also
-    // re-centers via its throttle, but that path runs one rAF later
-    // and uses smooth scroll, which felt lagged on rapid presses.
+    // Two rAFs: first lets React commit, second guarantees layout.
+    // refocus + center happens AFTER the DOM has the new position so
+    // the focus indicator and the scroll position both track the
+    // grabbed card precisely — otherwise the card runs off-screen on
+    // rapid moves and the user loses track of where they're dragging.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refocusGrabbed()
-        const rowEl = rowRef.current
-        if (!rowEl) return
-        const target = rowEl.querySelector<HTMLElement>(`.ds-highlight-mini[data-appid="${picked}"]`)
-        if (!target) return
-        const final = computeCenteredScrollLeft(
-          { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
-          { left: target.offsetLeft, top: target.offsetTop, width: target.offsetWidth, height: target.offsetHeight }
-        )
-        try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
+        if (typeof picked === 'number') centerCard(picked)
       })
     })
   }
@@ -196,7 +245,15 @@ export function ManualSortRow({
     }
   }, [grabbedAppid])
 
-  const onCardPointerDown = (appid: number) => (e: React.PointerEvent) => {
+  // Delegated pointerdown — hits whichever card the user pressed and
+  // starts the hold-to-grab + drag-to-reorder flow. Lives on the row
+  // wrapper so we don't have to wrap each card individually (which
+  // ShelfRow doesn't allow without forking it).
+  const onRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const card = (e.target as HTMLElement | null)?.closest('.ds-card[data-appid]') as HTMLElement | null
+    if (!card) return
+    const appid = Number(card.getAttribute('data-appid')) || 0
+    if (!appid) return
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
     pointerHeldRef.current = false
     const startX = e.clientX
@@ -216,17 +273,20 @@ export function ManualSortRow({
       }
       const rowEl = rowRef.current
       if (!rowEl) return
-      const cards = Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-highlight-mini'))
+      const cards = Array.from(rowEl.querySelectorAll<HTMLElement>('.ds-card[data-appid]'))
       for (let i = 0; i < cards.length; i++) {
         const r = cards[i].getBoundingClientRect()
         if (ev.clientX >= r.left && ev.clientX <= r.right) {
           const current = grabbedRef.current
           if (current === null) return
+          const cardId = Number(cards[i].getAttribute('data-appid')) || 0
           const base = orderRef.current.slice()
           const from = base.indexOf(current)
-          if (from === -1 || from === i) return
+          const to = base.indexOf(cardId)
+          if (from === -1 || to === -1 || from === to) return
           const [picked] = base.splice(from, 1)
-          base.splice(i, 0, picked)
+          base.splice(to, 0, picked)
+          orderRef.current = base
           onReorder(base)
           return
         }
@@ -245,82 +305,126 @@ export function ManualSortRow({
     doc.addEventListener('pointerup', up)
   }
 
-  const shiftAt = (idx: number, delta: number) => {
-    const base = order.slice()
-    const to = Math.max(0, Math.min(base.length - 1, idx + delta))
-    if (to === idx) return
-    const [picked] = base.splice(idx, 1)
-    base.splice(to, 0, picked)
-    // Update orderRef synchronously so successive rapid clicks operate on
-    // the latest order rather than recomputing the same shift against the
-    // pre-commit state.
-    orderRef.current = base
-    onReorder(base)
-    // Nested rAF: the first frame lets React commit the new order; the
-    // second guarantees layout has been recomputed before we read
-    // `offsetLeft`. Instant behavior so the row tracks the click without
-    // a smooth-scroll delay.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const rowEl = rowRef.current
-        if (!rowEl) return
-        const target = rowEl.querySelector<HTMLElement>(`.ds-highlight-mini[data-appid="${picked}"]`)
-        if (!target) return
-        const final = computeCenteredScrollLeft(
-          { width: rowEl.clientWidth, scrollWidth: rowEl.scrollWidth },
-          { left: target.offsetLeft, top: target.offsetTop, width: target.offsetWidth, height: target.offsetHeight }
-        )
-        try { rowEl.scrollTo({ left: final, behavior: 'instant' as ScrollBehavior }) } catch { rowEl.scrollLeft = final }
+  // Build rowItems with the SAME shape ShelfPreview produces so the
+  // resulting ShelfRow render is visually identical — hide flags,
+  // synthetic interleaving, picker overlays, X-button binding, discount
+  // gating. The only differences:
+  //   - 'grabbed' selectionMark for the currently held card
+  //   - onToggleSelection wired to toggleGrab (click toggles grab)
+  //   - Synthetic sentinels in `order` (negative ids) translate to
+  //     synthetic DeckRowItems using state.syntheticCards data
+  const rowItems = useMemo<DeckRowItem[]>(() => {
+    let priceCache: any = null
+    if (isOnlineShelfSource) {
+      try {
+        const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1')
+        if (raw) priceCache = JSON.parse(raw)
+      } catch {}
+    }
+    const readDiscount = (id: number): number | undefined => {
+      if (!isOnlineShelfSource) return undefined
+      const d = priceCache?.[id]?.data?.discount
+      return typeof d === 'number' && d > 0 ? d : undefined
+    }
+    const out: DeckRowItem[] = []
+    for (let idx = 0; idx < order.length; idx++) {
+      const id = order[idx]
+      if (id < 0) {
+        // Synthetic sentinel — decode index back from `-(synthIdx + 1)`
+        // (same encoding EditShelfModal uses to interleave decoration
+        // cards into the manual order).
+        const synthIdx = -id - 1
+        const c = syntheticCards?.[synthIdx]
+        if (!c) continue
+        out.push({
+          id: `__synth_manual_${synthIdx}_${idx}`,
+          name: c.text ?? '',
+          synthetic: {
+            image: c.image,
+            text: c.text,
+            link: c.link,
+            size: c.size === 'featured' ? 'featured' : 'normal',
+            alpha: c.alpha,
+            placeholder: c.placeholder === true,
+          },
+        })
+        continue
+      }
+      const m = meta.get(id) as any
+      if (!m) continue
+      const grabbed = grabbedAppid === id
+      const inHighlighted = highlightedAppIds.includes(id)
+      const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
+      // Selection-mark precedence: grab wins (active drag intent);
+      // highlight-picker selection second; otherwise none. Matches the
+      // prior ManualSortRow logic so the visual overlay rules don't
+      // change across the refactor.
+      const mark: DeckRowItem['selectionMark'] =
+        grabbed ? 'grabbed'
+          : (highlightPickerOpen && inHighlighted) ? 'highlight'
+          : undefined
+      out.push({
+        id,
+        appid: id,
+        name: m.name ?? `App ${id}`,
+        portraitUrl: m.portraitUrl,
+        heroUrl: m.heroUrl,
+        isInstalled: m.installed,
+        isSteam: m.isSteam,
+        deckCompatCategory: m.deckCompatCategory,
+        playtimeMinutes: m.playtimeMinutes,
+        updatePending: m.updatePending,
+        isNew,
+        discountPercent: readDiscount(id),
+        selectionMark: mark,
+        onToggleSelection: () => toggleGrab(id),
       })
-    })
-  }
+    }
+    return out
+    // grabbedAppid drives the 'grabbed' overlay — needed in deps.
+  }, [order, meta, syntheticCards, grabbedAppid, highlightedAppIds.join(','), highlightPickerOpen, isOnlineShelfSource])
+
+  // featured rules per card (same precedence as ShelfPreview/ShelfRow):
+  // highlightAll > highlightFirst (idx 0) > id in highlightedSet.
+  const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
 
   return (
     <Focusable
       ref={rowRef}
+      onPointerDown={onRowPointerDown}
+      data-ds-preview-row='1'
       style={{
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8,
-        // Extend to container outer edges; no internal horizontal padding —
-        // first/last card sit flush against the edge. Matches HighlightRow.
-        margin: '0 -24px', padding: '12px 0 28px', width: 'auto',
-        // 28px bottom padding reserves room for the Decky Focusable focus
-        // glow on the mini-card (extends ~24px past the card edge); see
-        // HighlightRow for the rationale on keeping overflow-y: hidden.
+        padding: '12px 0 28px',
+        // overflow-y hidden + 28 px bottom padding reserves room for the
+        // Focusable glow ring that extends past the card edge.
         overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
         touchAction: 'pan-x',
         overscrollBehaviorX: 'contain',
         overscrollBehaviorY: 'none',
       }}
     >
-      {order.map((id, idx) => {
-        const m = meta.get(id)
-        const grabbed = grabbedAppid === id
-        const inHighlighted = highlightedAppIds.includes(id)
-        const selected = highlightPickerOpen && inHighlighted
-        const featured = highlightAll || (highlightFirst && idx === 0) || inHighlighted
-        // Match the ShelfPreview dimensions (PREVIEW_ART_H + FEATURED_CARD_W)
-        // so the manual-sort row reads at the same scale as every other tab.
-        const h = 110
-        const w = featured ? 250 : 78
-        return (
-          <HighlightMiniCard
-            key={id}
-            appid={id}
-            name={m?.name ?? `App ${id}`}
-            portraitUrl={m?.portraitUrl}
-            heroUrl={m?.heroUrl}
-            featured={featured}
-            selected={selected}
-            grabbed={grabbed}
-            width={w}
-            height={h}
-            onToggle={() => toggleGrab(id)}
-            onShiftLeft={idx > 0 ? () => shiftAt(idx, -1) : null}
-            onShiftRight={idx < order.length - 1 ? () => shiftAt(idx, +1) : null}
-            onPointerDown={onCardPointerDown(id)}
-          />
-        )
-      })}
+      <ShelfRow
+        items={rowItems}
+        cardW={PREVIEW_CARD_W}
+        cardH={PREVIEW_ART_H}
+        featuredW={FEATURED_CARD_W}
+        featuredH={PREVIEW_ART_H}
+        highlightFirst={highlightFirst}
+        highlightAll={highlightAll}
+        highlightedSet={highlightedSet}
+        hideStatusLine={!!hideStatusLine}
+        hideNewBadge={!!hideNewBadge}
+        hideDiscountBadge={!!hideDiscountBadge}
+        hideCompatIcons={!!hideCompatIcons}
+        hideNonSteamBadge={!!hideNonSteamBadge}
+        hideGameName={!!hideGameNames}
+        hideInstallIndicator={!!hideInstallIndicator}
+        inlineBadges
+        previewMode
+        removableSet={removableSet}
+        onRemoveCard={onRemoveCard}
+      />
       <span aria-hidden='true' style={{ display: 'none' }}>{t('sort_manual')}</span>
     </Focusable>
   )

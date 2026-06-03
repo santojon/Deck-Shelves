@@ -122,10 +122,24 @@ export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
 }
 
 /**
- * Returns a ShelfFilter that uses the new filterGroup system, preserving the sort field.
+ * Returns a ShelfFilter that uses the new filterGroup system, preserving
+ * the sort + sortReverse fields. `sortReverse` accepts the same
+ * `boolean | boolean[]` shape that the schema does — required for
+ * multi-key sort chains saved on filter sources, since the shelf-level
+ * `sortReverse` field is never populated for filter shelves (filter sort
+ * lives entirely inside the filter object).
  */
-export function filterGroupToFilter(group: FilterGroup, sort: ShelfFilter["sort"] = "alphabetical"): ShelfFilter {
-  return { sort, filterGroup: group };
+export function filterGroupToFilter(
+  group: FilterGroup,
+  sort: ShelfFilter["sort"] = "alphabetical",
+  sortReverse?: ShelfFilter["sortReverse"],
+): ShelfFilter {
+  const out: ShelfFilter = { sort, filterGroup: group };
+  if (sortReverse !== undefined && sortReverse !== false &&
+    !(Array.isArray(sortReverse) && sortReverse.every((b) => !b))) {
+    out.sortReverse = sortReverse;
+  }
+  return out;
 }
 
 /**

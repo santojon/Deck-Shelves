@@ -165,7 +165,19 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         hide_refresh_card = bool(s.get("hideRefreshCard", False))
         hero_enabled = bool(s.get("heroEnabled", False))
         valid_sorts = {"alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"}
-        shelf_sort = str(s.get("sort") or "")
+        # Sort may be a single string (back-compat) OR an array of keys
+        # for primary + tiebreakers. Plain `str(s.get("sort"))` would
+        # have flattened the array to `"['recent', 'alphabetical']"`,
+        # failing the valid_sorts check and dropping the field silently
+        # — which is why multi-key sort wasn't reaching the resolver.
+        raw_sort = s.get("sort")
+        shelf_sort: Any = ""
+        if isinstance(raw_sort, list):
+            cleaned_keys = [str(k) for k in raw_sort if isinstance(k, str) and k]
+            if cleaned_keys:
+                shelf_sort = cleaned_keys
+        elif raw_sort:
+            shelf_sort = str(raw_sort)
         raw_manual = s.get("manualOrder")
         manual_ids: list = []
         if isinstance(raw_manual, list):
@@ -222,7 +234,12 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         }
         if hero_enabled:
             shelf_entry["heroEnabled"] = True
-        if shelf_sort and shelf_sort in valid_sorts:
+        if isinstance(shelf_sort, list):
+            # Multi-key array passes through unchanged; client + resolver
+            # accept unknown strings for forward-compat (registered
+            # external sort options).
+            shelf_entry["sort"] = shelf_sort
+        elif shelf_sort and shelf_sort in valid_sorts:
             shelf_entry["sort"] = shelf_sort
         if highlighted_ids:
             shelf_entry["highlightedAppIds"] = highlighted_ids
@@ -232,22 +249,112 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
             shelf_entry["dedupeByExactName"] = True
         if manual_ids:
             shelf_entry["manualOrder"] = manual_ids
-        manual_base_sort = str(s.get("manualBaseSort") or "")
-        if manual_base_sort and manual_base_sort in valid_sorts and manual_base_sort != "manual":
-            shelf_entry["manualBaseSort"] = manual_base_sort
+        # manualBaseSort accepts either a single key or a multi-key
+        # chain (list of strings). Unknown strings are passed through so
+        # external sort plugins survive a round-trip; "manual" is
+        # rejected (would be circular).
+        raw_base = s.get("manualBaseSort")
+        if isinstance(raw_base, list):
+            cleaned_base = [str(k) for k in raw_base if isinstance(k, str) and k and k != "manual"]
+            if cleaned_base:
+                shelf_entry["manualBaseSort"] = cleaned_base
+        elif isinstance(raw_base, str) and raw_base and raw_base != "manual":
+            shelf_entry["manualBaseSort"] = raw_base
         # Asc/desc invert flags. Persisted only when explicitly true to keep
-        # storage minimal; resolver treats absence as false.
-        if bool(s.get("sortReverse", False)):
+        # storage minimal; resolver treats absence as false. Array form
+        # mirrors the `sort` array's per-key direction.
+        raw_reverse = s.get("sortReverse")
+        if isinstance(raw_reverse, list):
+            cleaned_rev = [bool(b) for b in raw_reverse]
+            if any(cleaned_rev):
+                shelf_entry["sortReverse"] = cleaned_rev
+        elif bool(raw_reverse):
             shelf_entry["sortReverse"] = True
-        if bool(s.get("manualBaseSortReverse", False)):
+        # Same shape for manualBaseSortReverse — accepts boolean or
+        # boolean[] aligned with the multi-key base.
+        raw_base_rev = s.get("manualBaseSortReverse")
+        if isinstance(raw_base_rev, list):
+            cleaned_base_rev = [bool(b) for b in raw_base_rev]
+            if any(cleaned_base_rev):
+                shelf_entry["manualBaseSortReverse"] = cleaned_base_rev
+        elif bool(raw_base_rev):
             shelf_entry["manualBaseSortReverse"] = True
+        # synthetic cards. Trust the client schema's
+        # superRefine for rule enforcement; here just clamp types,
+        # positions, and sizes so a malformed write can't crash boot.
+        raw_synth = s.get("syntheticCards")
+        if isinstance(raw_synth, list) and raw_synth:
+            cleaned_synth = []
+            for c in raw_synth:
+                if not isinstance(c, dict):
+                    continue
+                try:
+                    pos = int(c.get("position") or 0)
+                except Exception:
+                    continue
+                pos = max(0, min(pos, 999))
+                entry_c: Dict[str, Any] = {"position": pos}
+                if isinstance(c.get("image"), str) and c["image"]:
+                    entry_c["image"] = c["image"][:1024]
+                if isinstance(c.get("text"), str) and c["text"]:
+                    entry_c["text"] = c["text"][:64]
+                lk = c.get("link")
+                if isinstance(lk, dict) and lk.get("type") in ("app", "url") and isinstance(lk.get("value"), str) and lk["value"]:
+                    entry_c["link"] = {"type": lk["type"], "value": lk["value"][:512]}
+                sz = c.get("size")
+                entry_c["size"] = sz if sz in ("normal", "featured") else "normal"
+                if isinstance(c.get("alpha"), (int, float)):
+                    a = float(c["alpha"])
+                    if 0.0 <= a <= 1.0:
+                        entry_c["alpha"] = a
+                if c.get("placeholder") is True:
+                    entry_c["placeholder"] = True
+                # Optional hero image — when set, the synthetic card
+                # exposes `data-ds-hero-url` and the per-shelf hero
+                # backdrop reads it on focus. Stripped on empty.
+                if isinstance(c.get("heroImage"), str) and c["heroImage"]:
+                    entry_c["heroImage"] = c["heroImage"][:1024]
+                # Optional shadow mode — only meaningful for focusable
+                # (linked) cards; the editor strips it for non-focusable
+                # cards on save. Accept only the three known values.
+                sm = c.get("shadowMode")
+                if sm in ("onFocus", "always"):
+                    entry_c["shadowMode"] = sm
+                cleaned_synth.append(entry_c)
+            if cleaned_synth:
+                shelf_entry["syntheticCards"] = cleaned_synth
         sanitized.append(shelf_entry)
     # Sanitize smart shelves
     raw_smart = settings.get("smartShelves", [])
     if not isinstance(raw_smart, list):
         raw_smart = []
     sanitized_smart = []
-    valid_modes = {"quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed", "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played", "long_session", "non_steam", "random_pick", "forgotten", "spare_time", "custom"}
+    # MUST stay in sync with `INTERNAL_SMART_MODES` in src/steam/smartShelves.ts
+    # AND the `SmartShelfModeSchema` enum in src/types.ts — missing modes here
+    # silently DROP the shelf on save (it fails the `ss_mode not in valid_modes`
+    # check below). When adding a new heuristic / runtime-aware template,
+    # update all three locations.
+    valid_modes = {
+        # Round 1 — heuristic templates
+        "quick_play", "not_started", "deck_picks", "rediscover", "best_unplayed",
+        "interrupted", "time_of_day", "daily_pick", "on_deck", "recently_played",
+        "long_session", "non_steam", "random_pick", "forgotten", "spare_time",
+        # Media templates
+        "soundtracks", "videos", "demos", "cloud_games",
+        # v2 heuristic templates (2.4.0)
+        "backlog_rescue", "forgotten_gems", "weekly_rotation",
+        # Second-wave heuristic templates
+        "short_battery", "long_session_night", "travel_mode", "hidden_gems",
+        "never_touched_classics", "recent_hidden_installs",
+        "monthly_spotlight", "seasonal_rotation",
+        # Runtime-aware templates
+        "low_battery_mode", "almost_finished",
+        "couch_gaming", "coop_ready", "party_games",
+        # Online-gated runtime template
+        "friends_playing",
+        # Custom (free-form filter shelf)
+        "custom",
+    }
     for ss in raw_smart:
         if not isinstance(ss, dict):
             continue
@@ -268,14 +375,26 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if ss.get("limit") is not None:
             entry["limit"] = ss_limit
         # Optional user overrides on top of the mode's natural output.
-        ss_sort = str(ss.get("sort") or "")
-        if ss_sort and ss_sort in valid_sorts:
-            entry["sort"] = ss_sort
+        # Multi-key sort: same array passthrough as regular shelves.
+        raw_ss_sort = ss.get("sort")
+        if isinstance(raw_ss_sort, list):
+            cleaned_keys = [str(k) for k in raw_ss_sort if isinstance(k, str) and k]
+            if cleaned_keys:
+                entry["sort"] = cleaned_keys
+        else:
+            ss_sort_str = str(raw_ss_sort or "")
+            if ss_sort_str and ss_sort_str in valid_sorts:
+                entry["sort"] = ss_sort_str
         ss_base = str(ss.get("manualBaseSort") or "")
         if ss_base and ss_base in valid_sorts and ss_base != "manual":
             entry["manualBaseSort"] = ss_base
         # Asc/desc invert flags. Same minimal-storage convention as regular shelves.
-        if bool(ss.get("sortReverse", False)):
+        raw_ss_rev = ss.get("sortReverse")
+        if isinstance(raw_ss_rev, list):
+            cleaned_rev = [bool(b) for b in raw_ss_rev]
+            if any(cleaned_rev):
+                entry["sortReverse"] = cleaned_rev
+        elif bool(raw_ss_rev):
             entry["sortReverse"] = True
         if bool(ss.get("manualBaseSortReverse", False)):
             entry["manualBaseSortReverse"] = True
@@ -394,6 +513,17 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                 except Exception:
                     continue
             entry["visibleDaysOfWeek"] = sorted(cleaned_days)
+        # compositeModes / compositeCombine: optional source-mixing fields.
+        # compositeModes is a list of mode strings; compositeCombine is
+        # either "union" or "intersection". Both are dropped when invalid.
+        raw_cmodes = ss.get("compositeModes")
+        if isinstance(raw_cmodes, list):
+            cleaned_cmodes = [str(m)[:64] for m in raw_cmodes if isinstance(m, str) and m][:5]
+            if cleaned_cmodes:
+                entry["compositeModes"] = cleaned_cmodes
+        raw_ccombine = ss.get("compositeCombine")
+        if raw_ccombine in ("union", "intersection"):
+            entry["compositeCombine"] = raw_ccombine
         sanitized_smart.append(entry)
 
     try:
@@ -416,9 +546,74 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
         if not sf_id or not sf_name or sf_group is None:
             continue
         sanitized_saved.append({"id": sf_id, "name": sf_name, "group": sf_group})
+    # saved smart filter groups. Schema mirrors SavedSmartFilter
+    # in src/types.ts; client-side Zod is the authoritative validator.
+    raw_saved_smart = settings.get("savedSmartFilters", [])
+    if not isinstance(raw_saved_smart, list):
+        raw_saved_smart = []
+    sanitized_saved_smart = []
+    for sf in raw_saved_smart:
+        if not isinstance(sf, dict):
+            continue
+        sf_id = str(sf.get("id") or "")[:64]
+        sf_name = sf.get("name") if isinstance(sf.get("name"), str) else ""
+        sf_name = sf_name.strip()[:64] if sf_name else ""
+        sf_mode = str(sf.get("mode") or "")[:64]
+        if not sf_id or not sf_name or not sf_mode:
+            continue
+        entry_ss: Dict[str, Any] = {"id": sf_id, "name": sf_name, "mode": sf_mode}
+        sp = sf.get("smartParams")
+        if isinstance(sp, dict):
+            cleaned_sp = {str(k): float(v) for k, v in sp.items() if isinstance(v, (int, float))}
+            if cleaned_sp:
+                entry_ss["smartParams"] = cleaned_sp
+        if isinstance(sf.get("filterGroup"), dict):
+            entry_ss["filterGroup"] = sf["filterGroup"]
+        sf_sort = sf.get("sort")
+        if isinstance(sf_sort, list):
+            cleaned_sort = [str(s) for s in sf_sort if isinstance(s, str) and s]
+            if cleaned_sort:
+                entry_ss["sort"] = cleaned_sort
+        elif isinstance(sf_sort, str) and sf_sort:
+            entry_ss["sort"] = sf_sort
+        sf_rev = sf.get("sortReverse")
+        if isinstance(sf_rev, list):
+            entry_ss["sortReverse"] = [bool(b) for b in sf_rev]
+        elif sf_rev is True:
+            entry_ss["sortReverse"] = True
+        try:
+            if sf.get("limit") is not None:
+                entry_ss["limit"] = max(1, min(int(sf["limit"]), 100))
+        except Exception:
+            pass
+        # visibleHours: array of { start, end, days? } ranges (mirrors
+        # SmartShelf.visibleHours so saved entries round-trip cleanly).
+        if isinstance(sf.get("visibleHours"), list):
+            cleaned_hours = []
+            for r in sf["visibleHours"]:
+                if not isinstance(r, dict):
+                    continue
+                try:
+                    start_h = int(r.get("start"))
+                    end_h = int(r.get("end"))
+                except (TypeError, ValueError):
+                    continue
+                if not (0 <= start_h <= 23 and 0 <= end_h <= 23):
+                    continue
+                entry_h: Dict[str, Any] = {"start": start_h, "end": end_h}
+                if isinstance(r.get("days"), list):
+                    days = [int(d) for d in r["days"] if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
+                    if days:
+                        entry_h["days"] = days
+                cleaned_hours.append(entry_h)
+            if cleaned_hours:
+                entry_ss["visibleHours"] = cleaned_hours
+        if isinstance(sf.get("visibleDaysOfWeek"), list):
+            entry_ss["visibleDaysOfWeek"] = [int(d) for d in sf["visibleDaysOfWeek"] if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
+        sanitized_saved_smart.append(entry_ss)
     update_dismissed = settings.get("updateNotifyDismissedVersion")
     update_dismissed = str(update_dismissed)[:64] if isinstance(update_dismissed, str) else None
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False))}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "savedSmartFilters": sanitized_saved_smart, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False))}
 
 
 class Plugin:
@@ -659,6 +854,46 @@ class Plugin:
         except Exception as e:
             try:
                 decky.logger.error(f"Failed reading json from {path}: {e}")
+            except Exception:
+                pass
+            return {"ok": False}
+
+    async def read_image_b64(self, path: str = "", *args, **kwargs) -> Dict[str, Any]:
+        # Reads a local image as a base64 data URL so the frontend can
+        # render it directly via `<img src="data:...">`. CEF blocks
+        # bare `file://` urls under the home shelf, and the decoration
+        # editor lets the user pick any image from `~/Pictures` etc.
+        # Returns `{ok: true, dataUrl}` on success; `{ok: false}` when
+        # the file is missing, oversized, or outside the home dir.
+        # Size cap: 8 MiB — anything larger is almost certainly a
+        # mistake (Steam Deck card art ranges 30-300 KiB).
+        import base64
+        path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
+        if not path or not os.path.exists(path) or not os.path.isfile(path):
+            return {"ok": False}
+        try:
+            size = os.path.getsize(path)
+            if size > 8 * 1024 * 1024:
+                return {"ok": False}
+            ext = os.path.splitext(path)[1].lower().lstrip(".")
+            mime_by_ext = {
+                "png": "image/png",
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "webp": "image/webp",
+                "gif": "image/gif",
+                "bmp": "image/bmp",
+            }
+            mime = mime_by_ext.get(ext)
+            if not mime:
+                return {"ok": False}
+            with open(path, "rb") as f:
+                raw = f.read()
+            data_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+            return {"ok": True, "dataUrl": data_url}
+        except Exception as e:
+            try:
+                decky.logger.error(f"Failed reading image from {path}: {e}")
             except Exception:
                 pass
             return {"ok": False}

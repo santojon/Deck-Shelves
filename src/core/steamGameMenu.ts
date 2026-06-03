@@ -1,4 +1,4 @@
-import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as dflAfterPatch } from "@decky/ui";
+import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as dflAfterPatch, findInTree as dflFindInTree, MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "@decky/ui";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
@@ -241,12 +241,29 @@ function isGameContextMenuItems(items: any[], dfl: any): boolean {
 const DS_ROOT_KEYS = new Set([
   "ds-deck-shelves", "ds-shelf-root",
   "ds-card-highlight", "ds-card-hide",
+  // Add/Remove-shelf groups (both the in-shelf and library-card paths).
+  // Missing these from the dedup set caused the "Add to shelf" submenu
+  // to inject twice on shelves where both the boot-patch render and the
+  // shouldComponentUpdate hook fired against the same menu instance.
+  "ds-card-add-shelf", "ds-card-remove-shelf",
+  "ds-lib-add-shelf", "ds-lib-remove-shelf",
+  // Synthetic-card top-level decoration shortcut (when the user opens
+  // the menu on a decoration card from showSyntheticCardMenu).
+  "ds-syn-decoration-top",
   "ds-sep-boot",
 ]);
 function dedupDsMenuItems(items: any[]): void {
   if (!Array.isArray(items)) return;
   for (let i = items.length - 1; i >= 0; i--) {
-    if (DS_ROOT_KEYS.has(items[i]?.key)) items.splice(i, 1);
+    const k = items[i]?.key;
+    if (typeof k !== "string") continue;
+    // Exact match on group-level keys + prefix match on the per-shelf
+    // flat items the library-card path emits (one MenuItem per shelf,
+    // key like `ds-lib-add-s_7b1a8487`). Without the prefix check, the
+    // flat items accumulated across re-renders.
+    if (DS_ROOT_KEYS.has(k) || k.startsWith("ds-lib-add-") || k.startsWith("ds-lib-rm-") || k.startsWith("ds-card-add-") || k.startsWith("ds-card-rm-")) {
+      items.splice(i, 1);
+    }
   }
 }
 
@@ -339,11 +356,15 @@ function patchDeepestRender(prototype: any): void {
         const R = getSteamReact();
         if (!dfl || !R) return ret2;
         if (!isGameContextMenuItems(menuItems, dfl)) return ret2;
-        // Skip when the outer LibraryContextMenu mutation already inserted
-        // a DS item into the children array — this patch is only the
-        // fallback for the very first menu open in a session, before the
-        // outer's else branch starts running.
-        if (menuItems.some((c: any) => c?.key === "ds-deck-shelves")) return ret2;
+        // Dedup BEFORE splicing — the outer LibraryContextMenu patch
+        // already mutated `component.props.children`, and on the modern
+        // Steam client that array is the SAME reference the inner class
+        // passes through as `ret2.props.children`. Without this dedup
+        // both patches splice on every menu open, producing two copies
+        // of every DS submenu ("Adicionar à prateleira" 2×, "Prateleira"
+        // 2×). The shouldComponentUpdate hook already does this for
+        // re-renders; do it here so the first render is consistent.
+        dedupDsMenuItems(menuItems);
         let curAppid: number = 0;
         try {
           const parent = menuItems.find((x: any) =>
@@ -353,8 +374,24 @@ function patchDeepestRender(prototype: any): void {
         if (!curAppid) {
           try { curAppid = Number(this?.props?.overview?.appid) || 0; } catch {}
         }
+        // Oct 2025+ client fallback (see installLibraryContextMenuPatch).
+        if (!curAppid) {
+          try {
+            const foundApp: any = dflFindInTree(menuItems, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
+            if (foundApp?.app?.appid) curAppid = Number(foundApp.app.appid) || 0;
+          } catch {}
+        }
         const curShelfId = resolveShelfIdByAppid(curAppid);
-        if (!curShelfId) return ret2;
+        if (!curShelfId) {
+          // Library-card path (game isn't in any DS shelf). Still
+          // surface the Add-to-shelf submenu so the user can append
+          // it to one of their manual shelves from the native menu.
+          if (curAppid > 0) {
+            const libItems = buildLibraryAddToShelfItems(curAppid, dfl, R);
+            if (libItems.length) spliceDsItems(menuItems, libItems, dfl, R);
+          }
+          return ret2;
+        }
         const items = buildDeckShelvesMenuItems(curShelfId, dfl, R, curAppid);
         if (!items.length) return ret2;
         spliceDsItems(menuItems, items, dfl, R);
@@ -385,8 +422,24 @@ function patchDeepestRender(prototype: any): void {
           if (!curAppid) {
             try { curAppid = Number(this?.props?.overview?.appid) || 0; } catch {}
           }
+          // Oct 2025+ client fallback (see installLibraryContextMenuPatch).
+          if (!curAppid) {
+            try {
+              const foundApp: any = dflFindInTree(nextChildren, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
+              if (foundApp?.app?.appid) curAppid = Number(foundApp.app.appid) || 0;
+            } catch {}
+          }
           const curShelfId = resolveShelfIdByAppid(curAppid);
-          if (!curShelfId) return shouldUpdate;
+          if (!curShelfId) {
+            if (curAppid > 0) {
+              const libItems = buildLibraryAddToShelfItems(curAppid, dfl, R);
+              if (libItems.length) {
+                dedupDsMenuItems(nextChildren);
+                spliceDsItems(nextChildren, libItems, dfl, R);
+              }
+            }
+            return shouldUpdate;
+          }
           dedupDsMenuItems(nextChildren);
           const items = buildDeckShelvesMenuItems(curShelfId, dfl, R, curAppid);
           if (items.length) spliceDsItems(nextChildren, items, dfl, R);
@@ -414,9 +467,24 @@ export function installLibraryContextMenuPatch(): void {
   const cls = discoverLibraryContextMenuClass();
   if (!cls?.prototype?.render || typeof dflAfterPatch !== "function") return;
   let innerInstalled = false;
+  // Debug tap — bumped every time the outer patch fires + the path it
+  // took. Surfaced through window.__DECK_SHELVES_DEBUG__ so we can
+  // verify via CDP whether the patch is reaching library cards at all.
+  try {
+    const g: any = (globalThis as any);
+    if (!g.__DECK_SHELVES_DEBUG__) g.__DECK_SHELVES_DEBUG__ = {};
+    g.__DECK_SHELVES_DEBUG__.lcmPatched = true;
+    g.__DECK_SHELVES_DEBUG__.lcmRenderCalls = 0;
+    g.__DECK_SHELVES_DEBUG__.lcmLibraryCalls = 0;
+    g.__DECK_SHELVES_DEBUG__.lcmShelfCalls = 0;
+    g.__DECK_SHELVES_DEBUG__.lcmNoAppid = 0;
+    g.__DECK_SHELVES_DEBUG__.lcmNoChildren = 0;
+    g.__DECK_SHELVES_DEBUG__.lcmSplicedLib = 0;
+  } catch {}
   try {
     dflAfterPatch(cls.prototype, "render", function (this: any, _args: any[], component: any) {
       try {
+        try { (globalThis as any).__DECK_SHELVES_DEBUG__.lcmRenderCalls++; } catch {}
         let appid: number = 0;
         try {
           if (component?._owner?.pendingProps?.overview?.appid) {
@@ -426,9 +494,27 @@ export function installLibraryContextMenuPatch(): void {
         if (!appid) {
           try { appid = Number(this?.props?.overview?.appid) || 0; } catch {}
         }
-        if (!appid) return component;
+        // Oct 2025+ Steam client: the LibraryContextMenu wrapper element no
+        // longer carries `_owner.pendingProps.overview` nor `this.props.overview`
+        // — the appid is reachable only by walking `component.props.children`
+        // for a node with `app.appid`. Same fix CheatDeck / SteamGridDB
+        // shipped after the Oct 2025 client landed. Without this fallback our
+        // outer patch bails early and never installs the inner patch on
+        // library cards, so no DS submenu ever appears for games outside a
+        // DS shelf.
+        if (!appid) {
+          try {
+            const foundApp: any = dflFindInTree(component?.props?.children, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
+            if (foundApp?.app?.appid) appid = Number(foundApp.app.appid) || 0;
+          } catch {}
+        }
+        if (!appid) { try { (globalThis as any).__DECK_SHELVES_DEBUG__.lcmNoAppid++; } catch {} return component; }
+        // `shelfId` resolves to "" for library cards (games not pinned
+        // in any DS shelf). The outer patch USED to bail here, which
+        // meant library cards never installed the inner patch and
+        // never received Add/Remove-to-shelf items. We now keep going
+        // so the inner patch covers BOTH paths.
         const shelfId = resolveShelfIdByAppid(appid);
-        if (!shelfId) return component;
 
         const dfl = getDFL();
         const R = getSteamReact();
@@ -456,13 +542,62 @@ export function installLibraryContextMenuPatch(): void {
               return ret;
             });
           } catch {}
+          // Also splice DS items into THIS first render's component
+          // children if they're reachable here. Without it, the very
+          // first context menu open in a session shows no DS items
+          // (the inner patch only takes effect from the SECOND render
+          // onward). This matters most for library cards — the user
+          // expects Add/Remove on every menu, not "next time".
+          try {
+            // Use the same shape-aware lookup the inner patch uses
+            // (flat OR `[items]` nested children). Library card menus
+            // use the nested shape — directly mutating
+            // component.props.children was injecting DS entries as
+            // SIBLINGS of the items array instead of INTO it, so they
+            // never rendered. `findMenuItemsArray` returns the actual
+            // items array regardless of shape.
+            const targetItems = findMenuItemsArray(component);
+            const dbg: any = (globalThis as any).__DECK_SHELVES_DEBUG__;
+            if (!targetItems || !isGameContextMenuItems(targetItems, dfl)) {
+              try { dbg.lcmNoChildren++; } catch {}
+            } else {
+              dedupDsMenuItems(targetItems);
+              if (shelfId) {
+                try { dbg.lcmShelfCalls++; } catch {}
+                const items = buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
+                if (items.length) spliceDsItems(targetItems, items, dfl, R);
+              } else {
+                try { dbg.lcmLibraryCalls++; } catch {}
+                const libItems = buildLibraryAddToShelfItems(appid, dfl, R);
+                if (libItems.length) {
+                  spliceDsItems(targetItems, libItems, dfl, R);
+                  try { dbg.lcmSplicedLib++; } catch {}
+                }
+              }
+            }
+          } catch {}
         } else {
           try {
-            const outerChildren = component?.props?.children;
-            if (Array.isArray(outerChildren) && isGameContextMenuItems(outerChildren, dfl)) {
-              dedupDsMenuItems(outerChildren);
-              const items = buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
-              if (items.length) spliceDsItems(outerChildren, items, dfl, R);
+            const targetItems = findMenuItemsArray(component);
+            const dbg: any = (globalThis as any).__DECK_SHELVES_DEBUG__;
+            if (!targetItems || !isGameContextMenuItems(targetItems, dfl)) {
+              try { dbg.lcmNoChildren++; } catch {}
+            } else {
+              dedupDsMenuItems(targetItems);
+              if (shelfId) {
+                try { dbg.lcmShelfCalls++; } catch {}
+                const items = buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
+                if (items.length) spliceDsItems(targetItems, items, dfl, R);
+              } else {
+                // Library-card path: only the Add/Remove-to-shelf
+                // submenus apply (no shelf-scoped items to inject).
+                try { dbg.lcmLibraryCalls++; } catch {}
+                const libItems = buildLibraryAddToShelfItems(appid, dfl, R);
+                if (libItems.length) {
+                  spliceDsItems(targetItems, libItems, dfl, R);
+                  try { dbg.lcmSplicedLib++; } catch {}
+                }
+              }
             }
           } catch {}
         }
@@ -618,6 +753,10 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
   const checked = (flag: boolean, label: string) => (flag ? `✓ ${label}` : label);
 
   // ── Management submenu ────────────────────────────────────────────────
+  // Decoration is NOT here — it lives as its own submenu at the
+  // Prateleira level (same visual rank as Display / Visual), built
+  // below. Smart shelves skip the decoration submenu entirely
+  // (resolver is mode-driven, not slot-driven).
   const mgmt = [
     item("ds-edit",      lbl("editShelf", "Edit"),      () => dispatchShelfModal("edit", shelfId)),
     item("ds-duplicate", lbl("duplicateShelf", "Duplicate"), () => {
@@ -753,7 +892,91 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
         }
       },
     ));
+
+    // ── Add-to-shelf submenu ────────────────────────────────────────────
+    // Lists regular (non-smart) shelves the user could append this game
+    // to. Filtered to exclude:
+    //   - the current shelf (the game is already here)
+    //   - shelves whose appid pool already contains this id (via
+    //     manualOrder — that's the source of truth for manual shelves)
+    //   - shelves at or above their per-shelf limit
+    //   - shelves with 50+ manual entries (hard cap to keep the UX sane)
+    //
+    // Selecting an entry: the target shelf is patched with `sort='manual'`
+    // (if not already), manualOrder gains the appid at the end, and any
+    // previously-engaged manual sort keeps its prior order.
+    const ABSOLUTE_MAX = 50;
+    const candidateShelves: any[] = (settings.shelves ?? []).filter((sh: any) => {
+      if (sh.id === shelfId) return false;
+      const manual: number[] = sh.manualOrder ?? [];
+      if (manual.includes(focusedAppId)) return false;
+      const cap = Math.min(typeof sh.limit === "number" ? sh.limit : ABSOLUTE_MAX, ABSOLUTE_MAX);
+      if (manual.length >= cap) return false;
+      return true;
+    });
+    if (candidateShelves.length > 0) {
+      const addItems = candidateShelves.map((sh: any) => item(
+        `ds-card-add-${sh.id}`,
+        sh.title ?? sh.id,
+        () => {
+          const s = getCurrentSettings();
+          if (!s) return;
+          const tgt: any = (s.shelves ?? []).find((row: any) => row.id === sh.id);
+          if (!tgt) return;
+          const manual: number[] = tgt.manualOrder ?? [];
+          const wasManual = tgt.sort === "manual";
+          const patch: Record<string, any> = {
+            sort: "manual",
+            sortReverse: false,
+            manualOrder: [...manual, focusedAppId],
+          };
+          if (!wasManual) {
+            // Preserve the current natural order so the rest of the row
+            // doesn't reshuffle when we engage manual mode.
+            patch.manualBaseSort = typeof tgt.sort === "string" ? tgt.sort : "alphabetical";
+          }
+          void saveSettings(patchShelfInSettings(s, sh.id, patch));
+        },
+      ));
+      cardActions.push(group("ds-card-add-shelf", lbl("menu_add_to_shelf", "Add to shelf"), ...addItems));
+    }
+
+    // ── Remove-from-shelf submenu ──────────────────────────────────────
+    // Lists every regular shelf whose manualOrder currently contains
+    // this appid (excluding the shelf the menu is rooted on — the
+    // existing "Hide from shelf" entry handles the current shelf).
+    // Selecting an entry strips the appid from that shelf's manualOrder.
+    const removableShelves: any[] = (settings.shelves ?? []).filter((sh: any) => {
+      if (sh.id === shelfId) return false;
+      const manual: number[] = sh.manualOrder ?? [];
+      return manual.includes(focusedAppId);
+    });
+    if (removableShelves.length > 0) {
+      const rmItems = removableShelves.map((sh: any) => item(
+        `ds-card-rm-${sh.id}`,
+        sh.title ?? sh.id,
+        () => {
+          const s = getCurrentSettings();
+          if (!s) return;
+          const tgt: any = (s.shelves ?? []).find((row: any) => row.id === sh.id);
+          if (!tgt) return;
+          const manual: number[] = tgt.manualOrder ?? [];
+          void saveSettings(patchShelfInSettings(s, sh.id, {
+            manualOrder: manual.filter((id) => id !== focusedAppId),
+          }));
+        },
+      ));
+      cardActions.push(group("ds-card-remove-shelf", lbl("menu_remove_from_shelf", "Remove from shelf"), ...rmItems));
+    }
   }
+
+  // Decoration shortcut — plain item at the Prateleira level (no group
+  // wrapper), same visual rank as Display / Visual but selecting it
+  // jumps straight to the modal's Decoration tab instead of opening a
+  // single-item submenu.
+  const decoration = isSmart ? [] : [
+    item("ds-decoration", lbl("menu_decoration", "Decoration"), () => dispatchShelfModal("edit", shelfId, { initialTab: "decoration" })),
+  ];
 
   // Card-level items sit at the same level as "Prateleira", before it.
   // The "Prateleira" group contains only shelf-scoped submenus.
@@ -765,6 +988,7 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
       group("ds-mgmt",    lbl("menu_management", "Management"), ...mgmt),
       group("ds-display", lbl("menu_display",    "Display"),    ...display),
       group("ds-visual",  lbl("menu_visual",     "Visual"),     ...visual),
+      ...decoration,
     ),
   ];
 }
@@ -1479,6 +1703,81 @@ export function extractAppContextMenu(): boolean {
  */
 export function buildShelfContextMenu(shelfId: string, appid: number, dfl: any, R: any): any[] {
   return buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
+}
+
+/**
+ * Library-card Add/Remove-to-shelf injection. Emits up to two
+ * `MenuGroup` submenus (one per action) with one `MenuItem` per
+ * eligible shelf. Uses the STATIC `@decky/ui` imports so the component
+ * references match what Steam's renderer expects exactly — at runtime
+ * `window.DFL.MenuGroup` and the import resolve to the same instance,
+ * but importing keeps the reference stable across plugin reloads and
+ * Decky bundle updates (vs reading from a global that might drift).
+ *
+ * Returns `[]` when no eligible shelves exist on either action.
+ */
+export function buildLibraryAddToShelfItems(appid: number, _dfl: any, R: any): any[] {
+  if (!R?.createElement) return [];
+  if (!appid) return [];
+  const s = getCurrentSettings?.();
+  if (!s) return [];
+  const ABSOLUTE_MAX = 50;
+  const eligible: any[] = (s.shelves ?? []).filter((sh: any) => {
+    const manual: number[] = sh.manualOrder ?? [];
+    if (manual.includes(appid)) return false;
+    const cap = Math.min(typeof sh.limit === "number" ? sh.limit : ABSOLUTE_MAX, ABSOLUTE_MAX);
+    if (manual.length >= cap) return false;
+    return true;
+  });
+  const removable: any[] = (s.shelves ?? []).filter((sh: any) => (sh.manualOrder ?? []).includes(appid));
+  if (!eligible.length && !removable.length) return [];
+  const lblFn = (key: string, fallback: string): string => {
+    try { const v = i18n.t(key as any); return (typeof v === "string" && v && v !== key) ? v : fallback; } catch { return fallback; }
+  };
+  const mkItem = (key: string, label: string, onSelected: () => void) =>
+    R.createElement(DeckyMenuItem, { key, onSelected }, label);
+
+  const groups: any[] = [];
+  if (eligible.length > 0) {
+    const addChildren = eligible.map((sh: any) => mkItem(
+      `ds-lib-add-${sh.id}`,
+      sh.title ?? sh.id,
+      () => {
+        const cur = getCurrentSettings();
+        if (!cur) return;
+        const tgt: any = (cur.shelves ?? []).find((row: any) => row.id === sh.id);
+        if (!tgt) return;
+        const manual: number[] = tgt.manualOrder ?? [];
+        const wasManual = tgt.sort === "manual";
+        const patch: Record<string, any> = {
+          sort: "manual",
+          sortReverse: false,
+          manualOrder: [...manual, appid],
+        };
+        if (!wasManual) patch.manualBaseSort = typeof tgt.sort === "string" ? tgt.sort : "alphabetical";
+        void saveSettings(patchShelfInSettings(cur, sh.id, patch));
+      },
+    ));
+    groups.push(R.createElement(DeckyMenuGroup, { key: "ds-lib-add-shelf", label: lblFn("menu_add_to_shelf", "Add to shelf") }, ...addChildren));
+  }
+  if (removable.length > 0) {
+    const rmChildren = removable.map((sh: any) => mkItem(
+      `ds-lib-rm-${sh.id}`,
+      sh.title ?? sh.id,
+      () => {
+        const cur = getCurrentSettings();
+        if (!cur) return;
+        const tgt: any = (cur.shelves ?? []).find((row: any) => row.id === sh.id);
+        if (!tgt) return;
+        const manual: number[] = tgt.manualOrder ?? [];
+        void saveSettings(patchShelfInSettings(cur, sh.id, {
+          manualOrder: manual.filter((id) => id !== appid),
+        }));
+      },
+    ));
+    groups.push(R.createElement(DeckyMenuGroup, { key: "ds-lib-remove-shelf", label: lblFn("menu_remove_from_shelf", "Remove from shelf") }, ...rmChildren));
+  }
+  return groups;
 }
 
 export function showGameMenu(appid: number, shelfId?: string): void {

@@ -65,7 +65,15 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     }
 
     case "shortcutType": {
-      const KINDS = ["game", "software", "tool", "link"] as const;
+      // Mirror Steam's EAppType — see the resolver's `shortcutType`
+      // branch for the full mapping. Ordered roughly by how often a
+      // user would actually pick each kind.
+      const KINDS = [
+        "game", "software", "tool", "demo", "dlc",
+        "music", "video", "comic", "guide",
+        "driver", "config", "hardware", "beta",
+        "link",
+      ] as const;
       const kinds: string[] = Array.isArray(p.kinds) ? p.kinds : ["game"];
       const kindSet = new Set(kinds);
       return (
@@ -284,6 +292,35 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
           </div>
         </div>
       );
+
+    case "friendsPlayingNow":
+      // No params — just an info hint so the user knows the data source.
+      return (
+        <div>
+          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+            {t("filter_friends_playing_now_info")}
+          </div>
+        </div>
+      );
+
+    case "friendsPlayedRecently": {
+      const days = Number(p.days ?? 14);
+      return (
+        <>
+          <SliderField
+            label={`${t("filter_friends_played_recently_days")}: ${days}`}
+            value={days}
+            min={1}
+            max={30}
+            step={1}
+            onChange={(v: number) => patchParams({ days: v })}
+          />
+          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+            {t("filter_friends_played_recently_info")}
+          </div>
+        </>
+      );
+    }
 
     case "discount": {
       const minDisc = Number(p.minDiscount ?? 10);

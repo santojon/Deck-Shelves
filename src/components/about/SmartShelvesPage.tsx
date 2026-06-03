@@ -45,7 +45,39 @@ const SMART_GROUPS: { labelKey: string; items: SmartEntry[] }[] = [
       { labelKey: 'smart_template_random_pick',  descKey: 'docs_smart_template_random_pick',  sortKey: 'docs_smart_sort_random_pick' },
       { labelKey: 'smart_template_non_steam',    descKey: 'docs_smart_template_non_steam',    sortKey: 'docs_smart_sort_non_steam' },
       { labelKey: 'smart_template_long_session', descKey: 'docs_smart_template_long_session', sortKey: 'docs_smart_sort_long_session' },
+      { labelKey: 'smart_template_long_session_night', descKey: 'docs_smart_template_long_session_night', sortKey: 'docs_smart_sort_long_session_night' },
+      { labelKey: 'smart_template_short_battery',      descKey: 'docs_smart_template_short_battery',      sortKey: 'docs_smart_sort_short_battery' },
+      { labelKey: 'smart_template_travel_mode',        descKey: 'docs_smart_template_travel_mode',        sortKey: 'docs_smart_sort_travel_mode' },
+      { labelKey: 'smart_template_low_battery_mode',   descKey: 'docs_smart_template_low_battery_mode',   sortKey: 'docs_smart_sort_low_battery_mode' },
       { labelKey: 'smart_template_custom',       descKey: 'smart_template_custom_desc',       sortKey: 'docs_smart_sort_custom' },
+    ],
+  },
+  {
+    labelKey: 'docs_smart_group_heuristic',
+    items: [
+      { labelKey: 'smart_template_backlog_rescue',         descKey: 'docs_smart_template_backlog_rescue',         sortKey: 'docs_smart_sort_backlog_rescue' },
+      { labelKey: 'smart_template_forgotten_gems',         descKey: 'docs_smart_template_forgotten_gems',         sortKey: 'docs_smart_sort_forgotten_gems' },
+      { labelKey: 'smart_template_hidden_gems',            descKey: 'docs_smart_template_hidden_gems',            sortKey: 'docs_smart_sort_hidden_gems' },
+      { labelKey: 'smart_template_never_touched_classics', descKey: 'docs_smart_template_never_touched_classics', sortKey: 'docs_smart_sort_never_touched_classics' },
+      { labelKey: 'smart_template_recent_hidden_installs', descKey: 'docs_smart_template_recent_hidden_installs', sortKey: 'docs_smart_sort_recent_hidden_installs' },
+      { labelKey: 'smart_template_almost_finished',        descKey: 'docs_smart_template_almost_finished',        sortKey: 'docs_smart_sort_almost_finished' },
+    ],
+  },
+  {
+    labelKey: 'docs_smart_group_social',
+    items: [
+      { labelKey: 'smart_template_couch_gaming',    descKey: 'docs_smart_template_couch_gaming',    sortKey: 'docs_smart_sort_couch_gaming' },
+      { labelKey: 'smart_template_coop_ready',      descKey: 'docs_smart_template_coop_ready',      sortKey: 'docs_smart_sort_coop_ready' },
+      { labelKey: 'smart_template_party_games',     descKey: 'docs_smart_template_party_games',     sortKey: 'docs_smart_sort_party_games' },
+      { labelKey: 'smart_template_friends_playing', descKey: 'docs_smart_template_friends_playing', sortKey: 'docs_smart_sort_friends_playing' },
+    ],
+  },
+  {
+    labelKey: 'docs_smart_group_rotation',
+    items: [
+      { labelKey: 'smart_template_weekly_rotation',   descKey: 'docs_smart_template_weekly_rotation',   sortKey: 'docs_smart_sort_weekly_rotation' },
+      { labelKey: 'smart_template_monthly_spotlight', descKey: 'docs_smart_template_monthly_spotlight', sortKey: 'docs_smart_sort_monthly_spotlight' },
+      { labelKey: 'smart_template_seasonal_rotation', descKey: 'docs_smart_template_seasonal_rotation', sortKey: 'docs_smart_sort_seasonal_rotation' },
     ],
   },
 ]

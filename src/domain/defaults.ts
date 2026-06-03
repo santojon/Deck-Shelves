@@ -30,6 +30,10 @@ export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): Sm
       { start: 12, end: 14 },
       { start: 19, end: 22 },
     ];
+  } else if (mode === "long_session_night") {
+    // Differentiation from base long_session: this template surfaces only
+    // during evening hours (19h–23h) when long sessions are typical.
+    (base as any).visibleHours = [{ start: 19, end: 23 }];
   }
   return base;
 }
@@ -63,6 +67,7 @@ export function defaultSettings(): Settings {
     smartSurpriseMe: false,
     smartSurpriseMeCount: 0,
     savedFilters: [],
+    savedSmartFilters: [],
     updateNotifyEnabled: true,
     onlineFeaturesEnabled: false,
     onlineWishlistEnabled: true,
