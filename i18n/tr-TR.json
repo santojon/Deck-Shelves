@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "Arkadaşlar yakın zamanda oynadı",
   "filter_friends_playing_now_info": "En az bir Steam arkadaşının şu anda oynadığı oyunları içerir. Çevrimiçi özellikleri gerektirir.",
   "filter_friends_played_recently_days": "Son N gün",
-  "filter_friends_played_recently_info": "Belirtilen aralıkta en az bir Steam arkadaşının oynadığı oyunları içerir. Şu anda oynayanları da kapsar. Çevrimiçi özellikleri gerektirir."
+  "filter_friends_played_recently_info": "Belirtilen aralıkta en az bir Steam arkadaşının oynadığı oyunları içerir. Şu anda oynayanları da kapsar. Çevrimiçi özellikleri gerektirir.",
+  "decoration_card_label": "Kart",
+  "decoration_shadow_mode": "Gölge",
+  "decoration_shadow_never": "Asla",
+  "decoration_shadow_on_focus": "Odaklanınca",
+  "decoration_shadow_always": "Daima",
+  "decoration_hero_enable": "Hero görseli",
+  "decoration_hero_pick_hint": "Hero görseli seçin (16:9, yatay)",
+  "decoration_image_preview_empty": "Görsel yok",
+  "decoration_hero_preview_empty": "Hero yok",
+  "decoration_card_select": "Kartı düzenle",
+  "decoration_card_collapse": "Geri",
+  "decoration_card_collapse_hint": "B = geri",
+  "decoration_card_done": "Bitti"
 }

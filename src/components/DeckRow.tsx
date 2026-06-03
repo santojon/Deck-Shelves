@@ -76,6 +76,22 @@ function findNativeAssetProto(): any {
  *  smaller header crop). Instantiate the class via `Object.create` on its
  *  prototype, call `GetSourcesForAsset` with our app + `eAssetType=1` (hero),
  *  and get back exactly the URL list Steam itself would render. */
+// Stable 32-bit FNV-1a hash of a string — used as a synthetic-card hero
+// key in PerShelfHero so re-focusing the same synth doesn't re-swap, and
+// moving between synth heroes correctly triggers a fresh load. Returned
+// value is positive; the caller negates it so it can't collide with a
+// real Steam appid in `currentAppid`.
+function hashStringFastForHero(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  // Cap so the negated value stays well within JS safe int range and
+  // never overlaps the legitimate Steam appid space (<= ~5_000_000_000).
+  return ((h % 1_000_000) + 1);
+}
+
 function getNativeHeroUrls(appid: number): string[] | null {
   try {
     const app: any = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
@@ -471,7 +487,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       setIsShelfSelected((prev) => (prev === !!focusedAnyCard ? prev : !!focusedAnyCard));
       let focused: HTMLElement | null = null;
       if (e && e.target instanceof HTMLElement)
-        focused = e.target.closest('.ds-card[data-appid]') as HTMLElement | null;
+        focused = e.target.closest('.ds-card[data-appid], .ds-card[data-ds-hero-url]') as HTMLElement | null;
       if (!focused) focused = focusedAnyCard;
       // A genuinely focused card — via gamepad (`gpfocus` class) OR real DOM
       // focus — means the user has navigated into this shelf. Steam's gamepad
@@ -498,6 +514,41 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       }
       if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
+      // Decoration cards expose a `data-ds-hero-url` attribute when
+      // configured with a hero image — bypass the game-hero pipeline
+      // (no appid → no native fetch / no fallback CDN chain) and treat
+      // the attribute value as the sole URL to load into the next slot.
+      // Synthetic key (negative so it can't collide with a real appid)
+      // gates the `currentAppid.current !== ...` comparison so re-focusing
+      // the same synth card doesn't re-swap, and so moving from synth to
+      // a real game still triggers a fresh load.
+      const synthHero = focused.getAttribute('data-ds-hero-url');
+      if (synthHero) {
+        // No DS-card-label to clone for synth cards — clear the overlay
+        // label and leave hero label hidden.
+        setLabelHtml(null);
+        const synthKey = -Math.abs(hashStringFastForHero(synthHero));
+        if (synthKey !== currentAppid.current) {
+          currentAppid.current = synthKey;
+          if (showArt) {
+            if (heroSwapTimerRef.current) clearTimeout(heroSwapTimerRef.current);
+            const wasFirst = isFirstSlotSwapRef.current;
+            isFirstSlotSwapRef.current = false;
+            const doSwap = () => {
+              heroSwapTimerRef.current = null;
+              if (currentAppid.current !== synthKey) return;
+              allUrls.current = [synthHero];
+              fallbackIdx.current = 0;
+              const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
+              if (next === 'A') setSlotA(synthHero); else setSlotB(synthHero);
+              setActiveSlot(next);
+            };
+            if (wasFirst) doSwap();
+            else heroSwapTimerRef.current = setTimeout(doSwap, 30);
+          }
+        }
+        return;
+      }
       // Non-game card (RefreshCard / MoreCard / PlaceholderCard) — they
       // have no `data-appid` and no `.ds-card-label`. Clear the overlay
       // label so it doesn't keep showing the previously-focused game's

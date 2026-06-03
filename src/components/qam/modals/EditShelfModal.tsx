@@ -188,6 +188,8 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       size: c?.size === 'featured' ? 'featured' : 'normal',
       alpha: typeof c?.alpha === 'number' ? c.alpha : undefined,
       placeholder: c?.placeholder === true,
+      heroImage: typeof c?.heroImage === 'string' ? c.heroImage : undefined,
+      shadowMode: c?.shadowMode === 'always' || c?.shadowMode === 'onFocus' || c?.shadowMode === 'never' ? c.shadowMode : undefined,
     })) ?? [],
   })
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
@@ -895,6 +897,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
           const out: any = { ...c }
           if (typeof out.text === 'string' && out.text.length === 0) out.text = undefined
           if (typeof out.image === 'string' && out.image.length === 0) out.image = undefined
+          if (typeof out.heroImage === 'string' && out.heroImage.length === 0) out.heroImage = undefined
           if (out.text !== undefined && out.image !== undefined) out.text = undefined
           const hasContent = out.text !== undefined || out.image !== undefined
           if (out.link) {
@@ -907,6 +910,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
               catch { out.link = undefined }
             }
           }
+          // shadowMode only meaningful on focusable (linked) cards; strip
+          // on save when there's no link so the persisted JSON stays
+          // minimal and the resolver doesn't have to gate per render.
+          if (!out.link && out.shadowMode) delete out.shadowMode
+          if (out.shadowMode === 'never') delete out.shadowMode // never == default; omit
           return out
         })
       ;(patch as any).syntheticCards = cleanedSynth.length ? cleanedSynth : undefined

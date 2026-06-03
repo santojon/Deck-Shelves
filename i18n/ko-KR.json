@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "친구가 최근 플레이",
   "filter_friends_playing_now_info": "최소 한 명의 Steam 친구가 현재 플레이 중인 게임을 포함합니다. 온라인 기능 필요.",
   "filter_friends_played_recently_days": "최근 N일",
-  "filter_friends_played_recently_info": "기간 내 Steam 친구가 플레이한 게임을 포함합니다. 현재 플레이 중인 친구도 포함. 온라인 기능 필요."
+  "filter_friends_played_recently_info": "기간 내 Steam 친구가 플레이한 게임을 포함합니다. 현재 플레이 중인 친구도 포함. 온라인 기능 필요.",
+  "decoration_card_label": "카드",
+  "decoration_shadow_mode": "그림자",
+  "decoration_shadow_never": "없음",
+  "decoration_shadow_on_focus": "포커스 시",
+  "decoration_shadow_always": "항상",
+  "decoration_hero_enable": "히어로 이미지",
+  "decoration_hero_pick_hint": "히어로 이미지 선택 (16:9 가로)",
+  "decoration_image_preview_empty": "이미지 없음",
+  "decoration_hero_preview_empty": "히어로 없음",
+  "decoration_card_select": "카드 편집",
+  "decoration_card_collapse": "뒤로",
+  "decoration_card_collapse_hint": "B = 뒤로",
+  "decoration_card_done": "완료"
 }

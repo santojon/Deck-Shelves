@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "好友最近游玩",
   "filter_friends_playing_now_info": "包含至少一位 Steam 好友当前正在游玩的游戏。需要联网功能。",
   "filter_friends_played_recently_days": "最近 N 天",
-  "filter_friends_played_recently_info": "包含至少一位 Steam 好友在该时段内游玩过的游戏，含当前正在游玩。需要联网功能。"
+  "filter_friends_played_recently_info": "包含至少一位 Steam 好友在该时段内游玩过的游戏，含当前正在游玩。需要联网功能。",
+  "decoration_card_label": "卡片",
+  "decoration_shadow_mode": "阴影",
+  "decoration_shadow_never": "从不",
+  "decoration_shadow_on_focus": "聚焦时",
+  "decoration_shadow_always": "始终",
+  "decoration_hero_enable": "主图",
+  "decoration_hero_pick_hint": "选择主图 (16:9，横向)",
+  "decoration_image_preview_empty": "无图像",
+  "decoration_hero_preview_empty": "无主图",
+  "decoration_card_select": "编辑卡片",
+  "decoration_card_collapse": "返回",
+  "decoration_card_collapse_hint": "B = 返回",
+  "decoration_card_done": "完成"
 }

@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "Freunde haben kürzlich gespielt",
   "filter_friends_playing_now_info": "Trifft auf Spiele zu, in denen mindestens ein Steam-Freund gerade spielt. Erfordert Online-Funktionen.",
   "filter_friends_played_recently_days": "Letzte N Tage",
-  "filter_friends_played_recently_info": "Trifft auf Spiele zu, die mindestens ein Steam-Freund im Zeitraum gespielt hat. Schließt aktuell spielende Freunde ein. Erfordert Online-Funktionen."
+  "filter_friends_played_recently_info": "Trifft auf Spiele zu, die mindestens ein Steam-Freund im Zeitraum gespielt hat. Schließt aktuell spielende Freunde ein. Erfordert Online-Funktionen.",
+  "decoration_card_label": "Karte",
+  "decoration_shadow_mode": "Schatten",
+  "decoration_shadow_never": "Nie",
+  "decoration_shadow_on_focus": "Bei Fokus",
+  "decoration_shadow_always": "Immer",
+  "decoration_hero_enable": "Hero-Art",
+  "decoration_hero_pick_hint": "Hero-Bild wählen (16:9, Querformat)",
+  "decoration_image_preview_empty": "Kein Bild",
+  "decoration_hero_preview_empty": "Kein Hero",
+  "decoration_card_select": "Karte bearbeiten",
+  "decoration_card_collapse": "Zurück",
+  "decoration_card_collapse_hint": "B = zurück",
+  "decoration_card_done": "Fertig"
 }

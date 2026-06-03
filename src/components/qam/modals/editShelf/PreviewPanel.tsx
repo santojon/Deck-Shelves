@@ -78,6 +78,8 @@ export type PreviewPanelProps = {
     size: 'normal' | 'featured';
     alpha?: number;
     placeholder?: boolean;
+    heroImage?: string;
+    shadowMode?: 'never' | 'onFocus' | 'always';
   }>
   // Picker mode for the highlight / hidden tabs. When set, the preview
   // renders the same real cards as every other tab but with a tinted

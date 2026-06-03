@@ -35,6 +35,15 @@ export type DeckRowItem = {
     size: "normal" | "featured";
     alpha?: number;
     placeholder?: boolean;
+    // Optional hero image — when set AND the card is focused, the
+    // per-shelf hero background swaps to this URL (same path
+    // `PerShelfHero` uses for game cards via `data-appid`).
+    heroImage?: string;
+    // Card-frame shadow mode for focusable synth cards. "never"
+    // (default) maps to `.ds-card--synthetic-noshadow`; "always" keeps
+    // the baseline frame shadow; "onFocus" suppresses at idle and
+    // restores on focus. No effect on non-focusable gaps.
+    shadowMode?: "never" | "onFocus" | "always";
     // Persisted index into `shelf.syntheticCards`. Used by the home
     // shelf's SyntheticCard X (remove) / Y (toggle size) bindings to
     // patch the right entry. Optional — preview / drag modes that

@@ -806,6 +806,17 @@ function buildStylesheet(): string {
     #deck-shelves-home-root .ds-card--synthetic-noshadow:hover {
       box-shadow: none !important;
     }
+    /* Shadow-only-on-focus mode: suppress drop shadow at idle, restore it
+       on focus/hover. Mirrors the native focus shadow so the framed look
+       only kicks in when the user actually navigates to the card. */
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only {
+      box-shadow: none !important;
+    }
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only:focus,
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only.gpfocus,
+    #deck-shelves-home-root .ds-card--synthetic-shadow-focus-only:hover {
+      box-shadow: 0 8px 16px rgba(0,0,0,0.5) !important;
+    }
     /* Same suppression for the native shine ::after layer — paints
        over a transparent card it can't visually anchor against. */
     #deck-shelves-home-root .ds-card--synthetic-noshadow::after,

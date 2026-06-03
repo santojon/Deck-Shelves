@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "Vrienden speelden recent",
   "filter_friends_playing_now_info": "Bevat spellen waar minstens één Steam-vriend nu in zit. Vereist Online-functies.",
   "filter_friends_played_recently_days": "Laatste N dagen",
-  "filter_friends_played_recently_info": "Bevat spellen die minstens één Steam-vriend in het venster speelde. Inclusief wie nu speelt. Vereist Online-functies."
+  "filter_friends_played_recently_info": "Bevat spellen die minstens één Steam-vriend in het venster speelde. Inclusief wie nu speelt. Vereist Online-functies.",
+  "decoration_card_label": "Kaart",
+  "decoration_shadow_mode": "Schaduw",
+  "decoration_shadow_never": "Nooit",
+  "decoration_shadow_on_focus": "Bij focus",
+  "decoration_shadow_always": "Altijd",
+  "decoration_hero_enable": "Hero-art",
+  "decoration_hero_pick_hint": "Kies een hero-afbeelding (16:9, liggend)",
+  "decoration_image_preview_empty": "Geen afbeelding",
+  "decoration_hero_preview_empty": "Geen hero",
+  "decoration_card_select": "Kaart bewerken",
+  "decoration_card_collapse": "Terug",
+  "decoration_card_collapse_hint": "B = terug",
+  "decoration_card_done": "Klaar"
 }

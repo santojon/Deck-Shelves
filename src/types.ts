@@ -380,6 +380,17 @@ export const ShelfSchema = z.object({
       size: z.enum(["normal", "featured"]).default("normal"),
       alpha: z.number().min(0).max(1).optional(),
       placeholder: z.boolean().optional(),
+      // Decoration hero — when set, the synthetic card behaves as a
+      // hero source: while focused, this image fills the per-shelf
+      // hero background (same path PerShelfHero uses for game cards).
+      // No effect when empty or when the shelf has hero off.
+      heroImage: z.string().optional(),
+      // Shadow render mode for focusable (linked) decoration cards.
+      // "never" (default) keeps the prior `.ds-card--synthetic-noshadow`
+      // behaviour; "always" paints the card-frame drop shadow in every
+      // state; "onFocus" only paints it while the card is focused.
+      // Non-focusable cards always render with no shadow regardless.
+      shadowMode: z.enum(["never", "onFocus", "always"]).optional(),
     }).transform((c) => {
       // Sanitise instead of failing validation. A prior version used
       // `superRefine` with `addIssue` which rejected any synthetic
@@ -397,6 +408,7 @@ export const ShelfSchema = z.object({
       const out: any = { ...c };
       if (typeof out.text === "string" && out.text.length === 0) out.text = undefined;
       if (typeof out.image === "string" && out.image.length === 0) out.image = undefined;
+      if (typeof out.heroImage === "string" && out.heroImage.length === 0) out.heroImage = undefined;
       if (out.text !== undefined && out.image !== undefined) out.text = undefined;
       const hasContent = out.text !== undefined || out.image !== undefined;
       if (out.link) {

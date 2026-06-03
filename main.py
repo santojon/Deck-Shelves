@@ -309,6 +309,17 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
                         entry_c["alpha"] = a
                 if c.get("placeholder") is True:
                     entry_c["placeholder"] = True
+                # Optional hero image — when set, the synthetic card
+                # exposes `data-ds-hero-url` and the per-shelf hero
+                # backdrop reads it on focus. Stripped on empty.
+                if isinstance(c.get("heroImage"), str) and c["heroImage"]:
+                    entry_c["heroImage"] = c["heroImage"][:1024]
+                # Optional shadow mode — only meaningful for focusable
+                # (linked) cards; the editor strips it for non-focusable
+                # cards on save. Accept only the three known values.
+                sm = c.get("shadowMode")
+                if sm in ("onFocus", "always"):
+                    entry_c["shadowMode"] = sm
                 cleaned_synth.append(entry_c)
             if cleaned_synth:
                 shelf_entry["syntheticCards"] = cleaned_synth

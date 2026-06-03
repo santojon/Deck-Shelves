@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "Друзі грали нещодавно",
   "filter_friends_playing_now_info": "Ігри, у які наразі грає принаймні один друг у Steam. Потребує онлайн-функцій.",
   "filter_friends_played_recently_days": "Останні N днів",
-  "filter_friends_played_recently_info": "Ігри, у які друг у Steam грав протягом періоду. Уключає тих, хто грає зараз. Потребує онлайн-функцій."
+  "filter_friends_played_recently_info": "Ігри, у які друг у Steam грав протягом періоду. Уключає тих, хто грає зараз. Потребує онлайн-функцій.",
+  "decoration_card_label": "Картка",
+  "decoration_shadow_mode": "Тінь",
+  "decoration_shadow_never": "Ніколи",
+  "decoration_shadow_on_focus": "У фокусі",
+  "decoration_shadow_always": "Завжди",
+  "decoration_hero_enable": "Hero-зображення",
+  "decoration_hero_pick_hint": "Виберіть hero (16:9, альбомне)",
+  "decoration_image_preview_empty": "Без зображення",
+  "decoration_hero_preview_empty": "Без hero",
+  "decoration_card_select": "Редагувати картку",
+  "decoration_card_collapse": "Назад",
+  "decoration_card_collapse_hint": "B = назад",
+  "decoration_card_done": "Готово"
 }

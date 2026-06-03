@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "Friends played recently",
   "filter_friends_playing_now_info": "Matches games at least one Steam friend is currently in-game on. Requires Online features.",
   "filter_friends_played_recently_days": "Last N days",
-  "filter_friends_played_recently_info": "Matches games at least one Steam friend was seen playing in the lookback window. Includes friends currently playing. Requires Online features."
+  "filter_friends_played_recently_info": "Matches games at least one Steam friend was seen playing in the lookback window. Includes friends currently playing. Requires Online features.",
+  "decoration_card_label": "Card",
+  "decoration_shadow_mode": "Shadow",
+  "decoration_shadow_never": "Never",
+  "decoration_shadow_on_focus": "On focus",
+  "decoration_shadow_always": "Always",
+  "decoration_hero_enable": "Hero art",
+  "decoration_hero_pick_hint": "Pick a hero image (16:9, landscape)",
+  "decoration_image_preview_empty": "No image",
+  "decoration_hero_preview_empty": "No hero",
+  "decoration_card_select": "Edit card",
+  "decoration_card_collapse": "Back",
+  "decoration_card_collapse_hint": "B = back",
+  "decoration_card_done": "Done"
 }

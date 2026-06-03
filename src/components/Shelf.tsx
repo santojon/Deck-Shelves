@@ -580,6 +580,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
             size: c.size === "featured" ? "featured" : "normal",
             alpha: c.alpha,
             placeholder: c.placeholder === true,
+            heroImage: c.heroImage,
+            shadowMode: c.shadowMode,
             // Index into the persisted `shelf.syntheticCards` array so
             // the card's X (remove) / Y (toggle size) bindings can
             // patch the right entry directly.

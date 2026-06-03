@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "Друзья играли недавно",
   "filter_friends_playing_now_info": "Игры, в которые хотя бы один друг в Steam играет сейчас. Требует онлайн-функций.",
   "filter_friends_played_recently_days": "Последние N дней",
-  "filter_friends_played_recently_info": "Игры, в которые друг в Steam играл за период. Включает тех, кто играет сейчас. Требует онлайн-функций."
+  "filter_friends_played_recently_info": "Игры, в которые друг в Steam играл за период. Включает тех, кто играет сейчас. Требует онлайн-функций.",
+  "decoration_card_label": "Карточка",
+  "decoration_shadow_mode": "Тень",
+  "decoration_shadow_never": "Никогда",
+  "decoration_shadow_on_focus": "При фокусе",
+  "decoration_shadow_always": "Всегда",
+  "decoration_hero_enable": "Hero-изображение",
+  "decoration_hero_pick_hint": "Выберите hero (16:9, ландшафт)",
+  "decoration_image_preview_empty": "Нет изображения",
+  "decoration_hero_preview_empty": "Нет hero",
+  "decoration_card_select": "Изменить карту",
+  "decoration_card_collapse": "Назад",
+  "decoration_card_collapse_hint": "B = назад",
+  "decoration_card_done": "Готово"
 }

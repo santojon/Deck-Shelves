@@ -59,5 +59,7 @@ export type EditableShelfState = {
     size: 'normal' | 'featured'
     alpha?: number
     placeholder?: boolean
+    heroImage?: string
+    shadowMode?: 'never' | 'onFocus' | 'always'
   }>
 }

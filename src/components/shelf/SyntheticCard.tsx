@@ -135,6 +135,29 @@ export function SyntheticCard({
     </div>
   );
 
+  // Shadow mode rules:
+  //   - non-focusable gap   → never has shadow (no user signal anyway)
+  //   - focusable, default  → "never" (matches the prior `noshadow`)
+  //   - "always"            → keep shadow in idle + focus
+  //   - "onFocus"           → shadow only when focused (suppress at idle)
+  // Picks the class name in one place so both the focusable + non-focusable
+  // branches stay consistent.
+  const resolveShadowClass = (): string => {
+    if (!focusable) return " ds-card--synthetic-noshadow";
+    const mode = synth.shadowMode ?? "never";
+    if (mode === "always") return ""; // baseline card frame shadow
+    if (mode === "onFocus") return " ds-card--synthetic-shadow-focus-only";
+    return " ds-card--synthetic-noshadow";
+  };
+
+  // Hero URL exposed via attribute so `PerShelfHero` can pick it up on
+  // focus and treat this decoration as a hero source — same render path
+  // game cards already feed via `data-appid`. Empty / undefined → no
+  // hero behavior, matches the prior decoration look.
+  const heroAttr = synth.heroImage && synth.heroImage.length > 0
+    ? resolveLocalImage(synth.heroImage)
+    : null;
+
   // No link OR no content → non-focusable gap. ShelfRow already gives
   // each slot a fixed width, so an empty wrapper still occupies space
   // and focus skips over it.
@@ -142,7 +165,7 @@ export function SyntheticCard({
     return (
       <div
         ref={cardRef as any}
-        className={`ds-card ds-card--synthetic${synth.placeholder ? "" : " ds-card--synthetic-noshadow"}${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
+        className={`ds-card ds-card--synthetic${resolveShadowClass()}${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
         style={containerStyle}
         data-ds-synthetic-gap={hasContent ? undefined : "1"}
       >
@@ -230,7 +253,7 @@ export function SyntheticCard({
   return (
     <Focusable
       ref={cardRef}
-      className={`ds-card ds-card--synthetic${synth.placeholder ? "" : " ds-card--synthetic-noshadow"}${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
+      className={`ds-card ds-card--synthetic${resolveShadowClass()}${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
       focusClassName="gpfocus"
       onActivate={handleActivate}
       onOKButton={handleActivate}
@@ -241,6 +264,7 @@ export function SyntheticCard({
       onOptionsButton={canPatchSynth ? handleToggleSize : undefined}
       onOptionsActionDescription={canPatchSynth ? i18n.t('card_synth_toggle_size') : undefined}
       style={containerStyle}
+      {...(heroAttr ? { 'data-ds-hero-url': heroAttr } as any : {})}
     >
       {inner}
     </Focusable>

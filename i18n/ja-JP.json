@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "フレンドが最近プレイ",
   "filter_friends_playing_now_info": "少なくとも 1 人の Steam フレンドが現在プレイ中のゲームを含めます。オンライン機能が必要。",
   "filter_friends_played_recently_days": "直近 N 日",
-  "filter_friends_played_recently_info": "指定期間中に Steam フレンドがプレイしたゲームを含めます。現在プレイ中も含む。オンライン機能が必要。"
+  "filter_friends_played_recently_info": "指定期間中に Steam フレンドがプレイしたゲームを含めます。現在プレイ中も含む。オンライン機能が必要。",
+  "decoration_card_label": "カード",
+  "decoration_shadow_mode": "影",
+  "decoration_shadow_never": "なし",
+  "decoration_shadow_on_focus": "フォーカス時",
+  "decoration_shadow_always": "常に",
+  "decoration_hero_enable": "ヒーロー画像",
+  "decoration_hero_pick_hint": "ヒーロー画像を選択 (16:9 横向き)",
+  "decoration_image_preview_empty": "画像なし",
+  "decoration_hero_preview_empty": "ヒーローなし",
+  "decoration_card_select": "カードを編集",
+  "decoration_card_collapse": "戻る",
+  "decoration_card_collapse_hint": "B = 戻る",
+  "decoration_card_done": "完了"
 }

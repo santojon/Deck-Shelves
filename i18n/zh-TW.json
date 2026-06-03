@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "好友最近遊玩",
   "filter_friends_playing_now_info": "包含至少一位 Steam 好友目前正在遊玩的遊戲。需要連線功能。",
   "filter_friends_played_recently_days": "最近 N 天",
-  "filter_friends_played_recently_info": "包含至少一位 Steam 好友在該時段內遊玩過的遊戲，含目前正在遊玩。需要連線功能。"
+  "filter_friends_played_recently_info": "包含至少一位 Steam 好友在該時段內遊玩過的遊戲，含目前正在遊玩。需要連線功能。",
+  "decoration_card_label": "卡片",
+  "decoration_shadow_mode": "陰影",
+  "decoration_shadow_never": "從不",
+  "decoration_shadow_on_focus": "聚焦時",
+  "decoration_shadow_always": "始終",
+  "decoration_hero_enable": "主圖",
+  "decoration_hero_pick_hint": "選擇主圖 (16:9，橫向)",
+  "decoration_image_preview_empty": "無圖像",
+  "decoration_hero_preview_empty": "無主圖",
+  "decoration_card_select": "編輯卡片",
+  "decoration_card_collapse": "返回",
+  "decoration_card_collapse_hint": "B = 返回",
+  "decoration_card_done": "完成"
 }

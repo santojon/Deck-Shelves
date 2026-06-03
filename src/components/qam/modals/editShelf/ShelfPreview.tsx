@@ -62,6 +62,12 @@ const PREVIEW_STYLE_TAG = `
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow:hover,
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow:focus,
 [data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow.gpfocus { box-shadow: none !important; }
+/* "Shadow only on focus" mode in preview: suppress at idle, keep the
+   preview focus shadow on focus/hover. */
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only { box-shadow: none !important; }
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only:hover,
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only:focus,
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-shadow-focus-only.gpfocus { box-shadow: rgba(0, 0, 0, 0.5) 0px 8px 16px 0px !important; }
 /* Badge sizing — the home defaults to 10 px / 24 px band assuming
    200+ px cards; the preview cards are 78 px wide, so the same
    band looks chunky and eats roughly 1/3 of the card height.
@@ -127,6 +133,8 @@ export interface ShelfPreviewProps {
     size: 'normal' | 'featured';
     alpha?: number;
     placeholder?: boolean;
+    heroImage?: string;
+    shadowMode?: 'never' | 'onFocus' | 'always';
   }>
   // Editor picker mode: when set, every card carries an overlay marker
   // (`highlight` blue tint + ★ / `hidden` dark tint + ✕) and its
@@ -438,6 +446,8 @@ export function ShelfPreview({
             size: c.size === 'featured' ? 'featured' : 'normal',
             alpha: c.alpha,
             placeholder: c.placeholder === true,
+            heroImage: (c as any).heroImage,
+            shadowMode: (c as any).shadowMode,
           },
         })
       }

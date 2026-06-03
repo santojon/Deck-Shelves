@@ -756,5 +756,18 @@
   "filter_type_friendsPlayedRecently": "Amigos jogaram recentemente",
   "filter_friends_playing_now_info": "Inclui jogos em que pelo menos um amigo da Steam está no jogo agora. Requer recursos online.",
   "filter_friends_played_recently_days": "Últimos N dias",
-  "filter_friends_played_recently_info": "Inclui jogos vistos sendo jogados por amigos da Steam dentro do período. Engloba quem está jogando agora. Requer recursos online."
+  "filter_friends_played_recently_info": "Inclui jogos vistos sendo jogados por amigos da Steam dentro do período. Engloba quem está jogando agora. Requer recursos online.",
+  "decoration_card_label": "Card",
+  "decoration_shadow_mode": "Sombra",
+  "decoration_shadow_never": "Nunca",
+  "decoration_shadow_on_focus": "Ao focar",
+  "decoration_shadow_always": "Sempre",
+  "decoration_hero_enable": "Hero art",
+  "decoration_hero_pick_hint": "Escolha uma imagem hero (16:9, paisagem)",
+  "decoration_image_preview_empty": "Sem imagem",
+  "decoration_hero_preview_empty": "Sem hero",
+  "decoration_card_select": "Editar card",
+  "decoration_card_collapse": "Voltar",
+  "decoration_card_collapse_hint": "B = voltar",
+  "decoration_card_done": "Concluir"
 }
