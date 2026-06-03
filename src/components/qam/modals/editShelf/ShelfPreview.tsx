@@ -54,6 +54,14 @@ const PREVIEW_STYLE_TAG = `
 [data-ds-preview-row="1"] .ds-card:hover::after,
 [data-ds-preview-row="1"] .ds-card:focus::after,
 [data-ds-preview-row="1"] .ds-card.gpfocus::after { animation: none !important; opacity: 0 !important; }
+/* Synthetic cards with placeholder=false: kill the drop-shadow in every
+   state so transparent decoration images don't have a phantom card-shape
+   shadow around them in the preview. Home shelf does the same via the
+   .ds-card--synthetic-noshadow rule in shelfStyles.ts. */
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow,
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow:hover,
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow:focus,
+[data-ds-preview-row="1"] .ds-card.ds-card--synthetic-noshadow.gpfocus { box-shadow: none !important; }
 /* Badge sizing — the home defaults to 10 px / 24 px band assuming
    200+ px cards; the preview cards are 78 px wide, so the same
    band looks chunky and eats roughly 1/3 of the card height.

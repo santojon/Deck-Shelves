@@ -105,12 +105,17 @@ export function SyntheticCard({
         // Remote URLs (http/https/data:) pass through unchanged.
         const resolved = resolveLocalImage(synth.image);
         if (!resolved) return null;
+        // `contain` when placeholder=false so transparent PNGs / icons
+        // are framed whole (no crop, transparent surround stays visible);
+        // `cover` when placeholder=true so the image fills the grey card
+        // panel edge-to-edge (the bg blends with cropped overflow).
+        const fit = synth.placeholder ? "cover" : "contain";
         return (
           <img
             src={resolved}
             alt=""
             draggable={false}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }}
+            style={{ width: "100%", height: "100%", objectFit: fit, display: "block", pointerEvents: "none" }}
           />
         );
       })() : synth.text ? (
@@ -225,7 +230,7 @@ export function SyntheticCard({
   return (
     <Focusable
       ref={cardRef}
-      className={`ds-card ds-card--synthetic${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
+      className={`ds-card ds-card--synthetic${synth.placeholder ? "" : " ds-card--synthetic-noshadow"}${nativeCardClass ? ` ${nativeCardClass}` : ""}`}
       focusClassName="gpfocus"
       onActivate={handleActivate}
       onOKButton={handleActivate}
