@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Field, Focusable, GamepadButton } from '@decky/ui';
 import i18n from '../../i18n';
 
@@ -70,6 +70,25 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
   const orderRef = useRef(state.order);
   orderRef.current = state.order;
 
+  // Per-row DOM refs, indexed by entry id, used to refocus the just-moved
+  // row after a swap. Decky's outer Focusable tracks the focused child by
+  // physical position — when DOM nodes are reordered (id-keyed React
+  // reconciliation), the focus index stays at the old slot, so the next
+  // up/down press swaps the wrong item. Explicitly calling .focus() on
+  // the moved row's element forces Decky to update its internal index.
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const pendingFocusIdRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const id = pendingFocusIdRef.current;
+    if (!id) return;
+    pendingFocusIdRef.current = null;
+    const el = rowRefs.current.get(id);
+    if (!el) return;
+    const target = (el.querySelector('[tabindex]:not([tabindex="-1"]), button, [role="button"]') as HTMLElement | null) ?? el;
+    try { target.focus?.(); } catch {}
+  }, [state.order]);
+
   useEffect(() => {
     setState((prev) => ({ mode: prev.mode, order: sortByPosition(props.entries) }));
   }, [props.entries]);
@@ -126,13 +145,18 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
               total={state.order.length}
               editing={state.mode === 'edit'}
               fieldProps={props.fieldProps}
+              rowRefs={rowRefs}
               onSwap={(direction) => {
                 const cur = orderRef.current;
                 const i = cur.findIndex((e) => e === entry || ((e.data as any)?.id !== undefined && (e.data as any)?.id === (entry.data as any)?.id));
                 if (i < 0) return;
                 const j = i + direction;
                 const next = swap(cur, i, j);
-                if (next !== cur) setState((prev) => ({ mode: prev.mode, order: next }));
+                if (next !== cur) {
+                  const movedId = (entry.data as any)?.id;
+                  if (movedId !== undefined && movedId !== null) pendingFocusIdRef.current = String(movedId);
+                  setState((prev) => ({ mode: prev.mode, order: next }));
+                }
               }}
             >
               {props.interactables ? <props.interactables entry={entry} /> : null}
@@ -150,6 +174,7 @@ function Row<T>({
   total,
   editing,
   fieldProps,
+  rowRefs,
   onSwap,
   children,
 }: {
@@ -158,10 +183,19 @@ function Row<T>({
   total: number;
   editing: boolean;
   fieldProps?: any;
+  rowRefs: { current: Map<string, HTMLDivElement> };
   onSwap: (direction: -1 | 1) => void;
   children: ReactNode;
 }) {
   const [focused, setFocused] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const entryId = (entry.data as any)?.id != null ? String((entry.data as any).id) : null;
+
+  useEffect(() => {
+    if (!entryId || !wrapperRef.current) return;
+    rowRefs.current.set(entryId, wrapperRef.current);
+    return () => { rowRefs.current.delete(entryId); };
+  }, [entryId, rowRefs]);
 
   function onDirection(e: any) {
     if (!editing) return;
@@ -171,7 +205,7 @@ function Row<T>({
   }
 
   return (
-    <div data-ds-reorder-focused={focused ? '1' : '0'}>
+    <div ref={wrapperRef} data-ds-reorder-focused={focused ? '1' : '0'}>
       <Field
         label={entry.label}
         {...fieldProps}

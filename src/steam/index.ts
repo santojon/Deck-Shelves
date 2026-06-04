@@ -2763,6 +2763,27 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       return finish(ids.slice(0, overShootLimit));
     }
 
+    // No filter configured → return empty. A filter source with neither
+    // a populated filterGroup nor any legacy flat field set is treated
+    // as "user added the source but did not configure it" — falling
+    // through to `filtered = all` would silently return the entire
+    // library.
+    const hasLegacyFilter =
+      !!f.favorites ||
+      f.hidden === "only" || f.hidden === true || f.hidden === false ||
+      !!f.nonSteam || !!f.installed ||
+      typeof f.playedWithinDays === "number" ||
+      (typeof f.nameIncludes === "string" && f.nameIncludes.trim().length > 0) ||
+      (typeof f.nameRegex === "string" && f.nameRegex.trim().length > 0) ||
+      (Array.isArray(f.deckCompatibility) && f.deckCompatibility.length > 0) ||
+      typeof f.minPlaytimeMinutes === "number" ||
+      typeof f.maxPlaytimeMinutes === "number" ||
+      f.updatePending === true || f.updatePending === false;
+    if (!hasLegacyFilter) {
+      logInfo("STEAM", "resolveShelfAppIds(filter) empty — no filters configured", { filter: f });
+      return finish([]);
+    }
+
     // Legacy flat filter fields
     let filtered = all;
     if (f.favorites) filtered = filtered.filter((a) => isFavoriteOf(a));

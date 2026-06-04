@@ -11,7 +11,12 @@ import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { triggerShelfRefresh } from '../../../core/shelfRefresh'
 
 function isOnlineSource(source: any): boolean {
-  return source?.type === 'wishlist' || source?.type === 'store'
+  if (!source) return false
+  if (source.type === 'wishlist' || source.type === 'store') return true
+  if (source.type === 'composite' && Array.isArray(source.sources)) {
+    return source.sources.some(isOnlineSource)
+  }
+  return false
 }
 
 function isRandomOrSmart(shelf: Shelf): boolean {
@@ -46,7 +51,7 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
   const index = shelves.findIndex((s) => s.id === shelf.id)
   const showRefresh = isOnlineSource(shelf.source) || isRandomOrSmart(shelf)
   return (
-    <Menu label={t('actions')}>
+    <Menu label={shelf.title || t('actions')}>
       <MenuItem onSelected={() => showEditShelfModal(controller, shelf)}>{t('editShelf')}</MenuItem>
       <MenuItem onSelected={() => actions.duplicateShelf(shelf.id)}>{t('duplicateShelf')}</MenuItem>
       <MenuItem onSelected={() => actions.toggleShelfHidden(shelf.id)}>{shelf.hidden ? t('show_shelf') : t('hide_shelf')}</MenuItem>

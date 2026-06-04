@@ -2,7 +2,12 @@ import { icons } from '../icons'
 import { OnlineIcon } from '../../icons'
 
 function isOnlineSource(source: any): boolean {
-  return source?.type === 'wishlist' || source?.type === 'store';
+  if (!source) return false;
+  if (source.type === 'wishlist' || source.type === 'store') return true;
+  if (source.type === 'composite' && Array.isArray(source.sources)) {
+    return source.sources.some(isOnlineSource);
+  }
+  return false;
 }
 
 export function ShelfListLabel({ shelf }: { shelf: any }) {

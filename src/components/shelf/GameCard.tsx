@@ -133,17 +133,30 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       sc?.Apps?.RunGame?.(String(appid), "", -1, 1);
     } catch {}
   }, [appid, previewMode]);
-  // Dynamic label that mirrors what Steam's context-menu first item shows:
-  // "Play" when the app is installed (Steam routes a Play on a running
-  // game to "return to game" implicitly), "Install" otherwise. Uses the
-  // same i18n keys (`menu_play` / `menu_install`) the native menu builder
-  // uses so the legend matches the menu the user would otherwise open.
+  // Dynamic label that mirrors what Steam's context-menu first item shows.
+  // `RunGame` already routes correctly inside Steam (install / play /
+  // resume the running game / queue update), so only the label needs to
+  // change per state — the action stays the same.
+  //   - not installed     → Install
+  //   - launching/running → Resume
+  //   - update pending    → Update
+  //   - otherwise         → Play
   const quickLaunchLabel = useMemo(() => {
     if (previewMode || !appid) return undefined;
     try {
       const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
-      const installed = overview?.installed === true;
-      return i18n.t(installed ? 'menu_play' : 'menu_install');
+      if (!overview) return undefined;
+      if (overview.installed !== true) return i18n.t('menu_install');
+      const ds = (() => {
+        if (typeof overview.display_status === 'number') return overview.display_status;
+        const pcd = overview.per_client_data ?? overview.local_per_client_data;
+        if (Array.isArray(pcd) && pcd[0] && typeof pcd[0].display_status === 'number') return pcd[0].display_status;
+        return 0;
+      })();
+      // EAppDisplayStatus.Launching = 1, Running = 4
+      if (ds === 1 || ds === 4) return i18n.t('menu_resume');
+      if (overview.update_pending === true) return i18n.t('menu_update');
+      return i18n.t('menu_play');
     } catch { return undefined; }
   }, [appid, previewMode]);
   // `isLibraryGame` = appid resolves to an AppOverview in the local Steam

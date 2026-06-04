@@ -12,7 +12,7 @@ function SmartShelfActionsContextMenu({ controller, shelf }: { controller: Setti
   const smartShelves: SmartShelf[] = settings?.smartShelves ?? []
   const index = smartShelves.findIndex((s) => s.id === shelf.id)
   return (
-    <Menu label={t('actions')}>
+    <Menu label={shelf.title || t('actions')}>
       <MenuItem onSelected={() => openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={shelf} />)}>
         {t('editShelf')}
       </MenuItem>
