@@ -30,6 +30,8 @@ GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; RESET='\033[0m'; BOLD
 declare -a STEP_NAMES=()
 declare -a STEP_STATUS=()
 declare -a STEP_LOG=()
+declare -a STEP_DURATION_MS=()
+_now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
 
 # Always generate the report — fires via EXIT trap regardless of what happened.
 _report_generated=0
@@ -49,11 +51,12 @@ _generate_report() {
     # cannot survive $() subshell expansion in bash, so file-based I/O is the
     # only reliable approach for arrays that may contain spaces or special chars.
     local steps_json="${REPORT_DIR}/.tmp_steps_${TS}.json"
-    local _nf="${steps_json}.names" _sf="${steps_json}.status" _lf="${steps_json}.logs"
-    : > "${_nf}"; : > "${_sf}"; : > "${_lf}"
-    for _v in "${STEP_NAMES[@]+"${STEP_NAMES[@]}"}";  do printf '%s\n' "${_v}" >> "${_nf}"; done
-    for _v in "${STEP_STATUS[@]+"${STEP_STATUS[@]}"}"; do printf '%s\n' "${_v}" >> "${_sf}"; done
-    for _v in "${STEP_LOG[@]+"${STEP_LOG[@]}"}";       do printf '%s\n' "${_v}" >> "${_lf}"; done
+    local _nf="${steps_json}.names" _sf="${steps_json}.status" _lf="${steps_json}.logs" _df="${steps_json}.durations"
+    : > "${_nf}"; : > "${_sf}"; : > "${_lf}"; : > "${_df}"
+    for _v in "${STEP_NAMES[@]+"${STEP_NAMES[@]}"}";       do printf '%s\n' "${_v}" >> "${_nf}"; done
+    for _v in "${STEP_STATUS[@]+"${STEP_STATUS[@]}"}";     do printf '%s\n' "${_v}" >> "${_sf}"; done
+    for _v in "${STEP_LOG[@]+"${STEP_LOG[@]}"}";           do printf '%s\n' "${_v}" >> "${_lf}"; done
+    for _v in "${STEP_DURATION_MS[@]+"${STEP_DURATION_MS[@]}"}"; do printf '%s\n' "${_v}" >> "${_df}"; done
     python3 -c "
 import json
 def read(p):
@@ -61,10 +64,11 @@ def read(p):
         lines = open(p).read().splitlines()
         return [l for l in lines]  # preserve empty strings
     except: return []
-names, statuses, logs = read('${_nf}'), read('${_sf}'), read('${_lf}')
-json.dump({'names': names, 'statuses': statuses, 'logs': logs}, open('${steps_json}', 'w'))
-" 2>/dev/null || echo '{"names":[],"statuses":[],"logs":[]}' > "${steps_json}"
-    rm -f "${_nf}" "${_sf}" "${_lf}" 2>/dev/null || true
+names, statuses, logs, durs = read('${_nf}'), read('${_sf}'), read('${_lf}'), read('${_df}')
+durations_ms = [int(d) if d.isdigit() else 0 for d in durs]
+json.dump({'names': names, 'statuses': statuses, 'logs': logs, 'durations_ms': durations_ms}, open('${steps_json}', 'w'))
+" 2>/dev/null || echo '{"names":[],"statuses":[],"logs":[],"durations_ms":[]}' > "${steps_json}"
+    rm -f "${_nf}" "${_sf}" "${_lf}" "${_df}" 2>/dev/null || true
 
     python3 "${SCRIPT_DIR}/report.py" \
       --ts "${TS}" --stress "${STRESS}" --subdir "local" \
@@ -94,12 +98,16 @@ run_step() {
   STEP_NAMES+=("$label")
   STEP_LOG+=("$log")
   echo -e "${BOLD}▶ ${label}${RESET}"
+  local _start _end
+  _start=$(_now_ms)
   if "$@" >"$log" 2>&1; then
-    echo -e "  ${GREEN}✓ PASS${RESET}"
+    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
+    echo -e "  ${GREEN}✓ PASS${RESET} ($(( (_end - _start) / 1000 ))s)"
     STEP_STATUS+=("pass")
     return 0
   else
-    echo -e "  ${RED}✗ FAIL${RESET}"
+    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
+    echo -e "  ${RED}✗ FAIL${RESET} ($(( (_end - _start) / 1000 ))s)"
     tail -20 "$log" | sed 's/^/    /'
     STEP_STATUS+=("fail")
     return 1
@@ -114,16 +122,20 @@ run_device_step() {
   STEP_NAMES+=("$label")
   STEP_LOG+=("$log")
   echo -e "${BOLD}▶ ${label}${RESET}"
+  local _start _end
+  _start=$(_now_ms)
   if "$@" >"$log" 2>&1; then
-    echo -e "  ${GREEN}✓ PASS${RESET}"
+    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
+    echo -e "  ${GREEN}✓ PASS${RESET} ($(( (_end - _start) / 1000 ))s)"
     STEP_STATUS+=("pass")
     return 0
   else
+    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
     if grep -qE "${_NO_DEVICE_PATTERNS}" "$log" 2>/dev/null; then
-      echo -e "  ${YELLOW}– SKIP (device unreachable)${RESET}"
+      echo -e "  ${YELLOW}– SKIP (device unreachable)${RESET} ($(( (_end - _start) / 1000 ))s)"
       STEP_STATUS+=("skip")
     else
-      echo -e "  ${RED}✗ FAIL${RESET}"
+      echo -e "  ${RED}✗ FAIL${RESET} ($(( (_end - _start) / 1000 ))s)"
       tail -20 "$log" | sed 's/^/    /'
       STEP_STATUS+=("fail")
     fi
@@ -139,6 +151,7 @@ skip_step() {
   STEP_NAMES+=("$label")
   STEP_STATUS+=("skip")
   STEP_LOG+=("$log")
+  STEP_DURATION_MS+=("0")
 }
 
 BUILD_OK=1   # 1 = ok, 0 = build failed → device steps skipped

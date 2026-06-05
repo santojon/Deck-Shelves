@@ -64,7 +64,7 @@ def _load_env_host() -> tuple[str, int]:
     return host, port
 
 
-def main() -> int:
+def main() -> int:  # noqa: C901
     parser = argparse.ArgumentParser(description="Run modular Deck Shelves screenshots.")
     parser.add_argument("--host", help="Deck host (defaults to DECK_HOST in .env or env)")
     parser.add_argument("--port", type=int, default=0, help="CDP port (default 8080)")

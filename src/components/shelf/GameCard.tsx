@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Focusable, GamepadButton } from "@decky/ui";

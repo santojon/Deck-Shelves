@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import i18n from "../../i18n";
 import type { FilterItemType, FilterItem } from "../../types";
 

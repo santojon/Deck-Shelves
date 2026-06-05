@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { definePlugin } from "@decky/api";
 import i18next from "i18next";
 import { initI18n } from "./i18n";
@@ -20,6 +19,7 @@ import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
 import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
 import { invalidateRandomSortCache } from "./steam";
+import { pruneCache as pruneImageCache } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
@@ -95,7 +95,7 @@ export default definePlugin((serverAPI?: any) => {
   // Deferred to idle so it doesn't compete with bootstrap work.
   try {
     const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-    schedule(() => { import("./core/imageCache").then(m => m.pruneCache()).catch(() => {}); });
+    schedule(() => { try { pruneImageCache(); } catch {} });
   } catch {}
   // Resolve `~/Downloads` from the backend so import/export defaults work
   // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).

@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import type { AppOverview } from "./index";
 import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";

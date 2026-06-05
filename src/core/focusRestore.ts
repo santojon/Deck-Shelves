@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { getPreferredSteamDocument } from "../runtime/steamHost";
 
 let pendingAppid: number | null = null;

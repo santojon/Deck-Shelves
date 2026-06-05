@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 /**
  * UnifiDeck integration.
  *

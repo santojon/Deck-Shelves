@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Focusable } from '@decky/ui'
 import { ShelfRow } from '../../../shelf/ShelfRow'

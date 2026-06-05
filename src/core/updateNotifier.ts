@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import pkg from "../../package.json";
 import { isOnline } from "./connectivity";
 import { logInfo } from "../runtime/logger";

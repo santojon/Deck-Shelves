@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 export function textFromDeckyChange(value: unknown): string {
   if (typeof value === 'string') return value
   const maybe = (value as any)?.target?.value ?? (value as any)?.currentTarget?.value ?? (value as any)?.value ?? value

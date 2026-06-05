@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { discoverNativeCardDimensions, getRuntimeClassMap, type NativeCardDims } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";

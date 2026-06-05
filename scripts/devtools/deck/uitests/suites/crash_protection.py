@@ -78,7 +78,7 @@ def _(ctx) -> None:
 def _(ctx) -> None:
     ctx.navigate("/library/home", settle_ms=2000)
     ctx.eval(_INSTALL_COLLECTOR)
-    result = ctx.eval("""
+    ctx.eval("""
 (function(){
     // Find a DS card for an installed game (data-appid present)
     const card = document.querySelector('.ds-shelf .ds-card[data-appid]');

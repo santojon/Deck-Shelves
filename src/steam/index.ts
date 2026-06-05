@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import type { FilterGroup, FilterItem } from "../types";
 import { dedupeAppIdsByName } from "./dedupe";
 import { UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS } from "./appDisplayStatus";
@@ -892,91 +891,158 @@ export type AppOverview = {
   controller_support?: number;
 };
 
-export function normalizeAppOverview(node: any): AppOverview | null {
-  const appid = appIdOf(node);
-  if (!Number.isFinite(appid) || appid <= 0) return null;
+function getPerClientData(node: any): any | null {
+  const pcd = node?.per_client_data ?? node?.local_per_client_data;
+  return Array.isArray(pcd) ? (pcd[0] ?? null) : (pcd ?? null);
+}
+
+function deriveInstalled(node: any, appid: number): boolean | undefined {
+  // Non-Steam shortcuts (notably Unifideck) advertise installed:true on
+  // the raw overview regardless of real state. Defer to isInstalledOf
+  // which consults the Unifideck collection, size_on_disk, and
+  // locally-played as fallbacks.
+  if (isNonSteamOf(node)) return isInstalledOf({ ...node, appid });
+  const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
+  if (explicit !== undefined) return explicit;
+  try {
+    const clientData = getPerClientData(node);
+    // Only check explicit installed field in pcd — do NOT infer from display_status.
+    // ds=9 = "available on remote client" (not local); ds=11 has explicit installed:true.
+    const pcdExplicit = clientData ? readOptionalBoolean(clientData, ["installed", "is_installed"]) : undefined;
+    if (pcdExplicit !== undefined) return pcdExplicit;
+  } catch {}
+  try {
+    const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
+    if (Number.isFinite(size) && size > 0) return true;
+  } catch {}
+  return undefined;
+}
+
+function deriveUpdatePending(node: any): boolean | undefined {
+  const clientData = getPerClientData(node);
+  if (clientData) {
+    const ds = Number(clientData?.display_status ?? 0);
+    if (UPDATE_PENDING_STATUSES.includes(ds)) return true;
+    const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
+    const bytesStage = Number(clientData?.bytes_to_stage ?? clientData?.m_nBytesToStage ?? 0);
+    if (bytesDown > 0 || bytesStage > 0) return true;
+  }
+  const explicit = readOptionalBoolean(node, [
+    "update_running", "m_bUpdateRunning", "bUpdateRunning",
+    "update_available", "m_bUpdateAvailable", "m_bNeedsUpdate",
+    "needs_update", "m_bUpdatePaused",
+  ]);
+  return explicit === true ? true : explicit;
+}
+
+function deriveDisplayStatus(node: any): number | undefined {
+  try {
+    const clientData = getPerClientData(node);
+    if (clientData) {
+      const ds = Number(clientData?.display_status ?? 0);
+      return ds > 0 ? ds : undefined;
+    }
+  } catch {}
+  return undefined;
+}
+
+function deriveControllerSupport(node: any): number | undefined {
+  const raw = node?.nControllerSupport ?? node?.controller_support ?? node?.n_controller_support;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+// Pick the first defined / non-zero value from a list of alias fields.
+// Replaces the inline `?? ?? ?? ?? 0 || undefined` chains the field
+// accessors below used to carry, keeping each accessor at complexity 1-2.
+function firstNumber(...values: any[]): number {
+  for (const v of values) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n !== 0) return n;
+  }
+  return 0;
+}
+function firstString(...values: any[]): string {
+  for (const v of values) if (typeof v === "string" && v) return v;
+  return "";
+}
+
+// Each builder dereferences `node` once and then reads fields directly
+// — the per-field `node?.foo` optional chain previously counted as a
+// branch each, pushing builder complexity above 10 just for field
+// accessors. With `n` as a guaranteed-non-null alias, the builders
+// collapse to a single return.
+function buildIdentityFields(node: any, appid: number) {
+  const n = node ?? {};
   const name = appNameOf(node);
   return {
     appid,
-    display_name: name || String(node?.displayName ?? node?.title ?? `App ${appid}`),
-    sort_as: String(node?.sort_as ?? node?.sortAs ?? name ?? ""),
-    last_played: Number(node?.last_played ?? node?.rt_last_time_played ?? node?.m_ulLastPlayed ?? 0),
-    playtime_forever: Number(node?.playtime_forever ?? node?.minutes_playtime_forever ?? node?.minutes_played_forever ?? 0),
-    is_steam: node?.is_steam ?? !isNonSteamOf(node),
+    display_name: name || String(n.displayName ?? n.title ?? `App ${appid}`),
+    sort_as: String(n.sort_as ?? n.sortAs ?? name ?? ""),
+  };
+}
+
+function buildPlaytimeFields(node: any) {
+  return {
+    last_played: firstNumber(node?.last_played, node?.rt_last_time_played, node?.m_ulLastPlayed),
+    playtime_forever: firstNumber(node?.playtime_forever, node?.minutes_playtime_forever, node?.minutes_played_forever),
+  };
+}
+
+function buildFlagFields(node: any) {
+  const n = node ?? {};
+  return {
+    is_steam: n.is_steam ?? !isNonSteamOf(node),
     is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
-    is_hidden: (node?.visible_in_game_list === false) ? true : readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
-    installed: (() => {
-      // Non-Steam shortcuts (notably Unifideck) advertise installed:true on
-      // the raw overview regardless of real state. Defer to isInstalledOf
-      // which consults the Unifideck collection, then size_on_disk and
-      // locally-played as fallbacks.
-      if (isNonSteamOf(node)) return isInstalledOf({ ...node, appid });
-      const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
-      if (explicit !== undefined) return explicit;
-      try {
-        const pcd = node?.per_client_data ?? node?.local_per_client_data;
-        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-        if (clientData) {
-          // Only check explicit installed field in pcd — do NOT infer from display_status.
-          // ds=9 means "available on remote client" (not locally installed);
-          // ds=11 has an explicit installed:true in pcd so the check above catches it.
-          const pcdExplicit = readOptionalBoolean(clientData, ["installed", "is_installed"]);
-          if (pcdExplicit !== undefined) return pcdExplicit;
-        }
-      } catch {}
-      try {
-        const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
-        if (Number.isFinite(size) && size > 0) return true;
-      } catch {}
-      return undefined;
-    })(),
-    update_pending: (() => {
-      const pcd = node?.per_client_data;
-      const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-      if (clientData) {
-        const ds = Number(clientData?.display_status ?? 0);
-        if (UPDATE_PENDING_STATUSES.includes(ds)) return true;
-        const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
-        const bytesStage = Number(clientData?.bytes_to_stage ?? clientData?.m_nBytesToStage ?? 0);
-        if (bytesDown > 0 || bytesStage > 0) return true;
-      }
-      const explicit = readOptionalBoolean(node, [
-        "update_running", "m_bUpdateRunning", "bUpdateRunning",
-        "update_available", "m_bUpdateAvailable", "m_bNeedsUpdate",
-        "needs_update", "m_bUpdatePaused",
-      ]);
-      if (explicit === true) return true;
-      return explicit;
-    })(),
-    display_status: (() => {
-      try {
-        const pcd = node?.per_client_data;
-        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-        if (clientData) {
-          const ds = Number(clientData?.display_status ?? 0);
-          return ds > 0 ? ds : undefined;
-        }
-      } catch {}
-      return undefined;
-    })(),
-    deck_compatibility_category: Number(node?.deck_compatibility_category ?? node?.m_eDeckCompatibilityCategory ?? ((Number(node?.steam_hw_compat_category_packed ?? 0) & 0xF) || 0)),
-    library_capsule: String(node?.library_capsule ?? node?.libraryCapsule ?? node?.vertical_capsule ?? ""),
-    library_capsule_filename: String(node?.library_capsule_filename ?? node?.libraryCapsuleFilename ?? ""),
-    rt_store_asset_mtime: Number(node?.rt_store_asset_mtime ?? node?.rtStoreAssetMtime ?? 0) || undefined,
-    user_added_ts: Number(node?.time_added ?? node?.m_time_added ?? node?.added ?? node?.rt_time_added_to_account ?? node?.m_rtTimeAdded ?? node?.timeAddedToAccount ?? node?.time_added_to_account ?? node?.m_time_added_to_account ?? 0) || undefined,
-    rt_purchased_time: Number(node?.rt_purchased_time ?? node?.rtPurchasedTime ?? 0) || undefined,
-    rt_recent_activity_time: Number(node?.rt_recent_activity_time ?? node?.rtRecentActivityTime ?? 0) || undefined,
-    library_hero: String(node?.library_hero ?? node?.hero ?? node?.libraryHero ?? ""),
-    header: String(node?.header ?? node?.header_image ?? node?.capsule ?? ""),
-    icon_hash: String(node?.icon_hash ?? node?.iconHash ?? ""),
-    app_type: Number(node?.app_type ?? node?.appType ?? node?.m_eAppType ?? node?.eAppType ?? 0) || undefined,
+    is_hidden: (n.visible_in_game_list === false) ? true : readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     cloud_available: readOptionalBoolean(node, ["bCloudAvailable", "cloud_available", "b_cloud_available"]),
-    controller_support: (() => {
-      const raw = node?.nControllerSupport ?? node?.controller_support ?? node?.n_controller_support;
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : undefined;
-    })(),
+  };
+}
+
+function buildAssetFields(node: any) {
+  const n = node ?? {};
+  return {
+    library_capsule: firstString(n.library_capsule, n.libraryCapsule, n.vertical_capsule),
+    library_capsule_filename: firstString(n.library_capsule_filename, n.libraryCapsuleFilename),
+    library_hero: firstString(n.library_hero, n.hero, n.libraryHero),
+    header: firstString(n.header, n.header_image, n.capsule),
+    icon_hash: firstString(n.icon_hash, n.iconHash),
+  };
+}
+
+function buildTimestampFields(node: any) {
+  const n = node ?? {};
+  return {
+    rt_store_asset_mtime: firstNumber(n.rt_store_asset_mtime, n.rtStoreAssetMtime) || undefined,
+    user_added_ts: firstNumber(n.time_added, n.m_time_added, n.added, n.rt_time_added_to_account, n.m_rtTimeAdded, n.timeAddedToAccount, n.time_added_to_account, n.m_time_added_to_account) || undefined,
+    rt_purchased_time: firstNumber(n.rt_purchased_time, n.rtPurchasedTime) || undefined,
+    rt_recent_activity_time: firstNumber(n.rt_recent_activity_time, n.rtRecentActivityTime) || undefined,
+  };
+}
+
+function buildTypeFields(node: any) {
+  const n = node ?? {};
+  return {
+    deck_compatibility_category: Number(n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0)),
+    app_type: firstNumber(n.app_type, n.appType, n.m_eAppType, n.eAppType) || undefined,
+    controller_support: deriveControllerSupport(node),
+  };
+}
+
+export function normalizeAppOverview(node: any): AppOverview | null {
+  const appid = appIdOf(node);
+  if (!Number.isFinite(appid) || appid <= 0) return null;
+  return {
+    ...buildIdentityFields(node, appid),
+    ...buildPlaytimeFields(node),
+    ...buildFlagFields(node),
+    installed: deriveInstalled(node, appid),
+    update_pending: deriveUpdatePending(node),
+    display_status: deriveDisplayStatus(node),
+    ...buildAssetFields(node),
+    ...buildTimestampFields(node),
+    ...buildTypeFields(node),
   };
 }
 
@@ -1407,8 +1473,7 @@ export async function getAllAppOverviews(): Promise<AppOverview[]> {
   return appOverviewPending;
 }
 
-async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
-  const out: AppOverview[] = [];
+async function fetchFromPrimarySteamClient(out: AppOverview[]): Promise<void> {
   for (const sc of getSteamClients()) {
     try {
       const res = await sc?.Apps?.GetAllAppOverviews?.();
@@ -1419,154 +1484,138 @@ async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
       if (Array.isArray(res)) out.push(...(res as AppOverview[]));
     } catch {}
   }
-  if (!out.length) {
-    const fallbackCandidates = [
-      ...getSteamWindows().flatMap((hostWindow) => [
-        hostWindow?.appStore,
-        hostWindow?.AppStore,
-        hostWindow?.LibraryStore,
-        hostWindow?.appsStore,
-        hostWindow?.appDataStore,
-      ]),
-      ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
-    ].filter(Boolean);
-    for (const candidate of fallbackCandidates) {
-      try {
-        out.push(...extractAppOverviewsFromCandidate(candidate));
-      } catch {}
-      try {
-        out.push(...extractAppOverviewsFromStoreMethods(candidate));
-      } catch {}
-    }
-    if (out.length) {
-      logInfo("STEAM", "getAllAppOverviews fallback extracted apps", { count: uniqApps(out).length });
-    }
-  }
+}
 
-  // Try collectionStore paths (used by TabMaster / UnifiDeck)
-  if (!out.length) {
-    for (const hostWindow of getSteamWindows()) {
-      try {
-        const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
-        if (!cs) continue;
-        // allAppsCollection includes shortcuts; fallback to allGamesCollection
-        const appsColl = cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection;
-        if (appsColl) {
-          const apps = appsColl.allApps ?? appsColl.visibleApps ?? appsColl.apps;
-          if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
-        }
-        // Also collect shortcuts specifically
-        const shortcutsColl = cs.allShortcutsCollection ?? cs.shortcutsCollection ?? cs.nonSteamCollection;
-        if (shortcutsColl) {
-          const apps = shortcutsColl.allApps ?? shortcutsColl.visibleApps ?? shortcutsColl.apps;
-          if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
-        }
-        const typeMap = cs.appTypeCollectionMap;
-        if (isMapLike(typeMap)) {
-          // Include both games and shortcuts from type map
-          for (const key of ['type-games', 'gamesCollection', 'type-shortcuts', 'shortcutsCollection']) {
-            const coll = typeMap.get(key);
-            if (coll) {
-              const apps = coll.allApps ?? coll.visibleApps ?? coll.apps;
-              if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
-            }
-          }
-        }
-      } catch {}
-    }
-    if (out.length) {
-      logInfo("STEAM", "getAllAppOverviews collectionStore extracted", { count: uniqApps(out).length });
-    }
+function fetchFromFallbackCandidates(out: AppOverview[]): void {
+  const fallbackCandidates = [
+    ...getSteamWindows().flatMap((hostWindow) => [
+      hostWindow?.appStore,
+      hostWindow?.AppStore,
+      hostWindow?.LibraryStore,
+      hostWindow?.appsStore,
+      hostWindow?.appDataStore,
+    ]),
+    ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
+  ].filter(Boolean);
+  for (const candidate of fallbackCandidates) {
+    try { out.push(...extractAppOverviewsFromCandidate(candidate)); } catch {}
+    try { out.push(...extractAppOverviewsFromStoreMethods(candidate)); } catch {}
   }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews fallback extracted apps", { count: uniqApps(out).length });
+}
 
-  // Direct Map access on appStore
-  if (!out.length) {
-    for (const hostWindow of getSteamWindows()) {
-      try {
-        const maps = [
-          (hostWindow as any)?.appStore?.m_mapApps,
-          (hostWindow as any)?.AppStore?.m_mapApps,
-          (hostWindow as any)?.appStore?.m_mapAppInfo,
-          (hostWindow as any)?.AppStore?.m_mapAppInfo,
-        ].filter(Boolean);
-        for (const map of maps) {
-          if (isMapLike(map) && (map.size ?? 0) > 0) {
-            for (const value of map.values()) {
-              const norm = normalizeAppOverview(value);
-              if (norm) out.push(norm);
-            }
-          }
-        }
-      } catch {}
-    }
-    if (out.length) {
-      logInfo("STEAM", "getAllAppOverviews directMap extracted", { count: uniqApps(out).length });
-    }
-  }
+function harvestCollection(out: AppOverview[], coll: any): void {
+  const apps = coll?.allApps ?? coll?.visibleApps ?? coll?.apps;
+  if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+}
 
-  // Last resort: get app IDs from collectionStore, then look up individual overviews
-  if (!out.length) {
-    const allIds: number[] = [];
-    for (const hostWindow of getSteamWindows()) {
-      try {
-        const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
-        if (!cs) continue;
-        const gamesColl = cs.allGamesCollection ?? cs.localGamesCollection ?? cs.allAppsCollection;
-        if (gamesColl) {
-          allIds.push(...extractAppIdsDeep(gamesColl, 4));
-        }
-      } catch {}
-    }
-    if (allIds.length) {
-      const uniqueIds = uniqNumbers(allIds);
-      logInfo("STEAM", "getAllAppOverviews: recovering via individual lookups", { idCount: uniqueIds.length });
-      for (const appid of uniqueIds.slice(0, 2000)) {
-        for (const hostWindow of getSteamWindows()) {
-          try {
-            const ov = (hostWindow as any)?.appStore?.GetAppOverviewByAppID?.(appid)
-              ?? (hostWindow as any)?.AppStore?.GetAppOverviewByAppID?.(appid);
-            if (ov) {
-              const norm = normalizeAppOverview(ov);
-              if (norm) { out.push(norm); break; }
-            }
-          } catch {}
+function fetchFromCollectionStore(out: AppOverview[]): void {
+  for (const hostWindow of getSteamWindows()) {
+    try {
+      const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
+      if (!cs) continue;
+      harvestCollection(out, cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection);
+      harvestCollection(out, cs.allShortcutsCollection ?? cs.shortcutsCollection ?? cs.nonSteamCollection);
+      const typeMap = cs.appTypeCollectionMap;
+      if (isMapLike(typeMap)) {
+        for (const key of ['type-games', 'gamesCollection', 'type-shortcuts', 'shortcutsCollection']) {
+          harvestCollection(out, typeMap.get(key));
         }
       }
-      if (out.length) {
-        logInfo("STEAM", "getAllAppOverviews individual lookups recovered", { count: uniqApps(out).length });
+    } catch {}
+  }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews collectionStore extracted", { count: uniqApps(out).length });
+}
+
+function fetchFromDirectMap(out: AppOverview[]): void {
+  for (const hostWindow of getSteamWindows()) {
+    try {
+      const maps = [
+        (hostWindow as any)?.appStore?.m_mapApps,
+        (hostWindow as any)?.AppStore?.m_mapApps,
+        (hostWindow as any)?.appStore?.m_mapAppInfo,
+        (hostWindow as any)?.AppStore?.m_mapAppInfo,
+      ].filter(Boolean);
+      for (const map of maps) {
+        if (isMapLike(map) && (map.size ?? 0) > 0) {
+          for (const value of map.values()) {
+            const norm = normalizeAppOverview(value);
+            if (norm) out.push(norm);
+          }
+        }
       }
+    } catch {}
+  }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews directMap extracted", { count: uniqApps(out).length });
+}
+
+function collectAppIdsFromCollectionStore(): number[] {
+  const allIds: number[] = [];
+  for (const hostWindow of getSteamWindows()) {
+    try {
+      const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
+      const gamesColl = cs?.allGamesCollection ?? cs?.localGamesCollection ?? cs?.allAppsCollection;
+      if (gamesColl) allIds.push(...extractAppIdsDeep(gamesColl, 4));
+    } catch {}
+  }
+  return uniqNumbers(allIds);
+}
+
+function fetchFromIndividualLookups(out: AppOverview[]): void {
+  const uniqueIds = collectAppIdsFromCollectionStore();
+  if (!uniqueIds.length) return;
+  logInfo("STEAM", "getAllAppOverviews: recovering via individual lookups", { idCount: uniqueIds.length });
+  for (const appid of uniqueIds.slice(0, 2000)) {
+    for (const hostWindow of getSteamWindows()) {
+      try {
+        const ov = (hostWindow as any)?.appStore?.GetAppOverviewByAppID?.(appid)
+          ?? (hostWindow as any)?.AppStore?.GetAppOverviewByAppID?.(appid);
+        const norm = ov ? normalizeAppOverview(ov) : null;
+        if (norm) { out.push(norm); break; }
+      } catch {}
     }
   }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews individual lookups recovered", { count: uniqApps(out).length });
+}
 
-  const unique = await enrichAppStateFlags(uniqApps(out));
-  // Filter out phantom entries: internal Steam tools, DLCs, etc. that have
-  // no meaningful name (fallback becomes "App <id>"), or have very low appids
-  // that correspond to Valve internal tools/redistributables.
-  const filtered = unique.filter((app) => {
+function dropPhantomApps(apps: AppOverview[]): AppOverview[] {
+  // Drop internal Steam tools / DLCs that have no meaningful name (fallback
+  // "App <id>") or blank names.
+  return apps.filter((app) => {
     const name = app.display_name ?? "";
-    // Skip items whose name is exactly "App <id>" — no real data
     if (name === `App ${app.appid}`) return false;
-    // Skip empty/blank names
     if (!name.trim()) return false;
     return true;
   });
+}
+
+function finalizeOverviews(filtered: AppOverview[], now: number): AppOverview[] {
   if (!filtered.length) {
     if (now - lastNoAppsWarnAt > 10000) {
       lastNoAppsWarnAt = now;
       logWarn("STEAM", "getAllAppOverviews returned no apps", { windowCount: getSteamWindows().length, clientCount: getSteamClients().length });
     }
-    // Don't cache empty results — retry next call
     return appOverviewCache ? appOverviewCache.items : filtered;
   }
-  // Guard against cache regression: if the new result has significantly fewer
-  // apps than the cache, prefer the existing cache (Steam stores may be
-  // restructuring during initialization).
+  // Cache-regression guard: if the new result is <50% of the cache, prefer
+  // the cache (Steam stores may be restructuring during initialization).
   if (appOverviewCache && filtered.length < appOverviewCache.items.length * 0.5) {
     appOverviewCache.ts = now;
     return appOverviewCache.items;
   }
   appOverviewCache = { ts: now, items: filtered };
   return filtered;
+}
+
+async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
+  const out: AppOverview[] = [];
+  await fetchFromPrimarySteamClient(out);
+  if (!out.length) fetchFromFallbackCandidates(out);
+  if (!out.length) fetchFromCollectionStore(out);
+  if (!out.length) fetchFromDirectMap(out);
+  if (!out.length) fetchFromIndividualLookups(out);
+  const enriched = await enrichAppStateFlags(uniqApps(out));
+  return finalizeOverviews(dropPhantomApps(enriched), now);
 }
 
 /**
@@ -1856,251 +1905,217 @@ function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean;
   return { needsDev, needsPub };
 }
 
-function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
-  let result: boolean;
-  switch (item.type) {
-    case "installed":
-      result = isInstalledOf(app);
-      break;
-    case "favorites":
-      result = isFavoriteOf(app);
-      break;
-    case "nonSteam":
-      result = isNonSteamOf(app);
-      break;
-    case "hidden": {
-      const mode = item.params?.mode ?? "exclude";
-      if (mode === "only") result = isHiddenOf(app);
-      else if (mode === "exclude") result = !isHiddenOf(app);
-      else result = true;
-      break;
-    }
-    case "updatePending":
-      result = app.update_pending === true;
-      break;
-    case "appStatus": {
-      const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
-      const ds = (app as any).display_status as number | undefined;
-      result = groups.some((g) => {
-        const statuses = APP_STATUS_GROUPS[g as keyof typeof APP_STATUS_GROUPS];
-        return statuses ? statuses.includes(ds as number) : false;
-      });
-      break;
-    }
-    case "isNew": {
-      const a = app as any;
-      const added = Number(a.rt_purchased_time ?? a.rt_recent_activity_time ?? a.user_added_ts ?? a.rt_store_asset_mtime ?? 0);
-      if (!added || !Number.isFinite(added)) { result = false; break; }
-      const addedMs = added < 1e12 ? added * 1000 : added;
-      result = (Date.now() - addedMs) < 14 * 24 * 60 * 60 * 1000;
-      break;
-    }
-    case "deckCompatibility": {
-      const levels = item.params?.levels ?? [];
-      result = isDeckCompatMatch(app.deck_compatibility_category, levels);
-      break;
-    }
-    case "playedWithinDays": {
-      const days = Number(item.params?.days ?? 7);
-      const now = Math.floor(Date.now() / 1000);
-      const min = now - Math.floor(days * 86400);
-      result = lastPlayedOf(app) >= min;
-      break;
-    }
-    case "playtimeRange": {
-      const minHours: number | undefined = item.params?.minHours;
-      const maxHours: number | undefined = item.params?.maxHours;
-      const playtimeMinutes = app.playtime_forever ?? 0;
-      result = true;
-      if (typeof minHours === "number") result = playtimeMinutes >= minHours * 60;
-      if (result && typeof maxHours === "number") result = playtimeMinutes <= maxHours * 60;
-      break;
-    }
-    case "nameIncludes": {
-      const text = String(item.params?.text ?? "").toLowerCase();
-      result = !text || appNameOf(app).toLowerCase().includes(text);
-      break;
-    }
-    case "nameRegex": {
-      const pattern = String(item.params?.pattern ?? "");
-      if (!pattern) { result = true; break; }
-      try { result = new RegExp(pattern, "i").test(appNameOf(app)); }
-      catch { result = true; }
-      break;
-    }
-    case "collection": {
-      const colId = String(item.params?.collectionId ?? "").trim();
-      if (!colId) {
-        // No collection picked yet (UI half-configured) — leave the item
-        // as a no-op so the user keeps seeing their library.
-        result = true;
-      } else {
-        // Lookup is always attempted in the prefetch pass; if the entry is
-        // missing here, the lookup either failed or returned 0 apps. Issue
-        // #55 (filter shelf showed apps the user does not own) was caused
-        // by the previous pass-through, which silently leaked the entire
-        // library when a Bazzite-shaped collectionStore returned no matches.
-        // Excluding makes the misconfig visible (empty shelf) instead.
-        const appSet = ctx?.collectionAppIds.get(colId);
-        result = appSet ? appSet.has(app.appid) : false;
-      }
-      break;
-    }
-    case "merge": {
-      // Recursively evaluate as a nested group
-      const subItems: FilterItem[] = Array.isArray(item.params?.items) ? (item.params.items as FilterItem[]) : [];
-      const subMode = ((item.params?.mode ?? "and") as "and" | "or");
-      result = evaluateFilterGroup({ mode: subMode, items: subItems }, [app], ctx).length > 0;
-      break;
-    }
-    case "developer": {
-      const selected: string[] = Array.isArray(item.params?.developers) ? item.params.developers : [];
-      if (!selected.length) { result = true; break; }
-      const dev = getAppDeveloperCached(app.appid);
-      result = selected.some((d) => d.toLowerCase() === dev.toLowerCase());
-      break;
-    }
-    case "publisher": {
-      const selected: string[] = Array.isArray(item.params?.publishers) ? item.params.publishers : [];
-      if (!selected.length) { result = true; break; }
-      const pub = getAppPublisherCached(app.appid);
-      result = selected.some((p) => p.toLowerCase() === pub.toLowerCase());
-      break;
-    }
-    case "appIdList": {
-      const ids: number[] = Array.isArray(item.params?.appIds) ? item.params.appIds.map(Number).filter(Number.isFinite) : [];
-      if (!ids.length) { result = true; break; }
-      result = ids.includes(app.appid);
-      break;
-    }
-    case "cloudAvailable": {
-      result = app.cloud_available === true;
-      break;
-    }
-    case "controllerSupport": {
-      // nControllerSupport: 0 = none, 1 = partial, 2 = full
-      const n = Number(app.controller_support ?? 0);
-      const min = Number(item.params?.min ?? 1);
-      result = Number.isFinite(n) && n >= min;
-      break;
-    }
-    case "shortcutType": {
-      const kinds: string[] = Array.isArray(item.params?.kinds) ? item.params.kinds : ["game"];
-      // Steam's EAppType is a bit-flag enum. Known values (from Steam
-      // client source) — we recognise the ones a library shelf realistically
-      // wants to filter on:
-      //   1     Game           (default — also matches app_type undefined)
-      //   2     Application    ("software" alias kept for back-compat)
-      //   4     Tool           (legacy "tool" matched anything not 1/2;
-      //                         now we accept either app_type 4 or any
-      //                         non-1/2 Steam app for back-compat)
-      //   8     Demo
-      //   32    DLC
-      //   64    Guide
-      //   128   Driver
-      //   256   Config
-      //   512   Hardware
-      //   2048  Video
-      //   8192  Music / Soundtrack
-      //   32768 Comic
-      //   65536 Beta
-      //   1073741824  Shortcut (non-Steam — exposed as "link")
-      const nonSteam = isNonSteamOf(app);
-      const t = app.app_type;
-      let matched = false;
-      for (const k of kinds) {
-        if (k === "link" && nonSteam) { matched = true; break; }
-        if (!nonSteam) {
-          if (k === "game"        && (t === undefined || t === 1)) { matched = true; break; }
-          if (k === "software"    && t === 2) { matched = true; break; }
-          if (k === "application" && t === 2) { matched = true; break; }
-          if (k === "tool"        && (t === 4 || (t !== undefined && t !== 1 && t !== 2 && t !== 8 && t !== 32 && t !== 64 && t !== 128 && t !== 256 && t !== 512 && t !== 2048 && t !== 8192 && t !== 32768 && t !== 65536))) { matched = true; break; }
-          if (k === "demo"        && t === 8) { matched = true; break; }
-          if (k === "dlc"         && t === 32) { matched = true; break; }
-          if (k === "guide"       && t === 64) { matched = true; break; }
-          if (k === "driver"      && t === 128) { matched = true; break; }
-          if (k === "config"      && t === 256) { matched = true; break; }
-          if (k === "hardware"    && t === 512) { matched = true; break; }
-          if (k === "video"       && t === 2048) { matched = true; break; }
-          if (k === "music"       && t === 8192) { matched = true; break; }
-          if (k === "soundtrack"  && t === 8192) { matched = true; break; }
-          if (k === "comic"       && t === 32768) { matched = true; break; }
-          if (k === "beta"        && t === 65536) { matched = true; break; }
-        }
-      }
-      result = matched;
-      break;
-    }
-    case "discount": {
-      // Reads discount % from the price cache (populated by onlineStore.ts).
-      // Discount only applies to PRICED games. Permanently-free titles
-      // (F2P with no `price_overview`, region-blocked, etc.) are cached
-      // with `unpriced: true` and always excluded — a "100% off" shelf
-      // must surface only games that have a base price and are
-      // currently discounted, not F2P entries that are simply $0.
-      try {
-        const appid = appIdOf(app);
-        if (!appid) { result = false; break; }
-        const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
-        if (!raw) { result = true; break; } // no cache yet → pass through (first-time bootstrap)
-        const cache: Record<number, { ts: number; data: { discount?: number; unpriced?: boolean } }> = JSON.parse(raw);
-        const entry = cache[appid];
-        if (!entry?.data) { result = false; break; } // not in this fetch round → exclude
-        if (entry.data.unpriced === true) { result = false; break; } // F2P / no price_overview → never matches a discount filter
-        const disc = entry.data.discount ?? 0;
-        const min = Number(item.params?.minDiscount ?? 0);
-        const max = Number(item.params?.maxDiscount ?? 100);
-        result = disc >= min && disc <= max;
-      } catch { result = false; }
-      break;
-    }
-    case "friendsPlayingNow": {
-      // Game appid is in the set any friend is currently in-game on.
-      // Reads from the runtime friend-presence cache (90 s poll); empty
-      // when no friend is in any game right now or when the friend store
-      // isn't available (offline / older SteamOS).
-      try {
-        const appid = appIdOf(app);
-        if (!appid) { result = false; break; }
-        const { getFriendsPlayingAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
-        result = getFriendsPlayingAppIds().has(appid);
-      } catch { result = false; }
-      break;
-    }
-    case "friendsPlayedRecently": {
-      // Game appid is in the set any friend played within the last
-      // `days` days (default 14). The runtime tracks `m_dtLastSeenPlaying`
-      // per friend; this filter is a superset of `friendsPlayingNow`
-      // (live games are always included in the recent set).
-      try {
-        const appid = appIdOf(app);
-        if (!appid) { result = false; break; }
-        const days = Number(item.params?.days ?? 14);
-        if (!Number.isFinite(days) || days <= 0) { result = false; break; }
-        // The runtime caches a single 14-day window — for tighter day
-        // ranges we can ask it to refresh with a narrower lookback, but
-        // for the common case the cached set is sufficient. `days` is
-        // currently informational; the runtime's 14-day window applies.
-        const { getFriendsRecentlyPlayedAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
-        result = getFriendsRecentlyPlayedAppIds().has(appid);
-      } catch { result = false; }
-      break;
-    }
-    // storeTag, friends, achievements: require data not in AppOverview — pass-through
-    default: {
-      // Plugin API: delegate to a registered external filter type when the
-      // type id is unknown internally. Unknown + unregistered types still
-      // pass-through (true) so an unregistered plugin filter doesn't hide
-      // the user's entire library.
-      try {
-        if (hasExternalFilterType(item.type as string)) {
-          result = evaluateExternalFilter(item.type as string, app as unknown as PublicAppMeta, item.params ?? {});
-          break;
-        }
-      } catch { /* fall through to pass */ }
-      result = true;
-    }
+// Per-type filter evaluators. Same dispatch table the old switch
+// expressed, just extracted so the top-level `evaluateFilterItem` stays
+// at complexity 1 — each evaluator is responsible for its own knob.
+// Behaviour is identical to the prior switch body.
+type FilterEvaluator = (item: FilterItem, app: AppOverview, ctx?: FilterEvalContext) => boolean;
+
+function evalHidden(item: FilterItem, app: AppOverview): boolean {
+  const mode = item.params?.mode ?? "exclude";
+  if (mode === "only") return isHiddenOf(app);
+  if (mode === "exclude") return !isHiddenOf(app);
+  return true;
+}
+
+function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
+  const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
+  const ds = (app as any).display_status as number | undefined;
+  return groups.some((g) => {
+    const statuses = APP_STATUS_GROUPS[g as keyof typeof APP_STATUS_GROUPS];
+    return statuses ? statuses.includes(ds as number) : false;
+  });
+}
+
+function evalIsNew(_item: FilterItem, app: AppOverview): boolean {
+  const a = app as any;
+  const added = Number(a.rt_purchased_time ?? a.rt_recent_activity_time ?? a.user_added_ts ?? a.rt_store_asset_mtime ?? 0);
+  if (!added || !Number.isFinite(added)) return false;
+  const addedMs = added < 1e12 ? added * 1000 : added;
+  return (Date.now() - addedMs) < 14 * 24 * 60 * 60 * 1000;
+}
+
+function evalPlayedWithinDays(item: FilterItem, app: AppOverview): boolean {
+  const days = Number(item.params?.days ?? 7);
+  const now = Math.floor(Date.now() / 1000);
+  const min = now - Math.floor(days * 86400);
+  return lastPlayedOf(app) >= min;
+}
+
+function evalPlaytimeRange(item: FilterItem, app: AppOverview): boolean {
+  const minHours: number | undefined = item.params?.minHours;
+  const maxHours: number | undefined = item.params?.maxHours;
+  const playtimeMinutes = app.playtime_forever ?? 0;
+  if (typeof minHours === "number" && playtimeMinutes < minHours * 60) return false;
+  if (typeof maxHours === "number" && playtimeMinutes > maxHours * 60) return false;
+  return true;
+}
+
+function evalNameIncludes(item: FilterItem, app: AppOverview): boolean {
+  const text = String(item.params?.text ?? "").toLowerCase();
+  return !text || appNameOf(app).toLowerCase().includes(text);
+}
+
+function evalNameRegex(item: FilterItem, app: AppOverview): boolean {
+  const pattern = String(item.params?.pattern ?? "");
+  if (!pattern) return true;
+  try { return new RegExp(pattern, "i").test(appNameOf(app)); }
+  catch { return true; }
+}
+
+function evalCollection(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  const colId = String(item.params?.collectionId ?? "").trim();
+  if (!colId) return true; // half-configured: don't restrict
+  // Missing entry = lookup failed or returned 0 apps. Exclude (issue #55:
+  // pass-through here previously leaked the entire library when
+  // Bazzite-shaped collectionStore returned empty).
+  const appSet = ctx?.collectionAppIds.get(colId);
+  return appSet ? appSet.has(app.appid) : false;
+}
+
+function evalMerge(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  const subItems: FilterItem[] = Array.isArray(item.params?.items) ? (item.params.items as FilterItem[]) : [];
+  const subMode = ((item.params?.mode ?? "and") as "and" | "or");
+  return evaluateFilterGroup({ mode: subMode, items: subItems }, [app], ctx).length > 0;
+}
+
+function evalDeveloper(item: FilterItem, app: AppOverview): boolean {
+  const selected: string[] = Array.isArray(item.params?.developers) ? item.params.developers : [];
+  if (!selected.length) return true;
+  const dev = getAppDeveloperCached(app.appid);
+  return selected.some((d) => d.toLowerCase() === dev.toLowerCase());
+}
+
+function evalPublisher(item: FilterItem, app: AppOverview): boolean {
+  const selected: string[] = Array.isArray(item.params?.publishers) ? item.params.publishers : [];
+  if (!selected.length) return true;
+  const pub = getAppPublisherCached(app.appid);
+  return selected.some((p) => p.toLowerCase() === pub.toLowerCase());
+}
+
+function evalAppIdList(item: FilterItem, app: AppOverview): boolean {
+  const ids: number[] = Array.isArray(item.params?.appIds) ? item.params.appIds.map(Number).filter(Number.isFinite) : [];
+  if (!ids.length) return true;
+  return ids.includes(app.appid);
+}
+
+function evalControllerSupport(item: FilterItem, app: AppOverview): boolean {
+  // nControllerSupport: 0 = none, 1 = partial, 2 = full
+  const n = Number(app.controller_support ?? 0);
+  const min = Number(item.params?.min ?? 1);
+  return Number.isFinite(n) && n >= min;
+}
+
+// EAppType bit-flag enum (Steam client). Lookup table replaces the
+// linear if-chain so adding a new kind drops to "one row".
+const APP_TYPE_BY_KIND: Record<string, number> = {
+  software: 2, application: 2,
+  demo: 8, dlc: 32, guide: 64, driver: 128, config: 256, hardware: 512,
+  video: 2048, music: 8192, soundtrack: 8192, comic: 32768, beta: 65536,
+};
+const NON_TOOL_APP_TYPES = new Set<number>([1, 2, 8, 32, 64, 128, 256, 512, 2048, 8192, 32768, 65536]);
+
+function matchesShortcutKind(kind: string, app: AppOverview): boolean {
+  const nonSteam = isNonSteamOf(app);
+  if (kind === "link") return nonSteam;
+  if (nonSteam) return false;
+  const t = app.app_type;
+  if (kind === "game") return t === undefined || t === 1;
+  if (kind === "tool") {
+    // Tool matches explicit type 4 OR any non-1/2/8/32/.../65536 Steam app
+    // (legacy "anything not recognised" semantics).
+    return t === 4 || (t !== undefined && !NON_TOOL_APP_TYPES.has(t));
   }
+  const expected = APP_TYPE_BY_KIND[kind];
+  return expected !== undefined && t === expected;
+}
+
+function evalShortcutType(item: FilterItem, app: AppOverview): boolean {
+  const kinds: string[] = Array.isArray(item.params?.kinds) ? item.params.kinds : ["game"];
+  return kinds.some((k) => matchesShortcutKind(k, app));
+}
+
+function evalDiscount(item: FilterItem, app: AppOverview): boolean {
+  // Reads discount % from the price cache (populated by onlineStore.ts).
+  // F2P / unpriced entries always exclude (a "100% off" shelf must
+  // surface real discounts, not free titles).
+  try {
+    const appid = appIdOf(app);
+    if (!appid) return false;
+    const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
+    if (!raw) return true; // first-time bootstrap — pass through
+    const cache: Record<number, { ts: number; data: { discount?: number; unpriced?: boolean } }> = JSON.parse(raw);
+    const entry = cache[appid];
+    if (!entry?.data) return false; // not in this fetch round
+    if (entry.data.unpriced === true) return false;
+    const disc = entry.data.discount ?? 0;
+    const min = Number(item.params?.minDiscount ?? 0);
+    const max = Number(item.params?.maxDiscount ?? 100);
+    return disc >= min && disc <= max;
+  } catch { return false; }
+}
+
+function evalFriendsPlayingNow(_item: FilterItem, app: AppOverview): boolean {
+  try {
+    const appid = appIdOf(app);
+    if (!appid) return false;
+    const { getFriendsPlayingAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
+    return getFriendsPlayingAppIds().has(appid);
+  } catch { return false; }
+}
+
+function evalFriendsPlayedRecently(item: FilterItem, app: AppOverview): boolean {
+  try {
+    const appid = appIdOf(app);
+    if (!appid) return false;
+    const days = Number(item.params?.days ?? 14);
+    if (!Number.isFinite(days) || days <= 0) return false;
+    const { getFriendsRecentlyPlayedAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
+    return getFriendsRecentlyPlayedAppIds().has(appid);
+  } catch { return false; }
+}
+
+const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
+  installed:              (_i, app) => isInstalledOf(app),
+  favorites:              (_i, app) => isFavoriteOf(app),
+  nonSteam:               (_i, app) => isNonSteamOf(app),
+  hidden:                 evalHidden,
+  updatePending:          (_i, app) => app.update_pending === true,
+  appStatus:              evalAppStatus,
+  isNew:                  evalIsNew,
+  deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
+  playedWithinDays:       evalPlayedWithinDays,
+  playtimeRange:          evalPlaytimeRange,
+  nameIncludes:           evalNameIncludes,
+  nameRegex:              evalNameRegex,
+  collection:             evalCollection,
+  merge:                  evalMerge,
+  developer:              evalDeveloper,
+  publisher:              evalPublisher,
+  appIdList:              evalAppIdList,
+  cloudAvailable:         (_i, app) => app.cloud_available === true,
+  controllerSupport:      evalControllerSupport,
+  shortcutType:           evalShortcutType,
+  discount:               evalDiscount,
+  friendsPlayingNow:      evalFriendsPlayingNow,
+  friendsPlayedRecently:  evalFriendsPlayedRecently,
+};
+
+function evalDefault(item: FilterItem, app: AppOverview): boolean {
+  // External plugin filter or unknown type. Unknown + unregistered →
+  // pass-through (true) so an unregistered plugin filter doesn't hide
+  // the user's entire library.
+  try {
+    if (hasExternalFilterType(item.type as string)) {
+      return evaluateExternalFilter(item.type as string, app as unknown as PublicAppMeta, item.params ?? {});
+    }
+  } catch { /* fall through */ }
+  return true;
+}
+
+function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  const evaluator = FILTER_EVALUATORS[item.type] ?? evalDefault;
+  const result = evaluator(item, app, ctx);
   return item.inverted ? !result : result;
 }
 

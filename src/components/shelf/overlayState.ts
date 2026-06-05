@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 /**
  * Single shared overlay detector for all cards. Replaces the per-card
  * body MutationObserver + focusin/focusout listeners — at home scale

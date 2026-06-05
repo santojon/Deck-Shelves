@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 
 import { Spinner } from "@decky/ui";
 import { memo, useEffect, useMemo, useState, useRef } from "react";
@@ -488,7 +487,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         updatePending: item.updatePending,
         isSteam: item.isSteam,
         isNew,
-        statusText: item.installed != true ? t('status_not_installed') : undefined,
+        statusText: item.installed !== true ? t('status_not_installed') : undefined,
         shelfId: shelf.id,
       }];
     });

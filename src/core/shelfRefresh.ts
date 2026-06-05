@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 /**
  * Global shelf refresh coordinator.
  *

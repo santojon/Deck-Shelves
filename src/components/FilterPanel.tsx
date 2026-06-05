@@ -1,6 +1,5 @@
 import { Fragment, useCallback, useRef, useEffect } from "react";
-import { DialogButton, Field, Focusable, Dropdown } from "@decky/ui";
-import type { SingleDropdownOption } from "@decky/ui";
+import { DialogButton, Field, Focusable, Dropdown, type SingleDropdownOption } from "@decky/ui";
 import type { FilterGroup, FilterItem } from "../types";
 import i18n from "../i18n";
 import FilterItemOptions from "./filter/FilterItemOptions";

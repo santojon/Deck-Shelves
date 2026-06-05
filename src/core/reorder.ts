@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 /**
  * Unified pointer-hold drag-to-reorder controller.
  *

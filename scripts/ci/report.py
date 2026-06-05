@@ -201,6 +201,15 @@ a.fl{color:var(--link)}
 .stress-tag{font-size:10px;color:#a5b4fc;background:#1e1b4b;
   padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
 footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
+.sdur{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-bottom:18px}
+.panel h2{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--text)}
+.bm{display:flex;flex-direction:column;gap:6px}
+.bm-row{display:grid;grid-template-columns:minmax(120px,1fr) 3fr 70px;align-items:center;gap:10px;font-size:11.5px}
+.bm-name{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-bar-wrap{background:#0d1b2a;border-radius:4px;height:10px;overflow:hidden}
+.bm-bar{height:100%;border-radius:4px;transition:width .2s ease}
+.bm-dur{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
 """
 
 _IDX_CSS = """\
@@ -266,7 +275,7 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
 
 # ── Step HTML ──────────────────────────────────────────────────────────────────
 
-def _step_html(name: str, status: str, log_path: str, root: str, idx: int) -> str:
+def _step_html(name: str, status: str, log_path: str, root: str, idx: int, duration_ms: int = 0) -> str:
     log_text = ""
     if log_path and Path(log_path).exists():
         try:
@@ -299,11 +308,16 @@ def _step_html(name: str, status: str, log_path: str, root: str, idx: int) -> st
         )
         issues_html = f'<div class="issues"><h4>⚠ Files with issues</h4>{rows}</div>'
 
+    dur_html = (
+        f'<span class="sdur" title="{duration_ms} ms">{_fmt_duration_ms(duration_ms)}</span>'
+        if duration_ms and duration_ms > 0 else ""
+    )
     return (
         f'<div class="step" id="s{idx}">'
         f'<div class="step-hdr" onclick="toggle({idx})">'
         f'<div class="dot {status}"></div>'
         f'<span class="sname">{_html.escape(name)}</span>'
+        f'{dur_html}'
         f'<span class="slabel {status}">{status.upper()}</span>'
         f'<span class="chevron" id="c{idx}">▶</span>'
         f'</div>'
@@ -444,7 +458,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
             ts      = last.get("ts", "?")
             overall = last.get("overall", "?").lower()
             passed  = last.get("passed", 0)
-            failed  = last.get("failed", 0)
+            last.get("failed", 0)
             total   = last.get("total",  0)
             try:
                 dt = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
@@ -907,6 +921,17 @@ _DASH_JS = r"""
       '</div>';
   }
 
+  function fmtDur(ms){
+    if(!ms||ms<0)return '—';
+    if(ms<1000)return ms+' ms';
+    const s=ms/1000;
+    if(s<60)return s.toFixed(1)+'s';
+    const m=Math.floor(s/60),rem=Math.round(s-m*60);
+    if(m<60)return m+'m '+rem+'s';
+    const h=Math.floor(m/60);
+    return h+'h '+(m-h*60)+'m';
+  }
+
   function kpis(rs){
     const total=rs.length;
     const p=rs.reduce((a,r)=>a+(r.passed||0),0);
@@ -919,12 +944,38 @@ _DASH_JS = r"""
     const last=rs.length?rs[rs.length-1]:null;
     const lr=last?(last.overall||'?'):'—';
     const lc=lr==='PASS'?'var(--pass)':(lr==='FAIL'?'var(--fail)':'var(--muted)');
+    const durs=rs.map(r=>r.total_duration_ms||0).filter(d=>d>0);
+    const avgDur=durs.length?Math.round(durs.reduce((a,d)=>a+d,0)/durs.length):0;
     return `<div class="kpis">
       <div class="kpi"><div class="v">${total}</div><div class="l">Total Runs</div></div>
       <div class="kpi"><div class="v" style="color:var(--pass)">${rpct}%</div><div class="l">Runs Passed</div></div>
       <div class="kpi"><div class="v">${tt}</div><div class="l">Tests Executed</div></div>
       <div class="kpi"><div class="v" style="color:var(--accent)">${pct}%</div><div class="l">Test Pass Rate</div></div>
-      <div class="kpi"><div class="v" style="color:${lc}">${esc(lr)}</div><div class="l">Last Run</div></div></div>`;
+      <div class="kpi"><div class="v" style="color:${lc}">${esc(lr)}</div><div class="l">Last Run</div></div>
+      <div class="kpi"><div class="v">${fmtDur(avgDur)}</div><div class="l">Avg Duration</div></div></div>`;
+  }
+
+  function benchBars(rs){
+    // Aggregate per-step duration averages across runs.
+    const totals={};
+    for(const r of rs){
+      const names=r.step_names||[],durs=r.step_durations_ms||[];
+      for(let i=0;i<names.length;i++){
+        const n=names[i],d=durs[i]||0;
+        if(!n||d<=0)continue;
+        const t=totals[n]=totals[n]||{sum:0,n:0};
+        t.sum+=d;t.n+=1;
+      }
+    }
+    const rows=Object.entries(totals)
+      .map(([name,t])=>({name,avg:Math.round(t.sum/t.n),runs:t.n}))
+      .sort((a,b)=>b.avg-a.avg);
+    if(!rows.length)return '<p style="color:#475569;font-size:12px">No timing data yet. Run <code>pnpm validate:ci</code> (or <code>validate:full</code>) — new runs include per-step duration.</p>';
+    const max=rows[0].avg||1;
+    return rows.map(r=>{
+      const pct=Math.max(2,100*r.avg/max).toFixed(1);
+      return `<div class="scope-row"><span class="nm">${esc(r.name)}</span><div class="bar"><i style="width:${pct}%;background:#4ade80" title="${r.runs} run(s)"></i></div><span class="ct">${fmtDur(r.avg)}</span></div>`;
+    }).join('');
   }
 
   function svgLine(rs){
@@ -1024,6 +1075,8 @@ _DASH_JS = r"""
     $('donut').innerHTML=svgDonut(p,f,k);
     $('donut-legend').innerHTML=`<span><i style="background:${PASS}"></i> ${p} pass</span><span><i style="background:${FAIL}"></i> ${f} fail</span><span><i style="background:${SKIP}"></i> ${k} skip</span>`;
     $('scopes').innerHTML=scopeBars(view);
+    const benchHost=$('bench');
+    if(benchHost)benchHost.innerHTML=benchBars(view);
     $('footer-count').textContent=view.length;
   }
 
@@ -1166,6 +1219,15 @@ def _rebuild_dashboard(reports_root: Path) -> None:
       </div>
     </div>
   </div>
+
+  <div class="panel">
+    <h2>Step durations &mdash; average across runs (ms)</h2>
+    <div id="bench"></div>
+    <div class="legend">
+      <span><i style="background:#4ade80"></i> avg duration</span>
+      <span style="color:#64748b;font-size:10px">(per step, sourced from each run's `step_durations_ms`)</span>
+    </div>
+  </div>
 """
 
     baked_json = json.dumps(baked, separators=(",", ":"))
@@ -1197,6 +1259,41 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 
 # ── Report generation ──────────────────────────────────────────────────────────
 
+def _fmt_duration_ms(ms: int) -> str:
+    """Human-friendly duration: 32 ms / 4.2 s / 1m 12s / 2h 5m."""
+    if ms < 1000:
+        return f"{ms} ms"
+    s = ms / 1000.0
+    if s < 60:
+        return f"{s:.1f}s"
+    m = int(s // 60)
+    rem = int(s - m * 60)
+    if m < 60:
+        return f"{m}m {rem}s"
+    h = m // 60
+    return f"{h}h {m - h * 60}m"
+
+
+def _render_step_durations_chart(names: List[str], statuses: List[str], durations_ms: List[int]) -> str:
+    """SVG bar chart of per-step duration. Bars colored by step status."""
+    if not names or not durations_ms or not any(durations_ms):
+        return ""
+    max_ms = max(durations_ms) or 1
+    rows = []
+    for n, s, d in zip(names, statuses, durations_ms):
+        pct = max(2.0, 100.0 * d / max_ms)
+        color = "#4ade80" if s == "pass" else ("#f87171" if s == "fail" else "#94a3b8")
+        label = _html.escape(n)
+        rows.append(
+            f'<div class="bm-row">'
+            f'<span class="bm-name">{label}</span>'
+            f'<div class="bm-bar-wrap"><div class="bm-bar" style="width:{pct:.1f}%;background:{color}"></div></div>'
+            f'<span class="bm-dur">{_fmt_duration_ms(d)}</span>'
+            f'</div>'
+        )
+    return '<div class="bm">' + "".join(rows) + '</div>'
+
+
 def generate(
     ts: str,
     stress: bool,
@@ -1206,12 +1303,18 @@ def generate(
     logs: List[str],
     out_path: str,
     root: str,
+    durations_ms: Optional[List[int]] = None,
 ) -> None:
     passed  = statuses.count("pass")
     failed  = statuses.count("fail")
     skipped = statuses.count("skip")
     total   = len(statuses)
     overall = "pass" if failed == 0 else "fail"
+    if durations_ms is None:
+        durations_ms = [0] * len(names)
+    while len(durations_ms) < len(names):
+        durations_ms.append(0)
+    total_duration_ms = sum(d for d in durations_ms if isinstance(d, int) and d > 0)
 
     try:
         dt_str = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%B %d, %Y at %H:%M:%S")
@@ -1222,9 +1325,10 @@ def generate(
     stress_tag = '<span class="stress-tag">stress</span>' if stress else ""
 
     steps_html = "".join(
-        _step_html(n, s, l, root, i)
+        _step_html(n, s, l, root, i, duration_ms=durations_ms[i] if i < len(durations_ms) else 0)
         for i, (n, s, l) in enumerate(zip(names, statuses, logs))
     )
+    benchmark_html = _render_step_durations_chart(names, statuses, durations_ms)
 
     report = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1249,7 +1353,9 @@ def generate(
     <div class="sc"><div class="n f">{failed}</div><div class="l">Failed</div></div>
     <div class="sc"><div class="n s">{skipped}</div><div class="l">Skipped</div></div>
     <div class="sc"><div class="n t">{total}</div><div class="l">Total</div></div>
+    <div class="sc"><div class="n t">{_fmt_duration_ms(total_duration_ms)}</div><div class="l">Duration</div></div>
   </div>
+  {('<div class="panel"><h2>Step durations</h2>' + benchmark_html + '</div>') if benchmark_html else ''}
 {steps_html}
 </main>
 <footer>Deck Shelves CI &middot; {_html.escape(ts)}</footer>
@@ -1284,6 +1390,9 @@ function toggle(i){{
         "overall": overall.upper(),
         "passed": passed, "failed": failed, "skipped": skipped, "total": total,
         "per_suite": per_suite,
+        "step_names": names,
+        "step_durations_ms": durations_ms,
+        "total_duration_ms": total_duration_ms,
     }
     out.with_suffix(".json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
@@ -1361,12 +1470,16 @@ def main() -> int:
     names    = data.get("names",    [])
     statuses = data.get("statuses", [])
     logs     = data.get("logs",     [])
+    durations_ms = data.get("durations_ms", [])
     while len(logs) < len(names):
         logs.append("")
+    while len(durations_ms) < len(names):
+        durations_ms.append(0)
 
     generate(
         ts=args.ts, stress=args.stress == "1", subdir=args.subdir,
         names=names, statuses=statuses, logs=logs,
+        durations_ms=durations_ms,
         out_path=args.out, root=args.root,
     )
     return 0

@@ -1,7 +1,5 @@
-/* eslint-disable complexity */
 import { call } from "@decky/api";
-import type { Settings } from "../types";
-import { SettingsSchema } from "../types";
+import { SettingsSchema, type Settings } from "../types";
 import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn } from "../runtime/logger";
 import { applyQASettingsOverride } from "../qa/harness";

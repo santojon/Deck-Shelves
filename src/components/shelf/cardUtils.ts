@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 
 function readForceThemes(): boolean {

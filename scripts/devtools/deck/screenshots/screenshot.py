@@ -648,7 +648,7 @@ ALL_TARGETS = [
 
 def screenshot_home(host: str, port: int, bp: Dict) -> Optional[Path]:
     print("  Garantindo que está no topo e sem overlays...")
-    bp_ws = ws_path_for(bp, port)
+    ws_path_for(bp, port)
     # Scroll para o topo
     for _ in range(5):
         scroll_bp(host, port, bp, -2000)
@@ -1276,7 +1276,7 @@ def screenshot_reset_all(host: str, port: int, bp: Dict, shared_ws: str, qam_ws:
 
 def screenshot_about_page(host: str, port: int, bp: Dict, shared_ws: str, qam_ws: str) -> Optional[Path]:
     """Capture the About / Filter Documentation page."""
-    bp_ws = ws_path_for(bp, port)
+    ws_path_for(bp, port)
     _open_qam_and_tab(host, port, shared_ws, qam_ws, bp)
     # Click the book icon button (About) in the QAM title bar
     clicked = click_qam_button(host, port, qam_ws, "M4 19.5A2.5", 0)
@@ -1635,7 +1635,7 @@ def screenshot_smart_shelf_edit(host: str, port: int, bp: Dict, shared_ws: str, 
 # Main
 # ---------------------------------------------------------------------------
 
-def main() -> int:
+def main() -> int:  # noqa: C901
     explicacoes = []
     parser = argparse.ArgumentParser(
         description="Take Steam Deck GamepadUI screenshots via CDP",

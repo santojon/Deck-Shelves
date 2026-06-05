@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 let preferredSteamWindow: Window | null = null;
 
 export function setPreferredSteamWindow(win: Window | null | undefined) {

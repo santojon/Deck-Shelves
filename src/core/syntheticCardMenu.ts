@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 // Fallback context menu for synthetic (decoration) cards.
 //
 // Real game cards go through Steam's native AppContextMenu (extended

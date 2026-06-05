@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { logInfo } from "../../../runtime/logger";
 
 /**

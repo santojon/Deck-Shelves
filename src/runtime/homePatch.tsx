@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import React from "react";
 import i18next from "i18next";
 import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";

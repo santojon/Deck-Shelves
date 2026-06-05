@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { Navigation } from "@decky/ui";
 import { getAppMeta, getAppName, listCollections, listLibraryTabs, resolveShelfAppIds } from "../steam";
 import type { ShelfSource } from "../types";

@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { useEffect, useState } from 'react'
 // See DeckyHostApi adapter.
 import {

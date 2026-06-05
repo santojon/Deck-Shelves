@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 /**
  * Best-effort per-app metadata cache populated from
  * `SteamClient.Apps.RegisterForAppDetails`.

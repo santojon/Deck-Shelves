@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { memo, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";

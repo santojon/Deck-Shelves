@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { memo } from "react";
 import { GameCard } from "./GameCard";
 import { MoreCard } from "./MoreCard";

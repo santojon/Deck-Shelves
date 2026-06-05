@@ -5,9 +5,9 @@ specific state before a screenshot is taken.
 from __future__ import annotations
 
 import time
-from typing import Any, Optional
+from typing import Any
 
-from .cdp import Session, open_session, list_targets, find_target
+from .cdp import Session, open_session
 
 
 OPEN_QAM_EXPR = """

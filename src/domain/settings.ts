@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import type { FilterGroup, FilterItem, Settings, Shelf, ShelfFilter, ShelfSource } from "../types";
 import { createDefaultFilter } from "./defaults";
 

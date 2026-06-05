@@ -185,7 +185,7 @@ def open_session(host: str, port: int, title_substring: str) -> Session:
     return Session.open(host, port, target)
 
 
-def load_env(env_path: str | None = None) -> tuple[str, int]:
+def load_env(env_path: str | None = None) -> tuple[str, int]:  # noqa: C901
     """Load DECK_HOST and DECK_CDP_PORT from .env file and environment."""
     import os
     from pathlib import Path

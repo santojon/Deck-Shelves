@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-import json, socket, os, struct, base64, time, sys
+import json
+import socket
+import os
+import struct
+import base64
+import time
+import sys
 
 host = os.getenv('DECK_CDP_HOST', '127.0.0.1')
 

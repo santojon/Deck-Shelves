@@ -58,6 +58,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/commit-report.sh
 
+      - name: Lint (ESLint + Ruff)
+        run: |
+          python3 -m pip install -U pip
+          python3 -m pip install ruff
+          pnpm run lint
+
       - name: Build plugin (release mode)
         run: pnpm run build:release
 

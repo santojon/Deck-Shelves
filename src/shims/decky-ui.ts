@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 const decky =
   (globalThis as any).DFL ||
   (globalThis as any).deckyFrontendLib ||

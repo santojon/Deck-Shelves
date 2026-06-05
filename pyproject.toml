@@ -1,0 +1,21 @@
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+extend-exclude = [
+    "__pycache__",
+    ".deploy",
+    "build",
+    "dist",
+    "node_modules",
+    ".venv",
+]
+
+[tool.ruff.lint]
+# Bug-catching + complexity. Pyflakes (F) covers the real-bug surface
+# (undefined names, unused imports, unreachable code, redefinition);
+# C901 mirrors ESLint's `complexity` rule (cyclomatic complexity cap).
+# Stylistic rules (E / W / B) intentionally out of scope.
+select = ["F", "C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

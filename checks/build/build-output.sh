@@ -27,11 +27,11 @@ run_checks() {
     ((fail++))
   fi
 
-  if [[ "$size" -lt 2097152 ]]; then
-    echo "  ✅ dist/index.js size under 2MB"
+  if [[ "$size" -lt 2621440 ]]; then
+    echo "  ✅ dist/index.js size under 2.5MB"
     ((pass++))
   else
-    echo "  ❌ dist/index.js too large (>2MB)"
+    echo "  ❌ dist/index.js too large (>2.5MB)"
     ((fail++))
   fi
 

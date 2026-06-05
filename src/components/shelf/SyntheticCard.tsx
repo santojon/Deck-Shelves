@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import React, { useEffect, useRef, useState } from "react";
 import { Focusable, Navigation } from "@decky/ui";
 import i18n from "../../i18n";

@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { DropdownItem, Field, SliderField, TextField, ToggleField } from "@decky/ui";
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";

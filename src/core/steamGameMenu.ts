@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as dflAfterPatch, findInTree as dflFindInTree, MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "@decky/ui";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
@@ -10,20 +9,20 @@ import {
   duplicateShelfById,
   setShelfCollapsed,
   dispatchShelfModal,
+  clearOnlineShelfCache,
 } from "./shelfActions";
 import { patchShelfInSettings } from "../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "./focusRestore";
 import { invalidateRandomSortCache } from "../steam";
 import { invalidateSmartShelfCache } from "../steam/smartShelves";
 import { triggerShelfRefresh } from "./shelfRefresh";
-import { clearOnlineShelfCache } from "./shelfActions";
 
 /**
  * Returns `true` when this device should use the pre-3.8 (v1.4.0-style) menu
  * extraction flow. Conservative default: only `true` when we explicitly
  * detect SteamOS ≤ 3.7. Unknown / 3.8+ keep the current path.
  */
-function useLegacyMenuFlow(): boolean {
+function isLegacyMenuFlow(): boolean {
   return isSteamOS38OrLater() === false;
 }
 
@@ -845,7 +844,7 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
         // highlightFirst (shelf-level), turn those off. If it came from
         // highlightedAppIds (per-card), remove from that list.
         if (highlighted) {
-          let patch: Record<string, any> = {};
+          const patch: Record<string, any> = {};
           if (highlightedViaAll) patch.highlightAll = false;
           if (highlightedViaFirst) patch.highlightFirst = false;
           if (inHighlightedIds) patch.highlightedAppIds = (shelf.highlightedAppIds ?? []).filter((id: number) => id !== focusedAppId);
@@ -1353,7 +1352,7 @@ export function prewarmMenuExtraction(): () => void {
   // 3.7's overlay timing where the panels iteration finds the right fiber
   // but the synthetic `onMenuButton` call mutates `lastExtractionAttempt`
   // before the user ever interacts.
-  if (useLegacyMenuFlow()) return () => {};
+  if (isLegacyMenuFlow()) return () => {};
   // Early 150ms tick runs before `recentsReplace` overwrites the native
   // card content on most devices, so we can capture the native
   // `{overview, client}` menu factory before the overlay injection.
@@ -1437,7 +1436,7 @@ export function installPassiveShowContextMenuHook(): void {
   // sometimes constructs the menu element via a module-bound reference
   // before the createElement hook installs; pre-3.8 the createElement
   // capture is sufficient on its own.
-  if (useLegacyMenuFlow()) return;
+  if (isLegacyMenuFlow()) return;
   const dfl = getDFL();
   if (!dfl || typeof dfl.showContextMenu !== "function") return;
   const orig = dfl.showContextMenu;
@@ -1790,7 +1789,7 @@ export function showGameMenu(appid: number, shelfId?: string): void {
     // extraction fails after the recursive retry, fall through to the
     // shared DFL fallback below. The modern path is never touched on legacy
     // devices, so the two caches stay independent.
-    if (useLegacyMenuFlow()) {
+    if (isLegacyMenuFlow()) {
       try {
         if (showGameMenuLegacy(appid, shelfId)) return;
       } catch {

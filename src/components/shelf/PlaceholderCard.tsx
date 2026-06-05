@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Focusable, GamepadButton } from "@decky/ui";
 import { useTranslation } from "react-i18next";

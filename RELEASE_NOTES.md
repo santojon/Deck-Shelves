@@ -5,6 +5,25 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Home lag (#81).** Each card with a "NEW" or discount badge was running its own DOM observers and focus listeners to track the QAM/modal overlay state. On a home with 30+ visible cards, that turned into dozens of observers all reacting to every DOM change. Now a single shared detector serves the whole home — idle CPU drops noticeably.
+- **Random-sorted shelves now actually re-shuffle (#82).** The previous build cached the shuffle for 24 hours, and the cache survived Steam restarts — so a shelf with random sort would stay frozen in the same order until the next day. Now the cache is wiped at every plugin boot and on every shelf refresh.
+- **View button on running games no longer shows "Application already open".** Pressing View on a game that's running now correctly returns you to the game without the error toast — same behaviour as picking the menu's first item manually.
+- **View button on update-pending runtimes no longer fails with "Invalid game configuration".** Non-launchable items like Steam Linux Runtime / Proton Hotfix now route through the menu's actual "Update" action instead of trying to launch.
+- **View button now also works on cards without library art.** Some games (notably Steam runtimes) show a placeholder background; pressing View on those cards used to do nothing. Same dispatch as a regular card now.
+
+### Changed
+
+- **Combined shelves with two online sources now have one filter block per source** (Wishlist + Store gets separate panels, each with its own discount %, price range, etc.). Same for the "Ignore games I already have" toggles — one block per online source so you can mix-and-match.
+- **New shelves open with no tab pre-selected.** The preview stays empty until you pick one, instead of showing every game from the default "All games" tab. Editing an existing shelf keeps whatever you had selected.
+- **QAM reorder follows the moved row.** Pressing up/down in reorder mode used to stick focus to the slot you started at — the next press would swap a different row instead of the one you just moved. Focus now travels with the moved item.
+- **Shelf actions menu shows the shelf name as the title** (was "Actions").
+- **"Open shelf options" tooltip shortened to "Options".**
+- **The online indicator (cloud icon)** on shelves in the QAM now also appears for combined shelves that have at least one online source.
+- **Filter source with no criteria now shows an empty shelf** (was showing your entire library).
+- **Selecting "Filter" as a source no longer pre-fills the "Installed" criterion.** You start with a blank filter and add what you want.
+
 ## [2.4.0] - 2026-06-03
 
 ### Added

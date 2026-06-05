@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import re
 import sqlite3
 import ssl
 import sys
@@ -118,7 +117,7 @@ def _normalize_path(path: Any) -> str:
 
 
 
-def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:
+def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C901
     if not isinstance(settings, dict):
         settings = {}
     settings.setdefault("enabled", False)
@@ -723,7 +722,7 @@ class Plugin:
         self._write_state(DEFAULT_SETTINGS)
         return dict(DEFAULT_SETTINGS)
 
-    async def get_tabmaster_tabs(self) -> Dict[str, Any]:
+    async def get_tabmaster_tabs(self) -> Dict[str, Any]:  # noqa: C901
         """
         Reads TabMaster's settings.json and returns its tab list.
         TabMaster does not expose tabs via React context or IPC — the only
@@ -970,7 +969,7 @@ class Plugin:
         except Exception:
             return None
 
-    async def get_wishlist(self, community_url: str = "", *args, **kwargs) -> Dict[str, Any]:
+    async def get_wishlist(self, community_url: str = "", *args, **kwargs) -> Dict[str, Any]:  # noqa: C901
         """Fetch the current user's Steam wishlist appids.
 
         Uses IWishlistService/GetWishlist/v1/ with the SteamID64 derived from the

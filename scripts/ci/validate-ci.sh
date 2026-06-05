@@ -20,7 +20,8 @@ mkdir -p "${TMP}" "${REPORT_DIR}"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; RESET='\033[0m'; BOLD='\033[1m'
 
-declare -a STEP_NAMES=() STEP_STATUS=() STEP_LOG=()
+declare -a STEP_NAMES=() STEP_STATUS=() STEP_LOG=() STEP_DURATION_MS=()
+_now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
 
 _report_generated=0
 _generate_report() {
@@ -31,20 +32,22 @@ _generate_report() {
     local report_path="${REPORT_DIR}/${TS}.html"
     mkdir -p "${REPORT_DIR}"
     local steps_json="${REPORT_DIR}/.tmp_steps_${TS}.json"
-    local _nf="${steps_json}.names" _sf="${steps_json}.status" _lf="${steps_json}.logs"
-    : > "${_nf}"; : > "${_sf}"; : > "${_lf}"
-    for _v in "${STEP_NAMES[@]+"${STEP_NAMES[@]}"}";  do printf '%s\n' "${_v}" >> "${_nf}"; done
-    for _v in "${STEP_STATUS[@]+"${STEP_STATUS[@]}"}"; do printf '%s\n' "${_v}" >> "${_sf}"; done
-    for _v in "${STEP_LOG[@]+"${STEP_LOG[@]}"}";       do printf '%s\n' "${_v}" >> "${_lf}"; done
+    local _nf="${steps_json}.names" _sf="${steps_json}.status" _lf="${steps_json}.logs" _df="${steps_json}.durations"
+    : > "${_nf}"; : > "${_sf}"; : > "${_lf}"; : > "${_df}"
+    for _v in "${STEP_NAMES[@]+"${STEP_NAMES[@]}"}";       do printf '%s\n' "${_v}" >> "${_nf}"; done
+    for _v in "${STEP_STATUS[@]+"${STEP_STATUS[@]}"}";     do printf '%s\n' "${_v}" >> "${_sf}"; done
+    for _v in "${STEP_LOG[@]+"${STEP_LOG[@]}"}";           do printf '%s\n' "${_v}" >> "${_lf}"; done
+    for _v in "${STEP_DURATION_MS[@]+"${STEP_DURATION_MS[@]}"}"; do printf '%s\n' "${_v}" >> "${_df}"; done
     python3 -c "
 import json
 def read(p):
     try: return open(p).read().splitlines()
     except: return []
-names, statuses, logs = read('${_nf}'), read('${_sf}'), read('${_lf}')
-json.dump({'names': names, 'statuses': statuses, 'logs': logs}, open('${steps_json}', 'w'))
-" 2>/dev/null || echo '{"names":[],"statuses":[],"logs":[]}' > "${steps_json}"
-    rm -f "${_nf}" "${_sf}" "${_lf}" 2>/dev/null || true
+names, statuses, logs, durs = read('${_nf}'), read('${_sf}'), read('${_lf}'), read('${_df}')
+durations_ms = [int(d) if d.isdigit() else 0 for d in durs]
+json.dump({'names': names, 'statuses': statuses, 'logs': logs, 'durations_ms': durations_ms}, open('${steps_json}', 'w'))
+" 2>/dev/null || echo '{"names":[],"statuses":[],"logs":[],"durations_ms":[]}' > "${steps_json}"
+    rm -f "${_nf}" "${_sf}" "${_lf}" "${_df}" 2>/dev/null || true
     python3 "${SCRIPT_DIR}/report.py" \
       --ts "${TS}" --stress "0" --subdir "ci" \
       --tmp "${TMP}" --out "${report_path}" --root "${ROOT}" \
@@ -70,10 +73,14 @@ run_step() {
   local log="${TMP}/${key}.log"
   STEP_NAMES+=("$label"); STEP_LOG+=("$log")
   echo -e "${BOLD}▶ ${label}${RESET}"
+  local _start _end
+  _start=$(_now_ms)
   if "$@" >"$log" 2>&1; then
-    echo -e "  ${GREEN}✓ PASS${RESET}"; STEP_STATUS+=("pass"); return 0
+    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
+    echo -e "  ${GREEN}✓ PASS${RESET} ($(( (_end - _start) / 1000 ))s)"; STEP_STATUS+=("pass"); return 0
   else
-    echo -e "  ${RED}✗ FAIL${RESET}"; tail -20 "$log" | sed 's/^/    /'
+    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
+    echo -e "  ${RED}✗ FAIL${RESET} ($(( (_end - _start) / 1000 ))s)"; tail -20 "$log" | sed 's/^/    /'
     STEP_STATUS+=("fail"); return 1
   fi
 }

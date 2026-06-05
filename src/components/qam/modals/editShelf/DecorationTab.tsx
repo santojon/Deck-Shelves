@@ -1,4 +1,3 @@
-/* eslint-disable complexity */
 import { useEffect, useState } from 'react'
 import { DialogButton, Focusable, TextField, ToggleField, DropdownItem } from '../../../../runtime/host/decky'
 import { pickImageFile } from '../../../../core/imagePicker'
