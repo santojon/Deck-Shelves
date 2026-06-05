@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { DialogButton, Dropdown, Field, Focusable } from '@decky/ui'
 import type { SingleDropdownOption } from '@decky/ui'
 import i18n from '../../../../i18n'

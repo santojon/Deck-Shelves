@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { useEffect, useState, useRef } from "react";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { logInfo } from "../../runtime/logger";

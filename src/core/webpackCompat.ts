@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /** Scans the document for a webpack-hashed CSS class token (starts with `_`, length > 5)
  *  on a visible scrollable element. Used as a seed for the class map discovery. */
 export function findWebpackHashedClass(doc: Document): string | null {

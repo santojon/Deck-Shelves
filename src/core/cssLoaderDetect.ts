@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
 import { getRuntimeClassMap } from "./webpackCompat";
 

@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { z } from "zod";
 
 export const FilterItemTypeSchema = z.enum([

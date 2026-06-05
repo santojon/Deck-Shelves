@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { useEffect, useState } from 'react'
 // See DeckyHostApi adapter.
 import {
@@ -150,7 +151,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     })
     return unsub
   // Re-register only when TabMaster availability or `t` (locale) changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasTabMaster, t])
 
   // Force re-render when external plugins (un)register import descriptors

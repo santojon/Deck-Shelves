@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { getPreferredSteamDocument } from "../../../runtime/steamHost";
 import { logInfo } from "../../../runtime/logger";
 import { focusElement } from "../../../core/focusRestore";

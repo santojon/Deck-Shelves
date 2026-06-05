@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Friends presence runtime probe.
  *

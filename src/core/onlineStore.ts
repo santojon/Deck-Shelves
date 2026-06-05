@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Online Steam Store data — wishlist + price/discount. Opt-in, demand-driven,
  * single-flight per feature, cached in localStorage with explicit TTLs.

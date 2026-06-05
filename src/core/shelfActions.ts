@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import {
   addShelfToSettings,

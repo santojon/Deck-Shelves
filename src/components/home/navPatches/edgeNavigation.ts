@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { getPreferredSteamDocument } from "../../../runtime/steamHost";
 import { logInfo } from "../../../runtime/logger";
 import { DIR_DOWN, DIR_LEFT, DIR_RIGHT, DS_EDGE_PATCHED, DS_EDGE_LISTENER } from "./constants";

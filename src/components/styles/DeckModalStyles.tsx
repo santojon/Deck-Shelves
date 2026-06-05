@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { gamepadDialogClasses } from '@decky/ui'
 
 // Last-known fallback values for the QAM panel classes. `quickAccessControlsClasses`

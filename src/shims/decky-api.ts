@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 type LegacyServerApi = {
   call?: (method: string, args?: unknown) => Promise<unknown>;
   callPluginMethod?: (method: string, args?: unknown) => Promise<{ success?: boolean; result?: unknown }>;

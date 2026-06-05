@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { useEffect, useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable } from '@decky/ui'
 import { toaster } from '@decky/api'

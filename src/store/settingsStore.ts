@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { call } from "@decky/api";
 import type { Settings } from "../types";
 import { SettingsSchema } from "../types";

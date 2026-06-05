@@ -23,7 +23,6 @@ export function isOnline(): Promise<boolean> {
   // require avoids pulling the harness module into production builds.
   if ((globalThis as any).__DEV__) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { isQAUpdateOffline } = require("../qa/harness");
       if (typeof isQAUpdateOffline === "function" && isQAUpdateOffline()) return Promise.resolve(false);
     } catch {}

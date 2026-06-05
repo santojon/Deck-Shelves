@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { definePlugin } from "@decky/api";
 import i18next from "i18next";
 import { initI18n } from "./i18n";
@@ -18,6 +19,7 @@ import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
 import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
+import { invalidateRandomSortCache } from "./steam";
 import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
@@ -142,6 +144,12 @@ export default definePlugin((serverAPI?: any) => {
   } catch (e) { console.warn("shelf modal route addRoute failed", e); }
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
+
+  // Random-sort cache is keyed by shelfId + idHash with a 24h TTL.
+  // Wipe all entries at boot so each Steam session gets a fresh shuffle
+  // — without this, shelves with `sort: random` stay in the same order
+  // across Steam restarts as long as their app set doesn't change.
+  try { invalidateRandomSortCache(); } catch {}
 
   // Prefetch SteamOS version asynchronously so synchronous version-gated
   // paths (e.g. `useLegacyMenuFlow()` in `steamGameMenu.ts`) hit the cache

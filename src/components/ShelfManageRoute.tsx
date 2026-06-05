@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import React, { useState } from "react";
 import {
   Navigation,

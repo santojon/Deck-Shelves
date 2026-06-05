@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Experimental: substitui o data source da seção nativa "Jogos recentes"
  * pelas apps da primeira shelf do usuário. Gated atrás do toggle

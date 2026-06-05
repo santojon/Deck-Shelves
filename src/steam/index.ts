@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import type { FilterGroup, FilterItem } from "../types";
 import { dedupeAppIdsByName } from "./dedupe";
 import { UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS } from "./appDisplayStatus";

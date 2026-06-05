@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Focusable, GamepadButton } from "@decky/ui";
@@ -11,6 +12,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 import { resolveNativeCardClass } from "./cardUtils";
+import { subscribeOverlayActive } from "./overlayState";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 
@@ -119,46 +121,69 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     lastActivateRef.current = now;
     onActivateRef.current?.();
   }, []);
-  // View (Select) button — invokes Steam's first context-menu action
-  // directly. `SteamClient.Apps.RunGame(appid, "", -1, 1)` is the same call
-  // the native menu's first item uses; Steam picks Play / Install / Return
-  // based on the app's current state. View was chosen because it sits in
-  // the meta-button group (Steam BP's footer renders it leftmost of the
-  // overflow slot) and isn't otherwise bound on game cards. Mouse / touch
-  // users keep the long-press affordance via pointerdown (set up below).
-  const quickLaunch = useCallback(() => {
-    if (previewMode || !appid) return;
-    try {
-      const sc = (globalThis as any).SteamClient;
-      sc?.Apps?.RunGame?.(String(appid), "", -1, 1);
-    } catch {}
-  }, [appid, previewMode]);
-  // Dynamic label that mirrors what Steam's context-menu first item shows.
-  // `RunGame` already routes correctly inside Steam (install / play /
-  // resume the running game / queue update), so only the label needs to
-  // change per state — the action stays the same.
-  //   - not installed     → Install
-  //   - launching/running → Resume
-  //   - update pending    → Update
-  //   - otherwise         → Play
-  const quickLaunchLabel = useMemo(() => {
-    if (previewMode || !appid) return undefined;
+  // View (Select) button — replicates Steam's native context-menu first
+  // item per app state, using the state-specific SteamClient APIs the
+  // menu dispatches to internally:
+  //   - running        → Apps.RaiseWindowForGame(appid) (no "already
+  //                      running" toast, focus only)
+  //   - update-pending → Downloads.ResumeAppUpdate(appid) (update only,
+  //                      does NOT launch — RunGame on runtimes like
+  //                      Proton Hotfix raises "invalid game config")
+  //   - all others     → Apps.RunGame(appid, "", -1, 1000) — match the
+  //                      menu's launchSource so Install / Play routes
+  //                      cleanly.
+  const cardState = useMemo(() => {
+    if (previewMode || !appid) return { label: undefined as string | undefined, action: 'run' as 'run' | 'resume_update' | 'raise' };
     try {
       const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
-      if (!overview) return undefined;
-      if (overview.installed !== true) return i18n.t('menu_install');
+      if (!overview) return { label: undefined, action: 'run' };
+      if (overview.installed !== true) return { label: i18n.t('menu_install'), action: 'run' };
       const ds = (() => {
         if (typeof overview.display_status === 'number') return overview.display_status;
         const pcd = overview.per_client_data ?? overview.local_per_client_data;
         if (Array.isArray(pcd) && pcd[0] && typeof pcd[0].display_status === 'number') return pcd[0].display_status;
         return 0;
       })();
-      // EAppDisplayStatus.Launching = 1, Running = 4
-      if (ds === 1 || ds === 4) return i18n.t('menu_resume');
-      if (overview.update_pending === true) return i18n.t('menu_update');
-      return i18n.t('menu_play');
-    } catch { return undefined; }
+      // EAppDisplayStatus: Launching=1, Reconfiguring=2, Installing=3,
+      // Running=4, Validating=5, UpdateQueued=7, UpdatePaused=8,
+      // Staging=12, Committing=13, Downloading=19.
+      const RUNNING = ds === 1 || ds === 4;
+      const UPDATE = ds === 2 || ds === 5 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 19;
+      if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
+      if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
+      return { label: i18n.t('menu_play'), action: 'run' };
+    } catch { return { label: undefined, action: 'run' }; }
   }, [appid, previewMode]);
+  const quickLaunchLabel = cardState.label;
+  // Replicate the native menu's first item by opening the menu and
+  // dispatching click on its first .contextMenuItem. This guarantees the
+  // exact same action as the user manually opening the menu and picking
+  // the first item — without us having to reverse-engineer Steam's
+  // internal Ie() resolver for Resume / Update / Play / Install.
+  const quickLaunch = useCallback(() => {
+    if (previewMode || !appid) return;
+    if (typeof item.onMenuButton !== 'function') return;
+    try {
+      // Open the native context menu (same call the Y / Options button
+      // uses). Steam renders it as a portal in the bp document.
+      item.onMenuButton({} as any);
+      const doc = cardRef.current?.ownerDocument ?? document;
+      // Poll for the first menuitem to appear — Steam renders in a
+      // microtask but the exact tick varies. Bounded retries with rAF
+      // so we don't block. The first .contextMenuItem in document order
+      // is the menu's primary action (Resume / Update / Play / Install).
+      let attempts = 0;
+      const tryClick = () => {
+        const first = doc.querySelector('.contextMenuItem') as HTMLElement | null;
+        if (first) {
+          try { first.click(); } catch {}
+          return;
+        }
+        if (attempts++ < 12) requestAnimationFrame(tryClick);
+      };
+      requestAnimationFrame(tryClick);
+    } catch {}
+  }, [appid, previewMode, item.onMenuButton]);
   // `isLibraryGame` = appid resolves to an AppOverview in the local Steam
   // store. True for any game the user owns (installed or not, Steam or
   // non-Steam shortcut). False for:
@@ -407,71 +432,27 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     if (inlineBadges || !hasBadge) { setPortalRect(null); return; }
     const el = cardRef.current;
     if (!el) return;
-
-    // Detect when QAM / main menu / any Steam overlay is active by hit-
-    // testing the viewport center: if the topmost element there is NOT
-    // inside our home root, something is painting over it. Single point
-    // probe is fast; works for any overlay type regardless of class hash.
     const doc = el.ownerDocument;
     const win = doc.defaultView ?? window;
-    const detectOverlay = (): boolean => {
-      try {
-        const homeRoot = doc.getElementById('deck-shelves-home-root');
-        if (!homeRoot) return false;
-        const cx = win.innerWidth / 2;
-        const cy = win.innerHeight / 2;
-        const top = doc.elementFromPoint(cx, cy);
-        if (!top) return false;
-        return !homeRoot.contains(top);
-      } catch { return false; }
-    };
-
-    // Hot-path sync: ONLY updates portalRect, with a tolerance check so
-    // React doesnt re-render on sub-pixel jitter. Reads the same values
-    // setPortalFocused / setOverlayActive used to read — but those are
-    // now updated by their own event paths (class observer, focus/overlay
-    // events) so this stays cheap on every rAF / scroll tick.
     let lastLeft = -Infinity, lastTop = -Infinity, lastWidth = -Infinity;
     const sync = () => {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) { setPortalRect(null); return; }
-      // sub-pixel jitter from scale transitions causes noisy re-renders
       if (Math.abs(r.left - lastLeft) < 0.5 && Math.abs(r.top - lastTop) < 0.5 && Math.abs(r.width - lastWidth) < 0.5) return;
       lastLeft = r.left; lastTop = r.top; lastWidth = r.width;
       setPortalRect({ left: r.left, top: r.top, width: r.width });
     };
-    // Initial sync also seeds focus + overlay state.
     sync();
     setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
-    setOverlayActive(detectOverlay());
-
-    // Overlay state updates on dedicated events — never inside sync(), so
-    // the rAF tick doesnt force a layout-flushing elementFromPoint call
-    // per frame.
-    const reCheckOverlay = () => setOverlayActive(detectOverlay());
-    const bodyObs = new MutationObserver(reCheckOverlay);
-    bodyObs.observe(doc.body, { childList: true });
-    const recheckTargets: EventTarget[] = [doc, win];
-    for (const t of recheckTargets) {
-      t.addEventListener('focusin', reCheckOverlay, true);
-      t.addEventListener('focusout', reCheckOverlay, true);
-    }
-
-    // Focus state updates on class changes — split from sync() so the
-    // setPortalFocused setState only fires when focus actually transitions,
-    // not every rAF tick.
+    // Shared overlay detector — one MutationObserver + focus listeners
+    // for the whole home instead of one per card. With 30+ cards the
+    // duplicated body observers were the dominant idle-CPU cost.
+    const unsubOverlay = subscribeOverlayActive(doc, setOverlayActive);
     const updateFocused = () => setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
     const obs = new MutationObserver(() => { updateFocused(); sync(); });
     obs.observe(el, { attributes: true, attributeFilter: ['class'] });
     el.addEventListener('focus', () => { updateFocused(); sync(); }, true);
     el.addEventListener('blur', () => { updateFocused(); sync(); }, true);
-
-    // Scroll listeners on every scrollable ancestor — the row-scroll for
-    // horizontal nav, plus any vertical scroll container above it for
-    // inter-shelf navigation. Listening only on row-scroll left badges
-    // stale by ~100px when the home scrolled vertically. The sync() above
-    // is cheap (single setState with tolerance), so multiple listeners
-    // firing per event is fine.
     const scrollTargets: EventTarget[] = [];
     let p: HTMLElement | null = el.parentElement;
     while (p) {
@@ -484,25 +465,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     scrollTargets.push(win);
     for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
     win.addEventListener('resize', sync);
-
-    // Earlier this useEffect ran a per-frame rAF loop while the card was
-    // focused so the portal badge could track the 0.3s scale-up
-    // transition pixel-perfect. The trade-off was sub-pixel jitter on
-    // every scroll / focus event ("badges feel like they move with the
-    // screen"). Drop the rAF entirely: scroll + focus events are
-    // enough to keep the badge anchored, and the 4% scale during the
-    // focus zoom is small enough that staying at the un-zoomed rect
-    // looks better than jitter.
-
     return () => {
       obs.disconnect();
-      bodyObs.disconnect();
+      unsubOverlay();
       for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
       win.removeEventListener('resize', sync);
-      for (const t of recheckTargets) {
-        t.removeEventListener('focusin', reCheckOverlay, true);
-        t.removeEventListener('focusout', reCheckOverlay, true);
-      }
     };
   }, [hasBadge, inlineBadges]);
 

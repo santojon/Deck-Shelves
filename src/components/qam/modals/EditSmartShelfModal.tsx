@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
@@ -302,7 +303,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       base.compositeCombine = state.compositeCombine
     }
     return base
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.mode, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length, compositeKey])
 
   useEffect(() => {

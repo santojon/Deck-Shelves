@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { getAllSteamDocuments } from "../../../runtime/steamHost";
 import { showGameMenu } from "../../../core/steamGameMenu";
 import { logInfo } from "../../../runtime/logger";

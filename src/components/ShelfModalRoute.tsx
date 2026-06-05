@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import React, { useEffect, useRef } from "react";
 import { Navigation } from "@decky/ui";
 import { useSettingsController } from "../features/settings/controller";

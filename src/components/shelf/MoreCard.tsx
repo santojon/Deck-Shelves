@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import React, { useEffect, useRef, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";

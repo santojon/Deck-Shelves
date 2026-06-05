@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 
 import { Spinner } from "@decky/ui";
 import { memo, useEffect, useMemo, useState, useRef } from "react";

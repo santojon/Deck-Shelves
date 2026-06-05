@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import pkg from "../../package.json";
 import { isOnline } from "./connectivity";
 import { logInfo } from "../runtime/logger";
@@ -112,7 +113,6 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   // elimination removes this block when __DEV__ compiles to false).
   if (__DEV__) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { qaForcedUpdateResult } = require("../qa/harness");
       const forced = typeof qaForcedUpdateResult === "function" ? qaForcedUpdateResult() : null;
       if (forced) return buildResult(forced.latestVersion, forced.releaseUrl, now);

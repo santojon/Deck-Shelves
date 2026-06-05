@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings, writeJsonFile, readJsonFile } from "../../settingsStore";

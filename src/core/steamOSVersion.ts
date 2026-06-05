@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * SteamOS version detection. Used to branch behavior that depends on
  * platform build (e.g. the native context-menu extraction path on

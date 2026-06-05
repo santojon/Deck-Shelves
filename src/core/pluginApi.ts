@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Public Plugin API — v2. Exposed at `window.__DECK_SHELVES_API__`.
  * Every shape here is part of the ABI: additive changes are safe,

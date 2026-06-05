@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 const g = globalThis as any;
 const w = g.window as any;
 

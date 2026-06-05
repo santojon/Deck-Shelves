@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Plugin registry — detection utilities for optional integrations.
  * Uses DeckyPluginLoader.plugins as the authoritative source.

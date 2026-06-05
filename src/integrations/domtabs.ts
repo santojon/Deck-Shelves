@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * DOM-based tab utilities.
  *

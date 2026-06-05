@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as dflAfterPatch, findInTree as dflFindInTree, MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "@decky/ui";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";

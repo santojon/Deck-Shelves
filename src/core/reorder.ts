@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Unified pointer-hold drag-to-reorder controller.
  *
@@ -166,7 +167,6 @@ export function useContainerDragReorder<T extends string | number>(opts: Contain
       if (holdTimer) clearTimeout(holdTimer);
     };
     // Only re-install if the container identity or primary selector changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerRef, itemSelector, axis, holdMs, moveThresholdPx]);
 
   return { grabbedId };

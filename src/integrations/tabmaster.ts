@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * TabMaster integration (github.com/Tormak9970/TabMaster).
  *

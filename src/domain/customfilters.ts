@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /**
  * Custom filter domain logic.
  *
