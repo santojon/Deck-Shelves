@@ -1,14 +1,6 @@
 import { icons } from '../icons'
 import { OnlineIcon } from '../../icons'
-
-function isOnlineSource(source: any): boolean {
-  if (!source) return false;
-  if (source.type === 'wishlist' || source.type === 'store') return true;
-  if (source.type === 'composite' && Array.isArray(source.sources)) {
-    return source.sources.some(isOnlineSource);
-  }
-  return false;
-}
+import { isOnlineSource } from '../../../domain/sourceUtils'
 
 export function ShelfListLabel({ shelf }: { shelf: any }) {
   const showOnlineBadge = isOnlineSource(shelf.source);

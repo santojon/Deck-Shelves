@@ -7,7 +7,7 @@ import {
   Focusable,
   PanelSection,
   PanelSectionRow,
-} from "@decky/ui";
+} from "../runtime/host/decky";
 import { useSettingsController } from "../features/settings/controller";
 import { PlatformProvider, getPlatform } from "../runtime/platformContext";
 import { showEditShelfModal, showDeleteConfirm } from "./qam/list/ShelfActions";

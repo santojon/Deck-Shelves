@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Focusable } from '@decky/ui'
+import { Focusable } from '../../../../runtime/host/decky'
 import { CheckIcon } from '../../../filter/utils'
 import { getLandscapeUrls, getPortraitFallbacks } from '../../../../core/steamAssets'
 

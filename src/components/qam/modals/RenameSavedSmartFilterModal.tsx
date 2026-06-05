@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ConfirmModal, Field, TextField } from '@decky/ui'
+import { ConfirmModal, Field, TextField } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SavedSmartFilter } from '../../../types'
 import { ModalShell } from '../../ui'

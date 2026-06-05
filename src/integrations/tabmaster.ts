@@ -12,7 +12,7 @@
  * React fiber traversal helpers below are kept as a forward-compat fallback
  * in case a future TabMaster version re-exposes a context.
  */
-import { call } from '@decky/api';
+import { call } from '../runtime/host/decky';
 import type { PlatformTab } from '../runtime/platform';
 import { containerToShelfSource } from '../domain/customfilters';
 import { logInfo, logError } from '../runtime/logger';

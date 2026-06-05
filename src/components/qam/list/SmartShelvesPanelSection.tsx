@@ -1,4 +1,4 @@
-import { Menu, MenuItem, DialogButton, showContextMenu } from '@decky/ui'
+import { Menu, MenuItem, DialogButton, showContextMenu } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf } from '../../../types'
 import { DeleteConfirmSmartModal } from '../modals/DeleteConfirmSmartModal'

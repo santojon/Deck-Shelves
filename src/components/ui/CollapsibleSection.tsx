@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Focusable } from '@decky/ui'
+import { Focusable } from '../../runtime/host/decky'
 
 /**
  * Collapsible section used by the QAM panel (Behavior / Shelves / Smart /

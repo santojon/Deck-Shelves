@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Focusable, GamepadButton } from "@decky/ui";
+import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";

@@ -1,4 +1,4 @@
-import { gamepadDialogClasses } from '@decky/ui'
+import { gamepadDialogClasses } from '../../runtime/host/decky'
 
 // Last-known fallback values for the QAM panel classes. `quickAccessControlsClasses`
 // is undefined in SharedJSContext (where this style block renders), so we read

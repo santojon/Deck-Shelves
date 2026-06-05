@@ -1,4 +1,4 @@
-import { Field, DialogButton, Menu, MenuItem, showContextMenu, Focusable } from '@decky/ui'
+import { Field, DialogButton, Menu, MenuItem, showContextMenu, Focusable } from '../../../runtime/host/decky'
 import { icons } from '../icons'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SavedFilter } from '../../../types'

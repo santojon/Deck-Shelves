@@ -1,4 +1,4 @@
-import { ToggleField } from '@decky/ui'
+import { ToggleField } from '../../../../runtime/host/decky'
 import { FieldContainer } from '../../../ui'
 
 export function DisplayTabContent({

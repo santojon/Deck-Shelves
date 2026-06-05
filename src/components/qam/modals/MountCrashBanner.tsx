@@ -1,4 +1,4 @@
-import { Focusable, DialogButton, showModal } from '@decky/ui'
+import { Focusable, DialogButton, showModal } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import { resetMountFailed } from '../../../runtime/homePatch'
 import { getUserDownloadsDir } from '../../../core/userPaths'

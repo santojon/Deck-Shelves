@@ -11,7 +11,7 @@ import {
   TextField,
   ToggleField,
   type SingleDropdownOption,
-} from '@decky/ui'
+} from '../../../runtime/host/decky'
 import { flowChildrenProps } from '../../../core/steamOSVersion'
 import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import type { SettingsController } from '../../../features/settings/controller'

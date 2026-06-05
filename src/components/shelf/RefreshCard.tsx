@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Focusable } from "@decky/ui";
+import { Focusable } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";

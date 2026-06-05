@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Navigation } from "@decky/ui";
+import { Navigation } from "../runtime/host/decky";
 import { useSettingsController } from "../features/settings/controller";
 import { PlatformProvider, getPlatform } from "../runtime/platformContext";
 import { showEditShelfModal, showDeleteConfirm } from "./qam/list/ShelfActions";

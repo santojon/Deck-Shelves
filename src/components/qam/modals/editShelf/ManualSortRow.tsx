@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Focusable } from '@decky/ui'
+import { Focusable } from '../../../../runtime/host/decky'
 import { computeCenteredScrollLeft } from '../../../../core/scrollUtils'
 import { ShelfRow } from '../../../shelf/ShelfRow'
 import type { DeckRowItem } from '../../../shelf/types'

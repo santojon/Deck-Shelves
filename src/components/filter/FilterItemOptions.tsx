@@ -1,4 +1,4 @@
-import { DropdownItem, Field, SliderField, TextField, ToggleField } from "@decky/ui";
+import { DropdownItem, Field, SliderField, TextField, ToggleField } from "../../runtime/host/decky";
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";
 import DeveloperFilterOptions from "./DeveloperFilterOptions";

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Focusable } from '@decky/ui'
+import { Focusable } from '../../runtime/host/decky'
 import { ChevronIcon } from '../icons'
 
 export function DocAccordion({ label, children, defaultOpen = false }: {

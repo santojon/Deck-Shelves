@@ -24,11 +24,10 @@ import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
 import { toaster } from "./shims/decky-api";
-import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
+import { Navigation, Focusable, DialogButton, quickAccessMenuClasses, createDeckyHostApi } from "./runtime/host/decky";
 import { AboutPage } from "./components/AboutPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
-import { createDeckyHostApi } from "./runtime/host/decky";
 import type { HostApi } from "./runtime/host/contract";
 initI18n();
 

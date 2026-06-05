@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Focusable } from '@decky/ui'
+import { Focusable } from '../../../../runtime/host/decky'
 import { computeCenteredScrollLeft } from '../../../../core/scrollUtils'
 
 /**

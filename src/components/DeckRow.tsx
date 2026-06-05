@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { mark, measure } from "../core/perf";
 import { computeCenteredScrollLeft } from "../core/scrollUtils";
-import { Focusable } from "@decky/ui";
+import { Focusable } from "../runtime/host/decky";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../core/webpackCompat";
 import { isArtHeroActive } from "../core/cssLoaderDetect";

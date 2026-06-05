@@ -7,8 +7,8 @@ import {
   SliderField,
   Tabs,
   ToggleField,
+  type SingleDropdownOption,
 } from '../../../runtime/host/decky'
-import type { SingleDropdownOption } from '@decky/ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
 import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '../../../domain/settings'

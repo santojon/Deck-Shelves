@@ -1,4 +1,4 @@
-import { openFilePicker } from "@decky/api";
+import { openFilePicker } from "../runtime/host/decky";
 import { pickerPath } from "../components/qam/modals/modalUtils";
 
 // Wrap Decky's openFilePicker for the Decoration tab. The full Decky

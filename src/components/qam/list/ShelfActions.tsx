@@ -1,4 +1,4 @@
-import { Menu, MenuItem, DialogButton, showContextMenu } from '@decky/ui'
+import { Menu, MenuItem, DialogButton, showContextMenu } from '../../../runtime/host/decky'
 import { icons } from '../icons'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Shelf } from '../../../types'
@@ -9,15 +9,7 @@ import { clearOnlineShelfCache } from '../../../core/shelfActions'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { triggerShelfRefresh } from '../../../core/shelfRefresh'
-
-function isOnlineSource(source: any): boolean {
-  if (!source) return false
-  if (source.type === 'wishlist' || source.type === 'store') return true
-  if (source.type === 'composite' && Array.isArray(source.sources)) {
-    return source.sources.some(isOnlineSource)
-  }
-  return false
-}
+import { isOnlineSource } from '../../../domain/sourceUtils'
 
 function isRandomOrSmart(shelf: Shelf): boolean {
   const src: any = shelf.source

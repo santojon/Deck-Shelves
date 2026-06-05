@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Focusable, GamepadButton } from "@decky/ui";
+import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";

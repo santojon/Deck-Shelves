@@ -1,4 +1,4 @@
-import { Navigation } from "@decky/ui";
+import { Navigation } from "./host/decky";
 import { getAppMeta, getAppName, listCollections, listLibraryTabs, resolveShelfAppIds } from "../steam";
 import type { ShelfSource } from "../types";
 import type { PlatformApi } from "./platform";

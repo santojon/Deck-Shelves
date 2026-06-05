@@ -1,4 +1,4 @@
-import { Focusable, Dropdown, DialogButton, type SingleDropdownOption } from "@decky/ui";
+import { Focusable, Dropdown, DialogButton, type SingleDropdownOption } from "../../runtime/host/decky";
 import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel, isOnlineFilterType } from "./utils";
 import { OnlineIcon } from '../icons';
 import type { FilterItem, FilterItemType } from "../../types";

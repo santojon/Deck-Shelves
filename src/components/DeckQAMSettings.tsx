@@ -6,7 +6,6 @@ import {
   Focusable,
   SliderField,
   ToggleField,
-  showModal,
 } from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
 import type { SettingsController } from '../features/settings/controller'
@@ -20,6 +19,7 @@ import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
 import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButton'
+import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
@@ -57,20 +57,6 @@ function OnlinePrivacyModal({ closeModal, t, onAccept }: { closeModal?: () => vo
       </div>
     </ConfirmModal>
   );
-}
-
-function openManagedModal(render: (close: () => void) => React.ReactElement) {
-  let handle: any = null
-  const close = () => {
-    try {
-      if (typeof handle === 'function') return handle()
-      if (handle?.Close) return handle.Close()
-      if (handle?.closeModal) return handle.closeModal()
-      if (handle?.props?.closeModal) return handle.props.closeModal()
-    } catch (e) { logInfo("SETTINGS", "modal close failed", String(e)) }
-  }
-  handle = showModal(render(close))
-  return close
 }
 
 function SavedFiltersList({ controller }: { controller: SettingsController }) {

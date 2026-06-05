@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Field, Focusable, GamepadButton } from '@decky/ui';
+import { Field, Focusable, GamepadButton } from '../../runtime/host/decky';
 import i18n from '../../i18n';
 
 // Independent reorderable list. Same public surface a caller would

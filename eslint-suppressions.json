@@ -299,7 +299,7 @@
   },
   "src/steam/index.ts": {
     "complexity": {
-      "count": 51
+      "count": 57
     }
   },
   "src/steam/smartShelves.ts": {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DialogButton, DropdownItem, Focusable, TextField, type SingleDropdownOption } from '@decky/ui'
+import { DialogButton, DropdownItem, Focusable, TextField, type SingleDropdownOption } from '../../../../runtime/host/decky'
 import type { SettingsController } from '../../../../features/settings/controller'
 import type { FilterGroup } from '../../../../types'
 import { textFromDeckyChange } from '../modalUtils'

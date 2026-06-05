@@ -1,5 +1,5 @@
 import React from 'react'
-import { DialogBody, DialogControlsSection } from '@decky/ui'
+import { DialogBody, DialogControlsSection } from '../../runtime/host/decky'
 
 export function DocSection({ children }: { children: React.ReactNode }) {
   return (

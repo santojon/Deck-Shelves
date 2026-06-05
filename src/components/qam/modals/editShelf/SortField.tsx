@@ -1,4 +1,4 @@
-import { DialogButton, Dropdown, Field, Focusable, type SingleDropdownOption } from '@decky/ui'
+import { DialogButton, Dropdown, Field, Focusable, type SingleDropdownOption } from '../../../../runtime/host/decky'
 import i18n from '../../../../i18n'
 import { SortDirectionButton } from './SortDirectionButton'
 import { optionData } from './utils'

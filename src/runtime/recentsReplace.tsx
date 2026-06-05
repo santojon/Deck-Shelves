@@ -21,10 +21,11 @@
  *   (HomeInject) cai de volta na ocultação visual tradicional.
  */
 import type { ReactElement } from "react";
-import { afterPatch, findInReactTree } from "@decky/ui";
+import { afterPatch, findInReactTree } from "./host/decky";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
 import { isInVisibilityWindow } from "../steam/smartShelves";
 import { applyManualOrder } from "../steam";
+import { isOnlineSource } from "../domain/sourceUtils";
 import { getPlatform } from "./platformContext";
 import { logError, logInfo, logWarn } from "./logger";
 import { toaster } from "../shims/decky-api";
@@ -193,10 +194,6 @@ function smartShelfToCandidate(s: any) {
  *  app store, so an online-source promotion always falls back. Exclude them
  *  from the candidate list so the promotion advances to the next renderable
  *  shelf. */
-function isOnlineSource(src: any): boolean {
-  const t = src?.type;
-  return t === 'wishlist' || t === 'store';
-}
 
 /** Build the ordered list of replace-candidate shelves: visible normals
  *  (excluding online sources) first, then visible smart shelves. */

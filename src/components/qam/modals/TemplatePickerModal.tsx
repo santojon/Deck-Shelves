@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { ConfirmModal, DialogButton, Focusable, showModal } from '@decky/ui'
+import { ConfirmModal, DialogButton, Focusable } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, type ShelfTemplateCategory } from '../../../domain/templates'
 import { EditShelfModal } from './EditShelfModal'
-import { logInfo } from '../../../runtime/logger'
 import { SHELF_TPL_ICON } from './templateIcons'
+import { openManagedModal } from '../common/openManagedModal'
 
 const TPL_CATEGORY_ORDER: ShelfTemplateCategory[] = ["status", "time", "platform", "online"]
 const TPL_CATEGORY_KEY: Record<ShelfTemplateCategory, string> = {
@@ -13,20 +13,6 @@ const TPL_CATEGORY_KEY: Record<ShelfTemplateCategory, string> = {
   time: "template_category_time",
   platform: "template_category_platform",
   online: "template_category_online",
-}
-
-function openManagedModal(render: (close: () => void) => React.ReactElement) {
-  let handle: any = null
-  const close = () => {
-    try {
-      if (typeof handle === 'function') return handle()
-      if (handle?.Close) return handle.Close()
-      if (handle?.closeModal) return handle.closeModal()
-      if (handle?.props?.closeModal) return handle.props.closeModal()
-    } catch (e) { logInfo("SETTINGS", "modal close failed", String(e)) }
-  }
-  handle = showModal(render(close))
-  return close
 }
 
 const btnStyle: React.CSSProperties = {

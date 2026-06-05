@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Tabs } from '@decky/ui'
+import { Tabs } from '../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 import { OverviewPage } from './about/OverviewPage'
 import { HowToPage } from './about/HowToPage'

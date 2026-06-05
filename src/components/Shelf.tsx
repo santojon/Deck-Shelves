@@ -1,5 +1,5 @@
 
-import { Spinner } from "@decky/ui";
+import { Spinner } from "../runtime/host/decky";
 import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Shelf } from "../types";

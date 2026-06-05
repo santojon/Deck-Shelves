@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Focusable } from "@decky/ui";
+import { Focusable } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";

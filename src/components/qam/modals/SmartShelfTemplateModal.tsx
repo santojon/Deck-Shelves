@@ -1,25 +1,11 @@
 import { useState } from 'react'
-import { ConfirmModal, DialogButton, Focusable, showModal } from '@decky/ui'
+import { ConfirmModal, DialogButton, Focusable } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelfMode } from '../../../types'
 import { SMART_TPL_ICON } from './templateIcons'
 import { EditSmartShelfModal } from './EditSmartShelfModal'
-import { logInfo } from '../../../runtime/logger'
-
-function openManagedModal(render: (close: () => void) => React.ReactElement) {
-  let handle: any = null
-  const close = () => {
-    try {
-      if (typeof handle === 'function') return handle()
-      if (handle?.Close) return handle.Close()
-      if (handle?.closeModal) return handle.closeModal()
-      if (handle?.props?.closeModal) return handle.props.closeModal()
-    } catch (e) { logInfo("SETTINGS", "modal close failed", String(e)) }
-  }
-  handle = showModal(render(close))
-  return close
-}
+import { openManagedModal } from '../common/openManagedModal'
 
 type SmartTemplateCategory = "status" | "time" | "platform" | "compat" | "other"
 type SmartTemplate = { mode: SmartShelfMode; titleKey: string; category: SmartTemplateCategory }

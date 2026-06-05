@@ -1,5 +1,5 @@
 import { useMemo, type MutableRefObject } from 'react'
-import { DialogButton, Focusable, ToggleField } from '@decky/ui'
+import { DialogButton, Focusable, ToggleField } from '../../../../runtime/host/decky'
 import { FieldContainer } from '../../../ui'
 
 /**

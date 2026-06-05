@@ -1,4 +1,4 @@
-import { DialogButton, Focusable } from '@decky/ui'
+import { DialogButton, Focusable } from '../../../../runtime/host/decky'
 import i18n from '../../../../i18n'
 import { icons } from '../../icons'
 

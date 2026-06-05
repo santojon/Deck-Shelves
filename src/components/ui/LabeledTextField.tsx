@@ -1,4 +1,4 @@
-import { Field, TextField } from '@decky/ui'
+import { Field, TextField } from '../../runtime/host/decky'
 import { textFromDeckyChange } from '../qam/modals/modalUtils'
 
 /**

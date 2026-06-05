@@ -2508,32 +2508,25 @@ export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<
   return merged;
 }
 
-export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string | string[], shelfId?: string, sortReverse?: boolean | boolean[], options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }, _depth: number = 0): Promise<number[]> {
-  const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
-  // Overshoot for render-time filters: hidden*2 for the picker, plus
-  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
-  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
-  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
-  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
-  const overShootLimit = Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
+// Shared context passed to each per-source resolver. Splitting the
+// 700-line `resolveShelfAppIds` switch into per-type functions keeps
+// every individual resolver scoped to one source type — the main
+// function below becomes a thin dispatcher.
+type ResolverContext = {
+  source: any;
+  limit: number;
+  sort?: string | string[];
+  shelfId?: string;
+  sortReverse?: boolean | boolean[];
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean };
+  depth: number;
+  all: AppOverview[];
+  overShootLimit: number;
+  finish: (ids: number[]) => number[];
+};
 
-  let all = await getAllAppOverviews();
-  // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
-  if (!all.length) {
-    await new Promise((r) => setTimeout(r, 2000));
-    all = await getAllAppOverviews();
-  }
-
-  // Returns up to overShootLimit — Shelf.tsx slices to shelf.limit after
-  // its render-time owned/name filters, so the overshoot provides headroom.
-  function finish(ids: number[]): number[] {
-    let result = ids;
-    if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
-    if (options?.dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
-    return result.slice(0, overShootLimit);
-  }
-
-  if (source.type === "collection") {
+async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
     const rawCollectionId = String(source.collectionId ?? "").trim();
     let ids = await getCollectionApps(rawCollectionId);
     if (!ids.length && rawCollectionId) {
@@ -2601,9 +2594,10 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
     ids = deduplicateNonSteam(ids, all);
     return finish(ids.slice(0, overShootLimit));
-  }
+}
 
-  if (source.type === "tab") {
+async function _resolveTab(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
     const rawTab = String(source.tab ?? "").trim();
     const tabSlug = slugifyTab(rawTab);
     // The native SteamOS "Installed" / "Great on Deck" library tabs exclude
@@ -2708,21 +2702,22 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
     }
     return finish(applyChildFilterTab(ids.slice(0, overShootLimit)));
-  }
+}
 
-  if (source.type === "filter") {
+async function _resolveFilter(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
     const f: CustomFilter = (source.filter ?? {}) as CustomFilter;
 
     const filterGroup = (source.filter as any)?.filterGroup as FilterGroup | undefined;
     if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
-      const ctx: FilterEvalContext = { collectionAppIds: new Map() };
+      const evalCtx: FilterEvalContext = { collectionAppIds: new Map() };
       const colIds = collectCollectionIdsFromGroup(filterGroup);
       await Promise.all(colIds.map(async (colId) => {
         try {
           const ids = await getCollectionApps(colId);
           // Always set, even on empty result, so the evaluator can tell
           // "lookup completed with 0 apps" from "lookup never attempted".
-          ctx.collectionAppIds.set(colId, new Set(ids));
+          evalCtx.collectionAppIds.set(colId, new Set(ids));
         } catch {}
       }));
       // Warm the developer / publisher cache before evaluation when the
@@ -2739,7 +2734,7 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
           needs.needsPub ? preloadPublisherData(allAppIds).catch(() => {}) : Promise.resolve(),
         ]);
       }
-      let filtered = evaluateFilterGroup(filterGroup, all, ctx);
+      let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
       const fSort = (source.filter as any)?.sort as string | undefined;
       if (fSort === "recent") {
         filtered = filtered.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
@@ -2898,9 +2893,10 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
     }
     return finish(ids.slice(0, overShootLimit));
-  }
+}
 
-  if (source.type === "external") {
+async function _resolveExternal(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
     try {
       const { resolveExternalSource } = await import("../core/pluginApi");
       let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
@@ -2911,9 +2907,10 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     } catch {
       return [];
     }
-  }
+}
 
-  if (source.type === "wishlist") {
+async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
     try {
       const { getCurrentSettings } = await import("../store/settingsStore");
       const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
@@ -3007,9 +3004,10 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       logWarn("STEAM", "resolveShelfAppIds(wishlist) failed", String(e));
       return [];
     }
-  }
+}
 
-  if (source.type === "store") {
+async function _resolveStore(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
     try {
       const { getCurrentSettings } = await import("../store/settingsStore");
       const { getStoreGameIds, getPriceMap } = await import("../core/onlineStore");
@@ -3078,9 +3076,10 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
       logWarn("STEAM", "resolveShelfAppIds(store) failed", String(e));
       return [];
     }
-  }
+}
 
-  if (source.type === "smart") {
+async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
+  const { source, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
     try {
       const { resolveSmartShelf } = await import("./smartShelves");
       const { hasExternalSmartSource, resolveExternalSmartSource } = await import("../core/pluginApi");
@@ -3162,9 +3161,10 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     } catch {
       return [];
     }
-  }
+}
 
-  if (source.type === "composite") {
+async function _resolveComposite(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, options, depth: _depth, finish, overShootLimit } = ctx;
     if (_depth >= MAX_COMPOSITE_DEPTH) {
       logWarn("STEAM", "resolveShelfAppIds(composite) depth cap reached", { depth: _depth, max: MAX_COMPOSITE_DEPTH });
       return finish([]);
@@ -3272,8 +3272,58 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     }
     logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length, hasChildFilter: !!compositeChildFilter });
     return finish(merged.slice(0, overShootLimit));
+}
+
+// Dispatcher table keyed by `source.type`. Each entry runs in its own
+// function above so the dispatcher itself stays at complexity ~3.
+const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[]>> = {
+  collection: _resolveCollection,
+  tab: _resolveTab,
+  filter: _resolveFilter,
+  external: _resolveExternal,
+  wishlist: _resolveWishlist,
+  store: _resolveStore,
+  smart: _resolveSmart,
+  composite: _resolveComposite,
+};
+
+export async function resolveShelfAppIds(
+  source: { type: string; [k: string]: any },
+  limit: number,
+  sort?: string | string[],
+  shelfId?: string,
+  sortReverse?: boolean | boolean[],
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean },
+  _depth: number = 0,
+): Promise<number[]> {
+  const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
+  // Overshoot for render-time filters: hidden*2 for the picker, plus
+  // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
+  const isOnlineShelf = source.type === "wishlist" || source.type === "store";
+  const ownedOvershoot = isOnlineShelf ? Math.max(10, Math.ceil(limit * 0.5)) : 0;
+  const hiddenOvershoot = hiddenSet ? hiddenSet.size * 2 : 0;
+  const overShootLimit = Math.min(limit + hiddenOvershoot + ownedOvershoot, limit * 3);
+
+  let all = await getAllAppOverviews();
+  // Startup readiness: if Steam hasn't loaded app data yet, retry once after a short delay
+  if (!all.length) {
+    await new Promise((r) => setTimeout(r, 2000));
+    all = await getAllAppOverviews();
   }
 
+  const finish = (ids: number[]): number[] => {
+    let result = ids;
+    if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
+    if (options?.dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
+    return result.slice(0, overShootLimit);
+  };
+
+  const ctx: ResolverContext = {
+    source, limit, sort, shelfId, sortReverse, options,
+    depth: _depth, all, overShootLimit, finish,
+  };
+  const handler = SOURCE_RESOLVERS[source.type];
+  if (handler) return handler(ctx);
   return [];
 }
 
