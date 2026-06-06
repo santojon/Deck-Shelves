@@ -301,11 +301,14 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Smaller bleed above for non-first hero shelves so their art doesn't
   // overlap the shelf above. Determined by DOM order on mount.
   const [topBleed, setTopBleed] = useState(-90);
-  // Game-info overlay: a clone of the focused card's `.ds-card-label`,
-  // shown above the row exactly like the native recents hero label.
-  // Rendered inside THIS shelf (position:absolute relative to it) so it
-  // always follows the shelf — no global/fixed anchoring.
-  const [labelHtml, setLabelHtml] = useState<string | null>(null);
+  // Game-info overlay: text mirrored from the focused card's `.ds-card-label`,
+  // shown above the row exactly like the native recents hero label. Rendered
+  // inside THIS shelf (position:absolute relative to it) so it always follows
+  // the shelf. Stored as structured fields (name + status) and re-rendered
+  // via React — never injected as raw HTML, so it can't carry inline scripts
+  // even if a future label cell ever rendered untrusted text.
+  type LabelText = { name: string; status: string | null };
+  const [labelText, setLabelText] = useState<LabelText | null>(null);
   const [needsLabel, setNeedsLabel] = useState(() => { try { return isArtHeroActive(); } catch { return false; } });
   const [rowH, setRowH] = useState(310);
   const [labelLeft, setLabelLeft] = useState(40);
@@ -524,7 +527,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (synthHero) {
         // No DS-card-label to clone for synth cards — clear the overlay
         // label and leave hero label hidden.
-        setLabelHtml(null);
+        setLabelText(null);
         const synthKey = -Math.abs(hashStringFastForHero(synthHero));
         if (synthKey !== currentAppid.current) {
           currentAppid.current = synthKey;
@@ -554,7 +557,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // visual continuity (avoids a fade flash when stepping into the
       // tail card and immediately back).
       if (appid <= 0) {
-        setLabelHtml(null);
+        setLabelText(null);
         return;
       }
       // Align the overlay label horizontally with the focused card's left
@@ -568,13 +571,23 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           setLabelLeft(Math.max(0, Math.round(cr.left - sr.left)));
         } catch {}
       });
-      // Always re-clone the card's label DOM so the overlay mirrors it
-      // byte-for-byte. Online shelves resolve game names asynchronously — if
-      // the first clone happened during the brief "#appid" window, re-cloning
-      // picks up the resolved name once it lands. Cloning identical content
-      // yields the same string, so setLabelHtml bails out (no re-render).
+      // Mirror the focused card's label as plain text (name + optional
+      // status). Online shelves resolve names asynchronously — re-reading
+      // on every observer tick picks up the resolved name once it lands.
       const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-      setLabelHtml(labelEl ? labelEl.outerHTML : null);
+      if (!labelEl) {
+        setLabelText(null);
+      } else {
+        const nameEl = labelEl.querySelector('.ds-card-label-name');
+        const statusEl = labelEl.querySelector('.ds-card-status');
+        const next: LabelText = {
+          name: (nameEl?.textContent ?? '').trim(),
+          status: statusEl ? (statusEl.textContent ?? '').trim() || null : null,
+        };
+        setLabelText((prev) =>
+          (prev && prev.name === next.name && prev.status === next.status) ? prev : next,
+        );
+      }
       // Hero ART loads only when enabled for this shelf AND the game changed.
       // `forceCssLoader` promotes a shelf (full-page + label) WITHOUT forcing
       // hero art — the per-shelf / global hero-art setting is respected.
@@ -759,7 +772,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   }, [containerRef, showArt]);
 
   const hasArt = showArt && !!(slotA || slotB);
-  const showLabel = needsLabel && isPromoted && !!labelHtml;
+  const showLabel = needsLabel && isPromoted && !!labelText;
   if (!hasArt && !showLabel) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   // "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
@@ -936,7 +949,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         Only on promoted (full-page ArtHero) shelves — there the in-card
         labels + title are hidden by CSS, so the overlay replaces them;
         on normal shelves it would stack on top of the visible texts. */}
-    {showLabel && (
+    {showLabel && labelText && (
       <div
         className="ds-promoted-hero-label"
         style={{
@@ -948,8 +961,12 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           opacity: visible ? 1 : 0,
           transition: 'opacity 0.4s cubic-bezier(0.17,0.45,0.14,0.83), left 0.2s ease',
         }}
-        dangerouslySetInnerHTML={{ __html: labelHtml }}
-      />
+      >
+        <div className="ds-card-label">
+          {labelText.name && <div className="ds-card-label-name">{labelText.name}</div>}
+          {labelText.status && <div className="ds-card-status">{labelText.status}</div>}
+        </div>
+      </div>
     )}
     </>
   );
