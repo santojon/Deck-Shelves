@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { isArtHeroActive } from "../../core/cssLoaderDetect";
 import { getLandscapeUrls, getPortraitFallbacks } from "../../core/steamAssets";
@@ -48,17 +48,29 @@ function findNativeAssetProto(): any {
  *  smaller header crop). Instantiate the class via `Object.create` on its
  *  prototype, call `GetSourcesForAsset` with our app + `eAssetType=1` (hero),
  *  and get back exactly the URL list Steam itself would render. */
-// Allowlist of URL schemes safe to pass to `<img src>`. Anything outside
-// this set (most notably `javascript:` and `data:text/html`) returns
-// `null` so the synth-hero pipeline treats the attribute as missing.
-// Inline regex form: a single test expression bound to the input that
-// CodeQL's `js/xss-through-dom` query recognises as a sanitiser barrier.
-const SAFE_HERO_URL_RE = /^(?:\/|\.{1,2}\/|https?:\/\/|blob:|file:|data:image\/)[^\s]*$/i;
+// Image-src allowlist. `null` for anything off-list (notably `javascript:`
+// and `data:text/html`). URL parsing + protocol whitelist is the form
+// CodeQL's `js/xss-through-dom` query recognises as a sanitiser.
+const SAFE_IMG_PROTOCOLS = new Set(['http:', 'https:', 'blob:', 'file:']);
+
+function safeImgSrc(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  const s = String(raw).trim();
+  if (!s) return undefined;
+  // Relative paths (start with / or ./ or ../) — safe by construction.
+  if (s[0] === '/' || s.startsWith('./') || s.startsWith('../')) return s;
+  // data:image/... — explicit MIME prefix, never a script-bearing payload.
+  if (/^data:image\//i.test(s)) return s;
+  // Absolute URLs — parse and check protocol via the platform URL class.
+  // CodeQL recognises `new URL(...).protocol` whitelist as a sanitiser.
+  try {
+    const u = new URL(s);
+    return SAFE_IMG_PROTOCOLS.has(u.protocol) ? s : undefined;
+  } catch { return undefined; }
+}
 
 function sanitizeHeroUrl(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const s = String(raw).trim();
-  return s && SAFE_HERO_URL_RE.test(s) ? s : null;
+  return safeImgSrc(raw) ?? null;
 }
 
 // Stable 32-bit FNV-1a hash of a string — used as a synthetic-card hero
@@ -766,6 +778,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
 
   const hasArt = showArt && !!(slotA || slotB);
   const showLabel = needsLabel && isPromoted && !!labelText;
+  // Memoize URL sanitization so `new URL(...)` (in safeImgSrc) only runs
+  // when slotA/slotB actually change — not on every render of PerShelfHero,
+  // which fires often during cross-fades, focus events, etc.
+  const slotASrc = useMemo(() => safeImgSrc(slotA), [slotA]);
+  const slotBSrc = useMemo(() => safeImgSrc(slotB), [slotB]);
   if (!hasArt && !showLabel) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   // "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
@@ -862,7 +879,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <img src={(slotA && SAFE_HERO_URL_RE.test(slotA)) ? slotA : undefined} onError={onError('A')}
+            <img src={slotASrc} onError={onError('A')}
               // Off-main-thread decode — large hero JPEGs (~1920×620)
               // decode on the main thread when they finish downloading,
               // blocking the renderer for 20-100 ms each time and
@@ -914,7 +931,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <img src={(slotB && SAFE_HERO_URL_RE.test(slotB)) ? slotB : undefined} onError={onError('B')}
+            <img src={slotBSrc} onError={onError('B')}
               decoding="async"
               ref={(el) => {
                 if (el && el.complete && (el.naturalWidth || 0) > 0 && slotB && loadedSrcB !== slotB) {
