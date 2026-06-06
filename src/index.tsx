@@ -155,37 +155,30 @@ export default definePlugin((serverAPI?: any) => {
     logDiagnostic("info", "SteamOS version", v ?? "unknown");
   }).catch(() => {});
 
-  // Update notifier — single demand probe at boot, gated by the persisted
-  // toggle (default ON). The 24h cache lives in localStorage so subsequent
-  // boots short-circuit; failures are silent. On a positive result, fire a
-  // toast so the user sees the notification even without opening QAM.
-  //
-  // Single update-probe entry: invalidates cache when online, runs the
-  // network probe, toasts on a fresh undismissed release.
-  const runUpdateProbe = async (reason: string): Promise<void> => {
+  // Update notifier: probe always runs once the network is reachable.
+  // Toggle (default ON) gates whether to run at all; cache + dismiss
+  // gate whether to fire the toast.
+  const runUpdateProbe = async (reason: string): Promise<boolean> => {
     try {
       (globalThis as any).__dsUpdateProbe = { reason, at: Date.now(), step: 'start' };
       const s = getCurrentSettings();
-      (globalThis as any).__dsUpdateProbe.step = 'settings';
-      (globalThis as any).__dsUpdateProbe.settingsLoaded = !!s;
       (globalThis as any).__dsUpdateProbe.notifyEnabled = s?.updateNotifyEnabled;
       if (s?.updateNotifyEnabled === false) {
         (globalThis as any).__dsUpdateProbe.step = 'skipped-toggle-off';
-        return;
+        return false;
       }
-      try {
-        const online = await isOnline();
-        (globalThis as any).__dsUpdateProbe.online = online;
-        if (online) __resetUpdateCheckCache();
-      } catch (e) { (globalThis as any).__dsUpdateProbe.onlineErr = String(e); }
+      const online = await isOnline().catch(() => false);
+      (globalThis as any).__dsUpdateProbe.online = online;
+      if (!online) {
+        (globalThis as any).__dsUpdateProbe.step = 'skipped-offline';
+        return false;
+      }
+      __resetUpdateCheckCache();
       (globalThis as any).__dsUpdateProbe.step = 'checking';
       const r = await checkForUpdate();
       (globalThis as any).__dsUpdateProbe.result = { hasUpdate: r.hasUpdate, latest: r.latestVersion, current: r.currentVersion };
-      if (
-        r.hasUpdate &&
-        r.latestVersion &&
-        r.latestVersion !== s?.updateNotifyDismissedVersion
-      ) {
+      const fresh = r.hasUpdate && r.latestVersion && r.latestVersion !== s?.updateNotifyDismissedVersion;
+      if (fresh) {
         (globalThis as any).__dsUpdateProbe.step = 'firing-toast';
         toaster.toast({
           title: i18next.t("pluginName"),
@@ -194,20 +187,34 @@ export default definePlugin((serverAPI?: any) => {
         (globalThis as any).__dsUpdateProbe.step = 'toast-fired';
       } else {
         (globalThis as any).__dsUpdateProbe.step = 'no-update-or-dismissed';
-        (globalThis as any).__dsUpdateProbe.dismissed = s?.updateNotifyDismissedVersion ?? null;
       }
+      return true;
     } catch (e) {
       (globalThis as any).__dsUpdateProbe = (globalThis as any).__dsUpdateProbe || {};
       (globalThis as any).__dsUpdateProbe.err = String(e);
+      return false;
     }
   };
-  // Defer the boot probe so the network stack is ready (cold-boot DNS
-  // race would otherwise skip the cache invalidation step).
-  (globalThis as any).__dsUpdateProbeScheduled = Date.now();
-  setTimeout(() => { void runUpdateProbe('boot'); }, 3000);
 
-  // Re-probe on the upward edge of the notify toggle (OFF → ON) so
-  // the boot path uses.
+  // Boot retry: poll for network with backoff until a probe actually
+  // runs (online + checked) or we hit the 10-min cap. Steam restart and
+  // system reboot both land here; the loop self-terminates on first
+  // successful probe so steady-state work is zero.
+  const UPDATE_BACKOFFS_MS = [3000, 10000, 20000, 40000, 60000, 60000, 60000, 60000, 60000, 60000, 60000, 60000];
+  let updateBootTimer: ReturnType<typeof setTimeout> | null = null;
+  let updateBootStep = 0;
+  const scheduleBootProbe = () => {
+    if (updateBootStep >= UPDATE_BACKOFFS_MS.length) return;
+    const delay = UPDATE_BACKOFFS_MS[updateBootStep++];
+    updateBootTimer = setTimeout(async () => {
+      updateBootTimer = null;
+      const probed = await runUpdateProbe('boot');
+      if (!probed) scheduleBootProbe();
+    }, delay);
+  };
+  scheduleBootProbe();
+
+  // Re-probe on the upward edge of the notify toggle (OFF → ON).
   let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
   const unsubUpdateNotify = subscribeSettings((s) => {
     const now = s?.updateNotifyEnabled !== false;
@@ -256,6 +263,7 @@ export default definePlugin((serverAPI?: any) => {
         uninstallFriendsState();
         uninstallPluginApi();
         unsubUpdateNotify();
+        if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
       } catch (error) {
         logError("RUNTIME", "failed to remove patch", String(error));
       }

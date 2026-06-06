@@ -215,13 +215,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     #deck-shelves-home-root .ds-card:hover {
       transform: translateY(-2px);
     }
-    /* Hide inline badge on focused card — the global BadgeFocusOverlay
-       paints the focused-card badge above the focus ring. */
-    #deck-shelves-home-root .ds-card.gpfocus .ds-card-badge-host--inline,
-    #deck-shelves-home-root .ds-card:focus .ds-card-badge-host--inline,
-    #deck-shelves-home-root .ds-card:hover .ds-card-badge-host--inline {
-      visibility: hidden;
-    }
+    /* Inline badge stays visible on focused cards too — the focus ring
+       can visually overlap but the badge must never disappear. */
     /* Cancel native brightness on .ds-card so it does not create a stacking
        context that traps the badge host's z-index. Brightness is applied to
        .ds-card-art below instead. */
@@ -699,6 +694,14 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .ds-card.is-selected .ds-card-badge-host {
       top: -10px;
       height: calc(100% + 10px);
+    }
+    /* On focus the BadgeFocusOverlay portal paints the badge above
+       Steam's FocusRingRoot. Hide the inline copy on the focused card
+       so the two don't stack visibly. */
+    .ds-card.gpfocus .ds-card-badge-host--inline,
+    .ds-card:focus .ds-card-badge-host--inline,
+    .ds-card.is-selected .ds-card-badge-host--inline {
+      visibility: hidden;
     }
     .ds-new-badge {
       /* Mirrors the native SteamOS "New" badge color resolution:

@@ -9,15 +9,12 @@
   },
   "src/components/DeckRow.tsx": {
     "complexity": {
-      "count": 13
-    },
-    "max-lines": {
-      "count": 1
+      "count": 8
     }
   },
   "src/components/HomeInject.tsx": {
     "complexity": {
-      "count": 12
+      "count": 8
     }
   },
   "src/components/Shelf.tsx": {
@@ -67,10 +64,7 @@
   },
   "src/components/qam/modals/EditShelfModal.tsx": {
     "complexity": {
-      "count": 14
-    },
-    "max-lines": {
-      "count": 1
+      "count": 6
     }
   },
   "src/components/qam/modals/EditSmartShelfModal.tsx": {
@@ -126,6 +120,11 @@
   "src/components/shelf/MoreCard.tsx": {
     "complexity": {
       "count": 1
+    }
+  },
+  "src/components/shelf/PerShelfHero.tsx": {
+    "complexity": {
+      "count": 5
     }
   },
   "src/components/shelf/PlaceholderCard.tsx": {
@@ -190,7 +189,7 @@
   },
   "src/core/steamGameMenu.ts": {
     "complexity": {
-      "count": 17
+      "count": 14
     },
     "max-lines": {
       "count": 1
@@ -213,7 +212,7 @@
   },
   "src/core/webpackCompat.ts": {
     "complexity": {
-      "count": 11
+      "count": 10
     }
   },
   "src/domain/customfilters.ts": {

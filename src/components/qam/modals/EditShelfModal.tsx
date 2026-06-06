@@ -11,12 +11,11 @@ import {
 } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
-import { filterGroupToFilter, getEffectiveFilterGroup, normalizeFilter } from '../../../domain/settings'
+import { normalizeFilter } from '../../../domain/settings'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
-import { resolveShelfAppIds, invalidateRandomSortCache, getAllAppOverviews, getLocalLibraryAppIds } from '../../../steam'
-import { getCurrentSettings } from '../../../store/settingsStore'
+import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { getExternalSources } from '../../../core/pluginApi'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
@@ -29,12 +28,27 @@ import { DecorationTab } from './editShelf/DecorationTab'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
 import { FunnelIcon, EyeIcon, SteamIcon, OnlineIcon } from '../../icons'
-import type { PlatformAppMeta } from '../../../runtime/platform'
-import { fetchGameNames } from '../../../core/onlineStore'
 import { PreviewPanel } from './editShelf/PreviewPanel'
+import { useModalCollections } from './editShelf/useModalCollections'
 import { TabLabel } from './editShelf/TabLabel'
 import { SortField } from './editShelf/SortField'
 import { ModalHeader } from './editShelf/ModalHeader'
+import {
+  sanitizeSyntheticCard,
+  buildSortPatchFields,
+  buildPrimarySource as buildPrimarySourceShared,
+  assembleFinalSource,
+  shelfSortForPatch,
+} from './editShelf/saveHelpers'
+import { detectNativeTabKey, isUnsupportedTab } from './editShelf/tabUtils'
+import { usePreviewResolution } from './editShelf/usePreviewResolution'
+import {
+  buildChildTypeOptions,
+  buildCollectionValueOpts as buildCollectionValueOptsShared,
+  buildTabValueOpts as buildTabValueOptsShared,
+  pickNextAvailableSource,
+} from './editShelf/compositeSourceUtils'
+import { buildInitialShelfState } from './editShelf/buildInitialState'
 
 
 // Native library tabs. If the controller's async `listLibraryTabs` resolved
@@ -59,37 +73,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   // entire lifetime — even though the controller's hook updates the
   // outer state later (periodic refresh). Re-fetch inside the modal
   // so the picker fills as soon as Steam exposes the data.
-  const [modalCollections, setModalCollections] = useState<typeof controllerCollections>(controllerCollections)
-  const modalPlatform = usePlatform()
-  useEffect(() => {
-    let cancelled = false
-    const refresh = () => {
-      modalPlatform.listCollections().then((next) => {
-        if (cancelled) return
-        setModalCollections((current) => {
-          const a = JSON.stringify(current.map((c) => ({ id: c.id, name: c.name })))
-          const b = JSON.stringify(next.map((c) => ({ id: c.id, name: c.name })))
-          return a === b ? current : next
-        })
-      }).catch(() => {})
-    }
-    refresh()
-    // Short retry cadence while the picker is open: Steam's collectionStore
-    // can take a few seconds after plugin boot to expose the map. The
-    // controller-level 30 s refresh is still the long-term safety net.
-    const t1 = window.setTimeout(refresh, 500)
-    const t2 = window.setTimeout(refresh, 2000)
-    const interval = window.setInterval(refresh, 10000)
-    return () => {
-      cancelled = true
-      window.clearTimeout(t1)
-      window.clearTimeout(t2)
-      window.clearInterval(interval)
-    }
-  }, [modalPlatform])
-  // Prefer the modal's own fresh fetch when it has data; fall back to the
-  // controller's reference until the first refresh resolves.
-  const collections = modalCollections.length > 0 ? modalCollections : controllerCollections
+  const collections = useModalCollections(controllerCollections)
   // Guard the dropdown against any failure mode in the controller's async
   // `listLibraryTabs`: empty array, undefined, or never-resolved. Native
   // defaults below are the same 5 IDs `listLibraryTabs` would have
@@ -98,106 +82,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     ? controllerTabs : NATIVE_FALLBACK_TABS
   const platform = usePlatform()
   const externalSources = useMemo(() => getExternalSources(), [])
-  // Composite shelves load by promoting `sources[0]` into the primary
-  // source fields; the remaining children populate `additionalSources`.
-  // This way the editor exposes a uniform "pick one source, optionally
-  // add more" UX whether the saved shape is a single source or a
-  // composite of N.
-  const compositeChildren: any[] = shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
-    ? (shelf.source as any).sources : []
-  // Back-compat for shelves saved when the editor only had a single
-  // composite-level childFilter slot: when the saved shape carries
-  // `composite.childFilter` and the online children don't have their own,
-  // propagate the composite-level filter onto each online child so the
-  // per-child editor reflects what the resolver actually applies.
-  const legacyCompositeChildFilter = shelf.source.type === 'composite'
-    ? (shelf.source as any).childFilter
-    : undefined
-  const hydratedCompositeChildren = legacyCompositeChildFilter && Array.isArray(legacyCompositeChildFilter.items) && legacyCompositeChildFilter.items.length > 0
-    ? compositeChildren.map((c: any) => {
-        if (c?.type !== 'wishlist' && c?.type !== 'store') return c
-        const existing = c.childFilter
-        if (existing && Array.isArray(existing.items) && existing.items.length > 0) return c
-        return { ...c, childFilter: legacyCompositeChildFilter }
-      })
-    : compositeChildren
-  const primarySource: any = shelf.source.type === 'composite'
-    ? (hydratedCompositeChildren[0] ?? { type: 'tab', tab: 'all' })
-    : shelf.source
-  const initialSourceType = (primarySource?.type ?? 'tab') as SourceType
-  const initialFilter = normalizeFilter(primarySource)
-  const initialFilterGroup = getEffectiveFilterGroup(initialFilter)
-  const [state, setState] = useState<EditableShelfState>({
-    title: shelf.title,
-    sourceType: initialSourceType,
-    collectionId: primarySource?.type === 'collection' ? primarySource.collectionId : String(collections[0]?.id ?? ''),
-    // In create mode the modal opens with no tab selected so the preview
-    // starts empty until the user explicitly picks one. Edit mode keeps
-    // whatever the shelf was saved with (always a real tab id).
-    tab: mode === 'create' ? '' : (primarySource?.type === 'tab' ? primarySource.tab : String(platformTabs[0]?.id ?? 'all')),
-    externalSourceId: primarySource?.type === 'external' ? primarySource.sourceId : (externalSources[0]?.id ?? ''),
-    filter: initialFilter,
-    filterGroup: initialFilterGroup,
-    sort: (shelf as any).sort ?? 'alphabetical',
-    sortReverse: (shelf as any).sortReverse ?? false,
-    manualBaseSort: (shelf as any).manualBaseSort ?? 'alphabetical',
-    manualBaseSortReverse: (shelf as any).manualBaseSortReverse ?? false,
-    limit: shelf.limit,
-    matchNativeSize: shelf.matchNativeSize ?? false,
-    highlightFirst: shelf.highlightFirst ?? false,
-    highlightAll: shelf.highlightAll ?? false,
-    highlightedAppIds: shelf.highlightedAppIds ?? [],
-    manualOrder: (shelf as any).manualOrder ?? [],
-    hideStatusLine: shelf.hideStatusLine ?? false,
-    hideNewBadge: shelf.hideNewBadge ?? false,
-    hideDiscountBadge: (shelf as any).hideDiscountBadge ?? false,
-    hideCompatIcons: shelf.hideCompatIcons ?? false,
-    hideNonSteamBadge: shelf.hideNonSteamBadge ?? false,
-    hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
-    hideGameNames: (shelf as any).hideGameNames ?? false,
-    hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
-    hideSeeMore: (shelf as any).hideSeeMore ?? false,
-    hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
-    heroEnabled: (shelf as any).heroEnabled ?? false,
-    dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
-    hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
-    // Exclude-owned toggles are PRIMARY-source-scoped. Composite
-    // shelves load from the primary (`sources[0]`); each additional
-    // online source stores its own values on its entry, persisted
-    // directly via the per-source toggle blocks.
-    excludeOwned: (primarySource as any)?.excludeOwned === true,
-    excludeOwnedNonSteam: (primarySource as any)?.excludeOwnedNonSteam === true,
-    hideOwnedNonSteamCloud: (primarySource as any)?.hideOwnedNonSteamCloud === true,
-    childFilterGroup: (() => {
-      // childFilterGroup tracks the PRIMARY source's own childFilter.
-      // - single-source shelves: read from the source.
-      // - composite shelves: read from the primary (sources[0]); per-
-      //   child filters on the remaining online children live on each
-      //   entry of `additionalSources` directly.
-      if (shelf.source.type === 'collection' || shelf.source.type === 'tab' || shelf.source.type === 'wishlist' || shelf.source.type === 'store') {
-        return (shelf.source as any).childFilter ?? { mode: 'and', items: [] }
-      }
-      if (shelf.source.type === 'composite') {
-        return (primarySource as any)?.childFilter ?? { mode: 'and', items: [] }
-      }
-      return { mode: 'and', items: [] }
-    })(),
-    compositeCombine: (shelf.source.type === 'composite' && (shelf.source as any).combine === 'intersection') ? 'intersection' : 'union',
-    additionalSources: hydratedCompositeChildren.slice(1) as any[],
-    syntheticCards: (((shelf as any).syntheticCards) as any[] | undefined)?.map((c: any) => ({
-      position: Number(c?.position ?? 0),
-      image: c?.image,
-      text: c?.text,
-      link: c?.link,
-      size: c?.size === 'featured' ? 'featured' : 'normal',
-      alpha: typeof c?.alpha === 'number' ? c.alpha : undefined,
-      placeholder: c?.placeholder === true,
-      heroImage: typeof c?.heroImage === 'string' ? c.heroImage : undefined,
-      shadowMode: c?.shadowMode === 'always' || c?.shadowMode === 'onFocus' || c?.shadowMode === 'never' ? c.shadowMode : undefined,
-    })) ?? [],
-  })
+  const [state, setState] = useState<EditableShelfState>(() =>
+    buildInitialShelfState({ shelf, mode, collections, platformTabs, externalSources }),
+  )
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
-  const [previewCount, setPreviewCount] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<EditTab>(() => {
     // Pending-tab hint set by dispatchShelfModal({ initialTab }) — used
     // when the user picks "Decoração" from the card context menu so the
@@ -219,8 +107,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   // "+ Add decoration"; falls back to the end of the row when nothing
   // is focused yet. Bumped by ShelfPreview via onFocusedIndexChange.
   const [previewFocusedIndex, setPreviewFocusedIndex] = useState<number>(0)
-  const [resolvedIds, setResolvedIds] = useState<number[]>([])
-  const [resolvedMeta, setResolvedMeta] = useState<Map<number, PlatformAppMeta>>(new Map())
   // Bumped by the preview's RefreshCard to force a re-resolve in any tab.
   const [previewRefreshNonce, setPreviewRefreshNonce] = useState(0)
   // Preview-isolated cache namespace so refreshing the modal doesn't poison
@@ -245,6 +131,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   // ids → syntheticCards[i].position = their new slot index).
   const SYNTH_SENTINEL = (i: number) => -(i + 1)
   const synthIndexOfSentinel = (id: number) => (id < 0 ? -id - 1 : -1)
+
+  const previewSource = useMemo(() => {
+    const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
+    const primary = buildPrimarySourceShared({ state, childFilter })
+    return assembleFinalSource(primary, state)
+  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.filter.sortReverse, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources])
+
+  const { previewCount, resolvedIds, resolvedMeta } = usePreviewResolution({
+    state, previewSource, previewShelfId, hiddenPickerOpen, previewRefreshNonce, platform,
+  })
 
   const effectiveManualOrder = useMemo(() => {
     if (!isManualSort) return resolvedIds
@@ -301,260 +197,6 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     }
     return { ...prev, manualOrder: nextManualOrder, syntheticCards: nextSynth }
   })
-  const previewSource = useMemo(() => {
-    // `state.childFilterGroup` is the PRIMARY source's own childFilter
-    // (both in single-source and composite mode). Each additional
-    // online source carries its OWN childFilter on
-    // `state.additionalSources[i].childFilter`. The composite parent
-    // never gets a childFilter — online predicates are applied per
-    // online child so they don't get re-applied to offline children.
-    const primaryChildFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
-    const buildPrimary = (): any => {
-      if (state.sourceType === 'collection') return { type: 'collection' as const, collectionId: state.collectionId, ...(primaryChildFilter ? { childFilter: primaryChildFilter } : {}) }
-      if (state.sourceType === 'tab') return { type: 'tab' as const, tab: state.tab, ...(primaryChildFilter ? { childFilter: primaryChildFilter } : {}) }
-      if (state.sourceType === 'external') return { type: 'external' as const, sourceId: state.externalSourceId }
-      if (state.sourceType === 'wishlist') return { type: 'wishlist' as const, ...(primaryChildFilter ? { childFilter: primaryChildFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) }
-      if (state.sourceType === 'store') return { type: 'store' as const, ...(primaryChildFilter ? { childFilter: primaryChildFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) }
-      // When manual sort is active, use the configured base sort for the
-      // preview so the mini-card row reflects the actual order of non-manual
-      // positions at runtime (matches what Shelf.tsx resolves on home).
-      const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort
-      const effectiveFilter = filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'], state.filter.sortReverse)
-      return { type: 'filter' as const, filter: effectiveFilter }
-    }
-    const primary = buildPrimary()
-    if (state.sourceType !== 'filter' && state.additionalSources.length > 0) {
-      // Each additional online source carries its own exclude-owned
-      // toggles + childFilter on its entry; nothing to propagate from
-      // primary. Just drop empty/false flags so the persisted JSON stays
-      // minimal when the user clears slots.
-      const dropEmptyChildFilter = (s: any) => {
-        if (!s?.childFilter) return s
-        const items = s.childFilter.items
-        if (Array.isArray(items) && items.length > 0) return s
-        const { childFilter: _drop, ...rest } = s
-        return rest
-      }
-      const allChildren = [primary, ...state.additionalSources].map(dropEmptyChildFilter)
-      return { type: 'composite' as const, combine: state.compositeCombine, sources: allChildren } as any
-    }
-    return primary
-  }, [state.sourceType, state.collectionId, state.tab, state.externalSourceId, state.filterGroup, state.filter.sort, state.filter.sortReverse, state.manualBaseSort, state.childFilterGroup, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud, state.compositeCombine, state.additionalSources])
-
-  useEffect(() => {
-    let cancelled = false
-    setPreviewCount(null)
-    const timer = setTimeout(() => {
-      // Mirror the resolver wiring used by Shelf.tsx so the preview reflects
-      // sort + asc/desc inversion the user is configuring. Filter sources
-      // carry their sort inside `state.filter.sort` (already embedded in
-      // `previewSource` via `filterGroupToFilter`), so no third-arg sort is
-      // needed for that branch — `previewSort` falls back to undefined.
-      // Other source types pass `state.sort` plus the alphabetical fallback
-      // when reverse is on but no explicit sort is set.
-      const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
-      // Preserve arrays — both sort and reverse may carry the multi-key
-      // chain (primary or manual-base). The resolver normalises shape
-      // internally; collapsing to a bool here lost reverse fidelity for
-      // single-key shelves with a stale boolean[].
-      const previewReverse: boolean | boolean[] = isManualSort
-        ? (Array.isArray(state.manualBaseSortReverse) ? state.manualBaseSortReverse : !!state.manualBaseSortReverse)
-        : (Array.isArray(state.sortReverse) ? state.sortReverse : !!state.sortReverse)
-      let previewSort: string | string[] | undefined
-      if (state.sourceType === 'filter') {
-        previewSort = undefined
-      } else if (isManualSort) {
-        const base = state.manualBaseSort
-        previewSort = Array.isArray(base)
-          ? (base.length > 0 ? base : 'alphabetical')
-          : (base || 'alphabetical')
-      } else {
-        previewSort = (state.sort && (Array.isArray(state.sort) ? state.sort.length : true))
-          ? state.sort
-          : (previewReverse ? 'alphabetical' : undefined)
-      }
-      // No tab picked yet (create mode opens with state.tab="") → keep
-      // the preview empty until the user explicitly selects one. The
-      // single-source tab case is unambiguous; for composite sources
-      // the additional children are still rendered by the resolver.
-      if (state.sourceType === 'tab' && !String(state.tab ?? '').trim() && state.additionalSources.length === 0) {
-        setPreviewCount(0)
-        setResolvedIds([])
-        return
-      }
-      // Resolve with a generous limit, then apply the same render-time
-      // filters Shelf.tsx applies so the modal count matches the shelf.
-      ;(async () => {
-        try {
-          // Do NOT pass hiddenAppIds while the picker is open — the
-          // resolver would filter them out and the dimmed red-X marker
-          // would have nothing to render. Hidden cards must remain
-          // visible in the preview so the user can toggle them back on.
-          // Outside picker mode (Display tab idle, Source/Visual etc.),
-          // the home-equivalent filter is applied so the modal count
-          // matches what the home shelf will render.
-          const rawIds = await resolveShelfAppIds(previewSource, Math.max(state.limit, 500), previewSort, previewShelfId, previewReverse, {
-            hiddenAppIds: hiddenPickerOpen
-              ? undefined
-              : (state.hiddenAppIds.length ? state.hiddenAppIds : undefined),
-            dedupeByName: state.dedupeByExactName || undefined,
-          })
-          if (cancelled) return
-
-          // Composite shelves rely on the resolver's per-child filtering
-          // for `excludeOwned/excludeOwnedNonSteam/hideOwnedNonSteamCloud` —
-          // each online child carries its own toggles. The modal-level
-          // post-filter (below) uses `state.excludeOwned/...` (primary's
-          // values) applied to the WHOLE merged set, which would
-          // double-filter or use the wrong settings for additional online
-          // children. Skip it in composite mode.
-          const isCompositeMode = state.additionalSources.length > 0 && state.sourceType !== 'filter'
-          const isOnlineShelf = !isCompositeMode && (state.sourceType === 'wishlist' || state.sourceType === 'store')
-          let filteredIds = rawIds
-          if (isOnlineShelf) {
-            const settings = getCurrentSettings()
-            const globalHideOwned = settings?.onlineHideOwnedGames === true
-            const globalHideNonSteam = settings?.onlineHideOwnedNonSteam === true
-            const globalHideCloud = settings?.onlineHideOwnedNonSteamCloud === true
-            const shouldHideOwned = globalHideOwned || state.excludeOwned
-            const effectiveNonSteam = (globalHideOwned && globalHideNonSteam) || (state.excludeOwned && state.excludeOwnedNonSteam)
-            // Per-shelf cloud override only kicks in when exclude+NS pair
-            // is set (mirrors the source serialization).
-            const perShelfCloud = (state.excludeOwned && state.excludeOwnedNonSteam) ? state.hideOwnedNonSteamCloud : undefined
-            const effectiveCloud = effectiveNonSteam && (perShelfCloud === true || (perShelfCloud === undefined && globalHideCloud))
-
-            if (shouldHideOwned) {
-              const ownedAppIds = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
-              // Mirrors Shelf.tsx: name-based dedup uses a broader set
-              // (always includes non-Steam + cloud) than the appid-based
-              // dedup, so a wishlist entry whose name matches a non-Steam
-              // local title is filtered even when the non-Steam sub-toggle
-              // is off — keeps the modal "found X" count consistent with
-              // what the home shelf renders.
-              const ownedSetForNames = getLocalLibraryAppIds(true, true)
-              const all = await getAllAppOverviews()
-              const ownedNames = new Set<string>()
-              const allById = new Map<number, any>()
-              for (const a of all) {
-                const id = Number((a as any)?.appid)
-                if (Number.isFinite(id)) allById.set(id, a)
-                if (!ownedSetForNames.has(id)) continue
-                const n = (a as any)?.display_name ?? (a as any)?.name
-                if (typeof n === 'string' && n) ownedNames.add(n.trim().toLowerCase())
-              }
-              const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
-              let nameCache: Record<number, string> = {}
-              try { nameCache = JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch {}
-              filteredIds = rawIds.filter((id) => {
-                if (ownedAppIds.has(id)) return false
-                const overview = allById.get(id)
-                const localName = overview ? ((overview as any).display_name ?? (overview as any).name) : ''
-                const cachedName = nameCache[id]
-                const name = ((localName && !/^App \d+$/.test(localName) ? localName : cachedName) ?? '').trim().toLowerCase()
-                if (name && ownedNames.has(name)) return false
-                return true
-              })
-            }
-          }
-          if (cancelled) return
-          setPreviewCount(filteredIds.length)
-          setResolvedIds(filteredIds.slice(0, state.limit))
-        } catch {
-          if (cancelled) return
-          setPreviewCount(0)
-          setResolvedIds([])
-        }
-      })()
-    }, 500)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewSource, state.limit, state.sourceType, state.sort, state.filter.sort, state.manualBaseSort, state.sortReverse, state.manualBaseSortReverse, state.dedupeByExactName, state.hiddenAppIds.join(','), hiddenPickerOpen, previewRefreshNonce, state.excludeOwned, state.excludeOwnedNonSteam, state.hideOwnedNonSteamCloud])
-
-  useEffect(() => {
-    let cancelled = false
-    if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
-    // Composite shelves with an online child also need the online name
-    // pipeline (cached name + CDN portrait + name fetch) — without it
-    // wishlist items render as "App {id}" placeholders in the preview.
-    const isOnlineSource = state.sourceType === 'wishlist' || state.sourceType === 'store'
-      || (state.sourceType !== 'filter' && state.additionalSources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'))
-    ;(async () => {
-      const rawResults = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
-        try { return [id, await platform.getAppMeta(id)] }
-        catch { return [id, { appid: id, name: `App ${id}` }] }
-      }))
-      if (cancelled) return
-
-      if (!isOnlineSource) {
-        setResolvedMeta(new Map(rawResults))
-        return
-      }
-
-      // Online shelves: resolvedIds is already filtered. Just enrich each
-      // id with a real name (local overview → cache → fallback "#id").
-      const NAME_CACHE_KEY = 'ds-game-name-cache-v1'
-      const nameCache: Record<number, string> = (() => {
-        try { return JSON.parse(localStorage.getItem(NAME_CACHE_KEY) || '{}') } catch { return {} }
-      })()
-      const meta = new Map<number, PlatformAppMeta>()
-      const toFetch: number[] = []
-      for (const [id, m] of rawResults) {
-        const overviewName = m?.name && !/^App \d+$/.test(m.name) ? m.name : undefined
-        const cachedName = nameCache[id]
-        const portraitUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${id}/library_600x900.jpg`
-        meta.set(id, { appid: id, name: overviewName ?? cachedName ?? `#${id}`, portraitUrl })
-        if (!overviewName && !cachedName) toFetch.push(id)
-      }
-      setResolvedMeta(meta)
-
-      if (!toFetch.length) return
-      const names = await fetchGameNames(toFetch)
-      if (cancelled || !names.size) return
-      try {
-        const merged = { ...nameCache }
-        names.forEach((v, k) => { merged[k] = v })
-        localStorage.setItem(NAME_CACHE_KEY, JSON.stringify(merged))
-      } catch {}
-      setResolvedMeta(prev => {
-        const next = new Map(prev)
-        names.forEach((name, id) => {
-          const existing = next.get(id)
-          if (existing) next.set(id, { ...existing, name })
-        })
-        return next
-      })
-    })()
-    return () => { cancelled = true }
-  }, [platform, resolvedIds.join(','), state.sourceType, state.additionalSources.map((s: any) => s?.type).join(',')])
-
-  // Meta for menu-added games — games appended to `manualOrder` via the
-  // library context menu's "Add to shelf". They're NOT in resolvedIds
-  // (the resolver returned only source items), so the effect above
-  // never fetches their meta and the preview's `meta.get(id)` returns
-  // undefined → the card silently disappears from the row. Fetch here
-  // and merge into resolvedMeta so menu-added cards render in every
-  // preview tab.
-  useEffect(() => {
-    const resolvedSet = new Set(resolvedIds)
-    const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)
-    if (!tail.length) return
-    let cancelled = false
-    ;(async () => {
-      const results = await Promise.all(tail.map(async (id): Promise<[number, PlatformAppMeta]> => {
-        try { return [id, await platform.getAppMeta(id)] }
-        catch { return [id, { appid: id, name: `App ${id}` }] }
-      }))
-      if (cancelled) return
-      setResolvedMeta((prev) => {
-        const next = new Map(prev)
-        for (const [id, m] of results) {
-          if (!next.has(id)) next.set(id, m)
-        }
-        return next
-      })
-    })()
-    return () => { cancelled = true }
-  }, [platform, resolvedIds.join(','), state.manualOrder.join(',')])
-
   const { settings } = controller
   const allSourceTypes: SourceType[] = [
     ...BASE_SOURCE_TYPES,
@@ -575,51 +217,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   // covers both `listLibraryTabs` defaults (lowercase ids "all"/"installed"/…)
   // AND TabMaster tabs whose IDs are UUIDs but whose display names match
   // "Installed" / "Favorites" / etc. (in English or any of the locales below).
-  const slug = (s: string) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_')
-  // Per-native-id allowlist of display-name slugs across locales we ship.
-  // English form is always included (TabMaster's stock tabs ship in English
-  // even on non-English systems).
-  const NATIVE_TAB_NAME_SLUGS: Record<string, ReadonlySet<string>> = {
-    all: new Set(['all', 'all_games', 'todos_os_jogos', 'todos_los_juegos', 'tous_les_jeux', 'alle_spiele', 'tutti_i_giochi', 'alle_games', 'wszystkie_gry', 'vse_igry', 'usi_igri', 'tum_oyunlar', 'subete_no_geemu', 'modeun_geim', 'suoyou_youxi']),
-    favorites: new Set(['favorites', 'favoritos', 'favoris', 'favoriten', 'preferiti', 'favorieten', 'ulubione', 'izbrannoe', 'obrane', 'favoriler', 'okiniiri', 'jeulgyeochajgi', 'shoucangjia']),
-    installed: new Set(['installed', 'instalados', 'instalado', 'installes', 'installiert', 'installati', 'geinstalleerd', 'zainstalowane', 'ustanovlennye', 'vstanovleni', 'yuklu', 'insutoorudumi', 'seolchidoem', 'yianzhuang']),
-    hidden: new Set(['hidden', 'ocultos', 'oculto', 'masques', 'ausgeblendet', 'nascosti', 'verborgen', 'ukryte', 'skrytye', 'prikhovani', 'gizli', 'hihyouji', 'sumgim', 'yincang']),
-    nonsteam: new Set(['nonsteam', 'non_steam', 'nao_steam', 'no_steam', 'nicht_steam', 'niet_steam', 'spoza_steam', 'ne_iz_steam', 'ne_zi_steam', 'steam_disi', 'steam_iwai', 'steam_oe', 'feisteam']),
-  }
-  const NATIVE_TAB_I18N_KEY: Record<string, string> = {
-    all: 'tab_all',
-    favorites: 'tab_favorites',
-    installed: 'tab_installed',
-    hidden: 'tab_hidden',
-    nonsteam: 'tab_nonsteam',
-  }
-  const detectNativeKey = (item: { id: string; name: string }): string | null => {
-    const idSlug = slug(item.id)
-    const nameSlug = slug(item.name)
-    for (const native of Object.keys(NATIVE_TAB_I18N_KEY)) {
-      if (idSlug === native) return NATIVE_TAB_I18N_KEY[native]
-      const slugSet = NATIVE_TAB_NAME_SLUGS[native]
-      if (slugSet.has(idSlug) || slugSet.has(nameSlug)) return NATIVE_TAB_I18N_KEY[native]
-    }
-    return null
-  }
-  // Drop tabs that the plugin doesn't currently support as a shelf source.
-  // "Collections" is a native Steam library tab that exposes a flat list of
-  // collection groups — not an app set we can render as a row of cards.
-  // Hide for now so users don't pick a tab that would resolve to nothing
-  // meaningful.
-  const UNSUPPORTED_TAB_SLUGS: ReadonlySet<string> = new Set([
-    'collections', 'collection', 'colecoes', 'colecao', 'colecciones', 'coleccion',
-    'collezioni', 'sammlungen', 'kolekcje', 'kollektsii', 'kolektsiyi', 'koleksiyonlar',
-    'korekushon', 'kolleksyeon', 'shoucang', 'shoucangji',
-  ])
-  const isUnsupportedTab = (item: { id: string; name: string }): boolean => {
-    return UNSUPPORTED_TAB_SLUGS.has(slug(item.id)) || UNSUPPORTED_TAB_SLUGS.has(slug(item.name))
-  }
   const tabOptions: SingleDropdownOption[] = platformTabs
     .filter((item) => !isUnsupportedTab(item))
     .map((item) => {
-      const i18nKey = detectNativeKey(item)
+      const i18nKey = detectNativeTabKey(item)
       if (i18nKey) {
         return {
           data: item.id,
@@ -633,13 +234,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       }
       return { data: item.id, label: item.name }
     })
-  // Separate plain-text labels for tab options so that title auto-fill never
-  // stringifies a JSX element to "[object Object]".
+  // Plain-text labels so title auto-fill doesn't stringify JSX to "[object Object]".
   const tabTextLabels = new Map<string, string>(
     platformTabs
       .filter((item) => !isUnsupportedTab(item))
       .map((item) => {
-        const i18nKey = detectNativeKey(item)
+        const i18nKey = detectNativeTabKey(item)
         return [item.id, i18nKey ? t(i18nKey as any) : item.name]
       })
   )
@@ -685,83 +285,27 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     [t, isOnlineSourceType]
   )
 
-  // Exhaustion: each "single-instance" source type (filter/wishlist/store)
-  // is capped at one across the primary + additional rows. Tabs and
-  // collections cap at the total catalog size — once every tab/collection
-  // is used, the type disappears from the picker. `excludeRow` lets a
-  // row see itself as "free" when computing its own available options
-  // (otherwise the row's current pick would appear exhausted).
-  const computeUsage = (excludeRow?: number | 'primary') => {
-    const filterCount = (state.sourceType === 'filter' && excludeRow !== 'primary' ? 1 : 0)
-      + state.additionalSources.filter((s: any, i: number) => i !== excludeRow && s?.type === 'filter').length
-    const storeCount = (state.sourceType === 'store' && excludeRow !== 'primary' ? 1 : 0)
-      + state.additionalSources.filter((s: any, i: number) => i !== excludeRow && s?.type === 'store').length
-    const wishlistCount = (state.sourceType === 'wishlist' && excludeRow !== 'primary' ? 1 : 0)
-      + state.additionalSources.filter((s: any, i: number) => i !== excludeRow && s?.type === 'wishlist').length
-    const usedTabs = new Set<string>()
-    if (state.sourceType === 'tab' && excludeRow !== 'primary') usedTabs.add(state.tab)
-    state.additionalSources.forEach((s: any, i: number) => {
-      if (i !== excludeRow && s?.type === 'tab') usedTabs.add(String(s.tab))
-    })
-    const usedCollections = new Set<string>()
-    if (state.sourceType === 'collection' && excludeRow !== 'primary') usedCollections.add(state.collectionId)
-    state.additionalSources.forEach((s: any, i: number) => {
-      if (i !== excludeRow && s?.type === 'collection') usedCollections.add(String(s.collectionId))
-    })
-    return { filterCount, storeCount, wishlistCount, usedTabs, usedCollections }
-  }
   const onlineLabel = (key: 'source_wishlist' | 'source_store') => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><OnlineIcon size={14} style={{ opacity: 0.7 }} />{t(key)}</span>
   ) as any
-  const buildChildTypeOptions = (excludeRow: number): SingleDropdownOption[] => {
-    const u = computeUsage(excludeRow)
-    const opts: SingleDropdownOption[] = []
-    // Exhaustion: only hide collection/tab when the catalog is non-empty
-    // AND every entry is already in use. With an empty catalog (no Steam
-    // collections discovered yet, or `listCollections` raced the modal
-    // open) we keep the type visible — the value picker falls back to
-    // the placeholder, matching the primary source dropdown's behaviour.
-    if (collectionOptions.length === 0 || u.usedCollections.size < collectionOptions.length) {
-      opts.push({ data: 'collection', label: t('source_collection') })
-    }
-    if (tabOptions.length === 0 || u.usedTabs.size < tabOptions.length) {
-      opts.push({ data: 'tab', label: t('source_tab') })
-    }
-    if (settings?.onlineFeaturesEnabled) {
-      if (u.wishlistCount < 1) opts.push({ data: 'wishlist', label: onlineLabel('source_wishlist') })
-      if (u.storeCount < 1) opts.push({ data: 'store', label: onlineLabel('source_store') })
-    }
-    if (u.filterCount < 1) opts.push({ data: 'filter', label: t('source_filter') })
-    return opts
+  const compositeOpts = {
+    state,
+    collectionOptions,
+    tabOptions,
+    onlineEnabled: !!settings?.onlineFeaturesEnabled,
+    labels: {
+      collection: t('source_collection'),
+      tab: t('source_tab'),
+      filter: t('source_filter'),
+      wishlistLabel: onlineLabel('source_wishlist'),
+      storeLabel: onlineLabel('source_store'),
+    },
   }
-  const buildCollectionValueOpts = (excludeRow: number): SingleDropdownOption[] => {
-    const u = computeUsage(excludeRow)
-    return collectionOptions.filter((o) => !u.usedCollections.has(String(o.data)))
-  }
-  const buildTabValueOpts = (excludeRow: number): SingleDropdownOption[] => {
-    const u = computeUsage(excludeRow)
-    return tabOptions.filter((o) => !u.usedTabs.has(String(o.data)))
-  }
-  // First-available descriptor used when the user clicks "+ Add source".
-  // Falls back to undefined when every source type is exhausted (button
-  // is disabled in that case).
-  const pickNextAvailable = (): any => {
-    const opts = buildChildTypeOptions(-1)
-    const t0 = opts[0]?.data
-    if (t0 === 'collection') {
-      const c = buildCollectionValueOpts(-1)[0]
-      return { type: 'collection', collectionId: String(c?.data ?? '') }
-    }
-    if (t0 === 'tab') {
-      const tab = buildTabValueOpts(-1)[0]
-      return { type: 'tab', tab: String(tab?.data ?? 'all') }
-    }
-    if (t0 === 'wishlist') return { type: 'wishlist' }
-    if (t0 === 'store') return { type: 'store' }
-    if (t0 === 'filter') return { type: 'filter', filter: { sort: 'alphabetical' } }
-    return null
-  }
-  const canAddSource = buildChildTypeOptions(-1).length > 0
+  const buildChildTypeOptionsFn = (excludeRow: number) => buildChildTypeOptions(compositeOpts, excludeRow)
+  const buildCollectionValueOpts = (excludeRow: number) => buildCollectionValueOptsShared(state, collectionOptions, excludeRow)
+  const buildTabValueOpts = (excludeRow: number) => buildTabValueOptsShared(state, tabOptions, excludeRow)
+  const pickNextAvailable = () => pickNextAvailableSource(compositeOpts)
+  const canAddSource = buildChildTypeOptionsFn(-1).length > 0
 
   const changeSourceType = (type: SourceType) => {
     setState((prev) => {
@@ -813,101 +357,16 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     (async () => {
       const title = state.title.trim() || t('newShelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
-      // childFilter on the PRIMARY source (used both in single-source
-      // and composite mode). Each additional online source carries its
-      // own childFilter on `state.additionalSources[i]`. The composite
-      // parent never persists a childFilter — online predicates are
-      // applied per online child.
       const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
-      // Multi-key-aware base sort: persist as string when single key
-      // (default 'alphabetical' is omitted as today), as the array when
-      // the user added secondary keys. Reverse follows the same shape.
-      const baseSortIsArray = Array.isArray(state.manualBaseSort)
-      const baseSortToPersist: string | string[] | undefined = !isManualSort
-        ? undefined
-        : baseSortIsArray
-          ? ((state.manualBaseSort as string[]).length > 0 ? state.manualBaseSort : undefined)
-          : (state.manualBaseSort !== 'alphabetical' ? state.manualBaseSort : undefined)
-      const baseReverseToPersist: boolean | boolean[] | undefined = !isManualSort
-        ? undefined
-        : Array.isArray(state.manualBaseSortReverse)
-          ? (state.manualBaseSortReverse.some((b) => b) ? state.manualBaseSortReverse : undefined)
-          : (state.manualBaseSortReverse ? true : undefined)
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: baseSortToPersist as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverseToPersist as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
+      const { baseSort, baseReverse } = buildSortPatchFields(state, isManualSort)
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
-      // synthetic cards. Only persist when at least one row exists;
-      // empty list drops the field for storage minimality. Each card
-      // is sanitised the same way the schema transform does on load so
-      // the persisted snapshot is already clean (no link on empty
-      // cards, no invalid URL, no empty strings posing as content).
-      const cleanedSynth = state.syntheticCards
-        .map((c: any) => {
-          const out: any = { ...c }
-          if (typeof out.text === 'string' && out.text.length === 0) out.text = undefined
-          if (typeof out.image === 'string' && out.image.length === 0) out.image = undefined
-          if (typeof out.heroImage === 'string' && out.heroImage.length === 0) out.heroImage = undefined
-          if (out.text !== undefined && out.image !== undefined) out.text = undefined
-          const hasContent = out.text !== undefined || out.image !== undefined
-          if (out.link) {
-            if (!hasContent) {
-              out.link = undefined
-            } else if (out.link.type === 'url') {
-              const raw = String(out.link.value ?? '').trim()
-              const url = /^https?:\/\//i.test(raw) ? raw : (raw ? `https://${raw}` : '')
-              try { if (url) new URL(url); else throw new Error() }
-              catch { out.link = undefined }
-            }
-          }
-          // shadowMode only meaningful on focusable (linked) cards; strip
-          // on save when there's no link so the persisted JSON stays
-          // minimal and the resolver doesn't have to gate per render.
-          if (!out.link && out.shadowMode) delete out.shadowMode
-          if (out.shadowMode === 'never') delete out.shadowMode // never == default; omit
-          return out
-        })
+      const cleanedSynth = state.syntheticCards.map(sanitizeSyntheticCard)
       ;(patch as any).syntheticCards = cleanedSynth.length ? cleanedSynth : undefined
-      // Build the primary source from the per-type fields. Sort goes on
-      // the shelf for non-filter primaries; for filter, sort lives inside
-      // the filter object (filterGroupToFilter handles that).
-      let primarySource: any
-      if (state.sourceType === 'collection') primarySource = { type: 'collection', collectionId: state.collectionId, ...(childFilter ? { childFilter } : {}) }
-      else if (state.sourceType === 'tab') {
-        const selectedTab = platformTabs.find((pt) => pt.id === state.tab)
-        const baseSource = selectedTab?.source ?? { type: 'tab', tab: state.tab }
-        primarySource = childFilter ? { ...baseSource, childFilter } : baseSource
-      }
-      else if (state.sourceType === 'external') primarySource = { type: 'external', sourceId: state.externalSourceId }
-      else if (state.sourceType === 'wishlist') primarySource = { type: 'wishlist', ...(childFilter ? { childFilter } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) }
-      else if (state.sourceType === 'store') { const cf = childFilter; primarySource = { type: 'store', ...(cf ? { childFilter: cf } : {}), ...(state.excludeOwned ? { excludeOwned: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam ? { excludeOwnedNonSteam: true } : {}), ...(state.excludeOwned && state.excludeOwnedNonSteam && state.hideOwnedNonSteamCloud ? { hideOwnedNonSteamCloud: true } : {}) } }
-      else primarySource = { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort, state.filter.sortReverse) }
-      // Stack extras into a composite. Single-source shelves keep the
-      // flat shape for back-compat with older readers. additionalSources
-      // is persisted as-is — the resolver enforces semantics. Earlier
-      // we attempted a "drop empty filter children" heuristic at this
-      // layer but it silently dropped legitimately-configured filters
-      // when the criteria didn't match the predicate, so the user saw
-      // "filter source not respected" on the home. Now the editor
-      // trusts what's in state.additionalSources.
-      if (state.sourceType !== 'filter' && state.additionalSources.length > 0) {
-        // Each online child persists its OWN exclude-owned toggles +
-        // childFilter on its entry. Just trim empty filter slots so the
-        // saved JSON stays minimal.
-        const dropEmptyChildFilter = (s: any) => {
-          if (!s?.childFilter) return s
-          const items = s.childFilter.items
-          if (Array.isArray(items) && items.length > 0) return s
-          const { childFilter: _drop, ...rest } = s
-          return rest
-        }
-        const allChildren = [primarySource, ...state.additionalSources].map(dropEmptyChildFilter)
-        patch.source = { type: 'composite', combine: state.compositeCombine, sources: allChildren } as any
-      } else {
-        patch.source = primarySource
-      }
-      if (state.sourceType !== 'filter') {
-        patch.sort = (Array.isArray(state.sort) ? state.sort.length > 0 : state.sort !== 'alphabetical') ? state.sort : undefined
-      }
+      const primarySource = buildPrimarySourceShared({ state, childFilter, platformTabs })
+      patch.source = assembleFinalSource(primarySource, state) as any
+      patch.sort = shelfSortForPatch(state)
       if (mode === 'create') {
         // Modal-driven create: nothing was persisted on open. Build the full
         // shelf locally and commit only on Save. Cancel/close discards.
@@ -1011,12 +470,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                           // are already in use elsewhere — the row keeps its
                           // OWN current pick available (excludeRow=idx).
                           const innerOpts = childType === 'collection' ? buildCollectionValueOpts(idx) : childType === 'tab' ? buildTabValueOpts(idx) : [];
-                          const typeOpts = buildChildTypeOptions(idx);
+                          const typeOpts = buildChildTypeOptionsFn(idx);
                           // Type options exclude exhausted sources for this
                           // row. The row's CURRENT type is always present
                           // (excludeRow=idx surfaces it) so the dropdown can
                           // show what's actually selected.
-                          if (!typeOpts.some((o) => o.data === childType)) {
+                          if (!typeOpts.some((o: SingleDropdownOption) => o.data === childType)) {
                             typeOpts.unshift({
                               data: childType,
                               label: childType === 'collection' ? t('source_collection')
