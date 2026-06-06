@@ -50,25 +50,22 @@ function supported(): boolean {
   catch { return false; }
 }
 
-/**
- * Local paths (/customimages/, /assets/, etc.) are filesystem-served and
- * already fast. They also can change WITHOUT a URL change when the user
- * updates artwork via SteamGridDB etc. — caching them would lock in the
- * stale version. Only remote CDN URLs (http:// / https://) benefit from
- * caching and have URL-changes-on-update via the `?c=mtime` cache-bust.
- *
- * `steamloopback.host` is Steam's local loopback HTTP server — it serves
- * portrait/hero assets from the local Steam process at filesystem speed,
- * so wrapping those in a blob URL adds zero perf benefit. Worse, with
- * 150+ visible cards on a populated home, those URLs would dominate the
- * hot LRU and evict the actually-remote CDN URLs (Cloudflare /
- * akamaihd) that DO benefit from blob caching. Skip them.
- */
+/** Local + loopback URLs are already filesystem-served and don't
+ *  benefit from blob caching; cache only remote CDN URLs which also
+ *  carry cache-bust via `?c=mtime`. */
 function cacheable(url: string): boolean {
   if (typeof url !== "string") return false;
   if (!/^https?:\/\//i.test(url)) return false;
   if (/^https?:\/\/(?:[^/]+\.)?steamloopback\.host/i.test(url)) return false;
   return true;
+}
+
+/** First URL in the chain that the cache can store (HTTPS, non-loopback).
+ *  Use instead of `urls[0]` when warming — urls[0] is typically a
+ *  /customimages/ local 404 path that the cache can't store anyway. */
+export function firstCacheableUrl(urls: ReadonlyArray<string>): string | null {
+  for (const u of urls) if (cacheable(u)) return u;
+  return null;
 }
 
 /**
@@ -145,6 +142,54 @@ function revalidate(url: string): void {
     try { await fetchAndStore(url); }
     finally { inflight.delete(url); }
   })();
+}
+
+type HydrationCandidate = { url: string; storedAt: number };
+
+async function listFreshCacheCandidates(cache: Cache): Promise<HydrationCandidate[]> {
+  const keys = await cache.keys();
+  const now = Date.now();
+  const out: HydrationCandidate[] = [];
+  for (const req of keys) {
+    const res = await cache.match(req);
+    if (!res) continue;
+    const storedAt = parseInt(res.headers.get(TIMESTAMP_HEADER) || "0", 10) || 0;
+    if (storedAt && now - storedAt > EVICT_AFTER_MS) continue;
+    out.push({ url: req.url, storedAt });
+  }
+  out.sort((a, b) => b.storedAt - a.storedAt);
+  return out;
+}
+
+async function hydrateOne(cache: Cache, url: string, storedAt: number): Promise<boolean> {
+  try {
+    const res = await cache.match(url);
+    if (!res) return false;
+    const blob = await res.blob();
+    if (!blob || blob.size === 0) return false;
+    const blobUrl = URL.createObjectURL(blob);
+    touchHot(url, { blobUrl, storedAt: storedAt || Date.now() });
+    return true;
+  } catch { return false; }
+}
+
+/** Pre-loads the hot cache from persistent Cache Storage on boot so
+ *  the first focus on every card is a blob-URL hit. Capped at
+ *  HOT_CACHE_LIMIT entries (newest first), idempotent. */
+export async function hydrateHotCacheFromStorage(): Promise<{ hydrated: number; skipped: number }> {
+  if (!supported()) return { hydrated: 0, skipped: 0 };
+  let hydrated = 0;
+  let skipped = 0;
+  try {
+    const cache = await caches.open(STORAGE_NAME);
+    const candidates = await listFreshCacheCandidates(cache);
+    for (const { url, storedAt } of candidates) {
+      if (hot.has(url) || hot.size >= HOT_CACHE_LIMIT) { skipped++; continue; }
+      if (await hydrateOne(cache, url, storedAt)) hydrated++;
+      else skipped++;
+    }
+  } catch {}
+  return { hydrated, skipped };
 }
 
 /**

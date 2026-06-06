@@ -19,7 +19,7 @@ import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
 import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
 import { invalidateRandomSortCache } from "./steam";
-import { pruneCache as pruneImageCache } from "./core/imageCache";
+import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
@@ -90,11 +90,18 @@ export default definePlugin((serverAPI?: any) => {
   logInfo("RUNTIME", "plugin bootstrap start");
   const platform = createDeckyPlatform();
   setPlatform(platform);
-  // Image cache pruning — drop persistent entries older than EVICT_AFTER_MS.
-  // Deferred to idle so it doesn't compete with bootstrap work.
+  // Image cache pre-hydration + pruning, both deferred to idle so they
+  // don't compete with bootstrap. Hydration moves persistent blob URLs
+  // back into the in-memory hot map so the FIRST focus of every card
+  // is a hot hit instead of walking the local 404 chain — without this,
+  // every Steam restart felt like a full re-download to the user even
+  // though the persistent cache already had every blob.
   try {
     const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-    schedule(() => { try { pruneImageCache(); } catch {} });
+    schedule(() => {
+      try { void hydrateHotCacheFromStorage(); } catch {}
+      try { void pruneImageCache(); } catch {}
+    });
   } catch {}
   // Resolve `~/Downloads` from the backend so import/export defaults work
   // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).

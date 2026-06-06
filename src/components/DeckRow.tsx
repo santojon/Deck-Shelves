@@ -8,6 +8,7 @@ import { isArtHeroActive } from "../core/cssLoaderDetect";
 import { logInfo } from "../runtime/logger";
 import { focusElement } from "../core/focusRestore";
 import { flowChildrenProps } from "../core/steamOSVersion";
+import { getLandscapeUrls, getPortraitFallbacks } from "../core/steamAssets";
 
 // Re-export types and components from shelf/ for backwards compatibility
 export { type DeckRowItem } from "./shelf/types";
@@ -27,7 +28,7 @@ import {
 } from "./shelf/shelfStyles";
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import { patchShelfInSettings } from "../domain/settings";
-import { getHotCachedImageSrc, warmCacheBackground } from "../core/imageCache";
+import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../core/imageCache";
 
 // Cached prototype of Steam's native asset <img> component (any class
 // instance whose props include `eAssetType`). Discovered once via the live
@@ -168,6 +169,22 @@ function getHeroUrls(appid: number): string[] {
     `/customimages/${appid}_hero.jpg`,
     `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
   ];
+}
+
+function tryHotCache(url: string | null): string | null {
+  if (!url) return null;
+  try { return getHotCachedImageSrc(url); } catch { return null; }
+}
+
+function resolveHeroSrcFromCache(url0: string | null, urls: ReadonlyArray<string>): string | null {
+  const hotUrl0 = tryHotCache(url0);
+  if (hotUrl0) return hotUrl0;
+  const warmTarget = firstCacheableUrl(urls);
+  if (!warmTarget) return url0;
+  const hotWarm = tryHotCache(warmTarget);
+  if (hotWarm) return hotWarm;
+  try { warmCacheBackground(warmTarget); } catch {}
+  return url0;
 }
 
 /** Lightweight per-shelf hero background. Rendered inside the .ds-shelf div
@@ -477,14 +494,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // sweep on top — same visual cue the game cards use during their own
   // image loads).
   //
-  // Tracking by URL (not boolean) is required: when `slotA` changes (focus
-  // → new game), React updates the `<img>` src prop in the SAME render
-  // pass that resets the boolean — but the browser keeps the old image
-  // painted until the new one decodes, which is a frame where the prior
-  // loaded=true would have left opacity at 1 and shown the previous image
-  // as if it were the current one. By deriving `slotALoaded` from
-  // `loadedSrcA === slotA`, the flip to "not loaded" is synchronous with
-  // the src change — no stale visible frame.
+  // Track by URL not boolean — a boolean flip happens 1 frame after
+  // the src change, briefly painting the prior image as if current.
   const [loadedSrcA, setLoadedSrcA] = useState<string | null>(null);
   const [loadedSrcB, setLoadedSrcB] = useState<string | null>(null);
   const slotALoaded = !!slotA && loadedSrcA === slotA;
@@ -534,22 +545,9 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       }
       if (!focused) return;
       const appid = Number(focused.getAttribute('data-appid') ?? 0);
-      // Decoration cards expose a `data-ds-hero-url` attribute when
-      // configured with a hero image — bypass the game-hero pipeline
-      // (no appid → no native fetch / no fallback CDN chain) and treat
-      // the attribute value as the sole URL to load into the next slot.
-      // Synthetic key (negative so it can't collide with a real appid)
-      // gates the `currentAppid.current !== ...` comparison so re-focusing
-      // the same synth card doesn't re-swap, and so moving from synth to
-      // a real game still triggers a fresh load.
-      //
-      // SECURITY: validate the scheme before passing to `<img src>`. The
-      // attribute is in principle user-controllable (decoration config
-      // owned by the user) but the browser still resolves `javascript:`
-      // and `data:text/html` srcs, and CodeQL `js/xss-through-dom` flags
-      // any DOM-attribute → `<img>` flow without a sanitizer. Allowlist
-      // image-safe schemes only; reject everything else by treating the
-      // attribute as absent (early-return below).
+      // Decoration card: data-ds-hero-url is the sole src. Synth key
+      // negative to avoid appid collision. Scheme allowlisted via
+      // sanitizeHeroUrl to satisfy CodeQL xss-through-dom.
       const synthHeroRaw = focused.getAttribute('data-ds-hero-url');
       const synthHero = sanitizeHeroUrl(synthHeroRaw);
       if (synthHero) {
@@ -612,23 +610,9 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (appid !== currentAppid.current) {
         currentAppid.current = appid;
         if (showArt) {
-          // Debounce the actual slot swap so rapid d-pad navigation
-          // doesn't fire a hero-load cycle for every intermediate card
-          // (each cycle triggers React renders + a CSS cross-fade +
-          // an HTTP fetch the browser can't cache before the next swap
-          // cancels it). 30 ms — half of typical d-pad repeat (80-150
-          // ms) so a single deliberate press triggers a swap, but two
-          // rapid presses skip the middle card. Combined with the
-          // 250 ms cross-fade and async decode below, the hero feels
-          // like it arrives within one frame of landing on a card.
-          //
-          // Initial mount (`isFirstSlotSwapRef`) skips the debounce
-          // entirely — when the user comes back to home after going
-          // to settings/another screen, there's no navigation thrash
-          // to coalesce; we want the hero to appear immediately, and
-          // if its URL is already in the hot cache (from this session
-          // or via Cache Storage from a previous session), the slot
-          // resolves to a blob URL in the same tick the swap runs.
+          // 30ms swap debounce coalesces rapid d-pad navigation so
+          // intermediate cards don't trigger hero-load cycles. First
+          // mount skips the debounce so the hero appears immediately.
           if (heroSwapTimerRef.current) clearTimeout(heroSwapTimerRef.current);
           const swapAppid = appid;
           const wasFirst = isFirstSlotSwapRef.current;
@@ -663,14 +647,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             // Cache Storage layer is persistent) is a hot hit. NO
             // fan-out, NO parallel calls — exactly one cache lookup
             // and at most one warmCacheBackground per slot swap.
-            let resolvedUrl: string | null = url0;
-            if (url0) {
-              try {
-                const hot = getHotCachedImageSrc(url0);
-                if (hot) resolvedUrl = hot;
-                else warmCacheBackground(url0);
-              } catch {}
-            }
+            const resolvedUrl = resolveHeroSrcFromCache(url0, urls);
             if (next === 'A') setSlotA(resolvedUrl); else setSlotB(resolvedUrl);
             setActiveSlot(next);
             if (usedNative) return;
@@ -685,12 +662,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
               allUrls.current = fresh;
               fallbackIdx.current = 0;
               const slot = activeSlotRef.current;
-              let finalUrl: string | null = newFirst;
-              try {
-                const hot2 = getHotCachedImageSrc(newFirst);
-                if (hot2) finalUrl = hot2;
-                else warmCacheBackground(newFirst);
-              } catch {}
+              const finalUrl = resolveHeroSrcFromCache(newFirst, fresh);
               if (slot === 'A') setSlotA(finalUrl); else setSlotB(finalUrl);
             }, 700);
           };
@@ -749,11 +721,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     };
   }, [containerRef, showArt]);
 
-  // Idle-time hero pre-warm: sequential walk via requestIdleCallback,
-  // per-shelf boot stagger, one-time per mount. Parallel fan-out here
-  // froze the deck previously (see feedback_hero_perf).
+  // Idle-time image pre-warm via requestIdleCallback. Warms portrait
+  // for every card on every shelf; hero shelves also warm hero +
+  // landscape. Parallel fan-out here froze the deck previously.
   useEffect(() => {
-    if (!showArt) return;
     const el = containerRef.current;
     if (!el) return;
     let cancelled = false;
@@ -779,23 +750,28 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (cancelled) return;
       const allCards = Array.from(el.querySelectorAll<HTMLElement>('.ds-card[data-appid]'));
       let idx = 0;
+      // Batch size per idle tick. The cache module's `inflight` set
+      // de-dupes, browser throttles to 6 connections per host — batches
+      // of 4 fill the network without thrashing the main thread.
+      const PER_TICK = 4;
+      const warmOneCard = (aid: number) => {
+        try {
+          const p = firstCacheableUrl(getPortraitFallbacks(aid));
+          if (p) warmCacheBackground(p);
+          if (!showArt) return;
+          const h = firstCacheableUrl(getHeroUrls(aid));
+          if (h) warmCacheBackground(h);
+          const l = firstCacheableUrl(getLandscapeUrls(aid));
+          if (l) warmCacheBackground(l);
+        } catch {}
+      };
       const tick = () => {
         if (cancelled) return;
-        while (idx < allCards.length) {
+        for (let warmed = 0; warmed < PER_TICK && idx < allCards.length; warmed++) {
           const aid = Number(allCards[idx++].getAttribute('data-appid')) || 0;
-          if (aid <= 0) continue;
-          try {
-            const u = getHeroUrls(aid)[0];
-            if (u) warmCacheBackground(u);
-          } catch {}
-          // One per tick so the cache module's `caches.open` /
-          // `fetch` calls never burst — proven culprit of the boot
-          // freeze. Yield to idle, then continue.
-          if (idx < allCards.length) {
-            schedule(tick);
-          }
-          return;
+          if (aid > 0) warmOneCard(aid);
         }
+        if (idx < allCards.length) schedule(tick);
       };
       schedule(tick);
     }, 500 + Math.random() * 2000);

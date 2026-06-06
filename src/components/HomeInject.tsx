@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { ShelfView } from "./Shelf";
+import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 import type { Settings, Shelf, SmartShelf, SmartShelfMode } from "../types";
 import { refreshSettings, subscribeSettings, saveSettings, getCurrentSettings } from "../settingsStore";
 import { useContainerDragReorder } from "../core/reorder";
@@ -697,14 +698,9 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     // Steam can rebuild our nav node's parent without touching our DOM
     // subtree (e.g. when native home re-registers focusables around us).
     const applyPatches = () => {
-      // Each install runs in its own try so a throw inside one doesn't
-      // skip the rest. Several of these patches install module-level
-      // hooks on shared DFL/Steam objects (e.g. `dfl.showContextMenu` is
-      // reassigned), and one of those reassignments can fail intermittently
-      // — when the chain was wrapped in a single try/catch, that one
-      // failure silently dropped every subsequent install, including
-      // `installLibraryContextMenuPatch`, which is the entry point for
-      // injecting DS items into game menus across all game types.
+      // Per-install try/catch: a single shared try would silently drop
+      // every later install on the first failure (regression seen with
+      // installLibraryContextMenuPatch, the menu-injection entry point).
       try { reparentNavTreeNodes(mountEl); } catch (e) { logInfo("HOME", "reparentNavTreeNodes failed", String(e)); }
       try { patchShelfEdgeNavigation(mountEl); } catch (e) { logInfo("HOME", "patchShelfEdgeNavigation failed", String(e)); }
       try { patchMenuButton(); } catch (e) { logInfo("HOME", "patchMenuButton failed", String(e)); }
@@ -741,14 +737,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       });
     };
 
-    // Lazy-load assist for the `LibraryContextMenu` webpack chunk.
-    // applyHideRecents now keeps native recents OFF-SCREEN (position
-    // absolute at -99999px) instead of display:none, so React keeps the
-    // cards mounted and Steam's chunk loader registers the menu class.
-    // These retries cover slow boots where the chunk arrives after the
-    // initial mutation-observer pass — without them a cold deck can land
-    // on the boot's first menu open before the patch installs, falling
-    // back to root injection.
+    // Menu-class chunk arrives async on cold boot; retries here cover
+    // the window before the chunk loader registers it.
     const menuPatchRetries = [400, 1000, 2000, 4000, 8000, 15000];
     const menuRetryTimers: ReturnType<typeof setTimeout>[] = [];
     const tryInstall = () => {
@@ -758,15 +748,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     for (const d of menuPatchRetries) {
       menuRetryTimers.push(setTimeout(tryInstall, d));
     }
-    // Proactive extraction via `prewarmMenuExtraction` was removed: it
-    // invoked the native `onMenuButton` handler on mount, which briefly
-    // opened a real Steam context menu on the home screen — users saw
-    // this as "the menu button being pressed by itself" right after
-    // Steam restart. Extraction still happens lazily on the first user
-    // MENU press (inside `showGameMenu`), and the passive hooks
-    // (`installPassiveMenuHook` / `installPassiveShowContextMenuHook`)
-    // keep capturing opportunistically when Steam itself renders a
-    // native menu (e.g. in the library game detail view).
+    // prewarmMenuExtraction was removed (opened a real menu on boot).
+    // Extraction now happens lazily on the first user MENU press.
 
     // Observer 1: mutations inside our mount (shelf render, collapse/expand)
     const obs = new MutationObserver(scheduleApplyPatches);
@@ -909,16 +892,9 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Which shelf id is actually the first rendered `.ds-shelf` right now —
-  // updated by a MutationObserver on the mount. Needed because the first
-  // entry in the `shelves` array may render `null` (e.g. a filter resolves
-  // to 0 apps), so "first in the array" ≠ "first on screen". Only the
-  // first on-screen shelf should be promoted to the native-recents slot
-  // when `hideRecentsSetting` is on — via `forceExpanded`.
-  // Smart shelves are never promoted to the recents slot — they appear and
-  // disappear based on heuristics, so handing them the recents-slot styling
-  // would make the slot's identity flicker. Only normal (user-defined)
-  // shelves are eligible for promotion.
+  // First rendered .ds-shelf id (tracked by MO since shelves[0] may
+  // render null). Only normal shelves get the recents-slot promotion;
+  // smart shelves are excluded to avoid heuristic-driven flicker.
   const [firstVisibleId, setFirstVisibleId] = useState<string | null>(null);
   useEffect(() => {
     if (!hideRecentsSetting) { setFirstVisibleId(null); return; }
@@ -941,27 +917,11 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     return () => obs.disconnect();
   }, [hideRecentsSetting, shelves]);
 
-  // CSS Loader compat — narrow scope by design.
-  // Themes targeting the universal shelf surface already reach every DS
-  // shelf via inherited Panel/Focusable + hashed token classes.
-  //
-  // Themes that restyle the RECENTS WRAPPER (hero art height, banner mode,
-  // ArtHero family etc.) target the obfuscated class on the parent of the
-  // native recents block. Our shelves don't carry that class — so when the
-  // user hides native recents we promote ONLY the first visible shelf into
-  // that selector space by adding `data-ds-recents-slot` + the live wrapper
-  // class read from `mountEl.previousElementSibling`.
-  //
-  // Invariants enforced by the guard chain below — do NOT loosen without
-  // updating `checks/plugins/cssloader/arthero.sh`:
-  //   1. Promotion only when `hideRecentsSetting` is true.
-  //   2. Promotion only on the FIRST visible shelf (`firstVisibleId`)
-  //      UNLESS `forceCssLoaderThemes` is on — in that case ALL visible
-  //      DS shelves get the same wrapper-class + `data-ds-recents-slot`
-  //      promotion so theme rules targeting the native recents wrapper
-  //      reach every shelf, not just the first.
-  //   3. Promotion only when at least one CSS Loader theme is active.
-  //   4. Class assignment is purely additive — `ds-*` is never stripped.
+  // CSS Loader recents-wrapper promotion. When user hides native
+  // recents we promote the first visible shelf into the recents
+  // selector space via data-ds-recents-slot + the live wrapper class.
+  // forceCssLoaderThemes promotes ALL shelves. Class assignment is
+  // additive only — invariants enforced in arthero.sh.
 
   // Re-fires the recents-slot promotion when CSS Loader injects late.
   const [cssLoaderTick, setCssLoaderTick] = useState(0);
@@ -1173,6 +1133,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {orderedShelves.map((shelf: any) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideDiscountBadge={globalHideDiscountBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} globalHideShelfTitle={globalHideShelfTitle} globalHideGameNames={globalHideGameNames} globalHideInstallIndicator={globalHideInstallIndicator} globalHideSeeMore={globalHideSeeMore} globalHideRefreshCard={globalHideRefreshCard} globalDedupeByName={globalDedupeByName} globalHeroEnabled={globalHeroEnabled} heroForced={perShelfHeroAllowed && shelfHeroBackground && shelf.id === firstVisibleId} heroLabelMount={perShelfHeroAllowed && (forceCssLoaderThemes || (hideRecentsSetting && shelf.id === firstVisibleId))} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} forceLayoutAsRecents={forceCssLoaderThemes && !(hideRecentsSetting && shelf.id === firstVisibleId)} />)}
+      <BadgeFocusOverlay />
     </Focusable>
   );
 }

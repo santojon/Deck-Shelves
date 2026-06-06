@@ -1,17 +1,15 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
-import { getHotCachedImageSrc, warmCacheBackground } from "../../core/imageCache";
+import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 import { resolveNativeCardClass } from "./cardUtils";
-import { subscribeOverlayActive } from "./overlayState";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 
@@ -335,14 +333,16 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     setImgFailed(false);
     setImgLoaded(false);
     currentOriginalUrl.current = initialOriginal;
-    // Cache miss path: queue a background fetch so the next visit is
-    // a hot hit. cacheable() inside the cache module already skips
-    // local /customimages/ and /assets/ paths so SteamGridDB-style
-    // local updates aren't blocked. No-op when initialSrc is already
-    // a blob URL (hot hit) — we'd be warming it again uselessly
-    // otherwise.
-    if (initialOriginal && initialSrc === initialOriginal) {
-      try { warmCacheBackground(initialOriginal); } catch {}
+    // Cache miss path — warm the FIRST CACHEABLE URL (typically the
+    // CDN one). Warming `initialOriginal` was usually a no-op because
+    // it's the local /customimages/ entry that cacheable() rejects,
+    // so the persistent cache never populated and every reboot
+    // re-downloaded every cover from the CDN.
+    if (initialSrc === initialOriginal) {
+      const warmTarget = firstCacheableUrl(allUrls);
+      if (warmTarget) {
+        try { warmCacheBackground(warmTarget); } catch {}
+      }
     }
   }, [allUrls, startIdx, initialSrc, initialOriginal]);
 
@@ -387,103 +387,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const showDiscountBadge = !hideDiscountBadge && typeof discount === 'number' && discount > 0;
   const hasBadge = showNewBadge || showDiscountBadge;
 
-  // Portal-positioned badge host: rendered into BP's <body> so it escapes
-  // the card / home-root stacking context (Steam's FocusRingRoot is z:10000
-  // and would otherwise paint above the badge). Position tracks the card's
-  // viewport rect, updated on focus/blur, scroll, resize, and during the
-  // focus zoom transition.
-  //
-  // `inlineBadges` disables the entire portal path — the modal preview
-  // can't use the portal (overlayActive detection always returns true
-  // because the modal blocks the home root), and the preview's CSS
-  // strips focus rings so the badge wins stacking just by being inside
-  // the card. Skipping the portal also drops the per-card observers /
-  // listeners for the preview (zero overhead).
-  const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null);
-  const [portalFocused, setPortalFocused] = useState(false);
-  const [overlayActive, setOverlayActive] = useState(false);
-  useEffect(() => {
-    if (inlineBadges || !hasBadge) { setPortalRect(null); return; }
-    const el = cardRef.current;
-    if (!el) return;
-    const doc = el.ownerDocument;
-    const win = doc.defaultView ?? window;
-    let lastLeft = -Infinity, lastTop = -Infinity, lastWidth = -Infinity;
-    const sync = () => {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) { setPortalRect(null); return; }
-      if (Math.abs(r.left - lastLeft) < 0.5 && Math.abs(r.top - lastTop) < 0.5 && Math.abs(r.width - lastWidth) < 0.5) return;
-      lastLeft = r.left; lastTop = r.top; lastWidth = r.width;
-      setPortalRect({ left: r.left, top: r.top, width: r.width });
-    };
-    sync();
-    setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
-    // Shared overlay detector — one MutationObserver + focus listeners
-    // for the whole home instead of one per card. With 30+ cards the
-    // duplicated body observers were the dominant idle-CPU cost.
-    const unsubOverlay = subscribeOverlayActive(doc, setOverlayActive);
-    const updateFocused = () => setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
-    const obs = new MutationObserver(() => { updateFocused(); sync(); });
-    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
-    el.addEventListener('focus', () => { updateFocused(); sync(); }, true);
-    el.addEventListener('blur', () => { updateFocused(); sync(); }, true);
-    const scrollTargets: EventTarget[] = [];
-    let p: HTMLElement | null = el.parentElement;
-    while (p) {
-      const cs = doc.defaultView?.getComputedStyle(p);
-      if (cs && (cs.overflow !== 'visible' || cs.overflowY !== 'visible' || cs.overflowX !== 'visible')) {
-        scrollTargets.push(p);
-      }
-      p = p.parentElement;
-    }
-    scrollTargets.push(win);
-    for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
-    win.addEventListener('resize', sync);
-    return () => {
-      obs.disconnect();
-      unsubOverlay();
-      for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
-      win.removeEventListener('resize', sync);
-    };
-  }, [hasBadge, inlineBadges]);
-
-  // Build the badge content (used inside the portal). Skip rendering while
-  // a QAM / modal overlay is active so the badge doesn't paint sharp on top
-  // of the blurred home.
-  const badgeContent = !inlineBadges && hasBadge && portalRect && !overlayActive ? (
-    <div
-      className="ds-card-badge-host ds-card-badge-host--portal"
-      aria-hidden="true"
-      style={{
-        position: 'fixed',
-        left: portalRect.left,
-        width: portalRect.width,
-        top: portalFocused ? portalRect.top - 10 : portalRect.top - 2,
-        height: 24,
-        pointerEvents: 'none',
-        zIndex: 1000,
-        isolation: 'isolate',
-      }}
-    >
-      {showDiscountBadge && (
-        <div className="ds-new-badge-band">
-          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-            {t('badge_discount', { count: discount }) ?? `${discount}% off`}
-          </div>
-        </div>
-      )}
-      {showNewBadge && !showDiscountBadge && (
-        <div className="ds-new-badge-band">
-          <div className="ds-new-badge">{t('badge_new')}</div>
-        </div>
-      )}
-    </div>
-  ) : null;
-
-  // Portal target: BP document's body (same doc as the card). Falls back to
-  // local document if Steam's preferred doc isn't ready yet.
-  const portalDoc = cardRef.current?.ownerDocument ?? getPreferredSteamDocument() ?? document;
-  const portalEl = badgeContent ? createPortal(badgeContent, portalDoc.body) : null;
+  // Badge: inline render only here. A single global BadgeFocusOverlay
+  // (mounted by HomeInject) draws the on-focus badge above the focus
+  // ring by reading data-isnew / data-discount from the focused card.
 
   // Placeholder fallback must be returned AFTER all hooks above so the
   // hook count stays stable across renders (React error #300 otherwise).
@@ -549,6 +455,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             : undefined}
       data-appid={appid || undefined}
       data-shelfid={item.shelfId || undefined}
+      data-isnew={showNewBadge ? 'true' : undefined}
+      data-discount={showDiscountBadge ? String(discount) : undefined}
       data-ds-card-index={cardIndex !== undefined ? String(cardIndex) : undefined}
       style={{
         position: "relative",
@@ -570,16 +478,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
-      {/* Badge host moved to a portal at BP <body> level so it escapes the
-          card / home-root stacking context (Steam's FocusRingRoot is z:10000
-          and would otherwise paint above the badge). See `portalEl` below. */}
-      {portalEl}
-      {/* Inline badge for the modal preview (and any caller passing
-          `inlineBadges`). Sits at top:-10 inside the card so the visible
-          band overlaps the top edge — same offset the portal uses on
-          focus — and rides at z:50 which the preview's CSS overrides
-          push above the (stripped) focus ring. */}
-      {inlineBadges && hasBadge && (
+      {/* Inline badge for non-focused cards. BadgeFocusOverlay handles
+          the focused card so it paints above Steam's FocusRingRoot. */}
+      {hasBadge && (
         <div
           className="ds-card-badge-host ds-card-badge-host--inline"
           aria-hidden="true"
