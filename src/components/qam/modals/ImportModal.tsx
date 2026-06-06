@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton, TextField } from '@decky/ui'
-import { toaster, openFilePicker } from '@decky/api'
+import { ConfirmModal, Focusable, DialogButton, TextField, toaster, openFilePicker } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
 import { importSettingsFromFile } from '../../../settingsStore'
 import type { SettingsController } from '../../../features/settings/controller'

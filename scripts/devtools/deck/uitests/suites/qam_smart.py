@@ -1,7 +1,7 @@
 """QAM smart shelves section — verified via Decky plugin list presence."""
 from __future__ import annotations
 
-from ..lib.runner import suite, SkipTest
+from ..lib.runner import suite
 from .qam_shelves import _require_qam, _ds_in_plugin_list, _DECKY_PANEL
 
 s = suite("qam_smart")

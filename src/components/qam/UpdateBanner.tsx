@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DialogButton, Focusable } from "@decky/ui";
+import { DialogButton, Focusable } from "../../runtime/host/decky";
 import type { SettingsController } from "../../features/settings/controller";
 import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from "../../core/updateNotifier";
 import { isOnline } from "../../core/connectivity";

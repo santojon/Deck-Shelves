@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from .cdp import Session, list_targets, find_target, _normalize_host
+from .cdp import Session, list_targets, find_target
 
 QAM_CAPTURE_BLANK_THRESHOLD = 20_000  # bytes — retry if compositor returns black frame
 

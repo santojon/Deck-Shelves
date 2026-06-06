@@ -10,17 +10,16 @@ import {
   Tabs,
   TextField,
   ToggleField,
-} from '@decky/ui'
+  type SingleDropdownOption,
+} from '../../../runtime/host/decky'
 import { flowChildrenProps } from '../../../core/steamOSVersion'
-import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS } from '../../../steam/smartShelves'
-import type { SingleDropdownOption } from '@decky/ui'
+import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
-import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
 import { SORT_OPTIONS } from './editShelf/constants'
@@ -302,7 +301,6 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       base.compositeCombine = state.compositeCombine
     }
     return base
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.mode, state.filterGroup, smartParamsKey, state.refreshIntervalMinutes, paramKeys.length, compositeKey])
 
   useEffect(() => {

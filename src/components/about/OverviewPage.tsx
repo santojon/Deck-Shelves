@@ -1,5 +1,5 @@
 import React from 'react'
-import { Field } from '@decky/ui'
+import { Field } from '../../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 import { DocSection } from './DocSection'
 import { DocAccordion } from './DocAccordion'

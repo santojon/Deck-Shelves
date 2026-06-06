@@ -51,6 +51,15 @@ jobs:
       - name: TypeScript check
         run: pnpm run typecheck
 
+      - name: ESLint (JS/TS — complexity + react-hooks + bug catchers)
+        run: pnpm run lint:js
+
+      - name: Ruff (Python — pyflakes bug catchers)
+        run: |
+          python3 -m pip install -U pip
+          python3 -m pip install ruff
+          pnpm run lint:py
+
       - name: Static validation
         run: node scripts/build/validate.mjs
 

@@ -92,19 +92,8 @@ export async function getWishlistIds(): Promise<number[] | null> {
 
 // ── Steam Store browse ────────────────────────────────────────────────────────
 
-// v2 bump: the cache shape changed to include price hints (was just `{ ids }`).
-// Bumping the key forces existing users to refetch — important because the
-// previous shape lost the per-item price data the search rows carry, and
-// the secondary api/appdetails fetch silently mis-cached free-weekend titles
-// as `unpriced: true`. Polluted entries linger in the price cache; the cache
-// replay below overwrites them on every getStoreGameIds call.
-// v3 bump: extended the upstream endpoint set with two more coverage
-// sources (paginated specials pages 2/3 + the `category2=18` "Free
-// Weekend" tag). v2 caches missed currently-free titles that don't fit
-// in the first 100 specials AND aren't in the combined specials+free
-// intersection — the user-reported "still has missing free games" case.
-// Bumping forces existing users to re-fetch with the new coverage on
-// first home open.
+// v3: forces re-fetch with extended upstream coverage (specials p2/3
+// + Free Weekend tag) — v2 missed free titles outside top 100 specials.
 const STORE_KEY = "ds-store-cache-v3";
 const STORE_TTL = 6 * 60 * 60 * 1000; // 6h
 
@@ -179,24 +168,8 @@ export async function getStoreGameIds(): Promise<number[] | null> {
         const tid = setTimeout(() => ac.abort(), ms);
         return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(tid));
       };
-      // Coverage strategy — multiple endpoints in parallel because none
-      // alone catches every currently-free title. CDP-confirmed gaps:
-      //  - `?specials=1` caps each PAGE at 100 items regardless of the
-      //    `count` parameter (Steam-side server limit). The store has
-      //    thousands of titles on sale, so a single fetch misses
-      //    everything past rank 100. Paginating with `start=100` /
-      //    `start=200` reaches the rest — three pages = ~300 specials.
-      //  - Free-weekend / free-play-days titles currently discounted 100%
-      //    are excluded from `?specials=1` AND from `?maxprice=free`
-      //    when each is queried alone. They appear ONLY in the
-      //    intersection `?specials=1&maxprice=free` (a small set, 3-10
-      //    typically) OR via the dedicated `category2=18` "Free Weekend"
-      //    tag (broader, up to 100). Both catch slightly different
-      //    subsets — keep both.
-      //  - Permanent F2P games come from the `?maxprice=free` branch.
-      //  - Popular front-page covers the long tail.
-      // Without all seven endpoints, "100% off" / "Free now" shelves
-      // silently drop titles the user knows are currently free.
+      // Coverage: parallel fetch across seven endpoints because no
+      // single one catches every currently-free title.
       const [
         specialsP1Resp, specialsP2Resp, specialsP3Resp,
         freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
@@ -239,15 +212,9 @@ export async function getStoreGameIds(): Promise<number[] | null> {
             if (Number.isFinite(id) && id > 0) {
               ids.add(id);
               if (item.name) nameMap.set(id, item.name);
-              // Capture price hint from the search row. Free-weekend titles
-              // arrive here as `original_price > 0, final_price = 0` which
-              // yields a real 100% discount; api/appdetails would miss them.
-              // Permanently-free games (`original_price === 0`) are skipped
-              // here — the regular getPriceMap negative-cache path handles
-              // them so the discount filter still excludes them. Both the
-              // immediate price-cache write AND the persisted hint are kept
-              // so the cache-hit path (replayPriceHints) overwrites stale
-              // unpriced:true entries from before this fix on every call.
+              // Capture price hint from the search row (catches free-
+              // weekend titles that api/appdetails would miss). Skip
+              // permanently-free games — getPriceMap handles those.
               const op = typeof item.original_price === "number" ? item.original_price : 0;
               const fp = typeof item.final_price === "number" ? item.final_price : 0;
               if (op > 0) {

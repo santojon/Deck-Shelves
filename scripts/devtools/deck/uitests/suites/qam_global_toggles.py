@@ -1,7 +1,7 @@
 """QAM global toggles — verified via Decky plugin list presence."""
 from __future__ import annotations
 
-from ..lib.runner import suite, SkipTest
+from ..lib.runner import suite
 from .qam_shelves import _require_qam, _DECKY_PANEL
 
 s = suite("qam_global_toggles")

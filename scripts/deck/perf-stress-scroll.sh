@@ -1,19 +1,7 @@
 #!/usr/bin/env bash
-# Deck Shelves — On-device stress test (continuous shelf scrolling via CDP)
-#
-# Drives the gamepad nav controller from SharedJSContext to walk the
-# shelves endlessly (D-pad RIGHT × N, then DOWN, then LEFT × N, DOWN, …).
-# Pair with `perf-test.sh --compare` to measure CPU / battery impact
-# under sustained interaction load.
-#
-# Usage:
-#   scripts/deck/perf-stress-scroll.sh              # 5 min default
-#   scripts/deck/perf-stress-scroll.sh 10           # 10 min
-#   DURATION=15 scripts/deck/perf-stress-scroll.sh  # 15 min
-#
-# Requirements:
-#   .env with DECK_HOST + DECK_CDP_PORT (default 8081)
-#   Plugin running + home visible on device
+# On-device stress test — drives gamepad nav via CDP to scroll shelves continuously.
+# Usage: `perf-stress-scroll.sh [minutes]` (default 5). Needs .env DECK_HOST/DECK_CDP_PORT + plugin live on home.
+# Pair with `perf-test.sh --compare` to measure CPU/battery impact under sustained load.
 
 set -euo pipefail
 

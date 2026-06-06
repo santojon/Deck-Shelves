@@ -1,4 +1,4 @@
-import { Menu, MenuItem, DialogButton, showContextMenu } from '@decky/ui'
+import { Menu, MenuItem, DialogButton, showContextMenu } from '../../../runtime/host/decky'
 import { icons } from '../icons'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { Shelf } from '../../../types'
@@ -9,10 +9,7 @@ import { clearOnlineShelfCache } from '../../../core/shelfActions'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { triggerShelfRefresh } from '../../../core/shelfRefresh'
-
-function isOnlineSource(source: any): boolean {
-  return source?.type === 'wishlist' || source?.type === 'store'
-}
+import { isOnlineSource } from '../../../domain/sourceUtils'
 
 function isRandomOrSmart(shelf: Shelf): boolean {
   const src: any = shelf.source
@@ -23,13 +20,13 @@ function isRandomOrSmart(shelf: Shelf): boolean {
 }
 
 function refreshShelfCache(shelf: Shelf): void {
-  if (isOnlineSource(shelf.source)) {
-    clearOnlineShelfCache()
-  } else if ((shelf.source as any)?.type === 'smart') {
-    invalidateSmartShelfCache(shelf.id)
-  } else {
-    invalidateRandomSortCache(shelf.id)
-  }
+  if (isOnlineSource(shelf.source)) clearOnlineShelfCache()
+  if ((shelf.source as any)?.type === 'smart') invalidateSmartShelfCache(shelf.id)
+  // Always clear random-sort cache for THIS shelf so refresh genuinely
+  // re-shuffles; the previous code only ran this branch on offline,
+  // non-smart shelves, so a wishlist/store/smart shelf using random sort
+  // stayed in the same order until the 24h TTL expired.
+  invalidateRandomSortCache(shelf.id)
   try { triggerShelfRefresh({ manual: true, shelfId: shelf.id }) } catch {}
 }
 
@@ -46,7 +43,7 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
   const index = shelves.findIndex((s) => s.id === shelf.id)
   const showRefresh = isOnlineSource(shelf.source) || isRandomOrSmart(shelf)
   return (
-    <Menu label={t('actions')}>
+    <Menu label={shelf.title || t('actions')}>
       <MenuItem onSelected={() => showEditShelfModal(controller, shelf)}>{t('editShelf')}</MenuItem>
       <MenuItem onSelected={() => actions.duplicateShelf(shelf.id)}>{t('duplicateShelf')}</MenuItem>
       <MenuItem onSelected={() => actions.toggleShelfHidden(shelf.id)}>{shelf.hidden ? t('show_shelf') : t('hide_shelf')}</MenuItem>

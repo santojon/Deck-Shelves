@@ -1,4 +1,4 @@
-import { Menu, MenuItem, DialogButton, showContextMenu } from '@decky/ui'
+import { Menu, MenuItem, DialogButton, showContextMenu } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf } from '../../../types'
 import { DeleteConfirmSmartModal } from '../modals/DeleteConfirmSmartModal'
@@ -12,7 +12,7 @@ function SmartShelfActionsContextMenu({ controller, shelf }: { controller: Setti
   const smartShelves: SmartShelf[] = settings?.smartShelves ?? []
   const index = smartShelves.findIndex((s) => s.id === shelf.id)
   return (
-    <Menu label={t('actions')}>
+    <Menu label={shelf.title || t('actions')}>
       <MenuItem onSelected={() => openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={shelf} />)}>
         {t('editShelf')}
       </MenuItem>

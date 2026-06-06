@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ConfirmModal, DialogButton, Focusable } from '@decky/ui'
+import { ConfirmModal, DialogButton, Focusable } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
 import { ActionButton } from './ActionButton'
 

@@ -356,18 +356,7 @@ export const ShelfSchema = z.object({
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema,
-  // synthetic cards (decorations / gaps / placeholders) that
-  // sit at a fixed slot in the rendered row regardless of source. Rules
-  // enforced by `superRefine`:
-  //   - `text` and `image` are mutually exclusive; both may be absent
-  //     (becomes a pure spacer / placeholder).
-  //   - `link` is only valid when `text` OR `image` is set. Without
-  //     either, the card has no focusable surface and becomes a
-  //     non-focusable visual gap (focus skips over it).
-  //   - `placeholder=true` shows the standard card background fill
-  //     (same look as a loading slot); default is fully transparent.
-  // Size is restricted to `normal` / `featured` here; `reduced` / `stack`
-  // ship with the render-mode suite later.
+  // Decoration/gap cards pinned at fixed slots; rules in superRefine.
   syntheticCards: z.array(
     z.object({
       position: z.number().int().min(0),
@@ -392,19 +381,9 @@ export const ShelfSchema = z.object({
       // Non-focusable cards always render with no shadow regardless.
       shadowMode: z.enum(["never", "onFocus", "always"]).optional(),
     }).transform((c) => {
-      // Sanitise instead of failing validation. A prior version used
-      // `superRefine` with `addIssue` which rejected any synthetic
-      // card carrying an empty-string text + a link, OR text + image
-      // together — that rejection nuked the entire shelf during boot
-      // and the plugin appeared to "break". Cleaning the bad shape
-      // here lets old persisted state survive:
-      //   - empty strings collapse to `undefined` (the editor used to
-      //     persist `text: ''` from the mode-switch UI without the
-      //     fix in DecorationTab).
-      //   - text + image: image wins (last write).
-      //   - link with neither text nor image: link dropped — the
-      //     card becomes a non-focusable gap and never throws.
-      //   - link with an invalid URL: link dropped.
+      // Sanitise rather than reject — failing validation nuked shelves
+      // on boot. Empty strings → undefined; text+image → image wins;
+      // link without text/image or with invalid URL → drop link.
       const out: any = { ...c };
       if (typeof out.text === "string" && out.text.length === 0) out.text = undefined;
       if (typeof out.image === "string" && out.image.length === 0) out.image = undefined;

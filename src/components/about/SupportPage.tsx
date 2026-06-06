@@ -1,5 +1,5 @@
 import React from 'react'
-import { Field, DialogButton, Focusable } from '@decky/ui'
+import { Field, DialogButton, Focusable } from '../../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 import pkg from '../../../package.json'
 import { DocSection } from './DocSection'

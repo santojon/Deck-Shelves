@@ -1,5 +1,5 @@
 import React from 'react'
-import { Focusable, DialogButton } from '@decky/ui'
+import { Focusable, DialogButton } from '../../../runtime/host/decky'
 
 export function ActionButton({ iconNode, onClick, okDescription }: { iconNode: React.ReactNode; onClick: () => void; okDescription: string }) {
   return (

@@ -26,28 +26,17 @@ export function FieldContainer({
     if (!scrollable) return
     const el = ref.current
     if (!el) return
-    // Vertical-only padding around the focused target so its decorations
-    // (Decky focus glow, the 2px green selected outline on highlight mini-
-    // cards) don't get clipped at the FieldContainer's overflow edge. Tuned
-    // to fit the largest of those (~28px of glow extending below).
+    // Vertical pad so focused decorations (focus glow, the 2px green
+    // highlight outline) don't get clipped at the FC's overflow edge.
     const FOCUS_VERTICAL_PAD = 32
     const onFocusIn = (e: Event) => {
       const target = e.target as HTMLElement | null
       if (!target || !el.contains(target)) return
-      // rAF so the browser's own layout settles (some Decky fields mount
-      // a child element AFTER focus lands on their wrapper).
+      // rAF so layout settles before measuring.
       requestAnimationFrame(() => {
         try {
-          // `target.scrollIntoView({ block: 'nearest' })` bails when the
-          // nearest scroll container reports "already visible" — but a
-          // grand-child inside an overflow:hidden row (e.g. a highlight
-          // mini-card inside HighlightRow) trips that test even when the
-          // outer FieldContainer is the one actually clipping. We compute
-          // the FC-relative gap directly and adjust scrollTop so the
-          // focused element plus a fixed FOCUS_VERTICAL_PAD stays inside
-          // the visible window. scroll-margin-bottom on the inner element
-          // is unreliable for the same reason — the algorithm looks only
-          // at the nearest container.
+          // Native scrollIntoView({block:'nearest'}) bails inside
+          // overflow-hidden ancestors; compute the FC-relative gap.
           const targetRect = target.getBoundingClientRect()
           const elRect = el.getBoundingClientRect()
           const overflowBottom = (targetRect.bottom + FOCUS_VERTICAL_PAD) - elRect.bottom
@@ -64,14 +53,8 @@ export function FieldContainer({
     return () => { el.removeEventListener('focusin', onFocusIn) }
   }, [scrollable])
 
-  // Decky's Field component uses width: 100%+84px with margin: -42px each
-  // side — designed for parent containers with 42px h-padding (matches the
-  // Tabs panel's own 41.95px). With our prior 24px padding, the field's
-  // negative margin pushed content 18px past our edge on each side. In
-  // non-scrollable mode (overflow:visible) that just spilled visually; in
-  // scrollable mode (overflowX:hidden) the right edge was CLIPPED, making
-  // Source/Visual tabs look "narrower" than Filters/Display. 42px aligns
-  // with Decky's expectation so fields render flush within FC bounds.
+  // The host Field uses `width: 100%+84px; margin: -42px`. Parent must
+  // carry 42px h-padding so fields render flush.
   const base: CSSProperties = {
     // Bottom padding (when scrollable) extends the scrollable area so
     // `scrollIntoView({ block: 'nearest' })` honoring `scrollMarginBottom`

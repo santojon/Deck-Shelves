@@ -18,15 +18,16 @@ import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
 import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
+import { invalidateRandomSortCache } from "./steam";
+import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
 import { logError, logInfo } from "./runtime/logger";
 import { toaster } from "./shims/decky-api";
-import { Navigation, Focusable, DialogButton, quickAccessMenuClasses } from "@decky/ui";
+import { Navigation, Focusable, DialogButton, quickAccessMenuClasses, createDeckyHostApi } from "./runtime/host/decky";
 import { AboutPage } from "./components/AboutPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
-import { createDeckyHostApi } from "./runtime/host/decky";
 import type { HostApi } from "./runtime/host/contract";
 initI18n();
 
@@ -89,11 +90,18 @@ export default definePlugin((serverAPI?: any) => {
   logInfo("RUNTIME", "plugin bootstrap start");
   const platform = createDeckyPlatform();
   setPlatform(platform);
-  // Image cache pruning — drop persistent entries older than EVICT_AFTER_MS.
-  // Deferred to idle so it doesn't compete with bootstrap work.
+  // Image cache pre-hydration + pruning, both deferred to idle so they
+  // don't compete with bootstrap. Hydration moves persistent blob URLs
+  // back into the in-memory hot map so the FIRST focus of every card
+  // is a hot hit instead of walking the local 404 chain — without this,
+  // every Steam restart felt like a full re-download to the user even
+  // though the persistent cache already had every blob.
   try {
     const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-    schedule(() => { import("./core/imageCache").then(m => m.pruneCache()).catch(() => {}); });
+    schedule(() => {
+      try { void hydrateHotCacheFromStorage(); } catch {}
+      try { void pruneImageCache(); } catch {}
+    });
   } catch {}
   // Resolve `~/Downloads` from the backend so import/export defaults work
   // on systems where the user account isn't `deck` (Bazzite, ChimeraOS, etc.).
@@ -115,12 +123,8 @@ export default definePlugin((serverAPI?: any) => {
     <AboutPage />
   )); } catch (e) { console.warn("addRoute failed", e); }
 
-  // Edit / Delete routes — opened by the game context menu when the user
-  // selects "Edit" or "Delete" on a DS shelf card. The route mounts a
-  // SettingsController standalone (no QAM required), shows the modal via
-  // DFL.showModal (renders in a portal independent of the route), then
-  // navigates back. Path uses :shelfId parameter so the route handler can
-  // load the correct shelf from the location pathname.
+  // Edit / Delete routes — opened from the card context menu; mount a
+  // standalone controller and show the modal via showModal in a portal.
   try {
     routerHook?.addRoute?.(EDIT_ROUTE, () => (
       <ShelfEditRoute shelfId="" />
@@ -128,20 +132,20 @@ export default definePlugin((serverAPI?: any) => {
     routerHook?.addRoute?.(DELETE_ROUTE, () => (
       <ShelfDeleteRoute shelfId="" />
     ), { exact: true });
-    // Manage page — full-screen UI with all per-shelf actions (Edit /
-    // Duplicate / Hide / Move / Delete). The native game context menu
-    // shows a single "Deck Shelves" item that navigates here. Using a
-    // flat MenuItem + route navigation is the only injection shape that
-    // reliably survives React reconciliation across menu opens for every
-    // game type; a nested MenuGroup wrapper only commits to the DOM for
-    // the very first menu of the session and silently disappears on
-    // every subsequent open.
+    // Manage page route — flat MenuItem + navigation; nested groups
+    // disappear after the first menu open.
     routerHook?.addRoute?.(MANAGE_ROUTE, () => (
       <ShelfManageRoute shelfId="" />
     ), { exact: true });
   } catch (e) { console.warn("shelf modal route addRoute failed", e); }
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
+
+  // Random-sort cache is keyed by shelfId + idHash with a 24h TTL.
+  // Wipe all entries at boot so each Steam session gets a fresh shuffle
+  // — without this, shelves with `sort: random` stay in the same order
+  // across Steam restarts as long as their app set doesn't change.
+  try { invalidateRandomSortCache(); } catch {}
 
   // Prefetch SteamOS version asynchronously so synchronous version-gated
   // paths (e.g. `useLegacyMenuFlow()` in `steamGameMenu.ts`) hit the cache
@@ -151,44 +155,30 @@ export default definePlugin((serverAPI?: any) => {
     logDiagnostic("info", "SteamOS version", v ?? "unknown");
   }).catch(() => {});
 
-  // Update notifier — single demand probe at boot, gated by the persisted
-  // toggle (default ON). The 24h cache lives in localStorage so subsequent
-  // boots short-circuit; failures are silent. On a positive result, fire a
-  // toast so the user sees the notification even without opening QAM.
-  //
-  // `runUpdateProbe()` is the single entry point used by every trigger
-  // (boot, toggle false→true, QAM banner re-mount). It honours the
-  // toggle, invalidates the 24h cache when the device is online (so the
-  // probe always reflects the latest release rather than yesterday's
-  // snapshot — covers the post-self-upgrade case where the cached
-  // `latestVersion` is older than the running build), then runs the
-  // network probe and toasts on a fresh release the user hasn't already
-  // dismissed. Offline → cache reused as-is so the boot path stays
-  // silent on flaky links.
-  const runUpdateProbe = async (reason: string): Promise<void> => {
+  // Update notifier: probe always runs once the network is reachable.
+  // Toggle (default ON) gates whether to run at all; cache + dismiss
+  // gate whether to fire the toast.
+  const runUpdateProbe = async (reason: string): Promise<boolean> => {
     try {
       (globalThis as any).__dsUpdateProbe = { reason, at: Date.now(), step: 'start' };
       const s = getCurrentSettings();
-      (globalThis as any).__dsUpdateProbe.step = 'settings';
-      (globalThis as any).__dsUpdateProbe.settingsLoaded = !!s;
       (globalThis as any).__dsUpdateProbe.notifyEnabled = s?.updateNotifyEnabled;
       if (s?.updateNotifyEnabled === false) {
         (globalThis as any).__dsUpdateProbe.step = 'skipped-toggle-off';
-        return;
+        return false;
       }
-      try {
-        const online = await isOnline();
-        (globalThis as any).__dsUpdateProbe.online = online;
-        if (online) __resetUpdateCheckCache();
-      } catch (e) { (globalThis as any).__dsUpdateProbe.onlineErr = String(e); }
+      const online = await isOnline().catch(() => false);
+      (globalThis as any).__dsUpdateProbe.online = online;
+      if (!online) {
+        (globalThis as any).__dsUpdateProbe.step = 'skipped-offline';
+        return false;
+      }
+      __resetUpdateCheckCache();
       (globalThis as any).__dsUpdateProbe.step = 'checking';
       const r = await checkForUpdate();
       (globalThis as any).__dsUpdateProbe.result = { hasUpdate: r.hasUpdate, latest: r.latestVersion, current: r.currentVersion };
-      if (
-        r.hasUpdate &&
-        r.latestVersion &&
-        r.latestVersion !== s?.updateNotifyDismissedVersion
-      ) {
+      const fresh = r.hasUpdate && r.latestVersion && r.latestVersion !== s?.updateNotifyDismissedVersion;
+      if (fresh) {
         (globalThis as any).__dsUpdateProbe.step = 'firing-toast';
         toaster.toast({
           title: i18next.t("pluginName"),
@@ -197,27 +187,34 @@ export default definePlugin((serverAPI?: any) => {
         (globalThis as any).__dsUpdateProbe.step = 'toast-fired';
       } else {
         (globalThis as any).__dsUpdateProbe.step = 'no-update-or-dismissed';
-        (globalThis as any).__dsUpdateProbe.dismissed = s?.updateNotifyDismissedVersion ?? null;
       }
+      return true;
     } catch (e) {
       (globalThis as any).__dsUpdateProbe = (globalThis as any).__dsUpdateProbe || {};
       (globalThis as any).__dsUpdateProbe.err = String(e);
+      return false;
     }
   };
-  // Defer the boot probe so Steam's network stack + `refreshSettings()`
-  // have time to come up — without this, `isOnline()` often returns false
-  // on a cold boot (DNS not ready yet) and the cache invalidation step is
-  // skipped, leaving a stale cached `latestVersion` to suppress the toast
-  // for the rest of the 24h cache window.
-  (globalThis as any).__dsUpdateProbeScheduled = Date.now();
-  setTimeout(() => { void runUpdateProbe('boot'); }, 3000);
 
-  // Re-probe whenever the user flips the notify toggle OFF → ON in the
-  // QAM. `subscribeSettings` fires once immediately with the current
-  // value (consumed to seed `lastToggle`), then on every settings
-  // mutation; we trigger only on the upward edge so flipping OFF doesn't
-  // spam toasts, and flipping it ON re-runs the same online-first probe
-  // the boot path uses.
+  // Boot retry: poll for network with backoff until a probe actually
+  // runs (online + checked) or we hit the 10-min cap. Steam restart and
+  // system reboot both land here; the loop self-terminates on first
+  // successful probe so steady-state work is zero.
+  const UPDATE_BACKOFFS_MS = [3000, 10000, 20000, 40000, 60000, 60000, 60000, 60000, 60000, 60000, 60000, 60000];
+  let updateBootTimer: ReturnType<typeof setTimeout> | null = null;
+  let updateBootStep = 0;
+  const scheduleBootProbe = () => {
+    if (updateBootStep >= UPDATE_BACKOFFS_MS.length) return;
+    const delay = UPDATE_BACKOFFS_MS[updateBootStep++];
+    updateBootTimer = setTimeout(async () => {
+      updateBootTimer = null;
+      const probed = await runUpdateProbe('boot');
+      if (!probed) scheduleBootProbe();
+    }, delay);
+  };
+  scheduleBootProbe();
+
+  // Re-probe on the upward edge of the notify toggle (OFF → ON).
   let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
   const unsubUpdateNotify = subscribeSettings((s) => {
     const now = s?.updateNotifyEnabled !== false;
@@ -266,6 +263,7 @@ export default definePlugin((serverAPI?: any) => {
         uninstallFriendsState();
         uninstallPluginApi();
         unsubUpdateNotify();
+        if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
       } catch (error) {
         logError("RUNTIME", "failed to remove patch", String(error));
       }

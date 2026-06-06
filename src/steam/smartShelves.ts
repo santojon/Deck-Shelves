@@ -243,7 +243,6 @@ function resolveCloudGames(apps: AppOverview[], limit: number): number[] {
   try {
     // Lazy require to avoid a circular import — smartShelves.ts is
     // imported by steam/index.ts at module load.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { getUnifideckCloudPlaySet } = require("./index") as {
       getUnifideckCloudPlaySet?: () => Set<number>;
     };

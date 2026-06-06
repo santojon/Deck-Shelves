@@ -10,8 +10,8 @@ run_checks() {
   # Clean Game View removes visual clutter and simplifies card appearance.
   # Our cards must use explicit styles that won't be stripped by the theme.
 
-  # 1. Card art uses explicit dimensions (not inherited from Steam classes)
-  if grep -rq 'CARD_W\s*=\|CARD_ART_H\s*=' "$src/components/DeckRow.tsx" 2>/dev/null; then
+  # 1. Card art uses explicit dimensions (DeckRow re-exports; canonical defs in shelf/types.ts).
+  if grep -rq 'CARD_W\s*=\|CARD_ART_H\s*=' "$src/components/shelf/types.ts" "$src/components/DeckRow.tsx" 2>/dev/null; then
     echo "  ✅ Card dimensions defined as explicit constants"
     ((pass++))
   else
@@ -69,8 +69,8 @@ run_checks() {
     ((fail++))
   fi
 
-  # 7. Image sizing is explicit (object-fit, width, height)
-  if grep -rq 'object-fit\|objectFit' "$src/components/DeckRow.tsx" 2>/dev/null; then
+  # 7. Image sizing is explicit (object-fit) — across DeckRow + shelf/* card components.
+  if grep -rq 'object-fit\|objectFit' "$src/components/shelf/" "$src/components/DeckRow.tsx" 2>/dev/null; then
     echo "  ✅ Image sizing uses explicit object-fit"
     ((pass++))
   else

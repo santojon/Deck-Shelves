@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { showModal } from '@decky/ui'
+import { showModal } from '../../../runtime/host/decky'
 import { logInfo } from '../../../runtime/logger'
 
 export function openManagedModal(render: (close: () => void) => ReactElement) {

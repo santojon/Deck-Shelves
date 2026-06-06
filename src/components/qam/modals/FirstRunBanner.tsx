@@ -1,4 +1,4 @@
-import { Focusable, DialogButton } from '@decky/ui'
+import { Focusable, DialogButton } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 
 export function FirstRunBanner({ controller }: { controller: SettingsController }) {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Tabs } from '@decky/ui'
+import { Tabs } from '../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 import { OverviewPage } from './about/OverviewPage'
 import { HowToPage } from './about/HowToPage'
@@ -11,10 +11,8 @@ import { OnlinePage } from './about/OnlinePage'
 import { SupportPage } from './about/SupportPage'
 import { FunnelIcon, SortIcon, SparkleIcon, InfoCircleIcon, OnlineIcon } from './icons'
 
-// Decky's `Tab.title` is typed as `string` but the runtime renders any
-// ReactNode. The cast lets us inline a leading icon next to the label
-// for the tabs that benefit from a visual cue (filters/sort/smart/about);
-// less-distinctive tabs keep plain text to avoid clutter.
+// `Tab.title` is typed as `string` but renders any ReactNode at
+// runtime; the cast inlines a leading icon next to the label.
 function tabLabel(icon: React.ReactNode, text: string): string {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

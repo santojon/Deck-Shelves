@@ -117,7 +117,7 @@ def run() -> int:
             continue
         ms = r.get('renderMs', 0)
         rendered = r.get('cardsRendered', 0)
-        timed_out = r.get('timedOut', False)
+        r.get('timedOut', False)
         # 60 fps = 16.67ms/frame; flag if render > 2 frames
         flag = "⚠ slow" if ms > 33 else "✅"
         print(f"  {count:>6}  {rendered:>8}  {ms:>8}ms  {flag}")
@@ -136,7 +136,7 @@ def run() -> int:
     if ok and slow:
         print(f"\n  Suggested shelf limit: {max_ok}")
     elif ok:
-        print(f"\n  All tested counts render fast. Try higher values.")
+        print("\n  All tested counts render fast. Try higher values.")
 
     sjc.close()
     return 0

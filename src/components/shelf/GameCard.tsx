@@ -1,10 +1,9 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { Focusable, GamepadButton } from "@decky/ui";
+import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
-import { getHotCachedImageSrc, warmCacheBackground } from "../../core/imageCache";
+import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -119,33 +118,61 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     lastActivateRef.current = now;
     onActivateRef.current?.();
   }, []);
-  // View (Select) button — invokes Steam's first context-menu action
-  // directly. `SteamClient.Apps.RunGame(appid, "", -1, 1)` is the same call
-  // the native menu's first item uses; Steam picks Play / Install / Return
-  // based on the app's current state. View was chosen because it sits in
-  // the meta-button group (Steam BP's footer renders it leftmost of the
-  // overflow slot) and isn't otherwise bound on game cards. Mouse / touch
-  // users keep the long-press affordance via pointerdown (set up below).
-  const quickLaunch = useCallback(() => {
-    if (previewMode || !appid) return;
-    try {
-      const sc = (globalThis as any).SteamClient;
-      sc?.Apps?.RunGame?.(String(appid), "", -1, 1);
-    } catch {}
-  }, [appid, previewMode]);
-  // Dynamic label that mirrors what Steam's context-menu first item shows:
-  // "Play" when the app is installed (Steam routes a Play on a running
-  // game to "return to game" implicitly), "Install" otherwise. Uses the
-  // same i18n keys (`menu_play` / `menu_install`) the native menu builder
-  // uses so the legend matches the menu the user would otherwise open.
-  const quickLaunchLabel = useMemo(() => {
-    if (previewMode || !appid) return undefined;
+  // Select-button action mirrors the native menu's first item per
+  // state: running → RaiseWindow; update-pending → ResumeAppUpdate;
+  // else → RunGame.
+  const cardState = useMemo(() => {
+    if (previewMode || !appid) return { label: undefined as string | undefined, action: 'run' as 'run' | 'resume_update' | 'raise' };
     try {
       const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
-      const installed = overview?.installed === true;
-      return i18n.t(installed ? 'menu_play' : 'menu_install');
-    } catch { return undefined; }
+      if (!overview) return { label: undefined, action: 'run' };
+      if (overview.installed !== true) return { label: i18n.t('menu_install'), action: 'run' };
+      const ds = (() => {
+        if (typeof overview.display_status === 'number') return overview.display_status;
+        const pcd = overview.per_client_data ?? overview.local_per_client_data;
+        if (Array.isArray(pcd) && pcd[0] && typeof pcd[0].display_status === 'number') return pcd[0].display_status;
+        return 0;
+      })();
+      // EAppDisplayStatus: Launching=1, Reconfiguring=2, Installing=3,
+      // Running=4, Validating=5, UpdateQueued=7, UpdatePaused=8,
+      // Staging=12, Committing=13, Downloading=19.
+      const RUNNING = ds === 1 || ds === 4;
+      const UPDATE = ds === 2 || ds === 5 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 19;
+      if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
+      if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
+      return { label: i18n.t('menu_play'), action: 'run' };
+    } catch { return { label: undefined, action: 'run' }; }
   }, [appid, previewMode]);
+  const quickLaunchLabel = cardState.label;
+  // Replicate the native menu's first item by opening the menu and
+  // dispatching click on its first .contextMenuItem. This guarantees the
+  // exact same action as the user manually opening the menu and picking
+  // the first item — without us having to reverse-engineer Steam's
+  // internal Ie() resolver for Resume / Update / Play / Install.
+  const quickLaunch = useCallback(() => {
+    if (previewMode || !appid) return;
+    if (typeof item.onMenuButton !== 'function') return;
+    try {
+      // Open the native context menu (same call the Y / Options button
+      // uses). Steam renders it as a portal in the bp document.
+      item.onMenuButton({} as any);
+      const doc = cardRef.current?.ownerDocument ?? document;
+      // Poll for the first menuitem to appear — Steam renders in a
+      // microtask but the exact tick varies. Bounded retries with rAF
+      // so we don't block. The first .contextMenuItem in document order
+      // is the menu's primary action (Resume / Update / Play / Install).
+      let attempts = 0;
+      const tryClick = () => {
+        const first = doc.querySelector('.contextMenuItem') as HTMLElement | null;
+        if (first) {
+          try { first.click(); } catch {}
+          return;
+        }
+        if (attempts++ < 12) requestAnimationFrame(tryClick);
+      };
+      requestAnimationFrame(tryClick);
+    } catch {}
+  }, [appid, previewMode, item.onMenuButton]);
   // `isLibraryGame` = appid resolves to an AppOverview in the local Steam
   // store. True for any game the user owns (installed or not, Steam or
   // non-Steam shortcut). False for:
@@ -154,17 +181,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   //     never adds them to the local appStore)
   //   - friends-playing non-owned (same: not in user library)
   //
-  // Used to gate three things:
-  //   1. Options (menu) button — non-library items have no install/play/
-  //      update available in the context menu, so the button would either
-  //      open a stub menu or do nothing useful. Hide it AND its legend hint.
-  //   2. View / quick-launch button — RunGame against a non-library appid
-  //      doesn't have a meaningful effect (Steam can't install something
-  //      that isn't on the user's account).
-  //   3. Install indicator + "Not installed" status text — meaningless for
-  //      cards the user doesn't own. The shelf-wide `hideInstallIndicator`
-  //      prop still wins when set (global toggle / per-shelf toggle), this
-  //      flag only AUGMENTS it for the specific non-library cards.
+  // Gates Options button, View/quick-launch, and install indicator —
+  // none of those have meaningful behaviour on non-library appids.
   const isLibraryGame = useMemo(() => {
     if (previewMode || !appid) return false;
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
@@ -297,16 +315,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // when the current src is a cached blob URL.
   const currentOriginalUrl = useRef<string>("");
 
-  // Resolve the initial src by walking the fallback chain and using
-  // the FIRST hot-cached URL we find (its blob URL). On remount
-  // (e.g. user goes to settings and comes back home) this lets a
-  // previously-loaded card render its image instantly without first
-  // cycling through /customimages/{appid}p.png 404 → onError → next
-  // URL, which is what was causing "home recarrega tudo" — each
-  // remount did 1-2 useless local-path 404s before reaching the
-  // cached CDN URL. `startIdx` is also passed to onImgError so the
-  // fallback chain advances from the position the cache picked, not
-  // from 0.
+  // Walk the fallback chain and start at the first hot-cached URL so
+  // remounts skip the 404 → next-URL cycle.
   const { initialSrc, initialOriginal, startIdx } = useMemo(() => {
     if (!allUrls.length) return { initialSrc: "", initialOriginal: "", startIdx: 0 };
     for (let i = 0; i < allUrls.length; i++) {
@@ -323,14 +333,16 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     setImgFailed(false);
     setImgLoaded(false);
     currentOriginalUrl.current = initialOriginal;
-    // Cache miss path: queue a background fetch so the next visit is
-    // a hot hit. cacheable() inside the cache module already skips
-    // local /customimages/ and /assets/ paths so SteamGridDB-style
-    // local updates aren't blocked. No-op when initialSrc is already
-    // a blob URL (hot hit) — we'd be warming it again uselessly
-    // otherwise.
-    if (initialOriginal && initialSrc === initialOriginal) {
-      try { warmCacheBackground(initialOriginal); } catch {}
+    // Cache miss path — warm the FIRST CACHEABLE URL (typically the
+    // CDN one). Warming `initialOriginal` was usually a no-op because
+    // it's the local /customimages/ entry that cacheable() rejects,
+    // so the persistent cache never populated and every reboot
+    // re-downloaded every cover from the CDN.
+    if (initialSrc === initialOriginal) {
+      const warmTarget = firstCacheableUrl(allUrls);
+      if (warmTarget) {
+        try { warmCacheBackground(warmTarget); } catch {}
+      }
     }
   }, [allUrls, startIdx, initialSrc, initialOriginal]);
 
@@ -375,161 +387,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const showDiscountBadge = !hideDiscountBadge && typeof discount === 'number' && discount > 0;
   const hasBadge = showNewBadge || showDiscountBadge;
 
-  // Portal-positioned badge host: rendered into BP's <body> so it escapes
-  // the card / home-root stacking context (Steam's FocusRingRoot is z:10000
-  // and would otherwise paint above the badge). Position tracks the card's
-  // viewport rect, updated on focus/blur, scroll, resize, and during the
-  // focus zoom transition.
-  //
-  // `inlineBadges` disables the entire portal path — the modal preview
-  // can't use the portal (overlayActive detection always returns true
-  // because the modal blocks the home root), and the preview's CSS
-  // strips focus rings so the badge wins stacking just by being inside
-  // the card. Skipping the portal also drops the per-card observers /
-  // listeners for the preview (zero overhead).
-  const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null);
-  const [portalFocused, setPortalFocused] = useState(false);
-  const [overlayActive, setOverlayActive] = useState(false);
-  useEffect(() => {
-    if (inlineBadges || !hasBadge) { setPortalRect(null); return; }
-    const el = cardRef.current;
-    if (!el) return;
-
-    // Detect when QAM / main menu / any Steam overlay is active by hit-
-    // testing the viewport center: if the topmost element there is NOT
-    // inside our home root, something is painting over it. Single point
-    // probe is fast; works for any overlay type regardless of class hash.
-    const doc = el.ownerDocument;
-    const win = doc.defaultView ?? window;
-    const detectOverlay = (): boolean => {
-      try {
-        const homeRoot = doc.getElementById('deck-shelves-home-root');
-        if (!homeRoot) return false;
-        const cx = win.innerWidth / 2;
-        const cy = win.innerHeight / 2;
-        const top = doc.elementFromPoint(cx, cy);
-        if (!top) return false;
-        return !homeRoot.contains(top);
-      } catch { return false; }
-    };
-
-    // Hot-path sync: ONLY updates portalRect, with a tolerance check so
-    // React doesnt re-render on sub-pixel jitter. Reads the same values
-    // setPortalFocused / setOverlayActive used to read — but those are
-    // now updated by their own event paths (class observer, focus/overlay
-    // events) so this stays cheap on every rAF / scroll tick.
-    let lastLeft = -Infinity, lastTop = -Infinity, lastWidth = -Infinity;
-    const sync = () => {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) { setPortalRect(null); return; }
-      // sub-pixel jitter from scale transitions causes noisy re-renders
-      if (Math.abs(r.left - lastLeft) < 0.5 && Math.abs(r.top - lastTop) < 0.5 && Math.abs(r.width - lastWidth) < 0.5) return;
-      lastLeft = r.left; lastTop = r.top; lastWidth = r.width;
-      setPortalRect({ left: r.left, top: r.top, width: r.width });
-    };
-    // Initial sync also seeds focus + overlay state.
-    sync();
-    setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
-    setOverlayActive(detectOverlay());
-
-    // Overlay state updates on dedicated events — never inside sync(), so
-    // the rAF tick doesnt force a layout-flushing elementFromPoint call
-    // per frame.
-    const reCheckOverlay = () => setOverlayActive(detectOverlay());
-    const bodyObs = new MutationObserver(reCheckOverlay);
-    bodyObs.observe(doc.body, { childList: true });
-    const recheckTargets: EventTarget[] = [doc, win];
-    for (const t of recheckTargets) {
-      t.addEventListener('focusin', reCheckOverlay, true);
-      t.addEventListener('focusout', reCheckOverlay, true);
-    }
-
-    // Focus state updates on class changes — split from sync() so the
-    // setPortalFocused setState only fires when focus actually transitions,
-    // not every rAF tick.
-    const updateFocused = () => setPortalFocused(el.classList.contains('gpfocus') || el.matches(':focus'));
-    const obs = new MutationObserver(() => { updateFocused(); sync(); });
-    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
-    el.addEventListener('focus', () => { updateFocused(); sync(); }, true);
-    el.addEventListener('blur', () => { updateFocused(); sync(); }, true);
-
-    // Scroll listeners on every scrollable ancestor — the row-scroll for
-    // horizontal nav, plus any vertical scroll container above it for
-    // inter-shelf navigation. Listening only on row-scroll left badges
-    // stale by ~100px when the home scrolled vertically. The sync() above
-    // is cheap (single setState with tolerance), so multiple listeners
-    // firing per event is fine.
-    const scrollTargets: EventTarget[] = [];
-    let p: HTMLElement | null = el.parentElement;
-    while (p) {
-      const cs = doc.defaultView?.getComputedStyle(p);
-      if (cs && (cs.overflow !== 'visible' || cs.overflowY !== 'visible' || cs.overflowX !== 'visible')) {
-        scrollTargets.push(p);
-      }
-      p = p.parentElement;
-    }
-    scrollTargets.push(win);
-    for (const t of scrollTargets) t.addEventListener('scroll', sync, { passive: true, capture: true });
-    win.addEventListener('resize', sync);
-
-    // Earlier this useEffect ran a per-frame rAF loop while the card was
-    // focused so the portal badge could track the 0.3s scale-up
-    // transition pixel-perfect. The trade-off was sub-pixel jitter on
-    // every scroll / focus event ("badges feel like they move with the
-    // screen"). Drop the rAF entirely: scroll + focus events are
-    // enough to keep the badge anchored, and the 4% scale during the
-    // focus zoom is small enough that staying at the un-zoomed rect
-    // looks better than jitter.
-
-    return () => {
-      obs.disconnect();
-      bodyObs.disconnect();
-      for (const t of scrollTargets) t.removeEventListener('scroll', sync, { capture: true } as any);
-      win.removeEventListener('resize', sync);
-      for (const t of recheckTargets) {
-        t.removeEventListener('focusin', reCheckOverlay, true);
-        t.removeEventListener('focusout', reCheckOverlay, true);
-      }
-    };
-  }, [hasBadge, inlineBadges]);
-
-  // Build the badge content (used inside the portal). Skip rendering while
-  // a QAM / modal overlay is active so the badge doesn't paint sharp on top
-  // of the blurred home.
-  const badgeContent = !inlineBadges && hasBadge && portalRect && !overlayActive ? (
-    <div
-      className="ds-card-badge-host ds-card-badge-host--portal"
-      aria-hidden="true"
-      style={{
-        position: 'fixed',
-        left: portalRect.left,
-        width: portalRect.width,
-        top: portalFocused ? portalRect.top - 10 : portalRect.top - 2,
-        height: 24,
-        pointerEvents: 'none',
-        zIndex: 1000,
-        isolation: 'isolate',
-      }}
-    >
-      {showDiscountBadge && (
-        <div className="ds-new-badge-band">
-          <div className="ds-new-badge" style={{ background: '#2a7f2a' }}>
-            {t('badge_discount', { count: discount }) ?? `${discount}% off`}
-          </div>
-        </div>
-      )}
-      {showNewBadge && !showDiscountBadge && (
-        <div className="ds-new-badge-band">
-          <div className="ds-new-badge">{t('badge_new')}</div>
-        </div>
-      )}
-    </div>
-  ) : null;
-
-  // Portal target: BP document's body (same doc as the card). Falls back to
-  // local document if Steam's preferred doc isn't ready yet.
-  const portalDoc = cardRef.current?.ownerDocument ?? getPreferredSteamDocument() ?? document;
-  const portalEl = badgeContent ? createPortal(badgeContent, portalDoc.body) : null;
+  // Badge: inline render only here. A single global BadgeFocusOverlay
+  // (mounted by HomeInject) draws the on-focus badge above the focus
+  // ring by reading data-isnew / data-discount from the focused card.
 
   // Placeholder fallback must be returned AFTER all hooks above so the
   // hook count stays stable across renders (React error #300 otherwise).
@@ -571,50 +431,18 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // the binding nor the legend slot should appear for them.
       onButtonDown={isLibraryGame ? buttonDownHandler : undefined}
       actionDescriptionMap={isLibraryGame && quickLaunchLabel ? { [GamepadButton.SELECT]: quickLaunchLabel } : undefined}
-      // Y button — quick toggle of the per-card highlight without
-      // opening the context menu. Decky's Focusable maps the Y button
-      // to `onOptionsButton` / `onOptionsActionDescription` (X is the
-      // `onSecondary*` slot — see ReorderableList.tsx for the in-repo
-      // precedent). The label reflects the current featured state so
-      // it reads "Highlight" vs "Remove highlight" instead of a glyph.
-      // No-op + no label when the card has no appid (refresh / more),
-      // or when rendered inside a modal preview (the modal owns
-      // highlight via its picker — pressing Y here would write straight
-      // to settings and bypass the modal's Save/Cancel flow).
-      //
-      // The label is intentionally STATIC ("Alternar" / "Toggle") rather
-      // than switching between "Highlight" and "Remove highlight" based on
-      // the current featured state. Toggling labels mid-focus reads as
-      // visual noise on the legend; the action (flip the highlight) is the
-      // same in both directions and the user already sees the result on
-      // screen, so one stable label is enough.
+      // Y → quick highlight toggle. Static label avoids legend churn.
+      // No-op when no appid or in modal preview (the modal owns highlight).
       onOptionsActionDescription={!previewMode && appid
         ? i18n.t('card_highlight_toggle')
         : undefined}
       onOptionsButton={!previewMode && appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
-      // X button — context-aware:
-      //   * If this card was menu-added (in `removableSet` = manualOrder
-      //     entries NOT in the shelf's resolved source), pressing X
-      //     REMOVES it from the shelf (the card disappears). Modal
-      //     preview supplies a state-updating callback; home saves.
-      //   * Otherwise X TOGGLES hide for this card (label reflects the
-      //     current hidden state). Hidden cards still occupy a slot but
-      //     get the dark tint + ✕ overlay. Only bound when the parent
-      //     supplies `onHideCard` — modal preview leaves it out so X
-      //     stays silent there (the modal owns hide via its picker).
+      // X → remove (if menu-added) or toggle hide. Modal preview omits
+      // the hide path since the picker owns it.
       onSecondaryActionDescription={
         appid && removableSet?.has(appid) && onRemoveCard
-          // Same short-vs-long split as hide below: on the home we're on
-          // top of a card so just "Remove" reads fine; preview keeps the
-          // long label so it stays unambiguous when multiple shelves
-          // render side-by-side.
           ? i18n.t(previewMode ? 'menu_remove_from_shelf' : 'card_remove')
           : appid && onHideCard
-            // On the home (non-preview) we're directly on top of a game card —
-            // shorten "Hide from shelf" to just "Hide" / "Show" so the footer
-            // legend stays tight. The preview keeps the longer label since
-            // multiple shelves can show side-by-side and the context isn't
-            // already implied by what the user is focused on.
             ? i18n.t(previewMode
                 ? (hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
                 : (hiddenSet?.has(appid) ? 'card_show' : 'card_hide'))
@@ -627,6 +455,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             : undefined}
       data-appid={appid || undefined}
       data-shelfid={item.shelfId || undefined}
+      data-isnew={showNewBadge ? 'true' : undefined}
+      data-discount={showDiscountBadge ? String(discount) : undefined}
       data-ds-card-index={cardIndex !== undefined ? String(cardIndex) : undefined}
       style={{
         position: "relative",
@@ -648,16 +478,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
-      {/* Badge host moved to a portal at BP <body> level so it escapes the
-          card / home-root stacking context (Steam's FocusRingRoot is z:10000
-          and would otherwise paint above the badge). See `portalEl` below. */}
-      {portalEl}
-      {/* Inline badge for the modal preview (and any caller passing
-          `inlineBadges`). Sits at top:-10 inside the card so the visible
-          band overlaps the top edge — same offset the portal uses on
-          focus — and rides at z:50 which the preview's CSS overrides
-          push above the (stripped) focus ring. */}
-      {inlineBadges && hasBadge && (
+      {/* Inline badge for non-focused cards. BadgeFocusOverlay handles
+          the focused card so it paints above Steam's FocusRingRoot. */}
+      {hasBadge && (
         <div
           className="ds-card-badge-host ds-card-badge-host--inline"
           aria-hidden="true"

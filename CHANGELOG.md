@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ESLint `max-lines` rule (max 1000 code lines per file).** Code files above 1k lines almost always own too many concerns; the rule forces new modules to stay focused. Counts code lines only (blank + comment lines ignored). Existing offenders baselined in `eslint-suppressions.json`.
+- **ESLint `complexity` rule (max 10).** `eslint.config.js` enforces a single cyclomatic-complexity rule for `src/**/*.{ts,tsx}`. Existing files above the cap were grandfathered via per-file suppressions.
+- **`@decky/ui` vitest stub** (`src/test/stubs/decky-ui.ts`). The published package's webpack init accesses `window`, which doesn't exist in the Node test environment — 8 test files crashed at module-load. Aliasing in `vitest.config.ts` lifts the suite from `191 tests / 8 failed files` to `339 tests / 23 passed files`. Fixes the recurring CI red.
+- **Random-sort cache invalidation at plugin boot.** Every Steam session gets a fresh shuffle. QAM "Refresh" also wipes the per-shelf random cache regardless of source type (was previously offline-non-smart only).
+- **Per-source online filter blocks in the edit modal.** Composite shelves with more than one online child (e.g. wishlist + store) render one filter panel per child, each writing its own `childFilter` directly. Single-source online shelves keep the previous UX.
+- **Per-source `excludeOwned` / `excludeOwnedNonSteam` / `hideOwnedNonSteamCloud` toggles.** Source tab renders one toggle block per online child; each edits the matching source entry directly.
+- **Create-shelf opens with no tab pre-selected** in create mode — preview stays blank until the user picks a tab. Edit mode unchanged.
+- **Shared overlay-state singleton** (`src/components/shelf/overlayState.ts`) — one MutationObserver + focus listeners detect the QAM/modal overlay for the whole home (closes #81).
+- **Global `BadgeFocusOverlay`** (`src/components/shelf/BadgeFocusOverlay.tsx`) — one delegated focusin listener at home root, reads `data-isnew` / `data-discount` from the focused card and renders a single fixed-position badge at z-index 100000 above the focus ring.
+- **Batched metadata lookup `getAppMetaBatch(appids)`.** Walks the catalogue ONCE and answers every id from a shared `byId` map (cached per catalog identity). Replaces N per-id calls at first paint.
+- **Hot-cache hydration at boot (`hydrateHotCacheFromStorage`).** Walks persistent Cache Storage on idle, decodes every blob, registers it in the in-memory hot map. After hydration the first focus on every card is an instant blob-URL hit instead of walking the 404 chain.
+- **`firstCacheableUrl(urls)` helper** so warm logic targets the actual CDN URL instead of the local `/customimages/<appid>p.png` first entry that 404s for ~99% of users.
+
+### Changed
+
+- **Update notifier now actively probes once the network is reachable.** Previous shape did one demand probe 3 s after boot — if the network stack wasn't ready yet, the probe ran offline and the cached `latestVersion` suppressed the toast for the rest of the 24 h cache window. New shape: a backoff-poll (3 s, 10 s, 20 s, 40 s, then 60 s up to ~10 min total) that calls `runUpdateProbe('boot')` until one actually runs while online — then stops. Toggle gate still applies (skipped entirely when `updateNotifyEnabled === false`); the loop also cancels on plugin unmount. System reboot AND Steam restart both land in this path.
+- **`shelfStyles.ts` split — 1580 → 721 lines** (under the cap). The ~900-line `buildStylesheet()` template body moved into `shelfStylesheetTemplate.ts` exporting `buildShelfStylesheet(ctx)`. Pure mechanical extraction.
+- **`HomeInject.tsx` split — 1139 → 945 lines** (under the cap). Mount-discovery + anchor-resolution helpers (`ROOT_ID`, `seededShuffle`, `isHomeRoute`, `hasHomeDomSignals`, `detectNavTreeApi`, `resolveAnchor`, `findOrCreateMount`) moved into `components/home/mountUtils.ts`.
+- **`webpackCompat.ts` split — 1191 → 881 lines** (under the cap). The `_discoverViaDFL` block (~310 lines, including the large semantic-name → DS-key KEY_MAP) moved into `core/webpackCompatDfl.ts`. Two helpers extracted (`isObfuscatedClassValue`, `flattenDflClassMap`) so the function complexity stays ≤ 10.
+- **`EditShelfModal.tsx` split — 1523 → 982 lines** (under the cap). On top of the earlier `saveHelpers.ts` / `tabUtils.ts` extraction, the preview resolve pipeline moved to `editShelf/usePreviewResolution.ts`, composite source-picker helpers to `editShelf/compositeSourceUtils.ts`, initial-state derivation to `editShelf/buildInitialState.ts`, and the modal-scoped collections refresh to `editShelf/useModalCollections.ts`. Helper complexity capped via dispatch tables + small pure helpers.
+- **`DeckRow.tsx` split — 1658 → 701 lines** (under the cap). The `PerShelfHero` component plus its native-asset prototype discovery, hashed-hero resolver, hot-cache integration, and module-level theme-class subscribers moved into `components/shelf/PerShelfHero.tsx`. Pure mechanical extraction — DOM observers, focus listeners and zoom CSS unchanged.
+- **`steamGameMenu.ts` partial split — 1905 → 1525 lines** (still over the cap; queued for further extraction). All menu-item builders (`buildDeckShelvesMenuItems`, `buildShelfContextMenu`, `buildLibraryAddToShelfItems`) extracted into `core/menu/itemBuilders.ts` with the focused-card context (`activeAppId`, `cardIndex`) flowing in via parameters instead of module globals. The orchestration file keeps a thin wrapper so existing call sites stay unchanged.
+- **`src/steam/index.ts` complexity drain.** Every function ≥ 20 refactored to ≤ 10 via dispatch tables + helper extraction. No behaviour change.
+- **DS card focus animation re-tuned to match native recents (CDP-measured on SteamOS 3.9).** Default shadow `rgba(0,0,0,0.25) 0 4px 10px`; focused shadow `rgba(0,0,0,0.5) 0 16px 24px`; 160 ms transition on both `transform` and `box-shadow` with `cubic-bezier(0.17, 0.45, 0.14, 0.83)`; `translateY(-2px)` lift on focus that pairs with the deeper shadow; badge band lifts 4 px in lockstep. Pure CSS, zero observers.
+- **Image pre-warm: 4 cards per idle tick, portrait covered on every shelf, hero shelves also warm hero + landscape.** Previous walker fired one card per `requestIdleCallback` AND was gated on `showArt`. New shape clears the queue ~4× faster and reaches every visible card.
+- **View (Select) button replicates the native context menu's first item** via `item.onMenuButton` + click on `.contextMenuItem` (rAF-bounded retries). Routing through the menu guarantees correct dispatch for Play / Resume / Update / Install — including overlay close.
+- **`legacyCompositeChildFilter` propagated to online children on load** in `EditShelfModal`. Shelves saved before the per-child editor have the composite-level filter copied onto each online child on first open; the composite-level field is no longer written on save.
+- **`composite.childFilter` no longer persisted on save** — each online child carries its own. Resolver still reads the composite-level for back-compat with older saves.
+- **Preview composite mode skips the modal-level owned-games post-filter** — per-source filtering happens inside the resolver. Modal-level post-filter only runs on single-source online shelves.
+- **`normalizeFilter` no longer pre-fills `installed: true`** when switching from a non-filter source to a filter source.
+- **Filter source with no items returns empty** instead of silently falling through to the entire library.
+- **Reorderable list (QAM)** focuses the just-moved row after a swap via `useLayoutEffect` + a per-row ref map, so the next up/down press swaps the row the user intended.
+- **Shelf actions menu title is the shelf name** instead of generic "Actions" (regular + smart variants).
+- **`open_shelf_options` / `open_options` i18n shortened to "Options"** (× 19 locales).
+- **Online indicator (QAM list + actions) fires for composite shelves with at least one online child** — `isOnlineSource` recurses into `composite.sources`.
+- **`menu_update` / `menu_resume` i18n keys** added × 19 locales for the View button's dynamic label.
+- **Bundle-size compatibility threshold raised 2 MB → 2.5 MB.**
+
+### Fixed
+
+- **Refresh-cache option missing on composite shelves with online children.** Context menu used an inline `src.type === "wishlist" || "store"` check that never matched composite. Replaced with the canonical `isOnlineSource()` predicate (already used by the QAM list) which recurses through `composite.sources`. Direct online shelves keep the option as before.
+- **NEW / discount badge no longer rendered on the focused card.** The previous fix removed `BadgeFocusOverlay` entirely on the assumption that the inline badge in `GameCard` would be enough; Steam's `FocusRingRoot` paints above the in-card badge so it visually disappears the moment the card is focused. `BadgeFocusOverlay` is back as a portal at `z-index: 100000`, one delegated focusin listener at the home root drives a single fixed-position badge tracking the focused card. Non-focused cards still use the inline badge. The inline copy on the focused card is hidden via `visibility: hidden` so the two don't visibly stack.
+- **Boot-time UI freeze (#66).** Successive rounds of targeted fixes drained every DS function from the CDP perf top frames. Each landed and was re-measured before the next:
+  - `enrichAppStateFlags` was awaiting ~70 source-method calls sequentially. Now parallelised via `Promise.all`.
+  - `backfillInstalledFromAppStore` walked the entire library map synchronously calling `appStore.GetAppOverviewByAppID` per id (1–2 s on 2k+ games). Now chunks every 200 entries with a `setTimeout(0)` yield.
+  - `installHomePatch`'s `body+subtree` MutationObserver fired `tryFallbackRender` synchronously on every mutation. Now rAF-throttled to one call per frame.
+  - `installFriendsState` defers its first scan to `requestIdleCallback`.
+  - `RegisterForAppOverviewChanges` emitted one full shelf refresh per fire — dozens per second during downloads. Replaced with a leading-edge throttle (one emit per 5 s + one trailing emit when the burst settles).
+  - `Shelf.tsx` settings-change handler debounced 200 ms so a rapid burst of QAM toggles doesn't fan out one resolve per shelf per toggle.
+- **Persistent image cache actually populates the right URLs now.** `warmCacheBackground(urls[0])` was always warming a local `/customimages/<appid>p.png` (or `_hero.png`) that 404s. Replaced with `warmCacheBackground(firstCacheableUrl(urls))` everywhere the warm logic runs.
+- **Steam restart no longer re-downloads every cover.** Hot-cache hydration at boot registers every persisted blob URL into the in-memory map before cards mount, so the first focus is an instant blob hit.
+- **Duplicated NEW/discount badges on the focused card** — caused by the per-card focus-gated portal coexisting with the inline badge. Single global overlay + CSS `visibility: hidden` on the inline-on-focus path removes the duplicate.
+- **Bundle-size precommit failure.** Replaced the ineffective dynamic `import("./core/imageCache")` in `src/index.tsx`. Static import + i18n lazy loading dropped bundle from 2.1 MB → ~864 KB.
+- **Random-sorted shelves stayed in the same order across Steam restarts (#82).** localStorage cache survived restarts (24 h TTL). Cleared at plugin boot + on every shelf refresh.
+- **View button no longer triggers "already running" toast on running games or "Configuração de jogo inválida" on update-pending runtimes.**
+- **`PlaceholderCard` binds the View button + hint** the same way `GameCard` does.
+- **`onButtonDown` / `quickLaunch` re-evaluate `display_status` on every press** instead of capturing at mount.
+
 ## [2.4.0] - 2026-06-03
 
 ### Added

@@ -16,14 +16,14 @@ run_checks() {
     ((pass++))
   fi
 
-  # 2) Ensure no hard import/require on an external nonsteam module. Imports
-  # that originate in (or resolve to) our own integrations/ directory are
-  # intentional (registry/nonsteambadges modules live there, mirroring the
-  # TabMaster integration), so exclude lines coming from those files AND
-  # lines whose import target is '.../integrations'.
-  if grep -rni "from.*nonsteam\|require.*nonsteam\|import.*nonsteam" "$src" 2>/dev/null \
+  # 2) No hard external nonsteam import. Match real ES/CJS import statements
+  # only (anchored at line start with optional whitespace) — identifier names
+  # like `includeNonSteam` or `gatherLibraryFromStore` would otherwise trip
+  # the loose `from.*nonsteam` regex. Allow integrations/ (registry +
+  # nonsteambadges live there).
+  if grep -rniE "^\s*(import\b[^;]*from\s+['\"][^'\"]*nonsteam|import\s+['\"][^'\"]*nonsteam|(const|let|var)\s+[^=]+=\s*require\(\s*['\"][^'\"]*nonsteam)" "$src" 2>/dev/null \
       | grep -v "integrations/" \
-      | grep -vE "from ['\"][^'\"]*integrations['\"]" \
+      | grep -vE "['\"][^'\"]*integrations['\"]" \
       | grep -q .; then
     echo "  ❌ Hard dependency on nonsteam module (import/require outside integrations/)"
     ((fail++))
@@ -41,10 +41,8 @@ run_checks() {
     ((pass++))
   fi
 
-  # 4) Check for guarded access to shortcuts/shortcutsStore (should be optional-chained / in try/catch).
-  # Match actual runtime access only — the previous pattern (bare `shortcuts`)
-  # tripped on documentation comments that mention "non-Steam shortcuts"
-  # without any real store access (e.g. `src/steam/dedupe.ts`).
+  # 4) Guarded shortcuts/shortcutsStore access (optional-chain / try-catch).
+  # Match actual runtime symbols — bare `shortcuts` tripped on doc comments.
   local sc_files
   sc_files=$(grep -rln "shortcutsStore\|\.shortcuts\.vdf\|shortcutCache\|m_mapShortcuts" "$src" 2>/dev/null | grep -v '\.d\.ts$') || true
   local all_guarded=true

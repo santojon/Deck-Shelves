@@ -1,8 +1,7 @@
-import { Focusable, Dropdown, DialogButton } from "@decky/ui";
+import { Focusable, Dropdown, DialogButton, type SingleDropdownOption } from "../../runtime/host/decky";
 import { TrashIcon, ALL_FILTER_TYPES, canBeInverted, defaultParams, getTypeLabel, isOnlineFilterType } from "./utils";
 import { OnlineIcon } from '../icons';
 import type { FilterItem, FilterItemType } from "../../types";
-import type { SingleDropdownOption } from "@decky/ui";
 import i18n from "../../i18n";
 import { icons } from "../qam/icons";
 

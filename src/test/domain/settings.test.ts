@@ -301,7 +301,7 @@ describe('normalizeFilter', () => {
   it('returns default filter when source is not a filter type', () => {
     const result = normalizeFilter({ type: 'tab', tab: 'all' })
     expect(result.sort).toBe('alphabetical')
-    expect(result.installed).toBe(true)
+    expect(result.installed).toBeUndefined()
   })
 
   it('merges source filter with defaults', () => {

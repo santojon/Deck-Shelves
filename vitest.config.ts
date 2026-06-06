@@ -15,6 +15,7 @@ export default defineConfig({
     alias: {
       '@decky/manifest': fileURLToPath(new URL('./src/test/stubs/decky-manifest.ts', import.meta.url)),
       '@decky/api': fileURLToPath(new URL('./src/test/stubs/decky-api.ts', import.meta.url)),
+      '@decky/ui': fileURLToPath(new URL('./src/test/stubs/decky-ui.ts', import.meta.url)),
     },
   },
   test: {

@@ -55,10 +55,8 @@ if [[ -d i18n ]]; then mkdir -p "${STAGE_DIR}/i18n" && rsync -a i18n/ "${STAGE_D
 # requires a TTY which SSH doesn't provide by default).
 TEMP_REMOTE="/tmp/ds_deploy_${PLUGIN_SLUG}"
 
-# Use rsync for upload — faster than tar+ssh and handles partial transfers.
-# The SSH command is passed as a string to rsync's -e flag (rsync spawns a
-# shell that splits it correctly; direct `ssh ${SSH_OPTS}` would break on
-# macOS OpenSSH 9.x which doesn't accept the `=` form in that position).
+# rsync for upload — faster than tar+ssh + handles partial transfers.
+# SSH passed as string to -e (macOS OpenSSH 9.x rejects `=` form in that slot).
 ssh "${SSH_OPTS[@]}" "${USER_NAME}@${HOST}" "mkdir -p '${TEMP_REMOTE}'"
 rsync -az --delete --no-perms --omit-dir-times \
   -e "ssh ${SSH_OPTS_STR}" \

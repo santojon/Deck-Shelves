@@ -44,7 +44,7 @@ import os
 import sys
 import time
 import urllib.request
-from typing import Any, Optional
+from typing import Any
 
 
 def _load_dotenv() -> None:

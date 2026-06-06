@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Focusable } from '@decky/ui'
+import { Focusable } from '../../../../runtime/host/decky'
 import { ShelfRow } from '../../../shelf/ShelfRow'
 import type { DeckRowItem } from '../../../shelf/types'
 import { shouldShowMoreCard, shouldShowRefreshCard } from '../../../shelf/trailingCards'
@@ -153,18 +153,8 @@ export interface ShelfPreviewProps {
   // removal updates local state (Save/Cancel semantics preserved).
   removableSet?: Set<number>
   onRemoveCard?: (appid: number) => void
-  // Manual-sort drag mode. When enabled, the preview gains:
-  //   - Hold-to-grab (long-press) and chevron-shift interactions for
-  //     reordering cards via gamepad / pointer.
-  //   - A 'grabbed' overlay on the currently held card.
-  //   - Emits the new sentinel-bearing order via `onReorder` (synth
-  //     cards encoded as `-(synthIdx + 1)` so the modal's reorderManual
-  //     can split the result back into manualOrder + syntheticCards
-  //     positions).
-  // Off by default — non-source / non-manual tabs stay view-only,
-  // exactly like before. The visible card set and rendering are the
-  // SAME whether drag is on or off (cap, trailing, synth, X buttons,
-  // discount gating, focus behaviour) — drag is purely additive.
+  // Manual-sort drag mode (additive): hold-to-grab + chevron shift,
+  // emits sentinel-bearing order via onReorder.
   manualSortMode?: boolean
   onReorder?: (next: number[]) => void
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ToggleField } from "@decky/ui";
+import { ToggleField } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getUniquePublishers, preloadPublisherData, getAllAppOverviews } from "../../steam";
 

@@ -22,6 +22,9 @@ export interface PlatformApi {
   resolveShelfAppIds(source: ShelfSource, limit: number, sort?: string | string[], shelfId?: string, sortReverse?: boolean | boolean[], options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }): Promise<number[]>;
   getAppName(appid: number): Promise<string>;
   getAppMeta(appid: number): Promise<PlatformAppMeta>;
+  /** Batched meta lookup — single catalog walk + O(1) per-id resolution.
+   *  Falls back to per-id `getAppMeta` calls when not implemented. */
+  getAppMetaBatch?(appids: number[]): Promise<Map<number, PlatformAppMeta>>;
   navigateToApp(appid: number): void;
   navigateToShelfSource?(source: ShelfSource, title?: string): void;
 }

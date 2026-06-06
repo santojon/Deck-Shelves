@@ -108,7 +108,7 @@ def _(ctx) -> None:
     return p?.innerText || "";
 }})()""") or ""
     ctx.close_qam()
-    assert "Deck Shelves" in text, f"'Deck Shelves' not in Decky plugin list text"
+    assert "Deck Shelves" in text, "'Deck Shelves' not in Decky plugin list text"
 
 
 @s.test("Add shelf button reachable")

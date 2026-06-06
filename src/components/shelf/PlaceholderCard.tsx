@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Focusable } from "@decky/ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
@@ -44,6 +44,60 @@ export function PlaceholderCard({
       return true;
     }, [250, 500, 800, 1200]);
   }, []);
+
+  // View (SELECT) binding — mirrors GameCard. Needed here because cards
+  // without library art fall through to PlaceholderCard, and the user
+  // still expects the "Atualizar / Retomar / Jogar / Instalar" hint +
+  // action on the View button for owned-library items.
+  const isLibraryGame = useMemo(() => {
+    if (previewMode || !appid) return false;
+    try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
+    catch { return false; }
+  }, [appid, previewMode]);
+  const cardState = useMemo(() => {
+    if (previewMode || !appid) return { label: undefined as string | undefined, action: 'run' as 'run' | 'resume_update' | 'raise' };
+    try {
+      const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
+      if (!overview) return { label: undefined, action: 'run' };
+      if (overview.installed !== true) return { label: i18n.t('menu_install'), action: 'run' };
+      const ds = (() => {
+        if (typeof overview.display_status === 'number') return overview.display_status;
+        const pcd = overview.per_client_data ?? overview.local_per_client_data;
+        if (Array.isArray(pcd) && pcd[0] && typeof pcd[0].display_status === 'number') return pcd[0].display_status;
+        return 0;
+      })();
+      const RUNNING = ds === 1 || ds === 4;
+      const UPDATE = ds === 2 || ds === 5 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 19;
+      if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
+      if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
+      return { label: i18n.t('menu_play'), action: 'run' };
+    } catch { return { label: undefined, action: 'run' }; }
+  }, [appid, previewMode]);
+  // Mirror GameCard: open the native menu and click its first item —
+  // same dispatch as the user picking that item manually. Avoids the
+  // state-specific Steam APIs (RunGame / RaiseWindowForGame /
+  // ResumeAppUpdate) which behave inconsistently on the Deck.
+  const quickLaunch = useCallback(() => {
+    if (previewMode || !appid) return;
+    if (typeof item.onMenuButton !== 'function') return;
+    try {
+      item.onMenuButton({} as any);
+      const doc = cardRef.current?.ownerDocument ?? document;
+      let attempts = 0;
+      const tryClick = () => {
+        const first = doc.querySelector('.contextMenuItem') as HTMLElement | null;
+        if (first) { try { first.click(); } catch {} return; }
+        if (attempts++ < 12) requestAnimationFrame(tryClick);
+      };
+      requestAnimationFrame(tryClick);
+    } catch {}
+  }, [appid, previewMode, item.onMenuButton]);
+  const buttonDownHandler = useCallback((evt: any) => {
+    if (previewMode || !appid) return;
+    try {
+      if (evt?.detail?.button === GamepadButton.SELECT) quickLaunch();
+    } catch {}
+  }, [appid, previewMode, quickLaunch]);
 
   const cachedCardRadius = getCachedCardRadius();
   // Mirror GameCard: size off the per-shelf --ds-eff-* vars so a native-dims
@@ -90,6 +144,8 @@ export function PlaceholderCard({
           : appid && onHideCard
             ? () => { try { onHideCard(appid); } catch {} }
             : undefined}
+      onButtonDown={isLibraryGame ? buttonDownHandler : undefined}
+      actionDescriptionMap={isLibraryGame && cardState.label ? { [GamepadButton.SELECT]: cardState.label } : undefined}
       data-appid={item.appid || undefined}
       data-shelfid={item.shelfId || undefined}
       style={{

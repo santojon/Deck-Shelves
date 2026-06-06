@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-import json, socket, os, struct, base64, time, sys, hashlib
+import json
+import socket
+import os
+import struct
+import base64
+import time
+import sys
 
 def ws_connect(host, port, path):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -45,7 +51,7 @@ def ws_send(s, data):
     s.sendall(bytes(frame))
     print("SENT: %d bytes" % len(p), file=sys.stderr)
 
-def ws_recv(s, initial=b""):
+def ws_recv(s, initial=b""):  # noqa: C901
     buf = bytearray(initial)
     while True:
         # Try to parse a complete frame
@@ -67,10 +73,10 @@ def ws_recv(s, initial=b""):
                 else:
                     payload_len = struct.unpack(">Q", buf[2:10])[0]
                     offset = 10
-            
+
             if masked:
                 offset += 4  # mask key
-            
+
             total_needed = offset + payload_len
             if len(buf) >= total_needed:
                 if masked:
@@ -80,9 +86,9 @@ def ws_recv(s, initial=b""):
                         payload[i] = buf[offset+i] ^ mask_key[i%4]
                 else:
                     payload = buf[offset:offset+payload_len]
-                
+
                 print("RECV: opcode=%d fin=%d len=%d" % (opcode, fin>>7, payload_len), file=sys.stderr)
-                
+
                 if opcode == 0x8:  # close
                     return None
                 if opcode == 0x9:  # ping
@@ -96,7 +102,7 @@ def ws_recv(s, initial=b""):
                 # unknown opcode, skip
                 buf = buf[total_needed:]
                 continue
-        
+
         # Need more data
         try:
             chunk = s.recv(65536)
@@ -176,7 +182,7 @@ while time.time() - t0 < 20:
     except:
         print("Non-JSON: %s" % data[:200], file=sys.stderr)
         continue
-    
+
     if msg.get("id") == 1:
         r = msg.get("result", {}).get("result", {})
         v = r.get("value")

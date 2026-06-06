@@ -7,11 +7,9 @@ run_checks() {
   local fail=0
   local src="$root/src"
 
-  # 1. The shine animation lives on `.appportrait_LibraryItemBox` :focus ::after.
-  # After CSS Loader's webpack-aware injection, it targets the hashed form of
-  # `nativeCard`, which our `.ds-card` inherits via `resolveNativeCardClass`
-  # — so the shine reaches DS cards automatically. Just verify the native
-  # class promotion is wired (the same one ArtHero compat relies on).
+  # 1. Shine lives on .appportrait_LibraryItemBox:focus::after. CSS Loader
+  # targets the hashed `nativeCard`, which our .ds-card inherits via
+  # resolveNativeCardClass — verify the class promotion is wired.
   if grep -q 'resolveNativeCardClass' "$src/components/shelf/GameCard.tsx" 2>/dev/null; then
     echo "  ✅ Native card class promoted onto .ds-card (shine reaches DS cards)"
     ((pass++))
@@ -20,12 +18,12 @@ run_checks() {
     ((fail++))
   fi
 
-  # 2. Our `.ds-card::after` opacity is NOT forced — the theme relies on
-  # opacity 0 default + opacity 0.8 on :focus to drive the animation. A
-  # forced opacity 1 would make the shine gradient static-visible on every
-  # card (purple stripe artifact).
-  if grep -q '::after' "$src/components/shelf/shelfStyles.ts" 2>/dev/null \
-     && ! grep -q '.ds-card::after\s*{[^}]*opacity:\s*1' "$src/components/shelf/shelfStyles.ts" 2>/dev/null; then
+  # 2. .ds-card::after opacity must NOT be forced — theme drives anim via
+  # opacity 0 → 0.8 on :focus. Forced opacity 1 → static purple stripe.
+  # Stylesheet template moved to shelfStylesheetTemplate.ts after the split.
+  local _shine_files="$src/components/shelf/shelfStylesheetTemplate.ts $src/components/shelf/shelfStyles.ts"
+  if grep -qs '::after' $_shine_files \
+     && ! grep -qs '\.ds-card::after\s*{[^}]*opacity:\s*1' $_shine_files; then
     echo "  ✅ ::after opacity left to the theme (no forced opacity 1)"
     ((pass++))
   else
@@ -33,11 +31,10 @@ run_checks() {
     ((fail++))
   fi
 
-  # 3. Under Round Compat (Focus Highlight Color), the shine ::after is
-  # suppressed so the focus visual disappears entirely (matches the theme's
-  # behavior on native cards under the same patch).
-  if grep -q 'data-ds-theme-focus-round-compat="true"' "$src/components/shelf/shelfStyles.ts" 2>/dev/null \
-     && grep -q '\.ds-card.*::after' "$src/components/shelf/shelfStyles.ts" 2>/dev/null; then
+  # 3. Under Round Compat, shine ::after suppressed so the focus visual
+  # disappears (matches the theme's behaviour on native cards).
+  if grep -qs 'data-ds-theme-focus-round-compat="true"' $_shine_files \
+     && grep -qs '\.ds-card.*::after' $_shine_files; then
     echo "  ✅ Shine ::after suppressed under Round Compat flag"
     ((pass++))
   else

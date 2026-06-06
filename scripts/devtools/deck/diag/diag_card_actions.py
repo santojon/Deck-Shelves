@@ -5,13 +5,13 @@ import json, socket, os, struct, base64, urllib.request
 host = os.getenv('DECK_CDP_HOST', '127.0.0.1')
 
 def ws_connect(path):
-  s = socket.socket()
-  s.settimeout(20)
-  s.connect((host, 8081))
+    s = socket.socket()
+    s.settimeout(20)
+    s.connect((host, 8081))
     key = base64.b64encode(os.urandom(16)).decode()
-        req = (f"GET {path} HTTP/1.1\r\nHost: {host}:8081\r\n"
-          f"Upgrade: websocket\r\nConnection: Upgrade\r\n"
-          f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n")
+    req = (f"GET {path} HTTP/1.1\r\nHost: {host}:8081\r\n"
+           f"Upgrade: websocket\r\nConnection: Upgrade\r\n"
+           f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n")
     s.sendall(req.encode())
     r = b""
     while b"\r\n\r\n" not in r:

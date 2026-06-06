@@ -12,7 +12,7 @@
  *
  * The first three are sync; the fourth is async and is prefetched at
  * plugin init via `prefetchSteamOSVersion()` so subsequent sync callers
- * (e.g. `useLegacyMenuFlow()` in `steamGameMenu.ts`) get a resolved value.
+ * (e.g. `isLegacyMenuFlow()` in `steamGameMenu.ts`) get a resolved value.
  */
 let cachedVersion: string | null | undefined;
 let prefetchPromise: Promise<string | null> | null = null;

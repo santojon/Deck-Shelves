@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Focusable } from "@decky/ui";
+import { Focusable } from "../../runtime/host/decky";
 import { CheckIcon, XIcon, ChevronIcon, getTypeLabel, capitalizeFirst, isValidParams } from "./utils";
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";

@@ -6,9 +6,16 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 SLUG="$(node -p 'require("./package.json").name')"
+VERSION="$(node -p 'require("./package.json").version')"
 
 if [[ -z "$ZIP_PATH" ]]; then
-  ZIP_PATH="$(ls ${SLUG}-v*.zip 2>/dev/null | head -n1 || true)"
+  # Prefer the ZIP matching the current version; fall back to the newest by mtime.
+  # Avoids picking a stale ZIP from an earlier version still on disk.
+  if [[ -f "${SLUG}-v${VERSION}.zip" ]]; then
+    ZIP_PATH="${SLUG}-v${VERSION}.zip"
+  else
+    ZIP_PATH="$(ls -t ${SLUG}-v*.zip 2>/dev/null | head -n1 || true)"
+  fi
 fi
 
 if [[ -z "$ZIP_PATH" || ! -f "$ZIP_PATH" ]]; then

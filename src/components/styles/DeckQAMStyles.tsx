@@ -1,4 +1,4 @@
-import { gamepadDialogClasses, quickAccessControlsClasses } from '@decky/ui'
+import { gamepadDialogClasses, quickAccessControlsClasses } from '../../runtime/host/decky'
 
 // Bridge: `quickAccessControlsClasses` is undefined in SharedJSContext (where
 // DeckModalStyles renders), but it IS defined here in the QAM context. Persist

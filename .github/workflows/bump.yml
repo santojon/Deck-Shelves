@@ -135,6 +135,12 @@ jobs:
       - name: TypeScript check
         run: pnpm run typecheck
 
+      - name: Lint (ESLint + Ruff)
+        run: |
+          python3 -m pip install -U pip
+          python3 -m pip install ruff
+          pnpm run lint
+
       - name: Static validation
         run: node scripts/build/validate.mjs
 

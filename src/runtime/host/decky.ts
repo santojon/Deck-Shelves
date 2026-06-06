@@ -1,24 +1,48 @@
-// DeckyHostApi — the only place new `@decky/*` imports may be added
-// going forward. Re-exports the existing `@decky/ui` shim under the
-// HostApi.ui shape. Pure adapter; no behavior change.
-import { call, toaster } from "@decky/api";
+// DeckyHostApi — the ONLY place `@decky/*` imports may be added.
+// Re-exports every primitive / helper / class-name binding DS source
+// files need, so the rest of the codebase imports from this adapter
+// (`runtime/host/decky`) instead of reaching into `@decky/ui`
+// directly. Adding a new symbol? Add it here once and update callers.
+import { call, toaster, openFilePicker } from "@decky/api";
+// Re-export the @decky/api primitives DS source files need so the
+// adapter is the single import point for both `@decky/ui` and
+// `@decky/api`. Adding a new symbol? Add it here once and update
+// callers — the only file that should keep an `@decky/api` import is
+// `index.tsx` for `definePlugin` (the bundle entry point).
+export { call, toaster, openFilePicker };
 import {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
   Dropdown, DropdownItem, Field, Focusable, GamepadButton,
-  Menu, MenuItem, Navigation, SliderField, Spinner,
-  Tabs, TextField, ToggleField, showContextMenu, showModal,
+  Menu, MenuGroup, MenuItem, Navigation, PanelSection, PanelSectionRow,
+  SliderField, Spinner, Tabs, TextField, ToggleField, showContextMenu, showModal,
+  afterPatch,
+  fakeRenderComponent,
+  findInReactTree,
+  findInTree,
+  findModuleByExport,
+  findModuleChild,
+  gamepadDialogClasses,
+  quickAccessControlsClasses,
+  quickAccessMenuClasses,
+  type SingleDropdownOption,
 } from "@decky/ui";
 
-// Re-export the 19 primitives so pilot consumers can swap their
-// `@decky/ui` import with a `runtime/host/decky` import without
-// touching call sites. Remaining direct imports migrate through the
-// same path as the codebase converts.
 export {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
   Dropdown, DropdownItem, Field, Focusable, GamepadButton,
-  Menu, MenuItem, Navigation, SliderField, Spinner,
-  Tabs, TextField, ToggleField, showContextMenu, showModal,
+  Menu, MenuGroup, MenuItem, Navigation, PanelSection, PanelSectionRow,
+  SliderField, Spinner, Tabs, TextField, ToggleField, showContextMenu, showModal,
+  afterPatch,
+  fakeRenderComponent,
+  findInReactTree,
+  findInTree,
+  findModuleByExport,
+  findModuleChild,
+  gamepadDialogClasses,
+  quickAccessControlsClasses,
+  quickAccessMenuClasses,
 };
+export type { SingleDropdownOption };
 import { HOST_API_VERSION, type Disposable, type HostApi, type PluginDescriptor, type ToastOptions } from "./contract";
 import { getPlatform } from "../platformContext";
 import type { PlatformApi } from "../platform";

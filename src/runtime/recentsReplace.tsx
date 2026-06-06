@@ -21,10 +21,11 @@
  *   (HomeInject) cai de volta na ocultação visual tradicional.
  */
 import type { ReactElement } from "react";
-import { afterPatch, findInReactTree } from "@decky/ui";
+import { afterPatch, findInReactTree } from "./host/decky";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
 import { isInVisibilityWindow } from "../steam/smartShelves";
 import { applyManualOrder } from "../steam";
+import { isOnlineSource } from "../domain/sourceUtils";
 import { getPlatform } from "./platformContext";
 import { logError, logInfo, logWarn } from "./logger";
 import { toaster } from "../shims/decky-api";
@@ -193,10 +194,6 @@ function smartShelfToCandidate(s: any) {
  *  app store, so an online-source promotion always falls back. Exclude them
  *  from the candidate list so the promotion advances to the next renderable
  *  shelf. */
-function isOnlineSource(src: any): boolean {
-  const t = src?.type;
-  return t === 'wishlist' || t === 'store';
-}
 
 /** Build the ordered list of replace-candidate shelves: visible normals
  *  (excluding online sources) first, then visible smart shelves. */
@@ -255,17 +252,8 @@ function scheduleResolve(shelf: any) {
   // entry by source so two shelves with the same source but different
   // sorts don't collide.
   //
-  // Manual sort needs the same two-step treatment Shelf.tsx applies on
-  // home: resolve using the user's chosen `manualBaseSort` +
-  // `manualBaseSortReverse` (the natural-order fallback for items NOT in
-  // `manualOrder`), then `applyManualOrder` re-orders the result with
-  // pinned items first. Forwarding `sort='manual'` straight to the
-  // resolver is a no-op at the comparator layer, leaving the composite
-  // source's union order (effectively dedup-insertion order, which the
-  // user reads as "alphabetical-ish"). Mirroring Shelf.tsx's manual
-  // handling here makes the promoted recents shelf honour the EXACT same
-  // ordering it would on the home — including multi-key chains and
-  // per-key asc/desc.
+  // Mirror Shelf.tsx's manual handling: resolve with manualBaseSort
+  // then applyManualOrder so the promoted recents matches the home.
   const shelfSort = (shelf as any).sort;
   const shelfSortReverse = (shelf as any).sortReverse;
   const manualBaseSort = (shelf as any).manualBaseSort;

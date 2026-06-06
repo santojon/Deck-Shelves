@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict
 
 from ..lib.cdp import Session
-from ..lib.nav import navigate_about, click_selector, await_selector, _bp_eval
+from ..lib.nav import navigate_about, _bp_eval
 from ..lib.capture import capture_bigpicture
 from ._registry import register
 

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Focusable } from '@decky/ui'
+import { Focusable } from '../../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 
 type CalloutVariant = 'note' | 'tip' | 'caution'

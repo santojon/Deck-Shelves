@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
-# Orchestrated dependency upgrade flow for Deck Shelves.
-#
-# Modes (first arg):
-#   check       — list outdated dependencies; no writes
-#   pnpm        — upgrade pnpm itself + the `packageManager` pin
-#   safe        — `pnpm update` (stays within current semver ranges)
-#   major       — `pnpm update --latest` for prod AND dev deps (may break)
-#   verify      — typecheck + test + build (sanity check after an update)
-#   all         — pnpm + safe + verify, prompting before each destructive step
-#
-# Examples:
-#   bash scripts/devtools/update.sh check
-#   bash scripts/devtools/update.sh all
+# Dependency upgrade flow. Modes: check | pnpm | safe | major | verify | all.
+# Run `bash scripts/devtools/update.sh check` to see the mode catalog in action.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

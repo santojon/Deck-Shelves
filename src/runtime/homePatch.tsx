@@ -70,64 +70,60 @@ export function applyReplaceActiveMargin(active: boolean): void {
   } catch (e) { logInfo("HOME", "applyReplaceActiveMargin failed", String(e)); }
 }
 
-export function applyHideRecents(hidden: boolean): void {
-  pendingHideRecents = hidden;
-  // If cache is stale, try to re-find the element via the host document
-  if (!cachedRecentsEl || !cachedRecentsEl.isConnected) {
-    try {
-      const { doc } = getHostContext();
-      const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
-      if (mount) {
-        cachedRecentsEl = findRecentsEl(doc as Document, mount);
-      }
-    } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
-  }
+const RECENTS_LABEL_FRAGMENTS = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
 
-  // If we couldn't find a specific recents element, but the caller requests
-  // that recents be shown (hidden === false), attempt a broader restore pass
-  // to undo any inline styles we may have applied earlier (or that other
-  // code applied) — this helps when DOM structure changes and our cached
-  // reference is stale but recents are still present under a different node.
-  if (!cachedRecentsEl && !hidden) {
-    try {
-      const { doc } = getHostContext();
-      const labels = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
-      const candidates = Array.from(doc.querySelectorAll<HTMLElement>('*'));
-      for (const el of candidates) {
-        try {
-          const aria = (el.getAttribute && el.getAttribute('aria-label'))?.toLowerCase() ?? '';
-          const txt = (aria || (el.innerText || '')).toLowerCase().substring(0, 80);
-          if (!labels.some((l) => txt.includes(l))) continue;
-          try { el.style.visibility = ''; el.style.height = ''; el.style.overflow = ''; } catch {}
-        } catch {}
-      }
-    } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
-  }
-
-  // Hide native recents via visibility+height collapse (the v2.2.2 contract).
-  // Deliberately NOT using display:none (re-enters the gamepad nav tree
-  // inconsistently across SteamOS builds) nor off-screen positioning (broke
-  // ArtHero shelf placement on restart). The known trade-off — D-pad needs
-  // two "up" presses to reach the search bar — is known limitation.
-  if (cachedRecentsEl) {
-    try {
-      cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
-      cachedRecentsEl.style.height     = hidden ? "0px" : "";
-      cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
-    } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
-  }
-  // Adjust mount margin-top: add breathing room at top when recents are hidden
+function reseedCachedRecentsEl(): void {
+  if (cachedRecentsEl && cachedRecentsEl.isConnected) return;
   try {
     const { doc } = getHostContext();
     const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
-    if (mount) {
-      mount.style.setProperty("margin-top", hidden ? "56px" : "", "important");
-      // If we're forcing recents visible, also remove any mount-level offset
-      if (!hidden) {
-        try { mount.style.removeProperty('margin-top'); } catch {}
-      }
+    if (mount) cachedRecentsEl = findRecentsEl(doc as Document, mount);
+  } catch (e) { logInfo("HOME", "applyHideRecents: findRecentsEl failed", String(e)); }
+}
+
+function elMatchesRecentsLabel(el: HTMLElement): boolean {
+  try {
+    const aria = (el.getAttribute && el.getAttribute('aria-label'))?.toLowerCase() ?? '';
+    const txt = (aria || (el.innerText || '')).toLowerCase().substring(0, 80);
+    return RECENTS_LABEL_FRAGMENTS.some((l) => txt.includes(l));
+  } catch { return false; }
+}
+
+function restoreRecentsByLabelSearch(): void {
+  try {
+    const { doc } = getHostContext();
+    for (const el of Array.from(doc.querySelectorAll<HTMLElement>('*'))) {
+      if (!elMatchesRecentsLabel(el)) continue;
+      try { el.style.visibility = ''; el.style.height = ''; el.style.overflow = ''; } catch {}
     }
+  } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
+}
+
+function applyRecentsCollapse(hidden: boolean): void {
+  if (!cachedRecentsEl) return;
+  try {
+    cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
+    cachedRecentsEl.style.height     = hidden ? "0px" : "";
+    cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
+  } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
+}
+
+function applyMountTopMargin(hidden: boolean): void {
+  try {
+    const { doc } = getHostContext();
+    const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+    if (!mount) return;
+    mount.style.setProperty("margin-top", hidden ? "56px" : "", "important");
+    if (!hidden) { try { mount.style.removeProperty('margin-top'); } catch {} }
   } catch (e) { logInfo("HOME", "applyHideRecents: margin-top failed", String(e)); }
+}
+
+export function applyHideRecents(hidden: boolean): void {
+  pendingHideRecents = hidden;
+  reseedCachedRecentsEl();
+  if (!cachedRecentsEl && !hidden) restoreRecentsByLabelSearch();
+  applyRecentsCollapse(hidden);
+  applyMountTopMargin(hidden);
 }
 
 // --- Home tabs (the native home area: recents + friends + novidades, etc.) ---
@@ -136,34 +132,41 @@ export function applyHideRecents(hidden: boolean): void {
 // them leaves our shelves as the only visible area, which is the contract.
 // Each candidate must carry at least one webpack-hashed token so decorative
 // spacers/stray nodes aren't touched — no hardcoded classes.
-function setSiblingHidden(el: HTMLElement, hidden: boolean) {
+function hideSiblingDisplay(el: HTMLElement): void {
+  if (el.dataset.dsHtHidden !== "1") {
+    el.dataset.dsHtPrevDisplay = el.style.getPropertyValue("display") || "";
+    el.dataset.dsHtHidden = "1";
+  }
+  el.style.setProperty("display", "none", "important");
+  el.setAttribute("aria-hidden", "true");
+}
+
+function restoreSiblingDisplay(el: HTMLElement): void {
+  if (el.dataset.dsHtHidden !== "1") return;
+  const prev = el.dataset.dsHtPrevDisplay ?? "";
+  el.style.removeProperty("display");
+  if (prev) el.style.setProperty("display", prev);
+  delete el.dataset.dsHtHidden;
+  delete el.dataset.dsHtPrevDisplay;
+  el.removeAttribute("aria-hidden");
+}
+
+function setFocusableTabindex(f: HTMLElement, hidden: boolean): void {
   if (hidden) {
-    if (el.dataset.dsHtHidden !== "1") {
-      el.dataset.dsHtPrevDisplay = el.style.getPropertyValue("display") || "";
-      el.dataset.dsHtHidden = "1";
+    if (f.dataset.dsHtPrevTabindex === undefined) {
+      f.dataset.dsHtPrevTabindex = f.getAttribute("tabindex") ?? "0";
     }
-    el.style.setProperty("display", "none", "important");
-    el.setAttribute("aria-hidden", "true");
-  } else if (el.dataset.dsHtHidden === "1") {
-    const prev = el.dataset.dsHtPrevDisplay ?? "";
-    el.style.removeProperty("display");
-    if (prev) el.style.setProperty("display", prev);
-    delete el.dataset.dsHtHidden;
-    delete el.dataset.dsHtPrevDisplay;
-    el.removeAttribute("aria-hidden");
+    f.setAttribute("tabindex", "-1");
+  } else if (f.dataset.dsHtPrevTabindex !== undefined) {
+    f.setAttribute("tabindex", f.dataset.dsHtPrevTabindex);
+    delete f.dataset.dsHtPrevTabindex;
   }
+}
+
+function setSiblingHidden(el: HTMLElement, hidden: boolean) {
+  if (hidden) hideSiblingDisplay(el); else restoreSiblingDisplay(el);
   const focusables = el.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
-  for (const f of Array.from(focusables)) {
-    if (hidden) {
-      if (f.dataset.dsHtPrevTabindex === undefined) {
-        f.dataset.dsHtPrevTabindex = f.getAttribute("tabindex") ?? "0";
-      }
-      f.setAttribute("tabindex", "-1");
-    } else if (f.dataset.dsHtPrevTabindex !== undefined) {
-      f.setAttribute("tabindex", f.dataset.dsHtPrevTabindex);
-      delete f.dataset.dsHtPrevTabindex;
-    }
-  }
+  for (const f of Array.from(focusables)) setFocusableTabindex(f, hidden);
 }
 
 const hiddenHomeTabs = new Set<HTMLElement>();
@@ -183,44 +186,38 @@ function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
   return out;
 }
 
+function restoreAllHomeTabs(): void {
+  for (const el of Array.from(hiddenHomeTabs)) {
+    if (el.isConnected) setSiblingHidden(el, false);
+  }
+  hiddenHomeTabs.clear();
+}
+
+function syncHomeTabsHidden(current: HTMLElement[]): void {
+  const currentSet = new Set(current);
+  for (const el of Array.from(hiddenHomeTabs)) {
+    if (!el.isConnected) { hiddenHomeTabs.delete(el); continue; }
+    if (!currentSet.has(el)) {
+      setSiblingHidden(el, false);
+      hiddenHomeTabs.delete(el);
+    }
+  }
+  for (const el of current) {
+    if (!hiddenHomeTabs.has(el)) {
+      setSiblingHidden(el, true);
+      hiddenHomeTabs.add(el);
+    }
+  }
+}
+
 export function applyHideHomeTabs(hidden: boolean): void {
   pendingHideHomeTabs = hidden;
   try {
+    if (!hidden) { restoreAllHomeTabs(); return; }
     const { doc } = getHostContext();
     const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
-
-    if (!hidden) {
-      // Restore everything we hid; no further work.
-      for (const el of Array.from(hiddenHomeTabs)) {
-        if (el.isConnected) setSiblingHidden(el, false);
-      }
-      hiddenHomeTabs.clear();
-      return;
-    }
     if (!mount) return;
-
-    // Idempotent: only act on differences between the requested state and the
-    // currently-hidden set. The previous "restore-then-re-hide" pass caused a
-    // brief layout shift on every call (the 2 s state poll fires often, and
-    // each visual flicker on D-pad nav was visible). Now we leave already-
-    // hidden siblings alone and only touch newcomers or stale refs.
-    const current = collectHomeTabSiblings(mount);
-    const currentSet = new Set(current);
-    // 1) Drop stale refs (disconnected or moved out of the candidate set)
-    for (const el of Array.from(hiddenHomeTabs)) {
-      if (!el.isConnected) { hiddenHomeTabs.delete(el); continue; }
-      if (!currentSet.has(el)) {
-        setSiblingHidden(el, false);
-        hiddenHomeTabs.delete(el);
-      }
-    }
-    // 2) Hide any newcomers not yet tracked
-    for (const el of current) {
-      if (!hiddenHomeTabs.has(el)) {
-        setSiblingHidden(el, true);
-        hiddenHomeTabs.add(el);
-      }
-    }
+    syncHomeTabsHidden(collectHomeTabSiblings(mount));
   } catch (e) { logInfo("HOME", "applyHideHomeTabs failed", String(e)); }
 }
 
@@ -235,52 +232,47 @@ export function reapplyHomeHides(): void {
   applyHideHomeTabs(pendingHideHomeTabs);
 }
 
-function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
-  const labels = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente"];
-  // Walk from aria-label nodes up to find the sibling of mountEl's parent
-  const mountParent = mountEl.parentElement;
-  if (!mountParent) return null;
+function isDsOwn(el: HTMLElement | null, mountEl: HTMLElement): boolean {
+  if (!el) return false;
+  if (el === mountEl || el.id === ROOT_ID) return true;
+  if (el.classList?.contains('ds-shelf')) return true;
+  if (el.classList?.contains('deck-shelves-root')) return true;
+  return !!el.querySelector?.('.ds-shelf, .deck-shelves-root, #' + ROOT_ID);
+}
 
-  // Defensive helper: never match our own DS shelves or the mount itself.
-  // DS shelves carry `ReactVirtualized__Grid` via buildShelfNode, which would
-  // otherwise pass the heuristic below and lead applyHideRecents to strip
-  // tabindex from our own focusables — making the shelves unfocusable.
-  const isDsOwn = (el: HTMLElement): boolean => {
-    if (!el) return false;
-    if (el === mountEl || el.id === ROOT_ID) return true;
-    if (el.classList?.contains('ds-shelf')) return true;
-    if (el.classList?.contains('deck-shelves-root')) return true;
-    if (el.querySelector?.('.ds-shelf, .deck-shelves-root, #' + ROOT_ID)) return true;
-    return false;
-  };
+function ariaOrInnerTextMatches(el: HTMLElement, labels: string[]): boolean {
+  const txt = (el.getAttribute?.("aria-label") || el.innerText || "").toLowerCase().substring(0, 80);
+  return labels.some((l) => txt.includes(l));
+}
 
-  // Check mountEl.previousElementSibling first (fastest path)
-  const prev = mountEl.previousElementSibling as HTMLElement | null;
-  if (prev && !isDsOwn(prev)) {
-    const txt = (prev.getAttribute?.("aria-label") || prev.innerText || "").toLowerCase().substring(0, 80);
-    if (labels.some((l) => txt.includes(l))) return prev;
-    // Check descendants
-    const inner = prev.querySelector("[aria-label]");
-    if (inner) {
-      const innerTxt = (inner.getAttribute("aria-label") || "").toLowerCase();
-      if (labels.some((l) => innerTxt.includes(l))) return prev;
-    }
-    // Heuristic: if it looks like a game grid section, assume it's recents
-    if (prev.querySelector("[class*='ReactVirtualized']")) return prev;
+function previousSiblingIsRecents(prev: HTMLElement | null, mountEl: HTMLElement, labels: string[]): HTMLElement | null {
+  if (!prev || isDsOwn(prev, mountEl)) return null;
+  if (ariaOrInnerTextMatches(prev, labels)) return prev;
+  const inner = prev.querySelector("[aria-label]");
+  if (inner) {
+    const innerTxt = (inner.getAttribute("aria-label") || "").toLowerCase();
+    if (labels.some((l) => innerTxt.includes(l))) return prev;
   }
+  return prev.querySelector("[class*='ReactVirtualized']") ? prev : null;
+}
 
-  // Fallback: scan aria-label nodes and walk up to a sibling of mountParent
-  const candidates = Array.from(doc.querySelectorAll("[aria-label]"));
-  for (const node of candidates) {
+function recentsFromAriaScan(doc: Document, mountEl: HTMLElement, mountParent: HTMLElement, labels: string[]): HTMLElement | null {
+  for (const node of Array.from(doc.querySelectorAll("[aria-label]"))) {
     const txt = (node.getAttribute("aria-label") || "").toLowerCase();
     if (!labels.some((l) => txt.includes(l))) continue;
     let el = node as HTMLElement;
-    while (el.parentElement && el.parentElement !== mountParent) {
-      el = el.parentElement;
-    }
-    if (el.parentElement === mountParent && el !== mountEl && !isDsOwn(el)) return el;
+    while (el.parentElement && el.parentElement !== mountParent) el = el.parentElement;
+    if (el.parentElement === mountParent && el !== mountEl && !isDsOwn(el, mountEl)) return el;
   }
   return null;
+}
+
+function findRecentsEl(doc: Document, mountEl: HTMLElement): HTMLElement | null {
+  const labels = RECENTS_LABEL_FRAGMENTS;
+  const mountParent = mountEl.parentElement;
+  if (!mountParent) return null;
+  const prev = previousSiblingIsRecents(mountEl.previousElementSibling as HTMLElement | null, mountEl, labels);
+  return prev ?? recentsFromAriaScan(doc, mountEl, mountParent, labels);
 }
 
 function getFocusNavController(): any {
@@ -315,19 +307,20 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
     seen.add(win);
     out.push({ win, source });
   };
-
-  try { push(window, "current"); } catch {}
-  try { push((window as any).opener, "opener"); } catch {}
-  try { push(findSPWindow(), "findSP"); } catch {}
-  try { push((window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow, "focusedWindow"); } catch {}
-  try { push((window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow, "mainWindow"); } catch {}
+  const sources: Array<[() => any, string]> = [
+    [() => window, "current"],
+    [() => (window as any).opener, "opener"],
+    [() => findSPWindow(), "findSP"],
+    [() => (window as any).SteamUIStore?.GetFocusedWindowInstance?.()?.BrowserWindow, "focusedWindow"],
+    [() => (window as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow, "mainWindow"],
+  ];
+  for (const [getter, source] of sources) { try { push(getter(), source); } catch {} }
   try {
     const steamWindows = (window as any).SteamUIStore?.WindowStore?.SteamUIWindows;
     if (Array.isArray(steamWindows)) {
       for (const entry of steamWindows) push(entry?.BrowserWindow, "steamUIWindow");
     }
   } catch {}
-
   return out;
 }
 
@@ -348,39 +341,56 @@ function shelfSectionSelector(doc: Document): string {
   return `div.${FALLBACK_SHELF_SECTION}, [class*="${FALLBACK_SHELF_SECTION}"]`;
 }
 
+const RECENTS_QS = '[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]';
+const LIBRARY_HOME_QS = '[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]';
+
+function safeMatch(doc: Document, selector: string): boolean {
+  try { return !!doc.querySelector(selector); } catch { return false; }
+}
+
+function windowHref(win: Window): string {
+  return `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
+}
+
+function hrefIsLibraryHome(href: string): boolean {
+  return href.includes("/routes/library/home") || href.includes("library/home");
+}
+
+function scoreDocSignals(doc: Document): number {
+  let s = 0;
+  if (safeMatch(doc, RECENTS_QS)) s += 8;
+  if (safeMatch(doc, LIBRARY_HOME_QS)) s += 6;
+  if (safeMatch(doc, shelfSectionSelector(doc))) s += 2;
+  if (doc.body?.childElementCount) s += 1;
+  return s;
+}
+
 function scoreWindow(win: Window): number {
   try {
     const doc = win.document;
-    const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
-    let score = 0;
-    if (href.includes("/routes/library/home") || href.includes("library/home")) score += 4;
-    if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) score += 8;
-    if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) score += 6;
-    try { if (doc.querySelector(shelfSectionSelector(doc))) score += 2; } catch {}
-    if (doc.body?.childElementCount) score += 1;
-    return score;
-  } catch {
-    return -1;
-  }
+    return (hrefIsLibraryHome(windowHref(win)) ? 4 : 0) + scoreDocSignals(doc);
+  } catch { return -1; }
+}
+
+function logHostSourceChange(source: string, win: Window, score: number): void {
+  if (source === lastHostSource) return;
+  lastHostSource = source;
+  logInfo("HOME", "host context selected", {
+    source,
+    href: `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`,
+    score,
+  });
 }
 
 function getHostContext() {
-  const candidates = getWindowCandidates();
-  const best = candidates
+  const best = getWindowCandidates()
     .map((entry) => ({ ...entry, score: scoreWindow(entry.win) }))
     .sort((a, b) => b.score - a.score)[0];
   const win = best?.win ?? window;
   const doc = win.document ?? document;
   const source = best?.source ?? "current";
   setPreferredSteamWindow(win);
-  if (source !== lastHostSource) {
-    lastHostSource = source;
-    logInfo("HOME", "host context selected", {
-      source,
-      href: `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`,
-      score: best?.score ?? 0,
-    });
-  }
+  logHostSourceChange(source, win, best?.score ?? 0);
   return { win, doc, source };
 }
 
@@ -400,15 +410,18 @@ function getContextSnapshot() {
   };
 }
 
+function hrefIsHomeLike(href: string): boolean {
+  if (href.includes("library/home") || href.includes("#library/home")) return true;
+  return href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections");
+}
+
 function isHomeVisible(): boolean {
   const { win, doc } = getHostContext();
   const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
-  if (href.includes("library/home") || href.includes("#library/home")) return true;
-  if (href.includes("/library") && !href.includes("/library/app/") && !href.includes("/library/collections")) return true;
-  if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
-  if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  try { if (doc.querySelector(shelfSectionSelector(doc))) return true; } catch {}
-  return false;
+  if (hrefIsHomeLike(href)) return true;
+  if (safeMatch(doc, LIBRARY_HOME_QS)) return true;
+  if (safeMatch(doc, RECENTS_QS)) return true;
+  return safeMatch(doc, shelfSectionSelector(doc));
 }
 
 function closestSection(el: Element | null): HTMLElement | null {
@@ -420,120 +433,156 @@ function closestSection(el: Element | null): HTMLElement | null {
   return null;
 }
 
-function resolveAnchor(): { parent: HTMLElement; before: ChildNode | null } | null {
-  const { doc } = getHostContext();
-  const labels = ["jogos recentes", "recent games", "recently played", "played recently", "jogados recentemente", "jogado recentemente"];
-  const candidates = Array.from(doc.querySelectorAll('[role="list"],[aria-label],[class*="ReactVirtualized__Grid"],[class*="ReactVirtualized__Grid__innerScrollContainer"]'));
-  for (const node of candidates) {
-    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
-    if (!labels.some((label) => txt.includes(label))) continue;
-    // Walk up to the scrollable viewport to insert as a direct child
-    let container: HTMLElement | null = node as HTMLElement;
-    for (let i = 0; i < 12 && container; i++) {
-      const p: HTMLElement | null = container.parentElement;
-      if (!p || p === doc.body) break;
-      try {
-        const cs = getComputedStyle(p);
-        const oy = (cs.overflowY || '').toLowerCase();
-        if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) {
-          return { parent: p, before: container.nextSibling };
-        }
-      } catch {}
-      container = p;
-    }
-    // Fallback: grid wrapper parent
-    const grid = (node as HTMLElement).closest?.('[class*="ReactVirtualized__Grid"]') as HTMLElement | null;
-    const gridWrapper = grid?.parentElement as HTMLElement | null;
-    if (gridWrapper?.parentElement) return { parent: gridWrapper.parentElement, before: gridWrapper.nextSibling };
-    const section = closestSection(node as Element);
-    if (section?.parentElement) return { parent: section.parentElement, before: section.nextSibling };
+type Anchor = { parent: HTMLElement; before: ChildNode | null };
+
+const RECENTS_LABEL_FRAGMENTS_EXT = [...RECENTS_LABEL_FRAGMENTS, "jogado recentemente"];
+const CHIP_LABELS = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
+const ANCHOR_CONTAINERS_QS = '[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]';
+const ANCHOR_CANDIDATES_QS = '[role="list"],[aria-label],[class*="ReactVirtualized__Grid"],[class*="ReactVirtualized__Grid__innerScrollContainer"]';
+
+function isScrollableViewport(p: HTMLElement): boolean {
+  try {
+    const cs = getComputedStyle(p);
+    const oy = (cs.overflowY || '').toLowerCase();
+    return (oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight;
+  } catch { return false; }
+}
+
+function findScrollableAncestor(start: HTMLElement, doc: Document): Anchor | null {
+  let container: HTMLElement | null = start;
+  for (let i = 0; i < 12 && container; i++) {
+    const p: HTMLElement | null = container.parentElement;
+    if (!p || p === doc.body) break;
+    if (isScrollableViewport(p)) return { parent: p, before: container.nextSibling };
+    container = p;
   }
-
-  const chipLabels = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
-  for (const node of Array.from(doc.querySelectorAll('button, [role="tab"]'))) {
-    const text = (node.textContent || "").trim().toLowerCase();
-    if (!chipLabels.includes(text)) continue;
-    const section = closestSection(node);
-    if (section?.parentElement) return { parent: section.parentElement, before: section };
-  }
-
-  const known = doc.querySelector(shelfSectionSelector(doc)) as HTMLElement | null;
-  if (known?.parentElement) return { parent: known.parentElement, before: known.nextSibling };
-
-  const containers = Array.from(doc.querySelectorAll('[class*="gamepadlibrary"], [class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="AppGridFilterContainer"], [class*="AllPagesContainer"], main, [role="main"]'));
-  for (const node of containers) {
-    if (node instanceof HTMLElement) return { parent: node, before: node.firstChild };
-  }
-
   return null;
 }
 
-function ensureMount(): HTMLElement | null {
-  if (!isHomeVisible()) return null;
+function anchorFromGridOrSection(node: Element): Anchor | null {
+  const grid = (node as HTMLElement).closest?.('[class*="ReactVirtualized__Grid"]') as HTMLElement | null;
+  const gridWrapper = grid?.parentElement as HTMLElement | null;
+  if (gridWrapper?.parentElement) return { parent: gridWrapper.parentElement, before: gridWrapper.nextSibling };
+  const section = closestSection(node);
+  if (section?.parentElement) return { parent: section.parentElement, before: section.nextSibling };
+  return null;
+}
+
+function anchorFromRecentsCandidates(doc: Document): Anchor | null {
+  for (const node of Array.from(doc.querySelectorAll(ANCHOR_CANDIDATES_QS))) {
+    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
+    if (!RECENTS_LABEL_FRAGMENTS_EXT.some((label) => txt.includes(label))) continue;
+    const scrollable = findScrollableAncestor(node as HTMLElement, doc);
+    if (scrollable) return scrollable;
+    const fallback = anchorFromGridOrSection(node);
+    if (fallback) return fallback;
+  }
+  return null;
+}
+
+function anchorFromChipLabels(doc: Document): Anchor | null {
+  for (const node of Array.from(doc.querySelectorAll('button, [role="tab"]'))) {
+    const text = (node.textContent || "").trim().toLowerCase();
+    if (!CHIP_LABELS.includes(text)) continue;
+    const section = closestSection(node);
+    if (section?.parentElement) return { parent: section.parentElement, before: section };
+  }
+  return null;
+}
+
+function anchorFromKnownContainers(doc: Document): Anchor | null {
+  const known = doc.querySelector(shelfSectionSelector(doc)) as HTMLElement | null;
+  if (known?.parentElement) return { parent: known.parentElement, before: known.nextSibling };
+  for (const node of Array.from(doc.querySelectorAll(ANCHOR_CONTAINERS_QS))) {
+    if (node instanceof HTMLElement) return { parent: node, before: node.firstChild };
+  }
+  return null;
+}
+
+function resolveAnchor(): Anchor | null {
   const { doc } = getHostContext();
-  let mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
-  let anchor: ReturnType<typeof resolveAnchor>;
-  try {
-    anchor = resolveAnchor();
-  } catch (err) {
+  return anchorFromRecentsCandidates(doc) ?? anchorFromChipLabels(doc) ?? anchorFromKnownContainers(doc);
+}
+
+function safeResolveAnchor(): Anchor | null | "error" {
+  try { return resolveAnchor(); }
+  catch (err) {
     const msg = String(err);
     logError("HOME", "resolveAnchor threw — crash protection engaged", msg);
     mountFailed = true;
     mountError = msg;
-    return null;
+    return "error";
   }
-  if (!anchor || anchor.parent === doc.body) {
-    if (!noAnchorLogged) {
-      noAnchorLogged = true;
-      logWarn("HOME", "no mount anchor found yet", getContextSnapshot());
-    }
-    return null;
-  }
-  noAnchorLogged = false;
+}
 
-  if (!mount) {
-    mount = doc.createElement("div");
-    mount.id = ROOT_ID;
-    mount.className = "Panel";
-    mount.style.width = "100%";
-    mount.style.display = "block";
-    mount.style.position = "relative";
-    mount.style.zIndex = "0";
-    mount.style.margin = "0";
-    mount.style.padding = "0";
-    logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
-  }
+function createMountElement(doc: Document, anchorParent: HTMLElement): HTMLElement {
+  const mount = doc.createElement("div");
+  mount.id = ROOT_ID;
+  mount.className = "Panel";
+  Object.assign(mount.style, {
+    width: "100%", display: "block", position: "relative",
+    zIndex: "0", margin: "0", padding: "0",
+  });
+  logInfo("HOME", "mount created", { parent: anchorParent.tagName });
+  return mount;
+}
 
+function reparentMountTo(mount: HTMLElement, anchor: Anchor): boolean {
   try {
     if (mount.parentElement !== anchor.parent || (anchor.before && mount.nextSibling !== anchor.before)) {
       anchor.parent.insertBefore(mount, anchor.before);
     }
+    return true;
   } catch (err) {
     const msg = String(err);
     logError("HOME", "mount insertion threw — crash protection engaged", msg);
     mountFailed = true;
     mountError = msg;
+    return false;
+  }
+}
+
+function clearMountFailureIfRecovered(): void {
+  const qaForceShelfError = __DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__;
+  if (!mountFailed || qaForceShelfError) return;
+  mountFailed = false;
+  mountError = null;
+  logInfo("HOME", "mount recovered after previous failure");
+}
+
+function applyPendingRecentsToFoundEl(mount: HTMLElement): void {
+  try {
+    cachedRecentsEl!.style.visibility = pendingHideRecents ? "hidden" : "";
+    cachedRecentsEl!.style.height = pendingHideRecents ? "0px" : "";
+    cachedRecentsEl!.style.overflow = pendingHideRecents ? "hidden" : "";
+  } catch (e) { logInfo("HOME", "ensureMount: recents hide failed", String(e)); }
+  try { mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important"); }
+  catch (e) { logInfo("HOME", "ensureMount: margin-top failed", String(e)); }
+}
+
+function refreshCachedRecentsEl(doc: Document, mount: HTMLElement): void {
+  if (cachedRecentsEl && cachedRecentsEl.isConnected) return;
+  cachedRecentsEl = findRecentsEl(doc, mount);
+  if (!cachedRecentsEl) return;
+  logInfo("HOME", "recents element found", { cls: cachedRecentsEl.className.substring(0, 60) });
+  applyPendingRecentsToFoundEl(mount);
+}
+
+function ensureMount(): HTMLElement | null {
+  if (!isHomeVisible()) return null;
+  const { doc } = getHostContext();
+  const anchor = safeResolveAnchor();
+  if (anchor === "error") return null;
+  if (!anchor || anchor.parent === doc.body) {
+    if (!noAnchorLogged) { noAnchorLogged = true; logWarn("HOME", "no mount anchor found yet", getContextSnapshot()); }
     return null;
   }
-
-  // Success — clear any previous failure
-  const qaForceShelfError = __DEV__ && typeof __QA_SHELF_ERROR__ !== "undefined" && __QA_SHELF_ERROR__;
-  if (mountFailed && !qaForceShelfError) {
-    mountFailed = false;
-    mountError = null;
-    logInfo("HOME", "mount recovered after previous failure");
-  }
-  // Cache the recents element for hide/show; apply any pending state immediately
-  if (!cachedRecentsEl || !cachedRecentsEl.isConnected) {
-    cachedRecentsEl = findRecentsEl(doc, mount);
-    if (cachedRecentsEl) {
-      logInfo("HOME", "recents element found", { cls: cachedRecentsEl.className.substring(0, 60) });
-      // Apply pending hide state now that we have the element
-      try { cachedRecentsEl.style.visibility = pendingHideRecents ? "hidden" : ""; cachedRecentsEl.style.height = pendingHideRecents ? "0px" : ""; cachedRecentsEl.style.overflow = pendingHideRecents ? "hidden" : ""; } catch (e) { logInfo("HOME", "ensureMount: recents hide failed", String(e)); }
-      try { mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important"); } catch (e) { logInfo("HOME", "ensureMount: margin-top failed", String(e)); }
-    }
-  }
-
+  noAnchorLogged = false;
+  let mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
+  if (!mount) mount = createMountElement(doc, anchor.parent);
+  if (!reparentMountTo(mount, anchor)) return null;
+  clearMountFailureIfRecovered();
+  refreshCachedRecentsEl(doc, mount);
   return mount;
 }
 
@@ -567,61 +616,45 @@ function HomeDomBridge() {
   return React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
 }
 
+function tryStoreMethod(store: any, method: 'addComponent' | 'register'): boolean {
+  if (typeof store[method] !== "function") return false;
+  try {
+    const dispose = store[method](GLOBAL_COMPONENT_ID, HomeDomBridge);
+    if (typeof dispose === "function") uninstallHooks.push(dispose);
+    return true;
+  } catch { return false; }
+}
+
+function tryStoreStateArray(store: any, state: any, key: 'components' | 'globalComponents'): boolean {
+  const arr = (state as any)[key];
+  if (!Array.isArray(arr)) return false;
+  const next = arr.slice();
+  next.push({ id: GLOBAL_COMPONENT_ID, component: HomeDomBridge });
+  store.setState({ ...(state as any), [key]: next });
+  uninstallHooks.push(() => {
+    try {
+      const s = store.getState?.();
+      const filtered = Array.isArray(s?.[key]) ? s[key].filter((x: any) => x?.id !== GLOBAL_COMPONENT_ID) : s?.[key];
+      store.setState({ ...(s ?? {}), [key]: filtered });
+    } catch {}
+  });
+  return true;
+}
+
+function tryStoreGetSetState(store: any): boolean {
+  if (typeof store.getState !== "function" || typeof store.setState !== "function") return false;
+  try {
+    const state = store.getState?.();
+    if (!state || typeof state !== "object") return false;
+    return tryStoreStateArray(store, state, 'components') || tryStoreStateArray(store, state, 'globalComponents');
+  } catch { return false; }
+}
+
 function registerBridgeViaStore(store: any): boolean {
   if (!store) return false;
-
-  try {
-    if (typeof store.addComponent === "function") {
-      const dispose = store.addComponent(GLOBAL_COMPONENT_ID, HomeDomBridge);
-      if (typeof dispose === "function") uninstallHooks.push(dispose);
-      return true;
-    }
-  } catch {}
-
-  try {
-    if (typeof store.register === "function") {
-      const dispose = store.register(GLOBAL_COMPONENT_ID, HomeDomBridge);
-      if (typeof dispose === "function") uninstallHooks.push(dispose);
-      return true;
-    }
-  } catch {}
-
-  try {
-    if (typeof store.getState === "function" && typeof store.setState === "function") {
-      const state = store.getState?.();
-      if (!state || typeof state !== "object") return false;
-
-      if (Array.isArray((state as any).components)) {
-        const next = (state as any).components.slice();
-        next.push({ id: GLOBAL_COMPONENT_ID, component: HomeDomBridge });
-        store.setState({ ...(state as any), components: next });
-        uninstallHooks.push(() => {
-          try {
-            const s = store.getState?.();
-            const arr = Array.isArray(s?.components) ? s.components.filter((x: any) => x?.id !== GLOBAL_COMPONENT_ID) : s?.components;
-            store.setState({ ...(s ?? {}), components: arr });
-          } catch {}
-        });
-        return true;
-      }
-
-      if (Array.isArray((state as any).globalComponents)) {
-        const next = (state as any).globalComponents.slice();
-        next.push({ id: GLOBAL_COMPONENT_ID, component: HomeDomBridge });
-        store.setState({ ...(state as any), globalComponents: next });
-        uninstallHooks.push(() => {
-          try {
-            const s = store.getState?.();
-            const arr = Array.isArray(s?.globalComponents) ? s.globalComponents.filter((x: any) => x?.id !== GLOBAL_COMPONENT_ID) : s?.globalComponents;
-            store.setState({ ...(s ?? {}), globalComponents: arr });
-          } catch {}
-        });
-        return true;
-      }
-    }
-  } catch {}
-
-  return false;
+  return tryStoreMethod(store, 'addComponent')
+      || tryStoreMethod(store, 'register')
+      || tryStoreGetSetState(store);
 }
 
 function registerBridgeViaWrapper(routerHook: any): boolean {
@@ -669,6 +702,56 @@ function registerBridgeViaRouteHook(routerHook: any): boolean {
   return false;
 }
 
+type BridgeAttempt = { signature: string; invoke: () => any };
+
+function buildAddGlobalAttempts(addGlobalComponent: Function): BridgeAttempt[] {
+  return [
+    { signature: "id,component", invoke: () => addGlobalComponent(GLOBAL_COMPONENT_ID, HomeDomBridge) },
+    { signature: "component", invoke: () => addGlobalComponent(HomeDomBridge) },
+    { signature: "object", invoke: () => addGlobalComponent({ id: GLOBAL_COMPONENT_ID, component: HomeDomBridge }) },
+  ];
+}
+
+function tryAddGlobalComponentSignatures(routerHook: any): boolean {
+  const fn = routerHook?.addGlobalComponent;
+  if (typeof fn !== "function") {
+    logWarn("HOME", "routerHook.addGlobalComponent unavailable");
+    return false;
+  }
+  for (const attempt of buildAddGlobalAttempts(fn)) {
+    try {
+      const disp = attempt.invoke();
+      if (typeof disp === "function") removeGlobalComponent = disp;
+      logInfo("HOME", "global component bridge registered", { signature: attempt.signature });
+      return true;
+    } catch {}
+  }
+  return false;
+}
+
+function registerGlobalBridge(routerHook: any): boolean {
+  if (tryAddGlobalComponentSignatures(routerHook)) return true;
+  const storeAttempts: Array<[any, string]> = [
+    [routerHook?.globalComponentsState, "globalComponentsState"],
+    [routerHook?.renderedComponents, "renderedComponents"],
+  ];
+  for (const [store, signature] of storeAttempts) {
+    if (registerBridgeViaStore(store)) {
+      logInfo("HOME", "global component bridge registered", { signature });
+      return true;
+    }
+  }
+  if (registerBridgeViaWrapper(routerHook)) {
+    logInfo("HOME", "global component bridge registered", { signature: "wrapper-patch" });
+    return true;
+  }
+  if (registerBridgeViaRouteHook(routerHook)) {
+    logInfo("HOME", "global component bridge registered", { signature: "route-hook" });
+    return true;
+  }
+  return false;
+}
+
 export function installHomePatch(_routerHook?: any) {
   if (typeof document === "undefined") return null;
   const routerHook = _routerHook;
@@ -683,59 +766,8 @@ export function installHomePatch(_routerHook?: any) {
   let bridgeRegistered = false;
 
   try {
-    const addGlobalComponent = routerHook?.addGlobalComponent;
-    if (typeof addGlobalComponent === "function") {
-      let registered = false;
-      try {
-        const maybeDispose = addGlobalComponent(GLOBAL_COMPONENT_ID, HomeDomBridge);
-        if (typeof maybeDispose === "function") removeGlobalComponent = maybeDispose;
-        registered = true;
-        logInfo("HOME", "global component bridge registered", { signature: "id,component" });
-      } catch {}
-      if (!registered) {
-        try {
-          const maybeDispose = addGlobalComponent(HomeDomBridge);
-          if (typeof maybeDispose === "function") removeGlobalComponent = maybeDispose;
-          registered = true;
-          logInfo("HOME", "global component bridge registered", { signature: "component" });
-        } catch {}
-      }
-      if (!registered) {
-        try {
-          const maybeDispose = addGlobalComponent({ id: GLOBAL_COMPONENT_ID, component: HomeDomBridge });
-          if (typeof maybeDispose === "function") removeGlobalComponent = maybeDispose;
-          registered = true;
-          logInfo("HOME", "global component bridge registered", { signature: "object" });
-        } catch {}
-      }
-      bridgeRegistered = registered;
-    } else {
-      logWarn("HOME", "routerHook.addGlobalComponent unavailable");
-    }
-
-    if (!bridgeRegistered && registerBridgeViaStore(routerHook?.globalComponentsState)) {
-      bridgeRegistered = true;
-      logInfo("HOME", "global component bridge registered", { signature: "globalComponentsState" });
-    }
-
-    if (!bridgeRegistered && registerBridgeViaStore(routerHook?.renderedComponents)) {
-      bridgeRegistered = true;
-      logInfo("HOME", "global component bridge registered", { signature: "renderedComponents" });
-    }
-
-    if (!bridgeRegistered && registerBridgeViaWrapper(routerHook)) {
-      bridgeRegistered = true;
-      logInfo("HOME", "global component bridge registered", { signature: "wrapper-patch" });
-    }
-
-    if (!bridgeRegistered && registerBridgeViaRouteHook(routerHook)) {
-      bridgeRegistered = true;
-      logInfo("HOME", "global component bridge registered", { signature: "route-hook" });
-    }
-
-    if (!bridgeRegistered) {
-      logWarn("HOME", "all global bridge strategies failed");
-    }
+    bridgeRegistered = registerGlobalBridge(routerHook);
+    if (!bridgeRegistered) logWarn("HOME", "all global bridge strategies failed");
   } catch (error) {
     logWarn("HOME", "global component bridge setup failed", String(error));
   }
@@ -745,62 +777,68 @@ export function installHomePatch(_routerHook?: any) {
   let fallbackRetries = 0;
   const MAX_FALLBACK_RETRIES = 6;
 
+  const giveUpFallback = () => {
+    logWarn("HOME", "fallback: giving up after max retries", { retries: fallbackRetries });
+    if (timer) { window.clearInterval(timer); timer = 0; }
+    observer?.disconnect();
+  };
+
+  const resolveReactDOM = (win: Window): any => {
+    return (globalThis as any).ReactDOM ?? (globalThis as any).SP_REACTDOM ?? (win as any).ReactDOM ?? (win as any).SP_REACTDOM;
+  };
+
+  const renderWithReactDOM = (ReactDOM: any, mount: HTMLElement): { unmount(): void } | null => {
+    const tree = React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
+    const renderFn = ReactDOM.createRoot ?? ReactDOM.default?.createRoot;
+    if (typeof renderFn === "function") {
+      const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
+      root.render(tree);
+      logInfo("HOME", "fallback: rendered via createRoot");
+      return root;
+    }
+    if (typeof ReactDOM.render === "function") {
+      ReactDOM.render(tree, mount);
+      logInfo("HOME", "fallback: rendered via legacy render");
+      return { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(mount); } catch {} } };
+    }
+    return null;
+  };
+
+  const ensureFallbackMount = (): HTMLElement | null => {
+    const mount = ensureMount();
+    if (mount) { fallbackRetries = 0; return mount; }
+    if (++fallbackRetries >= MAX_FALLBACK_RETRIES) giveUpFallback();
+    return null;
+  };
+
+  const shouldSkipFallbackRender = (doc: Document): boolean => {
+    const existing = doc.getElementById(ROOT_ID);
+    return existing?.dataset?.deckShelvesRenderer === "react";
+  };
+
+  const teardownPreviousFallbackRoot = (): void => {
+    if (!fallbackRoot) return;
+    try { fallbackRoot.unmount(); } catch {}
+    fallbackRoot = null;
+  };
+
+  const mountFallbackTo = (win: Window, mount: HTMLElement): void => {
+    teardownPreviousFallbackRoot();
+    const ReactDOM = resolveReactDOM(win);
+    if (!ReactDOM) { logWarn("HOME", "fallback: ReactDOM unavailable"); return; }
+    const rendered = renderWithReactDOM(ReactDOM, mount);
+    if (rendered) { fallbackRoot = rendered; fallbackMountId = mount.id; }
+  };
+
   const tryFallbackRender = () => {
     try {
       const { win, doc } = getHostContext();
-      const existing = doc.getElementById(ROOT_ID);
-      if (existing?.dataset?.deckShelvesRenderer === "react") return;
-
-      if (!isHomeVisible()) {
-        // Do NOT unmount the React tree when the home view is hidden
-        // (e.g. user navigated to a game detail page or settings).
-        fallbackRetries = 0;
-        return;
-      }
-
-      const mount = ensureMount();
-      if (!mount) {
-        if (++fallbackRetries >= MAX_FALLBACK_RETRIES) {
-          logWarn("HOME", "fallback: giving up after max retries", { retries: fallbackRetries });
-          if (timer) { window.clearInterval(timer); timer = 0; }
-          observer?.disconnect();
-        }
-        return;
-      }
-      fallbackRetries = 0; // Reset on success
-      if (mount.dataset.deckShelvesRenderer === "react") return;
-
+      if (shouldSkipFallbackRender(doc)) return;
+      if (!isHomeVisible()) { fallbackRetries = 0; return; }
+      const mount = ensureFallbackMount();
+      if (!mount || mount.dataset.deckShelvesRenderer === "react") return;
       if (fallbackRoot && fallbackMountId === mount.id) return;
-
-      if (fallbackRoot) {
-        try { fallbackRoot.unmount(); } catch {}
-        fallbackRoot = null;
-      }
-
-      const ReactDOM = (globalThis as any).ReactDOM ?? (globalThis as any).SP_REACTDOM ?? (win as any).ReactDOM ?? (win as any).SP_REACTDOM;
-      if (!ReactDOM) {
-        logWarn("HOME", "fallback: ReactDOM unavailable");
-        return;
-      }
-
-      const renderFn = ReactDOM.createRoot ?? ReactDOM.default?.createRoot;
-      if (typeof renderFn === "function") {
-        const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
-        root.render(
-          React.createElement(HomeBoundary, null, React.createElement(HomeShelves))
-        );
-        fallbackRoot = root;
-        fallbackMountId = mount.id;
-        logInfo("HOME", "fallback: rendered via createRoot");
-      } else if (typeof ReactDOM.render === "function") {
-        ReactDOM.render(
-          React.createElement(HomeBoundary, null, React.createElement(HomeShelves)),
-          mount
-        );
-        fallbackRoot = { unmount: () => { try { ReactDOM.unmountComponentAtNode?.(mount); } catch {} } };
-        fallbackMountId = mount.id;
-        logInfo("HOME", "fallback: rendered via legacy render");
-      }
+      mountFallbackTo(win, mount);
     } catch (err) {
       logWarn("HOME", "fallback render error", String(err));
     }
@@ -808,7 +846,19 @@ export function installHomePatch(_routerHook?: any) {
 
   const { win: hostWin, doc: hostDoc } = getHostContext();
   observer?.disconnect();
-  observer = new MutationObserver(() => tryFallbackRender());
+  // rAF-throttle: a body+subtree observer fires hundreds of times per
+  // second at boot while Steam's UI hydrates. Coalescing to one call per
+  // frame keeps the early-mount path responsive without losing coverage
+  // of structural DOM changes the mount detection needs to react to.
+  let fallbackPending: number | null = null;
+  const scheduleFallback = () => {
+    if (fallbackPending != null) return;
+    fallbackPending = window.requestAnimationFrame(() => {
+      fallbackPending = null;
+      tryFallbackRender();
+    });
+  };
+  observer = new MutationObserver(scheduleFallback);
   observer.observe(hostDoc.body, { childList: true, subtree: true });
 
   if (timer) window.clearInterval(timer);
@@ -823,32 +873,45 @@ export function installHomePatch(_routerHook?: any) {
 
   logInfo("HOME", "installHomePatch complete", { bridgeRegistered });
 
+  const popAllUninstallHooks = (): void => {
+    while (uninstallHooks.length) {
+      const fn = uninstallHooks.pop();
+      try { fn?.(); } catch {}
+    }
+  };
+
+  const removeBridgeRegistration = (): void => {
+    try { removeGlobalComponent?.(); removeGlobalComponent = null; } catch {}
+    try { routerHook?.removeGlobalComponent?.(GLOBAL_COMPONENT_ID); } catch {}
+    try { routerHook?.removeGlobalComponent?.(HomeDomBridge); } catch {}
+  };
+
+  const runUninstallHooks = (): void => {
+    removeBridgeRegistration();
+    popAllUninstallHooks();
+  };
+
+  const tearDownObserversAndListeners = (): void => {
+    if (timer) { window.clearInterval(timer); timer = 0; }
+    observer?.disconnect();
+    observer = null;
+    hostWin.removeEventListener("hashchange", onRouteSignal);
+    hostWin.removeEventListener("popstate", onRouteSignal);
+    globalThis.removeEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);
+  };
+
+  const tearDownFallbackRoot = (): void => {
+    try { fallbackRoot?.unmount(); } catch {}
+    fallbackRoot = null;
+    try { hostDoc.getElementById(ROOT_ID)?.remove(); } catch {}
+  };
+
   return {
     uninstall() {
       logInfo("HOME", "uninstalling home patch");
-      try {
-        removeGlobalComponent?.();
-        removeGlobalComponent = null;
-      } catch {}
-      while (uninstallHooks.length) {
-        const fn = uninstallHooks.pop();
-        try { fn?.(); } catch {}
-      }
-      try {
-        routerHook?.removeGlobalComponent?.(GLOBAL_COMPONENT_ID);
-      } catch {}
-      try {
-        routerHook?.removeGlobalComponent?.(HomeDomBridge);
-      } catch {}
-      if (timer) { window.clearInterval(timer); timer = 0; }
-      observer?.disconnect();
-      observer = null;
-      hostWin.removeEventListener("hashchange", onRouteSignal);
-      hostWin.removeEventListener("popstate", onRouteSignal);
-      globalThis.removeEventListener?.("deck-shelves-settings-changed", onRouteSignal as EventListener);
-      try { fallbackRoot?.unmount(); } catch {}
-      fallbackRoot = null;
-      try { hostDoc.getElementById(ROOT_ID)?.remove(); } catch {}
+      runUninstallHooks();
+      tearDownObserversAndListeners();
+      tearDownFallbackRoot();
     },
   };
 }

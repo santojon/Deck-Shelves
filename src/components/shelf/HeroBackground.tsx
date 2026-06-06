@@ -33,17 +33,8 @@ type NativeHeroClasses = {
 };
 
 export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
-  // The dual-hero risk (ours stacking on top of an ArtHero-family theme's
-  // own hero) is already handled at the parent: HomeInject only renders
-  // this component when `!replaceInjecting`. In that path the native
-  // recents element is `visibility: hidden, height: 0`, so ArtHero's CSS
-  // (which targets the native heroInner) isn't actually painting anything.
-  // Our hero element here is the only visible hero; via the discovered
-  // native classes below, ArtHero's mask-image fade still applies to OURS.
-  // Two stacked image slots so the new hero can fade IN while the old one
-  // fades OUT — matches the native Steam recents hero cross-fade. On each
-  // focus change we assign the new URL to the currently-inactive slot and
-  // flip `activeSlot` so only one layer is at opacity 1 at any time.
+  // Two stacked slots cross-fade as focus changes — new hero into the
+  // inactive slot, then flip `activeSlot`.
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
@@ -289,17 +280,8 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         if (needsHeroLabel) {
           const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
           setLabelHtml(labelEl ? labelEl.outerHTML : null);
-          // Align the hero label horizontally with the focused card's
-          // left edge — matches native ArtHero, where the label tracks
-          // the focused tile rather than sitting at a fixed viewport
-          // offset. Floor to 0 so the label never gets pushed off the
-          // viewport's left edge if the rect read returns negative
-          // mid-animation. The rAF read defers to AFTER `centeredScrollLeft`
-          // settles — the focusin event fires before Steam's smooth-scroll
-          // animation completes, so reading rect.left synchronously yields a
-          // stale x and the label visibly trails the card on wrap-around or
-          // matchNative remeasures. The onRowScroll listener still tracks
-          // mid-flight so the label keeps up frame-by-frame after the rAF.
+          // Align label with focused card's left edge. rAF defers to
+          // after Steam's smooth-scroll settles so rect.left isn't stale.
           requestAnimationFrame(() => {
             try {
               setLabelLeftPx(Math.max(0, Math.round(focused.getBoundingClientRect().left)));

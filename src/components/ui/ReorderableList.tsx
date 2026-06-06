@@ -1,24 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Field, Focusable, GamepadButton } from '@decky/ui';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Field, Focusable, GamepadButton } from '../../runtime/host/decky';
 import i18n from '../../i18n';
 
-// Independent reorderable list. Same public surface a caller would
-// expect (`entries`/`onSave`/`interactables`/`fieldProps`) so the QAM
-// shelves panel can drop it in without touching call sites — but the
-// internals are designed from scratch:
-//
-// - One state shape: `{ mode: 'view' | 'edit', order: T[] }`. No paired
-//   "current frame / next frame" booleans, no async setState chains.
-// - Swap is an immutable `[a,b]` splice on the order array; entry objects
-//   are never mutated, so React's reconciliation key (position index)
-//   stays stable and the focused row never loses its DOM node.
-// - Visual feedback uses a single CSS class toggled on the wrapper plus
-//   pointer-events gating. The transition is declared in a `<style>` tag
-//   scoped via a unique attribute so it doesn't leak into the rest of the
-//   QAM and so we don't ship one inline style block per rendered row.
-// - The X-button hint is read from i18n; B (CANCEL) commits and exits.
-// - Keyed by entry id (`data.id`) when present, falling back to position
-//   so unkeyed callers still work.
+// Reorderable list. State is `{ mode, order: T[] }`; swaps are
+// immutable splices keyed by entry id (falls back to position).
 
 export type ReorderableEntry<T> = {
   label: ReactNode;
@@ -69,6 +54,22 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
   // state without re-binding their closures on every reorder.
   const orderRef = useRef(state.order);
   orderRef.current = state.order;
+
+  // Per-row refs to refocus the moved row after a swap — the outer
+  // Focusable tracks focus by physical position; without an explicit
+  // .focus() the next press swaps the wrong item.
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const pendingFocusIdRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const id = pendingFocusIdRef.current;
+    if (!id) return;
+    pendingFocusIdRef.current = null;
+    const el = rowRefs.current.get(id);
+    if (!el) return;
+    const target = (el.querySelector('[tabindex]:not([tabindex="-1"]), button, [role="button"]') as HTMLElement | null) ?? el;
+    try { target.focus?.(); } catch {}
+  }, [state.order]);
 
   useEffect(() => {
     setState((prev) => ({ mode: prev.mode, order: sortByPosition(props.entries) }));
@@ -126,13 +127,18 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
               total={state.order.length}
               editing={state.mode === 'edit'}
               fieldProps={props.fieldProps}
+              rowRefs={rowRefs}
               onSwap={(direction) => {
                 const cur = orderRef.current;
                 const i = cur.findIndex((e) => e === entry || ((e.data as any)?.id !== undefined && (e.data as any)?.id === (entry.data as any)?.id));
                 if (i < 0) return;
                 const j = i + direction;
                 const next = swap(cur, i, j);
-                if (next !== cur) setState((prev) => ({ mode: prev.mode, order: next }));
+                if (next !== cur) {
+                  const movedId = (entry.data as any)?.id;
+                  if (movedId !== undefined && movedId !== null) pendingFocusIdRef.current = String(movedId);
+                  setState((prev) => ({ mode: prev.mode, order: next }));
+                }
               }}
             >
               {props.interactables ? <props.interactables entry={entry} /> : null}
@@ -150,6 +156,7 @@ function Row<T>({
   total,
   editing,
   fieldProps,
+  rowRefs,
   onSwap,
   children,
 }: {
@@ -158,10 +165,19 @@ function Row<T>({
   total: number;
   editing: boolean;
   fieldProps?: any;
+  rowRefs: { current: Map<string, HTMLDivElement> };
   onSwap: (direction: -1 | 1) => void;
   children: ReactNode;
 }) {
   const [focused, setFocused] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const entryId = (entry.data as any)?.id != null ? String((entry.data as any).id) : null;
+
+  useEffect(() => {
+    if (!entryId || !wrapperRef.current) return;
+    rowRefs.current.set(entryId, wrapperRef.current);
+    return () => { rowRefs.current.delete(entryId); };
+  }, [entryId, rowRefs]);
 
   function onDirection(e: any) {
     if (!editing) return;
@@ -171,7 +187,7 @@ function Row<T>({
   }
 
   return (
-    <div data-ds-reorder-focused={focused ? '1' : '0'}>
+    <div ref={wrapperRef} data-ds-reorder-focused={focused ? '1' : '0'}>
       <Field
         label={entry.label}
         {...fieldProps}

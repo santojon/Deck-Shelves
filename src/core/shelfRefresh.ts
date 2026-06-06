@@ -84,22 +84,39 @@ export function installShelfRefreshEmitter(): () => void {
     if (pollId !== null) { clearInterval(pollId); pollId = null; }
   });
 
-  // Subscribe to Steam app overview changes (install, uninstall, update events)
+  // AppOverviewChanges throttle (5 s leading + 1 trailing).
+  // Steam fires this on every download tick — without the throttle,
+  // a long download flooded the resolver (#66).
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
-    const reg = client?.Apps?.RegisterForAppOverviewChanges?.(() => emit());
+    const OVERVIEW_THROTTLE_MS = 5000;
+    let lastEmitAt = 0;
+    let trailingTimer: ReturnType<typeof setTimeout> | null = null;
+    const throttledEmit = () => {
+      const now = Date.now();
+      const elapsed = now - lastEmitAt;
+      if (elapsed >= OVERVIEW_THROTTLE_MS) {
+        lastEmitAt = now;
+        emit();
+        return;
+      }
+      if (trailingTimer === null) {
+        trailingTimer = setTimeout(() => {
+          trailingTimer = null;
+          lastEmitAt = Date.now();
+          emit();
+        }, OVERVIEW_THROTTLE_MS - elapsed);
+      }
+    };
+    const reg = client?.Apps?.RegisterForAppOverviewChanges?.(throttledEmit);
     if (typeof reg?.unregister === 'function') {
       cleanups.push(() => { try { reg.unregister(); } catch {} });
     }
+    cleanups.push(() => { if (trailingTimer !== null) { clearTimeout(trailingTimer); trailingTimer = null; } });
   } catch {}
 
-  // Subscribe to game launches so the `appStatus = running` filter picks up
-  // the new state without waiting for the 30s fallback poll. Steam fires
-  // multiple events per launch (initiated → process started → ready), so
-  // the work is debounced — coalescing the burst into a single invalidate +
-  // emit. Without the debounce, every event triggered a full re-resolve and
-  // every shelf briefly showed the cold-load spinner (visible to the user
-  // as an empty gap between shelves on each launch).
+  // GameActionStart debounce: Steam fires multiple events per launch
+  // (initiated → started → ready). Coalesce to one invalidate + emit.
   try {
     const client = (globalThis as any).SteamClient ?? (window as any).SteamClient;
     let gameActionTimer: ReturnType<typeof setTimeout> | null = null;
@@ -107,11 +124,8 @@ export function installShelfRefreshEmitter(): () => void {
       if (gameActionTimer !== null) clearTimeout(gameActionTimer);
       gameActionTimer = setTimeout(() => {
         gameActionTimer = null;
-        // Lazy-import keeps shelfRefresh.ts decoupled from the resolver
-        // module (avoids a circular dep between core/ and steam/). Cache
-        // invalidation is required so the next overview read sees the live
-        // `display_status` (Running / Launching) instead of the 10s-stale
-        // snapshot.
+        // Lazy import avoids a core/↔steam/ circular dep; invalidate
+        // so the next read sees the live display_status.
         import("../steam").then(({ invalidateAppOverviewCache }) => {
           try { invalidateAppOverviewCache(); } catch {}
           emit();

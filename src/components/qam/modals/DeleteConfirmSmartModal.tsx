@@ -1,4 +1,4 @@
-import { ConfirmModal } from '@decky/ui'
+import { ConfirmModal } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SmartShelf } from '../../../types'
 

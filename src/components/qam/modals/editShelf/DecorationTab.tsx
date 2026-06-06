@@ -15,17 +15,8 @@ import { resolveLocalImage, subscribeLocalImage } from '../../../../core/localIm
 //     focus moves to the first field inside, ↑/↓ now walks through the
 //     card's fields. B collapses the block back to the summary view.
 //
-// Per-row rules tracked live so the user can see what's available:
-//   - text XOR image (radio-style mode switch)
-//   - URL link only meaningful when text or image is set (disabled
-//     otherwise — schema rejects link without content)
-//   - placeholder toggle independent
-//   - heroImage only meaningful when there is base content
-//   - shadowMode only meaningful when the card is focusable (has link)
-//   - position is NOT editable here; new cards land at the slot the
-//     user has focused in the preview, and the order is owned by the
-//     manual-order grid (auto-engaged when the first decoration is
-//     added)
+// Per-row rules: text XOR image; link/heroImage/shadowMode only with
+// base content; position is managed by the manual-order grid.
 type SyntheticCardInput = {
   position: number
   image?: string

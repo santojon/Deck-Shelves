@@ -6,9 +6,41 @@ Thank you for your interest in contributing! This guide covers the development s
 
 - **Node.js** 20 or later
 - **pnpm** 10 or later
-- **Python 3** (for the backend)
+- **Python 3.9+** (for the backend, lint and devtools)
 - A **Steam Deck** with [Decky Loader](https://decky.xyz) installed (for testing)
 - SSH access to the Deck on your local network
+
+## Supported platforms
+
+The dev / build / validation flows run on **Linux, macOS, and Windows**.
+
+| Workflow                                       | Linux | macOS | Windows |
+|------------------------------------------------|:-----:|:-----:|:-------:|
+| `pnpm install`                                 |  ✅  |  ✅   |   ✅    |
+| `pnpm run build` / `build:release`             |  ✅  |  ✅   |   ✅    |
+| `pnpm run typecheck`                           |  ✅  |  ✅   |   ✅    |
+| `pnpm run test`                                |  ✅  |  ✅   |   ✅    |
+| `pnpm run lint`                                |  ✅  |  ✅   |   ✅    |
+| `pnpm run dev:check` (typecheck + lint + test) |  ✅  |  ✅   |   ✅    |
+| `pnpm run validate:compat`                     |  ✅  |  ✅   |   ⚠️    |
+| `pnpm run package` / `verify:package`          |  ✅  |  ✅   |   ⚠️    |
+| `pnpm run deploy:deck*`                        |  ✅  |  ✅   |   ❌    |
+| `pnpm run devtools:*` (CDP)                    |  ✅  |  ✅   |   ✅    |
+
+- ⚠️ Windows works when **Git for Windows** (provides Git Bash) or **WSL**
+  is installed — the orchestrator (`scripts/build/validate-compat.mjs`)
+  detects `bash` on PATH and routes through it.
+- ❌ Deck-operator scripts (SSH, rsync, sudo) need a POSIX shell + ssh
+  client; Windows users should run them under WSL.
+
+### Windows quickstart
+
+1. Install [Node.js 20+](https://nodejs.org/), [Git for Windows](https://git-scm.com/download/win),
+   and [Python 3.9+](https://www.python.org/).
+2. From Git Bash (or PowerShell): `corepack enable && pnpm install`.
+3. `pnpm run dev:check` to verify the OS-independent path works.
+4. For the full pre-commit suite (`validate:compat`, `package`), use Git Bash
+   so `bash` is available.
 
 ## Getting Started
 

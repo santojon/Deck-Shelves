@@ -10,9 +10,10 @@ import { createDeckyPlatform } from "../runtime/deckyPlatform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
+import { ROOT_ID, seededShuffle, isHomeRoute, hasHomeDomSignals, detectNavTreeApi, findOrCreateMount } from "./home/mountUtils";
 import { applyHideRecents, reapplyHomeHides, applyHideHomeTabs, getMountFailed } from "../runtime/homePatch";
 import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplaceInjecting, subscribeRecentsReplaceInjecting, getRecentsReplaceActiveShelfId } from "../runtime/recentsReplace";
-import { Focusable } from "@decky/ui";
+import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
@@ -22,13 +23,8 @@ import { isInVisibilityWindow, nextVisibilityBoundary, getModeVisibilityWindows,
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
+import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 
-// Fallback for the native shelf-section token when the runtime classmap
-// hasn't been populated yet. Mirrors `FALLBACK_SHELF_SECTION` in
-// `runtime/homePatch.tsx`.
-const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
-
-const ROOT_ID = "deck-shelves-home-root";
 const homePlatform = createDeckyPlatform();
 
 const SURPRISE_MODES: SmartShelfMode[] = [
@@ -37,196 +33,7 @@ const SURPRISE_MODES: SmartShelfMode[] = [
   "non_steam", "spare_time", "time_of_day", "rediscover", "forgotten",
 ];
 
-function seededShuffle<T>(arr: T[], seed: number): T[] {
-  const out = [...arr];
-  let s = (seed | 0) >>> 0;
-  for (let i = out.length - 1; i > 0; i--) {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    const j = s % (i + 1);
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
-
-// Navigation patches (reparentNavTreeNodes, patchMenuButton, patchShelfEdgeNavigation)
-// are in ./home/navPatches.ts
-
-function isHomeRoute(): boolean {
-  // Steam Deck 3.9: the BigPicture window stays at `/index.html` regardless
-  // of the React Router route, while the SharedJSContext window carries the
-  // real `/routes/library/home` path. Inspecting only the preferred window
-  // would lock the result to one of those two truths. Walk every known Steam
-  // window so we catch whichever one is currently tracking the route.
-  const wins: Window[] = [];
-  try { wins.push(getPreferredSteamWindow()); } catch {}
-  try { for (const d of getAllSteamDocuments()) { const w = d.defaultView; if (w && !wins.includes(w)) wins.push(w); } } catch {}
-  for (const win of wins) {
-    try {
-      const href = `${win.location?.pathname ?? ""}${win.location?.hash ?? ""}`.toLowerCase();
-      // Strict: only the actual home route (`/routes/library/home`) counts.
-      // The previous permissive "any /library that isn't /app/ or /collections"
-      // check matched library tabs (e.g. `/routes/library/games`), so leaving
-      // home for the library tab kept `wasOnHome` true — and the B-return
-      // never crossed the `nowOnHome && !wasOnHome` edge, so the focus
-      // restore never fired.
-      if (href.includes("/library/home")) return true;
-    } catch {}
-  }
-  return false;
-}
-
-function hasHomeDomSignals(): boolean {
-  const doc = getPreferredSteamDocument();
-  if (!doc) return false;
-  if (doc.querySelector('[class*="libraryhome"], [class*="LibraryHome"], [class*="BasicHomeView"], [class*="gamepadlibrary"]')) return true;
-  if (doc.querySelector('[aria-label="Jogos recentes"], [aria-label="Recent Games"], [class*="ReactVirtualized__Grid"][aria-label]')) return true;
-  try {
-    const token = getRuntimeClassMap(doc)?.shelfSection || FALLBACK_SHELF_SECTION;
-    if (doc.querySelector(`div.${token}, [class*="${token}"]`)) return true;
-  } catch (e) { logInfo("HOME", "hasHomeDomSignals: class selector failed", String(e)); }
-  return false;
-}
-
-function detectNavTreeApi(): { available: boolean; detail: string } {
-  try {
-    const ctrl = (globalThis as any).FocusNavController
-      ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;
-    if (!ctrl) return { available: false, detail: 'no FocusNavController' };
-    const ctx = ctrl.m_ActiveContext || ctrl.m_LastActiveContext;
-    const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
-    const main = trees.find((t: any) => t.m_ID === "GamepadUI_Full_Root");
-    if (!main) return { available: false, detail: 'no GamepadUI_Full_Root tree' };
-    const root = main.Root || main.m_Root;
-    if (!root) return { available: false, detail: 'no Root on main tree' };
-    if (!Array.isArray(root.m_rgChildren)) return { available: false, detail: 'm_rgChildren unavailable' };
-    return { available: true, detail: `${root.m_rgChildren.length} root children` };
-  } catch (e) {
-    return { available: false, detail: String(e) };
-  }
-}
-
-function resolveAnchor(doc?: Document): { parent: HTMLElement; before: ChildNode | null } | null {
-  doc = doc ?? getPreferredSteamDocument();
-  if (!doc) return null;
-
-  // Strategy: find the "Recent Games" section, then walk UP to the scrollable
-  // viewport and insert as a direct child AFTER the Recent Games chain.
-  // This prevents our mount from expanding the native section and overlapping
-  // subsequent native content (e.g., "What's New" tabs).
-  const recentLabels = ["jogos recentes", "recent games", "recently played", "jogados recentemente"];
-  const candidates = Array.from(doc.querySelectorAll('[role="list"],[aria-label],[class*="ReactVirtualized__Grid"]'));
-  for (const node of candidates) {
-    const txt = `${(node.getAttribute?.("aria-label") || "")} ${(node.textContent || "")}`.toLowerCase();
-    if (!recentLabels.some((l) => txt.includes(l))) continue;
-    // Walk up to the scrollable viewport ancestor
-    let container: HTMLElement | null = node as HTMLElement;
-    for (let i = 0; i < 12 && container; i++) {
-      const p: HTMLElement | null = container.parentElement;
-      if (!p || p === doc.body) break;
-      try {
-        // Use the element's own window for getComputedStyle so cross-doc
-        // anchoring (BigPicture vs SharedJSContext) still resolves overflow.
-        const win = p.ownerDocument?.defaultView ?? getPreferredSteamWindow();
-        const cs = win.getComputedStyle(p);
-        const oy = (cs.overflowY || '').toLowerCase();
-        if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) {
-          // Found the scrollable viewport — insert after the current container
-          return { parent: p, before: container.nextSibling };
-        }
-      } catch (e) { logInfo("HOME", "resolveAnchor: getComputedStyle failed", String(e)); }
-      container = p;
-    }
-    // Fallback: find first ancestor with multiple children
-    container = node as HTMLElement;
-    for (let i = 0; i < 6 && container; i++) {
-      const p: HTMLElement | null = container.parentElement;
-      if (!p || p === doc.body) break;
-      if (p.childElementCount > 1) {
-        return { parent: p, before: container.nextSibling };
-      }
-      container = p;
-    }
-  }
-
-  const chipLabels = ["what's new", "friends", "recommended", "novidades", "amigos", "recomendados"];
-  for (const node of Array.from(doc.querySelectorAll('button, [role="tab"]'))) {
-    const text = (node.textContent || "").trim().toLowerCase();
-    if (!chipLabels.includes(text)) continue;
-    let row: HTMLElement | null = node.parentElement as HTMLElement;
-    while (row && row.childElementCount <= 1 && row !== doc.body) row = row.parentElement;
-    if (row?.parentElement && row !== doc.body) return { parent: row.parentElement, before: row };
-  }
-
-  const containers = Array.from(doc.querySelectorAll('[class*="gamepadlibrary"],[class*="libraryhome"],[class*="BasicHomeView"],main,[role="main"]'));
-  for (const node of containers) {
-    if (node instanceof HTMLElement) return { parent: node, before: node.firstChild };
-  }
-
-  return null;
-}
-
-// Holds the last mount we created so we can re-insert THE SAME element back
-// into the DOM after Steam blows it away during navigation. Reusing the same
-// node keeps React's portal target stable — no unmount/remount of children,
-// so per-shelf data, focus state, nav-tree registration, and ArtHero
-// data-attribute all survive the brief detach.
-let lastCreatedMount: HTMLElement | null = null;
-
-function findOrCreateMount(): HTMLElement | null {
-  // SteamOS 3.9: `preferredSteamWindow` can get stuck on the SharedJSContext
-  // while the visual DOM lives in the BigPicture main window. Sweeping every
-  // known Steam doc — preferred first for 3.7 fast-path parity — guarantees
-  // we re-attach to whichever doc actually carries the home anchor when our
-  // mount gets blown away by Steam re-renders.
-  const preferred = getPreferredSteamDocument();
-  const allDocs = getAllSteamDocuments();
-  const seen = new Set<Document>();
-  const docs: Document[] = [];
-  const push = (d: Document | null | undefined) => {
-    if (d && !seen.has(d)) { seen.add(d); docs.push(d); }
-  };
-  push(preferred);
-  for (const d of allDocs) push(d);
-
-  // 1) Reuse a still-connected mount in any known doc (covers cases where
-  //    the mount survives in BigPic but preferred points at SWC).
-  for (const d of docs) {
-    const existing = d.getElementById(ROOT_ID) as HTMLElement | null;
-    if (existing?.isConnected) return existing;
-  }
-
-  // 2) Mount was detached but element ref is still alive — re-insert THE SAME
-  //    element into the first doc with a valid anchor. React's portal keeps
-  //    rendering into it; the brief detach is invisible to the React subtree.
-  if (lastCreatedMount && !lastCreatedMount.isConnected) {
-    for (const d of docs) {
-      const anchor = resolveAnchor(d);
-      if (!anchor || anchor.parent === d.body) continue;
-      // If the cached element belongs to a different doc, adoptNode keeps it
-      // usable in the new doc — Steam doc instances share a window in 3.7 so
-      // this is normally a no-op; in 3.9 the cross-doc case is harmless.
-      try { if (lastCreatedMount.ownerDocument !== d) d.adoptNode(lastCreatedMount); } catch {}
-      anchor.parent.insertBefore(lastCreatedMount, anchor.before);
-      return lastCreatedMount;
-    }
-  }
-
-  // 3) Otherwise create a new mount in the first doc whose `resolveAnchor`
-  //    yields a usable insertion point.
-  for (const d of docs) {
-    const anchor = resolveAnchor(d);
-    if (!anchor || anchor.parent === d.body) continue;
-    const mount = d.createElement("div");
-    mount.id = ROOT_ID;
-    mount.style.cssText = "width:100%;display:block;position:relative;z-index:0;margin:0;padding:0;";
-    anchor.parent.insertBefore(mount, anchor.before);
-    lastCreatedMount = mount;
-    logInfo("HOME", "mount created", { parent: anchor.parent.tagName });
-    return mount;
-  }
-  return null;
-}
+// Mount + anchor + home-detection helpers live in ./home/mountUtils.
 
 export function HomeShelves() {
   const { t } = useTranslation();
@@ -325,13 +132,8 @@ export function HomeShelves() {
       const nowOnHome = isHomeRoute();
       if (nowOnHome && !wasOnHome) {
         updateMount();
-        // NOTE: deliberately NOT calling `triggerShelfRefresh()` here.
-        // The user briefly left for library/details — shelf data hasn't
-        // meaningfully changed, and triggering a global refresh forces
-        // every online shelf to re-fetch over HTTP, producing a visible
-        // reload cascade on every B-return. Steam app/collection change
-        // events still drive automatic refreshes; the 30 s fallback poll
-        // handles drift.
+        // No triggerShelfRefresh here — B-return shouldn't force a
+        // global online re-fetch.
         // Steam re-renders BOTH native recents AND home tabs on every route
         // entry back to home (B from library, etc.). The freshly mounted
         // siblings arrive without our hides, so they flash back into view.
@@ -649,19 +451,11 @@ export function HomeShelves() {
     }
   }
 
-  // Placement logic:
-  //  - atBottom: normal first, then smart
-  //  - hideRecents + NOT replace-injecting: DOM order is [...normal, ...smart]
-  //    so a normal shelf is always the first DOM child (Opção B can promote
-  //    it into the recents slot — smart shelves are heuristic and may
-  //    render `null`, so they must never be ahead of any normal in the DOM).
-  //    Visual order is restored via CSS `order` further down: promoted
-  //    normal at order 0, smart at order 1, remaining normals at order 2 —
-  //    yields the user-intended [firstNormal, smart, restNormal] interleave
-  //    even when the first normal happens to render empty.
-  //  - replace-injecting or default: smart first (or last if atBottom), then normal
-  //    (when replace-injecting, shelf1 is already in the native recents slot; normalShelves
-  //     already has it removed, so the "after first" special case must not apply)
+  // Placement:
+  // - atBottom: normal then smart
+  // - hideRecents + !replace-injecting: normal then smart in DOM, CSS
+  //   `order` restores visual interleave
+  // - else: smart then normal
   const normalFirst = settings.smartShelvesAtBottom
     || (settings.hideRecents === true && !(replaceInjecting && !replaceKillSwitch));
   const shelves: Shelf[] = normalFirst
@@ -710,14 +504,9 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     // Steam can rebuild our nav node's parent without touching our DOM
     // subtree (e.g. when native home re-registers focusables around us).
     const applyPatches = () => {
-      // Each install runs in its own try so a throw inside one doesn't
-      // skip the rest. Several of these patches install module-level
-      // hooks on shared DFL/Steam objects (e.g. `dfl.showContextMenu` is
-      // reassigned), and one of those reassignments can fail intermittently
-      // — when the chain was wrapped in a single try/catch, that one
-      // failure silently dropped every subsequent install, including
-      // `installLibraryContextMenuPatch`, which is the entry point for
-      // injecting DS items into game menus across all game types.
+      // Per-install try/catch: a single shared try would silently drop
+      // every later install on the first failure (regression seen with
+      // installLibraryContextMenuPatch, the menu-injection entry point).
       try { reparentNavTreeNodes(mountEl); } catch (e) { logInfo("HOME", "reparentNavTreeNodes failed", String(e)); }
       try { patchShelfEdgeNavigation(mountEl); } catch (e) { logInfo("HOME", "patchShelfEdgeNavigation failed", String(e)); }
       try { patchMenuButton(); } catch (e) { logInfo("HOME", "patchMenuButton failed", String(e)); }
@@ -735,17 +524,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     applyPatches();
     if (hasPendingFocus()) beginFocusRestoreLoop();
 
-    // rAF-throttled wrappers for the high-frequency callers below.
-    // Before: every subtree mutation (shimmer pulse, focus class flip,
-    // online-shelf label text resolution, img onload class) and every
-    // document-level focusin synchronously ran the full `applyPatches`
-    // (8 install functions including reparentNavTreeNodes which walks
-    // the entire gamepad nav tree). On a populated home with hero
-    // animations, this fired hundreds of times per second and was the
-    // main source of "como se algo estivesse rodando na mesma thread
-    // da UI, travando o sistema". Coalescing to one call per frame
-    // brings the cost down to ~60/sec while still catching every
-    // structural change Steam triggers between frames.
+    // rAF-throttle the high-frequency callers so applyPatches runs
+    // at most once per frame instead of per-mutation.
     let applyPending: number | null = null;
     const scheduleApplyPatches = () => {
       if (applyPending != null) return;
@@ -763,14 +543,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       });
     };
 
-    // Lazy-load assist for the `LibraryContextMenu` webpack chunk.
-    // applyHideRecents now keeps native recents OFF-SCREEN (position
-    // absolute at -99999px) instead of display:none, so React keeps the
-    // cards mounted and Steam's chunk loader registers the menu class.
-    // These retries cover slow boots where the chunk arrives after the
-    // initial mutation-observer pass — without them a cold deck can land
-    // on the boot's first menu open before the patch installs, falling
-    // back to root injection.
+    // Menu-class chunk arrives async on cold boot; retries here cover
+    // the window before the chunk loader registers it.
     const menuPatchRetries = [400, 1000, 2000, 4000, 8000, 15000];
     const menuRetryTimers: ReturnType<typeof setTimeout>[] = [];
     const tryInstall = () => {
@@ -780,15 +554,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     for (const d of menuPatchRetries) {
       menuRetryTimers.push(setTimeout(tryInstall, d));
     }
-    // Proactive extraction via `prewarmMenuExtraction` was removed: it
-    // invoked the native `onMenuButton` handler on mount, which briefly
-    // opened a real Steam context menu on the home screen — users saw
-    // this as "the menu button being pressed by itself" right after
-    // Steam restart. Extraction still happens lazily on the first user
-    // MENU press (inside `showGameMenu`), and the passive hooks
-    // (`installPassiveMenuHook` / `installPassiveShowContextMenuHook`)
-    // keep capturing opportunistically when Steam itself renders a
-    // native menu (e.g. in the library game detail view).
+    // prewarmMenuExtraction was removed (opened a real menu on boot).
+    // Extraction now happens lazily on the first user MENU press.
 
     // Observer 1: mutations inside our mount (shelf render, collapse/expand)
     const obs = new MutationObserver(scheduleApplyPatches);
@@ -931,30 +698,16 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
 
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Which shelf id is actually the first rendered `.ds-shelf` right now —
-  // updated by a MutationObserver on the mount. Needed because the first
-  // entry in the `shelves` array may render `null` (e.g. a filter resolves
-  // to 0 apps), so "first in the array" ≠ "first on screen". Only the
-  // first on-screen shelf should be promoted to the native-recents slot
-  // when `hideRecentsSetting` is on — via `forceExpanded`.
-  // Smart shelves are never promoted to the recents slot — they appear and
-  // disappear based on heuristics, so handing them the recents-slot styling
-  // would make the slot's identity flicker. Only normal (user-defined)
-  // shelves are eligible for promotion.
+  // First rendered .ds-shelf id (tracked by MO since shelves[0] may
+  // render null). Only normal shelves get the recents-slot promotion;
+  // smart shelves are excluded to avoid heuristic-driven flicker.
   const [firstVisibleId, setFirstVisibleId] = useState<string | null>(null);
   useEffect(() => {
     if (!hideRecentsSetting) { setFirstVisibleId(null); return; }
     const rootEl = rootRef.current;
     if (!rootEl) return;
-    // Walk shelves in CONFIG order (not DOM order) and pick the first
-    // non-smart shelf that's currently rendering content. Two reasons:
-    //   1. Skip empty/unresolved shelves so a 0-apps first shelf does not
-    //      get promoted while another shelf's content sits below with the
-    //      empty shelf's title still nominally claiming the slot.
-    //   2. Keep the candidate stable regardless of which shelf finishes
-    //      resolving first — pure DOM-order scans pick the fastest
-    //      resolver, which often is a non-Steam / smaller shelf instead of
-    //      the user's intended first shelf.
+    // Config-order pick, not DOM-order: skip empty shelves; keep
+    // stable across resolver finish-order.
     const scan = () => {
       const renderedIds = new Set(
         Array.from(rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]'))
@@ -970,38 +723,13 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     return () => obs.disconnect();
   }, [hideRecentsSetting, shelves]);
 
-  // CSS Loader compat — narrow scope by design.
-  //
-  // Themes that restyle the UNIVERSAL shelf surface (card shape, transitions,
-  // generic animations) target classes our cards inherit naturally from
-  // React/Decky (`Panel`, `Focusable`, plus the hashed component tokens) —
-  // those themes already reach every DS shelf at all times without any
-  // intervention from us.
-  //
-  // Themes that restyle the RECENTS WRAPPER (hero art height, banner mode,
-  // ArtHero family etc.) target the obfuscated class on the parent of the
-  // native recents block. Our shelves don't carry that class — so when the
-  // user hides native recents we promote ONLY the first visible shelf into
-  // that selector space by adding `data-ds-recents-slot` + the live wrapper
-  // class read from `mountEl.previousElementSibling`.
-  //
-  // Invariants enforced by the guard chain below — do NOT loosen without
-  // updating `checks/plugins/cssloader/arthero.sh`:
-  //   1. Promotion only when `hideRecentsSetting` is true.
-  //   2. Promotion only on the FIRST visible shelf (`firstVisibleId`)
-  //      UNLESS `forceCssLoaderThemes` is on — in that case ALL visible
-  //      DS shelves get the same wrapper-class + `data-ds-recents-slot`
-  //      promotion so theme rules targeting the native recents wrapper
-  //      reach every shelf, not just the first.
-  //   3. Promotion only when at least one CSS Loader theme is active.
-  //   4. Class assignment is purely additive — `ds-*` is never stripped.
+  // CSS Loader recents-wrapper promotion. When user hides native
+  // recents we promote the first visible shelf into the recents
+  // selector space via data-ds-recents-slot + the live wrapper class.
+  // forceCssLoaderThemes promotes ALL shelves. Class assignment is
+  // additive only — invariants enforced in arthero.sh.
 
-  // Bumped when CSS Loader transitions from inactive→active. Used as a dep
-  // of the recents-slot promotion useEffect below so it re-fires when CSS
-  // Loader injects its chunks AFTER the initial mount — without this, a
-  // cold Steam restart with hideRecents+ArtHero often misses the promotion
-  // window (the effect's first run sees `isCssLoaderActive=false` and
-  // bails; its other deps don't include CSS Loader state).
+  // Re-fires the recents-slot promotion when CSS Loader injects late.
   const [cssLoaderTick, setCssLoaderTick] = useState(0);
 
   useEffect(() => {
@@ -1211,6 +939,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
       style={{ width: "100%", display: "flex", flexDirection: "column", paddingBottom: 8, marginBottom: 24, position: "relative" }}
     >
       {orderedShelves.map((shelf: any) => <ShelfView key={shelf.id} shelf={shelf} globalMatchNativeSize={globalMatchNativeSize} globalHighlightFirst={globalHighlightFirst} globalHighlightAll={globalHighlightAll} globalHideStatusLine={globalHideStatusLine} globalHideNewBadge={globalHideNewBadge} globalHideDiscountBadge={globalHideDiscountBadge} globalHideCompatIcons={globalHideCompatIcons} globalHideNonSteamBadge={globalHideNonSteamBadge} globalHideShelfTitle={globalHideShelfTitle} globalHideGameNames={globalHideGameNames} globalHideInstallIndicator={globalHideInstallIndicator} globalHideSeeMore={globalHideSeeMore} globalHideRefreshCard={globalHideRefreshCard} globalDedupeByName={globalDedupeByName} globalHeroEnabled={globalHeroEnabled} heroForced={perShelfHeroAllowed && shelfHeroBackground && shelf.id === firstVisibleId} heroLabelMount={perShelfHeroAllowed && (forceCssLoaderThemes || (hideRecentsSetting && shelf.id === firstVisibleId))} forceExpanded={hideRecentsSetting && shelf.id === firstVisibleId} forceLayoutAsRecents={forceCssLoaderThemes && !(hideRecentsSetting && shelf.id === firstVisibleId)} />)}
+      <BadgeFocusOverlay />
     </Focusable>
   );
 }

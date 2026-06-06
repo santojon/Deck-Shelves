@@ -69,10 +69,7 @@ function uniqApps(list: AppOverview[]): AppOverview[] {
 
 let lastNoAppsWarnAt = 0;
 let appOverviewCache: { ts: number; items: AppOverview[] } | null = null;
-// In-flight de-duplication: when many shelves resolve concurrently before the
-// 10s cache is populated (typical on cold mount / resume), each used to fire
-// its own GetAllAppOverviews chain. Now the second-and-later concurrent
-// callers await the first call's promise instead of duplicating the work.
+// In-flight de-dup: concurrent callers await the first promise.
 let appOverviewPending: Promise<AppOverview[]> | null = null;
 
 export function invalidateAppOverviewCache(): void {
@@ -177,31 +174,21 @@ function collectTextMarkers(value: any): string[] {
   return out;
 }
 
+const APP_COLLECTION_MARKER_KEYS = [
+  "collection", "collection_id", "collectionId",
+  "collection_name", "collectionName",
+  "tab", "tab_name",
+  "category", "category_name",
+  "tags", "rgTags", "m_rgTags",
+  "collections", "m_rgCollections",
+  "categories", "m_rgCategories",
+];
+
 function appMatchesCollectionMarker(app: AppOverview, markers: Set<string>): boolean {
   if (!markers.size) return false;
-  const candidateValues: any[] = [];
   const appAny = app as any;
-  candidateValues.push(
-    appAny?.collection,
-    appAny?.collection_id,
-    appAny?.collectionId,
-    appAny?.collection_name,
-    appAny?.collectionName,
-    appAny?.tab,
-    appAny?.tab_name,
-    appAny?.category,
-    appAny?.category_name,
-    appAny?.tags,
-    appAny?.rgTags,
-    appAny?.m_rgTags,
-    appAny?.collections,
-    appAny?.m_rgCollections,
-    appAny?.categories,
-    appAny?.m_rgCategories,
-  );
-
-  for (const value of candidateValues) {
-    for (const marker of collectTextMarkers(value)) {
+  for (const key of APP_COLLECTION_MARKER_KEYS) {
+    for (const marker of collectTextMarkers(appAny?.[key])) {
       if (markers.has(marker)) return true;
     }
   }
@@ -225,31 +212,27 @@ const PLUGIN_CONTEXT_CACHE_TTL = 8000;
  *
  * Uses iterative DFS to avoid stack overflow.
  */
+function hasTabMasterShape(o: any): boolean {
+  return !!o && typeof o === 'object' && (Array.isArray(o.visibleTabsList) || o.tabsMap instanceof Map);
+}
+
+function extractTabMasterFromFiberValue(val: any): any | null {
+  if (!val || typeof val !== 'object' || Array.isArray(val)) return null;
+  if (hasTabMasterShape(val)) return val;
+  if (hasTabMasterShape(val.tabMasterManager)) return val.tabMasterManager;
+  return null;
+}
+
 function walkFiberForTabMasterContext(startFiber: any): any | null {
   if (!startFiber) return null;
   const stack: any[] = [startFiber];
   const visited = new WeakSet();
-
   while (stack.length > 0) {
     const fiber = stack.pop();
     if (!fiber || visited.has(fiber)) continue;
     visited.add(fiber);
-
-    const val = fiber.memoizedProps?.value;
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
-      // TabMaster's PublicTabMasterContext has visibleTabsList at the top level
-      const hasList = Array.isArray(val.visibleTabsList);
-      const hasMap = val.tabsMap instanceof Map;
-      if (hasList || hasMap) return val;
-      // Also check val.tabMasterManager for alternative shapes
-      const tm = val.tabMasterManager;
-      if (tm && typeof tm === 'object') {
-        const tmHasList = Array.isArray(tm.visibleTabsList);
-        const tmHasMap = tm.tabsMap instanceof Map;
-        if (tmHasList || tmHasMap) return tm;
-      }
-    }
-
+    const found = extractTabMasterFromFiberValue(fiber.memoizedProps?.value);
+    if (found) return found;
     if (fiber.child) stack.push(fiber.child);
     if (fiber.sibling) stack.push(fiber.sibling);
   }
@@ -263,46 +246,39 @@ function walkFiberForTabMasterContext(startFiber: any): any | null {
  * Decky mounts each plugin in a separate React root (separate ReactDOM.render
  * call). We must search ALL roots, not just the first one found.
  */
+function findTabMasterValueInDoc(doc: Document): any | null {
+  const visitedRoots = new WeakSet<object>();
+  for (const el of Array.from(doc.querySelectorAll('*'))) {
+    const fiberKey = Object.keys(el).find(
+      (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
+    );
+    if (!fiberKey) continue;
+    let fiber = (el as any)[fiberKey];
+    if (!fiber) continue;
+    while (fiber.return) fiber = fiber.return;
+    const rootFiber = fiber.stateNode?.current ?? fiber;
+    if (visitedRoots.has(rootFiber)) continue;
+    visitedRoots.add(rootFiber);
+    const found = walkFiberForTabMasterContext(rootFiber);
+    if (found) return found;
+  }
+  return null;
+}
+
 export function findTabMasterContextValue(): any | null {
   const now = Date.now();
   if (pluginContextCache && now - pluginContextCache.ts < PLUGIN_CONTEXT_CACHE_TTL) {
     return pluginContextCache.value;
   }
-
   let value: any | null = null;
   try {
-    const hostWindows = getSteamWindows();
     const docs = Array.from(
-      new Set([getPreferredSteamDocument(), ...hostWindows.map((w: any) => w?.document)].filter(Boolean))
+      new Set([getPreferredSteamDocument(), ...getSteamWindows().map((w: any) => w?.document)].filter(Boolean))
     ) as Document[];
-
-    outer:
     for (const doc of docs) {
-      try {
-        const visitedRoots = new WeakSet<object>();
-        // No element limit — TabMaster's Decky React root container may be
-        // arbitrarily deep in the document, well beyond any fixed slice.
-        const allEls = Array.from(doc.querySelectorAll('*'));
-        for (const el of allEls) {
-          const fiberKey = Object.keys(el).find(
-            (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
-          );
-          if (!fiberKey) continue;
-          let fiber = (el as any)[fiberKey];
-          if (!fiber) continue;
-          // Walk to the root of this React tree
-          while (fiber.return) fiber = fiber.return;
-          const rootFiber = fiber.stateNode?.current ?? fiber;
-          if (visitedRoots.has(rootFiber)) continue;
-          visitedRoots.add(rootFiber);
-          // Search this entire React tree
-          value = walkFiberForTabMasterContext(rootFiber);
-          if (value) break outer;
-        }
-      } catch {}
+      try { value = findTabMasterValueInDoc(doc); if (value) break; } catch {}
     }
   } catch {}
-
   pluginContextCache = { ts: now, value };
   return value;
 }
@@ -314,34 +290,31 @@ export const findCustomFiltersContextValue = findTabMasterContextValue;
  * Extracts the list of visible library tabs from TabMaster's React context.
  * Returns an empty array if TabMaster is not installed or has no tabs.
  */
+function pushTabIfNew(out: PlatformTab[], seen: Set<string>, id: string, name: string): void {
+  if (!id || !name || seen.has(id)) return;
+  seen.add(id);
+  out.push({ id, name });
+}
+
+function tabIdFrom(container: any, fallbackKey?: string): string {
+  return String(container?.id ?? fallbackKey ?? "").trim();
+}
+
+function tabNameFrom(container: any): string {
+  return String(container?.title ?? container?.name ?? "").trim();
+}
+
 function getCustomFiltersList(): PlatformTab[] {
   const ctx = findTabMasterContextValue();
   if (!ctx) return [];
   const out: PlatformTab[] = [];
   const seen = new Set<string>();
-
   if (Array.isArray(ctx.visibleTabsList)) {
-    for (const container of ctx.visibleTabsList) {
-      const id = String(container?.id ?? "").trim();
-      const name = String(container?.title ?? container?.name ?? "").trim();
-      if (id && name && !seen.has(id)) {
-        seen.add(id);
-        out.push({ id, name });
-      }
-    }
+    for (const container of ctx.visibleTabsList) pushTabIfNew(out, seen, tabIdFrom(container), tabNameFrom(container));
   }
-
   if (ctx.tabsMap instanceof Map) {
-    ctx.tabsMap.forEach((container: any, key: string) => {
-      const id = String(container?.id ?? key ?? "").trim();
-      const name = String(container?.title ?? container?.name ?? "").trim();
-      if (id && name && !seen.has(id)) {
-        seen.add(id);
-        out.push({ id, name });
-      }
-    });
+    ctx.tabsMap.forEach((container: any, key: string) => pushTabIfNew(out, seen, tabIdFrom(container, key), tabNameFrom(container)));
   }
-
   return out;
 }
 
@@ -349,36 +322,46 @@ function getCustomFiltersList(): PlatformTab[] {
  * Resolves app IDs for a tab using TabMaster's collection.allApps Set.
  * Returns an empty array if the tab is not found in TabMaster's context.
  */
-function getCustomFiltersAppsForContainer(tabId: string): number[] {
-  const ctx = findTabMasterContextValue();
-  if (!ctx?.tabsMap) return [];
+function bidirectionalContains(a: string, b: string): boolean {
+  return a.includes(b) || b.includes(a);
+}
 
-  const needle = normalizeText(tabId);
-  let tabContainer: any = null;
+function tabContainerMatchScoreFor(id: string, name: string, needle: string): number {
+  if (id === needle || name === needle) return 2;
+  return (bidirectionalContains(id, needle) || bidirectionalContains(name, needle)) ? 1 : 0;
+}
 
-  const matchScore = (container: any, key: string): number => {
-    const id = normalizeText(String(container?.id ?? key ?? ""));
-    const name = normalizeText(String(container?.title ?? container?.name ?? ""));
-    if (id === needle || name === needle) return 2;
-    if (id.includes(needle) || needle.includes(id) || name.includes(needle) || needle.includes(name)) return 1;
-    return 0;
-  };
+function tabContainerMatchScore(container: any, key: string, needle: string): number {
+  return tabContainerMatchScoreFor(
+    normalizeText(tabIdFrom(container, key)),
+    normalizeText(tabNameFrom(container)),
+    needle,
+  );
+}
 
+function pickBestTabContainer(tabsMap: Map<string, any>, needle: string): any | null {
+  let best: any = null;
   let bestScore = 0;
-  if (ctx.tabsMap instanceof Map) {
-    ctx.tabsMap.forEach((container: any, key: string) => {
-      const score = matchScore(container, key);
-      if (score > bestScore) { bestScore = score; tabContainer = container; }
-    });
-  }
+  tabsMap.forEach((container, key) => {
+    const score = tabContainerMatchScore(container, key, needle);
+    if (score > bestScore) { bestScore = score; best = container; }
+  });
+  return best;
+}
 
-  if (!tabContainer) return [];
-
+function extractAppIdsFromContainer(tabContainer: any): number[] {
   const allApps = tabContainer?.collection?.allApps ?? tabContainer?.allApps;
   if (allApps instanceof Set) {
     return uniqNumbers(Array.from(allApps.values()).map(Number).filter(Number.isFinite));
   }
   return extractAppIdsDeep(allApps ?? tabContainer?.collection, 3);
+}
+
+function getCustomFiltersAppsForContainer(tabId: string): number[] {
+  const ctx = findTabMasterContextValue();
+  if (!(ctx?.tabsMap instanceof Map)) return [];
+  const tabContainer = pickBestTabContainer(ctx.tabsMap, normalizeText(tabId));
+  return tabContainer ? extractAppIdsFromContainer(tabContainer) : [];
 }
 
 function collectDynamicTabStores(): any[] {
@@ -418,30 +401,39 @@ function collectDynamicTabStores(): any[] {
 }
 
 
+function unwrapStoreApps(result: any): any[] {
+  if (Array.isArray(result)) return result;
+  if (!result || typeof result !== "object") return [];
+  return result.apps ?? result.appids ?? result.items ?? result.list ?? result.entries ?? [];
+}
+
+function coerceStoreAppIds(arr: any): number[] {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((item: any) => Number(item?.appid ?? item?.appId ?? item?.id ?? item))
+    .filter((n: number) => Number.isFinite(n));
+}
+
+async function tryFetchTabAppIds(fn: Function, store: any, candidates: string[]): Promise<number[]> {
+  for (const id of candidates) {
+    try {
+      const ids = coerceStoreAppIds(unwrapStoreApps(await fn.call(store, id)));
+      if (ids.length) return ids;
+    } catch {}
+  }
+  return [];
+}
+
 export async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
   const raw = String(tab ?? "").trim();
-  const normalized = normalizeTabId(raw);
-  const slug = slugifyTab(raw);
-  const candidates = [raw, normalized, slug].filter(Boolean);
-  const stores = collectDynamicTabStores();
+  const candidates = [raw, normalizeTabId(raw), slugifyTab(raw)].filter(Boolean);
   const methods = ["GetAppsForTab", "GetTabApps", "GetVisibleAppsForTab", "ResolveTabApps", "GetAppsByTab", "GetAppIDsForTab"];
-
-  for (const store of stores) {
+  for (const store of collectDynamicTabStores()) {
     for (const method of methods) {
       const fn = store?.[method];
       if (typeof fn !== "function") continue;
-      for (const id of candidates) {
-        try {
-          const result = await fn.call(store, id);
-          const arr = Array.isArray(result)
-            ? result
-            : (result && typeof result === "object" ? (result.apps ?? result.appids ?? result.items ?? result.list ?? result.entries ?? []) : []);
-          const ids = (Array.isArray(arr) ? arr : [])
-            .map((item: any) => Number(item?.appid ?? item?.appId ?? item?.id ?? item))
-            .filter((n: number) => Number.isFinite(n));
-          if (ids.length) return ids;
-        } catch {}
-      }
+      const ids = await tryFetchTabAppIds(fn, store, candidates);
+      if (ids.length) return ids;
     }
   }
   return [];
@@ -452,240 +444,383 @@ export async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
  * objects (GetAppOverviewByAppID) and checking per-client data / explicit fields.
  * Returns `true` = installed, `false` = not installed, `null` = unknown.
  */
+const INSTALLED_DIRECT_KEYS = ["installed", "is_installed", "m_bInstalled", "bInstalled"];
+const INSTALLED_PCD_KEYS = ["per_client_data", "local_per_client_data"];
+const INSTALLED_SIZE_KEYS = ["size_on_disk", "m_nSizeOnDisk"];
+const INSTALLED_LAST_LOCAL_KEYS = ["rt_last_time_locally_played", "m_rtLastTimePlayed"];
+
+function readDirectInstalled(raw: any): boolean | null {
+  if (!raw) return null;
+  for (const k of INSTALLED_DIRECT_KEYS) {
+    const v = raw[k];
+    if (v === true) return true;
+    if (v === false) return false;
+  }
+  return null;
+}
+
+function readPcdInstalled(raw: any): boolean | undefined {
+  for (const k of INSTALLED_PCD_KEYS) {
+    const pcd = raw?.[k];
+    const clientData = Array.isArray(pcd) ? pcd[0] : pcd;
+    if (clientData) {
+      const v = readOptionalBoolean(clientData, ["installed", "is_installed"]);
+      if (v !== undefined) return v;
+    }
+  }
+  return undefined;
+}
+
+function firstPositiveNumber(raw: any, keys: string[]): number {
+  for (const k of keys) {
+    const v = Number(raw?.[k]);
+    if (Number.isFinite(v) && v > 0) return v;
+  }
+  return 0;
+}
+
+function resolveInstalledFromRaw(raw: any): boolean | null {
+  if (!raw) return null;
+  const direct = readDirectInstalled(raw);
+  if (direct !== null) return direct;
+  const pcd = readPcdInstalled(raw);
+  if (pcd !== undefined) return pcd;
+  if (firstPositiveNumber(raw, INSTALLED_SIZE_KEYS) > 0) return true;
+  if (firstPositiveNumber(raw, INSTALLED_LAST_LOCAL_KEYS) > 0) return true;
+  return false;
+}
+
+function pickAppStoreFromWindow(win: any): any {
+  return win?.appStore ?? win?.AppStore ?? (globalThis as any).AppStore;
+}
+
 export async function resolveAppInstalledState(appid: number): Promise<boolean | null> {
   try {
     for (const win of getSteamWindows()) {
-      const appStore = (win as any)?.appStore ?? win?.AppStore ?? (globalThis as any).AppStore;
+      const appStore = pickAppStoreFromWindow(win);
       if (!appStore || typeof appStore.GetAppOverviewByAppID !== 'function') continue;
       try {
         const raw = appStore.GetAppOverviewByAppID(appid);
         if (!raw) continue;
-        const directInstalled = raw?.installed ?? raw?.is_installed ?? raw?.m_bInstalled ?? raw?.bInstalled;
-        if (directInstalled === true) return true;
-        if (directInstalled === false) return false;
-        const pcd = raw?.per_client_data ?? raw?.local_per_client_data;
-        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-        if (clientData) {
-          const pcdInstalled = readOptionalBoolean(clientData, ["installed", "is_installed"]);
-          if (pcdInstalled !== undefined) return pcdInstalled;
-        }
-        const sod = Number(raw?.size_on_disk ?? raw?.m_nSizeOnDisk ?? 0);
-        if (Number.isFinite(sod) && sod > 0) return true;
-        const lastLocal = Number(raw?.rt_last_time_locally_played ?? raw?.m_rtLastTimePlayed ?? 0);
-        if (Number.isFinite(lastLocal) && lastLocal > 0) return true;
-        return false;
+        return resolveInstalledFromRaw(raw);
       } catch {}
     }
   } catch {}
   return null;
 }
 
-export async function listLibraryTabs(): Promise<PlatformTab[]> {
-  const defaults: PlatformTab[] = [
-    { id: "all", name: "All Games" },
-    { id: "favorites", name: "Favorites" },
-    { id: "installed", name: "Installed" },
-    { id: "hidden", name: "Hidden" },
-    { id: "nonsteam", name: "Non-Steam" },
-  ];
+const NATIVE_LIBRARY_TAB_DEFAULTS: PlatformTab[] = [
+  { id: "all", name: "All Games" },
+  { id: "favorites", name: "Favorites" },
+  { id: "installed", name: "Installed" },
+  { id: "hidden", name: "Hidden" },
+  { id: "nonsteam", name: "Non-Steam" },
+];
 
-  // Hard guarantee: any thrown error in the discovery chain below must NOT
-  // surface as a rejected promise — the settings controller's `.catch`
-  // path replaces `tabs` with [], leaving the EditShelfModal's tab dropdown
-  // empty (regression seen against SteamOS 3.9 where some host-window
-  // accessors started throwing on enumeration). Wrap everything; always
-  // fall back to the 5 native defaults.
+const SYSTEM_COLLECTION_IDS = new Set([
+  'favorite','hidden','notinstalled','installed','local',
+  'deckverified','controller','uncategorized',
+  'all-apps-alpha','all-apps-recent','local-install','recent',
+]);
+
+async function fetchTabsFromSettingsFile(): Promise<PlatformTab[]> {
   try {
-    // 1. Settings file — primary source for TabMaster tabs.
-    // Guard removed: in SteamOS 3.9 DeckyPluginLoader is no longer accessible
-    // via window, so isTabMasterInstalled() always returns false even when
-    // TabMaster IS installed. The Python backend returns {"tabs":[]} safely
-    // when the file is absent, so unconditional call is safe on both 3.7 and 3.9.
-    try {
-      const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
-      const settingsTabs = await getVisibleTabsFromSettingsFile();
-      if (settingsTabs.length > 0) return settingsTabs;
-    } catch {}
+    const { getVisibleTabsFromSettingsFile } = await import('../integrations/tabmaster');
+    return await getVisibleTabsFromSettingsFile();
+  } catch { return []; }
+}
 
-    // 2. React fiber traversal — forward-compat fallback if TabMaster adds context later
-    try {
-      const fiberTabs = getCustomFiltersList();
-      if (fiberTabs.length > 0) return fiberTabs;
-    } catch {}
+function fetchTabsFromFiber(): PlatformTab[] {
+  try { return getCustomFiltersList() ?? []; } catch { return []; }
+}
 
-    // 3. DOM-based tab reading — for UnifiDeck and other plugins that render [data-tab-id]
-    try {
-      const { getTabsFromDOM } = await import('../integrations/domtabs');
-      const domTabs = getTabsFromDOM();
-      if (domTabs.length > 0) return domTabs;
-    } catch {}
+async function fetchTabsFromDOM(): Promise<PlatformTab[]> {
+  try {
+    const { getTabsFromDOM } = await import('../integrations/domtabs');
+    return getTabsFromDOM() ?? [];
+  } catch { return []; }
+}
 
-    // 4. Native special tabs + user collections from collectionStore.
-    // Adds "Recentes" (allRecentAppsCollection) plus user-created collections
-    // (including Unifideck-managed ones). Uses the safe raw storage map —
-    // never touches the userCollections getter to avoid MobX cache poisoning.
-    // Compatible with both SteamOS 3.7 and 3.9: on 3.7 this step is only
-    // reached if TabMaster is not installed; on 3.9 it adds user collections
-    // that LibraryTabStore used to expose but no longer does.
-    try {
-      const cs = (globalThis as any).collectionStore;
-      const extra: PlatformTab[] = [];
-      const seen = new Set(defaults.map((t) => t.id.toLowerCase()));
-      // "Recentes" native tab
-      const recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection;
-      if (recentCol) {
-        const id = String(recentCol.id ?? recentCol.m_strId ?? 'recent');
-        const name = String(recentCol.displayName ?? recentCol.m_strName ?? 'Recent');
-        if (id && !seen.has(id.toLowerCase())) { seen.add(id.toLowerCase()); extra.push({ id, name }); }
-      }
-      // User-created collections (uc-*, from-tag-*, etc.)
-      const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
-      if (rawMap && typeof rawMap.values === 'function') {
-        const SYSTEM_IDS = new Set([
-          'favorite','hidden','notinstalled','installed','local',
-          'deckverified','controller','uncategorized',
-          'all-apps-alpha','all-apps-recent','local-install','recent',
-        ]);
-        for (const col of rawMap.values()) {
-          const id = String(col?.id ?? col?.m_strId ?? col?.key ?? '');
-          const name = String(col?.displayName ?? col?.m_strName ?? '');
-          if (!id || !name) continue;
-          if (SYSTEM_IDS.has(id.toLowerCase()) || seen.has(id.toLowerCase())) continue;
-          try { if (cs?.BIsSystemCollectionId?.(id)) continue; } catch {}
-          seen.add(id.toLowerCase());
-          extra.push({ id, name });
-        }
-      }
-      if (extra.length > 0) return [...defaults, ...extra];
-    } catch {}
+function firstStringFromKeys(node: any, keys: string[], fallback = ""): string {
+  if (!node) return fallback;
+  for (const k of keys) {
+    const v = node[k];
+    if (v !== undefined && v !== null) return String(v);
+  }
+  return fallback;
+}
+
+const RECENT_COLLECTION_ID_KEYS = ["id", "m_strId"];
+const RECENT_COLLECTION_NAME_KEYS = ["displayName", "m_strName"];
+const USER_COLLECTION_ID_KEYS = ["id", "m_strId", "key"];
+const USER_COLLECTION_NAME_KEYS = ["displayName", "m_strName"];
+
+function addRecentCollectionTab(cs: any, seen: Set<string>, out: PlatformTab[]): void {
+  const recentCol = cs?.recentAppsCollection ?? cs?.allRecentAppsCollection;
+  if (!recentCol) return;
+  const id = firstStringFromKeys(recentCol, RECENT_COLLECTION_ID_KEYS, 'recent');
+  if (!id) return;
+  const lower = id.toLowerCase();
+  if (seen.has(lower)) return;
+  const name = firstStringFromKeys(recentCol, RECENT_COLLECTION_NAME_KEYS, 'Recent');
+  seen.add(lower);
+  out.push({ id, name });
+}
+
+function isSkippableUserCollection(cs: any, id: string, seen: Set<string>): boolean {
+  const lower = id.toLowerCase();
+  if (SYSTEM_COLLECTION_IDS.has(lower) || seen.has(lower)) return true;
+  try { if (cs?.BIsSystemCollectionId?.(id)) return true; } catch {}
+  return false;
+}
+
+function userCollectionTabFromEntry(col: any): PlatformTab | null {
+  const id = firstStringFromKeys(col, USER_COLLECTION_ID_KEYS);
+  const name = firstStringFromKeys(col, USER_COLLECTION_NAME_KEYS);
+  if (!id || !name) return null;
+  return { id, name };
+}
+
+function addUserCollectionTabs(cs: any, seen: Set<string>, out: PlatformTab[]): void {
+  const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+  if (!rawMap || typeof rawMap.values !== 'function') return;
+  for (const col of rawMap.values()) {
+    const tab = userCollectionTabFromEntry(col);
+    if (!tab) continue;
+    if (isSkippableUserCollection(cs, tab.id, seen)) continue;
+    seen.add(tab.id.toLowerCase());
+    out.push(tab);
+  }
+}
+
+// Native "Recentes" tab plus user collections; uses the raw storage
+// map to avoid the MobX userCollections poisoning path.
+function buildCollectionStoreTabs(): PlatformTab[] {
+  try {
+    const cs = (globalThis as any).collectionStore;
+    const extra: PlatformTab[] = [];
+    const seen = new Set(NATIVE_LIBRARY_TAB_DEFAULTS.map((t) => t.id.toLowerCase()));
+    addRecentCollectionTab(cs, seen, extra);
+    addUserCollectionTabs(cs, seen, extra);
+    return extra;
+  } catch { return []; }
+}
+
+export async function listLibraryTabs(): Promise<PlatformTab[]> {
+  // Always swallow errors: a rejected promise here empties the editor's
+  // tab dropdown. Fall back to native defaults.
+  try {
+    const settingsTabs = await fetchTabsFromSettingsFile();
+    if (settingsTabs.length > 0) return settingsTabs;
+
+    const fiberTabs = fetchTabsFromFiber();
+    if (fiberTabs.length > 0) return fiberTabs;
+
+    const domTabs = await fetchTabsFromDOM();
+    if (domTabs.length > 0) return domTabs;
+
+    const extra = buildCollectionStoreTabs();
+    if (extra.length > 0) return [...NATIVE_LIBRARY_TAB_DEFAULTS, ...extra];
   } catch {}
 
-  return defaults;
+  return NATIVE_LIBRARY_TAB_DEFAULTS.slice();
 }
 
 /**
  * Remove an app from a Steam collection.
  * Tries multiple API shapes across SteamOS versions.
  */
+function removeAppFromCollectionEntry(store: any, coll: any, appid: number): boolean {
+  if (!coll) return false;
+  if (typeof coll.RemoveApps === 'function') {
+    coll.RemoveApps([appid]);
+    store.userCollectionStore?.CommitCollection?.(coll);
+    return true;
+  }
+  if (typeof coll.RemoveApp === 'function') {
+    coll.RemoveApp(appid);
+    return true;
+  }
+  if (coll.apps instanceof Map && coll.apps.has(appid)) {
+    coll.apps.delete(appid);
+    store.userCollectionStore?.CommitCollection?.(coll);
+    return true;
+  }
+  return false;
+}
+
+function readRawStoredCollections(store: any): any[] {
+  const rawMap: any = store.m_mapCollectionsFromStorage ?? store.collectionsFromStorage;
+  if (rawMap && typeof rawMap.values === 'function') return Array.from(rawMap.values());
+  if (Array.isArray(rawMap)) return rawMap;
+  return [];
+}
+
+function removeFromRawStorage(store: any, collectionId: string, appid: number): boolean {
+  // NEVER read `userCollections` here — that getter is a MobX computed
+  // that poisons its own cache when evaluated against a not-yet-initialized
+  // store, taking down Steam's library home.
+  for (const c of readRawStoredCollections(store)) {
+    const id = String(c?.id ?? c?.collectionid ?? '');
+    if (id !== collectionId) continue;
+    if (removeAppFromCollectionEntry(store, c, appid)) return true;
+  }
+  return false;
+}
+
+function tryRemoveFromStore(store: any, collectionId: string, appid: number): boolean {
+  if (!store) return false;
+  if (removeAppFromCollectionEntry(store, store.GetCollection?.(collectionId), appid)) return true;
+  return removeFromRawStorage(store, collectionId, appid);
+}
+
 export function removeAppFromCollection(collectionId: string, appid: number): void {
   try {
     for (const win of getSteamWindows()) {
       const store = win?.collectionStore ?? (globalThis as any).collectionStore;
-      if (!store) continue;
-      // Attempt 1: GetCollection by id
-      const coll = store.GetCollection?.(collectionId);
-      if (coll) {
-        if (typeof coll.RemoveApps === 'function') { coll.RemoveApps([appid]); store.userCollectionStore?.CommitCollection?.(coll); return; }
-        if (typeof coll.RemoveApp === 'function') { coll.RemoveApp(appid); return; }
-        if (coll.apps instanceof Map && coll.apps.has(appid)) {
-          coll.apps.delete(appid);
-          store.userCollectionStore?.CommitCollection?.(coll);
-          return;
-        }
-      }
-      // Attempt 2: iterate the raw storage map. NEVER read `userCollections`
-      // here — that getter is a MobX computed that poisons its own cache when
-      // evaluated against a not-yet-initialized store, taking down Steam's
-      // library home. The raw map holds every user-defined collection.
-      const rawMap: any = store.m_mapCollectionsFromStorage ?? store.collectionsFromStorage;
-      const userColls: any[] = rawMap && typeof rawMap.values === 'function'
-        ? Array.from(rawMap.values())
-        : (Array.isArray(rawMap) ? rawMap : []);
-      for (const c of userColls) {
-        const id = String(c?.id ?? c?.collectionid ?? '');
-        if (id !== collectionId) continue;
-        if (typeof c.RemoveApps === 'function') { c.RemoveApps([appid]); store.userCollectionStore?.CommitCollection?.(c); return; }
-        if (typeof c.RemoveApp === 'function') { c.RemoveApp(appid); return; }
-        if (c.apps instanceof Map && c.apps.has(appid)) {
-          c.apps.delete(appid);
-          store.userCollectionStore?.CommitCollection?.(c);
-          return;
-        }
-      }
+      if (tryRemoveFromStore(store, collectionId, appid)) return;
     }
   } catch {}
+}
+
+const COLLECTION_NORMALIZE_ID_KEYS = ["id", "collectionid", "gid", "key", "name", "displayName"];
+const COLLECTION_NORMALIZE_NAME_KEYS = ["displayName", "m_strName", "name", "title", "label"];
+
+function normalizeCollectionList(items: any[]): SteamCollection[] {
+  const out: SteamCollection[] = [];
+  for (const c of items) {
+    const id = firstStringFromKeys(c, COLLECTION_NORMALIZE_ID_KEYS);
+    const name = firstStringFromKeys(c, COLLECTION_NORMALIZE_NAME_KEYS, "Collection");
+    if (!id || !name) continue;
+    cacheCollectionRaw(id, name, c);
+    out.push({ id, name });
+  }
+  return out;
+}
+
+// NEVER read `collectionStore.userCollections` — that MobX getter
+// poisons its own cache on early eval, crashing the library home. Use
+// the raw storage map directly; it holds every user collection.
+function readCollectionsFromStorageMap(globalCollectionStore: any): SteamCollection[] {
+  try {
+    const m = globalCollectionStore.m_mapCollectionsFromStorage;
+    if (!m || typeof m.keys !== 'function') return [];
+    const items: any[] = [];
+    for (const key of m.keys()) {
+      try {
+        const c = m.get(key);
+        if (c) items.push({ id: (c as any).m_strId ?? key, ...(c as any) });
+      } catch {}
+    }
+    return normalizeCollectionList(items);
+  } catch { return []; }
+}
+
+async function callClientCollectionsGetter(fn: any): Promise<any> {
+  if (typeof fn !== "function") return null;
+  try { return await fn(); } catch { return null; }
+}
+
+function bindClientMethod(parent: any, method: string): any {
+  const fn = parent?.[method];
+  return typeof fn === "function" ? fn.bind(parent) : null;
+}
+
+function coerceClientCollectionsResult(res: any): SteamCollection[] {
+  if (Array.isArray(res)) return normalizeCollectionList(res);
+  if (res && typeof res === "object") {
+    return normalizeCollectionList(Object.values(res) as any[]);
+  }
+  return [];
+}
+
+async function listCollectionsFromClient(sc: any): Promise<SteamCollection[]> {
+  const direct = await callClientCollectionsGetter(bindClientMethod(sc?.Collections, "GetCollections"));
+  const norm = coerceClientCollectionsResult(direct);
+  if (norm.length) return norm;
+  const all = await callClientCollectionsGetter(bindClientMethod(sc?.CollectionStore, "GetAllCollections"));
+  return coerceClientCollectionsResult(all);
+}
+
+function collectStoreCandidates(hostWindows: any[], clients: any[]): any[] {
+  return [
+    ...hostWindows.flatMap((hostWindow) => [
+      hostWindow?.CollectionStore, hostWindow?.LibraryStore, hostWindow?.collections,
+      hostWindow?.g_Collections, hostWindow?.TabMasterStore, hostWindow?.UnifiDeckStore,
+    ]),
+    ...clients.map((sc) => sc?.LibraryStore),
+  ];
+}
+
+function listCollectionsFromCandidate(candidate: any): SteamCollection[] {
+  try {
+    const arr = Array.isArray(candidate) ? candidate : Object.values(candidate ?? {});
+    return normalizeCollectionList(arr as any[]);
+  } catch { return []; }
+}
+
+function readCollectionsFromDoc(doc: any): SteamCollection[] {
+  try {
+    const nodes = Array.from(doc.querySelectorAll('[data-collection-id], [class*="collection"]'));
+    const dom = nodes.map((node) => {
+      const el = node as HTMLElement;
+      const text = (el.textContent || '').trim();
+      const id = String(el.dataset?.collectionId || el.getAttribute('data-collection-id') || text);
+      return { id, name: text };
+    }).filter((c) => c.id && c.name && c.name.length < 80);
+    return dom.length ? normalizeCollectionList(dom as any[]) : [];
+  } catch { return []; }
+}
+
+function listCollectionsFromStorage(hostWindows: any[]): SteamCollection[] {
+  for (const hostWindow of hostWindows) {
+    const store = hostWindow?.collectionStore ?? (globalThis as any).collectionStore;
+    if (!store) continue;
+    const norm = readCollectionsFromStorageMap(store);
+    if (norm.length) return norm;
+  }
+  return [];
+}
+
+async function listCollectionsFromAllClients(clients: any[]): Promise<SteamCollection[]> {
+  for (const sc of clients) {
+    const norm = await listCollectionsFromClient(sc);
+    if (norm.length) return norm;
+  }
+  return [];
+}
+
+function listCollectionsFromCandidates(hostWindows: any[], clients: any[]): SteamCollection[] {
+  for (const candidate of collectStoreCandidates(hostWindows, clients)) {
+    const norm = listCollectionsFromCandidate(candidate);
+    if (norm.length) return norm;
+  }
+  return [];
+}
+
+function listCollectionsFromDocs(hostWindows: any[]): SteamCollection[] {
+  const docs = Array.from(new Set([getPreferredSteamDocument(), ...hostWindows.map((win: any) => win?.document)].filter(Boolean)));
+  for (const doc of docs) {
+    const norm = readCollectionsFromDoc(doc);
+    if (norm.length) return norm;
+  }
+  return [];
 }
 
 export async function listCollections(): Promise<SteamCollection[]> {
   const clients = getSteamClients();
   const hostWindows = getSteamWindows();
-  const docs = Array.from(new Set([getPreferredSteamDocument(), ...hostWindows.map((win: any) => win?.document)].filter(Boolean)));
-  const normalize = (items: any[]): SteamCollection[] => items
-    .map((c: any) => {
-      const id = String(c?.id ?? c?.collectionid ?? c?.gid ?? c?.key ?? c?.name ?? c?.displayName ?? "");
-      const name = String(c?.displayName ?? c?.m_strName ?? c?.name ?? c?.title ?? c?.label ?? "Collection");
-      if (id && name) cacheCollectionRaw(id, name, c);
-      return { id, name };
-    })
-    .filter((c) => c.id && c.name);
-  for (const hostWindow of hostWindows) {
-    const globalCollectionStore = hostWindow?.collectionStore ?? (globalThis as any).collectionStore;
-    if (!globalCollectionStore) continue;
-    // NEVER read `globalCollectionStore.userCollections` here. That getter is
-    // a MobX computed: if the first evaluation happens while the store is
-    // still initializing it throws, and MobX caches the exception forever —
-    // every later read (including Steam's own library home) hits the cached
-    // error and crashes. `listCollections` is called during early shelf
-    // resolution, which is exactly when the store may not be ready. Skip
-    // straight to the raw storage map below — it already holds every user
-    // collection (size 23 confirmed live on SteamOS 3.7).
-    // m_mapCollectionsFromStorage is a MobX ObservableMap; .keys()/.get() work.
-    // Collections have m_strId but no top-level `id`, so inject it explicitly.
-    try {
-      const m = globalCollectionStore.m_mapCollectionsFromStorage;
-      if (m && typeof m.keys === 'function') {
-        const items: any[] = [];
-        for (const key of m.keys()) {
-          try {
-            const c = m.get(key);
-            if (c) items.push({ id: (c as any).m_strId ?? key, ...(c as any) });
-          } catch {}
-        }
-        const norm = normalize(items);
-        if (norm.length) return norm;
-      }
-    } catch {}
-  }
-  for (const sc of clients) {
-    try {
-      const res = await sc?.Collections?.GetCollections?.();
-      if (Array.isArray(res)) return normalize(res);
-    } catch {}
-    try {
-      const res = await sc?.CollectionStore?.GetAllCollections?.();
-      if (res && typeof res === "object") {
-        const arr = Array.isArray(res) ? res : Object.values(res);
-        const norm = normalize(arr as any[]);
-        if (norm.length) return norm;
-      }
-    } catch {}
-  }
-  for (const candidate of [
-    ...hostWindows.flatMap((hostWindow) => [hostWindow?.CollectionStore, hostWindow?.LibraryStore, hostWindow?.collections, hostWindow?.g_Collections, hostWindow?.TabMasterStore, hostWindow?.UnifiDeckStore]),
-    ...clients.map((sc) => sc?.LibraryStore),
-  ]) {
-    try {
-      const arr = Array.isArray(candidate) ? candidate : Object.values(candidate ?? {});
-      const norm = normalize(arr as any[]);
-      if (norm.length) return norm;
-    } catch {}
-  }
 
-  for (const doc of docs) {
-    try {
-      const nodes = Array.from(doc.querySelectorAll('[data-collection-id], [class*="collection"]'));
-      const dom = nodes.map((node) => {
-        const el = node as HTMLElement;
-        return {
-          id: String(el.dataset?.collectionId || el.getAttribute('data-collection-id') || (el.textContent || '').trim()),
-          name: String((el.textContent || '').trim()),
-        };
-      }).filter((c) => c.id && c.name && c.name.length < 80);
-      if (dom.length) return normalize(dom as any[]);
-    } catch {}
-  }
+  const fromStorage = listCollectionsFromStorage(hostWindows);
+  if (fromStorage.length) return fromStorage;
 
-  return [];
+  const fromClients = await listCollectionsFromAllClients(clients);
+  if (fromClients.length) return fromClients;
+
+  const fromCandidates = listCollectionsFromCandidates(hostWindows, clients);
+  if (fromCandidates.length) return fromCandidates;
+
+  return listCollectionsFromDocs(hostWindows);
 }
 
 function appIdOf(a: any): number {
@@ -707,10 +842,8 @@ function isNonSteamOf(a: any): boolean {
   return !!(a?.is_non_steam) || a?.is_steam === false || a?.m_eAppType === 1073741824 || a?.app_type === 1073741824 || a?.app_type === "shortcut";
 }
 
-// Unifideck marks every shortcut it registers as `installed: true` on the app
-// overview regardless of real state. Ground truth lives in its "[Unifideck]
-// Installed" collection. Cache the membership briefly so filter passes over
-// ~2k apps stay O(1) per check.
+// Unifideck shortcuts are always overview-installed; ground truth is
+// the "[Unifideck] Installed" collection. Cached for O(1) checks.
 let _ufInstalledCache: { ids: Set<number>; ts: number } | null = null;
 const UF_INSTALLED_LABELS = new Set([
   "installed", "instalados", "instalado", "installés", "installierte",
@@ -718,31 +851,21 @@ const UF_INSTALLED_LABELS = new Set([
   "installerade", "установленные", "установлено", "インストール済み",
   "已安装", "已安裝", "설치됨", "ติดตั้งแล้ว",
 ]);
+function isUnifideckInstalledLabel(c: any): boolean {
+  const name = String(c?.displayName ?? c?.m_strName ?? "");
+  if (!/^\[Unifideck\]/i.test(name)) return false;
+  const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
+  return UF_INSTALLED_LABELS.has(label);
+}
+
 function getUnifideckInstalledSet(): Set<number> {
   const now = Date.now();
   if (_ufInstalledCache && now - _ufInstalledCache.ts < 5000) return _ufInstalledCache.ids;
   const ids = new Set<number>();
   try {
     const cs: any = (globalThis as any).collectionStore;
-    // Read the raw storage map, never the `userCollections` getter. That
-    // getter is a MobX computed: evaluated while the collection store is
-    // still initializing it throws, and MobX then caches the exception
-    // permanently — poisoning every later read, including Steam's own
-    // library home, which crashes (and the Decky error boundary then blames
-    // this plugin). The raw map already holds every user collection.
-    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
-    const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
-    const match = list.find((c: any) => {
-      const name = String(c?.displayName ?? c?.m_strName ?? "");
-      if (!/^\[Unifideck\]/i.test(name)) return false;
-      const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
-      return UF_INSTALLED_LABELS.has(label);
-    });
-    const apps = match?.allApps ?? match?.m_rgApps ?? [];
-    for (const a of apps) {
-      const n = Number(a?.appid);
-      if (Number.isFinite(n)) ids.add(n);
-    }
+    const match = readCollectionList(cs).find(isUnifideckInstalledLabel);
+    if (match) pushAppIdsFromCollection(match, ids);
   } catch {}
   _ufInstalledCache = { ids, ts: now };
   return ids;
@@ -753,24 +876,36 @@ function getUnifideckInstalledSet(): Set<number> {
 // owning a game there counts as owned even when not installed locally.
 let _ufCloudCache: { ids: Set<number>; ts: number } | null = null;
 const UF_CLOUD_COLLECTION_LABELS = new Set(["microsoft"]);
+function readUnifideckCloudLabel(c: any): string | null {
+  const name = String(c?.displayName ?? c?.m_strName ?? "");
+  if (!/^\[Unifideck\]/i.test(name)) return null;
+  const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
+  return UF_CLOUD_COLLECTION_LABELS.has(label) ? label : null;
+}
+
+function pushAppIdsFromCollection(c: any, out: Set<number>): void {
+  const apps = c?.allApps ?? c?.m_rgApps ?? [];
+  for (const a of apps) {
+    const n = Number(a?.appid);
+    if (Number.isFinite(n)) out.add(n);
+  }
+}
+
+function readCollectionList(cs: any): any[] {
+  const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+  if (Array.isArray(cols)) return cols;
+  return Array.from(cols?.values?.() ?? []);
+}
+
 export function getUnifideckCloudPlaySet(): Set<number> {
   const now = Date.now();
   if (_ufCloudCache && now - _ufCloudCache.ts < 5000) return _ufCloudCache.ids;
   const ids = new Set<number>();
   try {
     const cs: any = (globalThis as any).collectionStore;
-    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
-    const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
-    for (const c of list) {
-      const name = String(c?.displayName ?? c?.m_strName ?? "");
-      if (!/^\[Unifideck\]/i.test(name)) continue;
-      const label = name.replace(/^\[Unifideck\]\s*/i, "").trim().toLowerCase();
-      if (!UF_CLOUD_COLLECTION_LABELS.has(label)) continue;
-      const apps = c?.allApps ?? c?.m_rgApps ?? [];
-      for (const a of apps) {
-        const n = Number(a?.appid);
-        if (Number.isFinite(n)) ids.add(n);
-      }
+    for (const c of readCollectionList(cs)) {
+      if (readUnifideckCloudLabel(c) === null) continue;
+      pushAppIdsFromCollection(c, ids);
     }
   } catch {}
   _ufCloudCache = { ids, ts: now };
@@ -788,10 +923,8 @@ function isFavoriteOf(a: any): boolean {
   return !!(a?.is_favorite ?? a?.favorite ?? a?.m_bIsFavorite ?? a?.m_bFavorite ?? a?.bFavorite);
 }
 function isHiddenOf(a: any): boolean {
-  // `visible_in_game_list === false` is how SteamOS 3.x / recent Steam clients
-  // mark hidden games on the AppOverview protobuf — the older bool fields
-  // (is_hidden, m_bHidden) are not populated on these versions (confirmed via
-  // CDP on SteamOS 3.7, issue #63). Check all known variants.
+  // SteamOS 3.x marks hidden via `visible_in_game_list === false`; older
+  // bool fields aren't populated there (#63).
   if (a?.visible_in_game_list === false) return true;
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }
@@ -800,64 +933,61 @@ function isHiddenOf(a: any): boolean {
  * non-Steam (when includeNonSteam) comes from myGamesCollection filtered
  * by isNonSteamOf. Cloud-play entries are subtracted unless includeCloudPlay.
  */
+function collectionApps(coll: any): any[] {
+  if (!coll) return [];
+  return coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
+}
+
+function collectSteamApps(coll: any, out: Set<number>): void {
+  for (const a of collectionApps(coll)) {
+    if (isNonSteamOf(a)) continue;
+    const id = appIdOf(a);
+    if (Number.isFinite(id) && id > 0) out.add(id);
+  }
+}
+
+function collectNonSteamApps(coll: any, out: Set<number>, includeCloudPlay: boolean): void {
+  for (const a of collectionApps(coll)) {
+    if (!isNonSteamOf(a)) continue;
+    if (!includeCloudPlay && isCloudPlayShortcut(a)) continue;
+    const id = appIdOf(a);
+    if (Number.isFinite(id) && id > 0) out.add(id);
+  }
+}
+
+function nonSteamCollectionFrom(cs: any): any {
+  return cs.myGamesCollection ?? cs.allAppsCollection ?? cs.allShortcutsCollection;
+}
+
+function gatherLibraryFromStore(cs: any, includeNonSteam: boolean, includeCloudPlay: boolean, out: Set<number>): void {
+  if (!cs) return;
+  collectSteamApps(cs.allGamesCollection, out);
+  if (includeNonSteam) collectNonSteamApps(nonSteamCollectionFrom(cs), out, includeCloudPlay);
+}
+
 export function getLocalLibraryAppIds(includeNonSteam: boolean, includeCloudPlay: boolean = false): Set<number> {
   const out = new Set<number>();
-  const collectSteam = (coll: any): void => {
-    if (!coll) return;
-    const apps = coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
-    for (const a of apps) {
-      if (isNonSteamOf(a)) continue;
-      const id = Number(a?.appid ?? a?.m_unAppID);
-      if (Number.isFinite(id) && id > 0) out.add(id);
-    }
-  };
-  // Non-Steam entries live in myGamesCollection on current Steam builds
-  // (allShortcutsCollection is undefined). Cloud-play (Xbox via Unifideck
-  // Microsoft) is detected by collection membership; other providers
-  // (Epic/GOG/etc.) still count as owned when not installed locally.
-  const collectNonSteam = (coll: any): void => {
-    if (!coll) return;
-    const apps = coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
-    for (const a of apps) {
-      if (!isNonSteamOf(a)) continue;
-      if (!includeCloudPlay && isCloudPlayShortcut(a)) continue;
-      const id = Number(a?.appid ?? a?.m_unAppID);
-      if (Number.isFinite(id) && id > 0) out.add(id);
-    }
-  };
   try {
-    const cs: any = (globalThis as any).collectionStore;
-    if (cs) {
-      collectSteam(cs.allGamesCollection);
-      if (includeNonSteam) {
-        // Prefer `myGamesCollection` (Steam + shortcuts mixed) since
-        // `allShortcutsCollection` doesn't exist on recent Steam builds.
-        collectNonSteam(cs.myGamesCollection ?? cs.allAppsCollection ?? cs.allShortcutsCollection);
-      }
-    }
-    if (out.size === 0) {
-      for (const hw of getSteamWindows()) {
-        const cs2: any = (hw as any)?.collectionStore;
-        if (!cs2) continue;
-        collectSteam(cs2.allGamesCollection);
-        if (includeNonSteam) {
-          collectNonSteam(cs2.myGamesCollection ?? cs2.allAppsCollection ?? cs2.allShortcutsCollection);
-        }
-        if (out.size > 0) break;
-      }
+    gatherLibraryFromStore((globalThis as any).collectionStore, includeNonSteam, includeCloudPlay, out);
+    if (out.size > 0) return out;
+    for (const hw of getSteamWindows()) {
+      gatherLibraryFromStore((hw as any)?.collectionStore, includeNonSteam, includeCloudPlay, out);
+      if (out.size > 0) break;
     }
   } catch {}
   return out;
 }
+function isNonSteamInstalled(a: any): boolean {
+  const uf = getUnifideckInstalledSet();
+  if (uf.size > 0) return uf.has(Number(a?.appid));
+  const sod = Number(a?.size_on_disk ?? 0);
+  if (Number.isFinite(sod) && sod > 0) return true;
+  const lp = Number(a?.rt_last_time_locally_played ?? 0);
+  return Number.isFinite(lp) && lp > 0;
+}
+
 function isInstalledOf(a: any): boolean {
-  if (isNonSteamOf(a)) {
-    const uf = getUnifideckInstalledSet();
-    if (uf.size > 0) return uf.has(Number(a?.appid));
-    const sod = Number(a?.size_on_disk ?? 0);
-    if (Number.isFinite(sod) && sod > 0) return true;
-    const lp = Number(a?.rt_last_time_locally_played ?? 0);
-    return Number.isFinite(lp) && lp > 0;
-  }
+  if (isNonSteamOf(a)) return isNonSteamInstalled(a);
   return !!(a?.installed ?? a?.is_installed ?? a?.m_bInstalled ?? a?.bInstalled);
 }
 function lastPlayedOf(a: any): number {
@@ -891,91 +1021,164 @@ export type AppOverview = {
   controller_support?: number;
 };
 
-export function normalizeAppOverview(node: any): AppOverview | null {
-  const appid = appIdOf(node);
-  if (!Number.isFinite(appid) || appid <= 0) return null;
+function getPerClientData(node: any): any | null {
+  const pcd = node?.per_client_data ?? node?.local_per_client_data;
+  return Array.isArray(pcd) ? (pcd[0] ?? null) : (pcd ?? null);
+}
+
+function readPcdInstalledExplicit(node: any): boolean | undefined {
+  try {
+    const clientData = getPerClientData(node);
+    return clientData ? readOptionalBoolean(clientData, ["installed", "is_installed"]) : undefined;
+  } catch { return undefined; }
+}
+
+function hasInstallSizeOnDisk(node: any): boolean {
+  try {
+    const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
+    return Number.isFinite(size) && size > 0;
+  } catch { return false; }
+}
+
+function deriveInstalled(node: any, appid: number): boolean | undefined {
+  if (isNonSteamOf(node)) return isInstalledOf({ ...node, appid });
+  const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
+  if (explicit !== undefined) return explicit;
+  const pcd = readPcdInstalledExplicit(node);
+  if (pcd !== undefined) return pcd;
+  return hasInstallSizeOnDisk(node) ? true : undefined;
+}
+
+const UPDATE_PENDING_FLAG_KEYS = [
+  "update_running", "m_bUpdateRunning", "bUpdateRunning",
+  "update_available", "m_bUpdateAvailable", "m_bNeedsUpdate",
+  "needs_update", "m_bUpdatePaused",
+];
+
+function pcdHasDownloadBytes(clientData: any): boolean {
+  const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
+  if (bytesDown > 0) return true;
+  const bytesStage = Number(clientData?.bytes_to_stage ?? clientData?.m_nBytesToStage ?? 0);
+  return bytesStage > 0;
+}
+
+function pcdUpdatePending(clientData: any): boolean {
+  if (!clientData) return false;
+  if (UPDATE_PENDING_STATUSES.includes(Number(clientData?.display_status ?? 0))) return true;
+  return pcdHasDownloadBytes(clientData);
+}
+
+function deriveUpdatePending(node: any): boolean | undefined {
+  if (pcdUpdatePending(getPerClientData(node))) return true;
+  const explicit = readOptionalBoolean(node, UPDATE_PENDING_FLAG_KEYS);
+  return explicit === true ? true : explicit;
+}
+
+function deriveDisplayStatus(node: any): number | undefined {
+  try {
+    const clientData = getPerClientData(node);
+    if (clientData) {
+      const ds = Number(clientData?.display_status ?? 0);
+      return ds > 0 ? ds : undefined;
+    }
+  } catch {}
+  return undefined;
+}
+
+function deriveControllerSupport(node: any): number | undefined {
+  const raw = node?.nControllerSupport ?? node?.controller_support ?? node?.n_controller_support;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+// Pick the first defined / non-zero value from a list of alias fields.
+// Replaces the inline `?? ?? ?? ?? 0 || undefined` chains the field
+// accessors below used to carry, keeping each accessor at complexity 1-2.
+function firstNumber(...values: any[]): number {
+  for (const v of values) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n !== 0) return n;
+  }
+  return 0;
+}
+function firstString(...values: any[]): string {
+  for (const v of values) if (typeof v === "string" && v) return v;
+  return "";
+}
+
+// Builders alias `node` to `n = node ?? {}` so field reads don't count
+// as branches each — keeps each builder under the complexity cap.
+function buildIdentityFields(node: any, appid: number) {
+  const n = node ?? {};
   const name = appNameOf(node);
   return {
     appid,
-    display_name: name || String(node?.displayName ?? node?.title ?? `App ${appid}`),
-    sort_as: String(node?.sort_as ?? node?.sortAs ?? name ?? ""),
-    last_played: Number(node?.last_played ?? node?.rt_last_time_played ?? node?.m_ulLastPlayed ?? 0),
-    playtime_forever: Number(node?.playtime_forever ?? node?.minutes_playtime_forever ?? node?.minutes_played_forever ?? 0),
-    is_steam: node?.is_steam ?? !isNonSteamOf(node),
+    display_name: name || String(n.displayName ?? n.title ?? `App ${appid}`),
+    sort_as: String(n.sort_as ?? n.sortAs ?? name ?? ""),
+  };
+}
+
+function buildPlaytimeFields(node: any) {
+  return {
+    last_played: firstNumber(node?.last_played, node?.rt_last_time_played, node?.m_ulLastPlayed),
+    playtime_forever: firstNumber(node?.playtime_forever, node?.minutes_playtime_forever, node?.minutes_played_forever),
+  };
+}
+
+function buildFlagFields(node: any) {
+  const n = node ?? {};
+  return {
+    is_steam: n.is_steam ?? !isNonSteamOf(node),
     is_non_steam: isNonSteamOf(node),
     is_favorite: readOptionalBoolean(node, ["is_favorite", "favorite", "m_bIsFavorite", "m_bFavorite", "bFavorite"]),
-    is_hidden: (node?.visible_in_game_list === false) ? true : readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
-    installed: (() => {
-      // Non-Steam shortcuts (notably Unifideck) advertise installed:true on
-      // the raw overview regardless of real state. Defer to isInstalledOf
-      // which consults the Unifideck collection, then size_on_disk and
-      // locally-played as fallbacks.
-      if (isNonSteamOf(node)) return isInstalledOf({ ...node, appid });
-      const explicit = readOptionalBoolean(node, ["installed", "is_installed", "m_bInstalled", "bInstalled"]);
-      if (explicit !== undefined) return explicit;
-      try {
-        const pcd = node?.per_client_data ?? node?.local_per_client_data;
-        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-        if (clientData) {
-          // Only check explicit installed field in pcd — do NOT infer from display_status.
-          // ds=9 means "available on remote client" (not locally installed);
-          // ds=11 has an explicit installed:true in pcd so the check above catches it.
-          const pcdExplicit = readOptionalBoolean(clientData, ["installed", "is_installed"]);
-          if (pcdExplicit !== undefined) return pcdExplicit;
-        }
-      } catch {}
-      try {
-        const size = Number(node?.size_on_disk ?? node?.installed_size ?? 0);
-        if (Number.isFinite(size) && size > 0) return true;
-      } catch {}
-      return undefined;
-    })(),
-    update_pending: (() => {
-      const pcd = node?.per_client_data;
-      const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-      if (clientData) {
-        const ds = Number(clientData?.display_status ?? 0);
-        if (UPDATE_PENDING_STATUSES.includes(ds)) return true;
-        const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
-        const bytesStage = Number(clientData?.bytes_to_stage ?? clientData?.m_nBytesToStage ?? 0);
-        if (bytesDown > 0 || bytesStage > 0) return true;
-      }
-      const explicit = readOptionalBoolean(node, [
-        "update_running", "m_bUpdateRunning", "bUpdateRunning",
-        "update_available", "m_bUpdateAvailable", "m_bNeedsUpdate",
-        "needs_update", "m_bUpdatePaused",
-      ]);
-      if (explicit === true) return true;
-      return explicit;
-    })(),
-    display_status: (() => {
-      try {
-        const pcd = node?.per_client_data;
-        const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-        if (clientData) {
-          const ds = Number(clientData?.display_status ?? 0);
-          return ds > 0 ? ds : undefined;
-        }
-      } catch {}
-      return undefined;
-    })(),
-    deck_compatibility_category: Number(node?.deck_compatibility_category ?? node?.m_eDeckCompatibilityCategory ?? ((Number(node?.steam_hw_compat_category_packed ?? 0) & 0xF) || 0)),
-    library_capsule: String(node?.library_capsule ?? node?.libraryCapsule ?? node?.vertical_capsule ?? ""),
-    library_capsule_filename: String(node?.library_capsule_filename ?? node?.libraryCapsuleFilename ?? ""),
-    rt_store_asset_mtime: Number(node?.rt_store_asset_mtime ?? node?.rtStoreAssetMtime ?? 0) || undefined,
-    user_added_ts: Number(node?.time_added ?? node?.m_time_added ?? node?.added ?? node?.rt_time_added_to_account ?? node?.m_rtTimeAdded ?? node?.timeAddedToAccount ?? node?.time_added_to_account ?? node?.m_time_added_to_account ?? 0) || undefined,
-    rt_purchased_time: Number(node?.rt_purchased_time ?? node?.rtPurchasedTime ?? 0) || undefined,
-    rt_recent_activity_time: Number(node?.rt_recent_activity_time ?? node?.rtRecentActivityTime ?? 0) || undefined,
-    library_hero: String(node?.library_hero ?? node?.hero ?? node?.libraryHero ?? ""),
-    header: String(node?.header ?? node?.header_image ?? node?.capsule ?? ""),
-    icon_hash: String(node?.icon_hash ?? node?.iconHash ?? ""),
-    app_type: Number(node?.app_type ?? node?.appType ?? node?.m_eAppType ?? node?.eAppType ?? 0) || undefined,
+    is_hidden: (n.visible_in_game_list === false) ? true : readOptionalBoolean(node, ["is_hidden", "hidden", "m_bHidden", "bHidden"]),
     cloud_available: readOptionalBoolean(node, ["bCloudAvailable", "cloud_available", "b_cloud_available"]),
-    controller_support: (() => {
-      const raw = node?.nControllerSupport ?? node?.controller_support ?? node?.n_controller_support;
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : undefined;
-    })(),
+  };
+}
+
+function buildAssetFields(node: any) {
+  const n = node ?? {};
+  return {
+    library_capsule: firstString(n.library_capsule, n.libraryCapsule, n.vertical_capsule),
+    library_capsule_filename: firstString(n.library_capsule_filename, n.libraryCapsuleFilename),
+    library_hero: firstString(n.library_hero, n.hero, n.libraryHero),
+    header: firstString(n.header, n.header_image, n.capsule),
+    icon_hash: firstString(n.icon_hash, n.iconHash),
+  };
+}
+
+function buildTimestampFields(node: any) {
+  const n = node ?? {};
+  return {
+    rt_store_asset_mtime: firstNumber(n.rt_store_asset_mtime, n.rtStoreAssetMtime) || undefined,
+    user_added_ts: firstNumber(n.time_added, n.m_time_added, n.added, n.rt_time_added_to_account, n.m_rtTimeAdded, n.timeAddedToAccount, n.time_added_to_account, n.m_time_added_to_account) || undefined,
+    rt_purchased_time: firstNumber(n.rt_purchased_time, n.rtPurchasedTime) || undefined,
+    rt_recent_activity_time: firstNumber(n.rt_recent_activity_time, n.rtRecentActivityTime) || undefined,
+  };
+}
+
+function buildTypeFields(node: any) {
+  const n = node ?? {};
+  return {
+    deck_compatibility_category: Number(n.deck_compatibility_category ?? n.m_eDeckCompatibilityCategory ?? ((Number(n.steam_hw_compat_category_packed ?? 0) & 0xF) || 0)),
+    app_type: firstNumber(n.app_type, n.appType, n.m_eAppType, n.eAppType) || undefined,
+    controller_support: deriveControllerSupport(node),
+  };
+}
+
+export function normalizeAppOverview(node: any): AppOverview | null {
+  const appid = appIdOf(node);
+  if (!Number.isFinite(appid) || appid <= 0) return null;
+  return {
+    ...buildIdentityFields(node, appid),
+    ...buildPlaytimeFields(node),
+    ...buildFlagFields(node),
+    installed: deriveInstalled(node, appid),
+    update_pending: deriveUpdatePending(node),
+    display_status: deriveDisplayStatus(node),
+    ...buildAssetFields(node),
+    ...buildTimestampFields(node),
+    ...buildTypeFields(node),
   };
 }
 
@@ -992,100 +1195,150 @@ function extractStatefulAppIds(value: any): number[] {
   return [];
 }
 
-export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]> {
-  const byId = new Map(items.map((item) => [item.appid, { ...item }]));
-  const sources = [
-    ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
-    ...getSteamWindows().flatMap((win) => [win?.appStore, win?.AppStore, win?.LibraryStore, win?.appsStore]),
-  ].filter(Boolean);
+type StateFlagField = "installed" | "is_favorite" | "is_hidden";
 
-  const applyFlag = (ids: number[], field: "installed" | "is_favorite" | "is_hidden") => {
+const STATE_ASYNC_METHODS: Array<{ names: string[]; field: StateFlagField }> = [
+  { names: ["GetInstalledApps", "GetInstalledAppIDs", "GetInstalledGames"], field: "installed" },
+  { names: ["GetFavoriteApps", "GetFavoriteAppIDs", "GetFavorites"], field: "is_favorite" },
+  { names: ["GetHiddenApps", "GetHiddenAppIDs"], field: "is_hidden" },
+];
+const STATE_VALUE_CANDIDATES: Array<{ keys: string[]; field: StateFlagField }> = [
+  { keys: ["installedApps", "m_rgInstalledApps", "m_setInstalledApps"], field: "installed" },
+  { keys: ["favoriteApps", "m_rgFavoriteApps", "m_setFavoriteApps"], field: "is_favorite" },
+  { keys: ["hiddenApps", "m_rgHiddenApps", "m_setHiddenApps"], field: "is_hidden" },
+];
+
+function makeFlagApplier(byId: Map<number, AppOverview>) {
+  return (ids: number[], field: StateFlagField) => {
     for (const appid of ids) {
       const current = byId.get(appid);
       if (!current) continue;
       (current as any)[field] = true;
     }
   };
+}
 
-  const asyncMethods: Array<{ names: string[]; field: "installed" | "is_favorite" | "is_hidden" }> = [
-    { names: ["GetInstalledApps", "GetInstalledAppIDs", "GetInstalledGames"], field: "installed" },
-    { names: ["GetFavoriteApps", "GetFavoriteAppIDs", "GetFavorites"], field: "is_favorite" },
-    { names: ["GetHiddenApps", "GetHiddenAppIDs"], field: "is_hidden" },
-  ];
-  const valueCandidates: Array<{ keys: string[]; field: "installed" | "is_favorite" | "is_hidden" }> = [
-    { keys: ["installedApps", "m_rgInstalledApps", "m_setInstalledApps"], field: "installed" },
-    { keys: ["favoriteApps", "m_rgFavoriteApps", "m_setFavoriteApps"], field: "is_favorite" },
-    { keys: ["hiddenApps", "m_rgHiddenApps", "m_setHiddenApps"], field: "is_hidden" },
-  ];
+async function callMethodSafe(source: any, name: string): Promise<any> {
+  const fn = (source as any)?.[name];
+  if (typeof fn !== "function") return undefined;
+  try { return await fn.call(source); } catch { return undefined; }
+}
 
-  for (const source of sources) {
-    for (const entry of asyncMethods) {
-      for (const name of entry.names) {
-        try {
-          const fn = (source as any)?.[name];
-          if (typeof fn !== "function") continue;
-          applyFlag(extractStatefulAppIds(await fn.call(source)), entry.field);
-        } catch {}
-      }
-    }
-    for (const entry of valueCandidates) {
-      for (const key of entry.keys) {
-        try {
-          applyFlag(extractStatefulAppIds((source as any)?.[key]), entry.field);
-        } catch {}
-      }
+async function harvestFlagsFromSource(source: any, applyFlag: (ids: number[], field: StateFlagField) => void): Promise<void> {
+  // Parallel: each (method-name, field) call independently — no cross-deps.
+  const tasks: Array<Promise<void>> = [];
+  for (const entry of STATE_ASYNC_METHODS) {
+    for (const name of entry.names) {
+      tasks.push(callMethodSafe(source, name).then((res) => {
+        if (res !== undefined) applyFlag(extractStatefulAppIds(res), entry.field);
+      }));
     }
   }
+  await Promise.all(tasks);
+  for (const entry of STATE_VALUE_CANDIDATES) {
+    for (const key of entry.keys) {
+      try { applyFlag(extractStatefulAppIds((source as any)?.[key]), entry.field); } catch {}
+    }
+  }
+}
 
-  // Try collectionStore for favorites (covers localized collection names)
+function harvestFavoritesFromCollectionStore(applyFlag: (ids: number[], field: StateFlagField) => void): void {
   for (const win of getSteamWindows()) {
     try {
       const cs = (win as any)?.collectionStore;
-      if (!cs) continue;
-      const favColl = cs.favoriteCollection ?? cs.GetCollection?.("favorite");
-      if (favColl) {
-        applyFlag(extractCollectionAppIds(favColl), "is_favorite");
-      }
+      const favColl = cs?.favoriteCollection ?? cs?.GetCollection?.("favorite");
+      if (favColl) applyFlag(extractCollectionAppIds(favColl), "is_favorite");
     } catch {}
   }
+}
 
-  try {
-    for (const win of getSteamWindows()) {
-      const appStore = (win as any)?.appStore ?? (win as any)?.AppStore;
-      if (!appStore?.GetAppOverviewByAppID) continue;
-      for (const [appid, item] of byId) {
-        if (item.installed === false) continue;  // skip already-confirmed not-installed
-        try {
-          const raw = appStore.GetAppOverviewByAppID(appid);
-          if (!raw) continue;
+const RAW_INSTALLED_DIRECT_KEYS = ["installed", "is_installed", "m_bInstalled", "bInstalled"];
+const RAW_PCD_KEYS = ["per_client_data", "local_per_client_data"];
+const RAW_SIZE_KEYS = ["size_on_disk", "m_nSizeOnDisk"];
+const RAW_LAST_LOCAL_KEYS = ["rt_last_time_locally_played", "m_rtLastTimePlayed"];
 
-          const directInstalled = raw?.installed ?? raw?.is_installed ?? raw?.m_bInstalled ?? raw?.bInstalled;
-          if (directInstalled === true) { item.installed = true; continue; }
-          if (directInstalled === false) { item.installed = false; continue; }
+function pickFirstBool(raw: any, keys: string[]): boolean | null {
+  for (const k of keys) {
+    const v = raw?.[k];
+    if (v === true) return true;
+    if (v === false) return false;
+  }
+  return null;
+}
 
-          const pcd = raw?.per_client_data ?? raw?.local_per_client_data;
-          const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-          if (clientData) {
-            // Only use explicit installed field in pcd — do NOT infer from display_status.
-            const pcdInstalled = readOptionalBoolean(clientData, ["installed", "is_installed"]);
-            if (pcdInstalled !== undefined) { item.installed = pcdInstalled; continue; }
-            // No explicit field in pcd — leave item.installed unchanged (don't assume)
-            continue;
-          }
+function pickFirstClientData(raw: any): any {
+  for (const k of RAW_PCD_KEYS) {
+    const pcd = raw?.[k];
+    if (Array.isArray(pcd)) return pcd[0] ?? null;
+    if (pcd) return pcd;
+  }
+  return null;
+}
 
-          const sod = Number(raw?.size_on_disk ?? raw?.m_nSizeOnDisk ?? 0);
-          if (Number.isFinite(sod) && sod > 0) { item.installed = true; continue; }
+function pickFirstPositiveNumber(raw: any, keys: string[]): number {
+  for (const k of keys) {
+    const v = Number(raw?.[k]);
+    if (Number.isFinite(v) && v > 0) return v;
+  }
+  return 0;
+}
 
-          const lastLocal = Number(raw?.rt_last_time_locally_played ?? raw?.m_rtLastTimePlayed ?? 0);
-          if (Number.isFinite(lastLocal) && lastLocal > 0) { item.installed = true; continue; }
+function deriveInstalledFromRawOverview(raw: any): boolean | undefined {
+  const direct = pickFirstBool(raw, RAW_INSTALLED_DIRECT_KEYS);
+  if (direct !== null) return direct;
+  const clientData = pickFirstClientData(raw);
+  if (clientData) {
+    // Only use explicit installed field in pcd — do NOT infer from display_status.
+    return readOptionalBoolean(clientData, ["installed", "is_installed"]);
+  }
+  if (pickFirstPositiveNumber(raw, RAW_SIZE_KEYS) > 0) return true;
+  if (pickFirstPositiveNumber(raw, RAW_LAST_LOCAL_KEYS) > 0) return true;
+  return false;
+}
 
-          item.installed = false;
-        } catch {}
+function pickFirstAppStore(): any {
+  for (const win of getSteamWindows()) {
+    const appStore = (win as any)?.appStore ?? (win as any)?.AppStore;
+    if (appStore?.GetAppOverviewByAppID) return appStore;
+  }
+  return null;
+}
+
+// Backfill `installed` from the raw per-id overview for entries the bulk
+// pass left ambiguous. Yields to the main thread every BACKFILL_BATCH
+// items so a large library (2k+ apps) does not freeze the UI at boot.
+const BACKFILL_BATCH = 200;
+async function backfillInstalledFromAppStore(byId: Map<number, AppOverview>): Promise<void> {
+  const appStore = pickFirstAppStore();
+  if (!appStore) return;
+  let processed = 0;
+  for (const [appid, item] of byId) {
+    if (item.installed === false) continue;
+    try {
+      const raw = appStore.GetAppOverviewByAppID(appid);
+      if (raw) {
+        const derived = deriveInstalledFromRawOverview(raw);
+        if (derived !== undefined) item.installed = derived;
       }
-      break; // Only need the first working appStore
+    } catch {}
+    if (++processed % BACKFILL_BATCH === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
     }
-  } catch {}
+  }
+}
 
+export async function enrichAppStateFlags(items: AppOverview[]): Promise<AppOverview[]> {
+  const byId = new Map(items.map((item) => [item.appid, { ...item }]));
+  const applyFlag = makeFlagApplier(byId);
+  const sources = [
+    ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
+    ...getSteamWindows().flatMap((win) => [win?.appStore, win?.AppStore, win?.LibraryStore, win?.appsStore]),
+  ].filter(Boolean);
+  // Parallelize source harvests — previously each was awaited sequentially,
+  // serialising ~70 async calls at cold boot.
+  await Promise.all(sources.map((source) => harvestFlagsFromSource(source, applyFlag)));
+  harvestFavoritesFromCollectionStore(applyFlag);
+  await backfillInstalledFromAppStore(byId);
   return [...byId.values()];
 }
 
@@ -1097,128 +1350,151 @@ function isSetLike(obj: any): boolean {
   return obj && typeof obj === 'object' && typeof obj.values === 'function' && typeof obj.has === 'function' && !isMapLike(obj) && typeof obj.get !== 'function';
 }
 
+const APP_OVERVIEW_CHILD_KEY_RE = /(apps|app|overview|library|map|list|items|entries|collection|recent|favorite|installed)/i;
+
+function visitChildCollection(node: any, depth: number, visit: (n: any, d: number) => void): boolean {
+  if (isMapLike(node) || isSetLike(node) || node instanceof Set) {
+    for (const value of node.values()) visit(value, depth + 1);
+    return true;
+  }
+  if (typeof node[Symbol.iterator] === 'function' && typeof node !== 'string') {
+    try { for (const value of node) visit(value, depth + 1); return true; } catch {}
+  }
+  return false;
+}
+
+function visitChildObjects(node: any, depth: number, visit: (n: any, d: number) => void): void {
+  for (const [key, value] of Object.entries(node)) {
+    if (!value || typeof value !== "object") continue;
+    if (APP_OVERVIEW_CHILD_KEY_RE.test(key) || depth < 2) visit(value, depth + 1);
+  }
+}
+
+function shouldSkipOverviewNode(node: any, seen: Set<any>, visited: number, depth: number): boolean {
+  if (!node || seen.has(node) || visited > 4000 || depth > 6) return true;
+  if (typeof Element !== "undefined" && node instanceof Element) return true;
+  return typeof node !== "object";
+}
+
 function extractAppOverviewsFromCandidate(candidate: any): AppOverview[] {
   const out: AppOverview[] = [];
   const seen = new Set<any>();
   let visited = 0;
-
-  const visit = (node: any, depth = 0) => {
-    if (!node || seen.has(node)) return;
-    if (visited > 4000 || depth > 6) return;
-    if (typeof Element !== "undefined" && node instanceof Element) return;
-    if (typeof node !== "object") return;
+  const visit = (node: any, depth = 0): void => {
+    if (shouldSkipOverviewNode(node, seen, visited, depth)) return;
     seen.add(node);
     visited += 1;
-
     const normalized = normalizeAppOverview(node);
     if (normalized) out.push(normalized);
-
     if (Array.isArray(node)) {
       for (const item of node) visit(item, depth + 1);
       return;
     }
-
-    // Handle both native Map and MobX ObservableMap
-    if (isMapLike(node)) {
-      for (const value of node.values()) visit(value, depth + 1);
-      return;
-    }
-
-    // Handle both native Set and MobX ObservableSet
-    if (isSetLike(node) || node instanceof Set) {
-      for (const value of node.values()) visit(value, depth + 1);
-      return;
-    }
-
-    // Handle generic iterables (MobX collections, custom containers)
-    if (typeof node[Symbol.iterator] === 'function' && !Array.isArray(node) && typeof node !== 'string') {
-      try {
-        for (const value of node) visit(value, depth + 1);
-        return;
-      } catch {}
-    }
-
-    for (const [key, value] of Object.entries(node)) {
-      if (!value || typeof value !== "object") continue;
-      if (/(apps|app|overview|library|map|list|items|entries|collection|recent|favorite|installed)/i.test(key) || depth < 2) {
-        visit(value, depth + 1);
-      }
-    }
+    if (visitChildCollection(node, depth, visit)) return;
+    visitChildObjects(node, depth, visit);
   };
-
   visit(candidate);
   return uniqApps(out);
+}
+
+const OVERVIEW_METHOD_NAMES = [
+  "GetApps", "GetAllApps", "GetAppList", "GetAppOverviews",
+  "GetAllAppOverviews", "GetCachedAppOverviews", "GetInstalledApps", "GetGames",
+];
+
+function pushNormalizedFromIterable(out: AppOverview[], iter: Iterable<any>): void {
+  for (const item of iter) {
+    const normalized = normalizeAppOverview(item);
+    if (normalized) out.push(normalized);
+  }
+}
+
+function pushOverviewsFromValue(out: AppOverview[], value: any): void {
+  if (Array.isArray(value)) { pushNormalizedFromIterable(out, value); return; }
+  if (value && typeof value === "object") {
+    pushNormalizedFromIterable(out, Object.values(value as Record<string, unknown>));
+  }
+}
+
+function pushOverviewsFromMethods(out: AppOverview[], store: any): void {
+  for (const name of OVERVIEW_METHOD_NAMES) {
+    try {
+      const fn = store?.[name];
+      if (typeof fn !== "function") continue;
+      pushOverviewsFromValue(out, fn.call(store));
+    } catch {}
+  }
+}
+
+const OVERVIEW_MAP_FIELD_NAMES = [
+  "m_mapAppInfo", "m_mapAppOverviews", "m_mapAppOverviewByAppID",
+  "m_mapApps", "m_rgApps", "apps", "allApps", "appList",
+];
+
+function pushOverviewsFromMapFields(out: AppOverview[], store: any): void {
+  for (const name of OVERVIEW_MAP_FIELD_NAMES) {
+    try {
+      const candidate = store?.[name];
+      pushOverviewsFromValue(out, isMapLike(candidate) ? Array.from(candidate.values()) : candidate);
+    } catch {}
+  }
 }
 
 function extractAppOverviewsFromStoreMethods(store: any): AppOverview[] {
   if (!store) return [];
   const out: AppOverview[] = [];
-  const tryPushFrom = (value: any) => {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        const normalized = normalizeAppOverview(item);
-        if (normalized) out.push(normalized);
-      }
-      return;
-    }
-    if (value && typeof value === "object") {
-      for (const candidate of Object.values(value as Record<string, unknown>)) {
-        const normalized = normalizeAppOverview(candidate);
-        if (normalized) out.push(normalized);
-      }
-    }
-  };
-
-  const methodNames = [
-    "GetApps",
-    "GetAllApps",
-    "GetAppList",
-    "GetAppOverviews",
-    "GetAllAppOverviews",
-    "GetCachedAppOverviews",
-    "GetInstalledApps",
-    "GetGames",
-  ];
-
-  for (const name of methodNames) {
-    try {
-      const fn = store?.[name];
-      if (typeof fn !== "function") continue;
-      tryPushFrom(fn.call(store));
-    } catch {}
-  }
-
-  const mapCandidates = [
-    store?.m_mapAppInfo,
-    store?.m_mapAppOverviews,
-    store?.m_mapAppOverviewByAppID,
-    store?.m_mapApps,
-    store?.m_rgApps,
-    store?.apps,
-    store?.allApps,
-    store?.appList,
-  ];
-
-  for (const candidate of mapCandidates) {
-    try {
-      if (isMapLike(candidate)) {
-        tryPushFrom(Array.from(candidate.values()));
-      } else {
-        tryPushFrom(candidate);
-      }
-    } catch {}
-  }
-
+  pushOverviewsFromMethods(out, store);
+  pushOverviewsFromMapFields(out, store);
   return uniqApps(out);
 }
 
-// Comparator used to sort by "added" preference (user-added timestamp, then store asset mtime)
+const ADDED_TIME_KEYS = ["rt_purchased_time", "user_added_ts", "rt_store_asset_mtime"];
+
+function addedTimeOf(a: any): number {
+  for (const k of ADDED_TIME_KEYS) {
+    const v = (a as any)?.[k];
+    if (v !== undefined && v !== null) return Number(v);
+  }
+  return 0;
+}
+
 export function compareByAdded(a: AppOverview, b: AppOverview): number {
-  const aVal = (a as any)?.rt_purchased_time ?? (a as any)?.user_added_ts ?? (a as any)?.rt_store_asset_mtime ?? 0;
-  const bVal = (b as any)?.rt_purchased_time ?? (b as any)?.user_added_ts ?? (b as any)?.rt_store_asset_mtime ?? 0;
-  const d = Number(bVal) - Number(aVal);
-  if (d !== 0) return d;
-  return Number(appIdOf(b)) - Number(appIdOf(a));
+  const d = addedTimeOf(b) - addedTimeOf(a);
+  return d !== 0 ? d : Number(appIdOf(b)) - Number(appIdOf(a));
+}
+
+const DEEP_APPID_NUMBER_KEYS = ["appid", "appId", "nAppID", "m_unAppID"];
+const DEEP_APPID_CHILD_KEY_RE = /(apps|appids|items|list|entries|children|rgAppIDs|m_rgAppIDs|rgItems|m_rgItems)/i;
+
+function pushDirectAppId(value: any, out: number[]): void {
+  for (const k of DEEP_APPID_NUMBER_KEYS) {
+    const v = Number(value?.[k]);
+    if (Number.isFinite(v) && v > 0) { out.push(v); return; }
+  }
+}
+
+function walkIterableChildren(value: any, depth: number, walk: (v: any, d: number) => void): boolean {
+  if (isMapLike(value) || isSetLike(value) || value instanceof Set) {
+    for (const entry of value.values()) walk(entry, depth + 1);
+    return true;
+  }
+  if (typeof value[Symbol.iterator] === 'function' && typeof value !== 'string') {
+    try { for (const entry of value) walk(entry, depth + 1); return true; } catch {}
+  }
+  return false;
+}
+
+function walkObjectChildren(value: any, depth: number, walk: (v: any, d: number) => void): void {
+  for (const [key, child] of Object.entries(value)) {
+    if (!child) continue;
+    if (DEEP_APPID_CHILD_KEY_RE.test(key) || (depth < 2 && typeof child === "object")) {
+      walk(child, depth + 1);
+    }
+  }
+}
+
+function pushIfPositiveNumber(value: number, out: number[]): void {
+  if (Number.isFinite(value) && value > 0) out.push(value);
 }
 
 function extractAppIdsDeep(node: any, maxDepth = 6): number[] {
@@ -1226,51 +1502,45 @@ function extractAppIdsDeep(node: any, maxDepth = 6): number[] {
   const seen = new Set<any>();
   const walk = (value: any, depth = 0) => {
     if (value == null || depth > maxDepth || seen.has(value)) return;
-    if (typeof value === "number") {
-      if (Number.isFinite(value) && value > 0) out.push(value);
-      return;
-    }
+    if (typeof value === "number") { pushIfPositiveNumber(value, out); return; }
     if (typeof value !== "object") return;
     seen.add(value);
-
-    if (Array.isArray(value)) {
-      for (const item of value) walk(item, depth + 1);
-      return;
-    }
-
-    // Handle both native Map/Set and MobX ObservableMap/ObservableSet
-    if (isMapLike(value)) {
-      for (const entry of value.values()) walk(entry, depth + 1);
-      return;
-    }
-
-    if (isSetLike(value) || value instanceof Set) {
-      for (const entry of value.values()) walk(entry, depth + 1);
-      return;
-    }
-
-    if (typeof value[Symbol.iterator] === 'function' && typeof value !== 'string') {
-      try {
-        for (const entry of value) walk(entry, depth + 1);
-        return;
-      } catch {}
-    }
-
-    const direct = Number(value?.appid ?? value?.appId ?? value?.nAppID ?? value?.m_unAppID ?? 0);
-    if (Number.isFinite(direct) && direct > 0) out.push(direct);
-
-    for (const [key, child] of Object.entries(value)) {
-      if (!child) continue;
-      if (/(apps|appids|items|list|entries|children|rgAppIDs|m_rgAppIDs|rgItems|m_rgItems)/i.test(key)) {
-        walk(child, depth + 1);
-      } else if (depth < 2 && typeof child === "object") {
-        walk(child, depth + 1);
-      }
-    }
+    if (Array.isArray(value)) { for (const item of value) walk(item, depth + 1); return; }
+    if (walkIterableChildren(value, depth, walk)) return;
+    pushDirectAppId(value, out);
+    walkObjectChildren(value, depth, walk);
   };
   walk(node, 0);
   return uniqNumbers(out);
 }
+
+// Shared field accessors for the collection-node fingerprint walker.
+// Using a key-list scan rather than `??` chain so the helper stays at
+// complexity ~3 (each `??` in a chain counts as a branch).
+const COLLECTION_ID_KEYS = [
+  "id", "collectionid", "collectionId", "gid",
+  "key", "uuid", "strCollectionID", "m_strCollectionID",
+];
+const COLLECTION_NAME_KEYS = [
+  "name", "displayName", "title", "label", "strName",
+];
+function readFirstStringField(node: any, keys: string[]): string {
+  if (!node) return "";
+  for (const k of keys) {
+    const v = (node as any)[k];
+    if (v != null && v !== "") return String(v);
+  }
+  return "";
+}
+function anyNeedleSubstring(haystack: string, needles: Set<string>): boolean {
+  if (!haystack) return false;
+  for (const needle of needles) {
+    if (needle && haystack.includes(needle)) return true;
+  }
+  return false;
+}
+
+const DEEP_COLLECTION_CHILD_KEY_RE = /(collect|collection|tab|items|apps|map|list|entries|groups|folders)/i;
 
 function resolveCollectionIdsFromStoreDeep(store: any, idCandidates: string[], nameCandidates: string[]): number[] {
   if (!store) return [];
@@ -1280,71 +1550,46 @@ function resolveCollectionIdsFromStoreDeep(store: any, idCandidates: string[], n
   const idTokenNeedles = new Set(idCandidates.map((v) => normalizeCollectionToken(v)).filter(Boolean));
   const nameNeedles = new Set(nameCandidates.map((v) => normalizeText(v)).filter(Boolean));
   const looksLikeCollectionNode = (node: any): boolean => {
-    const rawIdText = normalizeText(String(
-      node?.id ?? node?.collectionid ?? node?.collectionId ?? node?.gid ?? node?.key ?? node?.uuid ?? node?.strCollectionID ?? node?.m_strCollectionID ?? ""
-    ));
-    const rawIdToken = normalizeCollectionToken(String(
-      node?.id ?? node?.collectionid ?? node?.collectionId ?? node?.gid ?? node?.key ?? node?.uuid ?? node?.strCollectionID ?? node?.m_strCollectionID ?? ""
-    ));
-    const rawName = normalizeText(String(
-      node?.name ?? node?.displayName ?? node?.title ?? node?.label ?? node?.strName ?? ""
-    ));
+    const rawIdSrc = readFirstStringField(node, COLLECTION_ID_KEYS);
+    const rawIdText = normalizeText(rawIdSrc);
+    const rawIdToken = normalizeCollectionToken(rawIdSrc);
+    const rawName = normalizeText(readFirstStringField(node, COLLECTION_NAME_KEYS));
 
     if (rawIdText && idNeedles.has(rawIdText)) return true;
     if (rawIdToken && idTokenNeedles.has(rawIdToken)) return true;
     if (rawName && nameNeedles.has(rawName)) return true;
-
-    for (const needle of idNeedles) {
-      if (!needle) continue;
-      if (rawIdText.includes(needle)) return true;
-    }
-    for (const needle of idTokenNeedles) {
-      if (!needle) continue;
-      if (rawIdToken.includes(needle)) return true;
-    }
-    for (const needle of nameNeedles) {
-      if (!needle) continue;
-      if (rawName.includes(needle)) return true;
-    }
-    return false;
+    return anyNeedleSubstring(rawIdText, idNeedles)
+      || anyNeedleSubstring(rawIdToken, idTokenNeedles)
+      || anyNeedleSubstring(rawName, nameNeedles);
   };
 
-  const walk = (node: any, depth = 0) => {
-    if (!node || visited.has(node) || depth > 8) return;
-    if (typeof node !== "object") return;
-    visited.add(node);
-
-    if (looksLikeCollectionNode(node)) {
-      out.push(...extractAppIdsDeep(node, 7));
-    }
-
-    if (Array.isArray(node)) {
-      for (const item of node) walk(item, depth + 1);
-      return;
-    }
-
-    if (node instanceof Map) {
-      for (const [key, value] of node.entries()) {
-        const keyNorm = normalizeText(String(key ?? ""));
-        if (idNeedles.has(keyNorm) || nameNeedles.has(keyNorm)) {
-          out.push(...extractAppIdsDeep(value, 7));
-        }
-        walk(value, depth + 1);
+  const walkMapEntries = (node: Map<any, any>, depth: number) => {
+    for (const [key, value] of node.entries()) {
+      const keyNorm = normalizeText(String(key ?? ""));
+      if (idNeedles.has(keyNorm) || nameNeedles.has(keyNorm)) {
+        out.push(...extractAppIdsDeep(value, 7));
       }
-      return;
+      walk(value, depth + 1);
     }
-
-    if (node instanceof Set) {
-      for (const value of node.values()) walk(value, depth + 1);
-      return;
-    }
-
+  };
+  const walkChildKeys = (node: any, depth: number) => {
     for (const [key, value] of Object.entries(node)) {
       if (!value || typeof value !== "object") continue;
-      if (/(collect|collection|tab|items|apps|map|list|entries|groups|folders)/i.test(key) || depth < 2) {
-        walk(value, depth + 1);
-      }
+      if (DEEP_COLLECTION_CHILD_KEY_RE.test(key) || depth < 2) walk(value, depth + 1);
     }
+  };
+  const shouldSkipCollectionWalk = (node: any, depth: number): boolean => {
+    if (!node || visited.has(node) || depth > 8) return true;
+    return typeof node !== "object";
+  };
+  const walk = (node: any, depth = 0): void => {
+    if (shouldSkipCollectionWalk(node, depth)) return;
+    visited.add(node);
+    if (looksLikeCollectionNode(node)) out.push(...extractAppIdsDeep(node, 7));
+    if (Array.isArray(node)) { for (const item of node) walk(item, depth + 1); return; }
+    if (node instanceof Map) { walkMapEntries(node, depth); return; }
+    if (node instanceof Set) { for (const v of node.values()) walk(v, depth + 1); return; }
+    walkChildKeys(node, depth);
   };
 
   walk(store, 0);
@@ -1391,10 +1636,7 @@ export async function getAllAppOverviews(): Promise<AppOverview[]> {
   if (appOverviewCache && now - appOverviewCache.ts < 10000) {
     return appOverviewCache.items;
   }
-  // De-dupe in-flight calls. Several shelves resolving concurrently before
-  // the first call lands would otherwise each trigger their own
-  // GetAllAppOverviews chain (multiple Steam IPC round-trips, fallback walks
-  // through every window/client). Now they all await a single shared promise.
+  // De-dupe in-flight calls so concurrent resolvers share one promise.
   if (appOverviewPending) return appOverviewPending;
   appOverviewPending = (async () => {
     try {
@@ -1406,166 +1648,169 @@ export async function getAllAppOverviews(): Promise<AppOverview[]> {
   return appOverviewPending;
 }
 
-async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
-  const out: AppOverview[] = [];
+async function tryPushAppsFrom(out: AppOverview[], fn: (() => any) | undefined): Promise<void> {
+  if (typeof fn !== "function") return;
+  try {
+    const res = await fn();
+    if (Array.isArray(res)) out.push(...(res as AppOverview[]));
+  } catch {}
+}
+
+async function fetchFromPrimarySteamClient(out: AppOverview[]): Promise<void> {
   for (const sc of getSteamClients()) {
+    await tryPushAppsFrom(out, sc?.Apps?.GetAllAppOverviews?.bind(sc?.Apps));
+    await tryPushAppsFrom(out, sc?.Apps?.GetMyApps?.bind(sc?.Apps));
+  }
+}
+
+function fetchFromFallbackCandidates(out: AppOverview[]): void {
+  const fallbackCandidates = [
+    ...getSteamWindows().flatMap((hostWindow) => [
+      hostWindow?.appStore,
+      hostWindow?.AppStore,
+      hostWindow?.LibraryStore,
+      hostWindow?.appsStore,
+      hostWindow?.appDataStore,
+    ]),
+    ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
+  ].filter(Boolean);
+  for (const candidate of fallbackCandidates) {
+    try { out.push(...extractAppOverviewsFromCandidate(candidate)); } catch {}
+    try { out.push(...extractAppOverviewsFromStoreMethods(candidate)); } catch {}
+  }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews fallback extracted apps", { count: uniqApps(out).length });
+}
+
+function harvestCollection(out: AppOverview[], coll: any): void {
+  const apps = coll?.allApps ?? coll?.visibleApps ?? coll?.apps;
+  if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
+}
+
+const TYPE_MAP_COLLECTION_KEYS = ['type-games', 'gamesCollection', 'type-shortcuts', 'shortcutsCollection'];
+
+function harvestFromCollectionStoreEntry(out: AppOverview[], cs: any): void {
+  if (!cs) return;
+  harvestCollection(out, cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection);
+  harvestCollection(out, cs.allShortcutsCollection ?? cs.shortcutsCollection ?? cs.nonSteamCollection);
+  const typeMap = cs.appTypeCollectionMap;
+  if (!isMapLike(typeMap)) return;
+  for (const key of TYPE_MAP_COLLECTION_KEYS) harvestCollection(out, typeMap.get(key));
+}
+
+function fetchFromCollectionStore(out: AppOverview[]): void {
+  for (const hostWindow of getSteamWindows()) {
     try {
-      const res = await sc?.Apps?.GetAllAppOverviews?.();
-      if (Array.isArray(res)) out.push(...(res as AppOverview[]));
+      harvestFromCollectionStoreEntry(out, (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore);
     } catch {}
+  }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews collectionStore extracted", { count: uniqApps(out).length });
+}
+
+function harvestMapValues(map: any, out: AppOverview[]): void {
+  if (!isMapLike(map) || (map.size ?? 0) === 0) return;
+  for (const value of map.values()) {
+    const norm = normalizeAppOverview(value);
+    if (norm) out.push(norm);
+  }
+}
+
+function directMapsFor(hostWindow: any): any[] {
+  return [
+    hostWindow?.appStore?.m_mapApps,
+    hostWindow?.AppStore?.m_mapApps,
+    hostWindow?.appStore?.m_mapAppInfo,
+    hostWindow?.AppStore?.m_mapAppInfo,
+  ].filter(Boolean);
+}
+
+function fetchFromDirectMap(out: AppOverview[]): void {
+  for (const hostWindow of getSteamWindows()) {
+    try { for (const m of directMapsFor(hostWindow)) harvestMapValues(m, out); } catch {}
+  }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews directMap extracted", { count: uniqApps(out).length });
+}
+
+function pickGamesCollection(cs: any): any {
+  return cs?.allGamesCollection ?? cs?.localGamesCollection ?? cs?.allAppsCollection;
+}
+
+function collectAppIdsFromCollectionStore(): number[] {
+  const allIds: number[] = [];
+  for (const hostWindow of getSteamWindows()) {
     try {
-      const res = await sc?.Apps?.GetMyApps?.();
-      if (Array.isArray(res)) out.push(...(res as AppOverview[]));
+      const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
+      const gamesColl = pickGamesCollection(cs);
+      if (gamesColl) allIds.push(...extractAppIdsDeep(gamesColl, 4));
     } catch {}
   }
-  if (!out.length) {
-    const fallbackCandidates = [
-      ...getSteamWindows().flatMap((hostWindow) => [
-        hostWindow?.appStore,
-        hostWindow?.AppStore,
-        hostWindow?.LibraryStore,
-        hostWindow?.appsStore,
-        hostWindow?.appDataStore,
-      ]),
-      ...getSteamClients().flatMap((sc) => [sc?.Apps, sc?.LibraryStore, sc?.AppStore]),
-    ].filter(Boolean);
-    for (const candidate of fallbackCandidates) {
-      try {
-        out.push(...extractAppOverviewsFromCandidate(candidate));
-      } catch {}
-      try {
-        out.push(...extractAppOverviewsFromStoreMethods(candidate));
-      } catch {}
-    }
-    if (out.length) {
-      logInfo("STEAM", "getAllAppOverviews fallback extracted apps", { count: uniqApps(out).length });
-    }
-  }
+  return uniqNumbers(allIds);
+}
 
-  // Try collectionStore paths (used by TabMaster / UnifiDeck)
-  if (!out.length) {
-    for (const hostWindow of getSteamWindows()) {
-      try {
-        const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
-        if (!cs) continue;
-        // allAppsCollection includes shortcuts; fallback to allGamesCollection
-        const appsColl = cs.allAppsCollection ?? cs.allGamesCollection ?? cs.localGamesCollection;
-        if (appsColl) {
-          const apps = appsColl.allApps ?? appsColl.visibleApps ?? appsColl.apps;
-          if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
-        }
-        // Also collect shortcuts specifically
-        const shortcutsColl = cs.allShortcutsCollection ?? cs.shortcutsCollection ?? cs.nonSteamCollection;
-        if (shortcutsColl) {
-          const apps = shortcutsColl.allApps ?? shortcutsColl.visibleApps ?? shortcutsColl.apps;
-          if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
-        }
-        const typeMap = cs.appTypeCollectionMap;
-        if (isMapLike(typeMap)) {
-          // Include both games and shortcuts from type map
-          for (const key of ['type-games', 'gamesCollection', 'type-shortcuts', 'shortcutsCollection']) {
-            const coll = typeMap.get(key);
-            if (coll) {
-              const apps = coll.allApps ?? coll.visibleApps ?? coll.apps;
-              if (apps) out.push(...extractAppOverviewsFromCandidate(apps));
-            }
-          }
-        }
-      } catch {}
-    }
-    if (out.length) {
-      logInfo("STEAM", "getAllAppOverviews collectionStore extracted", { count: uniqApps(out).length });
-    }
-  }
+function tryLookupOverviewInWindow(hostWindow: any, appid: number): AppOverview | null {
+  try {
+    const ov = hostWindow?.appStore?.GetAppOverviewByAppID?.(appid)
+      ?? hostWindow?.AppStore?.GetAppOverviewByAppID?.(appid);
+    return ov ? normalizeAppOverview(ov) : null;
+  } catch { return null; }
+}
 
-  // Direct Map access on appStore
-  if (!out.length) {
-    for (const hostWindow of getSteamWindows()) {
-      try {
-        const maps = [
-          (hostWindow as any)?.appStore?.m_mapApps,
-          (hostWindow as any)?.AppStore?.m_mapApps,
-          (hostWindow as any)?.appStore?.m_mapAppInfo,
-          (hostWindow as any)?.AppStore?.m_mapAppInfo,
-        ].filter(Boolean);
-        for (const map of maps) {
-          if (isMapLike(map) && (map.size ?? 0) > 0) {
-            for (const value of map.values()) {
-              const norm = normalizeAppOverview(value);
-              if (norm) out.push(norm);
-            }
-          }
-        }
-      } catch {}
-    }
-    if (out.length) {
-      logInfo("STEAM", "getAllAppOverviews directMap extracted", { count: uniqApps(out).length });
-    }
+function lookupOverviewByAppId(appid: number): AppOverview | null {
+  for (const hostWindow of getSteamWindows()) {
+    const norm = tryLookupOverviewInWindow(hostWindow, appid);
+    if (norm) return norm;
   }
+  return null;
+}
 
-  // Last resort: get app IDs from collectionStore, then look up individual overviews
-  if (!out.length) {
-    const allIds: number[] = [];
-    for (const hostWindow of getSteamWindows()) {
-      try {
-        const cs = (hostWindow as any)?.collectionStore ?? (globalThis as any)?.collectionStore;
-        if (!cs) continue;
-        const gamesColl = cs.allGamesCollection ?? cs.localGamesCollection ?? cs.allAppsCollection;
-        if (gamesColl) {
-          allIds.push(...extractAppIdsDeep(gamesColl, 4));
-        }
-      } catch {}
-    }
-    if (allIds.length) {
-      const uniqueIds = uniqNumbers(allIds);
-      logInfo("STEAM", "getAllAppOverviews: recovering via individual lookups", { idCount: uniqueIds.length });
-      for (const appid of uniqueIds.slice(0, 2000)) {
-        for (const hostWindow of getSteamWindows()) {
-          try {
-            const ov = (hostWindow as any)?.appStore?.GetAppOverviewByAppID?.(appid)
-              ?? (hostWindow as any)?.AppStore?.GetAppOverviewByAppID?.(appid);
-            if (ov) {
-              const norm = normalizeAppOverview(ov);
-              if (norm) { out.push(norm); break; }
-            }
-          } catch {}
-        }
-      }
-      if (out.length) {
-        logInfo("STEAM", "getAllAppOverviews individual lookups recovered", { count: uniqApps(out).length });
-      }
-    }
+function fetchFromIndividualLookups(out: AppOverview[]): void {
+  const uniqueIds = collectAppIdsFromCollectionStore();
+  if (!uniqueIds.length) return;
+  logInfo("STEAM", "getAllAppOverviews: recovering via individual lookups", { idCount: uniqueIds.length });
+  for (const appid of uniqueIds.slice(0, 2000)) {
+    const norm = lookupOverviewByAppId(appid);
+    if (norm) out.push(norm);
   }
+  if (out.length) logInfo("STEAM", "getAllAppOverviews individual lookups recovered", { count: uniqApps(out).length });
+}
 
-  const unique = await enrichAppStateFlags(uniqApps(out));
-  // Filter out phantom entries: internal Steam tools, DLCs, etc. that have
-  // no meaningful name (fallback becomes "App <id>"), or have very low appids
-  // that correspond to Valve internal tools/redistributables.
-  const filtered = unique.filter((app) => {
+function dropPhantomApps(apps: AppOverview[]): AppOverview[] {
+  // Drop internal Steam tools / DLCs that have no meaningful name (fallback
+  // "App <id>") or blank names.
+  return apps.filter((app) => {
     const name = app.display_name ?? "";
-    // Skip items whose name is exactly "App <id>" — no real data
     if (name === `App ${app.appid}`) return false;
-    // Skip empty/blank names
     if (!name.trim()) return false;
     return true;
   });
+}
+
+function finalizeOverviews(filtered: AppOverview[], now: number): AppOverview[] {
   if (!filtered.length) {
     if (now - lastNoAppsWarnAt > 10000) {
       lastNoAppsWarnAt = now;
       logWarn("STEAM", "getAllAppOverviews returned no apps", { windowCount: getSteamWindows().length, clientCount: getSteamClients().length });
     }
-    // Don't cache empty results — retry next call
     return appOverviewCache ? appOverviewCache.items : filtered;
   }
-  // Guard against cache regression: if the new result has significantly fewer
-  // apps than the cache, prefer the existing cache (Steam stores may be
-  // restructuring during initialization).
+  // Cache-regression guard: if the new result is <50% of the cache, prefer
+  // the cache (Steam stores may be restructuring during initialization).
   if (appOverviewCache && filtered.length < appOverviewCache.items.length * 0.5) {
     appOverviewCache.ts = now;
     return appOverviewCache.items;
   }
   appOverviewCache = { ts: now, items: filtered };
   return filtered;
+}
+
+async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
+  const out: AppOverview[] = [];
+  await fetchFromPrimarySteamClient(out);
+  if (!out.length) fetchFromFallbackCandidates(out);
+  if (!out.length) fetchFromCollectionStore(out);
+  if (!out.length) fetchFromDirectMap(out);
+  if (!out.length) fetchFromIndividualLookups(out);
+  const enriched = await enrichAppStateFlags(uniqApps(out));
+  return finalizeOverviews(dropPhantomApps(enriched), now);
 }
 
 /**
@@ -1575,20 +1820,31 @@ async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
  * from unrelated collections.  We try direct well-known fields first, then
  * fall back to a bounded depth-3 traversal.
  */
+const COLLECTION_VALUE_APPID_KEYS = ["appid", "appId", "nAppID", "m_unAppID"];
+
+function pickDirectAppIdNumber(val: any): number[] {
+  for (const k of COLLECTION_VALUE_APPID_KEYS) {
+    const n = Number(val?.[k]);
+    if (Number.isFinite(n) && n > 0) return [n];
+  }
+  return [];
+}
+
+function isAnySetLike(v: any): boolean { return isSetLike(v) || v instanceof Set; }
+function isAnyMapLike(v: any): boolean { return isMapLike(v) || v instanceof Map; }
+
+function collectIdsFromCollectionValue(val: any): number[] {
+  if (!val) return [];
+  if (typeof val === "number") return Number.isFinite(val) && val > 0 ? [val] : [];
+  if (Array.isArray(val)) return val.flatMap(collectIdsFromCollectionValue);
+  if (isAnySetLike(val) || isAnyMapLike(val)) return Array.from(val.values()).flatMap(collectIdsFromCollectionValue);
+  if (typeof val === "object") return pickDirectAppIdNumber(val);
+  return [];
+}
+
 function extractCollectionAppIds(raw: any): number[] {
   if (!raw || typeof raw !== "object") return [];
-  const idsFromValue = (val: any): number[] => {
-    if (!val) return [];
-    if (typeof val === "number") return Number.isFinite(val) && val > 0 ? [val] : [];
-    if (Array.isArray(val)) return val.flatMap(idsFromValue);
-    if (isSetLike(val) || val instanceof Set) return Array.from(val.values()).flatMap(idsFromValue);
-    if (isMapLike(val) || val instanceof Map) return Array.from(val.values()).flatMap(idsFromValue);
-    if (typeof val === "object") {
-      const n = Number(val?.appid ?? val?.appId ?? val?.nAppID ?? val?.m_unAppID ?? 0);
-      return Number.isFinite(n) && n > 0 ? [n] : [];
-    }
-    return [];
-  };
+  const idsFromValue = (val: any): number[] => collectIdsFromCollectionValue(val);
   // Try direct well-known fields first (depth-0 only = no cross-contamination)
   for (const key of ["apps", "added", "m_rgApps", "rgApps", "appids", "allApps", "visibleApps"]) {
     const val = (raw as any)[key];
@@ -1601,75 +1857,99 @@ function extractCollectionAppIds(raw: any): number[] {
   return extractAppIdsDeep(raw, 3);
 }
 
+function collectFromCachedRaw(ids: number[], idCandidates: string[], nameCandidates: string[]): void {
+  for (const raw of getCachedCollectionRawCandidates(idCandidates, nameCandidates)) {
+    ids.push(...extractCollectionAppIds(raw));
+  }
+}
+
+async function tryClientCollectionFetch(fn: any, id: string, out: number[]): Promise<void> {
+  if (typeof fn !== "function") return;
+  try {
+    const res = await fn(id);
+    if (Array.isArray(res)) out.push(...res.map((x: any) => Number(x.appid ?? x)));
+  } catch {}
+}
+
+async function collectFromSteamClients(ids: number[], idCandidates: string[]): Promise<void> {
+  for (const sc of getSteamClients()) {
+    const collFn = sc?.Collections?.GetCollectionItems?.bind(sc.Collections);
+    const storeFn = sc?.CollectionStore?.GetCollectionApps?.bind(sc.CollectionStore);
+    for (const id of idCandidates) {
+      await tryClientCollectionFetch(collFn, id, ids);
+      await tryClientCollectionFetch(storeFn, id, ids);
+    }
+  }
+}
+
+const COLLECTION_STORE_METHODS = [
+  "GetCollectionItems", "GetCollectionApps", "GetAppsForCollection",
+  "GetAppsInCollection", "ResolveCollectionApps", "GetCollectionAppIDs",
+];
+const COLLECTION_STORE_MAP_KEYS = [
+  "m_mapCollections", "m_mapCollectionData", "collections", "m_rgCollections", "m_mapTabs",
+];
+const COLLECTION_RESULT_ARRAY_KEYS = ["apps", "appids", "items", "list", "entries"];
+
+function pickResultArray(result: any): any[] {
+  if (Array.isArray(result)) return result;
+  if (!result || typeof result !== "object") return [];
+  for (const k of COLLECTION_RESULT_ARRAY_KEYS) {
+    const arr = result[k];
+    if (Array.isArray(arr)) return arr;
+  }
+  return [];
+}
+
+async function harvestStoreMethodResults(store: any, idCandidates: string[], out: number[]): Promise<void> {
+  for (const method of COLLECTION_STORE_METHODS) {
+    const fn = store?.[method];
+    if (typeof fn !== "function") continue;
+    for (const id of idCandidates) {
+      try {
+        const arr = pickResultArray(await fn.call(store, id));
+        out.push(...arr.map((x: any) => Number(x?.appid ?? x?.appId ?? x)));
+      } catch {}
+    }
+  }
+}
+
+function harvestStoreMapEntries(store: any, idCandidates: string[], out: number[]): void {
+  try {
+    for (const key of COLLECTION_STORE_MAP_KEYS) {
+      const candidate = store?.[key];
+      if (!candidate) continue;
+      for (const id of idCandidates) {
+        const entry = candidate instanceof Map ? candidate.get(id) : candidate?.[id];
+        if (entry) out.push(...extractCollectionAppIds(entry));
+      }
+    }
+  } catch {}
+}
+
+async function collectFromDynamicStores(ids: number[], idCandidates: string[], nameCandidates: string[]): Promise<void> {
+  const stores = collectDynamicCollectionStores();
+  for (const store of stores) {
+    await harvestStoreMethodResults(store, idCandidates, ids);
+    harvestStoreMapEntries(store, idCandidates, ids);
+    try { ids.push(...resolveCollectionIdsFromStoreDeep(store, idCandidates, nameCandidates)); } catch {}
+  }
+}
+
 async function getCollectionApps(collectionId: string, collectionNameHint = ""): Promise<number[]> {
   const ids: number[] = [];
   const idCandidates = candidateCollectionIds(collectionId);
   const nameCandidates = [collectionNameHint].filter(Boolean);
 
-  for (const raw of getCachedCollectionRawCandidates(idCandidates, nameCandidates)) {
-    ids.push(...extractCollectionAppIds(raw));
-  }
-
+  collectFromCachedRaw(ids, idCandidates, nameCandidates);
   if (!ids.length) {
     try {
       await listCollections();
-      for (const raw of getCachedCollectionRawCandidates(idCandidates, nameCandidates)) {
-        ids.push(...extractCollectionAppIds(raw));
-      }
+      collectFromCachedRaw(ids, idCandidates, nameCandidates);
     } catch {}
   }
-
-  for (const sc of getSteamClients()) {
-    for (const id of idCandidates) {
-      try {
-        const res = await sc?.Collections?.GetCollectionItems?.(id);
-        if (Array.isArray(res)) ids.push(...res.map((x: any) => Number(x.appid ?? x)));
-      } catch {}
-      try {
-        const res = await sc?.CollectionStore?.GetCollectionApps?.(id);
-        if (Array.isArray(res)) ids.push(...res.map((x: any) => Number(x.appid ?? x)));
-      } catch {}
-    }
-  }
-
-  if (!ids.length) {
-    const stores = collectDynamicCollectionStores();
-    const methods = ["GetCollectionItems", "GetCollectionApps", "GetAppsForCollection", "GetAppsInCollection", "ResolveCollectionApps", "GetCollectionAppIDs"];
-    for (const store of stores) {
-      for (const method of methods) {
-        const fn = store?.[method];
-        if (typeof fn !== "function") continue;
-        for (const id of idCandidates) {
-          try {
-            const result = await fn.call(store, id);
-            const arr = Array.isArray(result)
-              ? result
-              : (result && typeof result === "object" ? (result.apps ?? result.appids ?? result.items ?? result.list ?? result.entries ?? []) : []);
-            if (Array.isArray(arr)) ids.push(...arr.map((x: any) => Number(x?.appid ?? x?.appId ?? x)));
-          } catch {}
-        }
-      }
-
-      // Map/object fallback keyed by collection id
-      try {
-        const maps = [store?.m_mapCollections, store?.m_mapCollectionData, store?.collections, store?.m_rgCollections, store?.m_mapTabs];
-        for (const candidate of maps) {
-          if (!candidate) continue;
-          for (const id of idCandidates) {
-            const entry = candidate instanceof Map ? candidate.get(id) : candidate?.[id];
-            if (entry) {
-              ids.push(...extractCollectionAppIds(entry));
-            }
-          }
-        }
-      } catch {}
-
-      // Deep fallback for uc-* and custom collection stores.
-      try {
-        ids.push(...resolveCollectionIdsFromStoreDeep(store, idCandidates, nameCandidates));
-      } catch {}
-    }
-  }
+  await collectFromSteamClients(ids, idCandidates);
+  if (!ids.length) await collectFromDynamicStores(ids, idCandidates, nameCandidates);
   return uniqNumbers(ids);
 }
 
@@ -1703,114 +1983,148 @@ export type CustomFilter = {
  * Tries collectionStore APIs and well-known localized collection names
  * so the resolution works regardless of the console language.
  */
-async function getFavoritesCollectionAppIds(): Promise<number[]> {
-  const localizedNames = [
-    "Favorites", "Favoris", "Favoriten", "Favoritos", "Preferiti",
-    "Избранное", "Ulubione", "Favorieten", "Favoriler", "Обране",
-    "お気に入り", "즐겨찾기", "收藏夹",
-  ];
-  const internalIds = ["favorite", "favorites", "user-collections-favorite"];
+const FAVORITES_LOCALIZED_NAMES = [
+  "Favorites", "Favoris", "Favoriten", "Favoritos", "Preferiti",
+  "Избранное", "Ulubione", "Favorieten", "Favoriler", "Обране",
+  "お気に入り", "즐겨찾기", "收藏夹",
+];
+const FAVORITES_INTERNAL_IDS = ["favorite", "favorites", "user-collections-favorite"];
+const FAVORITES_CLIENT_METHODS = ["GetFavoriteCollectionApps", "GetFavoriteApps", "GetFavoriteAppIDs"];
 
-  // Try collectionStore.favoriteCollection or GetCollection("favorite")
+function favoritesFromCollectionStore(): number[] {
   for (const win of getSteamWindows()) {
     try {
       const cs = (win as any)?.collectionStore;
       if (!cs) continue;
       const favColl = cs.favoriteCollection ?? cs.GetCollection?.("favorite");
-      if (favColl) {
-        const ids = extractCollectionAppIds(favColl);
-        if (ids.length) return ids;
-      }
+      if (!favColl) continue;
+      const ids = extractCollectionAppIds(favColl);
+      if (ids.length) return ids;
     } catch {}
   }
+  return [];
+}
 
-  // Try SteamClient.Collections API
+async function favoritesFromClientApi(): Promise<number[]> {
   for (const sc of getSteamClients()) {
-    for (const method of ["GetFavoriteCollectionApps", "GetFavoriteApps", "GetFavoriteAppIDs"]) {
+    for (const method of FAVORITES_CLIENT_METHODS) {
       try {
         const fn = (sc?.Collections as any)?.[method];
         if (typeof fn !== "function") continue;
         const res = await fn.call(sc.Collections);
-        if (Array.isArray(res) && res.length) return res.map((x: any) => Number(x?.appid ?? x)).filter(Number.isFinite);
+        if (Array.isArray(res) && res.length) {
+          return res.map((x: any) => Number(x?.appid ?? x)).filter(Number.isFinite);
+        }
       } catch {}
     }
   }
-
-  // Fallback: search all collections for known favorites names/IDs
-  try {
-    const collections = await listCollections();
-    const allNames = new Set([...localizedNames.map((n) => normalizeText(n)), ...internalIds]);
-    for (const coll of collections) {
-      const normId = normalizeText(coll.id);
-      const normName = normalizeText(coll.name);
-      if (allNames.has(normId) || allNames.has(normName)) {
-        const ids = await getCollectionApps(coll.id, coll.name);
-        if (ids.length) return ids;
-      }
-    }
-  } catch {}
-
   return [];
 }
 
-async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOverview[]> {
-  const id = slugifyTab(tab.startsWith("/") ? tab.split("/").pop() || tab : tab);
-  if (id === "all" || id === "all_games" || id === "allgames") return all;
-  if (id === "favorites") {
-    const byFlag = all.filter((a) => isFavoriteOf(a));
-    if (byFlag.length > 0) return byFlag;
-    // Fallback: resolve via localized Favorites collection
-    const favIds = await getFavoritesCollectionAppIds();
-    if (favIds.length) {
-      const favSet = new Set(favIds);
-      return all.filter((a) => favSet.has(appIdOf(a)));
+async function favoritesFromAllCollections(): Promise<number[]> {
+  try {
+    const collections = await listCollections();
+    const needles = new Set([...FAVORITES_LOCALIZED_NAMES.map((n) => normalizeText(n)), ...FAVORITES_INTERNAL_IDS]);
+    for (const coll of collections) {
+      if (!needles.has(normalizeText(coll.id)) && !needles.has(normalizeText(coll.name))) continue;
+      const ids = await getCollectionApps(coll.id, coll.name);
+      if (ids.length) return ids;
     }
-    return byFlag;
-  }
-  if (id === "hidden") return all.filter((a) => isHiddenOf(a));
-  if (id === "nonsteam" || id === "epic" || id === "gog") return all.filter((a) => isNonSteamOf(a));
-  // "installed" mirrors the native SteamOS library tab, which excludes
-  // non-Steam shortcuts AND non-game app types (Proton, Steam Linux Runtime,
-  // redistributables, tools — all `app_type === 4` or other non-1 codes).
-  // Use the dedicated "nonsteam" tab to surface non-Steam shortcuts.
-  if (id === "installed" || id === "great_on_deck") {
-    return all.filter((a) =>
-      isInstalledOf(a) &&
-      !isNonSteamOf(a) &&
-      (a.app_type === undefined || a.app_type === 1)
-    );
-  }
-  if (id === "recent") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
-  if (id === "all_apps_recent" || id === "allrecentapps") return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
-  const byTab = all.filter((a: any) => {
-    const tags = [a?.tab, a?.tab_name, a?.collection_name, a?.category, ...(Array.isArray(a?.tags) ? a.tags : [])]
-      .map((v: any) => slugifyTab(String(v ?? "")))
-      .filter(Boolean);
-    return tags.includes(id);
+  } catch {}
+  return [];
+}
+
+async function getFavoritesCollectionAppIds(): Promise<number[]> {
+  const fromStore = favoritesFromCollectionStore();
+  if (fromStore.length) return fromStore;
+  const fromClient = await favoritesFromClientApi();
+  if (fromClient.length) return fromClient;
+  return favoritesFromAllCollections();
+}
+
+async function resolveFavoritesTab(all: AppOverview[]): Promise<AppOverview[]> {
+  const byFlag = all.filter((a) => isFavoriteOf(a));
+  if (byFlag.length > 0) return byFlag;
+  const favIds = await getFavoritesCollectionAppIds();
+  if (!favIds.length) return byFlag;
+  const favSet = new Set(favIds);
+  return all.filter((a) => favSet.has(appIdOf(a)));
+}
+
+function resolveInstalledTab(all: AppOverview[]): AppOverview[] {
+  // Mirror native "installed" tab: drop non-Steam shortcuts + non-game
+  // app types (Proton, runtime, tools).
+  return all.filter((a) =>
+    isInstalledOf(a) && !isNonSteamOf(a) && (a.app_type === undefined || a.app_type === 1),
+  );
+}
+
+const TAB_DYNAMIC_TAG_FIELDS = ["tab", "tab_name", "collection_name", "category"];
+
+function resolveByTags(all: AppOverview[], id: string): AppOverview[] {
+  return all.filter((a: any) => {
+    const tagList: string[] = [];
+    for (const k of TAB_DYNAMIC_TAG_FIELDS) tagList.push(String(a?.[k] ?? ""));
+    if (Array.isArray(a?.tags)) for (const t of a.tags) tagList.push(String(t ?? ""));
+    return tagList.map(slugifyTab).filter(Boolean).includes(id);
   });
-  // Fallback: resolve via collectionStore raw map (covers uc-*, from-tag-*, and
-  // Unifideck-managed collections which use the original tab id as the collection id).
-  // Safe for both SteamOS 3.7 and 3.9 since we only use m_mapCollectionsFromStorage.
-  if (!byTab.length) {
-    try {
-      const cs = (globalThis as any).collectionStore;
-      const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
-      if (rawMap && typeof rawMap.get === 'function') {
-        const col = rawMap.get(tab) ?? rawMap.get(id);
-        if (col) {
-          const appsSet = col?.allApps ?? col?.m_rgApps;
-          if (appsSet instanceof Set) {
-            const appIds = new Set(Array.from(appsSet).map(Number).filter(Number.isFinite));
-            if (appIds.size > 0) return all.filter((a) => appIds.has(appIdOf(a)));
-          } else if (Array.isArray(appsSet) && appsSet.length) {
-            const appIds = new Set(appsSet.map((a: any) => Number(a?.appid ?? a)).filter(Number.isFinite));
-            if (appIds.size > 0) return all.filter((a) => appIds.has(appIdOf(a)));
-          }
-        }
-      }
-    } catch {}
+}
+
+function extractIdsFromCollectionEntry(col: any): Set<number> | null {
+  const appsSet = col?.allApps ?? col?.m_rgApps;
+  if (appsSet instanceof Set) {
+    return new Set(Array.from(appsSet).map(Number).filter(Number.isFinite));
   }
-  return byTab;
+  if (Array.isArray(appsSet) && appsSet.length) {
+    return new Set(appsSet.map((a: any) => Number(a?.appid ?? a)).filter(Number.isFinite));
+  }
+  return null;
+}
+
+function lookupRawCollection(tab: string, id: string): any {
+  const cs = (globalThis as any).collectionStore;
+  const rawMap = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
+  if (!rawMap || typeof rawMap.get !== 'function') return null;
+  return rawMap.get(tab) ?? rawMap.get(id);
+}
+
+function resolveFromCollectionStoreRaw(tab: string, id: string, all: AppOverview[]): AppOverview[] | null {
+  try {
+    const col = lookupRawCollection(tab, id);
+    if (!col) return null;
+    const ids = extractIdsFromCollectionEntry(col);
+    if (!ids || ids.size === 0) return null;
+    return all.filter((a) => ids.has(appIdOf(a)));
+  } catch { return null; }
+}
+
+const RECENT_SORTERS: Record<string, true> = { recent: true, all_apps_recent: true, allrecentapps: true };
+
+const ALL_TAB_IDS = new Set(["all", "all_games", "allgames"]);
+const NONSTEAM_TAB_IDS = new Set(["nonsteam", "epic", "gog"]);
+const INSTALLED_TAB_IDS = new Set(["installed", "great_on_deck"]);
+
+function tabIdFromPath(tab: string): string {
+  return slugifyTab(tab.startsWith("/") ? tab.split("/").pop() || tab : tab);
+}
+
+function tryDirectTabResolution(id: string, all: AppOverview[]): AppOverview[] | Promise<AppOverview[]> | null {
+  if (ALL_TAB_IDS.has(id)) return all;
+  if (id === "favorites") return resolveFavoritesTab(all);
+  if (id === "hidden") return all.filter((a) => isHiddenOf(a));
+  if (NONSTEAM_TAB_IDS.has(id)) return all.filter((a) => isNonSteamOf(a));
+  if (INSTALLED_TAB_IDS.has(id)) return resolveInstalledTab(all);
+  if (RECENT_SORTERS[id]) return all.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
+  return null;
+}
+
+async function resolveDynamicTab(tab: string, all: AppOverview[]): Promise<AppOverview[]> {
+  const id = tabIdFromPath(tab);
+  const direct = tryDirectTabResolution(id, all);
+  if (direct) return await direct;
+  const byTab = resolveByTags(all, id);
+  if (byTab.length) return byTab;
+  return resolveFromCollectionStoreRaw(tab, id, all) ?? byTab;
 }
 
 // Pre-fetched data passed into the synchronous filter evaluator so async
@@ -1819,26 +2133,28 @@ type FilterEvalContext = {
   collectionAppIds: Map<string, Set<number>>;
 };
 
+function pushCollectionIdFromItem(item: FilterItem, ids: string[]): void {
+  if (item.type !== "collection") return;
+  const id = String(item.params?.collectionId ?? "").trim();
+  if (id) ids.push(id);
+}
+
+function pushMergeCollectionIds(item: FilterItem, ids: string[]): void {
+  if (item.type !== "merge" || !Array.isArray(item.params?.items)) return;
+  ids.push(...collectCollectionIdsFromGroup({ mode: item.params.mode ?? "and", items: item.params.items as FilterItem[] }));
+}
+
 function collectCollectionIdsFromGroup(group: FilterGroup): string[] {
   const ids: string[] = [];
   for (const item of group.items ?? []) {
-    if (item.type === "collection") {
-      const id = String(item.params?.collectionId ?? "").trim();
-      if (id) ids.push(id);
-    }
-    if (item.type === "merge" && Array.isArray(item.params?.items)) {
-      ids.push(...collectCollectionIdsFromGroup({ mode: item.params.mode ?? "and", items: item.params.items as FilterItem[] }));
-    }
+    pushCollectionIdFromItem(item, ids);
+    pushMergeCollectionIds(item, ids);
   }
   return ids;
 }
 
-// Walk a filter group looking for `developer` / `publisher` items so the
-// resolver can warm those caches before evaluation. Without the warmup,
-// `getAppDeveloperCached` / `getAppPublisherCached` return "" on the
-// home (cache only ever populated by the editor's developer/publisher
-// pickers), so a `developer: ["Ubisoft"]` filter matched zero apps and
-// looked like the filter source was being ignored.
+// Pre-warm developer/publisher caches before evaluation — without
+// this, dev/pub filters return zero matches on the home.
 function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean; needsPub: boolean } {
   let needsDev = false;
   let needsPub = false;
@@ -1855,251 +2171,219 @@ function filterGroupNeedsDevPubPreload(group: FilterGroup): { needsDev: boolean;
   return { needsDev, needsPub };
 }
 
-function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
-  let result: boolean;
-  switch (item.type) {
-    case "installed":
-      result = isInstalledOf(app);
-      break;
-    case "favorites":
-      result = isFavoriteOf(app);
-      break;
-    case "nonSteam":
-      result = isNonSteamOf(app);
-      break;
-    case "hidden": {
-      const mode = item.params?.mode ?? "exclude";
-      if (mode === "only") result = isHiddenOf(app);
-      else if (mode === "exclude") result = !isHiddenOf(app);
-      else result = true;
-      break;
-    }
-    case "updatePending":
-      result = app.update_pending === true;
-      break;
-    case "appStatus": {
-      const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
-      const ds = (app as any).display_status as number | undefined;
-      result = groups.some((g) => {
-        const statuses = APP_STATUS_GROUPS[g as keyof typeof APP_STATUS_GROUPS];
-        return statuses ? statuses.includes(ds as number) : false;
-      });
-      break;
-    }
-    case "isNew": {
-      const a = app as any;
-      const added = Number(a.rt_purchased_time ?? a.rt_recent_activity_time ?? a.user_added_ts ?? a.rt_store_asset_mtime ?? 0);
-      if (!added || !Number.isFinite(added)) { result = false; break; }
-      const addedMs = added < 1e12 ? added * 1000 : added;
-      result = (Date.now() - addedMs) < 14 * 24 * 60 * 60 * 1000;
-      break;
-    }
-    case "deckCompatibility": {
-      const levels = item.params?.levels ?? [];
-      result = isDeckCompatMatch(app.deck_compatibility_category, levels);
-      break;
-    }
-    case "playedWithinDays": {
-      const days = Number(item.params?.days ?? 7);
-      const now = Math.floor(Date.now() / 1000);
-      const min = now - Math.floor(days * 86400);
-      result = lastPlayedOf(app) >= min;
-      break;
-    }
-    case "playtimeRange": {
-      const minHours: number | undefined = item.params?.minHours;
-      const maxHours: number | undefined = item.params?.maxHours;
-      const playtimeMinutes = app.playtime_forever ?? 0;
-      result = true;
-      if (typeof minHours === "number") result = playtimeMinutes >= minHours * 60;
-      if (result && typeof maxHours === "number") result = playtimeMinutes <= maxHours * 60;
-      break;
-    }
-    case "nameIncludes": {
-      const text = String(item.params?.text ?? "").toLowerCase();
-      result = !text || appNameOf(app).toLowerCase().includes(text);
-      break;
-    }
-    case "nameRegex": {
-      const pattern = String(item.params?.pattern ?? "");
-      if (!pattern) { result = true; break; }
-      try { result = new RegExp(pattern, "i").test(appNameOf(app)); }
-      catch { result = true; }
-      break;
-    }
-    case "collection": {
-      const colId = String(item.params?.collectionId ?? "").trim();
-      if (!colId) {
-        // No collection picked yet (UI half-configured) — leave the item
-        // as a no-op so the user keeps seeing their library.
-        result = true;
-      } else {
-        // Lookup is always attempted in the prefetch pass; if the entry is
-        // missing here, the lookup either failed or returned 0 apps. Issue
-        // #55 (filter shelf showed apps the user does not own) was caused
-        // by the previous pass-through, which silently leaked the entire
-        // library when a Bazzite-shaped collectionStore returned no matches.
-        // Excluding makes the misconfig visible (empty shelf) instead.
-        const appSet = ctx?.collectionAppIds.get(colId);
-        result = appSet ? appSet.has(app.appid) : false;
-      }
-      break;
-    }
-    case "merge": {
-      // Recursively evaluate as a nested group
-      const subItems: FilterItem[] = Array.isArray(item.params?.items) ? (item.params.items as FilterItem[]) : [];
-      const subMode = ((item.params?.mode ?? "and") as "and" | "or");
-      result = evaluateFilterGroup({ mode: subMode, items: subItems }, [app], ctx).length > 0;
-      break;
-    }
-    case "developer": {
-      const selected: string[] = Array.isArray(item.params?.developers) ? item.params.developers : [];
-      if (!selected.length) { result = true; break; }
-      const dev = getAppDeveloperCached(app.appid);
-      result = selected.some((d) => d.toLowerCase() === dev.toLowerCase());
-      break;
-    }
-    case "publisher": {
-      const selected: string[] = Array.isArray(item.params?.publishers) ? item.params.publishers : [];
-      if (!selected.length) { result = true; break; }
-      const pub = getAppPublisherCached(app.appid);
-      result = selected.some((p) => p.toLowerCase() === pub.toLowerCase());
-      break;
-    }
-    case "appIdList": {
-      const ids: number[] = Array.isArray(item.params?.appIds) ? item.params.appIds.map(Number).filter(Number.isFinite) : [];
-      if (!ids.length) { result = true; break; }
-      result = ids.includes(app.appid);
-      break;
-    }
-    case "cloudAvailable": {
-      result = app.cloud_available === true;
-      break;
-    }
-    case "controllerSupport": {
-      // nControllerSupport: 0 = none, 1 = partial, 2 = full
-      const n = Number(app.controller_support ?? 0);
-      const min = Number(item.params?.min ?? 1);
-      result = Number.isFinite(n) && n >= min;
-      break;
-    }
-    case "shortcutType": {
-      const kinds: string[] = Array.isArray(item.params?.kinds) ? item.params.kinds : ["game"];
-      // Steam's EAppType is a bit-flag enum. Known values (from Steam
-      // client source) — we recognise the ones a library shelf realistically
-      // wants to filter on:
-      //   1     Game           (default — also matches app_type undefined)
-      //   2     Application    ("software" alias kept for back-compat)
-      //   4     Tool           (legacy "tool" matched anything not 1/2;
-      //                         now we accept either app_type 4 or any
-      //                         non-1/2 Steam app for back-compat)
-      //   8     Demo
-      //   32    DLC
-      //   64    Guide
-      //   128   Driver
-      //   256   Config
-      //   512   Hardware
-      //   2048  Video
-      //   8192  Music / Soundtrack
-      //   32768 Comic
-      //   65536 Beta
-      //   1073741824  Shortcut (non-Steam — exposed as "link")
-      const nonSteam = isNonSteamOf(app);
-      const t = app.app_type;
-      let matched = false;
-      for (const k of kinds) {
-        if (k === "link" && nonSteam) { matched = true; break; }
-        if (!nonSteam) {
-          if (k === "game"        && (t === undefined || t === 1)) { matched = true; break; }
-          if (k === "software"    && t === 2) { matched = true; break; }
-          if (k === "application" && t === 2) { matched = true; break; }
-          if (k === "tool"        && (t === 4 || (t !== undefined && t !== 1 && t !== 2 && t !== 8 && t !== 32 && t !== 64 && t !== 128 && t !== 256 && t !== 512 && t !== 2048 && t !== 8192 && t !== 32768 && t !== 65536))) { matched = true; break; }
-          if (k === "demo"        && t === 8) { matched = true; break; }
-          if (k === "dlc"         && t === 32) { matched = true; break; }
-          if (k === "guide"       && t === 64) { matched = true; break; }
-          if (k === "driver"      && t === 128) { matched = true; break; }
-          if (k === "config"      && t === 256) { matched = true; break; }
-          if (k === "hardware"    && t === 512) { matched = true; break; }
-          if (k === "video"       && t === 2048) { matched = true; break; }
-          if (k === "music"       && t === 8192) { matched = true; break; }
-          if (k === "soundtrack"  && t === 8192) { matched = true; break; }
-          if (k === "comic"       && t === 32768) { matched = true; break; }
-          if (k === "beta"        && t === 65536) { matched = true; break; }
-        }
-      }
-      result = matched;
-      break;
-    }
-    case "discount": {
-      // Reads discount % from the price cache (populated by onlineStore.ts).
-      // Discount only applies to PRICED games. Permanently-free titles
-      // (F2P with no `price_overview`, region-blocked, etc.) are cached
-      // with `unpriced: true` and always excluded — a "100% off" shelf
-      // must surface only games that have a base price and are
-      // currently discounted, not F2P entries that are simply $0.
-      try {
-        const appid = appIdOf(app);
-        if (!appid) { result = false; break; }
-        const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
-        if (!raw) { result = true; break; } // no cache yet → pass through (first-time bootstrap)
-        const cache: Record<number, { ts: number; data: { discount?: number; unpriced?: boolean } }> = JSON.parse(raw);
-        const entry = cache[appid];
-        if (!entry?.data) { result = false; break; } // not in this fetch round → exclude
-        if (entry.data.unpriced === true) { result = false; break; } // F2P / no price_overview → never matches a discount filter
-        const disc = entry.data.discount ?? 0;
-        const min = Number(item.params?.minDiscount ?? 0);
-        const max = Number(item.params?.maxDiscount ?? 100);
-        result = disc >= min && disc <= max;
-      } catch { result = false; }
-      break;
-    }
-    case "friendsPlayingNow": {
-      // Game appid is in the set any friend is currently in-game on.
-      // Reads from the runtime friend-presence cache (90 s poll); empty
-      // when no friend is in any game right now or when the friend store
-      // isn't available (offline / older SteamOS).
-      try {
-        const appid = appIdOf(app);
-        if (!appid) { result = false; break; }
-        const { getFriendsPlayingAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
-        result = getFriendsPlayingAppIds().has(appid);
-      } catch { result = false; }
-      break;
-    }
-    case "friendsPlayedRecently": {
-      // Game appid is in the set any friend played within the last
-      // `days` days (default 14). The runtime tracks `m_dtLastSeenPlaying`
-      // per friend; this filter is a superset of `friendsPlayingNow`
-      // (live games are always included in the recent set).
-      try {
-        const appid = appIdOf(app);
-        if (!appid) { result = false; break; }
-        const days = Number(item.params?.days ?? 14);
-        if (!Number.isFinite(days) || days <= 0) { result = false; break; }
-        // The runtime caches a single 14-day window — for tighter day
-        // ranges we can ask it to refresh with a narrower lookback, but
-        // for the common case the cached set is sufficient. `days` is
-        // currently informational; the runtime's 14-day window applies.
-        const { getFriendsRecentlyPlayedAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
-        result = getFriendsRecentlyPlayedAppIds().has(appid);
-      } catch { result = false; }
-      break;
-    }
-    // storeTag, friends, achievements: require data not in AppOverview — pass-through
-    default: {
-      // Plugin API: delegate to a registered external filter type when the
-      // type id is unknown internally. Unknown + unregistered types still
-      // pass-through (true) so an unregistered plugin filter doesn't hide
-      // the user's entire library.
-      try {
-        if (hasExternalFilterType(item.type as string)) {
-          result = evaluateExternalFilter(item.type as string, app as unknown as PublicAppMeta, item.params ?? {});
-          break;
-        }
-      } catch { /* fall through to pass */ }
-      result = true;
-    }
+// Per-type filter evaluators (dispatch table).
+type FilterEvaluator = (item: FilterItem, app: AppOverview, ctx?: FilterEvalContext) => boolean;
+
+function evalHidden(item: FilterItem, app: AppOverview): boolean {
+  const mode = item.params?.mode ?? "exclude";
+  if (mode === "only") return isHiddenOf(app);
+  if (mode === "exclude") return !isHiddenOf(app);
+  return true;
+}
+
+function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
+  const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
+  const ds = (app as any).display_status as number | undefined;
+  return groups.some((g) => {
+    const statuses = APP_STATUS_GROUPS[g as keyof typeof APP_STATUS_GROUPS];
+    return statuses ? statuses.includes(ds as number) : false;
+  });
+}
+
+function evalIsNew(_item: FilterItem, app: AppOverview): boolean {
+  const a = app as any;
+  const added = Number(a.rt_purchased_time ?? a.rt_recent_activity_time ?? a.user_added_ts ?? a.rt_store_asset_mtime ?? 0);
+  if (!added || !Number.isFinite(added)) return false;
+  const addedMs = added < 1e12 ? added * 1000 : added;
+  return (Date.now() - addedMs) < 14 * 24 * 60 * 60 * 1000;
+}
+
+function evalPlayedWithinDays(item: FilterItem, app: AppOverview): boolean {
+  const days = Number(item.params?.days ?? 7);
+  const now = Math.floor(Date.now() / 1000);
+  const min = now - Math.floor(days * 86400);
+  return lastPlayedOf(app) >= min;
+}
+
+function evalPlaytimeRange(item: FilterItem, app: AppOverview): boolean {
+  const minHours: number | undefined = item.params?.minHours;
+  const maxHours: number | undefined = item.params?.maxHours;
+  const playtimeMinutes = app.playtime_forever ?? 0;
+  if (typeof minHours === "number" && playtimeMinutes < minHours * 60) return false;
+  if (typeof maxHours === "number" && playtimeMinutes > maxHours * 60) return false;
+  return true;
+}
+
+function evalNameIncludes(item: FilterItem, app: AppOverview): boolean {
+  const text = String(item.params?.text ?? "").toLowerCase();
+  return !text || appNameOf(app).toLowerCase().includes(text);
+}
+
+function evalNameRegex(item: FilterItem, app: AppOverview): boolean {
+  const pattern = String(item.params?.pattern ?? "");
+  if (!pattern) return true;
+  try { return new RegExp(pattern, "i").test(appNameOf(app)); }
+  catch { return true; }
+}
+
+function evalCollection(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  const colId = String(item.params?.collectionId ?? "").trim();
+  if (!colId) return true; // half-configured: don't restrict
+  // Missing entry = lookup failed or returned 0 apps. Exclude (issue #55:
+  // pass-through here previously leaked the entire library when
+  // Bazzite-shaped collectionStore returned empty).
+  const appSet = ctx?.collectionAppIds.get(colId);
+  return appSet ? appSet.has(app.appid) : false;
+}
+
+function evalMerge(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  const subItems: FilterItem[] = Array.isArray(item.params?.items) ? (item.params.items as FilterItem[]) : [];
+  const subMode = ((item.params?.mode ?? "and") as "and" | "or");
+  return evaluateFilterGroup({ mode: subMode, items: subItems }, [app], ctx).length > 0;
+}
+
+function evalDeveloper(item: FilterItem, app: AppOverview): boolean {
+  const selected: string[] = Array.isArray(item.params?.developers) ? item.params.developers : [];
+  if (!selected.length) return true;
+  const dev = getAppDeveloperCached(app.appid);
+  return selected.some((d) => d.toLowerCase() === dev.toLowerCase());
+}
+
+function evalPublisher(item: FilterItem, app: AppOverview): boolean {
+  const selected: string[] = Array.isArray(item.params?.publishers) ? item.params.publishers : [];
+  if (!selected.length) return true;
+  const pub = getAppPublisherCached(app.appid);
+  return selected.some((p) => p.toLowerCase() === pub.toLowerCase());
+}
+
+function evalAppIdList(item: FilterItem, app: AppOverview): boolean {
+  const ids: number[] = Array.isArray(item.params?.appIds) ? item.params.appIds.map(Number).filter(Number.isFinite) : [];
+  if (!ids.length) return true;
+  return ids.includes(app.appid);
+}
+
+function evalControllerSupport(item: FilterItem, app: AppOverview): boolean {
+  // nControllerSupport: 0 = none, 1 = partial, 2 = full
+  const n = Number(app.controller_support ?? 0);
+  const min = Number(item.params?.min ?? 1);
+  return Number.isFinite(n) && n >= min;
+}
+
+// EAppType bit-flag enum (Steam client). Lookup table replaces the
+// linear if-chain so adding a new kind drops to "one row".
+const APP_TYPE_BY_KIND: Record<string, number> = {
+  software: 2, application: 2,
+  demo: 8, dlc: 32, guide: 64, driver: 128, config: 256, hardware: 512,
+  video: 2048, music: 8192, soundtrack: 8192, comic: 32768, beta: 65536,
+};
+const NON_TOOL_APP_TYPES = new Set<number>([1, 2, 8, 32, 64, 128, 256, 512, 2048, 8192, 32768, 65536]);
+
+function matchesShortcutKind(kind: string, app: AppOverview): boolean {
+  const nonSteam = isNonSteamOf(app);
+  if (kind === "link") return nonSteam;
+  if (nonSteam) return false;
+  const t = app.app_type;
+  if (kind === "game") return t === undefined || t === 1;
+  if (kind === "tool") {
+    // Tool matches explicit type 4 OR any non-1/2/8/32/.../65536 Steam app
+    // (legacy "anything not recognised" semantics).
+    return t === 4 || (t !== undefined && !NON_TOOL_APP_TYPES.has(t));
   }
+  const expected = APP_TYPE_BY_KIND[kind];
+  return expected !== undefined && t === expected;
+}
+
+function evalShortcutType(item: FilterItem, app: AppOverview): boolean {
+  const kinds: string[] = Array.isArray(item.params?.kinds) ? item.params.kinds : ["game"];
+  return kinds.some((k) => matchesShortcutKind(k, app));
+}
+
+function readPriceCacheEntry(appid: number): { discount?: number; unpriced?: boolean } | null | "bootstrap" {
+  try {
+    const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
+    if (!raw) return "bootstrap";
+    const cache: Record<number, { ts: number; data: { discount?: number; unpriced?: boolean } }> = JSON.parse(raw);
+    return cache[appid]?.data ?? null;
+  } catch { return null; }
+}
+
+function discountInBounds(entry: { discount?: number; unpriced?: boolean }, item: FilterItem): boolean {
+  if (entry.unpriced === true) return false;
+  const disc = entry.discount ?? 0;
+  const min = Number(item.params?.minDiscount ?? 0);
+  const max = Number(item.params?.maxDiscount ?? 100);
+  return disc >= min && disc <= max;
+}
+
+function evalDiscount(item: FilterItem, app: AppOverview): boolean {
+  const appid = appIdOf(app);
+  if (!appid) return false;
+  const entry = readPriceCacheEntry(appid);
+  if (entry === "bootstrap") return true;
+  return !!entry && discountInBounds(entry, item);
+}
+
+function evalFriendsPlayingNow(_item: FilterItem, app: AppOverview): boolean {
+  try {
+    const appid = appIdOf(app);
+    if (!appid) return false;
+    const { getFriendsPlayingAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
+    return getFriendsPlayingAppIds().has(appid);
+  } catch { return false; }
+}
+
+function evalFriendsPlayedRecently(item: FilterItem, app: AppOverview): boolean {
+  try {
+    const appid = appIdOf(app);
+    if (!appid) return false;
+    const days = Number(item.params?.days ?? 14);
+    if (!Number.isFinite(days) || days <= 0) return false;
+    const { getFriendsRecentlyPlayedAppIds } = require("../runtime/friendsState") as typeof import("../runtime/friendsState");
+    return getFriendsRecentlyPlayedAppIds().has(appid);
+  } catch { return false; }
+}
+
+const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
+  installed:              (_i, app) => isInstalledOf(app),
+  favorites:              (_i, app) => isFavoriteOf(app),
+  nonSteam:               (_i, app) => isNonSteamOf(app),
+  hidden:                 evalHidden,
+  updatePending:          (_i, app) => app.update_pending === true,
+  appStatus:              evalAppStatus,
+  isNew:                  evalIsNew,
+  deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
+  playedWithinDays:       evalPlayedWithinDays,
+  playtimeRange:          evalPlaytimeRange,
+  nameIncludes:           evalNameIncludes,
+  nameRegex:              evalNameRegex,
+  collection:             evalCollection,
+  merge:                  evalMerge,
+  developer:              evalDeveloper,
+  publisher:              evalPublisher,
+  appIdList:              evalAppIdList,
+  cloudAvailable:         (_i, app) => app.cloud_available === true,
+  controllerSupport:      evalControllerSupport,
+  shortcutType:           evalShortcutType,
+  discount:               evalDiscount,
+  friendsPlayingNow:      evalFriendsPlayingNow,
+  friendsPlayedRecently:  evalFriendsPlayedRecently,
+};
+
+function evalDefault(item: FilterItem, app: AppOverview): boolean {
+  // External plugin filter or unknown type. Unknown + unregistered →
+  // pass-through (true) so an unregistered plugin filter doesn't hide
+  // the user's entire library.
+  try {
+    if (hasExternalFilterType(item.type as string)) {
+      return evaluateExternalFilter(item.type as string, app as unknown as PublicAppMeta, item.params ?? {});
+    }
+  } catch { /* fall through */ }
+  return true;
+}
+
+function evaluateFilterItem(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
+  const evaluator = FILTER_EVALUATORS[item.type] ?? evalDefault;
+  const result = evaluator(item, app, ctx);
   return item.inverted ? !result : result;
 }
 
@@ -2112,24 +2396,30 @@ export function evaluateFilterGroup(group: FilterGroup, apps: AppOverview[], ctx
   return apps.filter((app) => group.items.every((item) => evaluateFilterItem(item, app, ctx)));
 }
 
+function readUnifideckPlatformLabel(c: any): string | null {
+  const name = String(c?.displayName ?? c?.m_strName ?? "");
+  const m = name.match(/^\[Unifideck\]\s+(.+)/i);
+  if (!m) return null;
+  return m[1].trim().toLowerCase();
+}
+
+function indexAppsToPlatform(c: any, platform: string, map: Map<number, string>): void {
+  const apps = c?.allApps ?? c?.m_rgApps ?? [];
+  for (const a of apps) {
+    const n = Number(a?.appid);
+    if (Number.isFinite(n)) map.set(n, platform);
+  }
+}
+
 function buildNonSteamPlatformMap(): Map<number, string> {
   const map = new Map<number, string>();
   try {
     const cs: any = (globalThis as any).collectionStore;
-    // Raw storage map, not the `userCollections` computed — see
-    // getUnifideckInstalledSet for why touching that getter is unsafe.
-    const cols = cs?.m_mapCollectionsFromStorage ?? cs?.collectionsFromStorage;
-    const list: any[] = Array.isArray(cols) ? cols : Array.from(cols?.values?.() ?? []);
-    for (const c of list) {
-      const name = String(c?.displayName ?? c?.m_strName ?? "");
-      const m = name.match(/^\[Unifideck\]\s+(.+)/i);
-      if (!m) continue;
-      const platform = m[1].trim().toLowerCase();
-      const apps = c?.allApps ?? c?.m_rgApps ?? [];
-      for (const a of apps) {
-        const n = Number(a?.appid);
-        if (Number.isFinite(n)) map.set(n, platform);
-      }
+    // Raw storage map, not the `userCollections` computed (MobX-unsafe).
+    for (const c of readCollectionList(cs)) {
+      const platform = readUnifideckPlatformLabel(c);
+      if (!platform) continue;
+      indexAppsToPlatform(c, platform, map);
     }
   } catch {}
   return map;
@@ -2164,11 +2454,8 @@ function hashIdSet(ids: number[]): string {
 }
 
 function stableShuffleIds(ids: number[], cacheKey: string, shelfId?: string): number[] {
-  // Per-shelf namespacing: when `shelfId` is given, the storage key is
-  // `ds-random-<shelfId>-<idHash>` so two shelves resolving the same id set
-  // get independent shuffles AND `invalidateRandomSortCache(shelfId)` only
-  // clears this shelf's entries. Falls back to the legacy global key when
-  // `shelfId` is omitted (preserves existing cached orderings).
+  // Per-shelf namespacing so two shelves with the same id set get
+  // independent shuffles; legacy global key when shelfId is omitted.
   const lsKey = shelfId ? `ds-random-${shelfId}-${cacheKey}` : `ds-random-${cacheKey}`;
   try {
     const raw = localStorage.getItem(lsKey);
@@ -2203,18 +2490,9 @@ export function invalidateRandomSortCache(shelfId?: string): void {
 
 export function applyManualOrder(ids: number[], manualOrder?: number[], hiddenAppIds?: number[]): number[] {
   if (!manualOrder?.length) return ids;
-  // Split manualOrder into entries already in the source vs entries the
-  // source doesn't include. In-source entries lead (drag-order semantics
-  // the manual-sort UI was built for); source items not drag-ordered
-  // follow in their natural order; entries the source doesn't cover
-  // (typically games appended via the library context menu's "Add to
-  // shelf" — which writes to `manualOrder` regardless of source) go at
-  // the very END so they're always visible without disturbing existing
-  // drag-orderings.
-  // Hidden entries are dropped from BOTH manualOrder branches so a hidden
-  // game never resurfaces via the manual-append tail (the resolver
-  // already filters `ids` itself; this just covers the appended-by-menu
-  // ids the resolver never saw).
+  // In-source entries lead (drag-order); source items not drag-ordered
+  // follow; entries the source doesn't cover (e.g. via "Add to shelf"
+  // menu) go at the end. Hidden entries dropped from both branches.
   const hidden = hiddenAppIds?.length ? new Set(hiddenAppIds) : null;
   const idSet = new Set(ids);
   const inSource: number[] = [];
@@ -2231,81 +2509,166 @@ export function applyManualOrder(ids: number[], manualOrder?: number[], hiddenAp
   return [...inSource, ...rest, ...notInSource];
 }
 
-// Builds a comparator for a single sort key. Returns null for keys that
-// can't participate in a multi-key chain (`manual`, `random`) so the
-// multi-key path can drop them from the chain.
-//
-// Price keys (`price_low`, `discount_high`, `original_price_high`) used
-// to fall through to alphabetical because their data is fetched async.
-// With a pre-warmed `priceMap` passed in (callers fetch via
-// `getPriceMap(ids)` upfront), they now return proper price comparators
-// so multi-key chains like `[discount_high, metacritic]` order by
-// discount with metacritic as tiebreaker.
-function buildKeyComparator(
-  key: string,
-  isReversed: boolean,
-  priceMap?: ReadonlyMap<number, { price: number; originalPrice: number; discount: number }>,
-): ((a: AppOverview, b: AppOverview) => number) | null {
-  if (key === "manual" || key === "random") return null;
-  const sign = isReversed ? -1 : 1;
-  if (key === "recent") return (a, b) => sign * (lastPlayedOf(b) - lastPlayedOf(a));
-  if (key === "playtime") return (a, b) => sign * ((b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
-  if (key === "release_date") return (a, b) => sign * (((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
-  if (key === "size_on_disk") return (a, b) => sign * (Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
-  if (key === "metacritic") return (a, b) => sign * (((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
-  if (key === "review_score") return (a, b) => sign * (((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
-  if (key === "added") return (a, b) => sign * compareByAdded(a, b);
-  if (key === "app_status") return (a, b) => sign * (((a as any).display_status ?? 0) - ((b as any).display_status ?? 0));
-  if (key === "deck_compat") return (a, b) => sign * (((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0));
-  if (key === "controller_support") return (a, b) => sign * (((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0));
-  if (key === "price_low" || key === "discount_high" || key === "original_price_high") {
-    if (priceMap) {
-      if (key === "price_low") return (a, b) => {
-        const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
-        const va = pa ? pa.price : 999999; const vb = pb ? pb.price : 999999;
-        return sign * (va - vb);
-      };
-      if (key === "discount_high") return (a, b) => {
-        const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
-        const va = pa ? pa.discount : 0; const vb = pb ? pb.discount : 0;
-        return sign * (vb - va);
-      };
-      // original_price_high
-      return (a, b) => {
-        const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
-        const va = pa ? pa.originalPrice : 0; const vb = pb ? pb.originalPrice : 0;
-        return sign * (vb - va);
-      };
-    }
-    // No price data available — degrade to alphabetical as a stable
-    // sub-key. The wishlist / store resolver passes a priceMap when
-    // multi-key sort includes a price key (see resolver branches).
-    return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
-  }
-  if (key === "alphabetical") {
-    return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
-  }
-  // Unknown key (could be an external sort plugin id) — external sorts
-  // don't expose a comparator, so they degrade to alphabetical inside a
-  // multi-key chain. Single-key dispatch still calls into the registry.
-  return (a, b) => sign * String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+// Comparator for a single sort key. Returns null for `manual`/`random`
+// so the multi-key path drops them. Price keys use the pre-warmed
+// priceMap passed in by the caller.
+type PriceMap = ReadonlyMap<number, { price: number; originalPrice: number; discount: number }>;
+type Cmp = (a: AppOverview, b: AppOverview) => number;
+
+const KEY_COMPARATOR_BUILDERS: Record<string, () => Cmp> = {
+  recent: () => (a, b) => lastPlayedOf(b) - lastPlayedOf(a),
+  playtime: () => (a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0),
+  release_date: () => (a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0),
+  size_on_disk: () => (a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0),
+  metacritic: () => (a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0),
+  review_score: () => (a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0),
+  added: () => compareByAdded,
+  app_status: () => (a, b) => ((a as any).display_status ?? 0) - ((b as any).display_status ?? 0),
+  deck_compat: () => (a, b) => ((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0),
+  controller_support: () => (a, b) => ((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0),
+};
+
+function priceComparator(key: string, priceMap: PriceMap): Cmp {
+  if (key === "price_low") return (a, b) => {
+    const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
+    return (pa ? pa.price : 999999) - (pb ? pb.price : 999999);
+  };
+  if (key === "discount_high") return (a, b) => {
+    const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
+    return (pb ? pb.discount : 0) - (pa ? pa.discount : 0);
+  };
+  return (a, b) => {
+    const pa = priceMap.get(appIdOf(a)); const pb = priceMap.get(appIdOf(b));
+    return (pb ? pb.originalPrice : 0) - (pa ? pa.originalPrice : 0);
+  };
 }
 
-// Per-id raw overview lookup for the sort-pool fallback. Returns the
-// RAW Steam overview (full shape with rt_original_release_date etc.) or
-// null if the appid isn't known to any Steam window's appStore. Used by
-// `applySortToIds` when `all` is incomplete (the GetAllAppOverviews
-// fallback path can drop owned games whose normalised display_name ends
-// up as the placeholder `App {id}`).
+const alphaCmp: Cmp = (a, b) =>
+  String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+
+function buildBaseComparator(key: string, priceMap?: PriceMap): Cmp {
+  const builder = KEY_COMPARATOR_BUILDERS[key];
+  if (builder) return builder();
+  if (key === "price_low" || key === "discount_high" || key === "original_price_high") {
+    return priceMap ? priceComparator(key, priceMap) : alphaCmp;
+  }
+  // alphabetical OR unknown external key — degrade to alphabetical.
+  return alphaCmp;
+}
+
+function buildKeyComparator(key: string, isReversed: boolean, priceMap?: PriceMap): Cmp | null {
+  if (key === "manual" || key === "random") return null;
+  const base = buildBaseComparator(key, priceMap);
+  if (!isReversed) return base;
+  return (a, b) => -base(a, b);
+}
+
+function readAppOverviewFromWindow(win: any, id: number): AppOverview | null {
+  try {
+    const raw = win?.appStore?.GetAppOverviewByAppID?.(id)
+      ?? win?.AppStore?.GetAppOverviewByAppID?.(id);
+    return raw ?? null;
+  } catch { return null; }
+}
+
 function sortPoolLookup(id: number): AppOverview | null {
   for (const win of getSteamWindows()) {
-    try {
-      const raw = (win as any)?.appStore?.GetAppOverviewByAppID?.(id)
-        ?? (win as any)?.AppStore?.GetAppOverviewByAppID?.(id);
-      if (raw) return raw as AppOverview;
-    } catch {}
+    const raw = readAppOverviewFromWindow(win, id);
+    if (raw) return raw;
   }
   return null;
+}
+
+function buildSortByIdMap(all: AppOverview[]): Map<number, AppOverview> {
+  const byId = new Map<number, AppOverview>();
+  for (const app of all) {
+    const id = appIdOf(app);
+    if (id && Number.isFinite(id)) byId.set(id, app);
+  }
+  return byId;
+}
+
+// Per-id raw lookup for ids missing from `all` — without this, owned
+// ids that fell out of the lean `all` would silently disappear.
+function hydrateAppsForSort(ids: number[], byId: Map<number, AppOverview>): AppOverview[] {
+  return ids.map((id) => byId.get(id) ?? sortPoolLookup(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview[];
+}
+
+function applyMultiKeySort(
+  ids: number[],
+  keys: string[],
+  all: AppOverview[],
+  shelfId: string | undefined,
+  reverse: boolean | boolean[] | undefined,
+  priceMap: ReadonlyMap<number, { price: number; originalPrice: number; discount: number }> | undefined,
+): number[] {
+  if (keys.length === 1) {
+    const r = Array.isArray(reverse) ? !!reverse[0] : reverse;
+    return applySortToIds(ids, keys[0], all, shelfId, r, priceMap);
+  }
+  const comparators: ((a: AppOverview, b: AppOverview) => number)[] = [];
+  keys.forEach((k, i) => {
+    const r = Array.isArray(reverse) ? !!reverse[i] : !!reverse;
+    const cmp = buildKeyComparator(k, r, priceMap);
+    if (cmp) comparators.push(cmp);
+  });
+  if (comparators.length === 0) return ids.slice();
+  const apps = hydrateAppsForSort(ids, buildSortByIdMap(all));
+  apps.sort((a, b) => {
+    for (const cmp of comparators) {
+      const r = cmp(a, b);
+      if (r !== 0) return r;
+    }
+    return 0;
+  });
+  return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+}
+
+function alphaCompare(a: AppOverview, b: AppOverview): number {
+  return String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b)));
+}
+
+type AppComparator = (a: AppOverview, b: AppOverview) => number;
+
+const SINGLE_SORT_COMPARATORS: Record<string, AppComparator> = {
+  recent: (a, b) => lastPlayedOf(b) - lastPlayedOf(a),
+  playtime: (a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0),
+  release_date: (a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0),
+  size_on_disk: (a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0),
+  metacritic: (a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0),
+  review_score: (a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0),
+  added: compareByAdded,
+  app_status: (a, b) => ((a as any).display_status ?? 0) - ((b as any).display_status ?? 0),
+  deck_compat: (a, b) => ((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0),
+  controller_support: (a, b) => ((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0),
+  alphabetical: alphaCompare,
+  price_low: alphaCompare,
+  discount_high: alphaCompare,
+  original_price_high: alphaCompare,
+};
+
+function sortByExternalOrRandom(
+  sort: string,
+  ids: number[],
+  apps: AppOverview[],
+  byId: Map<number, AppOverview>,
+  shelfId?: string,
+): AppOverview[] {
+  if (sort === "random") {
+    const shuffled = stableShuffleIds(ids, hashIdSet(ids), shelfId);
+    return shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[];
+  }
+  let externalIds: number[] | null = null;
+  try {
+    if (hasExternalSortOption(sort)) {
+      externalIds = applyExternalSort(sort, ids, apps as unknown as ReadonlyArray<PublicAppMeta>);
+    }
+  } catch {}
+  if (externalIds) {
+    const order = new Map(externalIds.map((id, idx) => [id, idx] as const));
+    return apps.slice().sort((a, b) => (order.get(appIdOf(a)) ?? 1e9) - (order.get(appIdOf(b)) ?? 1e9));
+  }
+  return apps.slice().sort(alphaCompare);
 }
 
 export function applySortToIds(
@@ -2316,103 +2679,18 @@ export function applySortToIds(
   reverse?: boolean | boolean[],
   priceMap?: ReadonlyMap<number, { price: number; originalPrice: number; discount: number }>,
 ): number[] {
-  // Multi-key: walk each key in declaration order via a single composite
-  // comparator so JS's stable sort preserves the primary order when the
-  // secondary key ties. Earlier we chained right-to-left + reverse() at
-  // each pass — but reverse() flips tied items, undoing the previous
-  // pass's tiebreaker (see applySortToIds.test.ts for the regression).
-  // Per-key reverse picks the aligned index when `reverse` is also an
-  // array; a boolean applies to every key.
   if (Array.isArray(sort)) {
     const keys = sort.filter((k) => typeof k === "string" && k.length > 0) as string[];
     if (keys.length === 0) return ids.slice();
-    if (keys.length === 1) return applySortToIds(ids, keys[0], all, shelfId, Array.isArray(reverse) ? !!reverse[0] : reverse, priceMap);
-    const comparators: ((a: AppOverview, b: AppOverview) => number)[] = [];
-    keys.forEach((k, i) => {
-      const r = Array.isArray(reverse) ? !!reverse[i] : !!reverse;
-      const cmp = buildKeyComparator(k, r, priceMap);
-      if (cmp) comparators.push(cmp);
-    });
-    if (comparators.length === 0) return ids.slice();
-    const byId = new Map<number, AppOverview>();
-    for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
-    // For ids missing from `all` (the GetAllAppOverviews fallback path
-    // strips owned games whose normalize step produces an "App {id}"
-    // placeholder, which is then filtered out at the end of
-    // `fetchAllAppOverviews` — see line 1547 — so `all` is incomplete
-    // for many users), do a per-id raw lookup via `appStore.GetAppOverviewByAppID`
-    // so timestamp fields like `rt_original_release_date` /
-    // `rt_purchased_time` reach the comparator. Without this the sort
-    // call SILENTLY DROPS owned ids that aren't in the lean `all`,
-    // causing composite collection children to lose nearly every game.
-    const apps = ids.map((id) => byId.get(id) ?? sortPoolLookup(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview[];
-    apps.sort((a, b) => {
-      for (const cmp of comparators) {
-        const r = cmp(a, b);
-        if (r !== 0) return r;
-      }
-      return 0;
-    });
-    return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+    return applyMultiKeySort(ids, keys, all, shelfId, reverse, priceMap);
   }
-  // Single-key path. Normalise `reverse` to a strict boolean — callers
-  // that recently held a multi-key chain may leave `sortReverse` as a
-  // 1-element array (`[false]` / `[true]`), which the legacy `if (reverse)`
-  // check at the bottom treated as truthy regardless of the inner value
-  // (a non-empty array is truthy), silently reversing every "asc" shelf.
+  // Normalise to a strict boolean — a `[false]` 1-element array is truthy.
   const reverseBool: boolean = Array.isArray(reverse) ? !!reverse[0] : !!reverse;
-  const byId = new Map<number, AppOverview>();
-  for (const app of all) { const id = appIdOf(app); if (id && Number.isFinite(id)) byId.set(id, app); }
-  // Same per-id fallback as the multi-key path above — owned ids missing
-  // from `all` must not silently disappear from the sorted output.
-  let apps = ids.map((id) => byId.get(id) ?? sortPoolLookup(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview[];
-  if (sort === "recent") apps = apps.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
-  else if (sort === "playtime") apps = apps.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
-  else if (sort === "release_date") apps = apps.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
-  else if (sort === "size_on_disk") apps = apps.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
-  else if (sort === "metacritic") apps = apps.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
-  else if (sort === "review_score") apps = apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
-  else if (sort === "added") apps = apps.slice().sort(compareByAdded);
-  else if (sort === "app_status") apps = apps.slice().sort((a, b) => ((a as any).display_status ?? 0) - ((b as any).display_status ?? 0));
-  else if (sort === "deck_compat") apps = apps.slice().sort((a, b) => ((b as any).deck_compatibility_category ?? 0) - ((a as any).deck_compatibility_category ?? 0));
-  else if (sort === "controller_support") apps = apps.slice().sort((a, b) => ((b as any).controller_support ?? 0) - ((a as any).controller_support ?? 0));
-  else if (sort === "random") { const shuffled = stableShuffleIds(ids, hashIdSet(ids), shelfId); apps = shuffled.map(id => byId.get(id)).filter(Boolean) as AppOverview[]; }
-  // price_low / discount_high / original_price_high require async price
-  // fetching — resolved by applyPriceSort() at the resolveShelfAppIds call
-  // site for wishlist source. For other source types, fall through to
-  // alphabetical as a stable fallback.
-  else if (sort === "price_low" || sort === "discount_high" || sort === "original_price_high") {
-    apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
-  }
-  else if (sort === "alphabetical") {
-    // Explicit branch: the internal registry registers "alphabetical" as a
-    // noop descriptor (so plugin authors can enumerate it), so falling into
-    // the external-sort dispatch below would call that noop and effectively
-    // skip sorting. Do the localeCompare sort here directly.
-    apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
-  }
-  else {
-    // Plugin API: delegate to a registered external sort option when the
-    // id is unknown internally. External sort returning `null` (not
-    // registered or threw) falls back to alphabetical so the shelf still
-    // renders something stable.
-    let externalIds: number[] | null = null;
-    try {
-      if (hasExternalSortOption(sort)) {
-        externalIds = applyExternalSort(sort, ids, apps as unknown as ReadonlyArray<PublicAppMeta>);
-      }
-    } catch { /* registry unavailable; fall through to alphabetical */ }
-    if (externalIds) {
-      const order = new Map(externalIds.map((id, idx) => [id, idx] as const));
-      apps = apps.slice().sort((a, b) => (order.get(appIdOf(a)) ?? 1e9) - (order.get(appIdOf(b)) ?? 1e9));
-    } else {
-      apps = apps.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
-    }
-  }
-  // Asc/desc inversion. Skipped for `manual` (would invalidate user order)
-  // and `random` (already non-deterministic; reversing the per-shelf shuffle
-  // adds no signal). All other sorts treat their natural order as desc and
-  // reverse to asc when requested.
+  const byId = buildSortByIdMap(all);
+  const baseApps = hydrateAppsForSort(ids, byId);
+  const cmp = SINGLE_SORT_COMPARATORS[sort];
+  let apps = cmp ? baseApps.slice().sort(cmp) : sortByExternalOrRandom(sort, ids, baseApps, byId, shelfId);
+  // Skip reverse for `manual` and `random`.
   if (reverseBool && sort !== "manual" && sort !== "random") apps = apps.reverse();
   return apps.map((a) => appIdOf(a)).filter(Number.isFinite);
 }
@@ -2444,25 +2722,12 @@ async function applyPriceSort(ids: number[], sort: "price_low" | "discount_high"
   }
 }
 
-// Composite source recursion bound. A composite-of-composite chain
-// deeper than this returns `[]` at the deepest level — keeps a
-// pathological user JSON (or an external plugin) from spinning the
-// resolver. UI exposes at most 1 level of nesting; the schema permits
-// the full depth for power users editing the JSON directly.
+// Composite recursion bound — beyond this, returns [].
 const MAX_COMPOSITE_DEPTH = 4;
 
-// Pure merge for composite child results. Extracted so unit tests can
-// cover the operator semantics without resolving real Steam sources.
-// - union: round-robin interleave across children — take 1 from child 0,
-//   then 1 from child 1, ..., wrap, until every child is exhausted.
-//   De-dupes while keeping each child equally represented in the head
-//   of the merged result. The previous "first child fully first, then
-//   the rest" shape meant a long primary source consumed the entire
-//   final overShootLimit slice and secondary sources (a filter pinned
-//   as the last entry, typically) disappeared from the visible row.
-//   Round-robin guarantees the filter's items survive the final cap.
-// - intersection: membership in EVERY child; iteration order follows
-//   the first child so users get a predictable primary ordering.
+// Pure merge for composite child results. Round-robin union ensures
+// the final overShootLimit slice keeps items from every child instead
+// of being dominated by the longest one.
 export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<number>>, combine: "union" | "intersection"): number[] {
   if (childResults.length === 0) return [];
   if (combine === "intersection") {
@@ -2492,7 +2757,744 @@ export function mergeCompositeResults(childResults: ReadonlyArray<ReadonlyArray<
   return merged;
 }
 
-export async function resolveShelfAppIds(source: { type: string; [k: string]: any }, limit: number, sort?: string | string[], shelfId?: string, sortReverse?: boolean | boolean[], options?: { hiddenAppIds?: number[]; dedupeByName?: boolean }, _depth: number = 0): Promise<number[]> {
+// Shared context passed to each per-source resolver.
+type ResolverContext = {
+  source: any;
+  limit: number;
+  sort?: string | string[];
+  shelfId?: string;
+  sortReverse?: boolean | boolean[];
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean };
+  depth: number;
+  all: AppOverview[];
+  overShootLimit: number;
+  finish: (ids: number[]) => number[];
+};
+
+type CollectionMatches = { exactMatches: SteamCollection[]; softMatches: SteamCollection[] };
+
+function partitionCollectionsByNeedle(collections: SteamCollection[], rawCollectionId: string): CollectionMatches {
+  const needle = normalizeText(rawCollectionId);
+  const exactMatches = collections.filter((c) => {
+    const id = normalizeText(c.id);
+    const name = normalizeText(c.name);
+    return id === needle || name === needle;
+  });
+  const softMatches = exactMatches.length ? [] : collections.filter((c) => {
+    const id = normalizeText(c.id);
+    const name = normalizeText(c.name);
+    return id.includes(needle) || name.includes(needle);
+  });
+  return { exactMatches, softMatches };
+}
+
+async function probeCollectionMatchesForIds(matches: SteamCollection[]): Promise<number[]> {
+  for (const match of matches) {
+    const probeKeys = Array.from(new Set([match.id, match.name].filter(Boolean)));
+    for (const key of probeKeys) {
+      const ids = await getCollectionApps(key, match.name);
+      if (ids.length) return ids;
+    }
+  }
+  return [];
+}
+
+function resolveCollectionByMarkers(rawCollectionId: string, matches: SteamCollection[], all: AppOverview[]): number[] {
+  if (!all.length) return [];
+  const markers = new Set<string>();
+  for (const id of candidateCollectionIds(rawCollectionId)) {
+    const marker = normalizeText(id);
+    if (marker) markers.add(marker);
+  }
+  for (const match of matches) {
+    const idMarker = normalizeText(match.id);
+    const nameMarker = normalizeText(match.name);
+    if (idMarker) markers.add(idMarker);
+    if (nameMarker) markers.add(nameMarker);
+  }
+  if (!markers.size) return [];
+  return all.filter((app) => appMatchesCollectionMarker(app, markers)).map((app) => appIdOf(app));
+}
+
+async function resolveCollectionFallback(rawCollectionId: string, all: AppOverview[]): Promise<number[]> {
+  try {
+    const collections = await listCollections();
+    const { exactMatches, softMatches } = partitionCollectionsByNeedle(collections, rawCollectionId);
+    const ordered = [...exactMatches, ...softMatches];
+    const probed = await probeCollectionMatchesForIds(ordered);
+    if (probed.length) return probed;
+    return resolveCollectionByMarkers(rawCollectionId, ordered, all);
+  } catch { return []; }
+}
+
+function applyCollectionChildFilter(ids: number[], source: any, all: AppOverview[]): number[] {
+  const cf = source.childFilter as FilterGroup | undefined;
+  if (!cf || !Array.isArray(cf.items) || cf.items.length === 0) return ids;
+  const byId = new Map<number, AppOverview>();
+  for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
+  const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  return evaluateFilterGroup(cf, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+}
+
+async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  const rawCollectionId = String(source.collectionId ?? "").trim();
+  let ids = await getCollectionApps(rawCollectionId);
+  if (!ids.length && rawCollectionId) ids = await resolveCollectionFallback(rawCollectionId, all);
+  if (!ids.length) {
+    logWarn("STEAM", "resolveShelfAppIds(collection) empty", { collectionId: rawCollectionId, allCount: all.length });
+  } else {
+    logInfo("STEAM", "resolveShelfAppIds(collection) resolved", { collectionId: rawCollectionId, count: ids.length });
+  }
+  ids = applyCollectionChildFilter(ids, source, all);
+  if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
+  ids = deduplicateNonSteam(ids, all);
+  return finish(ids.slice(0, overShootLimit));
+}
+
+function makeNativeInstalledFilter(tabSlug: string, all: AppOverview[]): (ids: number[]) => number[] {
+  const matchesNativeInstalled = tabSlug === "installed" || tabSlug === "great_on_deck";
+  if (!matchesNativeInstalled) return (ids) => ids;
+  const byId = new Map<number, AppOverview>();
+  for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
+  return (ids) => ids.filter((id) => {
+    const a = byId.get(id);
+    if (!a || isNonSteamOf(a)) return false;
+    return a.app_type === undefined || a.app_type === 1;
+  });
+}
+
+function makeChildFilterTab(source: any, all: AppOverview[]): (ids: number[]) => number[] {
+  const cf = source.childFilter as FilterGroup | undefined;
+  if (!cf || !Array.isArray(cf.items) || !cf.items.length) return (ids) => ids;
+  const byId = new Map<number, AppOverview>();
+  for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
+  return (ids) => {
+    const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+    return evaluateFilterGroup(cf, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+  };
+}
+
+async function findTabAppIdsByNameOrId(rawTab: string): Promise<number[]> {
+  try {
+    const tabs = await listLibraryTabs();
+    const needle = normalizeText(rawTab);
+    const candidates = tabs.filter((tab) => {
+      const id = normalizeText(tab.id);
+      const name = normalizeText(tab.name);
+      return id === needle || name === needle || id.includes(needle) || name.includes(needle);
+    });
+    for (const tab of candidates) {
+      const byId = await getTabAppIdsFromStore(tab.id);
+      if (byId.length) return byId;
+      const byName = await getTabAppIdsFromStore(tab.name);
+      if (byName.length) return byName;
+    }
+  } catch {}
+  return [];
+}
+
+function sortDynamicTabApps(filtered: AppOverview[], rawTab: string, sort: any): AppOverview[] {
+  if (sort) return filtered;
+  if (slugifyTab(rawTab) === "recent") return filtered;
+  return filtered.slice().sort((a, b) =>
+    String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))),
+  );
+}
+
+const TAB_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveTabUuidViaTabMaster(rawTab: string, limit: number, shelfId?: string): Promise<number[] | null> {
+  if (!TAB_UUID_RE.test(rawTab)) return null;
+  try {
+    const { getTabsFromSettingsFile } = await import('../integrations/tabmaster');
+    const { convertFiltersToGroup } = await import('../domain/customfilters');
+    const tmTabs = await getTabsFromSettingsFile();
+    const tmTab = tmTabs.find((t) => t.id === rawTab);
+    if (!tmTab || !tmTab.filters || tmTab.filters.length === 0) return null;
+    const filterGroup = convertFiltersToGroup(tmTab.filters);
+    try { logInfo("STEAM", "resolveShelfAppIds(tab): UUID fallback via TabMaster filters", { tab: rawTab, title: tmTab.title }); } catch {}
+    return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as any, limit, undefined, shelfId);
+  } catch { return null; }
+}
+
+async function fetchTabStoreIds(rawTab: string, filterToInstalledNative: (ids: number[]) => number[]): Promise<number[]> {
+  let ids = await getTabAppIdsFromStore(rawTab);
+  if (ids.length) ids = filterToInstalledNative(ids);
+  if (!ids.length && rawTab) ids = await findTabAppIdsByNameOrId(rawTab);
+  return ids;
+}
+
+async function resolveFromDynamicTab(ctx: ResolverContext, rawTab: string): Promise<number[]> {
+  const { all, sort, shelfId, sortReverse, limit } = ctx;
+  const filtered = await resolveDynamicTab(rawTab, all);
+  const tabApps = sortDynamicTabApps(filtered, rawTab, sort);
+  let tabIds = deduplicateNonSteam(tabApps.map((a) => appIdOf(a)).filter(Number.isFinite), all);
+  if (sort) tabIds = applySortToIds(tabIds, sort, all, shelfId, sortReverse);
+  return tabIds.slice(0, limit);
+}
+
+async function _resolveTab(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
+  const rawTab = String(source.tab ?? "").trim();
+  const filterToInstalledNative = makeNativeInstalledFilter(slugifyTab(rawTab), all);
+  const applyChildFilterTab = makeChildFilterTab(source, all);
+
+  const customFiltersIds = getCustomFiltersAppsForContainer(rawTab);
+  if (customFiltersIds.length) {
+    const filtered = filterToInstalledNative(customFiltersIds);
+    const ordered = sort ? applySortToIds(filtered, sort, all, shelfId, sortReverse) : filtered;
+    return finish(applyChildFilterTab(ordered).slice(0, overShootLimit));
+  }
+
+  const fromTabStore = await fetchTabStoreIds(rawTab, filterToInstalledNative);
+  if (fromTabStore.length) {
+    try { logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length }); } catch {}
+    const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId, sortReverse) : fromTabStore, all);
+    return finish(applyChildFilterTab(tabStoreIds).slice(0, overShootLimit));
+  }
+
+  const ids = await resolveFromDynamicTab(ctx, rawTab);
+  if (!ids.length) {
+    const viaTabMaster = await resolveTabUuidViaTabMaster(rawTab, limit, shelfId);
+    if (viaTabMaster) return viaTabMaster;
+    logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
+  }
+  return finish(applyChildFilterTab(ids.slice(0, overShootLimit)));
+}
+
+// Dispatch table for `f.sort`; fallthrough sorts alphabetically.
+const FILTER_SORT_DISPATCH: Record<string, (apps: AppOverview[], shelfId?: string) => AppOverview[]> = {
+  recent: (apps) => apps.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a)),
+  playtime: (apps) => apps.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0)),
+  release_date: (apps) => apps.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0)),
+  size_on_disk: (apps) => apps.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0)),
+  metacritic: (apps) => apps.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0)),
+  review_score: (apps) => apps.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0)),
+  added: (apps) => apps.slice().sort(compareByAdded),
+  random: (apps, shelfId) => {
+    const fIds = apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+    const fById = new Map<number, AppOverview>();
+    for (const a of apps) { const id = appIdOf(a); if (id) fById.set(id, a); }
+    return stableShuffleIds(fIds, hashIdSet(fIds), shelfId).map((id) => fById.get(id)).filter(Boolean) as AppOverview[];
+  },
+};
+function sortAppsByFilterKey(filtered: AppOverview[], fSort: string | undefined, shelfId?: string): AppOverview[] {
+  const handler = fSort ? FILTER_SORT_DISPATCH[fSort] : undefined;
+  if (handler) return handler(filtered, shelfId);
+  return filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
+}
+
+function resolveFilterReverse(f: CustomFilter, fallback: boolean | boolean[] | undefined): boolean {
+  const eff = (f as any).sortReverse ?? fallback;
+  return Array.isArray(eff) ? !!eff[0] : !!eff;
+}
+
+function hasNonEmptyString(s: unknown): boolean {
+  return typeof s === "string" && s.trim().length > 0;
+}
+
+const LEGACY_BOOL_FLAGS: Array<keyof CustomFilter> = ["favorites", "nonSteam", "installed"];
+
+function hasLegacyHiddenFlag(f: CustomFilter): boolean {
+  return f.hidden === "only" || f.hidden === true || f.hidden === false;
+}
+
+function hasLegacyNumberRanges(f: CustomFilter): boolean {
+  return typeof f.playedWithinDays === "number"
+    || typeof f.minPlaytimeMinutes === "number"
+    || typeof f.maxPlaytimeMinutes === "number";
+}
+
+function hasLegacyFlatFilter(f: CustomFilter): boolean {
+  if (LEGACY_BOOL_FLAGS.some((k) => !!f[k])) return true;
+  if (hasLegacyHiddenFlag(f)) return true;
+  if (hasNonEmptyString(f.nameIncludes) || hasNonEmptyString(f.nameRegex)) return true;
+  if (Array.isArray(f.deckCompatibility) && f.deckCompatibility.length > 0) return true;
+  if (hasLegacyNumberRanges(f)) return true;
+  return f.updatePending === true || f.updatePending === false;
+}
+
+function applyLegacyBoolFlags(filtered: AppOverview[], f: CustomFilter): AppOverview[] {
+  if (f.favorites) filtered = filtered.filter(isFavoriteOf);
+  if (f.hidden === "only" || f.hidden === true) filtered = filtered.filter(isHiddenOf);
+  if (f.hidden === false) filtered = filtered.filter((a) => !isHiddenOf(a));
+  if (f.nonSteam) filtered = filtered.filter(isNonSteamOf);
+  if (f.installed) filtered = filtered.filter(isInstalledOf);
+  return filtered;
+}
+
+function applyLegacyNameFilters(filtered: AppOverview[], f: CustomFilter): AppOverview[] {
+  if (hasNonEmptyString(f.nameIncludes)) {
+    const needle = f.nameIncludes!.toLowerCase();
+    filtered = filtered.filter((a) => appNameOf(a).toLowerCase().includes(needle));
+  }
+  if (hasNonEmptyString(f.nameRegex)) {
+    try {
+      const re = new RegExp(f.nameRegex!, "i");
+      filtered = filtered.filter((a) => re.test(appNameOf(a)));
+    } catch {}
+  }
+  return filtered;
+}
+
+function applyLegacyRangeFilters(filtered: AppOverview[], f: CustomFilter): AppOverview[] {
+  if (typeof f.playedWithinDays === "number") {
+    const min = Math.floor(Date.now() / 1000) - Math.floor(f.playedWithinDays * 86400);
+    filtered = filtered.filter((a) => lastPlayedOf(a) >= min);
+  }
+  if (typeof f.minPlaytimeMinutes === "number") {
+    filtered = filtered.filter((a) => (a.playtime_forever ?? 0) >= f.minPlaytimeMinutes!);
+  }
+  if (typeof f.maxPlaytimeMinutes === "number") {
+    filtered = filtered.filter((a) => (a.playtime_forever ?? 0) <= f.maxPlaytimeMinutes!);
+  }
+  return filtered;
+}
+
+function applyLegacyMiscFilters(filtered: AppOverview[], f: CustomFilter): AppOverview[] {
+  if (f.deckCompatibility && f.deckCompatibility.length > 0) {
+    filtered = filtered.filter((a) => isDeckCompatMatch(a.deck_compatibility_category, f.deckCompatibility));
+  }
+  if (f.updatePending === true) filtered = filtered.filter((a) => a.update_pending === true);
+  else if (f.updatePending === false) filtered = filtered.filter((a) => !a.update_pending);
+  return filtered;
+}
+
+function applyLegacyFlatFilter(all: AppOverview[], f: CustomFilter): AppOverview[] {
+  let filtered = applyLegacyBoolFlags(all, f);
+  filtered = applyLegacyNameFilters(filtered, f);
+  filtered = applyLegacyRangeFilters(filtered, f);
+  filtered = applyLegacyMiscFilters(filtered, f);
+  return filtered;
+}
+
+async function _resolveFilterGroupPath(
+  ctx: ResolverContext,
+  f: CustomFilter,
+  filterGroup: FilterGroup,
+): Promise<number[]> {
+  const { all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  const evalCtx: FilterEvalContext = { collectionAppIds: new Map() };
+  const colIds = collectCollectionIdsFromGroup(filterGroup);
+  await Promise.all(colIds.map(async (colId) => {
+    try {
+      const ids = await getCollectionApps(colId);
+      // Always set, even on empty result, so the evaluator can tell
+      // "lookup completed with 0 apps" from "lookup never attempted".
+      evalCtx.collectionAppIds.set(colId, new Set(ids));
+    } catch {}
+  }));
+  // Warm developer / publisher caches before evaluation — cold caches
+  // make those filter items match zero apps on the home (the editor
+  // warms via its filter pickers; the home doesn't go through them).
+  const needs = filterGroupNeedsDevPubPreload(filterGroup);
+  if (needs.needsDev || needs.needsPub) {
+    const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
+    await Promise.all([
+      needs.needsDev ? preloadDeveloperData(allAppIds).catch(() => {}) : Promise.resolve(),
+      needs.needsPub ? preloadPublisherData(allAppIds).catch(() => {}) : Promise.resolve(),
+    ]);
+  }
+  let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
+  const fSort = (ctx.source.filter as any)?.sort as string | undefined;
+  filtered = sortAppsByFilterKey(filtered, fSort, shelfId);
+  // Asc/desc inversion. Prefer the filter's own `sortReverse` (the editor
+  // writes there on filter shelves; shelf-level `sortReverse` is never
+  // populated for filter sources). Skipped for `manual` / `random`.
+  if (resolveFilterReverse(f, sortReverse) && fSort !== "manual" && fSort !== "random") {
+    filtered = filtered.slice().reverse();
+  }
+  const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
+  if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
+  else logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
+  return finish(ids.slice(0, overShootLimit));
+}
+
+function pickLegacySortKey(f: CustomFilter): string | undefined {
+  if (f.sort === "recent" || typeof f.playedWithinDays === "number") return "recent";
+  return f.sort as string | undefined;
+}
+
+function _resolveFilterLegacyPathMultiKey(
+  ctx: ResolverContext, f: CustomFilter, filtered: AppOverview[],
+): number[] {
+  const { all, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  const sortedIds = applySortToIds(
+    filtered.map((a) => appIdOf(a)).filter(Number.isFinite),
+    f.sort as unknown as string[], all, shelfId, (f as any).sortReverse ?? sortReverse,
+  );
+  const ids = deduplicateNonSteam(sortedIds, all);
+  if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filter) empty", { filter: f, allCount: all.length });
+  else logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
+  return finish(ids.slice(0, overShootLimit));
+}
+
+function _resolveFilterLegacyPath(
+  ctx: ResolverContext,
+  f: CustomFilter,
+): number[] {
+  const { all, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  let filtered = applyLegacyFlatFilter(all, f);
+  if (Array.isArray(f.sort)) return _resolveFilterLegacyPathMultiKey(ctx, f, filtered);
+  const fSort = pickLegacySortKey(f);
+  filtered = sortAppsByFilterKey(filtered, fSort, shelfId);
+  // Legacy `f.sort` enum doesn't include "manual" or "random", so the
+  // reverse is unconditional.
+  if (resolveFilterReverse(f, sortReverse)) filtered = filtered.slice().reverse();
+  const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
+  if (!ids.length) {
+    logWarn("STEAM", "resolveShelfAppIds(filter) empty", {
+      filter: f,
+      allCount: all.length,
+      sampleApp: all[0] ? { appid: all[0].appid, name: all[0].display_name, installed: all[0].installed } : null,
+      afterInstalled: f.installed ? all.filter(isInstalledOf).length : "skip",
+      afterInstalledLenient: f.installed ? all.filter((a) => (a as any).installed !== false).length : "skip",
+    });
+  } else {
+    logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
+  }
+  return finish(ids.slice(0, overShootLimit));
+}
+
+async function _resolveFilter(ctx: ResolverContext): Promise<number[]> {
+  const { source, finish } = ctx;
+  const f: CustomFilter = (source.filter ?? {}) as CustomFilter;
+  const filterGroup = (source.filter as any)?.filterGroup as FilterGroup | undefined;
+  if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
+    return _resolveFilterGroupPath(ctx, f, filterGroup);
+  }
+  // No filter configured → empty. Falling through to `filtered = all`
+  // would silently return the entire library (issue #1).
+  if (!hasLegacyFlatFilter(f)) {
+    logInfo("STEAM", "resolveShelfAppIds(filter) empty — no filters configured", { filter: f });
+    return finish([]);
+  }
+  return _resolveFilterLegacyPath(ctx, f);
+}
+
+async function _resolveExternal(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
+    try {
+      const { resolveExternalSource } = await import("../core/pluginApi");
+      let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
+      logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
+      if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
+      ids = deduplicateNonSteam(ids, all);
+      return finish(ids.slice(0, overShootLimit));
+    } catch {
+      return [];
+    }
+}
+
+type WishlistHideFlags = { hideOwned: boolean; hideOwnedNonSteam: boolean; hideOwnedNonSteamCloud: boolean };
+
+function resolveCloudHideFlag(source: any, s: any, hideOwnedNonSteam: boolean): boolean {
+  if (!hideOwnedNonSteam) return false;
+  const perShelf = source?.hideOwnedNonSteamCloud;
+  if (perShelf === true) return true;
+  if (perShelf === undefined) return s?.onlineHideOwnedNonSteamCloud === true;
+  return false;
+}
+
+function computeWishlistHideFlags(source: any, s: any): WishlistHideFlags {
+  const globalHideOwned = s?.onlineHideOwnedGames === true;
+  const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
+  const srcExcludeOwned = source?.excludeOwned === true;
+  const srcExcludeNonSteam = srcExcludeOwned && source?.excludeOwnedNonSteam === true;
+  const hideOwned = globalHideOwned || srcExcludeOwned;
+  const hideOwnedNonSteam = hideOwned && ((globalHideOwned && globalHideNonSteam) || srcExcludeNonSteam);
+  const hideOwnedNonSteamCloud = resolveCloudHideFlag(source, s, hideOwnedNonSteam);
+  return { hideOwned, hideOwnedNonSteam, hideOwnedNonSteamCloud };
+}
+
+const PRICE_SORT_KEYS = new Set(["price_low", "discount_high", "original_price_high"]);
+
+async function applyWishlistChildFilter(ids: number[], childFilter: any, all: AppOverview[]): Promise<number[]> {
+  if (!childFilter || !Array.isArray(childFilter.items) || childFilter.items.length === 0) return ids;
+  const hasDiscountFilter = childFilter.items.some((item: any) => item.type === "discount");
+  if (hasDiscountFilter) {
+    const { getPriceMap } = await import("../core/onlineStore");
+    await getPriceMap(ids);
+  }
+  const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+  return ids.filter((id) => {
+    const app = byId.get(id);
+    return childFilter.items.every((item: any) => evaluateWishlistChildItem(item, id, app));
+  });
+}
+
+function evaluateWishlistChildItem(item: any, id: number, app: AppOverview | undefined): boolean {
+  if (item.type === "discount") return evaluateFilterItem(item, { appid: id } as any, undefined);
+  if (!app) return true;
+  return evaluateFilterItem(item, app, undefined);
+}
+
+async function applyWishlistSort(
+  ids: number[],
+  sort: string | string[] | undefined,
+  sortReverse: boolean | boolean[] | undefined,
+  all: AppOverview[],
+  shelfId: string | undefined,
+  getPriceMap: (ids: number[]) => Promise<ReadonlyMap<number, { price: number; originalPrice: number; discount: number }>>,
+): Promise<number[]> {
+  if (!sort) return ids;
+  if (!Array.isArray(sort) && PRICE_SORT_KEYS.has(sort)) {
+    const reverse = Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse;
+    return applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", reverse);
+  }
+  // Multi-key / single non-price: sort the local subset, leave remote
+  // ids at the tail in wishlist order. Pre-fetch prices only if needed.
+  const sortKeys: string[] = Array.isArray(sort) ? sort : [sort];
+  const hasPriceKey = sortKeys.some((k) => PRICE_SORT_KEYS.has(k));
+  const localPriceMap = hasPriceKey ? await getPriceMap(ids) : undefined;
+  const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
+  const pool: AppOverview[] = ids.map((id) => byId.get(id) ?? ({ appid: id } as unknown as AppOverview));
+  return applySortToIds(ids, sort, pool, shelfId, sortReverse, localPriceMap);
+}
+
+async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  try {
+    const { getCurrentSettings } = await import("../store/settingsStore");
+    const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
+    const s = getCurrentSettings();
+    const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+    if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
+    const wishlistIds = await getWishlistIds();
+    if (!wishlistIds) return [];
+
+    const flags = computeWishlistHideFlags(source, s);
+    const ownedSet = flags.hideOwned
+      ? getLocalLibraryAppIds(flags.hideOwnedNonSteam, flags.hideOwnedNonSteamCloud)
+      : new Set<number>();
+    let ids = flags.hideOwned ? wishlistIds.filter((id) => !ownedSet.has(id)) : [...wishlistIds];
+    ids = await applyWishlistChildFilter(ids, (source as any).childFilter, all);
+    ids = await applyWishlistSort(ids, sort, sortReverse, all, shelfId, getPriceMap);
+    logInfo("STEAM", "resolveShelfAppIds(wishlist) resolved", { count: ids.length });
+    return finish(ids.slice(0, overShootLimit));
+  } catch (e) {
+    logWarn("STEAM", "resolveShelfAppIds(wishlist) failed", String(e));
+    return [];
+  }
+}
+
+async function _resolveStore(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  try {
+    const { getCurrentSettings } = await import("../store/settingsStore");
+    const { getStoreGameIds, getPriceMap } = await import("../core/onlineStore");
+    const s = getCurrentSettings();
+    const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+    if (!onlineEnabled) return [];
+    let ids = await getStoreGameIds();
+    if (!ids) return [];
+
+    const flags = computeWishlistHideFlags(source, s);
+    if (flags.hideOwned) {
+      const ownedSetStore = getLocalLibraryAppIds(flags.hideOwnedNonSteam, flags.hideOwnedNonSteamCloud);
+      ids = ids.filter((id) => !ownedSetStore.has(id));
+    }
+    ids = await applyWishlistChildFilter(ids, (source as any).childFilter, all);
+    ids = await applyWishlistSort(ids, sort, sortReverse, all, shelfId, getPriceMap);
+    logInfo("STEAM", "resolveShelfAppIds(store) resolved", { count: ids.length });
+    return finish(ids.slice(0, overShootLimit));
+  } catch (e) {
+    logWarn("STEAM", "resolveShelfAppIds(store) failed", String(e));
+    return [];
+  }
+}
+
+type SmartResolverDeps = {
+  apps: AppOverview[];
+  internalModes: ReadonlySet<string>;
+  resolveSmart: (mode: any, apps: AppOverview[], limit: number, params: any, ttlMs: number | undefined, shelfId?: string) => number[];
+  hasExternal: (mode: string) => boolean;
+  resolveExternal: (mode: string, limit: number, params: Record<string, number>) => Promise<number[]>;
+};
+
+async function resolveSmartModeIds(
+  mode: string,
+  smartFetchLimit: number,
+  smartParams: Record<string, number> | undefined,
+  ttlMs: number | undefined,
+  shelfId: string | undefined,
+  deps: SmartResolverDeps,
+): Promise<number[]> {
+  if (mode === "custom") return deps.apps.map((a) => appIdOf(a)).filter(Number.isFinite);
+  if (deps.internalModes.has(mode)) {
+    return deps.resolveSmart(mode as any, deps.apps, smartFetchLimit, smartParams, ttlMs, shelfId);
+  }
+  if (deps.hasExternal(mode)) {
+    return deps.resolveExternal(mode, smartFetchLimit, smartParams ?? {});
+  }
+  return [];
+}
+
+function uniqueModes(modes: string[]): string[] {
+  const seen = new Set<string>();
+  return modes.filter((m) => seen.has(m) ? false : (seen.add(m), true));
+}
+
+async function resolveSmartCompositeIds(
+  source: any,
+  smartFetchLimit: number,
+  smartParams: Record<string, number> | undefined,
+  ttlMs: number | undefined,
+  shelfId: string | undefined,
+  deps: SmartResolverDeps,
+): Promise<number[]> {
+  const combine = source.compositeCombine === "intersection" ? "intersection" : "union";
+  const modes = uniqueModes([source.mode, ...(source.compositeModes as string[])]);
+  const childResults: number[][] = [];
+  for (const m of modes) {
+    try {
+      const childShelfId = shelfId ? `${shelfId}:${m}` : undefined;
+      childResults.push(await resolveSmartModeIds(m, smartFetchLimit, smartParams, ttlMs, childShelfId, deps));
+    } catch (e) {
+      logWarn("STEAM", "composite smart child failed", { mode: m, err: String(e) });
+      childResults.push([]);
+    }
+  }
+  return mergeCompositeResults(childResults, combine);
+}
+
+function applySmartFilterGroup(ids: number[], filterGroup: any, apps: AppOverview[]): number[] {
+  if (!filterGroup || !Array.isArray(filterGroup.items) || filterGroup.items.length === 0) return ids;
+  const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));
+  const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
+  return evaluateFilterGroup(filterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
+}
+
+async function _resolveSmart(ctx: ResolverContext): Promise<number[]> {
+  const { source, sort, shelfId, sortReverse, finish, overShootLimit, limit } = ctx;
+  try {
+    const { resolveSmartShelf, INTERNAL_SMART_MODES } = await import("./smartShelves");
+    const { hasExternalSmartSource, resolveExternalSmartSource } = await import("../core/pluginApi");
+    const apps = await getAllAppOverviews();
+    const smartFilterGroup = source.filterGroup;
+    const smartParams = source.smartParams as Record<string, number> | undefined;
+    const refreshIntervalMinutes = source.refreshIntervalMinutes as number | undefined;
+    const ttlMs = typeof refreshIntervalMinutes === "number" && refreshIntervalMinutes > 0
+      ? refreshIntervalMinutes * 60 * 1000
+      : undefined;
+    const wantsPostProcess = !!smartFilterGroup || !!sort;
+    const smartFetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
+    const deps: SmartResolverDeps = {
+      apps, internalModes: INTERNAL_SMART_MODES,
+      resolveSmart: resolveSmartShelf as any,
+      hasExternal: hasExternalSmartSource,
+      resolveExternal: resolveExternalSmartSource,
+    };
+    const compositeModes = Array.isArray(source.compositeModes) ? source.compositeModes as string[] : [];
+    const rawIds = compositeModes.length > 0
+      ? await resolveSmartCompositeIds(source, smartFetchLimit, smartParams, ttlMs, shelfId, deps)
+      : await resolveSmartModeIds(source.mode, smartFetchLimit, smartParams, ttlMs, shelfId, deps);
+    let ids = applySmartFilterGroup(rawIds, smartFilterGroup, apps);
+    if (sort && sort !== "manual") ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
+    logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
+    return finish(ids.slice(0, overShootLimit));
+  } catch {
+    return [];
+  }
+}
+
+function compositeChildFilterItems(source: any): any[] {
+  const cf = (source as any).childFilter;
+  return cf && Array.isArray(cf.items) ? cf.items : [];
+}
+
+function mergeCompositeFilterIntoOnlineChild(child: any, compositeItems: any[]): any {
+  const existing: any[] = (child.childFilter && Array.isArray(child.childFilter.items)) ? child.childFilter.items : [];
+  return {
+    ...child,
+    childFilter: {
+      mode: child.childFilter?.mode === "or" ? "or" : "and",
+      items: [...existing, ...compositeItems],
+    },
+  };
+}
+
+function rebuildOfflineChildIfDup(child: any, compositeFilterSig: string): any {
+  if (!compositeFilterSig || !child?.childFilter || !Array.isArray(child.childFilter.items)) return child;
+  if (JSON.stringify(child.childFilter.items) !== compositeFilterSig) return child;
+  const { childFilter: _drop, ...rest } = child;
+  return rest;
+}
+
+function rebuildCompositeChildSources(rawChildSources: any[], compositeItems: any[]): any[] {
+  if (compositeItems.length === 0) return rawChildSources;
+  const sig = JSON.stringify(compositeItems);
+  return rawChildSources.map((child) => {
+    if (child?.type !== "wishlist" && child?.type !== "store") return rebuildOfflineChildIfDup(child, sig);
+    return mergeCompositeFilterIntoOnlineChild(child, compositeItems);
+  });
+}
+
+async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
+  const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
+  return Promise.all(
+    childSources.map((child) =>
+      resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1)
+        .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; }),
+    ),
+  );
+}
+
+async function resortCompositeMerged(merged: number[], all: AppOverview[], ctx: ResolverContext): Promise<number[]> {
+  const { sort, shelfId, sortReverse } = ctx;
+  const sortKeys: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
+  const primary = sortKeys[0];
+  if (merged.length <= 1 || !primary || primary === "manual" || primary === "random") return merged;
+  try {
+    const hasPriceKey = sortKeys.some((k) => PRICE_SORT_KEYS.has(k));
+    const priceMap = hasPriceKey ? await (await import("../core/onlineStore")).getPriceMap(merged) : undefined;
+    const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
+    const pool: AppOverview[] = merged.map((id) => (sortPoolLookup(id) ?? byIdAll.get(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview);
+    return applySortToIds(merged, sort!, pool, shelfId, sortReverse, priceMap);
+  } catch (e) { logWarn("STEAM", "composite resort failed", String(e)); return merged; }
+}
+
+async function _resolveComposite(ctx: ResolverContext): Promise<number[]> {
+  const { source, all, depth: _depth, finish, overShootLimit } = ctx;
+  if (_depth >= MAX_COMPOSITE_DEPTH) {
+    logWarn("STEAM", "resolveShelfAppIds(composite) depth cap reached", { depth: _depth, max: MAX_COMPOSITE_DEPTH });
+    return finish([]);
+  }
+  const combine = source.combine === "intersection" ? "intersection" : "union";
+  const rawChildSources: any[] = Array.isArray(source.sources) ? source.sources : [];
+  if (!rawChildSources.length) return finish([]);
+  const compositeItems = compositeChildFilterItems(source);
+  const childSources = rebuildCompositeChildSources(rawChildSources, compositeItems);
+  const childResults = await resolveCompositeChildren(childSources, ctx);
+  let merged = mergeCompositeResults(childResults, combine);
+  merged = await resortCompositeMerged(merged, all, ctx);
+  logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length, hasChildFilter: !!(source as any).childFilter });
+  return finish(merged.slice(0, overShootLimit));
+}
+
+// Dispatcher table keyed by `source.type`. Each entry runs in its own
+// function above so the dispatcher itself stays at complexity ~3.
+const SOURCE_RESOLVERS: Record<string, (ctx: ResolverContext) => Promise<number[]>> = {
+  collection: _resolveCollection,
+  tab: _resolveTab,
+  filter: _resolveFilter,
+  external: _resolveExternal,
+  wishlist: _resolveWishlist,
+  store: _resolveStore,
+  smart: _resolveSmart,
+  composite: _resolveComposite,
+};
+
+export async function resolveShelfAppIds(
+  source: { type: string; [k: string]: any },
+  limit: number,
+  sort?: string | string[],
+  shelfId?: string,
+  sortReverse?: boolean | boolean[],
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean },
+  _depth: number = 0,
+): Promise<number[]> {
   const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
   // Overshoot for render-time filters: hidden*2 for the picker, plus
   // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
@@ -2508,767 +3510,79 @@ export async function resolveShelfAppIds(source: { type: string; [k: string]: an
     all = await getAllAppOverviews();
   }
 
-  // Returns up to overShootLimit — Shelf.tsx slices to shelf.limit after
-  // its render-time owned/name filters, so the overshoot provides headroom.
-  function finish(ids: number[]): number[] {
+  const finish = (ids: number[]): number[] => {
     let result = ids;
     if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
     if (options?.dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
     return result.slice(0, overShootLimit);
-  }
+  };
 
-  if (source.type === "collection") {
-    const rawCollectionId = String(source.collectionId ?? "").trim();
-    let ids = await getCollectionApps(rawCollectionId);
-    if (!ids.length && rawCollectionId) {
-      try {
-        const collections = await listCollections();
-        const needle = normalizeText(rawCollectionId);
-        const exactMatches = collections.filter((collection) => {
-          const id = normalizeText(collection.id);
-          const name = normalizeText(collection.name);
-          return id === needle || name === needle;
-        });
-        const softMatches = exactMatches.length ? [] : collections.filter((collection) => {
-          const id = normalizeText(collection.id);
-          const name = normalizeText(collection.name);
-          return id.includes(needle) || name.includes(needle);
-        });
-        for (const match of [...exactMatches, ...softMatches]) {
-          const probeKeys = Array.from(new Set([match.id, match.name].filter(Boolean)));
-          for (const key of probeKeys) {
-            const fallbackIds = await getCollectionApps(key, match.name);
-            if (fallbackIds.length) {
-              ids = fallbackIds;
-              break;
-            }
-          }
-          if (ids.length) break;
-        }
-
-        if (!ids.length && all.length) {
-          const markers = new Set<string>();
-          for (const id of candidateCollectionIds(rawCollectionId)) {
-            const marker = normalizeText(id);
-            if (marker) markers.add(marker);
-          }
-          for (const match of [...exactMatches, ...softMatches]) {
-            const idMarker = normalizeText(match.id);
-            const nameMarker = normalizeText(match.name);
-            if (idMarker) markers.add(idMarker);
-            if (nameMarker) markers.add(nameMarker);
-          }
-          if (markers.size) {
-            ids = all.filter((app) => appMatchesCollectionMarker(app, markers)).map((app) => appIdOf(app));
-          }
-        }
-      } catch {}
-    }
-    if (!ids.length) {
-      logWarn("STEAM", "resolveShelfAppIds(collection) empty", {
-        collectionId: rawCollectionId,
-        allCount: all.length,
-      });
-    } else {
-      logInfo("STEAM", "resolveShelfAppIds(collection) resolved", {
-        collectionId: rawCollectionId,
-        count: ids.length,
-      });
-    }
-    const childFilter = source.childFilter as FilterGroup | undefined;
-    if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
-      const byId = new Map<number, AppOverview>();
-      for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
-      const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
-      ids = evaluateFilterGroup(childFilter, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
-    }
-    if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
-    ids = deduplicateNonSteam(ids, all);
-    return finish(ids.slice(0, overShootLimit));
-  }
-
-  if (source.type === "tab") {
-    const rawTab = String(source.tab ?? "").trim();
-    const tabSlug = slugifyTab(rawTab);
-    // The native SteamOS "Installed" / "Great on Deck" library tabs exclude
-    // non-Steam shortcuts AND non-game app types (Proton, Steam Linux Runtime,
-    // redistributables, tools). External tab providers (TabMaster, store-API
-    // tab definitions) often return the raw matching set without that filter,
-    // so we re-apply it here when the resolved tab id slugifies to one of
-    // those canonical names.
-    const matchesNativeInstalled = tabSlug === "installed" || tabSlug === "great_on_deck";
-    const filterToInstalledNative = (ids: number[]): number[] => {
-      if (!matchesNativeInstalled) return ids;
-      const byId = new Map<number, AppOverview>();
-      for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
-      return ids.filter((id) => {
-        const a = byId.get(id);
-        if (!a) return false;
-        if (isNonSteamOf(a)) return false;
-        return a.app_type === undefined || a.app_type === 1;
-      });
-    };
-
-    const childFilterTab = source.childFilter as FilterGroup | undefined;
-    function applyChildFilterTab(ids: number[]): number[] {
-      if (!childFilterTab || !Array.isArray(childFilterTab.items) || !childFilterTab.items.length) return ids;
-      const byId = new Map<number, AppOverview>();
-      for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
-      const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
-      return evaluateFilterGroup(childFilterTab, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
-    }
-
-    // Forward-compat: fiber traversal in case TabMaster exposes a React context
-    const customFiltersIds = getCustomFiltersAppsForContainer(rawTab);
-    if (customFiltersIds.length) {
-      const filtered = filterToInstalledNative(customFiltersIds);
-      const ordered = sort ? applySortToIds(filtered, sort, all, shelfId, sortReverse) : filtered;
-      return finish(applyChildFilterTab(ordered).slice(0, overShootLimit));
-    }
-
-    let fromTabStore = await getTabAppIdsFromStore(rawTab);
-    if (fromTabStore.length && matchesNativeInstalled) {
-      fromTabStore = filterToInstalledNative(fromTabStore);
-    }
-    if (!fromTabStore.length && rawTab) {
-      try {
-        const tabs = await listLibraryTabs();
-        const needle = normalizeText(rawTab);
-        const tabCandidates = tabs.filter((tab) => {
-          const id = normalizeText(tab.id);
-          const name = normalizeText(tab.name);
-          return id === needle || name === needle || id.includes(needle) || name.includes(needle);
-        });
-        for (const tab of tabCandidates) {
-          const byId = await getTabAppIdsFromStore(tab.id);
-          if (byId.length) {
-            fromTabStore = byId;
-            break;
-          }
-          const byName = await getTabAppIdsFromStore(tab.name);
-          if (byName.length) {
-            fromTabStore = byName;
-            break;
-          }
-        }
-      } catch {}
-    }
-    if (fromTabStore.length) {
-      try {
-        logInfo("STEAM", "resolveShelfAppIds(tab): using store", { tab: rawTab, count: fromTabStore.length });
-      } catch {}
-      const tabStoreIds = deduplicateNonSteam(sort ? applySortToIds(fromTabStore, sort, all, shelfId, sortReverse) : fromTabStore, all);
-      return finish(applyChildFilterTab(tabStoreIds).slice(0, overShootLimit));
-    }
-    const filtered = await resolveDynamicTab(rawTab, all);
-    let tabApps: AppOverview[];
-    if (sort) {
-      tabApps = filtered;
-    } else {
-      tabApps = slugifyTab(rawTab) === "recent"
-        ? filtered
-        : filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
-    }
-    let tabIds = deduplicateNonSteam(tabApps.map((a) => appIdOf(a)).filter(Number.isFinite), all);
-    if (sort) tabIds = applySortToIds(tabIds, sort, all, shelfId, sortReverse);
-    const ids = tabIds.slice(0, limit);
-
-    // Migration fallback: existing shelves saved as UUID tab sources resolve via TabMaster's filters
-    if (!ids.length && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTab)) {
-      try {
-        const { getTabsFromSettingsFile } = await import('../integrations/tabmaster');
-        const { convertFiltersToGroup } = await import('../domain/customfilters');
-        const tmTabs = await getTabsFromSettingsFile();
-        const tmTab = tmTabs.find((t) => t.id === rawTab);
-        if (tmTab && tmTab.filters && tmTab.filters.length > 0) {
-          const filterGroup = convertFiltersToGroup(tmTab.filters);
-          try { logInfo("STEAM", "resolveShelfAppIds(tab): UUID fallback via TabMaster filters", { tab: rawTab, title: tmTab.title }); } catch {}
-          return resolveShelfAppIds({ type: 'filter', filter: { filterGroup } } as any, limit, undefined, shelfId);
-        }
-      } catch {}
-    }
-
-    if (!ids.length) {
-      logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
-    }
-    return finish(applyChildFilterTab(ids.slice(0, overShootLimit)));
-  }
-
-  if (source.type === "filter") {
-    const f: CustomFilter = (source.filter ?? {}) as CustomFilter;
-
-    const filterGroup = (source.filter as any)?.filterGroup as FilterGroup | undefined;
-    if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
-      const ctx: FilterEvalContext = { collectionAppIds: new Map() };
-      const colIds = collectCollectionIdsFromGroup(filterGroup);
-      await Promise.all(colIds.map(async (colId) => {
-        try {
-          const ids = await getCollectionApps(colId);
-          // Always set, even on empty result, so the evaluator can tell
-          // "lookup completed with 0 apps" from "lookup never attempted".
-          ctx.collectionAppIds.set(colId, new Set(ids));
-        } catch {}
-      }));
-      // Warm the developer / publisher cache before evaluation when the
-      // filter group uses those item types — otherwise the home shelf
-      // sees a cold cache and the filter matches zero apps. The editor
-      // already warms these via its filter pickers, but the home runs
-      // without that path. Only fires when the relevant items exist;
-      // empty filter groups still resolve in O(1) on cached data.
-      const needs = filterGroupNeedsDevPubPreload(filterGroup);
-      if (needs.needsDev || needs.needsPub) {
-        const allAppIds = all.map((a) => appIdOf(a)).filter(Number.isFinite);
-        await Promise.all([
-          needs.needsDev ? preloadDeveloperData(allAppIds).catch(() => {}) : Promise.resolve(),
-          needs.needsPub ? preloadPublisherData(allAppIds).catch(() => {}) : Promise.resolve(),
-        ]);
-      }
-      let filtered = evaluateFilterGroup(filterGroup, all, ctx);
-      const fSort = (source.filter as any)?.sort as string | undefined;
-      if (fSort === "recent") {
-        filtered = filtered.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
-      } else if (fSort === "playtime") {
-        filtered = filtered.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
-      } else if (fSort === "release_date") {
-        filtered = filtered.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
-      } else if (fSort === "size_on_disk") {
-        filtered = filtered.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
-      } else if (fSort === "metacritic") {
-        filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
-      } else if (fSort === "review_score") {
-        filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
-      } else if (fSort === "added") {
-        filtered = filtered.slice().sort(compareByAdded);
-      } else if (fSort === "random") {
-        const fIds = filtered.map(a => appIdOf(a)).filter(Number.isFinite);
-        const fById = new Map<number, AppOverview>();
-        for (const a of filtered) { const id = appIdOf(a); if (id) fById.set(id, a); }
-        filtered = stableShuffleIds(fIds, hashIdSet(fIds), shelfId).map(id => fById.get(id)).filter(Boolean) as AppOverview[];
-      } else {
-        filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
-      }
-      // Asc/desc inversion. Prefer the filter's own `sortReverse` (set
-      // by the editor on filter shelves — shelf-level `sortReverse` is
-      // never populated for filter sources). Skipped for `manual` and
-      // `random` where reverse has no meaning.
-      const effRev = (f as any).sortReverse ?? sortReverse;
-      const effRevBool = Array.isArray(effRev) ? !!effRev[0] : !!effRev;
-      if (effRevBool && fSort !== "manual" && fSort !== "random") filtered = filtered.slice().reverse();
-      const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
-      if (!ids.length) {
-        logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
-      } else {
-        logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
-      }
-      return finish(ids.slice(0, overShootLimit));
-    }
-
-    // Legacy flat filter fields
-    let filtered = all;
-    if (f.favorites) filtered = filtered.filter((a) => isFavoriteOf(a));
-    if (f.hidden === "only" || f.hidden === true) filtered = filtered.filter((a) => isHiddenOf(a));
-    if (f.hidden === false) filtered = filtered.filter((a) => !isHiddenOf(a));
-    if (f.nonSteam) filtered = filtered.filter((a) => isNonSteamOf(a));
-    if (f.installed) {
-      filtered = filtered.filter((a) => isInstalledOf(a));
-    }
-    if (typeof f.playedWithinDays === "number") {
-      const now = Math.floor(Date.now() / 1000);
-      const min = now - Math.floor(f.playedWithinDays * 86400);
-      filtered = filtered.filter((a) => lastPlayedOf(a) >= min);
-    }
-    if (typeof f.nameIncludes === "string" && f.nameIncludes.trim().length > 0) {
-      const needle = f.nameIncludes.toLowerCase();
-      filtered = filtered.filter((a) => appNameOf(a).toLowerCase().includes(needle));
-    }
-    if (typeof f.nameRegex === "string" && f.nameRegex.trim().length > 0) {
-      try {
-        const re = new RegExp(f.nameRegex, "i");
-        filtered = filtered.filter((a) => re.test(appNameOf(a)));
-      } catch {}
-    }
-    if (f.deckCompatibility && f.deckCompatibility.length > 0) {
-      filtered = filtered.filter((a) => isDeckCompatMatch(a.deck_compatibility_category, f.deckCompatibility));
-    }
-    if (typeof f.minPlaytimeMinutes === "number") {
-      filtered = filtered.filter((a) => (a.playtime_forever ?? 0) >= f.minPlaytimeMinutes!);
-    }
-    if (typeof f.maxPlaytimeMinutes === "number") {
-      filtered = filtered.filter((a) => (a.playtime_forever ?? 0) <= f.maxPlaytimeMinutes!);
-    }
-    if (f.updatePending === true) {
-      filtered = filtered.filter((a) => a.update_pending === true);
-    } else if (f.updatePending === false) {
-      filtered = filtered.filter((a) => !a.update_pending);
-    }
-
-    // Multi-key sort: when `f.sort` is an array, delegate to applySortToIds
-    // for the stable primary/secondary chain. Single-key paths keep the
-    // inline branches below for back-compat (no behavior change).
-    if (Array.isArray(f.sort)) {
-      const sortedIds = applySortToIds(
-        filtered.map((a) => appIdOf(a)).filter(Number.isFinite),
-        f.sort,
-        all,
-        shelfId,
-        (f as any).sortReverse ?? sortReverse,
-      );
-      const ids = deduplicateNonSteam(sortedIds, all);
-      if (!ids.length) {
-        logWarn("STEAM", "resolveShelfAppIds(filter) empty", {
-          filter: f, allCount: all.length,
-        });
-      } else {
-        logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
-      }
-      return finish(ids.slice(0, overShootLimit));
-    }
-    if (f.sort === "recent" || typeof f.playedWithinDays === "number") {
-      filtered = filtered.slice().sort((a, b) => lastPlayedOf(b) - lastPlayedOf(a));
-    } else if (f.sort === "playtime") {
-      filtered = filtered.slice().sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0));
-    } else if (f.sort === "release_date") {
-      filtered = filtered.slice().sort((a, b) => ((b as any).rt_original_release_date ?? 0) - ((a as any).rt_original_release_date ?? 0));
-    } else if (f.sort === "size_on_disk") {
-      filtered = filtered.slice().sort((a, b) => Number((b as any).size_on_disk ?? 0) - Number((a as any).size_on_disk ?? 0));
-    } else if (f.sort === "metacritic") {
-      filtered = filtered.slice().sort((a, b) => ((b as any).metacritic_score ?? 0) - ((a as any).metacritic_score ?? 0));
-    } else if (f.sort === "review_score") {
-      filtered = filtered.slice().sort((a, b) => ((b as any).review_percentage ?? 0) - ((a as any).review_percentage ?? 0));
-    } else if (f.sort === "added") {
-      filtered = filtered.slice().sort(compareByAdded);
-    } else {
-      filtered = filtered.slice().sort((a, b) => String((a as any).sort_as ?? appNameOf(a)).localeCompare(String((b as any).sort_as ?? appNameOf(b))));
-    }
-    // Legacy `f.sort` enum doesn't include "manual" or "random", so the
-    // reverse here is unconditional. Prefer the filter's own `sortReverse`
-    // (set by the editor on filter shelves — shelf-level `sortReverse`
-    // is never populated for filter sources).
-    const legacyEffRev = (f as any).sortReverse ?? sortReverse;
-    const legacyEffRevBool = Array.isArray(legacyEffRev) ? !!legacyEffRev[0] : !!legacyEffRev;
-    if (legacyEffRevBool) filtered = filtered.slice().reverse();
-
-    const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
-    if (!ids.length) {
-      logWarn("STEAM", "resolveShelfAppIds(filter) empty", {
-        filter: f,
-        allCount: all.length,
-        sampleApp: all[0] ? { appid: all[0].appid, name: all[0].display_name, installed: all[0].installed } : null,
-        afterInstalled: f.installed ? all.filter((a) => isInstalledOf(a)).length : "skip",
-        afterInstalledLenient: f.installed ? all.filter((a) => (a as any).installed !== false).length : "skip",
-      });
-    } else {
-      logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
-    }
-    return finish(ids.slice(0, overShootLimit));
-  }
-
-  if (source.type === "external") {
-    try {
-      const { resolveExternalSource } = await import("../core/pluginApi");
-      let ids = await resolveExternalSource(String(source.sourceId ?? ""), limit);
-      logInfo("STEAM", "resolveShelfAppIds(external) resolved", { sourceId: source.sourceId, count: ids.length });
-      if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
-      ids = deduplicateNonSteam(ids, all);
-      return finish(ids.slice(0, overShootLimit));
-    } catch {
-      return [];
-    }
-  }
-
-  if (source.type === "wishlist") {
-    try {
-      const { getCurrentSettings } = await import("../store/settingsStore");
-      const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
-      const s = getCurrentSettings();
-      const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
-      if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
-      const wishlistIds = await getWishlistIds();
-      if (!wishlistIds) return [];
-      // Per-shelf toggles extend global — mirrors Shelf.tsx render so the
-      // resolver count matches displayed count.
-      const globalHideOwned = s?.onlineHideOwnedGames === true;
-      const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
-      const srcExcludeOwned = (source as any).excludeOwned === true;
-      const srcExcludeNonSteam = srcExcludeOwned && (source as any).excludeOwnedNonSteam === true;
-      const hideOwned = globalHideOwned || srcExcludeOwned;
-      const hideOwnedNonSteam = hideOwned && ((globalHideOwned && globalHideNonSteam) || srcExcludeNonSteam);
-      const perShelfCloud = (source as any).hideOwnedNonSteamCloud;
-      const hideOwnedNonSteamCloud = hideOwnedNonSteam &&
-        (perShelfCloud === true || (perShelfCloud === undefined && s?.onlineHideOwnedNonSteamCloud === true));
-      const ownedSet = hideOwned
-        ? getLocalLibraryAppIds(hideOwnedNonSteam, hideOwnedNonSteamCloud)
-        : new Set<number>();
-      let ids = hideOwned ? wishlistIds.filter((id) => !ownedSet.has(id)) : [...wishlistIds];
-      // Apply childFilter: discount filter uses price cache and works for every
-      // wishlist item; AppOverview-dependent filters only apply to games already
-      // in the local library (others pass through so they're not hidden).
-      const childFilter = (source as any).childFilter;
-      const hasDiscountFilter = Array.isArray(childFilter?.items) &&
-        childFilter.items.some((item: any) => item.type === "discount");
-      if (hasDiscountFilter) {
-        const { getPriceMap } = await import("../core/onlineStore");
-        await getPriceMap(ids);
-      }
-      if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
-        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
-        ids = ids.filter((id) => {
-          const app = byId.get(id);
-          return childFilter.items.every((item: any) => {
-            if (item.type === "discount") {
-              return evaluateFilterItem(item, { appid: id } as any, undefined);
-            }
-            if (!app) return true;
-            return evaluateFilterItem(item, app, undefined);
-          });
-        });
-      }
-      // Sort dispatch:
-      //   - single-key string price sort  → applyPriceSort (covers both
-      //     local + remote wishlist items since priceMap is keyed by id)
-      //   - any other sort (string OR array) → sort the local subset via
-      //     applySortToIds, leave remote ids in their original wishlist
-      //     order at the tail. For a multi-key chain that includes a
-      //     price key, the resolver also pre-fetches `getPriceMap(ids)`
-      //     and passes it down so the comparator can use discount as a
-      //     real ranker for the LOCAL subset (remote ids stay tail-only).
-      //
-      // This dispatch used to also wrap a "stub AppOverview" pool for
-      // multi-key + price so remote rows participated in the chain too —
-      // but that path returned 0 ids in production for a 522-entry
-      // wishlist (cause unclear; cache stayed at count=0 over multiple
-      // refreshes). Falling back to the local-subset path is safer:
-      // local rows get the proper chain, remote rows keep their wishlist
-      // position, and the shelf actually renders.
-      const sortKeysWishlist: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
-      const isSingleKeyPriceSort = !Array.isArray(sort) && (sort === "price_low" || sort === "discount_high" || sort === "original_price_high");
-      const hasPriceKeyWishlist = sortKeysWishlist.some((k) => k === "price_low" || k === "discount_high" || k === "original_price_high");
-      if (isSingleKeyPriceSort) {
-        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse);
-      } else if (sort) {
-        // Multi-key: build a unified pool that includes BOTH local apps
-        // (real overviews — secondary keys like metacritic / playtime
-        // resolve) AND remote-wishlist apps (synthesized stubs carrying
-        // only the appid — comparators that read undefined fields fall
-        // back to 0/empty and stay tied on the secondary, so the primary
-        // price key actually orders the whole wishlist).
-        // Without this, only the small local subset got sorted and the
-        // ~hundreds of remote ids were appended in raw wishlist order —
-        // visible to the user as "the multi-key sort didn't apply" on
-        // wishlist shelves.
-        const localPriceMap = hasPriceKeyWishlist ? await getPriceMap(ids) : undefined;
-        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
-        const pool: AppOverview[] = ids.map((id) => {
-          const a = byId.get(id);
-          return a ?? ({ appid: id } as unknown as AppOverview);
-        });
-        ids = applySortToIds(ids, sort, pool, shelfId, sortReverse, localPriceMap);
-      }
-      logInfo("STEAM", "resolveShelfAppIds(wishlist) resolved", { count: ids.length });
-      return finish(ids.slice(0, overShootLimit));
-    } catch (e) {
-      logWarn("STEAM", "resolveShelfAppIds(wishlist) failed", String(e));
-      return [];
-    }
-  }
-
-  if (source.type === "store") {
-    try {
-      const { getCurrentSettings } = await import("../store/settingsStore");
-      const { getStoreGameIds, getPriceMap } = await import("../core/onlineStore");
-      const s = getCurrentSettings();
-      const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
-      if (!onlineEnabled) return [];
-      let ids = await getStoreGameIds();
-      if (!ids) return [];
-
-      // If there's a discount childFilter, pre-fetch prices so the filter
-      // can evaluate against real data rather than passing through everything.
-      const childFilter = (source as any).childFilter;
-      const hasDiscountFilter = Array.isArray(childFilter?.items) &&
-        childFilter.items.some((item: any) => item.type === "discount");
-      if (hasDiscountFilter) await getPriceMap(ids);
-
-      // Same merge logic as wishlist (see comment above).
-      const globalHideOwned = s?.onlineHideOwnedGames === true;
-      const globalHideNonSteam = s?.onlineHideOwnedNonSteam === true;
-      const srcExcludeOwned = (source as any).excludeOwned === true;
-      const srcExcludeNonSteam = srcExcludeOwned && (source as any).excludeOwnedNonSteam === true;
-      const hideOwnedStore = globalHideOwned || srcExcludeOwned;
-      const hideOwnedStoreNonSteam = hideOwnedStore && ((globalHideOwned && globalHideNonSteam) || srcExcludeNonSteam);
-      const perShelfCloud = (source as any).hideOwnedNonSteamCloud;
-      const hideOwnedStoreNonSteamCloud = hideOwnedStoreNonSteam &&
-        (perShelfCloud === true || (perShelfCloud === undefined && s?.onlineHideOwnedNonSteamCloud === true));
-      if (hideOwnedStore) {
-        const ownedSetStore = getLocalLibraryAppIds(hideOwnedStoreNonSteam, hideOwnedStoreNonSteamCloud);
-        ids = ids.filter((id) => !ownedSetStore.has(id));
-      }
-
-      if (childFilter && Array.isArray(childFilter.items) && childFilter.items.length > 0) {
-        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
-        ids = ids.filter((id) =>
-          childFilter.items.every((item: any) => {
-            if (item.type === "discount") return evaluateFilterItem(item, { appid: id } as any, undefined);
-            const app = byId.get(id);
-            if (!app) return true;
-            return evaluateFilterItem(item, app, undefined);
-          })
-        );
-      }
-
-      // Same dispatch as the wishlist branch — see the comment there for
-      // why the stub-pool path was reverted.
-      const sortKeysStore: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
-      const isSingleKeyPriceSortStore = !Array.isArray(sort) && (sort === "price_low" || sort === "discount_high" || sort === "original_price_high");
-      const hasPriceKeyStore = sortKeysStore.some((k) => k === "price_low" || k === "discount_high" || k === "original_price_high");
-      if (isSingleKeyPriceSortStore) {
-        ids = await applyPriceSort(ids, sort as "price_low" | "discount_high" | "original_price_high", Array.isArray(sortReverse) ? !!sortReverse[0] : sortReverse);
-      } else if (sort) {
-        // Same unified pool as wishlist — see comment there. Without it,
-        // the multi-key chain only ordered the local subset and the
-        // store-on-sale remote ids stayed in raw API order at the tail.
-        const localPriceMap = hasPriceKeyStore ? await getPriceMap(ids) : undefined;
-        const byId = new Map(all.map((a) => [appIdOf(a), a] as const));
-        const pool: AppOverview[] = ids.map((id) => {
-          const a = byId.get(id);
-          return a ?? ({ appid: id } as unknown as AppOverview);
-        });
-        ids = applySortToIds(ids, sort, pool, shelfId, sortReverse, localPriceMap);
-      }
-      logInfo("STEAM", "resolveShelfAppIds(store) resolved", { count: ids.length });
-      return finish(ids.slice(0, overShootLimit));
-    } catch (e) {
-      logWarn("STEAM", "resolveShelfAppIds(store) failed", String(e));
-      return [];
-    }
-  }
-
-  if (source.type === "smart") {
-    try {
-      const { resolveSmartShelf } = await import("./smartShelves");
-      const { hasExternalSmartSource, resolveExternalSmartSource } = await import("../core/pluginApi");
-      const apps = await getAllAppOverviews();
-      const smartFilterGroup = (source as any).filterGroup;
-      const smartParams = (source as any).smartParams as Record<string, number> | undefined;
-      const refreshIntervalMinutes = (source as any).refreshIntervalMinutes as number | undefined;
-      const ttlMs = typeof refreshIntervalMinutes === "number" && refreshIntervalMinutes > 0
-        ? refreshIntervalMinutes * 60 * 1000
-        : undefined;
-      // If the user added extra filters, resolve smart without a limit first
-      // so filtering doesn't prematurely truncate candidates, then apply the
-      // filters + sort + final limit below.
-      const wantsPostProcess = !!smartFilterGroup || !!sort;
-      const smartFetchLimit = wantsPostProcess ? Math.max(limit * 4, 200) : limit;
-      // Plugin API precedence: internal modes ALWAYS win. External plugins
-      // can register additional `mode` ids, but a registration that collides
-      // with one of our 15 built-ins is ignored at resolve time so behavior
-      // stays deterministic. Custom mode: no built-in candidate set — the
-      // user's filterGroup IS the candidate set; use the full app pool and
-      // let the post-process branch (filterGroup + sort + slice) do the work.
-      const { INTERNAL_SMART_MODES } = await import("./smartShelves");
-      let rawIds: number[];
-      // Composite smart source — when populated, evaluate the primary mode
-      // PLUS every additional mode in `compositeModes`, then merge via
-      // `compositeCombine` (default union). Each child shares the parent's
-      // `smartParams` for now; per-child params is a follow-up. Mirrors the
-      // regular `composite` source semantics so both shelf kinds expose the
-      // same mental model. Cache namespacing is per shelf, not per child,
-      // so refreshing the shelf invalidates all branches at once.
-      const compositeModes = Array.isArray((source as any).compositeModes) ? ((source as any).compositeModes as string[]) : [];
-      if (compositeModes.length > 0) {
-        const combine = (source as any).compositeCombine === "intersection" ? "intersection" : "union";
-        const allModes: string[] = [source.mode, ...compositeModes];
-        const seen = new Set<string>();
-        const uniqueModes = allModes.filter((m) => {
-          if (seen.has(m)) return false;
-          seen.add(m);
-          return true;
-        });
-        const childResults: number[][] = [];
-        for (const m of uniqueModes) {
-          try {
-            if (m === "custom") {
-              childResults.push(apps.map((a) => appIdOf(a)).filter(Number.isFinite));
-            } else if (INTERNAL_SMART_MODES.has(m)) {
-              childResults.push(resolveSmartShelf(m as any, apps, smartFetchLimit, smartParams, ttlMs, shelfId ? `${shelfId}:${m}` : undefined));
-            } else if (hasExternalSmartSource(m)) {
-              childResults.push(await resolveExternalSmartSource(m, smartFetchLimit, smartParams ?? {}));
-            } else {
-              childResults.push([]);
-            }
-          } catch (e) {
-            logWarn("STEAM", "composite smart child failed", { mode: m, err: String(e) });
-            childResults.push([]);
-          }
-        }
-        rawIds = mergeCompositeResults(childResults, combine);
-      } else if (source.mode === "custom") {
-        rawIds = apps.map((a) => appIdOf(a)).filter(Number.isFinite);
-      } else if (INTERNAL_SMART_MODES.has(source.mode)) {
-        rawIds = resolveSmartShelf(source.mode, apps, smartFetchLimit, smartParams, ttlMs, shelfId);
-      } else if (hasExternalSmartSource(source.mode)) {
-        rawIds = await resolveExternalSmartSource(source.mode, smartFetchLimit, smartParams ?? {});
-      } else {
-        rawIds = [];
-      }
-      let ids = rawIds;
-      if (smartFilterGroup && Array.isArray(smartFilterGroup.items) && smartFilterGroup.items.length > 0) {
-        const byId = new Map(apps.map((a) => [appIdOf(a), a] as const));
-        const candidates = ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[];
-        ids = evaluateFilterGroup(smartFilterGroup, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
-      }
-      if (sort && sort !== "manual") {
-        ids = applySortToIds(ids, sort, apps, shelfId, sortReverse);
-      }
-      logInfo("STEAM", "resolveShelfAppIds(smart) resolved", { mode: source.mode, count: ids.length, hasFilter: !!smartFilterGroup, sort });
-      return finish(ids.slice(0, overShootLimit));
-    } catch {
-      return [];
-    }
-  }
-
-  if (source.type === "composite") {
-    if (_depth >= MAX_COMPOSITE_DEPTH) {
-      logWarn("STEAM", "resolveShelfAppIds(composite) depth cap reached", { depth: _depth, max: MAX_COMPOSITE_DEPTH });
-      return finish([]);
-    }
-    const combine = source.combine === "intersection" ? "intersection" : "union";
-    const rawChildSources: Array<{ type: string; [k: string]: any }> = Array.isArray(source.sources) ? source.sources : [];
-    if (!rawChildSources.length) return finish([]);
-    // Composite-level childFilter (the editor's "Online Filters" tab)
-    // applies ONLY to online children — discount / price predicates are
-    // meaningless for offline sources, and `evaluateFilterItem("discount")`
-    // returns `false` for any appid missing from the price cache, which
-    // would otherwise drop every owned-game id when applied post-merge.
-    // Per the design: "for a combined source, every ONLINE source applies
-    // the same online filters". So we merge the composite-level filter
-    // items into each online child's own `childFilter` before resolving,
-    // letting the wishlist / store branches handle it natively.
-    const compositeChildFilter = (source as any).childFilter;
-    const compositeFilterItems: any[] = (compositeChildFilter && Array.isArray(compositeChildFilter.items))
-      ? compositeChildFilter.items
-      : [];
-    // Legacy purge: older editor saves wrote the composite-level filter
-    // ALSO onto the primary child's `childFilter`. For offline children
-    // (collection / tab / filter) that duplicates the online predicate
-    // onto offline sources — `evaluateFilterItem("discount")` returns
-    // false for non-price-cache ids, so the offline child silently loses
-    // every game. Strip the duplicated filter at resolve-time so the
-    // user doesn't have to re-save every shelf to recover.
-    const compositeFilterSig = compositeFilterItems.length > 0 ? JSON.stringify(compositeFilterItems) : "";
-    const childSources = rawChildSources.map((child) => {
-      if (compositeFilterItems.length === 0) return child;
-      // Offline child carrying the same childFilter as the composite-level
-      // one → drop the offline copy (it was a legacy save artifact).
-      if (child?.type !== "wishlist" && child?.type !== "store") {
-        if (compositeFilterSig && child?.childFilter && Array.isArray(child.childFilter.items)) {
-          const childSig = JSON.stringify(child.childFilter.items);
-          if (childSig === compositeFilterSig) {
-            const { childFilter: _drop, ...rest } = child;
-            return rest;
-          }
-        }
-        return child;
-      }
-      const childExisting: any[] = (child.childFilter && Array.isArray(child.childFilter.items)) ? child.childFilter.items : [];
-      const mergedItems = [...childExisting, ...compositeFilterItems];
-      return {
-        ...child,
-        childFilter: {
-          mode: child.childFilter?.mode === "or" ? "or" : "and",
-          items: mergedItems,
-        },
-      };
-    });
-    // Each child source resolves with its OWN sort embedded (filter
-    // sources carry `source.filter.sort`; other types use the shelf-
-    // level sort passed through). We forward `sort` + `sortReverse` so
-    // composite is transparent to those child resolvers — but cap each
-    // child at `overShootLimit` so a single greedy child can't blow up
-    // the merged set before de-dupe.
-    const childResults = await Promise.all(
-      childSources.map((child) =>
-        resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1)
-          .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; }),
-      ),
-    );
-    let merged = mergeCompositeResults(childResults, combine);
-    // Re-sort the merged set. Each child resolved with the same `sort`
-    // independently, but `mergeCompositeResults` interleaves them via
-    // round-robin (union) or filters by membership (intersection) — both
-    // discard the per-child sort. Without this pass the row reads
-    // out-of-order whenever the parent shelf carries a sort key.
-    // Skip manual / random: manual order is layered at the Shelf level,
-    // random intentionally preserves the merge order.
-    const sortKeys: string[] = Array.isArray(sort) ? sort : (sort ? [sort] : []);
-    const primarySortKey = sortKeys[0];
-    if (merged.length > 1 && primarySortKey && primarySortKey !== "manual" && primarySortKey !== "random") {
-      try {
-        const hasPriceKey = sortKeys.some((k) => k === "price_low" || k === "discount_high" || k === "original_price_high");
-        const priceMap = hasPriceKey
-          ? await (await import("../core/onlineStore")).getPriceMap(merged)
-          : undefined;
-        // `all` from getAllAppOverviews() can fall through to
-        // `normalizeAppOverview` (when the primary `GetAllAppOverviews` IPC
-        // returns empty), which strips timestamp fields like
-        // `rt_original_release_date` / `rt_purchased_time` /
-        // `metacritic_score`. The comparator then sees zeros across the
-        // board and the merged order is preserved instead of resorted.
-        // Build the pool from the RAW per-id overview via
-        // appStore.GetAppOverviewByAppID so the comparators get the full
-        // shape regardless of which getAllAppOverviews path landed.
-        // Fallback: the `all` entry, then a bare stub for non-owned ids.
-        const byIdAll = new Map(all.map((a) => [appIdOf(a), a] as const));
-        const lookupRaw = (id: number): any | null => {
-          for (const win of getSteamWindows()) {
-            try {
-              const raw = (win as any)?.appStore?.GetAppOverviewByAppID?.(id)
-                ?? (win as any)?.AppStore?.GetAppOverviewByAppID?.(id);
-              if (raw) return raw;
-            } catch {}
-          }
-          return null;
-        };
-        const pool: AppOverview[] = merged.map((id) => (lookupRaw(id) ?? byIdAll.get(id) ?? ({ appid: id } as unknown as AppOverview)) as AppOverview);
-        merged = applySortToIds(merged, sort!, pool, shelfId, sortReverse, priceMap);
-      } catch (e) { logWarn("STEAM", "composite resort failed", String(e)); }
-    }
-    logInfo("STEAM", "resolveShelfAppIds(composite) resolved", { combine, children: childSources.length, count: merged.length, hasChildFilter: !!compositeChildFilter });
-    return finish(merged.slice(0, overShootLimit));
-  }
-
+  const ctx: ResolverContext = {
+    source, limit, sort, shelfId, sortReverse, options,
+    depth: _depth, all, overShootLimit, finish,
+  };
+  const handler = SOURCE_RESOLVERS[source.type];
+  if (handler) return handler(ctx);
   return [];
 }
 
-function checkUpdatePendingRaw(raw: any): boolean {
-  if (!raw) return false;
+// Per-client display_status + byte counters covering Steam's "update in
+// progress" indicators. Returns true when ANY signal is present.
+function checkUpdatePendingFromPcd(raw: any): boolean {
   try {
-    const pcd = raw?.per_client_data;
-    const clientData = Array.isArray(pcd) ? pcd[0] : (pcd ?? null);
-    if (clientData) {
-      const ds = Number(clientData?.display_status ?? 0);
-      if (UPDATE_PENDING_STATUSES.includes(ds)) return true;
-      const bytesDown = Number(clientData?.bytes_to_download ?? clientData?.m_nBytesToDownload ?? 0);
-      if (bytesDown > 0) return true;
-    }
+    const pcd = (raw as any).per_client_data;
+    if (!pcd) return false;
+    const clientData = Array.isArray(pcd) ? pcd[0] : pcd;
+    if (!clientData) return false;
+    const c = clientData as any;
+    const ds = Number(c.display_status || 0);
+    if (UPDATE_PENDING_STATUSES.includes(ds)) return true;
+    const bytesDown = Number(c.bytes_to_download || c.m_nBytesToDownload || 0);
+    return bytesDown > 0;
+  } catch { return false; }
+}
+
+// Flag + byte fields the various Steam runtimes have used historically.
+// Flat list keeps `checkUpdatePendingFromFlags` at one for-loop.
+const UPDATE_FLAG_KEYS = [
+  "m_bUpdateRunning", "update_running",
+  "m_bUpdateAvailable", "update_available",
+  "m_bNeedsUpdate", "needs_update",
+  "m_bUpdatePaused",
+];
+const UPDATE_BYTE_KEYS = ["m_nBytesToDownload", "m_nBytesToStage"];
+
+function checkUpdatePendingFromFlags(raw: any): boolean {
+  try {
+    for (const key of UPDATE_FLAG_KEYS) if ((raw as any)[key] === true) return true;
+    for (const key of UPDATE_BYTE_KEYS) if (Number((raw as any)[key] || 0) > 0) return true;
   } catch {}
-  try { if (raw.m_bUpdateRunning === true || raw.update_running === true) return true; } catch {}
-  try { if (raw.m_bUpdateAvailable === true || raw.update_available === true) return true; } catch {}
-  try { if (raw.m_bNeedsUpdate === true || raw.needs_update === true) return true; } catch {}
-  try { if (raw.m_bUpdatePaused === true) return true; } catch {}
-  try { if (Number(raw.m_nBytesToDownload ?? 0) > 0) return true; } catch {}
-  try { if (Number(raw.m_nBytesToStage ?? 0) > 0) return true; } catch {}
-  try { if (typeof raw.BIsUpdateRunning === "function" && raw.BIsUpdateRunning()) return true; } catch {}
-  try { if (typeof raw.BIsUpdateAvailable === "function" && raw.BIsUpdateAvailable()) return true; } catch {}
-  try { if (typeof raw.BNeedsUpdate === "function" && raw.BNeedsUpdate()) return true; } catch {}
-  try { if (typeof raw.BHasUpdate === "function" && raw.BHasUpdate()) return true; } catch {}
+  return false;
+}
+
+// Method-style accessors exposed by some Steam runtimes (BIsUpdate*,
+// BNeedsUpdate, BHasUpdate).
+const UPDATE_FLAG_METHODS = ["BIsUpdateRunning", "BIsUpdateAvailable", "BNeedsUpdate", "BHasUpdate"];
+function checkUpdatePendingFromMethods(raw: any): boolean {
+  for (const name of UPDATE_FLAG_METHODS) {
+    try {
+      const fn = (raw as any)[name];
+      if (typeof fn === "function" && fn.call(raw)) return true;
+    } catch {}
+  }
+  return false;
+}
+
+// Walks the prototype chain looking for any m_bUpdate*/m_bNeedsUpdate*/
+// update_pending* property — catches MobX-derived stores that hang
+// flags off the prototype rather than instance fields.
+function checkUpdatePendingFromProto(raw: any): boolean {
   try {
     let proto = Object.getPrototypeOf(raw);
     while (proto && proto !== Object.prototype) {
       for (const key of Object.getOwnPropertyNames(proto)) {
-        if (/^(m_bUpdate|m_bNeedsUpdate|update_pending)/i.test(key)) {
-          const val = raw[key];
-          if (val === true) return true;
+        if (/^(m_bUpdate|m_bNeedsUpdate|update_pending)/i.test(key) && (raw as any)[key] === true) {
+          return true;
         }
       }
       proto = Object.getPrototypeOf(proto);
@@ -3277,50 +3591,94 @@ function checkUpdatePendingRaw(raw: any): boolean {
   return false;
 }
 
+function checkUpdatePendingRaw(raw: any): boolean {
+  if (!raw) return false;
+  return checkUpdatePendingFromPcd(raw)
+    || checkUpdatePendingFromFlags(raw)
+    || checkUpdatePendingFromMethods(raw)
+    || checkUpdatePendingFromProto(raw);
+}
+
 /** Cached set of appids with pending downloads/updates */
 let _pendingUpdateAppIds: Set<number> | null = null;
 let _pendingUpdateTs = 0;
+
+function callQueueGetter(getter: any): any[] {
+  if (typeof getter !== "function") return [];
+  try {
+    const v = getter();
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+
+function collectQueueAppIds(queue: any[], out: Set<number>): void {
+  for (const item of queue) {
+    const id = Number(item?.appid ?? item?.nAppID ?? 0);
+    if (id > 0) out.add(id);
+  }
+}
+
+function harvestPendingFromClient(sc: any, out: Set<number>): void {
+  try {
+    collectQueueAppIds(callQueueGetter(sc?.Downloads?.GetDownloadItems?.bind(sc.Downloads)), out);
+    const updates = sc?.Updates;
+    const updateQueue = callQueueGetter(updates?.GetUpdateQueue?.bind(updates))
+      .concat(callQueueGetter(updates?.GetQueue?.bind(updates)));
+    collectQueueAppIds(updateQueue, out);
+  } catch {}
+}
 
 async function refreshPendingUpdateAppIds(): Promise<Set<number>> {
   const now = Date.now();
   if (_pendingUpdateAppIds && (now - _pendingUpdateTs < 5000)) return _pendingUpdateAppIds;
   const ids = new Set<number>();
-  try {
-    const sc = getSteamClient();
-    // Try SteamClient.Downloads
-    const dlItems = sc?.Downloads?.GetDownloadItems?.() ?? [];
-    for (const dl of Array.isArray(dlItems) ? dlItems : []) {
-      const id = Number(dl?.appid ?? dl?.nAppID ?? 0);
-      if (id > 0) ids.add(id);
-    }
-    // Try SteamClient.Updates
-    const queue = sc?.Updates?.GetUpdateQueue?.() ?? sc?.Updates?.GetQueue?.() ?? [];
-    for (const item of Array.isArray(queue) ? queue : []) {
-      const id = Number(item?.appid ?? item?.nAppID ?? 0);
-      if (id > 0) ids.add(id);
-    }
-  } catch {}
+  harvestPendingFromClient(getSteamClient(), ids);
   _pendingUpdateAppIds = ids;
   _pendingUpdateTs = now;
   return ids;
 }
 
-function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any): PlatformAppMeta {
-  const isSteam = overview?.is_steam !== false;
+const META_ADDED_KEYS = ["rt_purchased_time", "rt_recent_activity_time", "user_added_ts", "rt_store_asset_mtime"];
+const META_PLAYTIME_KEYS = ["playtime_forever", "minutes_playtime_forever", "minutes_played_forever"];
 
-  // Use local Steam client paths (served by Steam's built-in web server).
-  // library_capsule_filename includes hash subdirs and localized filenames.
+function firstFiniteFromOverview(o: any, keys: string[]): number | undefined {
+  if (!o) return undefined;
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+  }
+  return undefined;
+}
+
+function pickPlaytimeMinutes(o: any): number | undefined {
+  if (!o) return undefined;
+  for (const k of META_PLAYTIME_KEYS) {
+    const v = Number(o[k]);
+    if (v) return v;
+  }
+  return undefined;
+}
+
+function computeAssetUrls(appid: number, overview: any, isSteam: boolean) {
+  if (!isSteam) return { heroUrl: undefined, portraitUrl: undefined };
   const capsuleFile = overview?.library_capsule_filename || "library_600x900.jpg";
   const mtime = overview?.rt_store_asset_mtime;
-  const added = overview?.rt_purchased_time ?? overview?.rt_recent_activity_time ?? overview?.user_added_ts ?? overview?.rt_store_asset_mtime;
   const cacheBust = mtime ? `?c=${mtime}` : "";
-  const portraitUrl = isSteam ? `/assets/${appid}/${capsuleFile}${cacheBust}` : undefined;
-  const heroUrl = isSteam ? `/assets/${appid}/library_hero.jpg${cacheBust}` : undefined;
+  return {
+    portraitUrl: `/assets/${appid}/${capsuleFile}${cacheBust}`,
+    heroUrl: `/assets/${appid}/library_hero.jpg${cacheBust}`,
+  };
+}
 
-  // Check update pending from overview + raw + download queue
-  let updatePending = overview?.update_pending === true || checkUpdatePendingRaw(raw);
-  if (!updatePending && _pendingUpdateAppIds?.has(appid)) updatePending = true;
+function resolveUpdatePending(appid: number, overview: any, raw: any): boolean {
+  if (overview?.update_pending === true) return true;
+  if (checkUpdatePendingRaw(raw)) return true;
+  return _pendingUpdateAppIds?.has(appid) === true;
+}
 
+function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any): PlatformAppMeta {
+  const isSteam = overview?.is_steam !== false;
+  const { heroUrl, portraitUrl } = computeAssetUrls(appid, overview, isSteam);
   return {
     appid,
     name: String(overview?.display_name ?? `App ${appid}`),
@@ -3329,58 +3687,131 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
     installed: overview?.installed,
     isSteam,
     deckCompatCategory: overview?.deck_compatibility_category,
-    playtimeMinutes: Number(overview?.playtime_forever ?? (overview as any)?.minutes_playtime_forever ?? (overview as any)?.minutes_played_forever ?? 0) || undefined,
-    updatePending,
-    addedTimestamp: typeof added === 'number' && Number.isFinite(added) && added > 0 ? Number(added) : undefined,
+    playtimeMinutes: pickPlaytimeMinutes(overview),
+    updatePending: resolveUpdatePending(appid, overview, raw),
+    addedTimestamp: firstFiniteFromOverview(overview, META_ADDED_KEYS),
   };
 }
 
-export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
-  // Refresh download queue cache (non-blocking, 5s TTL)
-  try { /* perf markers */ } catch {}
-  // Instrumentation
-  try { await Promise.resolve(); } catch {}
-  {
-    /* placeholder for perf import resolution at build time */
-  }
-  refreshPendingUpdateAppIds().catch(() => {});
-  try { /* no-op to keep markers resolvable */ } catch {}
-  // Start measuring
-  try { mark?.(`getAppMeta:${appid}:start`); } catch {}
-  const sc = getSteamClient();
+async function fetchAppOverviewFromSteamClient(appid: number): Promise<any> {
   try {
-    const ov = await sc?.Apps?.GetAppOverview?.(appid);
-    if (ov) return buildMetaFromOverview(appid, normalizeAppOverview(ov) ?? ov as AppOverview, ov);
-  } catch {}
-  for (const hostWindow of getSteamWindows()) {
+    const sc = getSteamClient();
+    return await sc?.Apps?.GetAppOverview?.(appid);
+  } catch { return undefined; }
+}
+
+const WINDOW_OVERVIEW_ACCESSORS: Array<(w: any, id: number) => any> = [
+  (w, id) => w?.appStore?.GetAppOverviewByAppID?.(id),
+  (w, id) => w?.AppStore?.GetAppOverviewByAppID?.(id),
+  (w, id) => w?.appStore?.m_mapAppInfo?.get?.(id),
+  (w, id) => w?.LibraryStore?.m_mapAppInfo?.get?.(id),
+];
+
+function fetchAppOverviewFromWindow(hostWindow: any, appid: number): any {
+  for (const get of WINDOW_OVERVIEW_ACCESSORS) {
     try {
-      const ov = hostWindow?.appStore?.GetAppOverviewByAppID?.(appid)
-        ?? hostWindow?.AppStore?.GetAppOverviewByAppID?.(appid)
-        ?? hostWindow?.appStore?.m_mapAppInfo?.get?.(appid)
-        ?? hostWindow?.LibraryStore?.m_mapAppInfo?.get?.(appid);
-      if (ov) return buildMetaFromOverview(appid, normalizeAppOverview(ov) ?? ov as AppOverview, ov);
+      const ov = get(hostWindow, appid);
+      if (ov) return ov;
     } catch {}
   }
+  return undefined;
+}
+
+function metaFromOverview(appid: number, ov: any): PlatformAppMeta {
+  return buildMetaFromOverview(appid, normalizeAppOverview(ov) ?? ov as AppOverview, ov);
+}
+
+async function getAppMetaFromAllOverviews(appid: number): Promise<PlatformAppMeta | undefined> {
   try {
     const all = await getAllAppOverviews();
     const found = all.find((a) => Number(a.appid) === appid);
-    if (found) {
-      // Also fetch raw for update detection
-      let raw: any;
-      try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
-      const res = buildMetaFromOverview(appid, found, raw);
-      try { measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
-      return res;
-    }
-  } catch {}
-  const fallback = { appid, name: `App ${appid}`, heroUrl: `/assets/${appid}/library_hero.jpg`, portraitUrl: `/assets/${appid}/library_600x900.jpg`, isSteam: true };
-  try { measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {}
-  return fallback;
+    if (!found) return undefined;
+    let raw: any;
+    try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
+    return buildMetaFromOverview(appid, found, raw);
+  } catch { return undefined; }
+}
+
+function fallbackAppMeta(appid: number): PlatformAppMeta {
+  return { appid, name: `App ${appid}`, heroUrl: `/assets/${appid}/library_hero.jpg`, portraitUrl: `/assets/${appid}/library_600x900.jpg`, isSteam: true };
+}
+
+export async function getAppMeta(appid: number): Promise<PlatformAppMeta> {
+  refreshPendingUpdateAppIds().catch(() => {});
+  try { mark?.(`getAppMeta:${appid}:start`); } catch {}
+  const finish = () => { try { measure?.(`getAppMeta:${appid}`, `getAppMeta:${appid}:start`); } catch {} };
+
+  const direct = await fetchAppOverviewFromSteamClient(appid);
+  if (direct) { finish(); return metaFromOverview(appid, direct); }
+
+  for (const hostWindow of getSteamWindows()) {
+    const ov = fetchAppOverviewFromWindow(hostWindow, appid);
+    if (ov) { finish(); return metaFromOverview(appid, ov); }
+  }
+
+  const fromAll = await getAppMetaFromAllOverviews(appid);
+  if (fromAll) { finish(); return fromAll; }
+
+  finish();
+  return fallbackAppMeta(appid);
 }
 
 export async function getAppName(appid: number): Promise<string> {
   const meta = await getAppMeta(appid);
   return meta.name;
+}
+
+// Shared per-catalog id→overview map. Cached across concurrent shelves
+// so a 19-shelf home doesn't pay 19× the catalogue-walk cost on first
+// paint. Invalidates on catalog identity change.
+let _byIdCache: { catalog: AppOverview[]; map: Map<number, AppOverview> } | null = null;
+function getByIdMap(catalog: AppOverview[]): Map<number, AppOverview> {
+  if (_byIdCache && _byIdCache.catalog === catalog) return _byIdCache.map;
+  const map = new Map<number, AppOverview>();
+  for (const a of catalog) {
+    const id = appIdOf(a);
+    if (Number.isFinite(id) && id > 0) map.set(id, a);
+  }
+  _byIdCache = { catalog, map };
+  return map;
+}
+
+/**
+ * Batched metadata lookup. Walks the catalogue ONCE and answers all
+ * requested ids from an in-memory map. Replaces N per-id calls (each
+ * with its own fallback chain) with a single bulk pass — turns ~1 s of
+ * cold-mount blocking into ~50 ms on a 1k-game library.
+ *
+ * For ids missing from the bulk catalogue we still fall back to the
+ * per-id resolver so the result remains complete.
+ */
+export async function getAppMetaBatch(appids: number[]): Promise<Map<number, PlatformAppMeta>> {
+  const out = new Map<number, PlatformAppMeta>();
+  if (!appids.length) return out;
+  refreshPendingUpdateAppIds().catch(() => {});
+  let catalog: AppOverview[] = [];
+  try { catalog = await getAllAppOverviews(); } catch {}
+  const byId = getByIdMap(catalog);
+  const missing: number[] = [];
+  for (const appid of appids) {
+    const ov = byId.get(appid);
+    if (ov) {
+      let raw: any;
+      try { raw = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); } catch {}
+      out.set(appid, buildMetaFromOverview(appid, ov, raw));
+    } else {
+      missing.push(appid);
+    }
+  }
+  // Per-id fallback only for the residual — typically online-only items
+  // (wishlist / store / friends_playing) that aren't in the local catalogue.
+  if (missing.length) {
+    const fallbacks = await Promise.all(
+      missing.map(async (id) => [id, await getAppMeta(id)] as const),
+    );
+    for (const [id, meta] of fallbacks) out.set(id, meta);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -3395,20 +3826,25 @@ const DEV_CACHE_KEY = 'deck-shelves-dev-cache-v1';
 const DEV_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 let devCacheSaveTimer: number | null = null;
 
-function loadDeveloperCacheFromStorage() {
+function readDeveloperCachePayload(): { map: Record<string, unknown> } | null {
   try {
     const raw = globalThis.localStorage?.getItem(DEV_CACHE_KEY);
-    if (!raw) return;
+    if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return;
+    if (!parsed || typeof parsed !== 'object') return null;
     const ts = Number(parsed.ts || 0);
-    if (!ts || (Date.now() - ts) > DEV_CACHE_TTL_MS) return; // expired
-    const map = parsed.map || {};
-    for (const k of Object.keys(map)) {
-      const id = Number(k);
-      if (!Number.isNaN(id)) developerCache.set(id, String(map[k] ?? ""));
-    }
-  } catch {}
+    if (!ts || (Date.now() - ts) > DEV_CACHE_TTL_MS) return null;
+    return { map: parsed.map || {} };
+  } catch { return null; }
+}
+
+function loadDeveloperCacheFromStorage() {
+  const payload = readDeveloperCachePayload();
+  if (!payload) return;
+  for (const k of Object.keys(payload.map)) {
+    const id = Number(k);
+    if (!Number.isNaN(id)) developerCache.set(id, String(payload.map[k] ?? ""));
+  }
 }
 
 function persistDeveloperCacheToStorage() {

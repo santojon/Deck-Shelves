@@ -3,8 +3,8 @@
  * Uses DeckyPluginLoader.plugins as the authoritative source.
  */
 export function isPluginInstalled(name: string): boolean {
-  // SteamOS 3.9: DeckyPluginLoader moved away from window — try multiple paths.
-  // plugins may be an array or Map depending on the Decky version.
+  // SteamOS 3.9 moved the loader off window — try multiple paths.
+  // plugins may be array or Map depending on version.
   try {
     const loaders = [
       (window as any).DeckyPluginLoader,
