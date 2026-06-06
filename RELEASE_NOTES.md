@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-06-06
+
 ### Fixed
 
 - **"Refresh cache" option missing on combined shelves with online sources.** The action only showed up for pure wishlist / store shelves — picking a composite shelf that included a wishlist or store source from the card menu had no way to clear the cached results. Now the option is back in the Shelf → Management submenu whenever any online source is involved.

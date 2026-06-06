@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-06-06
+
 ### Added
 
 - **ESLint `max-lines` rule (max 1000 code lines per file).** Code files above 1k lines almost always own too many concerns; the rule forces new modules to stay focused. Counts code lines only (blank + comment lines ignored). Existing offenders baselined in `eslint-suppressions.json`.
