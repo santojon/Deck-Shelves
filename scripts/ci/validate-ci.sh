@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# CI validation (no device). Runs: typecheck → build → tests → package → compat. Report at reports/ci/.
-# Usage: `bash scripts/ci/validate-ci.sh` or `pnpm validate:ci`. Safe for GitHub Actions.
+# CI validation (no device). Runs: typecheck → build → tests → package → compat.
+# Routes to reports/release/ when running against a version tag (GITHUB_REF=refs/tags/v*),
+# otherwise reports/ci/. Usage: `bash scripts/ci/validate-ci.sh` or `pnpm validate:ci`.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# Auto-route release-tag runs to reports/release/ so the CI dashboard
+# bucketises them correctly. Override via REPORT_SCOPE if needed.
+SCOPE="${REPORT_SCOPE:-ci}"
+if [[ -z "${REPORT_SCOPE:-}" && "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+  SCOPE="release"
+fi
+
 TS="$(date '+%Y-%m-%d_%H-%M-%S')"
-REPORT_DIR="${ROOT}/reports/ci"
+REPORT_DIR="${ROOT}/reports/${SCOPE}"
 TMP="${REPORT_DIR}/.tmp_${TS}"
 mkdir -p "${TMP}" "${REPORT_DIR}"
 
@@ -43,7 +51,7 @@ json.dump({'names': names, 'statuses': statuses, 'logs': logs, 'durations_ms': d
 " 2>/dev/null || echo '{"names":[],"statuses":[],"logs":[],"durations_ms":[]}' > "${steps_json}"
     rm -f "${_nf}" "${_sf}" "${_lf}" "${_df}" 2>/dev/null || true
     python3 "${SCRIPT_DIR}/report.py" \
-      --ts "${TS}" --stress "0" --subdir "ci" \
+      --ts "${TS}" --stress "0" --subdir "${SCOPE}" \
       --tmp "${TMP}" --out "${report_path}" --root "${ROOT}" \
       --steps-json "${steps_json}" \
       || echo -e "  ${YELLOW}warn: report.py failed${RESET}"
