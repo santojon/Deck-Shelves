@@ -88,15 +88,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const { t, settings, shelves, actions } = controller
   const platform = usePlatform();
   const [disableHideRecents, setDisableHideRecents] = useState(false);
-  if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
-  const isFirstRun = shelves.length === 0 && !settings.enabled
-  const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
-  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-shelves.json')} scope='shelves' />)
-  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='shelves' />)
-  const handleImportSmart = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-smart-shelves.json')} scope='smart' />)
-  const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='smart' />)
-  const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves.json')} scope='all' />)
-  const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='all' />)
   const [hasTabMaster] = useState(() => isTabMasterInstalled())
   const [hasNonSteamBadges] = useState(() => isNonSteamBadgesAvailable())
   // CSS Loader presence — the force-themes toggle only shows when at least
@@ -116,31 +107,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     const t2 = setTimeout(tick, 2000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
-  const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
-
-  // Register TabMaster import as a first-party entry on the public registry
-  // when TabMaster is installed. External plugins can register additional
-  // descriptors via `__DECK_SHELVES_API__.registerImportType(...)` with
-  // `target: "shelves"` (or `"smart_shelves"`) and they show up in the same
-  // ImportMenuButton overflow menu — single registered entry collapses to a
-  // direct icon, two or more collapse behind `[…]`.
-  useEffect(() => {
-    if (!hasTabMaster) return
-    const unsub = registerInternalImportType({
-      id: 'tabmaster',
-      displayName: t('import_from_tabmaster'),
-      target: 'shelves',
-      icon: icons.tabMaster,
-      runImport: () => { handleImportFromTabMaster() },
-    })
-    return unsub
-  // Re-register only when TabMaster availability or `t` (locale) changes.
-  }, [hasTabMaster, t])
 
   // Force re-render when external plugins (un)register import descriptors
   // so the ImportMenuButton picks up the change without a full QAM remount.
-  // Plugins fire `deck-shelves-ready`/teardown — listening cheaply via
-  // those plus a small bump counter is enough.
   const [importsBump, setImportsBump] = useState(0)
   useEffect(() => {
     const bump = () => setImportsBump((v) => v + 1)
@@ -152,29 +121,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     }
   }, [])
 
-  const buildImportEntries = (target: 'shelves' | 'smart_shelves'): ImportEntry[] => {
-    void importsBump // re-evaluate on registry changes
-    return getExternalImportTypesForTarget(target).map((d) => ({
-      id: d.id,
-      label: d.displayName,
-      icon: d.icon ?? icons.import,
-      okDescription: d.displayName,
-      onActivate: async () => {
-        if (typeof d.runImport === 'function') {
-          try { await d.runImport() } catch {}
-          return
-        }
-        // No `runImport` registered: descriptor must surface its own UX. The
-        // default file-picker flow (using `parse`) is reserved for a future
-        // pass once we have a generic format-aware picker.
-        if (typeof d.parse === 'function') {
-          logInfo('SETTINGS', 'import descriptor has parse() but no runImport()', { id: d.id })
-        }
-      },
-    }))
-  }
-  const handleResetShelves = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='shelves' />)
-  const handleResetSmart = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='smart' />)
   const [mountCrashed, setMountCrashed] = useState(() => getMountFailed())
   const [crashError, setCrashError] = useState<string | null>(() => getMountError())
   useEffect(() => {
@@ -191,8 +137,20 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     sync()
     return unsub
   }, [])
-  const handleResetAll = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} />)
-  const handleAddSmart = () => openManagedModal((close) => <SmartShelfTemplateModal closeModal={close} controller={controller} />)
+
+  // Register TabMaster import as a first-party entry on the public registry.
+  // The hook always runs; body bails when TabMaster isn't present.
+  useEffect(() => {
+    if (!hasTabMaster) return
+    const unsub = registerInternalImportType({
+      id: 'tabmaster',
+      displayName: t('import_from_tabmaster'),
+      target: 'shelves',
+      icon: icons.tabMaster,
+      runImport: () => { openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />) },
+    })
+    return unsub
+  }, [hasTabMaster, t, controller])
 
   // Compute whether the "hide recents" and "hero background" toggles should be
   // inactive.  They become disabled when there are no visible shelves or none of
@@ -217,6 +175,37 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     globalThis.addEventListener('deck-shelves-hideRecents-disabled', onEvent);
     return () => { alive = false; globalThis.removeEventListener('deck-shelves-hideRecents-disabled', onEvent); };
   }, [shelves, platform]);
+
+  // Hooks must all be above this early return so call order stays stable
+  // across renders (settings flips from undefined → loaded after the first
+  // controller hydration tick).
+  if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
+  const isFirstRun = shelves.length === 0 && !settings.enabled
+  const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
+  const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-shelves.json')} scope='shelves' />)
+  const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='shelves' />)
+  const handleImportSmart = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-smart-shelves.json')} scope='smart' />)
+  const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='smart' />)
+  const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves.json')} scope='all' />)
+  const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='all' />)
+  const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
+  const buildImportEntries = (target: 'shelves' | 'smart_shelves'): ImportEntry[] => {
+    void importsBump // re-evaluate on registry changes
+    return getExternalImportTypesForTarget(target).map((d) => ({
+      id: d.id,
+      label: d.displayName,
+      icon: d.icon ?? icons.import,
+      okDescription: d.displayName,
+      onActivate: async () => {
+        if (typeof d.runImport === 'function') { try { await d.runImport() } catch {} return }
+        if (typeof d.parse === 'function') logInfo('SETTINGS', 'import descriptor has parse() but no runImport()', { id: d.id })
+      },
+    }))
+  }
+  const handleResetShelves = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='shelves' />)
+  const handleResetSmart = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='smart' />)
+  const handleResetAll = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} />)
+  const handleAddSmart = () => openManagedModal((close) => <SmartShelfTemplateModal closeModal={close} controller={controller} />)
 
   return (
     <div className='deck-shelves-qam-scope'>

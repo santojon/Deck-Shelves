@@ -2,9 +2,6 @@
   "src/components/DeckQAMSettings.tsx": {
     "complexity": {
       "count": 1
-    },
-    "react-hooks/rules-of-hooks": {
-      "count": 14
     }
   },
   "src/components/DeckRow.tsx": {
@@ -188,9 +185,6 @@
     }
   },
   "src/core/steamGameMenu.ts": {
-    "complexity": {
-      "count": 14
-    },
     "max-lines": {
       "count": 1
     }
@@ -208,11 +202,6 @@
   "src/core/updateNotifier.ts": {
     "complexity": {
       "count": 2
-    }
-  },
-  "src/core/webpackCompat.ts": {
-    "complexity": {
-      "count": 10
     }
   },
   "src/domain/customfilters.ts": {
@@ -270,11 +259,6 @@
       "count": 1
     }
   },
-  "src/runtime/homePatch.tsx": {
-    "complexity": {
-      "count": 14
-    }
-  },
   "src/runtime/recentsReplace.tsx": {
     "complexity": {
       "count": 7
@@ -306,9 +290,6 @@
     }
   },
   "src/steam/index.ts": {
-    "complexity": {
-      "count": 38
-    },
     "max-lines": {
       "count": 1
     }

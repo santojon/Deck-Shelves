@@ -16,11 +16,14 @@ run_checks() {
     ((pass++))
   fi
 
-  # 2) No hard external nonsteam import. Allow our own integrations/ (registry
-  # + nonsteambadges live there) — exclude lines from / targeting that path.
-  if grep -rni "from.*nonsteam\|require.*nonsteam\|import.*nonsteam" "$src" 2>/dev/null \
+  # 2) No hard external nonsteam import. Match real ES/CJS import statements
+  # only (anchored at line start with optional whitespace) — identifier names
+  # like `includeNonSteam` or `gatherLibraryFromStore` would otherwise trip
+  # the loose `from.*nonsteam` regex. Allow integrations/ (registry +
+  # nonsteambadges live there).
+  if grep -rniE "^\s*(import\b[^;]*from\s+['\"][^'\"]*nonsteam|import\s+['\"][^'\"]*nonsteam|(const|let|var)\s+[^=]+=\s*require\(\s*['\"][^'\"]*nonsteam)" "$src" 2>/dev/null \
       | grep -v "integrations/" \
-      | grep -vE "from ['\"][^'\"]*integrations['\"]" \
+      | grep -vE "['\"][^'\"]*integrations['\"]" \
       | grep -q .; then
     echo "  ❌ Hard dependency on nonsteam module (import/require outside integrations/)"
     ((fail++))
