@@ -51,21 +51,14 @@ function findNativeAssetProto(): any {
 // Allowlist of URL schemes safe to pass to `<img src>`. Anything outside
 // this set (most notably `javascript:` and `data:text/html`) returns
 // `null` so the synth-hero pipeline treats the attribute as missing.
-// Doubles as the sanitizer node CodeQL's `js/xss-through-dom` query
-// expects on the DOM-attribute → `<img src>` data flow.
+// Inline regex form: a single test expression bound to the input that
+// CodeQL's `js/xss-through-dom` query recognises as a sanitiser barrier.
+const SAFE_HERO_URL_RE = /^(?:\/|\.{1,2}\/|https?:\/\/|blob:|file:|data:image\/)[^\s]*$/i;
+
 function sanitizeHeroUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const s = String(raw).trim();
-  if (!s) return null;
-  // Same-origin / path-relative — always safe.
-  if (s.startsWith("/") || s.startsWith("./") || s.startsWith("../")) return s;
-  // Allowlisted schemes. `data:` is restricted to image MIME types so a
-  // `data:text/html,...` payload can't sneak in.
-  const lower = s.toLowerCase();
-  if (lower.startsWith("http://") || lower.startsWith("https://")) return s;
-  if (lower.startsWith("blob:") || lower.startsWith("file:")) return s;
-  if (lower.startsWith("data:image/")) return s;
-  return null;
+  return s && SAFE_HERO_URL_RE.test(s) ? s : null;
 }
 
 // Stable 32-bit FNV-1a hash of a string — used as a synthetic-card hero
@@ -869,7 +862,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <img src={sanitizeHeroUrl(slotA) ?? undefined} onError={onError('A')}
+            <img src={(slotA && SAFE_HERO_URL_RE.test(slotA)) ? slotA : undefined} onError={onError('A')}
               // Off-main-thread decode — large hero JPEGs (~1920×620)
               // decode on the main thread when they finish downloading,
               // blocking the renderer for 20-100 ms each time and
@@ -921,7 +914,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <img src={sanitizeHeroUrl(slotB) ?? undefined} onError={onError('B')}
+            <img src={(slotB && SAFE_HERO_URL_RE.test(slotB)) ? slotB : undefined} onError={onError('B')}
               decoding="async"
               ref={(el) => {
                 if (el && el.complete && (el.naturalWidth || 0) > 0 && slotB && loadedSrcB !== slotB) {
