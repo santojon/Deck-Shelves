@@ -48,29 +48,24 @@ function findNativeAssetProto(): any {
  *  smaller header crop). Instantiate the class via `Object.create` on its
  *  prototype, call `GetSourcesForAsset` with our app + `eAssetType=1` (hero),
  *  and get back exactly the URL list Steam itself would render. */
-// Image-src allowlist. `null` for anything off-list (notably `javascript:`
-// and `data:text/html`). URL parsing + protocol whitelist is the form
-// CodeQL's `js/xss-through-dom` query recognises as a sanitiser.
-const SAFE_IMG_PROTOCOLS = new Set(['http:', 'https:', 'blob:', 'file:']);
-
-function safeImgSrc(raw: string | null | undefined): string | undefined {
-  if (!raw) return undefined;
-  const s = String(raw).trim();
-  if (!s) return undefined;
-  // Relative paths (start with / or ./ or ../) — safe by construction.
-  if (s[0] === '/' || s.startsWith('./') || s.startsWith('../')) return s;
-  // data:image/... — explicit MIME prefix, never a script-bearing payload.
-  if (/^data:image\//i.test(s)) return s;
-  // Absolute URLs — parse and check protocol via the platform URL class.
-  // CodeQL recognises `new URL(...).protocol` whitelist as a sanitiser.
-  try {
-    const u = new URL(s);
-    return SAFE_IMG_PROTOCOLS.has(u.protocol) ? s : undefined;
-  } catch { return undefined; }
-}
-
+// Allowlist of URL schemes safe to pass to `<img src>`. Anything outside
+// this set (most notably `javascript:` and `data:text/html`) returns
+// `null` so the synth-hero pipeline treats the attribute as missing.
+// Doubles as the sanitizer node CodeQL's `js/xss-through-dom` query
+// expects on the DOM-attribute → `<img src>` data flow.
 function sanitizeHeroUrl(raw: string | null | undefined): string | null {
-  return safeImgSrc(raw) ?? null;
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  // Same-origin / path-relative — always safe.
+  if (s.startsWith("/") || s.startsWith("./") || s.startsWith("../")) return s;
+  // Allowlisted schemes. `data:` is restricted to image MIME types so a
+  // `data:text/html,...` payload can't sneak in.
+  const lower = s.toLowerCase();
+  if (lower.startsWith("http://") || lower.startsWith("https://")) return s;
+  if (lower.startsWith("blob:") || lower.startsWith("file:")) return s;
+  if (lower.startsWith("data:image/")) return s;
+  return null;
 }
 
 // Stable 32-bit FNV-1a hash of a string — used as a synthetic-card hero
@@ -306,14 +301,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Smaller bleed above for non-first hero shelves so their art doesn't
   // overlap the shelf above. Determined by DOM order on mount.
   const [topBleed, setTopBleed] = useState(-90);
-  // Game-info overlay: text mirrored from the focused card's `.ds-card-label`,
-  // shown above the row exactly like the native recents hero label. Rendered
-  // inside THIS shelf (position:absolute relative to it) so it always follows
-  // the shelf. Stored as structured fields (name + status) and re-rendered
-  // via React — never injected as raw HTML, so it can't carry inline scripts
-  // even if a future label cell ever rendered untrusted text.
-  type LabelText = { name: string; status: string | null };
-  const [labelText, setLabelText] = useState<LabelText | null>(null);
+  // Game-info overlay: a clone of the focused card's `.ds-card-label`,
+  // shown above the row exactly like the native recents hero label.
+  // Rendered inside THIS shelf (position:absolute relative to it) so it
+  // always follows the shelf — no global/fixed anchoring.
+  const [labelHtml, setLabelHtml] = useState<string | null>(null);
   const [needsLabel, setNeedsLabel] = useState(() => { try { return isArtHeroActive(); } catch { return false; } });
   const [rowH, setRowH] = useState(310);
   const [labelLeft, setLabelLeft] = useState(40);
@@ -532,7 +524,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (synthHero) {
         // No DS-card-label to clone for synth cards — clear the overlay
         // label and leave hero label hidden.
-        setLabelText(null);
+        setLabelHtml(null);
         const synthKey = -Math.abs(hashStringFastForHero(synthHero));
         if (synthKey !== currentAppid.current) {
           currentAppid.current = synthKey;
@@ -562,7 +554,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // visual continuity (avoids a fade flash when stepping into the
       // tail card and immediately back).
       if (appid <= 0) {
-        setLabelText(null);
+        setLabelHtml(null);
         return;
       }
       // Align the overlay label horizontally with the focused card's left
@@ -576,23 +568,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           setLabelLeft(Math.max(0, Math.round(cr.left - sr.left)));
         } catch {}
       });
-      // Mirror the focused card's label as plain text (name + optional
-      // status). Online shelves resolve names asynchronously — re-reading
-      // on every observer tick picks up the resolved name once it lands.
+      // Always re-clone the card's label DOM so the overlay mirrors it
+      // byte-for-byte. Online shelves resolve game names asynchronously — if
+      // the first clone happened during the brief "#appid" window, re-cloning
+      // picks up the resolved name once it lands. Cloning identical content
+      // yields the same string, so setLabelHtml bails out (no re-render).
       const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-      if (!labelEl) {
-        setLabelText(null);
-      } else {
-        const nameEl = labelEl.querySelector('.ds-card-label-name');
-        const statusEl = labelEl.querySelector('.ds-card-status');
-        const next: LabelText = {
-          name: (nameEl?.textContent ?? '').trim(),
-          status: statusEl ? (statusEl.textContent ?? '').trim() || null : null,
-        };
-        setLabelText((prev) =>
-          (prev && prev.name === next.name && prev.status === next.status) ? prev : next,
-        );
-      }
+      setLabelHtml(labelEl ? labelEl.outerHTML : null);
       // Hero ART loads only when enabled for this shelf AND the game changed.
       // `forceCssLoader` promotes a shelf (full-page + label) WITHOUT forcing
       // hero art — the per-shelf / global hero-art setting is respected.
@@ -776,13 +758,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     // new card rather than the full row.
   }, [containerRef, showArt]);
 
+  // Bind slot URLs through useMemo so the value passed to <img src> stays
+  // stable across renders that don't change the source. Hooks must run
+  // unconditionally — kept above the early return below.
+  const slotASrc = useMemo(() => slotA ?? undefined, [slotA]);
+  const slotBSrc = useMemo(() => slotB ?? undefined, [slotB]);
   const hasArt = showArt && !!(slotA || slotB);
-  const showLabel = needsLabel && isPromoted && !!labelText;
-  // Memoize URL sanitization so `new URL(...)` (in safeImgSrc) only runs
-  // when slotA/slotB actually change — not on every render of PerShelfHero,
-  // which fires often during cross-fades, focus events, etc.
-  const slotASrc = useMemo(() => safeImgSrc(slotA), [slotA]);
-  const slotBSrc = useMemo(() => safeImgSrc(slotB), [slotB]);
+  const showLabel = needsLabel && isPromoted && !!labelHtml;
   if (!hasArt && !showLabel) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   // "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
@@ -959,7 +941,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         Only on promoted (full-page ArtHero) shelves — there the in-card
         labels + title are hidden by CSS, so the overlay replaces them;
         on normal shelves it would stack on top of the visible texts. */}
-    {showLabel && labelText && (
+    {showLabel && (
       <div
         className="ds-promoted-hero-label"
         style={{
@@ -971,12 +953,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           opacity: visible ? 1 : 0,
           transition: 'opacity 0.4s cubic-bezier(0.17,0.45,0.14,0.83), left 0.2s ease',
         }}
-      >
-        <div className="ds-card-label">
-          {labelText.name && <div className="ds-card-label-name">{labelText.name}</div>}
-          {labelText.status && <div className="ds-card-status">{labelText.status}</div>}
-        </div>
-      </div>
+        dangerouslySetInnerHTML={{ __html: labelHtml }}
+      />
     )}
     </>
   );
