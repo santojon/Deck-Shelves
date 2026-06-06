@@ -869,7 +869,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <img src={slotA} onError={onError('A')}
+            <img src={sanitizeHeroUrl(slotA) ?? undefined} onError={onError('A')}
               // Off-main-thread decode — large hero JPEGs (~1920×620)
               // decode on the main thread when they finish downloading,
               // blocking the renderer for 20-100 ms each time and
@@ -921,7 +921,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <img src={slotB} onError={onError('B')}
+            <img src={sanitizeHeroUrl(slotB) ?? undefined} onError={onError('B')}
               decoding="async"
               ref={(el) => {
                 if (el && el.complete && (el.naturalWidth || 0) > 0 && slotB && loadedSrcB !== slotB) {
