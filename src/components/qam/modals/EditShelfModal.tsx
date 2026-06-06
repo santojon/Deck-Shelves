@@ -1265,9 +1265,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     })
                 return [{
                   id: 'filters',
-                  // Decky's Tab.title is typed `string` but Steam's underlying
-                  // Tabs component renders any ReactNode — cast lets us inline
-                  // a leading icon next to the label text.
+                  // Tab.title typed `string` but renders any ReactNode.
                   title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_filters')} />) as unknown as string,
                   content: (
                     <FieldContainer>

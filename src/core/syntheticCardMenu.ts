@@ -1,14 +1,7 @@
 // Fallback context menu for synthetic (decoration) cards.
 //
-// Real game cards go through Steam's native AppContextMenu (extended
-// with `buildDeckShelvesMenuItems`). Synthetic cards aren't apps —
-// there's no overview to feed the native menu, so we open our own DFL
-// menu reusing the SAME shelf-level builder (`buildShelfContextMenu`)
-// the online shelves use. Passing appid=0 skips the per-card actions
-// (highlight this game / hide from shelf / add to shelf / remove from
-// shelf) — only the shelf-scoped items (Management, Display, Visual,
-// sort direction) come through, which is everything a decoration card
-// should expose.
+// Synthetic cards open a DS-built DFL menu (no native overview).
+// Reuses buildShelfContextMenu with appid=0 to skip per-card actions.
 import { getCurrentSettings } from "../store/settingsStore";
 import { buildShelfContextMenu } from "./steamGameMenu";
 import i18n from "i18next";

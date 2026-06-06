@@ -10,6 +10,9 @@
   "src/components/DeckRow.tsx": {
     "complexity": {
       "count": 14
+    },
+    "max-lines": {
+      "count": 1
     }
   },
   "src/components/HomeInject.tsx": {
@@ -65,6 +68,9 @@
   "src/components/qam/modals/EditShelfModal.tsx": {
     "complexity": {
       "count": 14
+    },
+    "max-lines": {
+      "count": 1
     }
   },
   "src/components/qam/modals/EditSmartShelfModal.tsx": {
@@ -145,6 +151,9 @@
   "src/components/shelf/shelfStyles.ts": {
     "complexity": {
       "count": 9
+    },
+    "max-lines": {
+      "count": 1
     }
   },
   "src/components/styles/DeckModalStyles.tsx": {
@@ -185,6 +194,9 @@
   "src/core/steamGameMenu.ts": {
     "complexity": {
       "count": 17
+    },
+    "max-lines": {
+      "count": 1
     }
   },
   "src/core/steamOSVersion.ts": {
@@ -299,7 +311,10 @@
   },
   "src/steam/index.ts": {
     "complexity": {
-      "count": 57
+      "count": 39
+    },
+    "max-lines": {
+      "count": 1
     }
   },
   "src/steam/smartShelves.ts": {

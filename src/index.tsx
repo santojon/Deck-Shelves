@@ -116,12 +116,8 @@ export default definePlugin((serverAPI?: any) => {
     <AboutPage />
   )); } catch (e) { console.warn("addRoute failed", e); }
 
-  // Edit / Delete routes — opened by the game context menu when the user
-  // selects "Edit" or "Delete" on a DS shelf card. The route mounts a
-  // SettingsController standalone (no QAM required), shows the modal via
-  // DFL.showModal (renders in a portal independent of the route), then
-  // navigates back. Path uses :shelfId parameter so the route handler can
-  // load the correct shelf from the location pathname.
+  // Edit / Delete routes — opened from the card context menu; mount a
+  // standalone controller and show the modal via showModal in a portal.
   try {
     routerHook?.addRoute?.(EDIT_ROUTE, () => (
       <ShelfEditRoute shelfId="" />
@@ -129,14 +125,8 @@ export default definePlugin((serverAPI?: any) => {
     routerHook?.addRoute?.(DELETE_ROUTE, () => (
       <ShelfDeleteRoute shelfId="" />
     ), { exact: true });
-    // Manage page — full-screen UI with all per-shelf actions (Edit /
-    // Duplicate / Hide / Move / Delete). The native game context menu
-    // shows a single "Deck Shelves" item that navigates here. Using a
-    // flat MenuItem + route navigation is the only injection shape that
-    // reliably survives React reconciliation across menu opens for every
-    // game type; a nested MenuGroup wrapper only commits to the DOM for
-    // the very first menu of the session and silently disappears on
-    // every subsequent open.
+    // Manage page route — flat MenuItem + navigation; nested groups
+    // disappear after the first menu open.
     routerHook?.addRoute?.(MANAGE_ROUTE, () => (
       <ShelfManageRoute shelfId="" />
     ), { exact: true });
@@ -163,15 +153,8 @@ export default definePlugin((serverAPI?: any) => {
   // boots short-circuit; failures are silent. On a positive result, fire a
   // toast so the user sees the notification even without opening QAM.
   //
-  // `runUpdateProbe()` is the single entry point used by every trigger
-  // (boot, toggle false→true, QAM banner re-mount). It honours the
-  // toggle, invalidates the 24h cache when the device is online (so the
-  // probe always reflects the latest release rather than yesterday's
-  // snapshot — covers the post-self-upgrade case where the cached
-  // `latestVersion` is older than the running build), then runs the
-  // network probe and toasts on a fresh release the user hasn't already
-  // dismissed. Offline → cache reused as-is so the boot path stays
-  // silent on flaky links.
+  // Single update-probe entry: invalidates cache when online, runs the
+  // network probe, toasts on a fresh undismissed release.
   const runUpdateProbe = async (reason: string): Promise<void> => {
     try {
       (globalThis as any).__dsUpdateProbe = { reason, at: Date.now(), step: 'start' };
@@ -211,19 +194,12 @@ export default definePlugin((serverAPI?: any) => {
       (globalThis as any).__dsUpdateProbe.err = String(e);
     }
   };
-  // Defer the boot probe so Steam's network stack + `refreshSettings()`
-  // have time to come up — without this, `isOnline()` often returns false
-  // on a cold boot (DNS not ready yet) and the cache invalidation step is
-  // skipped, leaving a stale cached `latestVersion` to suppress the toast
-  // for the rest of the 24h cache window.
+  // Defer the boot probe so the network stack is ready (cold-boot DNS
+  // race would otherwise skip the cache invalidation step).
   (globalThis as any).__dsUpdateProbeScheduled = Date.now();
   setTimeout(() => { void runUpdateProbe('boot'); }, 3000);
 
-  // Re-probe whenever the user flips the notify toggle OFF → ON in the
-  // QAM. `subscribeSettings` fires once immediately with the current
-  // value (consumed to seed `lastToggle`), then on every settings
-  // mutation; we trigger only on the upward edge so flipping OFF doesn't
-  // spam toasts, and flipping it ON re-runs the same online-first probe
+  // Re-probe on the upward edge of the notify toggle (OFF → ON) so
   // the boot path uses.
   let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
   const unsubUpdateNotify = subscribeSettings((s) => {

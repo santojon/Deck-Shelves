@@ -4,8 +4,8 @@ import { canBeInverted } from "../components/filter/utils";
 import { evaluateFilterGroup, type AppOverview } from "../steam";
 
 /**
- * Regression coverage for the 2.1.2 → 2.2.0 batch.
- * Each test pins a recently-fixed bug so future edits can't silently
+ * Regression coverage.
+ * Each test pins a fixed bug so future edits can't silently
  * reintroduce it.
  */
 

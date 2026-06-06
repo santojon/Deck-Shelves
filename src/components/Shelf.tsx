@@ -316,17 +316,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     if (!shouldHideOwned) { setOwnedAppIds(null); setOwnedNames(null); return; }
     setOwnedAppIds(getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud));
     let cancelled = false;
-    // Name-based dedup must honor the same scope toggles the appid-based
-    // dedup does. Earlier this used `getLocalLibraryAppIds(true, true)`
-    // unconditionally, on the rationale that "if the user owns Hades
-    // anywhere, they don't want it on the wishlist". On devices with a
-    // large Unifideck Microsoft library (cloud-play shortcuts the user
-    // does NOT actually own) that broad scope hid wishlist items the
-    // user genuinely doesn't have — exactly the symptom of "games I
-    // don't own are being hidden". Scoping the name set with the same
-    // effective flags keeps the heuristic for real local titles while
-    // letting the cloud-play sub-toggle suppress the over-aggressive
-    // matches.
+    // Name-dedup mirrors the scope toggles used for appid-dedup so
+    // cloud-play shortcuts don't hide wishlist items the user doesn't own.
     getAllAppOverviews().then((apps) => {
       if (cancelled) return;
       const ownedSetForNames = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud);
@@ -401,16 +392,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         (shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
           && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'));
 
-      // Hide owned games on online shelves via the collectionStore-based set.
-      // For composite shelves (which merge online + offline children), only
-      // drop ids that came from an online child — locally-owned items from
-      // a collection / tab / filter child must stay visible even when the
-      // user toggled "exclude owned games" for the online source. We can't
-      // tag merged ids with their origin source, but `isStoreFallback`
-      // is a reliable proxy: items in the local appStore have real meta
-      // (came from offline child); items rendered as `App {id}` have no
-      // local overview (came from the online child). Direct online shelves
-      // keep the prior behaviour since all their items are online.
+      // For composite shelves, only hide owned ids that came from an
+      // online child — `isStoreFallback` proxies "no local overview".
       const isCompositeShelf = shelf.source.type === 'composite';
       const onlyHideOnlineOriginated = isCompositeShelf;
       const eligibleForOwnedHide = onlyHideOnlineOriginated ? isStoreFallback : isOnlineSource;

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-// See DeckyHostApi adapter.
 import {
   ConfirmModal,
   Field,

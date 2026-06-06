@@ -252,17 +252,8 @@ function scheduleResolve(shelf: any) {
   // entry by source so two shelves with the same source but different
   // sorts don't collide.
   //
-  // Manual sort needs the same two-step treatment Shelf.tsx applies on
-  // home: resolve using the user's chosen `manualBaseSort` +
-  // `manualBaseSortReverse` (the natural-order fallback for items NOT in
-  // `manualOrder`), then `applyManualOrder` re-orders the result with
-  // pinned items first. Forwarding `sort='manual'` straight to the
-  // resolver is a no-op at the comparator layer, leaving the composite
-  // source's union order (effectively dedup-insertion order, which the
-  // user reads as "alphabetical-ish"). Mirroring Shelf.tsx's manual
-  // handling here makes the promoted recents shelf honour the EXACT same
-  // ordering it would on the home — including multi-key chains and
-  // per-key asc/desc.
+  // Mirror Shelf.tsx's manual handling: resolve with manualBaseSort
+  // then applyManualOrder so the promoted recents matches the home.
   const shelfSort = (shelf as any).sort;
   const shelfSortReverse = (shelf as any).sortReverse;
   const manualBaseSort = (shelf as any).manualBaseSort;

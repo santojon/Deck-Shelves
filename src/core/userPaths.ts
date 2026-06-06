@@ -1,10 +1,6 @@
-// Backend-resolved user paths. Backend (`main.py`) already exposes
-// `get_user_desktop` which uses `os.path.expanduser("~")` and picks
-// `~/Desktop` → `~/Downloads` → `~` based on what exists — portable across
-// any Linux distro (Bazzite, ChimeraOS, Nobara) and across Decky runtimes
-// regardless of the user account name. The frontend used to hard-code
-// `/home/deck/Downloads`, which breaks on every system where the user
-// isn't literally `deck`.
+// Backend-resolved user paths via `get_user_desktop` in `main.py`
+// (picks ~/Desktop → ~/Downloads → ~). Portable across distros and
+// account names — avoids the old `/home/deck/Downloads` hardcode.
 //
 // The pre-warm is fired once at plugin boot so the cached value is ready
 // by the time the user clicks Import / Export. Until the first response

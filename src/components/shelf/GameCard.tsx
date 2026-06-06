@@ -120,17 +120,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     lastActivateRef.current = now;
     onActivateRef.current?.();
   }, []);
-  // View (Select) button — replicates Steam's native context-menu first
-  // item per app state, using the state-specific SteamClient APIs the
-  // menu dispatches to internally:
-  //   - running        → Apps.RaiseWindowForGame(appid) (no "already
-  //                      running" toast, focus only)
-  //   - update-pending → Downloads.ResumeAppUpdate(appid) (update only,
-  //                      does NOT launch — RunGame on runtimes like
-  //                      Proton Hotfix raises "invalid game config")
-  //   - all others     → Apps.RunGame(appid, "", -1, 1000) — match the
-  //                      menu's launchSource so Install / Play routes
-  //                      cleanly.
+  // Select-button action mirrors the native menu's first item per
+  // state: running → RaiseWindow; update-pending → ResumeAppUpdate;
+  // else → RunGame.
   const cardState = useMemo(() => {
     if (previewMode || !appid) return { label: undefined as string | undefined, action: 'run' as 'run' | 'resume_update' | 'raise' };
     try {
@@ -191,17 +183,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   //     never adds them to the local appStore)
   //   - friends-playing non-owned (same: not in user library)
   //
-  // Used to gate three things:
-  //   1. Options (menu) button — non-library items have no install/play/
-  //      update available in the context menu, so the button would either
-  //      open a stub menu or do nothing useful. Hide it AND its legend hint.
-  //   2. View / quick-launch button — RunGame against a non-library appid
-  //      doesn't have a meaningful effect (Steam can't install something
-  //      that isn't on the user's account).
-  //   3. Install indicator + "Not installed" status text — meaningless for
-  //      cards the user doesn't own. The shelf-wide `hideInstallIndicator`
-  //      prop still wins when set (global toggle / per-shelf toggle), this
-  //      flag only AUGMENTS it for the specific non-library cards.
+  // Gates Options button, View/quick-launch, and install indicator —
+  // none of those have meaningful behaviour on non-library appids.
   const isLibraryGame = useMemo(() => {
     if (previewMode || !appid) return false;
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
@@ -334,16 +317,8 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // when the current src is a cached blob URL.
   const currentOriginalUrl = useRef<string>("");
 
-  // Resolve the initial src by walking the fallback chain and using
-  // the FIRST hot-cached URL we find (its blob URL). On remount
-  // (e.g. user goes to settings and comes back home) this lets a
-  // previously-loaded card render its image instantly without first
-  // cycling through /customimages/{appid}p.png 404 → onError → next
-  // URL, which is what was causing "home recarrega tudo" — each
-  // remount did 1-2 useless local-path 404s before reaching the
-  // cached CDN URL. `startIdx` is also passed to onImgError so the
-  // fallback chain advances from the position the cache picked, not
-  // from 0.
+  // Walk the fallback chain and start at the first hot-cached URL so
+  // remounts skip the 404 → next-URL cycle.
   const { initialSrc, initialOriginal, startIdx } = useMemo(() => {
     if (!allUrls.length) return { initialSrc: "", initialOriginal: "", startIdx: 0 };
     for (let i = 0; i < allUrls.length; i++) {
@@ -550,50 +525,18 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // the binding nor the legend slot should appear for them.
       onButtonDown={isLibraryGame ? buttonDownHandler : undefined}
       actionDescriptionMap={isLibraryGame && quickLaunchLabel ? { [GamepadButton.SELECT]: quickLaunchLabel } : undefined}
-      // Y button — quick toggle of the per-card highlight without
-      // opening the context menu. Decky's Focusable maps the Y button
-      // to `onOptionsButton` / `onOptionsActionDescription` (X is the
-      // `onSecondary*` slot — see ReorderableList.tsx for the in-repo
-      // precedent). The label reflects the current featured state so
-      // it reads "Highlight" vs "Remove highlight" instead of a glyph.
-      // No-op + no label when the card has no appid (refresh / more),
-      // or when rendered inside a modal preview (the modal owns
-      // highlight via its picker — pressing Y here would write straight
-      // to settings and bypass the modal's Save/Cancel flow).
-      //
-      // The label is intentionally STATIC ("Alternar" / "Toggle") rather
-      // than switching between "Highlight" and "Remove highlight" based on
-      // the current featured state. Toggling labels mid-focus reads as
-      // visual noise on the legend; the action (flip the highlight) is the
-      // same in both directions and the user already sees the result on
-      // screen, so one stable label is enough.
+      // Y → quick highlight toggle. Static label avoids legend churn.
+      // No-op when no appid or in modal preview (the modal owns highlight).
       onOptionsActionDescription={!previewMode && appid
         ? i18n.t('card_highlight_toggle')
         : undefined}
       onOptionsButton={!previewMode && appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
-      // X button — context-aware:
-      //   * If this card was menu-added (in `removableSet` = manualOrder
-      //     entries NOT in the shelf's resolved source), pressing X
-      //     REMOVES it from the shelf (the card disappears). Modal
-      //     preview supplies a state-updating callback; home saves.
-      //   * Otherwise X TOGGLES hide for this card (label reflects the
-      //     current hidden state). Hidden cards still occupy a slot but
-      //     get the dark tint + ✕ overlay. Only bound when the parent
-      //     supplies `onHideCard` — modal preview leaves it out so X
-      //     stays silent there (the modal owns hide via its picker).
+      // X → remove (if menu-added) or toggle hide. Modal preview omits
+      // the hide path since the picker owns it.
       onSecondaryActionDescription={
         appid && removableSet?.has(appid) && onRemoveCard
-          // Same short-vs-long split as hide below: on the home we're on
-          // top of a card so just "Remove" reads fine; preview keeps the
-          // long label so it stays unambiguous when multiple shelves
-          // render side-by-side.
           ? i18n.t(previewMode ? 'menu_remove_from_shelf' : 'card_remove')
           : appid && onHideCard
-            // On the home (non-preview) we're directly on top of a game card —
-            // shorten "Hide from shelf" to just "Hide" / "Show" so the footer
-            // legend stays tight. The preview keeps the longer label since
-            // multiple shelves can show side-by-side and the context isn't
-            // already implied by what the user is focused on.
             ? i18n.t(previewMode
                 ? (hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
                 : (hiddenSet?.has(appid) ? 'card_show' : 'card_hide'))

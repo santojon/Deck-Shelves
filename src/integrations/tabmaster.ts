@@ -105,16 +105,11 @@ export interface TabMasterTabEntry {
  * Tabs are sorted by position: visible (position >= 0) first, then hidden (-1).
  */
 export async function getTabsFromSettingsFile(): Promise<TabMasterTabEntry[]> {
-  // Guard removed: isTabMasterInstalled() uses window.DeckyPluginLoader which is
-  // inaccessible in SteamOS 3.9, causing false-negative detection. The Python
-  // backend returns {"tabs":[]} safely when the file is absent — unconditional
-  // call is correct on both SteamOS 3.7 and 3.9.
+  // Unconditional call: the backend returns {"tabs":[]} when the file
+  // is absent; works on both SteamOS 3.7 and 3.9.
   try {
     const response = await call<[], { tabs: TabMasterTabEntry[]; error?: string }>('get_tabmaster_tabs');
-    // Diagnostic log — shows whether the IPC round-trip reached the Python
-    // backend and what it returned. Visible in the plugin logs (frontend
-    // console) and Decky logs. Helps trace why TabMaster tabs may be empty
-    // even when the settings file exists on disk.
+    // Diagnostic: shows whether the IPC round-trip reached the backend.
     logInfo('STEAM', 'getTabsFromSettingsFile response', {
       hasResponse: !!response,
       tabsCount: response?.tabs?.length ?? 0,

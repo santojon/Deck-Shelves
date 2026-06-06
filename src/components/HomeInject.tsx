@@ -325,13 +325,8 @@ export function HomeShelves() {
       const nowOnHome = isHomeRoute();
       if (nowOnHome && !wasOnHome) {
         updateMount();
-        // NOTE: deliberately NOT calling `triggerShelfRefresh()` here.
-        // The user briefly left for library/details — shelf data hasn't
-        // meaningfully changed, and triggering a global refresh forces
-        // every online shelf to re-fetch over HTTP, producing a visible
-        // reload cascade on every B-return. Steam app/collection change
-        // events still drive automatic refreshes; the 30 s fallback poll
-        // handles drift.
+        // No triggerShelfRefresh here — B-return shouldn't force a
+        // global online re-fetch.
         // Steam re-renders BOTH native recents AND home tabs on every route
         // entry back to home (B from library, etc.). The freshly mounted
         // siblings arrive without our hides, so they flash back into view.
@@ -649,19 +644,11 @@ export function HomeShelves() {
     }
   }
 
-  // Placement logic:
-  //  - atBottom: normal first, then smart
-  //  - hideRecents + NOT replace-injecting: DOM order is [...normal, ...smart]
-  //    so a normal shelf is always the first DOM child (Opção B can promote
-  //    it into the recents slot — smart shelves are heuristic and may
-  //    render `null`, so they must never be ahead of any normal in the DOM).
-  //    Visual order is restored via CSS `order` further down: promoted
-  //    normal at order 0, smart at order 1, remaining normals at order 2 —
-  //    yields the user-intended [firstNormal, smart, restNormal] interleave
-  //    even when the first normal happens to render empty.
-  //  - replace-injecting or default: smart first (or last if atBottom), then normal
-  //    (when replace-injecting, shelf1 is already in the native recents slot; normalShelves
-  //     already has it removed, so the "after first" special case must not apply)
+  // Placement:
+  // - atBottom: normal then smart
+  // - hideRecents + !replace-injecting: normal then smart in DOM, CSS
+  //   `order` restores visual interleave
+  // - else: smart then normal
   const normalFirst = settings.smartShelvesAtBottom
     || (settings.hideRecents === true && !(replaceInjecting && !replaceKillSwitch));
   const shelves: Shelf[] = normalFirst
@@ -735,17 +722,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     applyPatches();
     if (hasPendingFocus()) beginFocusRestoreLoop();
 
-    // rAF-throttled wrappers for the high-frequency callers below.
-    // Before: every subtree mutation (shimmer pulse, focus class flip,
-    // online-shelf label text resolution, img onload class) and every
-    // document-level focusin synchronously ran the full `applyPatches`
-    // (8 install functions including reparentNavTreeNodes which walks
-    // the entire gamepad nav tree). On a populated home with hero
-    // animations, this fired hundreds of times per second and was the
-    // main source of "como se algo estivesse rodando na mesma thread
-    // da UI, travando o sistema". Coalescing to one call per frame
-    // brings the cost down to ~60/sec while still catching every
-    // structural change Steam triggers between frames.
+    // rAF-throttle the high-frequency callers so applyPatches runs
+    // at most once per frame instead of per-mutation.
     let applyPending: number | null = null;
     const scheduleApplyPatches = () => {
       if (applyPending != null) return;
@@ -946,15 +924,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     if (!hideRecentsSetting) { setFirstVisibleId(null); return; }
     const rootEl = rootRef.current;
     if (!rootEl) return;
-    // Walk shelves in CONFIG order (not DOM order) and pick the first
-    // non-smart shelf that's currently rendering content. Two reasons:
-    //   1. Skip empty/unresolved shelves so a 0-apps first shelf does not
-    //      get promoted while another shelf's content sits below with the
-    //      empty shelf's title still nominally claiming the slot.
-    //   2. Keep the candidate stable regardless of which shelf finishes
-    //      resolving first — pure DOM-order scans pick the fastest
-    //      resolver, which often is a non-Steam / smaller shelf instead of
-    //      the user's intended first shelf.
+    // Config-order pick, not DOM-order: skip empty shelves; keep
+    // stable across resolver finish-order.
     const scan = () => {
       const renderedIds = new Set(
         Array.from(rootEl.querySelectorAll<HTMLElement>('.ds-shelf[data-shelfid]'))
@@ -971,12 +942,8 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   }, [hideRecentsSetting, shelves]);
 
   // CSS Loader compat — narrow scope by design.
-  //
-  // Themes that restyle the UNIVERSAL shelf surface (card shape, transitions,
-  // generic animations) target classes our cards inherit naturally from
-  // React/Decky (`Panel`, `Focusable`, plus the hashed component tokens) —
-  // those themes already reach every DS shelf at all times without any
-  // intervention from us.
+  // Themes targeting the universal shelf surface already reach every DS
+  // shelf via inherited Panel/Focusable + hashed token classes.
   //
   // Themes that restyle the RECENTS WRAPPER (hero art height, banner mode,
   // ArtHero family etc.) target the obfuscated class on the parent of the
@@ -996,12 +963,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   //   3. Promotion only when at least one CSS Loader theme is active.
   //   4. Class assignment is purely additive — `ds-*` is never stripped.
 
-  // Bumped when CSS Loader transitions from inactive→active. Used as a dep
-  // of the recents-slot promotion useEffect below so it re-fires when CSS
-  // Loader injects its chunks AFTER the initial mount — without this, a
-  // cold Steam restart with hideRecents+ArtHero often misses the promotion
-  // window (the effect's first run sees `isCssLoaderActive=false` and
-  // bails; its other deps don't include CSS Loader state).
+  // Re-fires the recents-slot promotion when CSS Loader injects late.
   const [cssLoaderTick, setCssLoaderTick] = useState(0);
 
   useEffect(() => {

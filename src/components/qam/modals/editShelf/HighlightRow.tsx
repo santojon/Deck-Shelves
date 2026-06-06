@@ -85,9 +85,8 @@ export function HighlightRow({ children }: { children: React.ReactNode }) {
       ref={rowRef}
       style={{
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8,
-        // Extend to container outer edges with a negative horizontal margin
-        // (matches Decky Field footprint). No internal horizontal padding
-        // here so the first/last card sit flush against the edge.
+        // Negative h-margin matches the Field footprint so first/last
+        // card sit flush against the container edge.
         margin: '0 -24px', padding: '12px 0 28px', width: 'auto',
         // overflow-y: visible would let the focus glow escape vertically,
         // but Chromium computes overflow-y to auto whenever overflow-x is

@@ -78,14 +78,8 @@ export function HighlightMiniCard({
         // back to 0 only when the detector hasn't found a native radius
         // yet (the cache is populated on first GameCard render).
         borderRadius: 'var(--ds-card-radius, 0)',
-        // Reserve room for the Decky Focusable focus glow that extends ~24px
-        // past the card's bottom edge. `block: 'nearest'` in HighlightRow's
-        // focusin handler treats the card as visible the moment its bounding
-        // box is inside the FieldContainer, but the glow drawn outside the
-        // box still gets clipped by the FieldContainer's overflow:auto.
-        // scroll-margin-bottom is honored by scrollIntoView, padding the
-        // card's effective scroll target so the FieldContainer scrolls a
-        // little further and the glow lands inside the visible window.
+        // Reserve room for the focus glow (~24px below) so the FC's
+        // overflow:auto doesn't clip it.
         scrollMarginBottom: 32,
       }}
     >

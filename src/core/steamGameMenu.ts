@@ -56,14 +56,8 @@ function getAppStore(): any {
 const patchedComponents = new WeakSet<any>();
 const wrappedComponents = new WeakMap<any, any>();
 
-// Direct webpack discovery: find Steam's `LibraryContextMenu` class at
-// module load and patch its `prototype.render` once. The patch fires for
-// EVERY render of that class — so even when our React.createElement
-// capture misses (memo / forwardRef variants on newer SteamOS), the DS
-// submenu still injects. Gated on a per-call shelfId stash (set right
-// before `dfl.showContextMenu` is invoked, cleared a tick later) so the
-// patch only injects when triggered from a DS shelf card; native game cards
-// are unaffected.
+// Direct webpack patch of LibraryContextMenu.prototype.render. Gated
+// on _activeShelfIdForMenu so native cards aren't affected.
 let _libraryContextMenuClass: any = null;
 let _libraryContextMenuPatched = false;
 let _hltbDiscoveryAttempted = false;
@@ -356,14 +350,8 @@ function patchDeepestRender(prototype: any): void {
         const R = getSteamReact();
         if (!dfl || !R) return ret2;
         if (!isGameContextMenuItems(menuItems, dfl)) return ret2;
-        // Dedup BEFORE splicing — the outer LibraryContextMenu patch
-        // already mutated `component.props.children`, and on the modern
-        // Steam client that array is the SAME reference the inner class
-        // passes through as `ret2.props.children`. Without this dedup
-        // both patches splice on every menu open, producing two copies
-        // of every DS submenu ("Adicionar à prateleira" 2×, "Prateleira"
-        // 2×). The shouldComponentUpdate hook already does this for
-        // re-renders; do it here so the first render is consistent.
+        // Dedup before splice — the LibraryContextMenu patch already
+        // mutated this same children array on the modern client.
         dedupDsMenuItems(menuItems);
         let curAppid: number = 0;
         try {
@@ -494,14 +482,8 @@ export function installLibraryContextMenuPatch(): void {
         if (!appid) {
           try { appid = Number(this?.props?.overview?.appid) || 0; } catch {}
         }
-        // Oct 2025+ Steam client: the LibraryContextMenu wrapper element no
-        // longer carries `_owner.pendingProps.overview` nor `this.props.overview`
-        // — the appid is reachable only by walking `component.props.children`
-        // for a node with `app.appid`. Same fix CheatDeck / SteamGridDB
-        // shipped after the Oct 2025 client landed. Without this fallback our
-        // outer patch bails early and never installs the inner patch on
-        // library cards, so no DS submenu ever appears for games outside a
-        // DS shelf.
+        // Oct 2025+ client: walk children for `app.appid` (overview is
+        // no longer on the wrapper).
         if (!appid) {
           try {
             const foundApp: any = dflFindInTree(component?.props?.children, (x: any) => x?.app?.appid, { walkable: ["props", "children"] } as any);
@@ -509,26 +491,16 @@ export function installLibraryContextMenuPatch(): void {
           } catch {}
         }
         if (!appid) { try { (globalThis as any).__DECK_SHELVES_DEBUG__.lcmNoAppid++; } catch {} return component; }
-        // `shelfId` resolves to "" for library cards (games not pinned
-        // in any DS shelf). The outer patch USED to bail here, which
-        // meant library cards never installed the inner patch and
-        // never received Add/Remove-to-shelf items. We now keep going
-        // so the inner patch covers BOTH paths.
+        // shelfId is "" for library cards; keep going so the inner
+        // patch installs for both DS-shelf and library paths.
         const shelfId = resolveShelfIdByAppid(appid);
 
         const dfl = getDFL();
         const R = getSteamReact();
         if (!dfl || !R) return component;
 
-        // First render in this session: install the deeper patches via
-        // component.type → ret.type.prototype.render. The deepest patch
-        // injects on the inner class's render output so the very first
-        // menu open shows DS items. From the SECOND render onward, the
-        // else branch below mutates component.props.children directly —
-        // that's the only level React reconciles reliably across the
-        // sequence of native context menus Steam re-uses for each card,
-        // because the OUTER component element is recreated fresh per
-        // render so its props.children diff truly compares old vs new.
+        // First render: install the deeper render patch so the first
+        // open shows DS items. Later renders splice props.children.
         if (!innerInstalled) {
           innerInstalled = true;
           try {
@@ -894,17 +866,8 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
     ));
 
     // ── Add-to-shelf submenu ────────────────────────────────────────────
-    // Lists regular (non-smart) shelves the user could append this game
-    // to. Filtered to exclude:
-    //   - the current shelf (the game is already here)
-    //   - shelves whose appid pool already contains this id (via
-    //     manualOrder — that's the source of truth for manual shelves)
-    //   - shelves at or above their per-shelf limit
-    //   - shelves with 50+ manual entries (hard cap to keep the UX sane)
-    //
-    // Selecting an entry: the target shelf is patched with `sort='manual'`
-    // (if not already), manualOrder gains the appid at the end, and any
-    // previously-engaged manual sort keeps its prior order.
+    // Append-target shelves (excludes current, already-in, at-limit,
+    // 50+ manual entries). Selecting flips to manual sort + appends.
     const ABSOLUTE_MAX = 50;
     const candidateShelves: any[] = (settings.shelves ?? []).filter((sh: any) => {
       if (sh.id === shelfId) return false;
@@ -1091,9 +1054,8 @@ function injectDeckShelvesIntoTree(rendered: any, shelfId: string): any {
  * forwardRef (afterPatch on `.render`), plain function (HOC wrapper that
  * calls the inner function and patches its result tree).
  */
-// React internal type tags. These are stable string symbols (Symbol.for) so
-// they survive bundling and match across realms — same approach Decky's
-// `findInReactTree` uses to detect memo/forwardRef wrappers.
+// React internal type tags (stable Symbol.for handles that survive
+// bundling) for detecting memo/forwardRef wrappers.
 const REACT_MEMO_TYPE = typeof Symbol === "function" ? Symbol.for("react.memo") : 0xead3;
 const REACT_FORWARD_REF_TYPE = typeof Symbol === "function" ? Symbol.for("react.forward_ref") : 0xead0;
 
@@ -1105,16 +1067,8 @@ function getInjectedMenuComponent(inner: any): any {
     return inner;
   }
 
-  // memo wrapper — Steam frequently wraps AppContextMenu in React.memo to
-  // skip re-renders. The wrapper is a plain object `{$$typeof, type, compare}`
-  // with no `render`, so the class/forwardRef/function branches all miss it
-  // and the previous code returned the unpatched memo as-is. Patch the
-  // wrapped `.type` recursively (one of the branches below will match it).
-  // For class / forwardRef branches the recursive call mutates the inner in
-  // place via afterPatch, so we just return the memo wrapper. For the
-  // function-component branch the recursive call returns a NEW wrapper —
-  // when that happens we need to swap `inner.type` so React renders the
-  // patched function instead of the original one.
+  // React.memo wrapper: recurse on `.type`. Class/forwardRef mutate
+  // in place; function branch returns a new wrapper, so swap inner.type.
   if (typeof inner === "object" && inner.$$typeof === REACT_MEMO_TYPE && inner.type) {
     const patched = getInjectedMenuComponent(inner.type);
     if (patched && patched !== inner.type) {
@@ -1179,28 +1133,16 @@ function getInjectedMenuComponent(inner: any): any {
     }
   }
 
-  // Plain function component path. Steam's modern AppContextMenu capture
-  // returns a *thin wrapper* — a function that pulls `navigator` + `instance`
-  // from custom hooks and forwards to the real menu CLASS via JSX (verified
-  // via CDP: `function xe(e) { ... return jsx(Re, {...}); }`). The wrapper
-  // returns a single React element whose `.type` is the class we actually
-  // need to patch. So we try to unwrap first via `fakeRenderComponent`:
-  // if it gives us back a different inner type, recurse on it (typically
-  // matches the class-component branch above and patches `prototype.render`).
-  // The HOC fallback below stays as a safety net for genuinely flat function
-  // components.
+  // Function-component path: Steam wraps the real class behind a thin
+  // hook-using function. Unwrap via fakeRenderComponent and recurse.
   if (typeof inner === "function") {
     if (typeof fakeRenderComponent === "function") {
       try {
         const fake = fakeRenderComponent(inner);
         const innerType = fake?.type;
         if (innerType && innerType !== inner) {
-          // Recurse — patches the real class / forwardRef behind the wrapper
-          // for the installed-game render path. Falls through to the HOC wrap
-          // below so we ALSO inject when the wrapper renders a DIFFERENT
-          // inner for other game states (uninstalled, non-Steam shortcut),
-          // which the inner-class patch wouldn't catch. Dedup in
-          // injectDeckShelvesIntoTree prevents double-injection.
+          // Recurse to patch the inner class; falls through to the HOC
+          // wrap below for other game states.
           getInjectedMenuComponent(innerType);
           if ((globalThis as any).__DEV__) try { (globalThis as any).console?.info?.("[DS][menu] thin wrapper unwrapped — patched inner type", { wrapperName: inner.name ?? "<anon>", innerKind: typeof innerType, innerHasProtoRender: !!innerType?.prototype?.render }); } catch {}
         }

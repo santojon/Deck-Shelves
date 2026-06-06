@@ -83,10 +83,10 @@ export function installFriendsState(): () => void {
     try { clearInterval(_pollTimer); } catch {}
     _pollTimer = null;
   }
-  // Immediate first refresh so the resolver doesn't render empty on the
-  // first home render. Wrapped in try/catch — if friendStore isn't ready
-  // yet, the next tick will catch it.
-  try { refresh(); } catch {}
+  // First refresh deferred to idle so the boot path stays responsive.
+  // The friend list isn't usually ready yet at plugin boot anyway.
+  const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
+  schedule(() => { try { refresh(); } catch {} });
   _pollTimer = window.setInterval(() => {
     try { refresh(); } catch {}
   }, POLL_INTERVAL_MS);

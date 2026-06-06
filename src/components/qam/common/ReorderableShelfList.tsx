@@ -17,7 +17,7 @@ export function ReorderableShelfList<T extends { id: string; title: string; hidd
   onReorder: (ids: string[]) => void
 }) {
   const listRef = useRef<HTMLDivElement>(null)
-  // Pointer-hold drag reorder coexisting with Decky's up/down buttons.
+  // Pointer-hold drag reorder coexisting with up/down buttons.
   const { grabbedId } = useContainerDragReorder<string>({
     containerRef: listRef,
     itemSelector: '[data-ds-shelf-row]',

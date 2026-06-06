@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Boot-time UI freeze (#66).** Three hot paths on the bootstrap chain were starving the main thread:
+  - `enrichAppStateFlags` was awaiting ~70 source-method calls sequentially across the bulk-state harvest pass. Now parallelised via `Promise.all` — total wait collapses to the slowest single call instead of the sum.
+  - `backfillInstalledFromAppStore` walked the entire library map synchronously calling `appStore.GetAppOverviewByAppID` per id. On a 2k+ game library that was 1-2 s of synchronous work per cold boot. Now chunks every 200 entries with a `setTimeout(0)` yield so the UI stays responsive.
+  - `installHomePatch` was running a `body+subtree` MutationObserver that fired `tryFallbackRender` synchronously on every DOM mutation — Steam's hydration triggers hundreds per second. Now rAF-throttled to one call per frame.
+  - `installFriendsState` deferred its first scan to `requestIdleCallback` so the boot path no longer iterates the friend list synchronously.
+
 ### Added
 
+- **ESLint `max-lines` rule (max 1000 code lines per file).** Code files above 1k lines almost always own too many concerns; the new rule forces new modules to stay focused. Counts code lines only (blank + comment lines ignored). Seven existing files above the cap baselined in `eslint-suppressions.json` and queued for incremental modularization.
+- **Aggressive comment cleanup across `src/`.** Long comment blocks (≥ 4 lines of `//`) were collapsed throughout the codebase — every long block either trimmed to its actionable kernel or split into a single one-line "why" comment. Result: ~600 lines of comment removed without losing any constraint, invariant or workaround explanation. The next pass will target the remaining 3-line blocks.
+- **`src/steam/index.ts` complexity drain.** Every function with cyclomatic complexity ≥ 20 was refactored to ≤ 10 via dispatch tables (`SINGLE_SORT_COMPARATORS`, `WINDOW_OVERVIEW_ACCESSORS`, `RECENT_SORTERS`, `META_PLAYTIME_KEYS`, etc.) + helper extraction (one helper per logical step). No behaviour change; tests stay green.
 - **ESLint with `complexity` rule (max 10).** New `eslint.config.js` enforces a single cyclomatic-complexity rule for `src/**/*.{ts,tsx}` (test + qa fixtures excluded). Existing files that exceeded the cap on rollout were grandfathered via a file-level `/* eslint-disable complexity */` pragma so new code is held to the rule without forcing a churning rewrite of legacy resolver / runtime code. New script `lint:complexity` runs `eslint --no-warn-ignored 'src/**/*.{ts,tsx}'`. Deps added (devDependencies only): `eslint`, `@typescript-eslint/parser`.
 - **Random-sort cache invalidation at plugin boot** — `invalidateRandomSortCache()` in `src/index.tsx` after `installHomePatch` so every Steam session gets a fresh shuffle. Pairs with the QAM "Refresh" action which now always wipes the per-shelf random cache regardless of source type (was previously only the offline-non-smart branch, leaving wishlist / store / smart shelves with random sort stuck on the same order until the 24 h TTL expired).
 - **Per-source online filter blocks in the edit modal.** When a composite shelf has more than one online child (e.g. wishlist + store), the Online Filters tab renders one filter panel per child with a header naming the source ("Wishlist" / "Steam Store"). Each panel writes its own `childFilter` directly on the child source; the composite parent no longer carries a shared `childFilter`. Single-source online shelves keep the previous single-panel UX.

@@ -14,15 +14,8 @@
  */
 
 const STORAGE_NAME = "ds-images-v1";
-// 320 entries: empirically a home with many active shelves can have
-// 150-200 visible cards each holding a portrait + hero URL. The old
-// 120-entry cap caused constant eviction once the user filled the
-// row, and an evicted blob URL still referenced by a mounted card
-// renders as the browser's broken-image glyph (the cap was the
-// invisible root cause of "às vezes mostra imagem quebrada antes de
-// aparecer a certa" — the right URL is in the cache one tick and
-// evicted the next). Bumping to 320 leaves headroom without growing
-// memory significantly (~120 KB per cached blob × 320 ≈ 38 MB peak).
+// 320 entries fits ~150-200 visible cards (portrait + hero each) with
+// headroom; eviction below this caused mid-tick broken-image flashes.
 const HOT_CACHE_LIMIT = 320;
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;   // 7 days  → revalidate
 const EVICT_AFTER_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days → drop

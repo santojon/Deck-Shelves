@@ -25,6 +25,10 @@ export default [
     // bugs and the project has no formatter yet.
     rules: {
       complexity: ['error', 10],
+      // Code-file size cap. Above 1000 lines a module almost certainly
+      // owns too many responsibilities — split into focused submodules.
+      // Counts code lines only (blank + comment lines ignored).
+      'max-lines': ['error', { max: 1000, skipBlankLines: true, skipComments: true }],
       // React: hook-order safety (calls of hooks in conditionals / loops
       // / nested functions). `exhaustive-deps` is intentionally NOT
       // enabled — the project has many intentional dep omissions where

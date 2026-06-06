@@ -808,7 +808,19 @@ export function installHomePatch(_routerHook?: any) {
 
   const { win: hostWin, doc: hostDoc } = getHostContext();
   observer?.disconnect();
-  observer = new MutationObserver(() => tryFallbackRender());
+  // rAF-throttle: a body+subtree observer fires hundreds of times per
+  // second at boot while Steam's UI hydrates. Coalescing to one call per
+  // frame keeps the early-mount path responsive without losing coverage
+  // of structural DOM changes the mount detection needs to react to.
+  let fallbackPending: number | null = null;
+  const scheduleFallback = () => {
+    if (fallbackPending != null) return;
+    fallbackPending = window.requestAnimationFrame(() => {
+      fallbackPending = null;
+      tryFallbackRender();
+    });
+  };
+  observer = new MutationObserver(scheduleFallback);
   observer.observe(hostDoc.body, { childList: true, subtree: true });
 
   if (timer) window.clearInterval(timer);

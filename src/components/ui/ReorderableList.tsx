@@ -2,23 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Field, Focusable, GamepadButton } from '../../runtime/host/decky';
 import i18n from '../../i18n';
 
-// Independent reorderable list. Same public surface a caller would
-// expect (`entries`/`onSave`/`interactables`/`fieldProps`) so the QAM
-// shelves panel can drop it in without touching call sites — but the
-// internals are designed from scratch:
-//
-// - One state shape: `{ mode: 'view' | 'edit', order: T[] }`. No paired
-//   "current frame / next frame" booleans, no async setState chains.
-// - Swap is an immutable `[a,b]` splice on the order array; entry objects
-//   are never mutated, so React's reconciliation key (position index)
-//   stays stable and the focused row never loses its DOM node.
-// - Visual feedback uses a single CSS class toggled on the wrapper plus
-//   pointer-events gating. The transition is declared in a `<style>` tag
-//   scoped via a unique attribute so it doesn't leak into the rest of the
-//   QAM and so we don't ship one inline style block per rendered row.
-// - The X-button hint is read from i18n; B (CANCEL) commits and exits.
-// - Keyed by entry id (`data.id`) when present, falling back to position
-//   so unkeyed callers still work.
+// Reorderable list. State is `{ mode, order: T[] }`; swaps are
+// immutable splices keyed by entry id (falls back to position).
 
 export type ReorderableEntry<T> = {
   label: ReactNode;
@@ -70,12 +55,9 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
   const orderRef = useRef(state.order);
   orderRef.current = state.order;
 
-  // Per-row DOM refs, indexed by entry id, used to refocus the just-moved
-  // row after a swap. Decky's outer Focusable tracks the focused child by
-  // physical position — when DOM nodes are reordered (id-keyed React
-  // reconciliation), the focus index stays at the old slot, so the next
-  // up/down press swaps the wrong item. Explicitly calling .focus() on
-  // the moved row's element forces Decky to update its internal index.
+  // Per-row refs to refocus the moved row after a swap — the outer
+  // Focusable tracks focus by physical position; without an explicit
+  // .focus() the next press swaps the wrong item.
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const pendingFocusIdRef = useRef<string | null>(null);
 

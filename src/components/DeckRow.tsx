@@ -749,26 +749,9 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     };
   }, [containerRef, showArt]);
 
-  // Idle-time pre-warm of every card's hero in this shelf, so lateral
-  // navigation through the row reads from cache instead of going to the
-  // network on each focus. Key safety properties (the previous attempt
-  // froze the deck — see feedback_hero_perf in memory):
-  //   1. Sequential, NOT parallel — one `warmCacheBackground` at a
-  //      time, walking the card list with `requestIdleCallback`. The
-  //      cache module's inflight dedup makes overlap impossible.
-  //   2. Boot stagger — a per-shelf random delay (500-2500 ms) before
-  //      the walk starts, so N hero shelves don't all kick off the
-  //      first fetch at the same instant when BP loads.
-  //   3. Idle-gated — `requestIdleCallback` yields to user
-  //      interaction. If the user is actively navigating, pre-warm
-  //      pauses until the next idle window.
-  //   4. One-time per mount — runs once per shelf mount, NOT on every
-  //      focus event (the previous design's fan-out trigger).
-  // Combined: a 10-hero-shelf home with 100 cards each pre-warms in
-  // the background without ever firing more than 1 concurrent fetch
-  // in the steady state, persists in Cache Storage across restarts,
-  // and dovetails with the per-card cache lookup so the first focus
-  // on a pre-warmed card is an instant blob-URL hit.
+  // Idle-time hero pre-warm: sequential walk via requestIdleCallback,
+  // per-shelf boot stagger, one-time per mount. Parallel fan-out here
+  // froze the deck previously (see feedback_hero_perf).
   useEffect(() => {
     if (!showArt) return;
     const el = containerRef.current;
@@ -1632,16 +1615,8 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       {(!collapsed || hideShelfTitle) && (
         <Focusable
           ref={rowRef}
-          // ReactVirtualized__Grid__innerScrollContainer is the literal
-          // class name CSS Loader themes (TiltedHome, ArtHero modules,
-          // etc) use as their sibling-selector base — e.g. TiltedHome's
-          // right-side rotation override is gated on
-          // `ReactVirtualized__Grid__innerScrollContainer > div.gpfocuswithin ~ div`.
-          // DS doesn't actually use ReactVirtualized, but adding the
-          // class string makes the row visible to those theme rules so
-          // the cascade reaches DS cards without us replicating the
-          // CSS ourselves. Same intent as adding nativeShelfContainer
-          // to .ds-shelf and nativeCardWrapper to .ds-card.
+          // Carry ReactVirtualized class so CSS Loader theme rules
+          // (TiltedHome/ArtHero) sibling-target DS cards.
           className={`ds-row-scroll ReactVirtualized__Grid__innerScrollContainer${nativeRowClass ? ` ${nativeRowClass}` : ''}`}
           noFocusRing
           role="list"
