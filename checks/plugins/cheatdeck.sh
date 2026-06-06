@@ -22,11 +22,8 @@ run_checks() {
     ((pass++))
   fi
 
-  # The badge portal (ds-card-badge-host--portal) deliberately uses a top
-  # stacking value via `createPortal` into <body>, so it sits outside any
-  # CheatDeck overlay scope and can't intercept its painting. Match grep
-  # lines + 4 context lines (where "ds-card-badge-host" appears) to exempt
-  # only that legitimate usage.
+  # Badge portal uses top stacking via createPortal to <body> — outside
+  # CheatDeck overlay scope. Exempt only that legit usage via 4-line context.
   local high_z
   high_z=$(grep -roB4 'zIndex\s*[:=]\s*"?[0-9]\+' "$src" 2>/dev/null \
     | grep -B4 -E 'zIndex\s*[:=]\s*"?[0-9]+' \

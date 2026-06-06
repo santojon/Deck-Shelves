@@ -1,19 +1,7 @@
 #!/usr/bin/env bash
-# Deck Shelves — On-device performance & sleep test
-#
-# Monitors battery drain, CPU load, and auto-sleep inhibitors on the Steam Deck
-# while the plugin is running. Samples are collected via SSH every 30 seconds.
-#
-# Usage:
-#   pnpm run deck:perf              # default 5 minutes
-#   pnpm run deck:perf -- 10        # 10 minutes
-#   DURATION=15 pnpm run deck:perf  # 15 minutes
-#
-# Requirements:
-#   - .env with DECK_HOST / DECK_USER / DECK_SUDO_PASS
-#   - SSH key auth or password agent configured
-#
-# Output: tabular report + pass/fail summary to stdout.
+# On-device perf + sleep test — samples battery, CPU, sleep inhibitors over SSH every 30 s.
+# Usage: `pnpm run deck:perf [-- minutes]` (default 5). Needs .env DECK_HOST/USER/SUDO_PASS + SSH auth.
+# Outputs tabular report + pass/fail summary to stdout.
 
 set -euo pipefail
 

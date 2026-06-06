@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
-# CI validation — no device required.
-# Runs: typecheck → build → tests → package → compat
-# Writes report to: reports/ci/
-#
-# Usage (direct):  bash scripts/ci/validate-ci.sh
-# Usage (pnpm):    pnpm validate:ci
-#
-# Suitable for GitHub Actions — no SSH / CDP / Steam Deck needed.
+# CI validation (no device). Runs: typecheck → build → tests → package → compat. Report at reports/ci/.
+# Usage: `bash scripts/ci/validate-ci.sh` or `pnpm validate:ci`. Safe for GitHub Actions.
 
 set -uo pipefail
 
@@ -55,11 +49,8 @@ json.dump({'names': names, 'statuses': statuses, 'logs': logs, 'durations_ms': d
       || echo -e "  ${YELLOW}warn: report.py failed${RESET}"
     rm -f "${steps_json}" 2>/dev/null || true
 
-    # Refresh per-scope aggregates so the new run shows up in the manifest /
-    # per-scope index. `--scope-only` skips the top-level `reports/index.html`
-    # + `reports/dashboard.html` — they're gitignored static client-side
-    # shells that fetch each scope's manifest at view time, so they need no
-    # per-run regeneration. The per-run report only writes `{ts}.{html,json}`.
+    # Refresh per-scope aggregates so the new run shows up in the manifest.
+    # `--scope-only` skips top-level shells (gitignored, fetched client-side).
     python3 "${SCRIPT_DIR}/report.py" --rebuild --scope-only --root "${ROOT}" \
       || echo -e "  ${YELLOW}warn: aggregate rebuild failed${RESET}"
 

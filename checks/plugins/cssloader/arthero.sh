@@ -26,13 +26,9 @@ run_checks() {
     ((fail++))
   fi
 
-  # 3. HeroBackground rendering is gated at the parent (HomeInject) — when
-  # the recents-replace overlay is injecting, the parent doesn't pass
-  # `shelfHeroBackground=true`, so our hero isn't rendered alongside the
-  # native one. With the overlay OFF, the native hero element is hidden, so
-  # ArtHero's CSS doesn't paint anything and we can safely render our hero
-  # (it inherits the native hero classes via discovery, so ArtHero's
-  # mask-image rule still applies to ours).
+  # 3. HeroBackground gated in HomeInject — overlay-injecting skips
+  # `shelfHeroBackground=true`; overlay-off hides native hero so ours
+  # paints (inherits native hero classes via discovery → ArtHero mask).
   if grep -q 'replaceInjecting' "$src/components/HomeInject.tsx" 2>/dev/null \
      && grep -q 'shelfHeroBackground' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ HeroBackground render gated by replaceInjecting (no duplicate hero)"
@@ -91,10 +87,8 @@ run_checks() {
     ((fail++))
   fi
 
-  # 8. INVARIANT 1: Promotion is gated on hideRecentsSetting (hero-wrapper themes
-  # must NOT leak into shelves while native recents are visible). The guard
-  # also allows the `forceCssLoaderThemes` opt-in, so the grep matches the
-  # full early-return rather than a `hideRecentsSetting`-only fragment.
+  # 8. INVARIANT 1: Promotion gated on hideRecentsSetting (hero-wrapper themes
+  # can't leak with native recents visible). Allows `forceCssLoaderThemes` opt-in.
   if grep -q 'INVARIANT 1' "$src/components/HomeInject.tsx" 2>/dev/null \
      && grep -q 'if (!hideRecentsSetting && !forceCssLoaderThemes) return' "$src/components/HomeInject.tsx" 2>/dev/null; then
     echo "  ✅ Invariant 1: promotion requires hideRecentsSetting"

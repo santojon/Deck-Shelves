@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
-# Full validation flow:
-#   typecheck → build → tests → package → compat → deploy hard → uitests → perf
-#
-# Only the device steps (deploy onward) are skipped when build fails.
-# Every other step always runs and its result is recorded.
-#
-# Usage:
-#   pnpm validate:full            (no stress)
-#   pnpm validate:full:stress     (with stress fixture + stress suite)
+# Full validation flow: typecheck → build → tests → package → compat → deploy → uitests → perf.
+# Device steps (deploy onward) skipped when build fails; every other step runs and is recorded.
+# Usage: `pnpm validate:full` or `pnpm validate:full:stress`.
 
 set -uo pipefail   # no -e: we handle exit codes ourselves
 
@@ -77,13 +71,8 @@ json.dump({'names': names, 'statuses': statuses, 'logs': logs, 'durations_ms': d
       || echo -e "  ${YELLOW}warn: report.py failed — check ${report_path}${RESET}"
     rm -f "${steps_json}" 2>/dev/null || true
 
-    # Refresh per-scope aggregates (manifests + per-scope index.html) so the
-    # run we just wrote shows up in `reports/local/index.html`. `--scope-only`
-    # skips the top-level `reports/index.html` + `reports/dashboard.html`:
-    # those are static client-side shells that fetch each scope's manifest at
-    # view time, so they show any run without regeneration — and they're
-    # gitignored, so rewriting them on every run would only churn the tree.
-    # Regenerate them on demand with `pnpm reports:rebuild` if needed.
+    # Refresh per-scope aggregates so this run shows up in `reports/local/index.html`.
+    # `--scope-only` skips top-level shells (gitignored, regenerated via `pnpm reports:rebuild`).
     python3 "${SCRIPT_DIR}/report.py" --rebuild --scope-only --root "${ROOT}" \
       || echo -e "  ${YELLOW}warn: aggregate rebuild failed${RESET}"
 

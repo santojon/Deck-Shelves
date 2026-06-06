@@ -38,10 +38,9 @@ run_checks() {
     ((fail++))
   fi
 
-  # 4. Suppression rule for our own focus drop-shadow + Game Cover Shine ::after
-  # under the Round Compat flag — keeps DS cards visually in sync with the
-  # theme's "no focus indicator" mode.
-  if grep -q 'data-ds-theme-focus-round-compat="true"' "$src/components/shelf/shelfStyles.ts" 2>/dev/null; then
+  # 4. Suppression rule for focus drop-shadow + Game Cover Shine ::after under
+  # Round Compat — lives in shelfStylesheetTemplate.ts (CSS) since the split.
+  if grep -q 'data-ds-theme-focus-round-compat="true"' "$src/components/shelf/shelfStylesheetTemplate.ts" "$src/components/shelf/shelfStyles.ts" 2>/dev/null; then
     echo "  ✅ Round Compat suppression rule present in shelfStyles"
     ((pass++))
   else
