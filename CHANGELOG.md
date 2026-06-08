@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Update notifier no longer caches a "no update" decision for 24h.** Probe runs unconditionally on every call when online — the 24h TTL gate left users on a stale `hasUpdate=false` for up to a day after a release dropped. Cache survives only as offline fallback (returned when `isOnline()` is false). No new request volume in practice: callers (boot probe, QAM banner, About page) are already throttled at their call sites.
+
+### Fixed
+
+- **NEW / discount badge intermittently missing on the focused card.** `BadgeFocusOverlay` reads `data-isnew` / `data-discount` once at focusin; if the metadata landed asynchronously (online shelf name resolution, store price probe) after the focus event fired, the overlay never re-rendered. Added a single attribute-only `MutationObserver` on the currently focused card (attached on focusin, disconnected on focusout) so late attribute writes retrigger the sync.
+- **Refresh card missing on composite shelves containing online sources.** `shouldShowRefreshCard` in `src/components/shelf/trailingCards.ts` used a direct `wishlist`/`store` predicate, so a composite shelf whose wishlist/store child needed cache invalidation rendered no refresh trailing card. Now delegates to the canonical `isOnlineSource` (`src/domain/sourceUtils.ts`) which recurses through `composite.sources` — same predicate the context-menu refresh action uses, no behaviour drift between the two surfaces.
+
 ## [2.4.1] - 2026-06-06
 
 ### Added

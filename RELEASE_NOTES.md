@@ -5,6 +5,15 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Changed
+
+- **Update check is now instant when you're online.** Before, the plugin remembered the last result for 24 hours — so a release published mid-day wouldn't show up until the next day. Now it always asks GitHub when there's internet, and the cached result is only used when you're offline.
+
+### Fixed
+
+- **NEW / discount badge no longer disappears on some focused cards.** The overlay that draws the badge above the focus ring only read the badge state once, so games whose info landed a moment later (online shelves, store prices) ended up without a badge. Now the overlay listens for late updates and re-renders automatically.
+- **Refresh card missing on combined shelves with online sources.** A shelf that mixed online (wishlist or store) with offline sources didn't show the refresh card at the end of the row, even though the cache could be stale. Now the card appears whenever any source needs a manual refresh — same rule as the menu action.
+
 ## [2.4.1] - 2026-06-06
 
 ### Fixed

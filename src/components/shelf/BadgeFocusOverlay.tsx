@@ -46,17 +46,26 @@ export function BadgeFocusOverlay() {
       if (raf !== null) return;
       raf = win.requestAnimationFrame(sync);
     };
+    // Re-sync when the focused card's badge attrs land late — happens with
+    // async name resolution / store metadata where `data-isnew` /
+    // `data-discount` flip after the focus event already fired.
+    const attrObserver = new MutationObserver(schedule);
+    const attachAttrObserver = (card: HTMLElement | null) => {
+      attrObserver.disconnect();
+      if (card) attrObserver.observe(card, { attributes: true, attributeFilter: ['data-isnew', 'data-discount'] });
+    };
     const onFocusIn = (e: Event) => {
       const t = e.target as HTMLElement | null;
       const card = t?.closest?.('.ds-card') as HTMLElement | null;
       if (card) {
         current = card;
+        attachAttrObserver(card);
         setTimeout(schedule, READ_TARGET_DELAY_MS);
       }
     };
     const onFocusOut = (e: FocusEvent) => {
       const next = e.relatedTarget as Node | null;
-      if (!next || !root.contains(next)) { current = null; schedule(); }
+      if (!next || !root.contains(next)) { current = null; attachAttrObserver(null); schedule(); }
     };
     root.addEventListener('focusin', onFocusIn, true);
     root.addEventListener('focusout', onFocusOut, true);
@@ -67,6 +76,7 @@ export function BadgeFocusOverlay() {
       root.removeEventListener('focusout', onFocusOut, true);
       win.removeEventListener('scroll', schedule, { capture: true } as any);
       win.removeEventListener('resize', schedule);
+      attrObserver.disconnect();
       if (raf !== null) win.cancelAnimationFrame(raf);
     };
   }, []);
