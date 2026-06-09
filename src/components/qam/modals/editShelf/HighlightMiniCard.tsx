@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Focusable } from '../../../../runtime/host/decky'
 import { CheckIcon } from '../../../filter/utils'
-import { getLandscapeUrls, getPortraitFallbacks } from '../../../../core/steamAssets'
+import { getLandscapeUrls, getPortraitUrls } from '../../../../core/steamAssets'
 
 /**
  * Mini art card rendered in the shelf preview rows. Handles:
@@ -34,7 +34,7 @@ export function HighlightMiniCard({
       if (portraitUrl && !list.includes(portraitUrl)) list.push(portraitUrl)
       if (heroUrl && !list.includes(heroUrl)) list.push(heroUrl)
       if (appid > 0) {
-        for (const u of getPortraitFallbacks(appid)) if (!list.includes(u)) list.push(u)
+        for (const u of getPortraitUrls(appid)) if (!list.includes(u)) list.push(u)
       }
     }
     return list

@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
-import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
+import { getPortraitUrls, getLandscapeUrls } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
@@ -318,7 +318,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       if (item.portraitUrl && !urls.includes(item.portraitUrl)) urls.push(item.portraitUrl);
       if (item.heroUrl && !urls.includes(item.heroUrl)) urls.push(item.heroUrl);
       if (appid > 0) {
-        for (const u of getPortraitFallbacks(appid)) {
+        for (const u of getPortraitUrls(appid)) {
           if (!urls.includes(u)) urls.push(u);
         }
       }

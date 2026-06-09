@@ -3679,6 +3679,31 @@ function resolveUpdatePending(appid: number, overview: any, raw: any): boolean {
 function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any): PlatformAppMeta {
   const isSteam = overview?.is_steam !== false;
   const { heroUrl, portraitUrl } = computeAssetUrls(appid, overview, isSteam);
+  // Best-effort enrichment: snippet/full-description from descriptionsStore,
+  // disk usage from appDetailsStore. Both are no-ops when not yet cached;
+  // a future render after `preloadAppDescriptions` populates them picks up
+  // the values. Pulled inline here so every PlatformAppMeta consumer
+  // (Shelf.tsx, modal preview, manage page) gets the same enriched shape
+  // without each one having to query the stores.
+  let description: string | undefined;
+  let fullDescription: string | undefined;
+  let diskUsageBytes: number | undefined;
+  try {
+    const ads: any = (globalThis as any).appDetailsStore;
+    const desc = ads?.GetDescriptions?.(appid);
+    if (typeof desc?.strSnippet === "string" && desc.strSnippet) description = desc.strSnippet;
+    if (typeof desc?.strFullDescription === "string" && desc.strFullDescription) fullDescription = desc.strFullDescription;
+    const details = ads?.GetAppDetails?.(appid);
+    if (typeof details?.lDiskUsageBytes === "number") diskUsageBytes = details.lDiskUsageBytes;
+  } catch {}
+  const releaseTimestamp = (() => {
+    const v = (overview as any)?.rt_original_release_date ?? (overview as any)?.rt_steam_release_date;
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
+  })();
+  const metacriticScore = (() => {
+    const v = (overview as any)?.metacritic_score;
+    return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+  })();
   return {
     appid,
     name: String(overview?.display_name ?? `App ${appid}`),
@@ -3690,6 +3715,11 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
     playtimeMinutes: pickPlaytimeMinutes(overview),
     updatePending: resolveUpdatePending(appid, overview, raw),
     addedTimestamp: firstFiniteFromOverview(overview, META_ADDED_KEYS),
+    description,
+    fullDescription,
+    releaseTimestamp,
+    metacriticScore,
+    diskUsageBytes,
   };
 }
 

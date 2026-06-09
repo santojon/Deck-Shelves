@@ -3,16 +3,7 @@ import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { logInfo } from "../../runtime/logger";
 import { isArtHeroActive } from "../../core/cssLoaderDetect";
 
-function getHeroUrls(appid: number): string[] {
-  return [
-    `/customimages/${appid}_hero.png`,
-    `/customimages/${appid}_hero.jpg`,
-    `/assets/${appid}/library_hero.jpg`,
-    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
-    `/assets/${appid}/header.jpg`,
-    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/header.jpg`,
-  ];
-}
+import { getHeroUrls } from "../../core/steamAssets";
 
 // Native hero structure (CDP on SteamOS 3.8):
 //   IMG  — filter: grayscale(1) contrast(1), 0.3s fade-in, object-fit: cover
