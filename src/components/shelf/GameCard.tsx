@@ -494,18 +494,13 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
-      {/* Inline badge — floats 6 px above the card edge by default.
-          On focused/hovered/selected cards a CSS rule hides this copy
-          and BadgeFocusOverlay (a portal to document.body) takes over,
-          so the lifted badge can't be clipped by the row scroller's
-          overflow context. */}
       {hasBadge && (
         <div
           className="ds-card-badge-host ds-card-badge-host--inline"
           aria-hidden="true"
           style={{
             position: 'absolute',
-            top: -6,
+            top: -2,
             left: 0,
             right: 0,
             height: 24,

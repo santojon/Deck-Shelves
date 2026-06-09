@@ -219,15 +219,14 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     /* Focus pop: native wraps each card in its own perspective:300px
        container so translateZ(7px) foreshortens into a ~2.4 % zoom.
        DS has no per-card wrapper; perspective on the row tanked nav
-       latency (17 s spikes), and a bare scale(1.025) bumped the swallow
-       rate from 0 % to 33 % because the larger bounding box confuses
-       Steam's nav controller. Compromise: scale(1.015) — a subtle zoom
-       that's perceptually close to native's foreshortening without
-       enlarging the hit-test region enough to derail nav. */
+       latency (17 s spikes). 1.025 bumped the swallow rate from 0 % to
+       33 %; 1.015 kept 0 % but read as too subtle. 1.02 is the middle
+       ground — more visible zoom while staying within the hit-test
+       tolerance Steam's nav controller allows. */
     #deck-shelves-home-root .ds-card:focus,
     #deck-shelves-home-root .ds-card.gpfocus,
     #deck-shelves-home-root .ds-card:hover {
-      transform: scale(1.015);
+      transform: scale(1.025);
     }
     /* Inline badge stays visible on focused cards too — the focus ring
        can visually overlap but the badge must never disappear. */
