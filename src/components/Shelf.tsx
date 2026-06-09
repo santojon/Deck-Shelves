@@ -102,6 +102,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // source-default slot.
   const [sourceIds, setSourceIds] = useState<number[] | null>(null);
   const [storeNames, setStoreNames] = useState<Map<number, string>>(new Map());
+  // Bumped when the price cache is warmed for non-owned smart-shelf cards —
+  // forces rowItems to re-read `getCachedDiscount` so the badge appears.
+  const [priceVersion, setPriceVersion] = useState(0);
   const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null);
   const firstLoad = useRef(true);
   const [metaVersion, setMetaVersion] = useState(0);
@@ -386,8 +389,21 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         }
       } catch {}
     })();
+    // Warm the price cache for non-owned ids so discount badges can appear
+    // on smart-shelf cards (friends_playing / composite with online child).
+    // Wishlist/store sources already do this during resolve; smart shelves
+    // don't, so without this the discount data is never fetched.
+    if (sourceIncludesNonOwned) {
+      (async () => {
+        try {
+          const { getPriceMap } = await import("../core/onlineStore");
+          await getPriceMap(toFetch);
+          if (!cancelled) setPriceVersion(v => v + 1);
+        } catch {}
+      })();
+    }
     return () => { cancelled = true; };
-  }, [needsExternalNames, appIds?.join(','), items]);
+  }, [needsExternalNames, appIds?.join(','), items, sourceIncludesNonOwned]);
 
   const rowItems = useMemo((): DeckRowItem[] => {
     if (!appIds?.length) return [];
@@ -402,6 +418,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       const isOnlineSource =
         shelf.source.type === 'wishlist' ||
         shelf.source.type === 'store' ||
+        sourceIncludesNonOwned ||
         (shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
           && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'));
 
@@ -587,7 +604,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       }
     }
     return base;
-  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, JSON.stringify((shelf as any).syntheticCards ?? null)]);
+  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, JSON.stringify((shelf as any).syntheticCards ?? null), priceVersion]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;

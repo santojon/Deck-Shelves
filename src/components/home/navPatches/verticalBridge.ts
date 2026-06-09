@@ -60,9 +60,13 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
         // Bug B: only bridge from siblings ABOVE our mount, not below (native tabs)
         if (parentChildren.indexOf(sibling) > mountIdx) return;
         // Only bridge when focus is in the lower portion of its sibling
-        // (likely the last row). Prevents hijacking mid-section DOWN moves.
+        // (likely the last row). Use BOTTOM, not TOP — the native recents
+        // row may sit mid-sibling when the sibling stacks a search bar +
+        // tabs + recents (card top would land in the upper half even
+        // though the card itself is the last row), so a top-based check
+        // false-bails and the user gets stuck pressing Down with no move.
         const sibRect = sibling.getBoundingClientRect();
-        if (beforeRect.top < sibRect.top + sibRect.height * 0.55) return;
+        if (beforeRect.bottom < sibRect.top + sibRect.height * 0.5) return;
         redirectTarget = mount.querySelector<HTMLElement>(".ds-card");
       } else if (btn === DIR_UP) {
         if (!mount.contains(before)) return;
@@ -90,7 +94,10 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
       requestAnimationFrame(() => {
         try {
           const after = doc.querySelector<HTMLElement>(".gpfocus");
-          if (!after) return;
+          // Native nav lost focus entirely (active element is <body>, no
+          // .gpfocus anywhere) — bridge into the redirect target so the
+          // user isn't stuck pressing d-pad with nothing happening.
+          if (!after) { focusElement(redirectTarget!); return; }
           if (after === before) {
             // Focus didn't move — bridge
             focusElement(redirectTarget!);

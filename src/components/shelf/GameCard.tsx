@@ -12,6 +12,7 @@ import { PlaceholderCard } from "./PlaceholderCard";
 import { resolveNativeCardClass } from "./cardUtils";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
+import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
 
 // Y-button quick-action: toggle a per-card highlight (entry in
 // `highlightedAppIds`). When the card was being highlighted via the
@@ -22,8 +23,13 @@ export function toggleCardHighlight(shelfId: string | undefined, appid: number):
   if (!shelfId || !appid) return;
   const s = getCurrentSettings();
   if (!s) return;
-  const shelves = (s.shelves ?? []) as any[];
-  const shelf = shelves.find((sh) => sh.id === shelfId);
+  // Smart shelves carry their own settings array — fall back to it when
+  // the id doesn't match a regular shelf so Y-button toggle works on
+  // friends_playing / spare_time / etc cards too.
+  const regular = (s.shelves ?? []) as any[];
+  const smart = ((s as any).smartShelves ?? []) as any[];
+  const isSmart = !regular.find((sh) => sh.id === shelfId);
+  const shelf = isSmart ? smart.find((sh) => sh.id === shelfId) : regular.find((sh) => sh.id === shelfId);
   if (!shelf) return;
   const ids: number[] = shelf.highlightedAppIds ?? [];
   const wasInIds = ids.includes(appid);
@@ -35,7 +41,17 @@ export function toggleCardHighlight(shelfId: string | undefined, appid: number):
   } else {
     patch.highlightedAppIds = [...ids, appid];
   }
-  void saveSettings(patchShelfInSettings(s, shelfId, patch));
+  // saveSettings triggers a Shelf re-render that may unmount/remount the
+  // card and lose focus. Mirror the context-menu "Highlight" path: save
+  // the focus target + start the restore loop so the card stays focused
+  // across the settings → React reconcile cycle.
+  try { saveFocusTarget(appid, shelfId); beginFocusRestoreLoop(); } catch {}
+  if (isSmart) {
+    const updated = smart.map((sh: any) => sh.id === shelfId ? { ...sh, ...patch } : sh);
+    void saveSettings({ ...s, smartShelves: updated } as any);
+  } else {
+    void saveSettings(patchShelfInSettings(s, shelfId, patch));
+  }
 }
 
 const downloadIcon = (
@@ -478,15 +494,18 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
-      {/* Inline badge for non-focused cards. BadgeFocusOverlay handles
-          the focused card so it paints above Steam's FocusRingRoot. */}
+      {/* Inline badge — floats 6 px above the card edge by default.
+          On focused/hovered/selected cards a CSS rule hides this copy
+          and BadgeFocusOverlay (a portal to document.body) takes over,
+          so the lifted badge can't be clipped by the row scroller's
+          overflow context. */}
       {hasBadge && (
         <div
           className="ds-card-badge-host ds-card-badge-host--inline"
           aria-hidden="true"
           style={{
             position: 'absolute',
-            top: -10,
+            top: -6,
             left: 0,
             right: 0,
             height: 24,
