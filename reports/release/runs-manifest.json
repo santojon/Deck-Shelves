@@ -1,1 +1,31 @@
-[]
+[
+  {
+    "ts": "2026-06-10_14-37-15",
+    "stress": false,
+    "subdir": "release",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      7381,
+      1107,
+      3800,
+      1638,
+      142,
+      2893
+    ],
+    "total_duration_ms": 16961,
+    "_scope": "release"
+  }
+]
