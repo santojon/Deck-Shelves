@@ -62,7 +62,7 @@ function runProbe(maybeId, expression, opts = {}) {
       const m = JSON.parse(d);
       if (typeof m.id !== 'number') return;
       const r = pending.get(m.id);
-      if (!r) return;
+      if (typeof r !== 'function') return;
       pending.delete(m.id);
       r(m.result || m.error);
     });

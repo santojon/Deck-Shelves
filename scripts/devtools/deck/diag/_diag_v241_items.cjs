@@ -11,7 +11,7 @@ function send(method, params) {
 c.on('message', (d) => {
   const m = JSON.parse(d);
   if (typeof m.id !== 'number') return;
-  const r = pending.get(m.id); if (!r) return;
+  const r = pending.get(m.id); if (typeof r !== 'function') return;
   pending.delete(m.id); r(m.result || m.error);
 });
 c.on('open', async () => {
