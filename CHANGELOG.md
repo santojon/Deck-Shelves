@@ -7,9 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Centralised Steam asset URL provider** (`src/core/steamAssets.ts`). Single source for the prioritised loopback → CDN chain across hero, portrait, landscape, logo, icon, plus the new heroBlur (192×62 ~10 KB placeholder) and storeBackground (1438×810 page bg) variants. Hero URL now starts with `https://steamloopback.host/assets/<appid>/library_hero.jpg?c=<local_cache_version>` — the same path native recents use, served from the on-disk cache in 3-9 ms. CDN remains as last-resort fallback.
+- **`highlightRandom` shelf flag.** Deterministic ~25 % of cards on a shelf render in featured (landscape) size — stable per shelf id + appid set so cards don't re-shuffle their size between renders. Surfaced as a context-menu flag, in the edit-modal Visual tab (regular + smart), and as a global toggle in the QAM Visual section.
+- **`installed`-template fallback.** When Steam's tab store returns empty for `tab=installed` (boot-time race or theme weirdness), the resolver routes through `_resolveFilter({ installed: true })` so the template never produces an empty shelf. Other built-in tabs continue to use the primary path.
+
 ### Changed
 
+- **Card animation matches native Steam recents.** Card transitions now `filter + box-shadow + transform 0.4s cubic-bezier(0, 0.73, 0.48, 1)` (was 0.16s with a different curve). Focus pop uses `scale(1.02)` (no perspective wrapper to keep nav latency low — `translateZ(7px)` requires per-card perspective context which made horizontal nav 17 s slow on a tight scroller). Smooth row scroll kept; native uses transform-driven scroll which DS can't replicate without a bigger restructure.
+- **Horizontal nav swallow eliminated.** The previous 160 ms transform transition compounded with Steam's nav-controller debounce, swallowing every other ArrowRight press. The native-matched transition no longer triggers this, so 14/14 presses now succeed at ~85 ms avg latency.
+- **Vertical-bridge "Down from native recents" heuristic switched from `beforeRect.top` to `beforeRect.bottom`.** The previous top-based check false-bailed when the native recents row sat below a tall sibling (search bar + tabs above the cards), leaving the d-pad Down stuck. Bottom-based check correctly identifies the recents row as the "last row" and bridges into the DS first card.
+- **Hero swap deferred until new image is loaded.** `PerShelfHero` keeps the previously loaded slot active until `loadedSrcA`/`loadedSrcB` confirms the new src has decoded — eliminates the 200-500 ms fade-to-black gap that appeared when the new hero was still downloading from CDN.
+- **Badge alignment matches native** (top: -4 unfocused, overlay state.top - 8 focused). Inline badge still hides on focus via `visibility: hidden` so the BadgeFocusOverlay portal (rendered at `document.body`, never clipped) owns the lifted render.
+- **Focus ring `outline-offset` bumped to 2 px on Steam's FocusRing element.** Roomier visual indicator without altering the ring colour (falls back to transparent when the theme doesn't set `--custom-sp-color-border`).
+- **Badge unfocused offset reduced from -6 to -4 px** so the tag sits closer to the card art in the resting state.
 - **Update notifier no longer caches a "no update" decision for 24h.** Probe runs unconditionally on every call when online — the 24h TTL gate left users on a stale `hasUpdate=false` for up to a day after a release dropped. Cache survives only as offline fallback (returned when `isOnline()` is false). No new request volume in practice: callers (boot probe, QAM banner, About page) are already throttled at their call sites.
+
+### Removed
+
+- **`window.__DECK_SHELVES_API__`** — replaced by `window.deckShelves.api`. The old direct property no longer exists. Consumers should import `register()` from `@deck-shelves/api` and receive the API via `onMount(api)`.
+- **`window.__DECK_SHELVES_PENDING_TAB__`** — replaced by module-private state in `src/core/shelfActions.ts` with `consumePendingShelfModalTab()`. EditShelfModal reads it once on mount and clears.
+- **`window.__DECK_SHELVES_DEBUG__`** — moved to `window.deckShelves.debug` (same field shape: `lcmPatched`, `lcmRenderCalls`, etc.).
+- **`getPortraitFallbacks` back-compat alias** in `src/core/steamAssets.ts`. Was a re-export of `getPortraitUrls` kept while call sites migrated; all four internal usages now import `getPortraitUrls` directly.
 
 ### Fixed
 

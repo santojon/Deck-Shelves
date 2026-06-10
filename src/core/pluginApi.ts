@@ -1,5 +1,8 @@
 /**
- * Public Plugin API — v2. Exposed at `window.__DECK_SHELVES_API__`.
+ * Public Plugin API — v3. Exposed at `window.deckShelves` (with `.api`,
+ * `.register`, `.debug`). External consumers should use the
+ * `@deck-shelves/api` package's `register()` helper — it handles the
+ * pending-queue timing so the integration works regardless of load order.
  * Every shape here is part of the ABI: additive changes are safe,
  * renames/removals bump `version`. Usage in `docs/plugin-api.md`.
  */
@@ -280,51 +283,70 @@ export interface PublicSavedSmartFilter {
 }
 
 // ---------------------------------------------------------------------------
-// 2. API SURFACE — what `window.__DECK_SHELVES_API__` exposes
+// 2. API SURFACE — what `window.deckShelves.api` exposes
 // ---------------------------------------------------------------------------
 
+/** Focused-card snapshot — see `subscribeFocusedCard`. */
+export interface FocusedCardInfo {
+  appid: number;
+  shelfId: string | null;
+}
+
+/** Asset types supported by `getAssetUrls`. */
+export type AssetType = "hero" | "heroBlur" | "portrait" | "landscape" | "logo" | "icon" | "storeBackground";
+
+/** Integration record passed to `window.deckShelves.register`. */
+export interface DeckShelvesIntegration {
+  name: string;
+  version?: string;
+  onMount(api: DeckShelvesPublicAPI): void | Promise<void>;
+  onUnmount?(): void | Promise<void>;
+}
+
 export interface DeckShelvesPublicAPI {
-  /** API surface version. v1 plugins should check `version >= 1` to detect
-   *  v2 method availability before calling new methods. */
-  readonly version: 2;
+  /** API surface version. v3 is the first import + register revision. */
+  readonly version: 3;
 
-  // --- v1 (unchanged) -----------------------------------------------------
+  // --- Registries --------------------------------------------------------
   registerShelfSource(d: ExternalShelfSourceDescriptor): Unsubscribe;
-  getRegisteredSources(): ReadonlyArray<ExternalShelfSourceDescriptor>;
-
-  // --- v2 registries ------------------------------------------------------
   registerSmartShelfSource(d: SmartShelfSourceDescriptor): Unsubscribe;
-  getRegisteredSmartSources(): ReadonlyArray<SmartShelfSourceDescriptor>;
-
   registerFilterType(d: ExternalFilterTypeDescriptor): Unsubscribe;
-  getRegisteredFilterTypes(): ReadonlyArray<ExternalFilterTypeDescriptor>;
-
   registerSortOption(d: ExternalSortOptionDescriptor): Unsubscribe;
-  getRegisteredSortOptions(): ReadonlyArray<ExternalSortOptionDescriptor>;
-
   registerImportType(d: ExternalImportTypeDescriptor): Unsubscribe;
+  registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
+
+  getRegisteredSources(): ReadonlyArray<ExternalShelfSourceDescriptor>;
+  getRegisteredSmartSources(): ReadonlyArray<SmartShelfSourceDescriptor>;
+  getRegisteredFilterTypes(): ReadonlyArray<ExternalFilterTypeDescriptor>;
+  getRegisteredSortOptions(): ReadonlyArray<ExternalSortOptionDescriptor>;
   getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>;
   /** Returns import types whose `target` matches (default `"shelves"`).
    *  The QAM uses this to populate per-section import menus. */
   getRegisteredImportTypesForTarget(target: ImportTarget): ReadonlyArray<ExternalImportTypeDescriptor>;
 
-  registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
-
-  // --- v2 environment probes ---------------------------------------------
-  /** True iff TabMaster is installed and active. Plugins that mirror tab
-   *  data should skip their own injection when this returns `true` to avoid
-   *  duplicate sources in the picker. */
-  hasTabMaster(): boolean;
-
-  // --- v2 consumer contracts ---------------------------------------------
+  // --- Snapshots + subscriptions -----------------------------------------
   getShelves(): ReadonlyArray<PublicShelf>;
   getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
   getSavedFilters(): ReadonlyArray<PublicSavedFilter>;
-  /** saved smart shelf templates persisted by the user. */
   getSavedSmartFilters(): ReadonlyArray<PublicSavedSmartFilter>;
-  subscribeToShelves(cb: (shelves: ReadonlyArray<PublicShelf>) => void): Unsubscribe;
-  subscribeToSmartShelves(cb: (shelves: ReadonlyArray<PublicSmartShelf>) => void): Unsubscribe;
-  subscribeToSavedFilters(cb: (filters: ReadonlyArray<PublicSavedFilter>) => void): Unsubscribe;
+  subscribeShelves(cb: (shelves: ReadonlyArray<PublicShelf>) => void): Unsubscribe;
+  subscribeSmartShelves(cb: (shelves: ReadonlyArray<PublicSmartShelf>) => void): Unsubscribe;
+  subscribeSavedFilters(cb: (filters: ReadonlyArray<PublicSavedFilter>) => void): Unsubscribe;
+
+  // --- Focus tracking (v3) ----------------------------------------------
+  /** Returns the currently focused card or null when focus is elsewhere. */
+  getFocusedCard(): FocusedCardInfo | null;
+  /** Fires whenever the focused card changes (also fires with null when
+   *  focus leaves all DS shelves). Immediate-fire on subscribe. */
+  subscribeFocusedCard(cb: (info: FocusedCardInfo | null) => void): Unsubscribe;
+
+  // --- Asset URLs (v3) ---------------------------------------------------
+  /** Returns the prioritized URL list for the given asset type and appid.
+   *  Loopback (local Steam cache) first, then customimages, then CDN. */
+  getAssetUrls(appid: number, type: AssetType): string[];
+
+  // --- Environment probes ------------------------------------------------
+  hasTabMaster(): boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,7 +436,7 @@ export function getExternalImportTypesForTarget(target: ImportTarget): ExternalI
 /**
  * Internal helper for registering import types from inside the plugin
  * (e.g. the QAM registers TabMaster's custom flow at mount time). Equivalent
- * to calling `__DECK_SHELVES_API__.registerImportType(d)` but without
+ * to calling `window.deckShelves.api.registerImportType(d)` but without
  * crossing the global window boundary — the unsubscribe is symmetric.
  */
 export function registerInternalImportType(d: ExternalImportTypeDescriptor): () => void {
@@ -569,7 +591,7 @@ function projectSavedSmartFilters(s: Settings | null): ReadonlyArray<PublicSaved
 
 function makeApi(): DeckShelvesPublicAPI {
   return {
-    version: 2,
+    version: 3,
 
     // v1
     registerShelfSource(d) {
@@ -628,7 +650,7 @@ function makeApi(): DeckShelvesPublicAPI {
     getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
     getSavedFilters() { return projectSavedFilters(getCurrentSettings()); },
     getSavedSmartFilters() { return projectSavedSmartFilters(getCurrentSettings()); },
-    subscribeToShelves(cb) {
+    subscribeShelves(cb) {
       let last = JSON.stringify(projectShelves(getCurrentSettings()));
       return subscribeSettings((s) => {
         const next = projectShelves(s);
@@ -638,7 +660,7 @@ function makeApi(): DeckShelvesPublicAPI {
         try { cb(next); } catch {}
       });
     },
-    subscribeToSmartShelves(cb) {
+    subscribeSmartShelves(cb) {
       let last = JSON.stringify(projectSmartShelves(getCurrentSettings()));
       return subscribeSettings((s) => {
         const next = projectSmartShelves(s);
@@ -648,7 +670,7 @@ function makeApi(): DeckShelvesPublicAPI {
         try { cb(next); } catch {}
       });
     },
-    subscribeToSavedFilters(cb) {
+    subscribeSavedFilters(cb) {
       let last = JSON.stringify(projectSavedFilters(getCurrentSettings()));
       return subscribeSettings((s) => {
         const next = projectSavedFilters(s);
@@ -658,8 +680,39 @@ function makeApi(): DeckShelvesPublicAPI {
         try { cb(next); } catch {}
       });
     },
+
+    // --- v3 -------------------------------------------------------------
+    getFocusedCard() {
+      const { getFocusedCard } = requireFocusTracker();
+      return getFocusedCard();
+    },
+    subscribeFocusedCard(cb) {
+      const { subscribeFocusedCard } = requireFocusTracker();
+      return subscribeFocusedCard(cb);
+    },
+    getAssetUrls(appid, type) {
+      const a = requireAssets();
+      switch (type) {
+        case "hero": return a.getHeroUrls(appid);
+        case "heroBlur": return a.getHeroBlurUrls(appid);
+        case "portrait": return a.getPortraitUrls(appid);
+        case "landscape": return a.getLandscapeUrls(appid);
+        case "logo": return a.getLogoUrls(appid);
+        case "icon": return a.getIconUrls(appid);
+        case "storeBackground": return a.getStorePageBackgroundUrls(appid);
+        default: return [];
+      }
+    },
   };
 }
+
+// Direct re-imports — these are leaf modules with no top-level
+// side-effects, so eager binding is fine and keeps the API constructor
+// dependency-free of runtime require()s.
+import * as focusTracker from "./focusedCardTracker";
+import * as assets from "./steamAssets";
+function requireFocusTracker(): typeof focusTracker { return focusTracker; }
+function requireAssets(): typeof assets { return assets; }
 
 // ---------------------------------------------------------------------------
 // 7. INSTALL / UNINSTALL
@@ -667,19 +720,41 @@ function makeApi(): DeckShelvesPublicAPI {
 
 /**
  * Event dispatched on `window` immediately after the API surface is installed.
- * `event.detail` is the live `DeckShelvesPublicAPI` object — same reference
- * as `window.__DECK_SHELVES_API__`. Plugin authors can listen for this
- * instead of polling, and still fall back to the global for late-loaded
- * plugins (the global is set _before_ the event fires).
+ * No detail payload — consumers go through `window.deckShelves.api` or use
+ * `register()` from `@deck-shelves/api` which queues until ready.
  */
-export const READY_EVENT = "deck-shelves-ready";
+export const READY_EVENT = "deck-shelves:ready";
 
 /**
  * Event dispatched on `window` immediately before the API is torn down
- * (Deck Shelves unloading). External plugins should release any cached API
- * reference on this event to avoid using a stale object after teardown.
+ * (Deck Shelves unloading). Registered integrations get their `onUnmount`
+ * fired first; this event is a final signal for non-SDK consumers that
+ * cached the API directly.
  */
-export const TEARDOWN_EVENT = "deck-shelves-teardown";
+export const TEARDOWN_EVENT = "deck-shelves:teardown";
+
+/** Pending integrations queued by the SDK before the plugin loaded. The
+ *  SDK pushes here via `globalThis[Symbol.for('deck-shelves/pending')]`;
+ *  install drains the queue at the same time as it installs the global. */
+const PENDING_KEY = Symbol.for("deck-shelves/pending");
+type PendingEntry = {
+  integration: DeckShelvesIntegration;
+  unsub?: Unsubscribe;
+  cancelled?: boolean;
+};
+
+function drainPendingIntegrations(api: DeckShelvesPublicAPI, register: (i: DeckShelvesIntegration) => Unsubscribe): Unsubscribe[] {
+  const queue = (globalThis as unknown as Record<symbol, unknown>)[PENDING_KEY];
+  const offs: Unsubscribe[] = [];
+  if (!Array.isArray(queue)) return offs;
+  while (queue.length) {
+    const entry = queue.shift() as PendingEntry;
+    if (entry.cancelled) continue;
+    try { entry.unsub = register(entry.integration); offs.push(entry.unsub); } catch {}
+  }
+  void api;
+  return offs;
+}
 
 /**
  * Hook for the internal-registry bootstrap. The actual implementation lives
@@ -693,15 +768,46 @@ export function setInternalBootstrap(fn: () => () => void): void { internalBoots
 
 export function installPluginApi(): () => void {
   const api = makeApi();
-  // Register every first-party id BEFORE dispatching ready so plugins
-  // listening for `deck-shelves-ready` see the full built-in surface.
+  // Register every first-party id BEFORE exposing the global so plugins
+  // that listen for `deck-shelves:ready` see the full built-in surface.
   const uninstallInternals = internalBootstrap ? internalBootstrap() : () => {};
-  try { (window as any).__DECK_SHELVES_API__ = api; } catch {}
-  try { window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: api })); } catch {}
+
+  const integrationUnsubs: Unsubscribe[] = [];
+  const teardownFns: Array<() => void | Promise<void>> = [];
+
+  const register = (integration: DeckShelvesIntegration): Unsubscribe => {
+    let unmountFired = false;
+    void Promise.resolve()
+      .then(() => integration.onMount(api))
+      .catch(() => {});
+    if (integration.onUnmount) teardownFns.push(integration.onUnmount);
+    return () => {
+      if (unmountFired) return;
+      unmountFired = true;
+      try { integration.onUnmount?.(); } catch {}
+    };
+  };
+
+  // The single public global. No underscores, no surface beyond what the
+  // contract exposes. Power users that need a direct API handle use
+  // `window.deckShelves.api`; everyone else should `register()`.
+  const deckShelves = {
+    version: api.version,
+    api,
+    register,
+  };
+  try { (window as unknown as { deckShelves: typeof deckShelves }).deckShelves = deckShelves; } catch {}
+
+  // Drain SDK-queued integrations.
+  for (const u of drainPendingIntegrations(api, register)) integrationUnsubs.push(u);
+
+  try { window.dispatchEvent(new CustomEvent(READY_EVENT)); } catch {}
 
   return () => {
     try { window.dispatchEvent(new CustomEvent(TEARDOWN_EVENT)); } catch {}
-    try { delete (window as any).__DECK_SHELVES_API__; } catch {}
+    for (const fn of teardownFns) { try { void fn(); } catch {} }
+    for (const u of integrationUnsubs) { try { u(); } catch {} }
+    try { delete (window as unknown as Record<string, unknown>).deckShelves; } catch {}
     try { uninstallInternals(); } catch {}
     shelfSources.clear();
     smartSources.clear();

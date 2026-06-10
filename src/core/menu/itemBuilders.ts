@@ -194,6 +194,7 @@ function buildVisual(ctx: Ctx, mk: Mk): any[] {
     makeFlagItem(mk, shelf, isSmart, shelfId, "matchNativeSize", "ds-v-native", "match_native_size", "Match native size"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightFirst", "ds-v-hiFirst", "highlight_first", "Highlight first card"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightAll", "ds-v-hiAll", "highlight_all", "Highlight all cards"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "highlightRandom", "ds-v-hiRandom", "highlight_random", "Random featured cards"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "heroEnabled", "ds-v-hero", "hero_enabled_label", "Enable hero art"),
   ];
 }

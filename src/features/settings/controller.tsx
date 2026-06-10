@@ -283,6 +283,26 @@ export function useSettingsController() {
       if (!s || s.globalHighlightAll === globalHighlightAll) return;
       await persist({ ...s, globalHighlightAll });
     },
+    async setGlobalHighlightRandom(globalHighlightRandom: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).globalHighlightRandom === globalHighlightRandom) return;
+      await persist({ ...s, globalHighlightRandom } as any);
+    },
+    async setGlobalEnableLogo(globalEnableLogo: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).globalEnableLogo === globalEnableLogo) return;
+      await persist({ ...s, globalEnableLogo } as any);
+    },
+    async setGlobalEnableIcon(globalEnableIcon: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).globalEnableIcon === globalEnableIcon) return;
+      await persist({ ...s, globalEnableIcon } as any);
+    },
+    async setGlobalEnableDescription(globalEnableDescription: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).globalEnableDescription === globalEnableDescription) return;
+      await persist({ ...s, globalEnableDescription } as any);
+    },
     async setGlobalHideNewBadge(globalHideNewBadge: boolean) {
       const s = liveSettings();
       if (!s || s.globalHideNewBadge === globalHideNewBadge) return;

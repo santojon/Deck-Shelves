@@ -21,8 +21,6 @@
  * menu enrichment can reuse the same fallback chain.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 const LOOPBACK_ORIGIN = "https://steamloopback.host";
 const STEAMSTATIC_ORIGIN = "https://shared.cloudflare.steamstatic.com";
 const AKAMAI_ORIGIN = "https://cdn.akamai.steamstatic.com";
@@ -43,7 +41,7 @@ type SteamAppOverview = {
 
 function getOverview(appid: number): SteamAppOverview | null {
   try {
-    const store: any = (globalThis as any).appStore;
+    const store = (globalThis as unknown as { appStore?: { GetAppOverviewByAppID?: (id: number) => SteamAppOverview } }).appStore;
     return store?.GetAppOverviewByAppID?.(appid) ?? null;
   } catch { return null; }
 }

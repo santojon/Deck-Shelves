@@ -16,8 +16,6 @@
  * or older SteamOS builds — every getter returns null in that case.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 export type AppDescriptions = {
   /** Short snippet (~150 chars) — store-page lead, plain text. */
   snippet: string;
@@ -25,13 +23,20 @@ export type AppDescriptions = {
   fullHtml: string;
 };
 
+type StoreShape = {
+  RequestDescriptionsData?: (appid: number) => void;
+  GetDescriptions?: (appid: number) => { strSnippet?: string; strFullDescription?: string } | null | undefined;
+};
+
 const cache = new Map<number, AppDescriptions>();
 const pending = new Set<number>();
 const failureCount = new Map<number, number>();
 const MAX_RETRIES = 2;
+const TIMEOUT_MS = 5000;
+const POLL_MS = 100;
 
-function getStore(): any {
-  return (globalThis as any).appDetailsStore;
+function getStore(): StoreShape | undefined {
+  return (globalThis as unknown as { appDetailsStore?: StoreShape }).appDetailsStore;
 }
 
 /** Returns the cached descriptions for `appid`, or `null` when not yet
@@ -39,6 +44,42 @@ function getStore(): any {
  *  pair this with `preloadAppDescriptions` and a retry on the next tick. */
 export function getAppDescriptions(appid: number): AppDescriptions | null {
   return cache.get(appid) ?? null;
+}
+
+function markFailure(appid: number): void {
+  pending.delete(appid);
+  failureCount.set(appid, (failureCount.get(appid) ?? 0) + 1);
+}
+
+function readDescriptions(store: StoreShape, appid: number): AppDescriptions | null {
+  try {
+    const desc = store.GetDescriptions?.(appid);
+    const snippet = typeof desc?.strSnippet === "string" ? desc.strSnippet : "";
+    const fullHtml = typeof desc?.strFullDescription === "string" ? desc.strFullDescription : "";
+    return (snippet || fullHtml) ? { snippet, fullHtml } : null;
+  } catch {
+    return null;
+  }
+}
+
+function pollUntilReady(store: StoreShape, appid: number): void {
+  const startedAt = Date.now();
+  const tick = (): void => {
+    if (!pending.has(appid)) return;
+    const found = readDescriptions(store, appid);
+    if (found) {
+      cache.set(appid, found);
+      pending.delete(appid);
+      failureCount.delete(appid);
+      return;
+    }
+    if (Date.now() - startedAt > TIMEOUT_MS) {
+      markFailure(appid);
+      return;
+    }
+    setTimeout(tick, POLL_MS);
+  };
+  setTimeout(tick, POLL_MS);
 }
 
 /** Schedules a background fetch for `appid` if not already cached or
@@ -49,43 +90,15 @@ export function preloadAppDescriptions(appid: number): void {
   if (cache.has(appid) || pending.has(appid)) return;
   if ((failureCount.get(appid) ?? 0) >= MAX_RETRIES) return;
   const store = getStore();
-  if (!store?.RequestDescriptionsData || !store?.GetDescriptions) return;
+  if (!store?.RequestDescriptionsData || !store.GetDescriptions) return;
   pending.add(appid);
   try {
     store.RequestDescriptionsData(appid);
   } catch {
-    pending.delete(appid);
-    failureCount.set(appid, (failureCount.get(appid) ?? 0) + 1);
+    markFailure(appid);
     return;
   }
-  // The store doesn't expose a callback for descriptions specifically.
-  // Poll a few times — descriptions arrive within a few hundred ms when
-  // the network is healthy. Bounded so a permanently-failed fetch doesn't
-  // leak listeners.
-  const startedAt = Date.now();
-  const TIMEOUT_MS = 5000;
-  const POLL_MS = 100;
-  const tick = (): void => {
-    if (!pending.has(appid)) return;
-    try {
-      const desc = store.GetDescriptions?.(appid);
-      const snippet = typeof desc?.strSnippet === "string" ? desc.strSnippet : "";
-      const fullHtml = typeof desc?.strFullDescription === "string" ? desc.strFullDescription : "";
-      if (snippet || fullHtml) {
-        cache.set(appid, { snippet, fullHtml });
-        pending.delete(appid);
-        failureCount.delete(appid);
-        return;
-      }
-    } catch {}
-    if (Date.now() - startedAt > TIMEOUT_MS) {
-      pending.delete(appid);
-      failureCount.set(appid, (failureCount.get(appid) ?? 0) + 1);
-      return;
-    }
-    setTimeout(tick, POLL_MS);
-  };
-  setTimeout(tick, POLL_MS);
+  pollUntilReady(store, appid);
 }
 
 /** Schedules background fetches for a batch of appids. Same caching /

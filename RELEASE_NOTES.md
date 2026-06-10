@@ -5,11 +5,28 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Random featured cards (`highlightRandom`).** A new visual toggle that randomly featurises ~25 % of the cards on a shelf — gives the home a Netflix-style mix of large and small cards without manually picking each one. Available on every shelf's context menu, in the edit modal's Visual tab, and as a global toggle in the QAM Visual section. The pick is deterministic per shelf so the same cards stay featured between sessions (no random jiggling).
+- **Heroes load instantly for owned games.** The plugin now uses Steam's own cache URL (`steamloopback.host`) for hero art instead of the public CDN — heroes pop up in 3-9 ms when you focus a card instead of fading in over 200-500 ms. Apps Steam hasn't cached yet still fall through to the CDN.
+- **`@deck-shelves/api` package.** Other Decky plugins and themes can now integrate with Deck Shelves through a tiny npm package — `npm install @deck-shelves/api`, then `import { register } from '@deck-shelves/api'`. Register sources, smart-shelf templates, filter types, sort options, import handlers, saved filters. New in this release: subscribe to focused-card changes and ask Deck Shelves to build the right asset URL for an appid without re-implementing the loopback / CDN chain. Ships from the `api/` folder in this repo.
+- **Centralised image-URL provider.** All asset URLs (hero, portrait, landscape, logo, icon, and the new blur placeholder and store-page background variants) come from a single module with a consistent loopback-first, CDN-last chain. Logo and icon getters are exposed even though no current feature uses them — they're ready when a future spine layout or list view wants them.
+
 ### Changed
 
-- **Update check is now instant when you're online.** Before, the plugin remembered the last result for 24 hours — so a release published mid-day wouldn't show up until the next day. Now it always asks GitHub when there's internet, and the cached result is only used when you're offline.
+- **Card focus animation now matches Steam's own.** Cards transition over 400 ms with Steam's slow-out curve instead of the previous snappy 160 ms — feels less abrupt during navigation. Focus pop reproduces native's perceived zoom via a 1.02× scale.
+- **Horizontal nav no longer swallows every other press.** Holding right (or rapid taps) now moves the focus continuously instead of dropping half the presses — the previous transform transition was conflicting with Steam's nav controller's debounce window.
+- **D-pad Down from native Steam recents reliably enters DS shelves.** Some users were getting stuck pressing Down from the native recents row with nothing happening; the bridge that walks focus into the DS shelves was bailing too eagerly. Fixed.
+- **Hero art no longer goes black during a swap.** Navigating between cards used to flash a 200-500 ms gap while the new hero loaded; now the previously loaded hero stays painted until the new one is ready, then they cross-fade smoothly.
+- **Badge positioning matches native Steam exactly.** The NEW / discount tag sits the same distance from the card edge as Steam's own native shelves, including the slight sink-in when the card is focused. The unfocused offset was also tightened by 2 px to feel less floaty.
+- **Focus ring slightly further from the cover art.** Bumped the outline gap from 1 px to 2 px for a roomier focus indicator.
+- **Update check is instant when you're online.** Before, the plugin remembered the last result for 24 hours — so a release published mid-day wouldn't show up until the next day. Now it always asks GitHub when there's internet, and the cached result is only used when you're offline.
 
 ### Fixed
+
+- **Boot freeze regression.** A description-warmup added in an earlier iteration of this release fired ~100 store-data requests + polling timers at shelf mount; reverted so descriptions are only fetched on demand (e.g. when a future tooltip / detail view actually needs the snippet).
+- **"Installed games" template no longer produces an empty shelf.** When Steam's library tab system hadn't populated the installed tab yet (boot-timing or certain theme combos), the template just showed nothing. Now falls back to the `installed: true` filter, which always works.
+- **Random featured toggle persists.** The toggle was visually flipping on then reverting to off after closing/reopening the modal or QAM because the Python backend wasn't whitelisting the new field — fixed for both per-shelf and global scopes.
 
 - **NEW / discount badge no longer disappears on some focused cards.** The overlay that draws the badge above the focus ring only read the badge state once, so games whose info landed a moment later (online shelves, store prices) ended up without a badge. Now the overlay listens for late updates and re-renders automatically.
 - **Refresh card missing on combined shelves with online sources.** A shelf that mixed online (wishlist or store) with offline sources didn't show the refresh card at the end of the row, even though the cache could be stale. Now the card appears whenever any source needs a manual refresh — same rule as the menu action.
