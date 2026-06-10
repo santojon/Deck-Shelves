@@ -152,10 +152,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // EAppDisplayStatus: Launching=1, Reconfiguring=2, Installing=3,
       // Running=4, Validating=5, UpdateQueued=7, UpdatePaused=8,
       // Staging=12, Committing=13, Downloading=19.
+      // Uninstalling/Suspended (ds 6 / 14 / 16) — Steam's native menu surfaces
+      // "Uninstall" / "Cancel uninstall" as the first item, not Play.
       const RUNNING = ds === 1 || ds === 4;
       const UPDATE = ds === 2 || ds === 5 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 19;
+      const UNINSTALLING = ds === 6 || ds === 14 || ds === 16;
       if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
       if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
+      if (UNINSTALLING) return { label: i18n.t('menu_uninstall'), action: 'run' };
       return { label: i18n.t('menu_play'), action: 'run' };
     } catch { return { label: undefined, action: 'run' }; }
   }, [appid, previewMode]);
