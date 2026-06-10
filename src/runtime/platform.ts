@@ -8,12 +8,26 @@ export type PlatformAppMeta = {
   name: string;
   heroUrl?: string;
   portraitUrl?: string;
+  logoUrl?: string;
+  iconUrl?: string;
   installed?: boolean;
   isSteam?: boolean;
   deckCompatCategory?: number;
   playtimeMinutes?: number;
   addedTimestamp?: number;
   updatePending?: boolean;
+  /** Short store-page snippet (plain text). Populated lazily from
+   *  `appDetailsStore.GetDescriptions(appid).strSnippet` — null until the
+   *  first call after `preloadAppDescriptions` warms it. */
+  description?: string;
+  /** Full HTML store description from `GetDescriptions().strFullDescription`. */
+  fullDescription?: string;
+  /** Unix-seconds release date (from `rt_original_release_date` on overview). */
+  releaseTimestamp?: number;
+  /** Metacritic score (0-100) when Steam exposes one. */
+  metacriticScore?: number;
+  /** On-disk size in bytes from `appDetailsStore.GetAppDetails(appid).lDiskUsageBytes`. */
+  diskUsageBytes?: number;
 };
 
 export interface PlatformApi {

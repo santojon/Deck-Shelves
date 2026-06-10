@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
-import { getPortraitFallbacks, getLandscapeUrls } from "../../core/steamAssets";
+import { getPortraitUrls, getLandscapeUrls } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
@@ -12,6 +12,7 @@ import { PlaceholderCard } from "./PlaceholderCard";
 import { resolveNativeCardClass } from "./cardUtils";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
+import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
 
 // Y-button quick-action: toggle a per-card highlight (entry in
 // `highlightedAppIds`). When the card was being highlighted via the
@@ -22,8 +23,13 @@ export function toggleCardHighlight(shelfId: string | undefined, appid: number):
   if (!shelfId || !appid) return;
   const s = getCurrentSettings();
   if (!s) return;
-  const shelves = (s.shelves ?? []) as any[];
-  const shelf = shelves.find((sh) => sh.id === shelfId);
+  // Smart shelves carry their own settings array — fall back to it when
+  // the id doesn't match a regular shelf so Y-button toggle works on
+  // friends_playing / spare_time / etc cards too.
+  const regular = (s.shelves ?? []) as any[];
+  const smart = ((s as any).smartShelves ?? []) as any[];
+  const isSmart = !regular.find((sh) => sh.id === shelfId);
+  const shelf = isSmart ? smart.find((sh) => sh.id === shelfId) : regular.find((sh) => sh.id === shelfId);
   if (!shelf) return;
   const ids: number[] = shelf.highlightedAppIds ?? [];
   const wasInIds = ids.includes(appid);
@@ -35,7 +41,17 @@ export function toggleCardHighlight(shelfId: string | undefined, appid: number):
   } else {
     patch.highlightedAppIds = [...ids, appid];
   }
-  void saveSettings(patchShelfInSettings(s, shelfId, patch));
+  // saveSettings triggers a Shelf re-render that may unmount/remount the
+  // card and lose focus. Mirror the context-menu "Highlight" path: save
+  // the focus target + start the restore loop so the card stays focused
+  // across the settings → React reconcile cycle.
+  try { saveFocusTarget(appid, shelfId); beginFocusRestoreLoop(); } catch {}
+  if (isSmart) {
+    const updated = smart.map((sh: any) => sh.id === shelfId ? { ...sh, ...patch } : sh);
+    void saveSettings({ ...s, smartShelves: updated } as any);
+  } else {
+    void saveSettings(patchShelfInSettings(s, shelfId, patch));
+  }
 }
 
 const downloadIcon = (
@@ -136,10 +152,14 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // EAppDisplayStatus: Launching=1, Reconfiguring=2, Installing=3,
       // Running=4, Validating=5, UpdateQueued=7, UpdatePaused=8,
       // Staging=12, Committing=13, Downloading=19.
+      // Uninstalling/Suspended (ds 6 / 14 / 16) — Steam's native menu surfaces
+      // "Uninstall" / "Cancel uninstall" as the first item, not Play.
       const RUNNING = ds === 1 || ds === 4;
       const UPDATE = ds === 2 || ds === 5 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 19;
+      const UNINSTALLING = ds === 6 || ds === 14 || ds === 16;
       if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
       if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
+      if (UNINSTALLING) return { label: i18n.t('menu_uninstall'), action: 'run' };
       return { label: i18n.t('menu_play'), action: 'run' };
     } catch { return { label: undefined, action: 'run' }; }
   }, [appid, previewMode]);
@@ -302,7 +322,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       if (item.portraitUrl && !urls.includes(item.portraitUrl)) urls.push(item.portraitUrl);
       if (item.heroUrl && !urls.includes(item.heroUrl)) urls.push(item.heroUrl);
       if (appid > 0) {
-        for (const u of getPortraitFallbacks(appid)) {
+        for (const u of getPortraitUrls(appid)) {
           if (!urls.includes(u)) urls.push(u);
         }
       }
@@ -478,15 +498,13 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
-      {/* Inline badge for non-focused cards. BadgeFocusOverlay handles
-          the focused card so it paints above Steam's FocusRingRoot. */}
       {hasBadge && (
         <div
           className="ds-card-badge-host ds-card-badge-host--inline"
           aria-hidden="true"
           style={{
             position: 'absolute',
-            top: -10,
+            top: -2,
             left: 0,
             right: 0,
             height: 24,

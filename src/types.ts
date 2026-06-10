@@ -53,7 +53,7 @@ export type SavedFilter = z.infer<typeof SavedFilterSchema>;
 // saved smart shelf templates. Mirrors SavedFilter but
 // captures every knob a smart shelf carries (mode + smartParams +
 // optional refinements). Stored at settings level; readable via
-// `__DECK_SHELVES_API__.getSavedSmartFilters()` so external plugins
+// `window.deckShelves.api.getSavedSmartFilters()` so external plugins
 // can reuse them.
 export const SavedSmartFilterSchema = z.object({
   id: z.string().min(1).max(64),
@@ -219,6 +219,20 @@ export const SmartShelfSchema = z.object({
   highlightFirst: z.boolean().optional(),
   highlightAll: z.boolean().optional(),
   highlightedAppIds: z.array(z.number().int()).optional(),
+  /** When true, a deterministic ~25 % of the cards on this shelf render in
+   *  the featured (landscape) size. The selection is stable per shelf id +
+   *  appid set, so cards don't shuffle their size between renders. Stacks
+   *  on top of the explicit highlightedAppIds — a card is featured if it's
+   *  in either set. */
+  highlightRandom: z.boolean().optional(),
+  /** Opt-in: populate `logoUrl` on the per-card meta. Default off so
+   *  shelves don't pay any cost when no feature consumes the value. */
+  enableLogo: z.boolean().optional(),
+  /** Opt-in: populate `iconUrl` on the per-card meta. */
+  enableIcon: z.boolean().optional(),
+  /** Opt-in: warm `appDetailsStore` descriptions for this shelf's cards
+   *  + populate `description`/`fullDescription` on the meta. */
+  enableDescription: z.boolean().optional(),
   hideStatusLine: z.boolean().optional(),
   hideNewBadge: z.boolean().optional(),
   hideDiscountBadge: z.boolean().optional(),
@@ -338,6 +352,16 @@ export const ShelfSchema = z.object({
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),
   highlightedAppIds: z.array(z.number().int()).optional(),
+  /** Deterministic random featuring (~25 %). See SmartShelfSchema for full
+   *  semantics. Stacks on top of explicit highlightedAppIds. */
+  highlightRandom: z.boolean().optional(),
+  /** Opt-in: populate `logoUrl` on the per-card meta. Default off. */
+  enableLogo: z.boolean().optional(),
+  /** Opt-in: populate `iconUrl` on the per-card meta. Default off. */
+  enableIcon: z.boolean().optional(),
+  /** Opt-in: warm `appDetailsStore` descriptions + populate description
+   *  fields on the meta. Default off. */
+  enableDescription: z.boolean().optional(),
   hideStatusLine: z.boolean().default(false),
   hideNewBadge: z.boolean().default(false),
   hideDiscountBadge: z.boolean().default(false),
@@ -416,6 +440,13 @@ export const SettingsSchema = z.object({
   globalMatchNativeSize: z.boolean().default(false),
   globalHighlightFirst: z.boolean().default(false),
   globalHighlightAll: z.boolean().default(false),
+  globalHighlightRandom: z.boolean().optional(),
+  /** Global opt-in for enriched per-card metadata. ORed with per-shelf
+   *  toggles — when EITHER the global OR the shelf flag is on, the data
+   *  is populated/fetched for that shelf. Default off. */
+  globalEnableLogo: z.boolean().optional(),
+  globalEnableIcon: z.boolean().optional(),
+  globalEnableDescription: z.boolean().optional(),
   globalHideStatusLine: z.boolean().default(false),
   globalHideNewBadge: z.boolean().default(false),
   globalHideDiscountBadge: z.boolean().default(false),

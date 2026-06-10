@@ -453,27 +453,51 @@ export function installLibraryContextMenuPatch(): void {
   const cls = discoverLibraryContextMenuClass();
   if (!cls?.prototype?.render || typeof dflAfterPatch !== "function") return;
   // Debug tap — bumped every time the outer patch fires + the path it
-  // took. Surfaced through window.__DECK_SHELVES_DEBUG__ so we can
-  // verify via CDP whether the patch is reaching library cards at all.
-  try {
-    const g: any = (globalThis as any);
-    if (!g.__DECK_SHELVES_DEBUG__) g.__DECK_SHELVES_DEBUG__ = {};
-    g.__DECK_SHELVES_DEBUG__.lcmPatched = true;
-    g.__DECK_SHELVES_DEBUG__.lcmRenderCalls = 0;
-    g.__DECK_SHELVES_DEBUG__.lcmLibraryCalls = 0;
-    g.__DECK_SHELVES_DEBUG__.lcmShelfCalls = 0;
-    g.__DECK_SHELVES_DEBUG__.lcmNoAppid = 0;
-    g.__DECK_SHELVES_DEBUG__.lcmNoChildren = 0;
-    g.__DECK_SHELVES_DEBUG__.lcmSplicedLib = 0;
-  } catch {}
+  // took. Surfaced through `window.deckShelves.debug` so we can verify
+  // via CDP whether the patch is reaching library cards at all.
+  ensureDebugBucket();
+  setDebugCounter("lcmPatched", true);
+  setDebugCounter("lcmRenderCalls", 0);
+  setDebugCounter("lcmLibraryCalls", 0);
+  setDebugCounter("lcmShelfCalls", 0);
+  setDebugCounter("lcmNoAppid", 0);
+  setDebugCounter("lcmNoChildren", 0);
+  setDebugCounter("lcmSplicedLib", 0);
   try {
     dflAfterPatch(cls.prototype, "render", makeLcmRenderHandler());
     _libraryContextMenuPatched = true;
   } catch {}
 }
 
+type DebugBucket = Record<string, number | boolean>;
+
+function getDebugBucket(): DebugBucket | null {
+  try {
+    const ds = (globalThis as any).deckShelves;
+    if (!ds) return null;
+    if (!ds.debug) ds.debug = {};
+    return ds.debug as DebugBucket;
+  } catch { return null; }
+}
+
+function ensureDebugBucket(): void {
+  try {
+    const g: any = (globalThis as any);
+    if (!g.deckShelves) return; // not installed yet — debug fields no-op
+    if (!g.deckShelves.debug) g.deckShelves.debug = {};
+  } catch {}
+}
+
+function setDebugCounter(key: string, value: number | boolean): void {
+  const bucket = getDebugBucket();
+  if (bucket) bucket[key] = value;
+}
+
 function bumpDebugCounter(key: string): void {
-  try { (globalThis as any).__DECK_SHELVES_DEBUG__[key]++; } catch {}
+  const bucket = getDebugBucket();
+  if (!bucket) return;
+  const cur = bucket[key];
+  bucket[key] = (typeof cur === "number" ? cur : 0) + 1;
 }
 
 function appidFromOwnerProps(component: any): number {

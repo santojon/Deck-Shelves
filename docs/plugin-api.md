@@ -1,8 +1,10 @@
 # Plugin API
 
-Deck Shelves exposes a public API at `window.__DECK_SHELVES_API__` so other Decky plugins can extend its surface — adding shelf sources, smart-shelf templates, filter types, sort options, import formats, and pre-baked saved filters at runtime — and (in a follow-up release) consume Deck Shelves' own state.
+Deck Shelves exposes a public API at `window.deckShelves` so other Decky plugins, themes, and external tools can extend its surface — registering shelf sources, smart-shelf templates, filter types, sort options, import formats, and pre-baked saved filters — and consume Deck Shelves' own state.
 
-This document covers **API v2**. The v1 surface (`registerShelfSource` / `getRegisteredSources`) is preserved unchanged.
+This document covers **API v3**.
+
+> **Heads up:** v3 dropped the legacy `window.__DECK_SHELVES_API__` global and the `subscribeToShelves` / `subscribeToSmartShelves` / `subscribeToSavedFilters` method names (now `subscribeShelves` etc.). Event names changed from `deck-shelves-ready` / `deck-shelves-teardown` to `deck-shelves:ready` / `deck-shelves:teardown` and the `ready` event no longer carries the API in `detail`. The recommended consumer path is now `import { register } from '@deck-shelves/api'` — see [Detection — the simple way](#detection--the-simple-way).
 
 ---
 
@@ -32,57 +34,58 @@ This document covers **API v2**. The v1 surface (`registerShelfSource` / `getReg
 
 ## Detection — the simple way
 
-Deck Shelves dispatches a `deck-shelves-ready` event on `window` the moment the API is installed. The event's `detail` IS the API object — same reference as `window.__DECK_SHELVES_API__`. There is no polling, no retry loop, no chicken-and-egg.
-
-A 30-line copy-paste helper that handles every load-order case:
+Use the **`@deck-shelves/api`** npm package. The `register()` helper handles every load-order case (Deck Shelves already loaded, loads later, your code loads after the ready event fires) and returns a single unregister function:
 
 ```ts
-import type { DeckShelvesPublicAPI, Unsubscribe } from "./deck-shelves-api"; // type-only
+import { register } from "@deck-shelves/api";
 
-const cleanups: Unsubscribe[] = [];
+const off = register({
+  name: "my-plugin",
+  version: "1.0.0",
+  onMount(api) {
+    api.registerShelfSource({
+      id: "my-plugin/recent",
+      label: "My Recent",
+      resolve: async (limit) => fetchRecent(limit),
+    });
+    api.subscribeFocusedCard((info) => {
+      if (info) console.log("focused", info.appid, "on", info.shelfId);
+    });
+  },
+  onUnmount() {
+    // Release any cached API references — the api object becomes stale.
+  },
+});
 
-function withDeckShelves(use: (api: DeckShelvesPublicAPI) => Unsubscribe[] | void): void {
-  const apply = (api: DeckShelvesPublicAPI) => {
-    const result = use(api) ?? [];
-    cleanups.push(...result);
-  };
-
-  // Already loaded? Run immediately.
-  const existing = (window as any).__DECK_SHELVES_API__ as DeckShelvesPublicAPI | undefined;
-  if (existing && existing.version >= 2) { apply(existing); return; }
-
-  // Otherwise wait for the ready event. Single shot — Deck Shelves emits it
-  // on every install, including reinstall after Steam navigates away/back.
-  const onReady = (e: Event) => {
-    const api = (e as CustomEvent<DeckShelvesPublicAPI>).detail;
-    if (api && api.version >= 2) apply(api);
-  };
-  window.addEventListener("deck-shelves-ready", onReady);
-  cleanups.push(() => window.removeEventListener("deck-shelves-ready", onReady));
-
-  // Drop our entries when Deck Shelves unloads — its registries are wiped
-  // anyway, but releasing our cached `api` reference avoids leaks.
-  const onTeardown = () => releaseAll();
-  window.addEventListener("deck-shelves-teardown", onTeardown);
-  cleanups.push(() => window.removeEventListener("deck-shelves-teardown", onTeardown));
-}
-
-function releaseAll(): void {
-  for (const c of cleanups.splice(0)) { try { c(); } catch { /* ignore */ } }
-}
-
-// In your plugin:
-withDeckShelves((api) => [
-  api.registerShelfSource({ id: "demo.recent", displayName: "My Recent",
-    resolve: async (limit) => fetchRecent(limit) }),
-  // …more registrations; each returns its own Unsubscribe → kept by `cleanups`.
-]);
-
-// On your plugin teardown:
-function onUnload() { releaseAll(); }
+// When your plugin unloads:
+off();
 ```
 
-The same `cleanups` array unifies registration cleanup, ready/teardown listener cleanup, and your own teardown — one call drops everything.
+Under the hood the helper inspects `window.deckShelves`; if present it calls `register` synchronously, otherwise it pushes to a Symbol-keyed pending queue (`globalThis[Symbol.for('deck-shelves/pending')]`) and listens for `deck-shelves:ready`. Deck Shelves' install drains the queue + dispatches the event, so the integration registers regardless of load order.
+
+### Without the package (direct global access)
+
+You don't have to ship the dependency — `window.deckShelves` is the same surface. The trade-off is you write your own queue-or-ready timing:
+
+```ts
+type DSGlobal = {
+  version: number;
+  api: any; // import the DeckShelvesPublicAPI type if you bundle types
+  register(integration: { name: string; onMount(api: any): void; onUnmount?(): void }): () => void;
+};
+
+function withDeckShelves(integration: { name: string; onMount(api: any): void; onUnmount?(): void }): () => void {
+  const w = window as unknown as { deckShelves?: DSGlobal };
+  if (w.deckShelves) return w.deckShelves.register(integration);
+  let unmount: (() => void) | undefined;
+  const handler = () => {
+    unmount = w.deckShelves?.register(integration);
+    window.removeEventListener("deck-shelves:ready", handler);
+  };
+  window.addEventListener("deck-shelves:ready", handler);
+  return () => { try { unmount?.(); } catch {} };
+}
+```
 
 ---
 
@@ -90,15 +93,21 @@ The same `cleanups` array unifies registration cleanup, ready/teardown listener 
 
 | Field | Value | Notes |
 |---|---|---|
-| `version` | `2` | Increments on breaking change. Always check `version >= N` before calling new methods. |
-| Surface | `window.__DECK_SHELVES_API__` | Same global object across versions. |
-| Lifetime | Lives until Deck Shelves unloads. | Cleared on plugin teardown — re-register on a fresh install via the `deck-shelves-ready` event. |
+| `version` | `3` | Increments on breaking change. Always check `version >= N` before calling new methods. |
+| Surface | `window.deckShelves` | Contains `{ version, api, register, debug? }`. The `api` field is the `DeckShelvesPublicAPI` object — direct property access is supported but `register()` from `@deck-shelves/api` handles the timing for you. |
+| Lifetime | Lives until Deck Shelves unloads. | Integrations registered via `register()` get their `onUnmount` callback fired; if you cached the `api` object directly, the `deck-shelves:teardown` event signals it's no longer safe to use. |
 
 Per-descriptor versioning: each `Register*Descriptor` shape accepts an optional `version?: number` field. Bump it independently of the API surface `version` when you add new optional fields specific to your descriptor type — internal handlers can branch on `(d.version ?? 1) >= 2` without forcing a global API bump.
 
 Events:
-- `deck-shelves-ready` — fired on `window`, `event.detail` is the API. Fires synchronously after install.
-- `deck-shelves-teardown` — fired before the API is removed from the global. Use to release cached references.
+- `deck-shelves:ready` — fired on `window` after `window.deckShelves` is installed. No payload — read the global directly.
+- `deck-shelves:teardown` — fired before `window.deckShelves` is removed. Release any cached `api` references.
+
+### v3 surface additions
+
+- **`getFocusedCard()`** / **`subscribeFocusedCard(cb)`** — get/observe the currently focused DS card (`{ appid, shelfId } | null`). Backed by a single delegated focusin/focusout listener on the home root, so subscribing multiple times shares one observer.
+- **`getAssetUrls(appid, type)`** — returns the prioritized URL list Deck Shelves itself uses for hero / portrait / landscape / logo / icon / heroBlur / storeBackground. Loopback (Steam's local cache) first, then customimages, then CDN.
+- **Method rename**: `subscribeToShelves` → `subscribeShelves`, `subscribeToSmartShelves` → `subscribeSmartShelves`, `subscribeToSavedFilters` → `subscribeSavedFilters`.
 
 ### Built-in registry surface
 
@@ -311,59 +320,84 @@ Idempotent: re-registering the same id replaces the previous entry. Cleanup remo
 
 ## Consumer usage
 
-Reading Deck Shelves state from another plugin is **wired and ready** as of `[Unreleased]` (next v2.0.0). The getters return live projections of the user's settings; the `subscribeTo*` methods fire on every relevant change and are diff-gated by JSON identity, so a consumer that only watches one feed (e.g. saved filters) doesn't wake up on unrelated shelf edits.
+Reading Deck Shelves state from another plugin is wired through the v3 API. Getters return live projections of the user's settings; the `subscribe*` methods fire on every relevant change and are diff-gated by JSON identity, so a consumer that only watches one feed (e.g. saved filters) doesn't wake up on unrelated shelf edits.
 
-- `getShelves()`, `getSmartShelves()`, `getSavedFilters()` return the current snapshot.
-- `subscribeToShelves(cb)`, `subscribeToSmartShelves(cb)`, `subscribeToSavedFilters(cb)` invoke the callback with the new projection whenever it changes; the returned `Unsubscribe` removes the listener.
+- `getShelves()`, `getSmartShelves()`, `getSavedFilters()`, `getSavedSmartFilters()` return the current snapshot.
+- `subscribeShelves(cb)`, `subscribeSmartShelves(cb)`, `subscribeSavedFilters(cb)` invoke the callback with the new projection whenever it changes; the returned `Unsubscribe` removes the listener.
 - Every `Public*` shape is frozen — read-only fields, never mutated by the API.
 
 ### Reading shelves
 
 ```ts
-withDeckShelves((api) => {
-  const shelves = api.getShelves();
-  for (const shelf of shelves) {
-    console.log(`${shelf.title} (${shelf.source.type})`, shelf.limit);
-  }
+register({
+  name: "my-plugin",
+  onMount(api) {
+    for (const shelf of api.getShelves()) {
+      console.log(`${shelf.title} (${shelf.source.type})`, shelf.limit);
+    }
+  },
 });
 ```
 
 ### Reading smart shelves
 
 ```ts
-withDeckShelves((api) => {
-  const smart = api.getSmartShelves();
-  const enabled = smart.filter((s) => s.enabled && !s.hidden);
-  console.log(`${enabled.length} smart shelves active`);
+register({
+  name: "my-plugin",
+  onMount(api) {
+    const enabled = api.getSmartShelves().filter((s) => s.enabled && !s.hidden);
+    console.log(`${enabled.length} smart shelves active`);
+  },
 });
 ```
 
 ### Reading saved filters
 
 ```ts
-withDeckShelves((api) => {
-  const saved = api.getSavedFilters();
-  const ownedByMe = saved.filter((f) => f.id.startsWith("ext:my-plugin."));
-  console.log(`I own ${ownedByMe.length} of ${saved.length} saved filters`);
+register({
+  name: "my-plugin",
+  onMount(api) {
+    const saved = api.getSavedFilters();
+    const ownedByMe = saved.filter((f) => f.id.startsWith("ext:my-plugin."));
+    console.log(`I own ${ownedByMe.length} of ${saved.length} saved filters`);
+  },
 });
 ```
 
 ### Subscribing to changes
 
 ```ts
-withDeckShelves((api) => [
-  api.subscribeToShelves((shelves) => {
-    // Fires whenever a shelf is added, removed, edited, or reordered.
-    rerenderMyDashboard(shelves);
-  }),
-  api.subscribeToSavedFilters((filters) => {
-    // Fires whenever a saved filter is created, renamed, or deleted.
-    refreshMyFilterPicker(filters);
-  }),
-]);
+register({
+  name: "my-plugin",
+  onMount(api) {
+    const offShelves = api.subscribeShelves((shelves) => {
+      // Fires whenever a shelf is added, removed, edited, or reordered.
+      rerenderMyDashboard(shelves);
+    });
+    const offFilters = api.subscribeSavedFilters((filters) => {
+      refreshMyFilterPicker(filters);
+    });
+    // Stash them on the integration so onUnmount can release them.
+  },
+});
 ```
 
-The cleanup is included in the return array so the existing helper handles teardown.
+### Focused card + asset URLs (v3)
+
+```ts
+register({
+  name: "my-plugin",
+  onMount(api) {
+    api.subscribeFocusedCard((info) => {
+      if (!info) return;
+      const heroes = api.getAssetUrls(info.appid, "hero");
+      // heroes[0] is the loopback URL when Steam has the file cached;
+      // fallbacks go through customimages → CDN.
+      preloadMyTooltip(info.appid, heroes[0]);
+    });
+  },
+});
+```
 
 ### Expected data shapes (worked examples)
 
@@ -545,117 +579,89 @@ interface PublicSavedFilter {
 
 ## End-to-end example
 
-A small plugin that contributes one shelf source, one smart source, one filter type, one sort option, one saved filter, AND consumes shelves + saved filters — all using the same compact integration helper.
+A small plugin that contributes one shelf source, one smart source, one filter type, one sort option, one saved filter, two import handlers, AND consumes shelves + saved filters — all using the `@deck-shelves/api` `register()` helper.
 
 ```ts
-import type {
-  DeckShelvesPublicAPI, Unsubscribe,
-  PublicShelf, PublicSavedFilter,
-} from "./deck-shelves-api"; // type-only
+import { register, type PublicShelf, type PublicSavedFilter, type Unsubscribe } from "@deck-shelves/api";
 
-const cleanups: Unsubscribe[] = [];
+const off = register({
+  name: "demo-plugin",
+  version: "1.0.0",
+  onMount(api) {
+    const subs: Unsubscribe[] = [];
 
-function withDeckShelves(use: (api: DeckShelvesPublicAPI) => Unsubscribe[] | void): void {
-  const apply = (api: DeckShelvesPublicAPI) => {
-    const result = use(api) ?? [];
-    cleanups.push(...result);
-  };
-  const existing = (window as any).__DECK_SHELVES_API__ as DeckShelvesPublicAPI | undefined;
-  if (existing && existing.version >= 2) { apply(existing); return; }
-  const onReady = (e: Event) => {
-    const api = (e as CustomEvent<DeckShelvesPublicAPI>).detail;
-    if (api && api.version >= 2) apply(api);
-  };
-  window.addEventListener("deck-shelves-ready", onReady);
-  cleanups.push(() => window.removeEventListener("deck-shelves-ready", onReady));
-  const onTeardown = () => releaseAll();
-  window.addEventListener("deck-shelves-teardown", onTeardown);
-  cleanups.push(() => window.removeEventListener("deck-shelves-teardown", onTeardown));
-}
+    // Producer side — registrations.
+    subs.push(api.registerShelfSource({
+      id: "demo.cloud-only",
+      label: "Cloud-only games",
+      resolve: async (limit) => fetchCloudGames(limit),
+    }));
+    subs.push(api.registerSmartShelfSource({
+      id: "demo.weekend-grind",
+      label: "Weekend Grind",
+      defaultParams: { minSessionMinutes: 60 },
+      resolve: (apps, limit, params) =>
+        fetchWeekendCandidates(apps, (params?.minSessionMinutes as number) ?? 60, limit),
+    }));
+    subs.push(api.registerFilterType({
+      id: "demo.has-screenshots",
+      label: "Has screenshots taken",
+      evaluate: (app) => screenshotIndex.has(app.appid),
+    }));
+    subs.push(api.registerSortOption({
+      id: "demo.completion-percent",
+      label: "Completion %",
+      sort: (ids, apps) => {
+        const byId = new Map(apps.map((a) => [a.appid, a] as const));
+        return [...ids].sort((a, b) => completionPct(byId.get(b)) - completionPct(byId.get(a)));
+      },
+    }));
+    subs.push(api.registerSavedFilter({
+      id: "demo.cloud-and-controller",
+      name: "Cloud + Controller",
+      filterGroup: {
+        mode: "and",
+        items: [
+          { type: "cloudAvailable" },
+          { type: "controllerSupport", params: { min: 1 } },
+        ],
+      },
+    }));
+    subs.push(api.registerImportType({
+      id: "demo.json-import",
+      label: "Import demo lists (JSON)",
+      target: "shelves",
+      importer: () => openMyImportPicker(),
+    }));
+    subs.push(api.registerImportType({
+      id: "demo.weekend-presets",
+      label: "Demo weekend presets",
+      target: "smart_shelves",
+      importer: () => importWeekendPresets(),
+    }));
 
-function releaseAll() {
-  for (const c of cleanups.splice(0)) { try { c(); } catch { /* ignore */ } }
-}
+    // Consumer side — react to user state.
+    subs.push(api.subscribeShelves((shelves: ReadonlyArray<PublicShelf>) => rerenderDashboard(shelves)));
+    subs.push(api.subscribeSavedFilters((filters: ReadonlyArray<PublicSavedFilter>) => refreshFilterPicker(filters)));
 
-// ---- Plugin onLoad --------------------------------------------------------
+    // Focus tracking + asset URLs (v3).
+    subs.push(api.subscribeFocusedCard((info) => {
+      if (info) preloadMyTooltip(info.appid, api.getAssetUrls(info.appid, "hero")[0]);
+    }));
 
-withDeckShelves((api) => [
-  // Producer side — register everything in one go.
-  api.registerShelfSource({
-    id: "demo.cloud-only",
-    displayName: "Cloud-only games",
-    resolve: async (limit) => fetchCloudGames(limit),
-  }),
-  api.registerSmartShelfSource({
-    id: "demo.weekend-grind",
-    displayName: "Weekend Grind",
-    category: "time",
-    defaultParams: { minSessionMinutes: 60 },
-    paramMeta: {
-      minSessionMinutes: { label: "Min session", min: 30, max: 240, step: 30, unit: "min" },
-    },
-    resolve: async (limit, params) =>
-      fetchWeekendCandidates(params.minSessionMinutes, limit),
-  }),
-  api.registerFilterType({
-    id: "demo.has-screenshots",
-    displayName: "Has screenshots taken",
-    evaluate: (app) => screenshotIndex.has(app.appid),
-  }),
-  api.registerSortOption({
-    id: "demo.completion-percent",
-    displayName: "Completion %",
-    sort: (ids, apps) => {
-      const byId = new Map(apps.map((a) => [a.appid, a] as const));
-      return [...ids].sort((a, b) =>
-        completionPct(byId.get(b)) - completionPct(byId.get(a)),
-      );
-    },
-  }),
-  api.registerSavedFilter({
-    id: "demo.cloud-and-controller",
-    name: "Cloud + Controller",
-    group: {
-      mode: "and",
-      items: [
-        { type: "cloudAvailable" },
-        { type: "controllerSupport", params: { min: 1 } },
-      ],
-    },
-  }),
-  // One regular-shelves importer (icon shows directly when alone, otherwise
-  // collapses behind `…` with TabMaster / other registered entries).
-  api.registerImportType({
-    id: "demo.json-import",
-    displayName: "Import demo lists (JSON)",
-    target: "shelves",
-    icon: <DemoIcon />,
-    runImport: () => openMyImportPicker(),
-  }),
-  // One smart-shelves importer (lights up the `…` slot in the smart section
-  // — currently empty, so it shows the direct icon).
-  api.registerImportType({
-    id: "demo.weekend-presets",
-    displayName: "Demo weekend presets",
-    target: "smart_shelves",
-    icon: <CalendarIcon />,
-    runImport: () => importWeekendPresets(),
-  }),
-  // Consumer side — react to user state.
-  api.subscribeToShelves((shelves: ReadonlyArray<PublicShelf>) => {
-    rerenderDashboard(shelves);
-  }),
-  api.subscribeToSavedFilters((filters: ReadonlyArray<PublicSavedFilter>) => {
-    refreshFilterPicker(filters);
-  }),
-]);
+    // Hand the cleanup to onUnmount via closure.
+    (globalThis as any).__demoCleanup = () => { for (const u of subs) try { u(); } catch {} };
+  },
+  onUnmount() {
+    try { (globalThis as any).__demoCleanup?.(); } catch {}
+  },
+});
 
-// ---- Plugin onUnload ------------------------------------------------------
-
-function onUnload() { releaseAll(); }
+// On plugin unload:
+function unloadPlugin() { off(); }
 ```
 
-That's the whole pattern: one helper, one array of cleanups, one teardown call. Add or remove registrations by editing the returned array — no per-feature plumbing.
+That's the whole pattern. `register()` returns a single `Unsubscribe` that fires your `onUnmount` (which in turn fires the per-registration cleanups). No `window.deckShelves` lookup, no ready-event subscription, no teardown listener.
 
 ---
 

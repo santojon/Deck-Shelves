@@ -14,7 +14,6 @@ import { logInfo } from "../runtime/logger";
  */
 
 const CACHE_KEY = "ds-update-check-v1";
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const RELEASES_URL = "https://api.github.com/repos/santojon/Deck-Shelves/releases/latest";
 const FETCH_TIMEOUT_MS = 5000;
 
@@ -118,25 +117,16 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
     } catch {}
   }
   const cached = readCache();
-  // Auto-invalidate when the cached `latestVersion` is older than what we're
-  // currently running — sign that the user upgraded the plugin locally
-  // since the cache was last written. Without this, a stale cache (e.g.
-  // recorded at "no update" right before the user upgraded) keeps reporting
-  // `hasUpdate=false` for the full 24h window even after a newer release
-  // has been published.
-  const current = (pkg as any).version ?? "0.0.0";
-  const cacheStaleVsLocal = !!(cached?.latestVersion && compareSemver(current, cached.latestVersion) > 0);
-  if (cached && now - cached.ts < CACHE_TTL_MS && !cacheStaleVsLocal) {
-    return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
-  }
+  // Cache only serves as offline fallback. Whenever online we ALWAYS probe
+  // the network so a release published mid-day shows up immediately — the
+  // previous 24h gate left users stale for up to a day after a release.
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      if (cached) {
-        const online = await isOnline();
-        if (!online) {
-          return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
-        }
+      const online = await isOnline();
+      if (!online) {
+        if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
+        return buildResult(null, null, now);
       }
       const { version, url } = await fetchLatest();
       if (version) {

@@ -73,7 +73,41 @@ function getCachedDiscount(appid: number): number | null {
 
 const NEW_GAME_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
-function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalDedupeByName = false, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalDedupeByName?: boolean; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean }) {
+// FNV-1a-style hash. Stable, fast, no deps.
+function fnvSeed(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h;
+}
+
+function mixInt(seed: number, n: number): number {
+  let h = seed ^ n;
+  h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  return h;
+}
+
+function computeEffectiveHighlightedAppIds(
+  explicit: number[] | undefined,
+  pool: number[] | null | undefined,
+  shelfId: string,
+  randomOn: boolean | undefined,
+): number[] | undefined {
+  const explicitList = explicit ?? [];
+  if (!randomOn) return explicitList.length ? explicitList : undefined;
+  if (!pool || !pool.length) return explicitList.length ? explicitList : undefined;
+  const targetCount = Math.max(1, Math.round(pool.length * 0.25));
+  const seed = fnvSeed(shelfId || "shelf");
+  const scored = pool.map((id) => ({ id, h: mixInt(seed, id) }));
+  scored.sort((a, b) => a.h - b.h);
+  const picked = new Set(scored.slice(0, targetCount).map((s) => s.id));
+  for (const id of explicitList) picked.add(id);
+  return Array.from(picked);
+}
+
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalDedupeByName = false, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalDedupeByName?: boolean; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}-${(shelf as any).sortReverse ? 'r1' : 'r0'}-${(shelf as any).manualBaseSortReverse ? 'r1' : 'r0'}`;
@@ -102,6 +136,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // source-default slot.
   const [sourceIds, setSourceIds] = useState<number[] | null>(null);
   const [storeNames, setStoreNames] = useState<Map<number, string>>(new Map());
+  // Bumped when the price cache is warmed for non-owned smart-shelf cards —
+  // forces rowItems to re-read `getCachedDiscount` so the badge appears.
+  const [priceVersion, setPriceVersion] = useState(0);
   const [ownedNames, setOwnedNames] = useState<Set<string> | null>(null);
   const firstLoad = useRef(true);
   const [metaVersion, setMetaVersion] = useState(0);
@@ -232,6 +269,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       setItems(new Map());
       return;
     }
+    // NOTE: descriptions are NOT auto-warmed here. Firing
+    // `RequestDescriptionsData` for every card on every shelf at mount
+    // overwhelms the main thread (110+ store fetches + 100 ms-interval
+    // polling timers each), producing a boot-time freeze. Features that
+    // genuinely need the snippet/full description should call
+    // `preloadAppDescriptions(appid)` on-demand (e.g. on focus, on
+    // tooltip open) so the cost is paid only for the cards the user
+    // actually interacts with.
     (async () => {
       // Batched meta lookup: ONE catalog walk for every appid instead
       // of N per-id calls. Collapses ~1 s of cold-mount blocking work
@@ -386,8 +431,21 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         }
       } catch {}
     })();
+    // Warm the price cache for non-owned ids so discount badges can appear
+    // on smart-shelf cards (friends_playing / composite with online child).
+    // Wishlist/store sources already do this during resolve; smart shelves
+    // don't, so without this the discount data is never fetched.
+    if (sourceIncludesNonOwned) {
+      (async () => {
+        try {
+          const { getPriceMap } = await import("../core/onlineStore");
+          await getPriceMap(toFetch);
+          if (!cancelled) setPriceVersion(v => v + 1);
+        } catch {}
+      })();
+    }
     return () => { cancelled = true; };
-  }, [needsExternalNames, appIds?.join(','), items]);
+  }, [needsExternalNames, appIds?.join(','), items, sourceIncludesNonOwned]);
 
   const rowItems = useMemo((): DeckRowItem[] => {
     if (!appIds?.length) return [];
@@ -402,6 +460,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       const isOnlineSource =
         shelf.source.type === 'wishlist' ||
         shelf.source.type === 'store' ||
+        sourceIncludesNonOwned ||
         (shelf.source.type === 'composite' && Array.isArray((shelf.source as any).sources)
           && (shelf.source as any).sources.some((c: any) => c?.type === 'wishlist' || c?.type === 'store'));
 
@@ -587,7 +646,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       }
     }
     return base;
-  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, JSON.stringify((shelf as any).syntheticCards ?? null)]);
+  }, [appIds, items, storeNames, ownedNames, ownedAppIds, shouldHideOwned, shelf.id, shelf.limit, shelf.source, shelf.sort, shelf.title, platform, t, globalHideSeeMore, globalHideRefreshCard, (shelf as any).hideSeeMore, (shelf as any).hideRefreshCard, JSON.stringify((shelf as any).syntheticCards ?? null), priceVersion]);
 
   if (!shelf.enabled || shelf.hidden) return null;
   if (appIds === null) return <div style={{ padding: 10 }}><Spinner /></div>;
@@ -629,7 +688,16 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     const tail = manual.filter((id) => !inSrc.has(id));
     return tail.length ? new Set(tail) : undefined;
   })();
-  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={shelf.highlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
+  // Random-featured rule: stable per shelf id, ~25 % of cards. Implementation
+  // pulled out to `computeRandomHighlightSet` to keep render complexity under
+  // the lint cap.
+  const effectiveHighlightedAppIds = computeEffectiveHighlightedAppIds(
+    shelf.highlightedAppIds,
+    appIds,
+    shelf.id,
+    globalHighlightRandom || (shelf as any).highlightRandom,
+  );
+  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} forceExpanded={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
   // Brief opacity dip while a user-triggered refresh is in flight so the
   // click is never ambiguous — even when the resolver returns identical
   // data, the shelf visibly fades and recovers, signalling that the

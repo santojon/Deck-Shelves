@@ -201,19 +201,32 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       scroll-margin-bottom: 52px;
       scroll-margin-inline-end: 2.8vw;
     }
-    /* Native-recents transition timing (160ms, CDP-measured). Specificity
-       beats Steam's .Focusable {transition:opacity 0.2s}. */
+    /* Card transitions: mirror native cards (CDP-measured: filter +
+       box-shadow + transform at 0.4s cubic-bezier(0, 0.73, 0.48, 1)).
+       The shorter 160ms transition we used previously was visibly
+       snappier than native and was the perceived "different animation"
+       complaint. Steam's nav controller debounce is NOT tied to CSS
+       transition duration — verified by side-by-side timing — so the
+       longer native-matching curve does not re-introduce the press
+       swallowing that the earlier transform transition caused. */
     #deck-shelves-home-root .ds-card.Focusable,
     #deck-shelves-home-root .ds-card {
       transition:
-        transform 0.16s cubic-bezier(0.17, 0.45, 0.14, 0.83),
-        box-shadow 0.16s cubic-bezier(0.17, 0.45, 0.14, 0.83) !important;
+        filter 0.4s cubic-bezier(0, 0.73, 0.48, 1),
+        box-shadow 0.4s cubic-bezier(0, 0.73, 0.48, 1),
+        transform 0.4s cubic-bezier(0, 0.73, 0.48, 1) !important;
     }
-    /* Subtle focus lift to match the native apparent enlargement. */
+    /* Focus pop: native wraps each card in its own perspective:300px
+       container so translateZ(7px) foreshortens into a ~2.4 % zoom.
+       DS has no per-card wrapper; perspective on the row tanked nav
+       latency (17 s spikes). 1.025 bumped the swallow rate from 0 % to
+       33 %; 1.015 kept 0 % but read as too subtle. 1.02 is the middle
+       ground — more visible zoom while staying within the hit-test
+       tolerance Steam's nav controller allows. */
     #deck-shelves-home-root .ds-card:focus,
     #deck-shelves-home-root .ds-card.gpfocus,
     #deck-shelves-home-root .ds-card:hover {
-      transform: translateY(-2px);
+      transform: scale(1.025);
     }
     /* Inline badge stays visible on focused cards too — the focus ring
        can visually overlap but the badge must never disappear. */
@@ -241,11 +254,7 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       outline: none !important;
       outline-offset: 0px !important;
       border: none !important;
-      /* Theme-aware focus ring: keep the native drop shadow, add a thin
-         glow in the theme accent color (ArtHero etc. expose this var). If
-         the theme doesn't set it, the fallback is fully transparent so
-         only the drop shadow shows. */
-      box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px, 0 0 0 2px var(--custom-sp-color-border, transparent) !important;
+      box-shadow: rgba(0, 0, 0, 0.5) 0px 16px 24px 0px !important;
       z-index: 12;
     }
     /* Suppress our focus drop shadow when the "Focus Highlight Color" theme's
@@ -315,15 +324,15 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        blinker). Suppress the border AND switch box-sizing to border-box so
        the ring's box stays the exact card size on all four sides (default
        content-box made the border push the right/bottom edges 4px out).
-       Then outline-offset: 1px places the colored outline 1px outside the
-       card edge symmetrically. Scoped via :has() to apply only when a
-       ds-card is the focused element, leaving other Steam screens alone. */
+       Then outline-offset: 2px places the colored outline 2px outside the
+       card edge symmetrically. Scoped via:has() to apply only when a ds-card
+       is the focused element, leaving other Steam screens alone. */
     html:has(.ds-card.gpfocus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT,
     html:has(.ds-card:focus):not([data-ds-theme-focus-round-compat="true"]) ._1wPplsegQqCoe06wXPhzKT {
       box-sizing: border-box !important;
       border: 0 none transparent !important;
       margin: 0 !important;
-      outline-offset: 1px !important;
+      outline-offset: 2px !important;
     }
     /* Layout-only ::after: matches the card's art height/radius so any
        theme overlay (e.g. Game Cover Shine focus animation) targets the
@@ -681,25 +690,13 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       pointer-events: none;
       z-index: 21;
     }
-    /* Badge host: 2px above the card top by default, rises to 12px on
-       focus/hover. */
     .ds-card .ds-card-badge-host {
       top: -2px;
       height: calc(100% + 2px);
-      transition: top 0.15s ease, height 0.15s ease;
     }
-    .ds-card.gpfocus .ds-card-badge-host,
-    .ds-card:focus .ds-card-badge-host,
-    .ds-card:hover .ds-card-badge-host,
-    .ds-card.is-selected .ds-card-badge-host {
-      top: -10px;
-      height: calc(100% + 10px);
-    }
-    /* On focus the BadgeFocusOverlay portal paints the badge above
-       Steam's FocusRingRoot. Hide the inline copy on the focused card
-       so the two don't stack visibly. */
     .ds-card.gpfocus .ds-card-badge-host--inline,
     .ds-card:focus .ds-card-badge-host--inline,
+    .ds-card:hover .ds-card-badge-host--inline,
     .ds-card.is-selected .ds-card-badge-host--inline {
       visibility: hidden;
     }

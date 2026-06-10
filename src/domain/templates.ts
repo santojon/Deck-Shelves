@@ -33,7 +33,13 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     id: "installed",
     titleKey: "template_installed",
     category: "status",
-    source: { type: "tab", tab: "installed" },
+    // Use the legacy `installed: true` filter directly — Steam's tab
+    // store reliably populates LATE (or sometimes not at all on certain
+    // theme combinations), and chasing it through the tab→fallback path
+    // produced empty shelves for some users. The filter reads off the
+    // same `installed` field every shelf already consults, so the result
+    // is identical to what Steam's "Installed" tab would return.
+    source: { type: "filter", filter: { installed: true, sort: "alphabetical" } },
   },
   {
     id: "most_played",

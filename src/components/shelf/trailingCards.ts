@@ -1,4 +1,5 @@
 import { REFRESHABLE_SMART_MODES } from "./types";
+import { isOnlineSource } from "../../domain/sourceUtils";
 
 export type TrailingCardInput = {
   source: any;
@@ -25,6 +26,7 @@ function isRandomNonSmart(src: any, sort: string | string[] | undefined): boolea
   return primarySort(filterSort) === "random";
 }
 
+// Direct-only check (kept for callers that need the strict shape).
 export function isOnlineShelfSource(src: any): boolean {
   return src?.type === "wishlist" || src?.type === "store";
 }
@@ -33,7 +35,9 @@ export function shouldShowRefreshCard(input: TrailingCardInput): boolean {
   if (input.globalHideRefreshCard === true || input.hideRefreshCard === true) return false;
   const src = input.source;
   if (src?.type === "smart") return REFRESHABLE_SMART_MODES.includes(src.mode);
-  if (isOnlineShelfSource(src)) return true;
+  // Recurses into composite.sources so a combined shelf with any online
+  // child still surfaces the refresh card (parity with the context-menu fix).
+  if (isOnlineSource(src)) return true;
   return isRandomNonSmart(src, input.sort);
 }
 

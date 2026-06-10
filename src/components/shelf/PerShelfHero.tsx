@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { isArtHeroActive } from "../../core/cssLoaderDetect";
-import { getLandscapeUrls, getPortraitFallbacks } from "../../core/steamAssets";
+import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 
 let _nativeAssetProto: any = null;
@@ -125,21 +125,17 @@ function prefetchNativeAppData(appid: number): void {
   } catch { /* best-effort */ }
 }
 
+/** Hero URL list: starts with the central loopback/CDN chain from
+ *  steamAssets, then layers in any hashed sources Steam's own `<S>`
+ *  component exposes via the React fiber (covers rare apps where the
+ *  hashed URL is the only one that serves). */
 function getHeroUrls(appid: number): string[] {
+  const base = getCentralHeroUrls(appid);
   const native = getNativeHeroUrls(appid);
-  if (native && native.length) return native;
-  // Pre-mount fallback (no native S instance discovered yet). Trimmed to
-  // the three URLs most likely to actually exist: the user's own custom
-  // hero, then the public CDN's library_hero. We dropped the hashless
-  // `/assets/{appid}/library_hero.jpg`, `/assets/{appid}/header.jpg` and
-  // the CDN `header.jpg` — for any title without a hash exposed on
-  // overview they all 404, and the prefetch + retry in PerShelfHero
-  // resolves to the real hashed URL within ~700 ms anyway.
-  return [
-    `/customimages/${appid}_hero.png`,
-    `/customimages/${appid}_hero.jpg`,
-    `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/library_hero.jpg`,
-  ];
+  if (!native || !native.length) return base;
+  const merged = base.slice();
+  for (const u of native) if (!merged.includes(u)) merged.push(u);
+  return merged;
 }
 
 function tryHotCache(url: string | null): string | null {
@@ -297,6 +293,12 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
+  // The slot we want to switch TO but haven't yet because its image is
+  // still loading. Keeping `activeSlot` on the previously-loaded slot
+  // until the new one is ready avoids the 200-500 ms "both invisible"
+  // gap where the old hero has already faded out and the new image
+  // hasn't decoded yet.
+  const [pendingSlot, setPendingSlot] = useState<'A' | 'B' | null>(null);
   const [visible, setVisible] = useState(true);  // true: always render, opacity driven by image loading
   // Smaller bleed above for non-first hero shelves so their art doesn't
   // overlap the shelf above. Determined by DOM order on mount.
@@ -472,6 +474,19 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const slotALoaded = !!slotA && loadedSrcA === slotA;
   const slotBLoaded = !!slotB && loadedSrcB === slotB;
 
+  // Promote `pendingSlot` to `activeSlot` only after the pending slot's
+  // image has actually loaded. The previously-loaded slot keeps painting
+  // until the new one is ready — so the user no longer sees a fade-to-
+  // black gap while the new hero downloads.
+  useEffect(() => {
+    if (!pendingSlot) return;
+    const ready = pendingSlot === 'A' ? slotALoaded : slotBLoaded;
+    if (ready) {
+      setActiveSlot(pendingSlot);
+      setPendingSlot(null);
+    }
+  }, [pendingSlot, slotALoaded, slotBLoaded]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -539,7 +554,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
               fallbackIdx.current = 0;
               const next: 'A' | 'B' = activeSlotRef.current === 'A' ? 'B' : 'A';
               if (next === 'A') setSlotA(synthHero); else setSlotB(synthHero);
-              setActiveSlot(next);
+              // Mark next as pending; activeSlot flips when the image loads.
+              setPendingSlot(next);
             };
             if (wasFirst) doSwap();
             else heroSwapTimerRef.current = setTimeout(doSwap, 30);
@@ -620,7 +636,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             // and at most one warmCacheBackground per slot swap.
             const resolvedUrl = resolveHeroSrcFromCache(url0, urls);
             if (next === 'A') setSlotA(resolvedUrl); else setSlotB(resolvedUrl);
-            setActiveSlot(next);
+            // Mark next as pending; activeSlot flips when the image loads
+            // (see the pendingSlot → activeSlot effect below). This keeps
+            // the previously-loaded slot visible during the new image's
+            // load window instead of fading to black.
+            setPendingSlot(next);
             if (usedNative) return;
             // Fallback path: wait briefly for Steam's hero data to
             // land, then swap in the hashed URL when it arrives. Bails
@@ -727,7 +747,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       const PER_TICK = 4;
       const warmOneCard = (aid: number) => {
         try {
-          const p = firstCacheableUrl(getPortraitFallbacks(aid));
+          const p = firstCacheableUrl(getPortraitUrls(aid));
           if (p) warmCacheBackground(p);
           if (!showArt) return;
           const h = firstCacheableUrl(getHeroUrls(aid));

@@ -655,6 +655,12 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
             overflowX: "auto",
             overflowY: "visible",
             scrollbarWidth: "none",
+            // Smooth scroll: instant (auto) tested at 74ms avg latency but
+            // half the presses got swallowed — Steam's nav controller
+            // seems to need the brief scroll animation window to register
+            // subsequent presses. Smooth keeps the press throughput while
+            // still feeling snappy enough with the matched 0.4s card
+            // transition.
             scrollBehavior: "smooth",
             /* paddingBottom 60 (was 46) — fits the card label + status line
              * with focus scale(1.04) headroom. Smaller values clip the

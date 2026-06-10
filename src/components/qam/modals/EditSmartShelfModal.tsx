@@ -83,6 +83,10 @@ type EditState = {
   matchNativeSize: boolean
   highlightFirst: boolean
   highlightAll: boolean
+  highlightRandom: boolean
+  enableLogo: boolean
+  enableIcon: boolean
+  enableDescription: boolean
   highlightedAppIds: number[]
   hideStatusLine: boolean
   hideNewBadge: boolean
@@ -126,6 +130,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     matchNativeSize: (shelf as any).matchNativeSize ?? false,
     highlightFirst: (shelf as any).highlightFirst ?? false,
     highlightAll: (shelf as any).highlightAll ?? false,
+    highlightRandom: (shelf as any).highlightRandom ?? false,
+    enableLogo: (shelf as any).enableLogo === true,
+    enableIcon: (shelf as any).enableIcon === true,
+    enableDescription: (shelf as any).enableDescription === true,
     highlightedAppIds: (shelf as any).highlightedAppIds ?? [],
     hideStatusLine: (shelf as any).hideStatusLine ?? false,
     hideNewBadge: (shelf as any).hideNewBadge ?? false,
@@ -385,6 +393,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).matchNativeSize = state.matchNativeSize
       ;(patch as any).highlightFirst = state.highlightFirst
       ;(patch as any).highlightAll = state.highlightAll
+      ;(patch as any).highlightRandom = state.highlightRandom
+      ;(patch as any).enableLogo = state.enableLogo
+      ;(patch as any).enableIcon = state.enableIcon
+      ;(patch as any).enableDescription = state.enableDescription
       ;(patch as any).highlightedAppIds = (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined
       ;(patch as any).hideStatusLine = state.hideStatusLine
       ;(patch as any).hideNewBadge = state.hideNewBadge
@@ -881,7 +893,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, heroEnabled: state.heroEnabled }}
+                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, heroEnabled: state.heroEnabled }}
                       setFlags={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}

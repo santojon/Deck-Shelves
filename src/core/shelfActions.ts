@@ -149,10 +149,18 @@ export function registerShelfModalHandler(h: ShelfModalHandler | null): void {
   }
 }
 
+// Pending edit-modal tab. Module-private — replaces the prior
+// `window.__DECK_SHELVES_PENDING_TAB__` global. EditShelfModal reads it
+// via `consumePendingShelfModalTab()` so the value drains itself.
+let _pendingShelfModalTab: string | null = null;
+export function consumePendingShelfModalTab(): string | null {
+  const v = _pendingShelfModalTab;
+  _pendingShelfModalTab = null;
+  return v;
+}
+
 export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?: { initialTab?: string }): void {
-  if (opts?.initialTab) {
-    try { (globalThis as any).__DECK_SHELVES_PENDING_TAB__ = String(opts.initialTab); } catch {}
-  }
+  if (opts?.initialTab) _pendingShelfModalTab = String(opts.initialTab);
   // Primary path: navigate to a dedicated route that mounts a standalone
   // SettingsController and opens the modal via DFL.showModal — no QAM
   // dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The

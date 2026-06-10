@@ -22,6 +22,10 @@ export type EditableShelfState = {
   matchNativeSize: boolean
   highlightFirst: boolean
   highlightAll: boolean
+  highlightRandom: boolean
+  enableLogo: boolean
+  enableIcon: boolean
+  enableDescription: boolean
   highlightedAppIds: number[]
   manualOrder: number[]
   hideStatusLine: boolean

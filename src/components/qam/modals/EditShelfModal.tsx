@@ -12,6 +12,7 @@ import {
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, Shelf, ShelfFilter } from '../../../types'
 import { normalizeFilter } from '../../../domain/settings'
+import { consumePendingShelfModalTab } from '../../../core/shelfActions'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell } from '../../ui'
 import { logInfo } from '../../../runtime/logger'
@@ -89,17 +90,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [activeTab, setActiveTab] = useState<EditTab>(() => {
     // Pending-tab hint set by dispatchShelfModal({ initialTab }) — used
     // when the user picks "Decoração" from the card context menu so the
-    // modal lands directly on that tab. Cleared after read so it doesn't
-    // bleed into subsequent opens.
-    try {
-      const g: any = globalThis as any
-      const t = g.__DECK_SHELVES_PENDING_TAB__
-      if (typeof t === 'string' && t.length) {
-        delete g.__DECK_SHELVES_PENDING_TAB__
-        const valid = ['source', 'filters', 'childFilters', 'visual', 'display', 'decoration']
-        if (valid.includes(t)) return t as EditTab
-      }
-    } catch {}
+    // modal lands directly on that tab. Module-private state drains
+    // itself, so each modal open consumes the value once.
+    const t = consumePendingShelfModalTab()
+    const valid = ['source', 'filters', 'childFilters', 'visual', 'display', 'decoration']
+    if (t && valid.includes(t)) return t as EditTab
     return 'source'
   })
   // Index of the currently-focused card in the preview row. New
@@ -359,7 +354,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
       const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
       const { baseSort, baseReverse } = buildSortPatchFields(state, isManualSort)
-      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
+      const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       const cleanedSynth = state.syntheticCards.map(sanitizeSyntheticCard)
@@ -831,7 +826,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 content: (
                   <VisualTabContent
                     t={t}
-                    flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, heroEnabled: state.heroEnabled }}
+                    flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, heroEnabled: state.heroEnabled }}
                     setFlags={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                     highlightedAppIds={state.highlightedAppIds}
                     setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}

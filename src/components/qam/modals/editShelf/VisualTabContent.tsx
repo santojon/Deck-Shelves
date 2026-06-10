@@ -28,8 +28,8 @@ export function VisualTabContent({
   effectiveManualOrder,
 }: {
   t: (k: any, opts?: any) => string;
-  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; heroEnabled: boolean };
-  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; heroEnabled: boolean }>) => void;
+  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; heroEnabled: boolean };
+  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; heroEnabled: boolean }>) => void;
   highlightedAppIds: number[];
   setHighlightedAppIds: (next: number[]) => void;
   highlightPickerOpen: boolean;
@@ -45,7 +45,16 @@ export function VisualTabContent({
       <ToggleField label={t('match_native_size')} checked={flags.matchNativeSize} onChange={(v: boolean) => setFlags({ matchNativeSize: v })} />
       <ToggleField label={t('highlight_first')} checked={flags.highlightFirst} onChange={(v: boolean) => setFlags({ highlightFirst: v })} />
       <ToggleField label={t('highlight_all')} checked={flags.highlightAll} onChange={(v: boolean) => setFlags({ highlightAll: v })} />
+      <ToggleField label={t('highlight_random')} checked={flags.highlightRandom} onChange={(v: boolean) => setFlags({ highlightRandom: v })} />
       <ToggleField label={t('hero_enabled_label')} checked={flags.heroEnabled} onChange={(v: boolean) => setFlags({ heroEnabled: v })} />
+      {/* Hidden enrichment toggles — schema + persistence is wired, UI
+          stays out of sight until a feature actually renders the data.
+          Default false; ORed with the equivalent global toggles. */}
+      <div style={{ display: 'none' }} aria-hidden="true">
+        <ToggleField label={t('enable_logo')} checked={flags.enableLogo} onChange={(v: boolean) => setFlags({ enableLogo: v })} />
+        <ToggleField label={t('enable_icon')} checked={flags.enableIcon} onChange={(v: boolean) => setFlags({ enableIcon: v })} />
+        <ToggleField label={t('enable_description')} checked={flags.enableDescription} onChange={(v: boolean) => setFlags({ enableDescription: v })} />
+      </div>
       <ToggleField
         label={t('highlight_specific_games')}
         checked={highlightPickerOpen}

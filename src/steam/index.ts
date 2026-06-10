@@ -10,6 +10,7 @@ import {
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
 import { getPreferredSteamDocument, getPreferredSteamWindow } from "../runtime/steamHost";
+import { getAppDescriptions as _getAppDescriptions } from "./appDescriptionsCache";
 
 export type SteamCollection = { id: string; name: string };
 
@@ -2958,9 +2959,30 @@ async function _resolveTab(ctx: ResolverContext): Promise<number[]> {
   if (!ids.length) {
     const viaTabMaster = await resolveTabUuidViaTabMaster(rawTab, limit, shelfId);
     if (viaTabMaster) return viaTabMaster;
+    const fallback = await tryBuiltInTabFallback(ctx, rawTab);
+    if (fallback) return fallback;
     logWarn("STEAM", "resolveShelfAppIds(tab) empty", { tab: rawTab, allCount: all.length });
   }
   return finish(applyChildFilterTab(ids.slice(0, overShootLimit)));
+}
+
+// Built-in tabs whose semantics map cleanly to a legacy flat filter. When
+// Steam's tab store returns empty (boot-time race, theme weirdness) we route
+// through the filter resolver so the template still produces results.
+async function tryBuiltInTabFallback(ctx: ResolverContext, rawTab: string): Promise<number[] | null> {
+  const slug = slugifyTab(rawTab);
+  if (slug !== "installed") return null;
+  try {
+    const result = await _resolveFilter({
+      ...ctx,
+      source: { type: "filter", filter: { installed: true } } as any,
+    });
+    if (result.length) {
+      logInfo("STEAM", "resolveShelfAppIds(tab) using installed-filter fallback", { tab: rawTab, count: result.length });
+      return result;
+    }
+  } catch (e) { logWarn("STEAM", "installed-filter fallback failed", String(e)); }
+  return null;
 }
 
 // Dispatch table for `f.sort`; fallthrough sorts alphabetically.
@@ -3676,9 +3698,49 @@ function resolveUpdatePending(appid: number, overview: any, raw: any): boolean {
   return _pendingUpdateAppIds?.has(appid) === true;
 }
 
+type EnrichmentExtras = {
+  description?: string;
+  fullDescription?: string;
+};
+
+function readAppDetailsEnrichment(appid: number): EnrichmentExtras {
+  // Reads from our in-memory description cache only — never touches
+  // `appDetailsStore.GetDescriptions/GetAppDetails` here. Those getters
+  // can trigger Steam to internally fetch data lazily, and calling them
+  // for every appid in every shelf at mount time froze the boot.
+  // Consumers that need fresh descriptions should call
+  // `preloadAppDescriptions(appid)` on-demand (focus, tooltip, etc.).
+  const cached = _getAppDescriptions(appid);
+  if (!cached) return {};
+  return {
+    description: pickString(cached.snippet),
+    fullDescription: pickString(cached.fullHtml),
+  };
+}
+
+function pickString(v: unknown): string | undefined {
+  return typeof v === "string" && v ? v : undefined;
+}
+
+function pickFiniteNumber(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+function readOverviewExtras(overview?: AppOverview): { releaseTimestamp?: number; metacriticScore?: number } {
+  const ov = overview as any;
+  const release = ov?.rt_original_release_date ?? ov?.rt_steam_release_date;
+  const score = ov?.metacritic_score;
+  return {
+    releaseTimestamp: typeof release === "number" && Number.isFinite(release) && release > 0 ? release : undefined,
+    metacriticScore: typeof score === "number" && Number.isFinite(score) ? score : undefined,
+  };
+}
+
 function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any): PlatformAppMeta {
   const isSteam = overview?.is_steam !== false;
   const { heroUrl, portraitUrl } = computeAssetUrls(appid, overview, isSteam);
+  const { description, fullDescription } = readAppDetailsEnrichment(appid);
+  const { releaseTimestamp, metacriticScore } = readOverviewExtras(overview);
   return {
     appid,
     name: String(overview?.display_name ?? `App ${appid}`),
@@ -3690,6 +3752,10 @@ function buildMetaFromOverview(appid: number, overview?: AppOverview, raw?: any)
     playtimeMinutes: pickPlaytimeMinutes(overview),
     updatePending: resolveUpdatePending(appid, overview, raw),
     addedTimestamp: firstFiniteFromOverview(overview, META_ADDED_KEYS),
+    description,
+    fullDescription,
+    releaseTimestamp,
+    metacriticScore,
   };
 }
 
