@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-06-10
+
 ### Added
 
 - **Centralised Steam asset URL provider** (`src/core/steamAssets.ts`). Single source for the prioritised loopback → CDN chain across hero, portrait, landscape, logo, icon, plus the new heroBlur (192×62 ~10 KB placeholder) and storeBackground (1438×810 page bg) variants. Hero URL now starts with `https://steamloopback.host/assets/<appid>/library_hero.jpg?c=<local_cache_version>` — the same path native recents use, served from the on-disk cache in 3-9 ms. CDN remains as last-resort fallback.

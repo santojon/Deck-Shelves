@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-06-10
+
 ### Added
 
 - **Random featured cards (`highlightRandom`).** A new visual toggle that randomly featurises ~25 % of the cards on a shelf — gives the home a Netflix-style mix of large and small cards without manually picking each one. Available on every shelf's context menu, in the edit modal's Visual tab, and as a global toggle in the QAM Visual section. The pick is deterministic per shelf so the same cards stay featured between sessions (no random jiggling).
