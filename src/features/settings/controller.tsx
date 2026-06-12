@@ -14,7 +14,7 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, qamHiddenToggles: [], qamHiddenSections: [] });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
@@ -243,6 +243,32 @@ export function useSettingsController() {
       if (!s || s.forceCssLoaderThemes === forceCssLoaderThemes) return;
       await persist({ ...s, forceCssLoaderThemes });
     },
+    setQamHiddenToggle(key: string, hidden: boolean) {
+      if (key === "enabled") return;
+      const s = liveSettings();
+      if (!s) return;
+      const current = (s as any).qamHiddenToggles ?? [];
+      const has = current.includes(key);
+      if (hidden === has) return;
+      const next = hidden ? [...current, key] : current.filter((k: string) => k !== key);
+      const updated = { ...s, qamHiddenToggles: next } as any;
+      // Skip the JSON.stringify diff inside `persist` — these lists are
+      // small and we want the UI to respond on the same tick. Sync local
+      // state immediately; fire-and-forget the backend save.
+      setSettings(updated);
+      void saveSettings(updated);
+    },
+    setQamHiddenSection(id: string, hidden: boolean) {
+      const s = liveSettings();
+      if (!s) return;
+      const current = (s as any).qamHiddenSections ?? [];
+      const has = current.includes(id);
+      if (hidden === has) return;
+      const next = hidden ? [...current, id] : current.filter((k: string) => k !== id);
+      const updated = { ...s, qamHiddenSections: next } as any;
+      setSettings(updated);
+      void saveSettings(updated);
+    },
     async setGlobalHeroEnabled(globalHeroEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).globalHeroEnabled === globalHeroEnabled) return;
@@ -469,7 +495,7 @@ export function useSettingsController() {
       } catch { return false; }
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, qamHiddenToggles: [], qamHiddenSections: [] };
       try {
         const ls = globalThis.localStorage;
         if (ls) {

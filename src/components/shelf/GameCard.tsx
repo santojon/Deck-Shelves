@@ -154,10 +154,15 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // Staging=12, Committing=13, Downloading=19.
       // Uninstalling/Suspended (ds 6 / 14 / 16) — Steam's native menu surfaces
       // "Uninstall" / "Cancel uninstall" as the first item, not Play.
+      // Actively progressing download/install (3 / 5 / 7 / 12 / 13 / 19) —
+      // the native menu's first item is "Pause" (not Update). Paused (8) /
+      // Reconfiguring (2) keep the "Update" hint.
       const RUNNING = ds === 1 || ds === 4;
-      const UPDATE = ds === 2 || ds === 5 || ds === 7 || ds === 8 || ds === 12 || ds === 13 || ds === 19;
+      const PAUSE = ds === 3 || ds === 5 || ds === 7 || ds === 12 || ds === 13 || ds === 19;
+      const UPDATE = ds === 2 || ds === 8;
       const UNINSTALLING = ds === 6 || ds === 14 || ds === 16;
       if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
+      if (PAUSE) return { label: i18n.t('menu_pause'), action: 'resume_update' };
       if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
       if (UNINSTALLING) return { label: i18n.t('menu_uninstall'), action: 'run' };
       return { label: i18n.t('menu_play'), action: 'run' };

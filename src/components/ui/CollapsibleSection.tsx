@@ -29,6 +29,7 @@ export function CollapsibleSection({
   count,
   initialOpen,
   icon,
+  headerExtra,
   children,
 }: {
   id: string;
@@ -36,6 +37,7 @@ export function CollapsibleSection({
   count: number;
   initialOpen?: boolean;
   icon?: React.ReactNode;
+  headerExtra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const defaultOpen = id in _sectionOpen ? _sectionOpen[id] : (initialOpen !== undefined ? initialOpen : count > 0)
@@ -46,20 +48,28 @@ export function CollapsibleSection({
     saveSections(_sectionOpen)
     return next
   })
+  const header = (
+    <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} style={{ flex: 1, minWidth: 0 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {icon}
+        {title}
+      </span>
+      <span style={{ display: 'flex', alignItems: 'center' }}>
+        {!open && count > 0 && <span className='ds-collapsible-badge'>{count}</span>}
+        <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>
+      </span>
+    </Focusable>
+  )
   return (
     <>
-      <div style={{ marginTop: 8 }}>
-        <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            {icon}
-            {title}
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center' }}>
-            {!open && count > 0 && <span className='ds-collapsible-badge'>{count}</span>}
-            <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>
-          </span>
+      {headerExtra ? (
+        <Focusable className='ds-collapsible-row' flow-children='row' noFocusRing style={{ marginTop: 8, display: 'flex', alignItems: 'stretch' }}>
+          {header}
+          {headerExtra}
         </Focusable>
-      </div>
+      ) : (
+        <div style={{ marginTop: 8 }}>{header}</div>
+      )}
       <div className='deck-shelves-separator' />
       {open && children}
     </>

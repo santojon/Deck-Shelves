@@ -77,5 +77,7 @@ export function defaultSettings(): Settings {
     onlineHideOwnedNonSteam: false,
     onlineHideOwnedNonSteamCloud: false,
     forceCssLoaderThemes: false,
+    qamHiddenToggles: [],
+    qamHiddenSections: [],
   };
 }

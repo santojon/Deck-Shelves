@@ -484,6 +484,11 @@ export const SettingsSchema = z.object({
   // (e.g. Xbox Cloud Gaming) don't hide their store/wishlist promotions.
   onlineHideOwnedNonSteamCloud: z.boolean().nullable().optional().transform((v) => v ?? false),
   forceCssLoaderThemes: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Sidecar "Configurações" — keys de toggles e ids de seções que o
+  // usuário escolheu ocultar do painel principal do QAM. Não desliga a
+  // funcionalidade, só remove o controle da listagem do QAM.
+  qamHiddenToggles: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  qamHiddenSections: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

@@ -38,6 +38,17 @@ export function EyeIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function EyeOffIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.79 19.79 0 0 1 4.22-5.53" />
+      <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.86 19.86 0 0 1-3.31 4.34" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
 export function SortIcon({ size = 14, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)}>
