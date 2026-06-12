@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [2.4.3] - 2026-06-12
+
 ### Added
 
 - **Expandable side panel for Settings.** Pressing right on the rightmost item of Deck Shelves' QAM tab now expands the QAM the same way Friends & Chat does and slides in a side panel titled "Configurações" — a single scrollable view that mirrors every toggle from the regular DS panel. Built so it stays out of the way until you actually want it: no extra dpad-right means no expansion.

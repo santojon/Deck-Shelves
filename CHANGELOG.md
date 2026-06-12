@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.3] - 2026-06-12
+
 ### Added
 
 - **QAM expandable sidecar with "Settings" panel.** Dpad-right at the rightmost item of the DS plugin tab expands the QAM (same protocol Friends & Chat uses — `postMessage QamFriendsExpanded` to the SharedJSContext) and reveals a 503×440 sidecar panel to the right. Sidecar renders a new `GeneralTab` that mirrors every QAM boolean toggle organised in the same four collapsible sections (`behavior`, `additional`, `smart`, `visual_global`) plus the two saved-filter sections as header-only entries. Title bar fixed at the top of the sidecar at the same vertical band as Decky's "Deck Shelves" plugin title. Sidecar wrapper is a layout-only container (no `onActivate`), so Steam's nav delegates into its inner Focusables instead of stopping at the wrapper. Mount-time `BTakeFocus` on the first inner Focusable lands focus directly on the first section header.
