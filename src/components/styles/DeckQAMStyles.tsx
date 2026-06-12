@@ -30,6 +30,34 @@ export function DeckQAMStyles() {
         justify-content: flex-start;
         align-content: stretch;
         overflow-x: hidden;
+        position: relative;
+      }
+      .deck-shelves-qam-flex {
+        display: flex;
+        flex-direction: row;
+        flex: 1 1 auto;
+        align-items: stretch;
+      }
+      .deck-shelves-qam-main {
+        width: 300px;
+        min-width: 300px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-content: stretch;
+      }
+      /* When expanded, scope and its constrained ancestors must allow the
+         sidecar to overflow to the right (the Decky plugin tab wrapper
+         normally clips at 300px). */
+      .deck-shelves-qam-scope[data-ds-qam-expanded="1"] {
+        overflow-x: visible;
+        overflow-y: visible;
+      }
+      .deck-shelves-root:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]),
+      .deck-shelves-root:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]) ~ *,
+      [id^="quickaccess_content_"]:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]),
+      [id^="quickaccess_content_"]:has(.deck-shelves-qam-scope[data-ds-qam-expanded="1"]) > * {
+        overflow: visible !important;
       }
 
       .deck-shelves-qam-scope .${quickAccessControlsClasses.PanelSection} {
@@ -65,6 +93,11 @@ export function DeckQAMStyles() {
         height: 1px;
         background: #23262e;
         margin: 0;
+      }
+      /* Inside the sidecar, the per-section divider should stop short of
+         the eye-button column so it doesn't run under the section eye. */
+      .ds-sidecar-body .deck-shelves-separator {
+        width: calc(100% - 60px);
       }
 
       .deck-shelves-qam-scope .deck-shelves-section-header {
@@ -178,6 +211,152 @@ export function DeckQAMStyles() {
         font-weight: 700;
         margin-right: 4px;
         color: #fff;
+      }
+
+      /* Expand-toggle button (always visible, top of panel). */
+      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle {
+        display: inline-flex;
+        align-items: center;
+        margin: 6px 8px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #d6d9dc;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        user-select: none;
+        align-self: flex-end;
+      }
+      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle.gpfocus,
+      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle:focus,
+      .deck-shelves-qam-scope .deck-shelves-qam-expand-toggle:focus-within {
+        background: rgba(255, 255, 255, 0.14);
+        outline: none;
+      }
+
+      /* Sidecar panel — mirrors the native Friends & Chat second-column
+         pattern. Rendered via React Portal directly into the QAM body so
+         Steam's gamepad nav sees it as a top-level focusable sibling
+         (rather than buried inside the constrained Decky plugin tab
+         wrapper). position: fixed lays it over the otherwise-empty right
+         portion of the QAM panel (left edge ~351 = 51 tab strip +
+         300 DS plugin tab width). */
+      .deck-shelves-qam-sidecar {
+        position: absolute;
+        left: 300px;
+        top: 0;
+        width: 503px;
+        height: 440px;
+        background: rgb(14, 20, 27);
+        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 0;
+        z-index: 5;
+        box-sizing: border-box;
+      }
+      .ds-sidecar-title {
+        position: absolute;
+        /* Nudge the title up so it sits roughly at the same vertical
+           band as Decky's "Deck Shelves" header in the QAM frame above. */
+        top: -8px;
+        left: 0;
+        right: 0;
+        height: 32px;
+        padding: 4px 16px;
+        font-weight: 700;
+        font-size: 18px;
+        color: #ffffff;
+        letter-spacing: 0.3px;
+        background: rgb(14, 20, 27);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        box-sizing: border-box;
+        z-index: 2;
+      }
+      .ds-sidecar-body {
+        position: absolute;
+        top: 24px;
+        left: 0;
+        right: 0;
+        /* Leave a visual gap below the body so the last item never
+           sits flush against the sidecar's bottom edge. We don't use
+           padding-bottom for this because dpad navigation can't move
+           into padding space — keeping the gap *outside* the scrollable
+           area means the user sees breathing room without dpad ever
+           "missing" a target. */
+        bottom: 16px;
+        overflow-y: auto;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .deck-shelves-qam-sidecar-placeholder {
+        color: #8b929a;
+        font-size: 13px;
+        text-align: center;
+        margin-top: 40%;
+      }
+
+      /* Sidecar General tab — hideable rows + eye buttons. */
+      .ds-hide-row {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        gap: 8px;
+        padding-right: 8px;
+        box-sizing: border-box;
+        position: relative;
+      }
+      /* The Decky-generated Field wrapper becomes the first flex child here,
+         so give it the grow space and let the eye button take the rest. */
+      .ds-hide-row > :first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      /* Strip Decky's bottom separator on toggles that sit inside a
+         hide-row, then redraw it ourselves only across the toggle column
+         — so the line stops short of the eye button instead of running
+         under it. */
+      .ds-hide-row .${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
+        display: none;
+      }
+      .ds-hide-row::after {
+        content: '';
+        position: absolute;
+        left: 16px;
+        right: 60px;
+        bottom: 0;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
+        pointer-events: none;
+      }
+      .ds-eye-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 36px;
+        min-width: 44px;
+        flex: 0 0 auto;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        color: #b8bcbf;
+        cursor: pointer;
+        user-select: none;
+      }
+      .ds-eye-btn.gpfocus,
+      .ds-eye-btn:focus,
+      .ds-eye-btn:focus-within {
+        background: rgba(255, 255, 255, 0.20);
+        color: #ffffff;
+        outline: 2px solid rgba(255, 255, 255, 0.45);
+        outline-offset: -2px;
+      }
+      .ds-eye-btn[data-ds-eye-state="hidden"] {
+        opacity: 0.55;
+      }
+      .ds-eye-btn-section {
+        margin: 8px 8px 0 0;
       }
     `}</style>
   )

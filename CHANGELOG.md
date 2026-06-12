@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **QAM expandable sidecar with "Settings" panel.** Dpad-right at the rightmost item of the DS plugin tab expands the QAM (same protocol Friends & Chat uses — `postMessage QamFriendsExpanded` to the SharedJSContext) and reveals a 503×440 sidecar panel to the right. Sidecar renders a new `GeneralTab` that mirrors every QAM boolean toggle organised in the same four collapsible sections (`behavior`, `additional`, `smart`, `visual_global`) plus the two saved-filter sections as header-only entries. Title bar fixed at the top of the sidecar at the same vertical band as Decky's "Deck Shelves" plugin title. Sidecar wrapper is a layout-only container (no `onActivate`), so Steam's nav delegates into its inner Focusables instead of stopping at the wrapper. Mount-time `BTakeFocus` on the first inner Focusable lands focus directly on the first section header.
+- **Per-toggle and per-section "hide from QAM" eye buttons.** Each toggle row and each section header in the sidecar carries an eye button (`EyeIcon` / new `EyeOffIcon`) to the right of the focusable. Clicking it toggles `qamHiddenToggles: string[]` or `qamHiddenSections: string[]` in settings — the affected control disappears from the QAM but stays in the sidecar with the eye state reflecting the choice. Sub-toggles follow their parent via a `TOGGLE_PARENTS` map (`shelfHeroBackground` → `hideRecents`, online sub-toggles → `onlineFeaturesEnabled`, smart sub-toggles → `smartShelvesEnabled`, etc.) so hiding a parent hides every descendant from the QAM. Master `enabled` toggle is excluded from the hide flow.
+- **Sidecar eye-column vertical nav.** A scope-level `MutationObserver` on `.gpfocus` detects when Steam moves focus off an eye into a non-eye on a different visual row (vertical movement) and forces focus onto the adjacent eye via NavTree `BTakeFocus`, with retries at 0 / 30 ms to win the race with Steam's own queue. Horizontal nav (same row) is left untouched so dpad-left from an eye still reaches the toggle to its left.
+- **Schema:** `qamHiddenToggles: string[]` and `qamHiddenSections: string[]` on `Settings` (Zod `.nullable().optional().transform(v => v ?? [])` to round-trip the Python sanitizer's `null`). `main.py` `_sanitize_settings` strips both arrays to string values capped at 64 chars per entry.
+- **Controller actions:** new `setQamHiddenToggle(key, hidden)` and `setQamHiddenSection(id, hidden)` skip `persist`'s `JSON.stringify` diff — they call `setSettings` synchronously and fire `saveSettings` without awaiting so the eye-button click feels instant. The master `enabled` key is rejected outright in `setQamHiddenToggle`.
+- **GameCard "Pause" hint.** View-button hint now reads `menu_pause` when the card's app state is one of the active-download / queued / install-paused codes (`3, 5, 7, 12, 13, 19`), with `action: 'resume_update'`. Translation added to all 19 locales.
+
+### Changed
+
+- **`CollapsibleSection` accepts `headerExtra: ReactNode`.** When provided, the header row is wrapped in a `Focusable flow-children='row'` so the section header and its trailing element (e.g. the section eye) form a single navigable row. Without `headerExtra` the original `<div>` wrapper is kept — no behaviour change for existing QAM sections that don't use the extra slot.
+- **`OnlinePrivacyModal`, `SavedFiltersList`, `SavedSmartFiltersList` exported** from `DeckQAMSettings.tsx` so the sidecar `GeneralTab` can mount the same online-features privacy disclosure modal that the QAM uses. Saved-filter lists are exported but intentionally **not** rendered in the sidecar (the sidecar only carries the section headers for hide-from-QAM, never the per-item rows or `[…]` action buttons).
+
 ## [2.4.2] - 2026-06-10
 
 ### Added

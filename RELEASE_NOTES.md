@@ -5,6 +5,12 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Expandable side panel for Settings.** Pressing right on the rightmost item of Deck Shelves' QAM tab now expands the QAM the same way Friends & Chat does and slides in a side panel titled "Configurações" — a single scrollable view that mirrors every toggle from the regular DS panel. Built so it stays out of the way until you actually want it: no extra dpad-right means no expansion.
+- **Hide individual toggles or whole sections from the QAM.** Every toggle and section in the side panel has an eye button next to it. Tap it and that toggle (or the entire section) disappears from the regular QAM but stays accessible in the side panel. Hide a parent like "Hide recents" and its sub-toggles (`Hero background`, `Recents replace source`) also drop from the QAM automatically. The master "Enable" toggle is exempt — you can't hide that one.
+- **Pause hint on the View button.** Game cards showing a paused / queued / actively-downloading state now display "Pause" on the View button hint (was "Update" or "Install" depending on state), with the same action mapping the native context menu uses to resume the download.
+
 ## [2.4.2] - 2026-06-10
 
 ### Added
