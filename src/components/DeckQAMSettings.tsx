@@ -100,16 +100,20 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
   // docked TV, Big Picture on 4K, custom window sizes). Fallbacks keep the
   // legacy 503×440 values whenever measurements aren't available yet.
   useEffect(() => {
+    const innerEl = innerRef.current;
+    if (!innerEl) return;
+    const doc = innerEl.ownerDocument;
+    const win = doc.defaultView ?? window;
     // eslint-disable-next-line complexity
     const measure = () => {
-      const sideEl = document.querySelector('.deck-shelves-qam-sidecar') as HTMLElement | null;
+      const sideEl = doc.querySelector('.deck-shelves-qam-sidecar') as HTMLElement | null;
       if (!sideEl) return;
-      const scope = document.querySelector('.deck-shelves-qam-scope') as HTMLElement | null;
-      const main = document.querySelector('.deck-shelves-qam-main') as HTMLElement | null;
+      const scope = doc.querySelector('.deck-shelves-qam-scope') as HTMLElement | null;
+      const main = doc.querySelector('.deck-shelves-qam-main') as HTMLElement | null;
       // The QAM tab's dark panel that hosts every plugin tab content area.
       // The class is obfuscated but consistently present; if Steam ever
       // renames it we fall back to the viewport.
-      const panel = (document.querySelector('._2BB6uf--jFaAmdnwLOqMU7') as HTMLElement | null)
+      const panel = (doc.querySelector('._2BB6uf--jFaAmdnwLOqMU7') as HTMLElement | null)
         ?? (scope?.closest('[id^="quickaccess_content_"]') as HTMLElement | null);
       const mainRect = main?.getBoundingClientRect();
       const panelRect = panel?.getBoundingClientRect();
@@ -119,8 +123,8 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
         // adapt if the main tab width ever changes.
         sideEl.style.left = `${Math.round(mainRect.width)}px`;
       }
-      const targetRight = panelRect?.right ?? window.innerWidth;
-      const targetBottom = panelRect?.bottom ?? window.innerHeight;
+      const targetRight = panelRect?.right ?? win.innerWidth;
+      const targetBottom = panelRect?.bottom ?? win.innerHeight;
       const w = Math.max(280, Math.round(targetRight - sRect.left));
       const h = Math.max(320, Math.round(targetBottom - sRect.top + 8));
       sideEl.style.width = `${w}px`;
@@ -129,16 +133,16 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
     measure();
     // Re-measure on viewport resize and on Steam Deck dock/undock events.
     const ro = new ResizeObserver(measure);
-    ro.observe(document.documentElement);
-    window.addEventListener('resize', measure);
+    ro.observe(doc.documentElement);
+    win.addEventListener('resize', measure);
     // Re-measure shortly after mount to catch QAM layout settling.
-    const t1 = window.setTimeout(measure, 60);
-    const t2 = window.setTimeout(measure, 240);
+    const t1 = win.setTimeout(measure, 60);
+    const t2 = win.setTimeout(measure, 240);
     return () => {
       ro.disconnect();
-      window.removeEventListener('resize', measure);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
+      win.removeEventListener('resize', measure);
+      win.clearTimeout(t1);
+      win.clearTimeout(t2);
     };
   }, []);
   return (
