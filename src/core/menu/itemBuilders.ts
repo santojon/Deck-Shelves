@@ -190,13 +190,23 @@ function buildDisplay(ctx: Ctx, mk: Mk): any[] {
 
 function buildVisual(ctx: Ctx, mk: Mk): any[] {
   const { shelf, shelfId, isSmart } = ctx;
-  return [
+  const items: any[] = [
     makeFlagItem(mk, shelf, isSmart, shelfId, "matchNativeSize", "ds-v-native", "match_native_size", "Match native size"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightFirst", "ds-v-hiFirst", "highlight_first", "Highlight first card"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightAll", "ds-v-hiAll", "highlight_all", "Highlight all cards"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightRandom", "ds-v-hiRandom", "highlight_random", "Random featured cards"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "heroEnabled", "ds-v-hero", "hero_enabled_label", "Enable hero art"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "enableLogo", "ds-v-logo", "enable_logo", "Show logo"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "enableIcon", "ds-v-icon", "enable_icon", "Show icon"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "enableDescription", "ds-v-desc", "enable_description", "Show description"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "fullPageShelf", "ds-v-fullpage", "full_page_shelf_label", "Full-page shelf"),
   ];
+  // Only surface "description below logo" when both prereqs are on for
+  // this shelf — otherwise the toggle is a no-op and clutters the menu.
+  if (shelf?.enableLogo && shelf?.enableDescription) {
+    items.push(makeFlagItem(mk, shelf, isSmart, shelfId, "descriptionBelowLogo", "ds-v-descBelow", "description_below_logo", "Description below logo"));
+  }
+  return items;
 }
 
 function highlightActionFor(ctx: Ctx, mk: Mk): any {

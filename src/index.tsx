@@ -26,6 +26,7 @@ import { logError, logInfo } from "./runtime/logger";
 import { toaster } from "./shims/decky-api";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses, createDeckyHostApi } from "./runtime/host/decky";
 import { AboutPage } from "./components/AboutPage";
+import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
 import { ShelfManageRoute } from "./components/ShelfManageRoute";
 import type { HostApi } from "./runtime/host/contract";
@@ -40,6 +41,7 @@ export function getHostApi(): HostApi { if (!_hostApi) throw new Error("HostApi 
 export function __setHostApiForTest(h: HostApi | null) { _hostApi = h; }
 
 const ABOUT_ROUTE = "/deck-shelves/about";
+const SETTINGS_ROUTE = "/deck-shelves/settings";
 const EDIT_ROUTE = "/deck-shelves/edit/:shelfId";
 const DELETE_ROUTE = "/deck-shelves/delete/:shelfId";
 const MANAGE_ROUTE = "/deck-shelves/manage/:shelfId";
@@ -65,7 +67,18 @@ function openAboutPage() {
   Navigation.Navigate(ABOUT_ROUTE);
 }
 
+export function openSettingsPage() {
+  try { (Navigation as any).CloseSideMenus?.(); } catch (e) { console.info("CloseSideMenus failed", e); }
+  Navigation.Navigate(SETTINGS_ROUTE);
+}
+
 function TitleView() {
+  // Read the settings flag inline so the gear button can stay hidden by
+  // default while the full-page Settings route is still a placeholder.
+  // No subscription needed — the title view re-mounts whenever Decky
+  // refreshes its plugin tab.
+  let showSettingsButton = false;
+  try { showSettingsButton = (getCurrentSettings() as any)?.settingsPageEnabled === true; } catch {}
   return (
     <Focusable
       style={{ display: "flex", padding: 0, flex: "auto", boxShadow: "none" }}
@@ -82,6 +95,18 @@ function TitleView() {
           <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" />
         </svg>
       </DialogButton>
+      {showSettingsButton && (
+        <DialogButton
+          style={{ height: 28, width: 40, minWidth: 0, padding: 0, marginLeft: 4, display: "flex", justifyContent: "center", alignItems: "center" }}
+          onClick={openSettingsPage}
+          onOKButton={openSettingsPage}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </DialogButton>
+      )}
     </Focusable>
   );
 }
@@ -122,6 +147,14 @@ export default definePlugin((serverAPI?: any) => {
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
     <AboutPage />
   )); } catch (e) { console.warn("addRoute failed", e); }
+
+  // Full-page Settings route — registered eagerly so navigation works.
+  // The QAM gear-icon button that triggers it stays gated behind the
+  // `settingsPageEnabled` flag (off by default) until the page itself
+  // is built out beyond its current placeholder.
+  try { routerHook?.addRoute?.(SETTINGS_ROUTE, () => (
+    <SettingsPage />
+  )); } catch (e) { console.warn("settings route addRoute failed", e); }
 
   // Edit / Delete routes — opened from the card context menu; mount a
   // standalone controller and show the modal via showModal in a portal.

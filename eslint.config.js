@@ -1,6 +1,65 @@
 import tsParser from '@typescript-eslint/parser';
 import reactHooks from 'eslint-plugin-react-hooks';
 
+const MAX_LINE_COMMENT_LINES = 3;
+const MAX_BLOCK_COMMENT_LINES = 5;
+
+const commentLengthPlugin = {
+  rules: {
+    'comment-length': {
+      meta: {
+        type: 'suggestion',
+        docs: { description: 'Limit consecutive // comments and /* */ block comments.' },
+        messages: {
+          tooManyLines: 'Consecutive `//` comments capped at {{max}} lines (saw {{actual}}). Trim or rewrite as a {{max_block}}-line block.',
+          tooLongBlock: '`/* */` block comment capped at {{max}} lines (saw {{actual}}). Trim or split.',
+        },
+        schema: [],
+      },
+      create(context) {
+        const sc = context.sourceCode;
+        function reportGroup(group) {
+          if (group.length <= MAX_LINE_COMMENT_LINES) return;
+          context.report({
+            node: group[0],
+            loc: { start: group[0].loc.start, end: group[group.length - 1].loc.end },
+            messageId: 'tooManyLines',
+            data: { max: MAX_LINE_COMMENT_LINES, actual: group.length, max_block: MAX_BLOCK_COMMENT_LINES },
+          });
+        }
+        return {
+          Program() {
+            const comments = sc.getAllComments();
+            let group = [];
+            for (const c of comments) {
+              if (c.type === 'Line') {
+                if (group.length && group[group.length - 1].loc.end.line + 1 === c.loc.start.line) {
+                  group.push(c);
+                } else {
+                  reportGroup(group);
+                  group = [c];
+                }
+              } else if (c.type === 'Block') {
+                reportGroup(group);
+                group = [];
+                const lines = (c.value.match(/\n/g) || []).length + 1;
+                if (lines > MAX_BLOCK_COMMENT_LINES) {
+                  context.report({
+                    node: c,
+                    messageId: 'tooLongBlock',
+                    data: { max: MAX_BLOCK_COMMENT_LINES, actual: lines },
+                  });
+                }
+              }
+            }
+            reportGroup(group);
+          },
+        };
+      },
+    },
+  },
+};
+
 // Existing violations at rule-enablement time are baselined in
 // `eslint-suppressions.json` (committed). New violations in any file
 // (including files with suppressed entries) fail the lint. Run
@@ -15,6 +74,7 @@ export default [
     },
     plugins: {
       'react-hooks': reactHooks,
+      'ds-local': commentLengthPlugin,
     },
     linterOptions: {
       reportUnusedDisableDirectives: 'off',
@@ -50,6 +110,9 @@ export default [
       // switch case must end with break/return — fallthroughs are a
       // common source of silent bugs.
       'no-fallthrough': 'error',
+      // Consecutive `//` comments capped at 3 lines; `/* */` blocks at 5
+      // lines. Long-form notes belong in docs/.
+      'ds-local/comment-length': 'warn',
     },
   },
 ];

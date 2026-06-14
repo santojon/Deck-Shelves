@@ -1,9 +1,11 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Focusable, GamepadButton } from "../../runtime/host/decky";
+import { dispatchHomeButtonDown } from "../../runtime/homeInputBus";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
-import { getPortraitUrls, getLandscapeUrls } from "../../core/steamAssets";
+import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
+import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -97,7 +99,7 @@ const xCircleSvg = (
   </svg>
 );
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, inlineBadges = false, previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', inlineBadges = false, previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -214,7 +216,12 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     catch { return false; }
   }, [appid, previewMode]);
   const buttonDownHandler = useCallback((evt: any) => {
-    if (previewMode || !appid) return;
+    if (previewMode) return;
+    // Forward EVERY button-down event to the home input bus so features
+    // (Quick Search L1+R1 chord, etc.) can react. The bus listeners no-op
+    // unless they're enabled, so the overhead is negligible.
+    try { dispatchHomeButtonDown(evt); } catch {}
+    if (!appid) return;
     try {
       if (evt?.detail?.button === GamepadButton.SELECT) {
         quickLaunch();
@@ -313,6 +320,43 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       el.removeEventListener("vgp_onok", activateHandler);
     };
   }, [item.onMenuButton, activate]);
+
+  // Enrichment: logo overlay over the art; icon prepended to the name/status;
+  // description snippet rendered below the status row or below the logo.
+  const logoUrls = useMemo(() => (enableLogo && appid > 0 ? getLogoUrls(appid) : []), [enableLogo, appid]);
+  const iconUrls = useMemo(() => (enableIcon && appid > 0 ? getIconUrls(appid) : []), [enableIcon, appid]);
+  const [logoIdx, setLogoIdx] = useState(0);
+  const [iconIdx, setIconIdx] = useState(0);
+  // Warm the loopback / CDN URLs in the background so subsequent renders of
+  // the same appid hit the in-memory blob cache (3-9 ms) instead of going
+  // back to the network. `getHotCachedImageSrc` returns a blob URL ready to
+  // feed directly into `<img src>`.
+  useEffect(() => {
+    for (const u of iconUrls) if (!getHotCachedImageSrc(u)) warmCacheBackground(u);
+  }, [iconUrls]);
+  useEffect(() => {
+    for (const u of logoUrls) if (!getHotCachedImageSrc(u)) warmCacheBackground(u);
+  }, [logoUrls]);
+  const logoSrc = (logoUrls[logoIdx] ? (getHotCachedImageSrc(logoUrls[logoIdx]) || logoUrls[logoIdx]) : null);
+  const iconSrc = (iconUrls[iconIdx] ? (getHotCachedImageSrc(iconUrls[iconIdx]) || iconUrls[iconIdx]) : null);
+  // Description lands in the cache asynchronously after `preloadAppDescriptions`
+  // kicks off `RequestDescriptionsData`. A useMemo over the cache would never
+  // re-evaluate, so we poll the cache for a few seconds and stop once we have
+  // the snippet (or the cache's own retry budget runs out).
+  const [description, setDescription] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enableDescription || appid <= 0 || previewMode) { setDescription(null); return; }
+    preloadAppDescriptions(appid);
+    const tick = (): boolean => {
+      const d = getAppDescriptions(appid);
+      if (d?.snippet) { setDescription(d.snippet); return true; }
+      return false;
+    };
+    if (tick()) return;
+    const id = window.setInterval(() => { if (tick()) window.clearInterval(id); }, 400);
+    const stop = window.setTimeout(() => window.clearInterval(id), 6000);
+    return () => { window.clearInterval(id); window.clearTimeout(stop); };
+  }, [enableDescription, appid, previewMode]);
 
   const allUrls = useMemo(() => {
     const urls: string[] = [];
@@ -454,7 +498,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // the user's local Steam library. Wishlist / store / decoration
       // cards have no install / play / update to dispatch to, so neither
       // the binding nor the legend slot should appear for them.
-      onButtonDown={isLibraryGame ? buttonDownHandler : undefined}
+      onButtonDown={previewMode ? undefined : buttonDownHandler}
       actionDescriptionMap={isLibraryGame && quickLaunchLabel ? { [GamepadButton.SELECT]: quickLaunchLabel } : undefined}
       // Y → quick highlight toggle. Static label avoids legend churn.
       // No-op when no appid or in modal preview (the modal owns highlight).
@@ -480,6 +524,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             : undefined}
       data-appid={appid || undefined}
       data-shelfid={item.shelfId || undefined}
+      data-name={item.name || undefined}
       data-isnew={showNewBadge ? 'true' : undefined}
       data-discount={showDiscountBadge ? String(discount) : undefined}
       data-ds-card-index={cardIndex !== undefined ? String(cardIndex) : undefined}
@@ -598,11 +643,32 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           paddingTop: 10,
           pointerEvents: "none",
           display: "flex",
-          flexDirection: "column",
+          flexDirection: "row",
+          alignItems: iconVerticalAlign === 'center' ? 'center' : iconVerticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
+          gap: 6,
         }}
       >
+        {enableIcon && iconSrc && (() => {
+          // Icon only renders when there's *some* text below the card —
+          // name, status row, or description. Sits to the left of the text
+          // column, vertically centred.
+          const hasName = !hideGameName;
+          const hasStatus = !hideStatusLine && isLibraryGame;
+          const hasDesc = enableDescription && !!description && !(enableLogo && descriptionBelowLogo);
+          if (!(hasName || hasStatus || hasDesc)) return null;
+          return (
+            <img
+              className="ds-card-icon"
+              src={iconSrc}
+              alt=""
+              aria-hidden="true"
+              onError={() => setIconIdx((i) => i + 1)}
+            />
+          );
+        })()}
+        <div data-ds-playtime-position={playtimePosition} style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto', position: 'relative' }}>
         {!hideGameName && (
-          <div className="ds-card-label-name">
+          <div className="ds-card-label-name" style={{ textAlign: gameNamePosition, width: '100%' }}>
             {item.name}
           </div>
         )}
@@ -659,7 +725,23 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           }
           return null;
         })()}
+        {/* Description snippet — rendered below the install/playtime row.
+            When `descriptionBelowLogo` is on AND the logo is rendered,
+            the description is moved into the logo overlay instead so it
+            sits under the title art. */}
+        {enableDescription && description && !(enableLogo && descriptionBelowLogo) && (
+          <div className="ds-card-description" data-ds-position={descriptionPosition}>{description}</div>
+        )}
+        </div>
       </div>
+      {/* Logo overlay — composited over the art (top area). When active,
+          the in-label game name is suppressed (`!hideGameName && !enableLogo`
+          above). With `descriptionBelowLogo` and `enableDescription`, the
+          description sits directly below the logo. */}
+      {/* Logo + (optionally) description below it are rendered ONCE per
+          shelf in `PerShelfHero` — tied to the currently focused card —
+          not per card. See `PerShelfHero.tsx` for the focused-card logo
+          + description render path. */}
       {/* Editor picker markers — siblings of the art / label, anchored
           to the Focusable's positioned wrapper. The colored ring uses
           the SAME box-shadow shape as the native focus ring (see

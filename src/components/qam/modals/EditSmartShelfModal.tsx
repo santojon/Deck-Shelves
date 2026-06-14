@@ -6,7 +6,6 @@ import {
   DropdownItem,
   Field,
   Focusable,
-  SliderField,
   Tabs,
   TextField,
   ToggleField,
@@ -17,7 +16,7 @@ import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } fr
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
-import { FieldContainer, ModalShell } from '../../ui'
+import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
 import { logInfo } from '../../../runtime/logger'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
@@ -87,6 +86,18 @@ type EditState = {
   enableLogo: boolean
   enableIcon: boolean
   enableDescription: boolean
+  descriptionBelowLogo: boolean
+  logoPosition: 'left' | 'center' | 'right'
+  descriptionPosition: 'left' | 'center' | 'right'
+  logoSize: number
+  logoTopOffset: number
+  iconVerticalAlign: 'top' | 'center' | 'bottom'
+  shelfTitlePosition: 'left' | 'center' | 'right'
+  gameNamePosition: 'left' | 'center' | 'right'
+  playtimePosition: 'left' | 'center' | 'right'
+  descriptionHeight: number
+  descriptionLogoGap: number
+  fullPageShelf: boolean
   highlightedAppIds: number[]
   hideStatusLine: boolean
   hideNewBadge: boolean
@@ -134,6 +145,18 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     enableLogo: (shelf as any).enableLogo === true,
     enableIcon: (shelf as any).enableIcon === true,
     enableDescription: (shelf as any).enableDescription === true,
+    descriptionBelowLogo: (shelf as any).descriptionBelowLogo === true,
+    logoPosition: ((shelf as any).logoPosition === 'center' || (shelf as any).logoPosition === 'right') ? (shelf as any).logoPosition : 'left',
+    descriptionPosition: ((shelf as any).descriptionPosition === 'center' || (shelf as any).descriptionPosition === 'right') ? (shelf as any).descriptionPosition : 'left',
+    logoSize: typeof (shelf as any).logoSize === 'number' ? Math.max(50, Math.min(200, (shelf as any).logoSize)) : 100,
+    logoTopOffset: typeof (shelf as any).logoTopOffset === 'number' ? Math.max(0, Math.min(100, (shelf as any).logoTopOffset)) : 20,
+    iconVerticalAlign: ((shelf as any).iconVerticalAlign === 'center' || (shelf as any).iconVerticalAlign === 'bottom') ? (shelf as any).iconVerticalAlign : 'top',
+    shelfTitlePosition: ((shelf as any).shelfTitlePosition === 'center' || (shelf as any).shelfTitlePosition === 'right') ? (shelf as any).shelfTitlePosition : 'left',
+    gameNamePosition: ((shelf as any).gameNamePosition === 'center' || (shelf as any).gameNamePosition === 'right') ? (shelf as any).gameNamePosition : 'left',
+    playtimePosition: ((shelf as any).playtimePosition === 'center' || (shelf as any).playtimePosition === 'right') ? (shelf as any).playtimePosition : 'left',
+    descriptionHeight: typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2,
+    descriptionLogoGap: typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 8,
+    fullPageShelf: (shelf as any).fullPageShelf === true,
     highlightedAppIds: (shelf as any).highlightedAppIds ?? [],
     hideStatusLine: (shelf as any).hideStatusLine ?? false,
     hideNewBadge: (shelf as any).hideNewBadge ?? false,
@@ -397,6 +420,18 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).enableLogo = state.enableLogo
       ;(patch as any).enableIcon = state.enableIcon
       ;(patch as any).enableDescription = state.enableDescription
+      ;(patch as any).descriptionBelowLogo = state.descriptionBelowLogo
+      ;(patch as any).logoPosition = state.logoPosition
+      ;(patch as any).descriptionPosition = state.descriptionPosition
+      ;(patch as any).logoSize = state.logoSize
+      ;(patch as any).logoTopOffset = state.logoTopOffset
+      ;(patch as any).iconVerticalAlign = state.iconVerticalAlign
+      ;(patch as any).shelfTitlePosition = state.shelfTitlePosition
+      ;(patch as any).gameNamePosition = state.gameNamePosition
+      ;(patch as any).playtimePosition = state.playtimePosition
+      ;(patch as any).descriptionHeight = state.descriptionHeight
+      ;(patch as any).descriptionLogoGap = state.descriptionLogoGap
+      ;(patch as any).fullPageShelf = state.fullPageShelf || undefined
       ;(patch as any).highlightedAppIds = (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined
       ;(patch as any).hideStatusLine = state.hideStatusLine
       ;(patch as any).hideNewBadge = state.hideNewBadge
@@ -621,8 +656,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           }))
                         }}
                       />
-                      <SliderField
-                        label={`${t('limit')} (${state.limit})`}
+                      <DSSliderField
+                        label={t('limit')}
                         value={state.limit}
                         min={1}
                         max={50}
@@ -746,10 +781,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           )
                         }
                         return (
-                          <SliderField
+                          <DSSliderField
                             key={key}
-                            label={`${t(meta.labelKey as any)} (${value}${unit ? ` ${unit}` : ''})`}
+                            label={t(meta.labelKey as any)}
                             value={value}
+                            unit={unit ? ` ${unit}` : ''}
                             min={meta.min}
                             max={meta.max}
                             step={meta.step}
@@ -893,7 +929,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, heroEnabled: state.heroEnabled }}
+                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled }}
                       setFlags={(patch) => setState((prev) => ({ ...prev, ...patch }))}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}

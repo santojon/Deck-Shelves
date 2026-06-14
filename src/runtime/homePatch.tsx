@@ -3,6 +3,9 @@ import i18next from "i18next";
 import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";
 import { wrapHomeShelves } from "../qa/harness";
 const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
+import { SearchOverlay } from "../features/search/SearchOverlay";
+import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
+try { (globalThis as any).__ds_homepatch_loaded = Date.now(); (globalThis as any).__ds_overlays_imported = typeof SearchOverlay === 'function' && typeof ShelfSideNav === 'function'; } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow } from "./steamHost";
@@ -612,8 +615,17 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
 }
 
 function HomeDomBridge() {
+  try { (globalThis as any).__ds_bridge_renders = (((globalThis as any).__ds_bridge_renders ?? 0) + 1); } catch {}
   getHostContext();
-  return React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
+  return React.createElement(
+    HomeBoundary,
+    null,
+    React.createElement(React.Fragment, null,
+      React.createElement(HomeShelves),
+      React.createElement(SearchOverlay),
+      React.createElement(ShelfSideNav),
+    ),
+  );
 }
 
 function tryStoreMethod(store: any, method: 'addComponent' | 'register'): boolean {
@@ -788,7 +800,15 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const renderWithReactDOM = (ReactDOM: any, mount: HTMLElement): { unmount(): void } | null => {
-    const tree = React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
+    const tree = React.createElement(
+    HomeBoundary,
+    null,
+    React.createElement(React.Fragment, null,
+      React.createElement(HomeShelves),
+      React.createElement(SearchOverlay),
+      React.createElement(ShelfSideNav),
+    ),
+  );
     const renderFn = ReactDOM.createRoot ?? ReactDOM.default?.createRoot;
     if (typeof renderFn === "function") {
       const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);

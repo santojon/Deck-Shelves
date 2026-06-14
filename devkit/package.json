@@ -1,0 +1,19 @@
+{
+  "name": "@deck-shelves/devkit",
+  "version": "0.0.0-pre",
+  "private": true,
+  "description": "CDP probes, screenshot pipeline, and perf bench for Deck Shelves development on Steam Deck.",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/santojon/Deck-Shelves.git",
+    "directory": "devkit"
+  },
+  "engines": {
+    "node": ">=18",
+    "python": ">=3.10"
+  },
+  "scripts": {
+    "note": "Scaffold only — actual entry points live at scripts/devtools/deck/ in the parent repo until the split."
+  }
+}

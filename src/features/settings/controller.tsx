@@ -329,6 +329,80 @@ export function useSettingsController() {
       if (!s || (s as any).globalEnableDescription === globalEnableDescription) return;
       await persist({ ...s, globalEnableDescription } as any);
     },
+    async setGlobalDescriptionBelowLogo(globalDescriptionBelowLogo: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).globalDescriptionBelowLogo === globalDescriptionBelowLogo) return;
+      await persist({ ...s, globalDescriptionBelowLogo } as any);
+    },
+    async setGlobalLogoPosition(globalLogoPosition: 'left' | 'center' | 'right') {
+      const s = liveSettings();
+      if (!s || (s as any).globalLogoPosition === globalLogoPosition) return;
+      await persist({ ...s, globalLogoPosition } as any);
+    },
+    async setGlobalDescriptionPosition(globalDescriptionPosition: 'left' | 'center' | 'right') {
+      const s = liveSettings();
+      if (!s || (s as any).globalDescriptionPosition === globalDescriptionPosition) return;
+      await persist({ ...s, globalDescriptionPosition } as any);
+    },
+    async setGlobalLogoSize(globalLogoSize: number) {
+      const s = liveSettings();
+      const clamped = Math.max(50, Math.min(200, Math.round(globalLogoSize)));
+      if (!s || (s as any).globalLogoSize === clamped) return;
+      await persist({ ...s, globalLogoSize: clamped } as any);
+    },
+    async setGlobalLogoTopOffset(globalLogoTopOffset: number) {
+      const s = liveSettings();
+      const clamped = Math.max(-50, Math.min(100, Math.round(globalLogoTopOffset)));
+      if (!s || (s as any).globalLogoTopOffset === clamped) return;
+      await persist({ ...s, globalLogoTopOffset: clamped } as any);
+    },
+    async setGlobalFullPageShelf(globalFullPageShelf: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).globalFullPageShelf === globalFullPageShelf) return;
+      await persist({ ...s, globalFullPageShelf } as any);
+    },
+    async setGlobalIconVerticalAlign(globalIconVerticalAlign: 'top' | 'center' | 'bottom') {
+      const s = liveSettings();
+      if (!s || (s as any).globalIconVerticalAlign === globalIconVerticalAlign) return;
+      await persist({ ...s, globalIconVerticalAlign } as any);
+    },
+    async setGlobalShelfTitlePosition(globalShelfTitlePosition: 'left' | 'center' | 'right') {
+      const s = liveSettings();
+      if (!s || (s as any).globalShelfTitlePosition === globalShelfTitlePosition) return;
+      await persist({ ...s, globalShelfTitlePosition } as any);
+    },
+    async setGlobalGameNamePosition(globalGameNamePosition: 'left' | 'center' | 'right') {
+      const s = liveSettings();
+      if (!s || (s as any).globalGameNamePosition === globalGameNamePosition) return;
+      await persist({ ...s, globalGameNamePosition } as any);
+    },
+    async setGlobalPlaytimePosition(globalPlaytimePosition: 'left' | 'center' | 'right') {
+      const s = liveSettings();
+      if (!s || (s as any).globalPlaytimePosition === globalPlaytimePosition) return;
+      await persist({ ...s, globalPlaytimePosition } as any);
+    },
+    async setGlobalDescriptionHeight(globalDescriptionHeight: number) {
+      const s = liveSettings();
+      const clamped = Math.max(1, Math.min(3, Math.round(globalDescriptionHeight)));
+      if (!s || (s as any).globalDescriptionHeight === clamped) return;
+      await persist({ ...s, globalDescriptionHeight: clamped } as any);
+    },
+    async setGlobalDescriptionLogoGap(globalDescriptionLogoGap: number) {
+      const s = liveSettings();
+      const clamped = Math.max(-40, Math.min(80, Math.round(globalDescriptionLogoGap)));
+      if (!s || (s as any).globalDescriptionLogoGap === clamped) return;
+      await persist({ ...s, globalDescriptionLogoGap: clamped } as any);
+    },
+    async setContextSearchEnabled(contextSearchEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).contextSearchEnabled === contextSearchEnabled) return;
+      await persist({ ...s, contextSearchEnabled } as any);
+    },
+    async setSideNavEnabled(sideNavEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).sideNavEnabled === sideNavEnabled) return;
+      await persist({ ...s, sideNavEnabled } as any);
+    },
     async setGlobalHideNewBadge(globalHideNewBadge: boolean) {
       const s = liveSettings();
       if (!s || s.globalHideNewBadge === globalHideNewBadge) return;

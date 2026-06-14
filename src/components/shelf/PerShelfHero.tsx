@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { isArtHeroActive } from "../../core/cssLoaderDetect";
-import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls } from "../../core/steamAssets";
+import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls, getLogoUrls } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
+import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 
 let _nativeAssetProto: any = null;
 
@@ -289,10 +290,13 @@ function useNativeHeroClasses(applyGate: boolean): NativeHeroClasses {
   return state;
 }
 
-function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecents }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean; forceLayoutAsRecents: boolean }) {
+function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecents, isFullPage = false, enableLogo = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, descriptionHeight = 2, descriptionLogoGap = 8 }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean; forceLayoutAsRecents: boolean; isFullPage?: boolean; enableLogo?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; descriptionHeight?: number; descriptionLogoGap?: number }) {
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
+  // Focused card's appid drives the logo + description overlay so the
+  // banner mirrors whatever the user has highlighted in this shelf.
+  const [focusedAppid, setFocusedAppid] = useState<number>(0);
   // The slot we want to switch TO but haven't yet because its image is
   // still loading. Keeping `activeSlot` on the previously-loaded slot
   // until the new one is ready avoids the 200-500 ms "both invisible"
@@ -596,6 +600,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // hero art — the per-shelf / global hero-art setting is respected.
       if (appid !== currentAppid.current) {
         currentAppid.current = appid;
+        setFocusedAppid(appid);
         if (showArt) {
           // 30ms swap debounce coalesces rapid d-pad navigation so
           // intermediate cards don't trigger hero-load cycles. First
@@ -783,9 +788,42 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // unconditionally — kept above the early return below.
   const slotASrc = useMemo(() => slotA ?? undefined, [slotA]);
   const slotBSrc = useMemo(() => slotB ?? undefined, [slotB]);
+  // Focused-card logo + description overlay (Netflix-style banner).
+  // Tracks the focused appid above and walks the standard URL chain
+  // with onError fallback (loopback → customimages → CDN). The logo URL
+  // list runs through the shared blob cache so warm cache hits (~3 ms)
+  // skip the network when the user re-focuses a card they've already
+  // seen this session.
+  const logoUrls = useMemo(() => (enableLogo && focusedAppid > 0 ? getLogoUrls(focusedAppid) : []), [enableLogo, focusedAppid]);
+  const [logoIdx, setLogoIdx] = useState(0);
+  useEffect(() => { setLogoIdx(0); }, [focusedAppid]);
+  useEffect(() => {
+    for (const u of logoUrls) if (!getHotCachedImageSrc(u)) warmCacheBackground(u);
+  }, [logoUrls]);
+  const logoSrc = logoUrls[logoIdx] ? (getHotCachedImageSrc(logoUrls[logoIdx]) || logoUrls[logoIdx]) : null;
+  const [overlayDescription, setOverlayDescription] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enableDescription || focusedAppid <= 0) { setOverlayDescription(null); return; }
+    preloadAppDescriptions(focusedAppid);
+    const tick = (): boolean => {
+      const d = getAppDescriptions(focusedAppid);
+      if (d?.snippet) { setOverlayDescription(d.snippet); return true; }
+      return false;
+    };
+    setOverlayDescription(null);
+    if (tick()) return;
+    const id = window.setInterval(() => { if (tick()) window.clearInterval(id); }, 400);
+    const stop = window.setTimeout(() => window.clearInterval(id), 6000);
+    return () => { window.clearInterval(id); window.clearTimeout(stop); };
+  }, [enableDescription, focusedAppid]);
+  const hasFocusedApp = focusedAppid > 0;
+  const wantsLogo = enableLogo && hasFocusedApp;
+  const hasRealLogo = wantsLogo && !!logoSrc;
+  const wantsDescriptionBelowLogo = enableDescription && !!overlayDescription && descriptionBelowLogo && hasFocusedApp;
+  const showOverlayContainer = wantsLogo || wantsDescriptionBelowLogo;
   const hasArt = showArt && !!(slotA || slotB);
   const showLabel = needsLabel && isPromoted && !!labelHtml;
-  if (!hasArt && !showLabel) return null;
+  if (!hasArt && !showLabel && !showOverlayContainer) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   // "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
   // Applies to the genuine first shelf (forceExpanded) AND, under
@@ -843,22 +881,16 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
 
   return (
     <>
-    {hasArt && <div className={nativeHeroRootClass ?? undefined} data-ds-per-shelf-hero="true" style={{
+    {hasArt && <div className={nativeHeroRootClass ?? undefined} data-ds-per-shelf-hero="true" data-ds-hero-full-page={isFullPage ? 'true' : undefined} style={{
       position: 'absolute',
-      // Viewport-parameterized height (~374px at the Deck's BigPicture
-      // viewport): scales with the screen instead of a hard pixel value.
-      // Themes can override via --ds-hero-h / --ds-hero-top (e.g. fullscreen
-      // theme bumps to 100vh + top:0 on promoted shelves).
-      top: `var(--ds-hero-top, ${topBleed}px)`, height: `var(--ds-hero-h, ${heroHeight})`,
-      // Exactly viewport-width — NOT bled out sideways. The native theme's
-      // zoom layer carries a `width: 100vw` rule; a hero wider than the
-      // viewport left that layer 48px short on the right (the white bar).
-      // Full-viewport-width also satisfies "image spans 100% of the viewport".
+      // Per-shelf full-page: hero fills the shelf's own 100vh box
+      // (same composition as the first shelf under hideRecents).
+      top: isFullPage ? 0 : `var(--ds-hero-top, ${topBleed}px)`,
+      height: isFullPage ? '100%' : `var(--ds-hero-h, ${heroHeight})`,
       left: 0, right: 0,
-      zIndex: -1, pointerEvents: 'none', overflow: 'hidden',
-      // Hide the entire hero wrapper until at least one slot has decoded
-      // its image — matches the "hero disabled" visual state instead of
-      // showing a dark fill / shimmer placeholder while loading.
+      zIndex: -1,
+      pointerEvents: 'none',
+      overflow: 'hidden',
       opacity: visible && (slotALoaded || slotBLoaded) ? 1 : 0,
       transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
       // OUR linear mask stays on the root — it carries the inter-shelf
@@ -975,6 +1007,86 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         }}
         dangerouslySetInnerHTML={{ __html: labelHtml }}
       />
+    )}
+    {showOverlayContainer && (
+      <div
+        className="ds-shelf-logo-overlay"
+        data-ds-position={logoPosition}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: logoPosition === 'left' ? 24 : logoPosition === 'right' ? 'auto' : '50%',
+          right: logoPosition === 'right' ? 24 : 'auto',
+          transform: logoPosition === 'center' ? 'translateX(-50%)' : undefined,
+          // Logo always anchored close to the top of the shelf's container,
+          // with the user-tunable `logoTopOffset` (0-100) scaling it:
+          //   promoted: 0..8 vh  (default 20 → 1.6 vh)
+          //   regular:  0..32 px (default 20 → 6.4 px)
+          top: treatAsFirst ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32),
+          // No outer maxWidth: the logo image carries its own size cap and
+          // the description carries its own (wider) max-width — letting the
+          // container shrink to the widest child gives the description room
+          // to actually use its full 4-card-wide budget instead of being
+          // clipped by a tight outer box.
+          zIndex: 21,
+          pointerEvents: 'none',
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.4s cubic-bezier(0.17,0.45,0.14,0.83)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: logoPosition === 'left' ? 'flex-start' : logoPosition === 'right' ? 'flex-end' : 'center',
+          textAlign: logoPosition,
+        }}
+      >
+        {wantsLogo && (hasRealLogo ? (
+          <img
+            src={logoSrc!}
+            alt=""
+            onError={() => setLogoIdx((i) => i + 1)}
+            style={{
+              maxWidth: '100%',
+              maxHeight: treatAsFirst ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.75))',
+            }}
+          />
+        ) : (
+          // Transparent placeholder preserves the slot when the user
+          // opted in to the logo but no image is available for the
+          // focused app — the description below stays in the same
+          // vertical position regardless of the logo state.
+          <div
+            aria-hidden="true"
+            style={{
+              width: 1,
+              height: treatAsFirst ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
+            }}
+          />
+        ))}
+        {wantsDescriptionBelowLogo && (
+          <div
+            className="ds-shelf-logo-description"
+            style={{
+              marginTop: wantsLogo ? descriptionLogoGap : 0,
+              maxWidth: 'min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw)',
+              fontSize: '0.74em',
+              lineHeight: 1.2,
+              color: 'rgba(255,255,255,0.85)',
+              textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical' as any,
+              WebkitLineClamp: Math.max(1, Math.min(3, descriptionHeight)),
+              lineClamp: Math.max(1, Math.min(3, descriptionHeight)),
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              textAlign: descriptionPosition,
+              alignSelf: descriptionPosition === 'left' ? 'flex-start' : descriptionPosition === 'right' ? 'flex-end' : 'center',
+            }}
+          >
+            {overlayDescription}
+          </div>
+        )}
+      </div>
     )}
     </>
   );

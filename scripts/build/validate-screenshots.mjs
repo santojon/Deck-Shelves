@@ -59,6 +59,7 @@ const OPTIONAL = [
   { file: "about-filters.png" },
   { file: "about-smart.png" },
   { file: "about-support.png" },
+  { file: "sidecar.png", surface: "qam-popup-sidecar" },
 ];
 
 // Surface profiles — per-surface size bounds and an aspect-ratio window
@@ -86,6 +87,15 @@ const SURFACES = {
     maxSize: 250_000,
     aspectRange: [1.40, 2.20],  // landscape popup: 1281×681 → 1.881
     minWidth: 1000,
+  },
+  // QAM popup with the Deck Shelves sidecar expanded — the panel widens
+  // by ~503 px (main 300 + sidecar 503 + native chrome), pushing the
+  // aspect well above the standard qam-popup band.
+  "qam-popup-sidecar": {
+    minSize: 20_000,
+    maxSize: 350_000,
+    aspectRange: [1.80, 3.20],
+    minWidth: 1200,
   },
   "big-picture": {
     minSize: 60_000,

@@ -40,7 +40,7 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
-function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, forceExpanded = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 8, forceExpanded = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; forceExpanded?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
   const visuallyForced = forceExpanded || forceLayoutAsRecents;
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
@@ -269,11 +269,12 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
 
   
 
-  // Keep `forceExpanded` readable inside the focus-scroll effect without
-  // re-subscribing the listener every time it flips — the effect below
-  // captures a ref so it always sees the current value.
-  const forceExpandedRef = useRef(forceExpanded);
-  useEffect(() => { forceExpandedRef.current = forceExpanded; }, [forceExpanded]);
+  // Scroll-pin-to-top only fires when this shelf is genuinely replacing
+  // the native recents slot (`pinScrollTop`) — NOT when the user opts
+  // into `fullPageShelf` for visual reasons. Otherwise the shelf traps
+  // the viewport at top 0 and the user can't scroll to siblings.
+  const pinScrollTopRef = useRef(pinScrollTop);
+  useEffect(() => { pinScrollTopRef.current = pinScrollTop; }, [pinScrollTop]);
 
   useEffect(() => {
     const el = outerRef.current;
@@ -311,7 +312,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         if (!scr) { el.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
         const elRect = el.getBoundingClientRect();
         const scrRect = scr.getBoundingClientRect();
-        if (forceExpandedRef.current) {
+        if (pinScrollTopRef.current) {
           if (scr === lastScrollable && lastTarget === 0) return;
           lastScrollable = scr;
           lastTarget = 0;
@@ -410,7 +411,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       try {
         const outer = outerRef.current;
         if (outer) requestAnimationFrame(() => {
-          if (forceExpandedRef.current) return;
+          if (pinScrollTopRef.current) return;
           outer.scrollIntoView({ block: 'center', behavior: 'smooth' });
         });
       } catch (e) {
@@ -436,7 +437,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         if (anc) {
           const outerEl = outerRef.current;
           if (outerEl) {
-            if (forceExpandedRef.current) {
+            if (pinScrollTopRef.current) {
               try { anc.scrollTo({ top: 0, behavior: 'smooth' }); } catch { anc.scrollTop = 0; }
             } else {
               const outerRect = outerEl.getBoundingClientRect();
@@ -477,7 +478,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
           if (viewport) {
             const outerEl = outerRef.current;
             if (outerEl) {
-              if (forceExpandedRef.current) {
+              if (pinScrollTopRef.current) {
                 try { viewport.scrollTo({ top: 0, behavior: 'smooth' }); } catch { viewport.scrollTop = 0; }
               } else {
                 const outerRect = outerEl.getBoundingClientRect();
@@ -588,46 +589,72 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       className="Panel ds-shelf"
       data-shelfid={shelfId || undefined}
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
-        style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: heroEnabled ? 'visible' : 'hidden', background: heroEnabled ? 'transparent' : 'var(--ds-shell-bg)' }}
+        style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: (heroEnabled || enableLogo) ? 'visible' : 'hidden', background: (heroEnabled || enableLogo) ? 'transparent' : 'var(--ds-shell-bg)',
+        // Per-shelf fullPageShelf: shelf takes a full viewport-worth of
+        // space so it looks identical to the first shelf when
+        // hideRecents is on. Cards anchor at the bottom; the hero
+        // composes inside the shelf's own bounds (absolute, height 100%).
+        minHeight: (forceExpanded && !pinScrollTop) ? '100vh' : undefined,
+        display: (forceExpanded && !pinScrollTop) ? 'flex' : undefined,
+        flexDirection: (forceExpanded && !pinScrollTop) ? 'column' : undefined,
+        justifyContent: (forceExpanded && !pinScrollTop) ? 'flex-end' : undefined,
+        // Reserve top space for the logo + description banner.
+        // Only skipped on the genuine recents replacement shelf
+        // (forceExpanded), whose fixed hero area already hosts the logo
+        // internally. `forceLayoutAsRecents` no longer skips: themed
+        // shelves often DON'T have hero art ready and the absolute logo
+        // would overlap the card row.
+        paddingTop: (enableLogo && !forceExpanded) ? (() => {
+          const logoHeight = Math.round(130 * logoSize / 100);
+          const topOffsetPx = Math.max(0, Math.round(logoTopOffset * 0.32));
+          const descSlot = (enableDescription && descriptionBelowLogo) ? 26 : 0;
+          return topOffsetPx + logoHeight + descSlot + 2;
+        })() : undefined }}
     >
-      {(heroEnabled || heroLabelMount) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={visuallyForced} forceLayoutAsRecents={forceLayoutAsRecents} />}
+      {(heroEnabled || heroLabelMount || enableLogo || enableDescription) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={visuallyForced} forceLayoutAsRecents={forceLayoutAsRecents} isFullPage={forceExpanded && !pinScrollTop} enableLogo={enableLogo} enableDescription={enableDescription} descriptionBelowLogo={descriptionBelowLogo} logoPosition={logoPosition} descriptionPosition={descriptionPosition} logoSize={logoSize} logoTopOffset={logoTopOffset} descriptionHeight={descriptionHeight} descriptionLogoGap={descriptionLogoGap} />}
       {title && !hideShelfTitle ? (
         collapsed ? (
           <Focusable
             ref={titleRef as any}
             className="ds-shelf-title"
+            data-ds-title-position={shelfTitlePosition}
             onClick={toggleCollapse}
             onOKButton={toggleCollapse}
             onActivate={toggleCollapse}
             style={{
               marginBottom: 8,
               paddingLeft: "2.8vw",
+              paddingRight: "2.8vw",
               display: "flex",
               alignItems: "center",
+              justifyContent: shelfTitlePosition === 'center' ? 'center' : shelfTitlePosition === 'right' ? 'flex-end' : 'flex-start',
               gap: 8,
               cursor: "pointer",
               userSelect: "none",
             }}
           >
-            <span style={{ flex: 1 }}>{`+ ${title}`}</span>
+            <span>{`+ ${title}`}</span>
           </Focusable>
         ) : (
           <div
             ref={titleRef}
             className={`ds-shelf-title${visuallyForced ? ' ds-shelf-title--locked' : ''}`}
+            data-ds-title-position={shelfTitlePosition}
             onClick={visuallyForced ? undefined : toggleCollapse}
             style={{
               marginBottom: 8,
               paddingLeft: "2.8vw",
+              paddingRight: "2.8vw",
               display: "flex",
               alignItems: "center",
+              justifyContent: shelfTitlePosition === 'center' ? 'center' : shelfTitlePosition === 'right' ? 'flex-end' : 'flex-start',
               gap: 8,
               cursor: visuallyForced ? "default" : "pointer",
               userSelect: "none",
               pointerEvents: visuallyForced ? "none" : undefined,
             }}
           >
-            <span style={{ flex: 1 }}>{title}</span>
+            <span>{title}</span>
           </div>
         )
       ) : null}
@@ -665,8 +692,12 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
             /* paddingBottom 60 (was 46) — fits the card label + status line
              * with focus scale(1.04) headroom. Smaller values clip the
              * status row when a card is focused (scale pushes the label
-             * ~6px further down than its rest position). */
-            padding: "16px 0 60px 2.8vw",
+             * ~6px further down than its rest position).
+             * When the per-card description is on, the snippet sits
+             * position:absolute below the label so it can overflow the
+             * card width to ~4 cards. The row needs the extra room so
+             * the snippet isn't clipped by the row's bottom edge. */
+            padding: `16px 0 ${(enableDescription && !descriptionBelowLogo) ? 84 : 60}px 2.8vw`,
           }}
           {...flowChildrenProps("horizontal")}
         >
@@ -688,6 +719,15 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
             hideNonSteamBadge={hideNonSteamBadge}
             hideGameName={hideGameNames}
             hideInstallIndicator={hideInstallIndicator}
+            enableLogo={enableLogo}
+            enableIcon={enableIcon}
+            enableDescription={enableDescription}
+            descriptionBelowLogo={descriptionBelowLogo}
+            logoPosition={logoPosition}
+            descriptionPosition={descriptionPosition}
+            iconVerticalAlign={iconVerticalAlign}
+            gameNamePosition={gameNamePosition}
+            playtimePosition={playtimePosition}
             removableSet={removableSet}
             onRemoveCard={onRemoveCard}
             hiddenSet={hiddenSet}

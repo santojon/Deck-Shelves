@@ -156,6 +156,22 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         enable_logo = bool(s.get("enableLogo", False))
         enable_icon = bool(s.get("enableIcon", False))
         enable_description = bool(s.get("enableDescription", False))
+        description_below_logo = bool(s.get("descriptionBelowLogo", False))
+        logo_position = s.get("logoPosition") if s.get("logoPosition") in ("left", "center", "right") else None
+        description_position = s.get("descriptionPosition") if s.get("descriptionPosition") in ("left", "center", "right") else None
+        logo_size_raw = s.get("logoSize")
+        logo_size = max(50, min(200, int(logo_size_raw))) if isinstance(logo_size_raw, (int, float)) else None
+        logo_top_offset_raw = s.get("logoTopOffset")
+        logo_top_offset = max(-50, min(100, int(logo_top_offset_raw))) if isinstance(logo_top_offset_raw, (int, float)) else None
+        full_page_shelf = bool(s.get("fullPageShelf", False))
+        icon_vertical_align = s.get("iconVerticalAlign") if s.get("iconVerticalAlign") in ("top", "center", "bottom") else None
+        shelf_title_position = s.get("shelfTitlePosition") if s.get("shelfTitlePosition") in ("left", "center", "right") else None
+        game_name_position = s.get("gameNamePosition") if s.get("gameNamePosition") in ("left", "center", "right") else None
+        playtime_position = s.get("playtimePosition") if s.get("playtimePosition") in ("left", "center", "right") else None
+        description_height_raw = s.get("descriptionHeight")
+        description_height = max(1, min(3, int(description_height_raw))) if isinstance(description_height_raw, (int, float)) else None
+        description_logo_gap_raw = s.get("descriptionLogoGap")
+        description_logo_gap = max(-40, min(80, int(description_logo_gap_raw))) if isinstance(description_logo_gap_raw, (int, float)) else None
         hide_status_line = bool(s.get("hideStatusLine", False))
         hide_new_badge = bool(s.get("hideNewBadge", False))
         hide_discount_badge = bool(s.get("hideDiscountBadge", False))
@@ -245,6 +261,30 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             shelf_entry["enableIcon"] = True
         if enable_description:
             shelf_entry["enableDescription"] = True
+        if description_below_logo:
+            shelf_entry["descriptionBelowLogo"] = True
+        if logo_position:
+            shelf_entry["logoPosition"] = logo_position
+        if description_position:
+            shelf_entry["descriptionPosition"] = description_position
+        if logo_size is not None:
+            shelf_entry["logoSize"] = logo_size
+        if logo_top_offset is not None:
+            shelf_entry["logoTopOffset"] = logo_top_offset
+        if full_page_shelf:
+            shelf_entry["fullPageShelf"] = True
+        if icon_vertical_align:
+            shelf_entry["iconVerticalAlign"] = icon_vertical_align
+        if shelf_title_position:
+            shelf_entry["shelfTitlePosition"] = shelf_title_position
+        if game_name_position:
+            shelf_entry["gameNamePosition"] = game_name_position
+        if playtime_position:
+            shelf_entry["playtimePosition"] = playtime_position
+        if description_height is not None:
+            shelf_entry["descriptionHeight"] = description_height
+        if description_logo_gap is not None:
+            shelf_entry["descriptionLogoGap"] = description_logo_gap
         if isinstance(shelf_sort, list):
             # Multi-key array passes through unchanged; client + resolver
             # accept unknown strings for forward-compat (registered
@@ -425,9 +465,33 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         if isinstance(ss_filter_group, dict):
             entry["filterGroup"] = ss_filter_group
         # Visual overrides mirrored from regular shelves.
-        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "highlightRandom", "enableLogo", "enableIcon", "enableDescription", "hideStatusLine", "hideNewBadge", "hideDiscountBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard", "heroEnabled"):
+        for bool_key in ("matchNativeSize", "highlightFirst", "highlightAll", "highlightRandom", "enableLogo", "enableIcon", "enableDescription", "descriptionBelowLogo", "fullPageShelf", "hideStatusLine", "hideNewBadge", "hideDiscountBadge", "hideCompatIcons", "hideNonSteamBadge", "hideShelfTitle", "hideGameNames", "hideInstallIndicator", "hideSeeMore", "hideRefreshCard", "heroEnabled"):
             if bool_key in ss:
                 entry[bool_key] = bool(ss.get(bool_key, False))
+        if ss.get("logoPosition") in ("left", "center", "right"):
+            entry["logoPosition"] = ss["logoPosition"]
+        if ss.get("descriptionPosition") in ("left", "center", "right"):
+            entry["descriptionPosition"] = ss["descriptionPosition"]
+        ls = ss.get("logoSize")
+        if isinstance(ls, (int, float)):
+            entry["logoSize"] = max(50, min(200, int(ls)))
+        lto = ss.get("logoTopOffset")
+        if isinstance(lto, (int, float)):
+            entry["logoTopOffset"] = max(0, min(100, int(lto)))
+        if ss.get("iconVerticalAlign") in ("top", "center", "bottom"):
+            entry["iconVerticalAlign"] = ss["iconVerticalAlign"]
+        if ss.get("shelfTitlePosition") in ("left", "center", "right"):
+            entry["shelfTitlePosition"] = ss["shelfTitlePosition"]
+        if ss.get("gameNamePosition") in ("left", "center", "right"):
+            entry["gameNamePosition"] = ss["gameNamePosition"]
+        if ss.get("playtimePosition") in ("left", "center", "right"):
+            entry["playtimePosition"] = ss["playtimePosition"]
+        dh = ss.get("descriptionHeight")
+        if isinstance(dh, (int, float)):
+            entry["descriptionHeight"] = max(1, min(3, int(dh)))
+        dlg = ss.get("descriptionLogoGap")
+        if isinstance(dlg, (int, float)):
+            entry["descriptionLogoGap"] = max(-40, min(80, int(dlg)))
         raw_ss_highlighted = ss.get("highlightedAppIds")
         if isinstance(raw_ss_highlighted, list):
             ss_highlighted_ids: list = []
@@ -628,7 +692,7 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     qam_hidden_toggles = [str(x)[:64] for x in qam_hidden_toggles_raw if isinstance(x, str)] if isinstance(qam_hidden_toggles_raw, list) else []
     qam_hidden_sections_raw = settings.get("qamHiddenSections")
     qam_hidden_sections = [str(x)[:64] for x in qam_hidden_sections_raw if isinstance(x, str)] if isinstance(qam_hidden_sections_raw, list) else []
-    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHighlightRandom": bool(settings.get("globalHighlightRandom", False)), "globalEnableLogo": bool(settings.get("globalEnableLogo", False)), "globalEnableIcon": bool(settings.get("globalEnableIcon", False)), "globalEnableDescription": bool(settings.get("globalEnableDescription", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "savedSmartFilters": sanitized_saved_smart, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False)), "qamHiddenToggles": qam_hidden_toggles, "qamHiddenSections": qam_hidden_sections}
+    return {"enabled": bool(settings.get("enabled", False)), "hideRecents": bool(settings.get("hideRecents", False)), "recentsReplaceSource": bool(settings.get("recentsReplaceSource", False)), "recentsReplaceShelfId": str(settings["recentsReplaceShelfId"])[:64] if isinstance(settings.get("recentsReplaceShelfId"), str) else None, "hideHomeTabs": bool(settings.get("hideHomeTabs", False)), "shelfHeroBackground": bool(settings.get("shelfHeroBackground", False)), "forceCssLoaderThemes": bool(settings.get("forceCssLoaderThemes", False)), "globalMatchNativeSize": bool(settings.get("globalMatchNativeSize", False)), "globalHighlightFirst": bool(settings.get("globalHighlightFirst", False)), "globalHighlightAll": bool(settings.get("globalHighlightAll", False)), "globalHighlightRandom": bool(settings.get("globalHighlightRandom", False)), "globalEnableLogo": bool(settings.get("globalEnableLogo", False)), "globalEnableIcon": bool(settings.get("globalEnableIcon", False)), "globalEnableDescription": bool(settings.get("globalEnableDescription", False)), "globalDescriptionBelowLogo": bool(settings.get("globalDescriptionBelowLogo", False)), "globalLogoPosition": (settings.get("globalLogoPosition") if settings.get("globalLogoPosition") in ("left", "center", "right") else None), "globalDescriptionPosition": (settings.get("globalDescriptionPosition") if settings.get("globalDescriptionPosition") in ("left", "center", "right") else None), "globalLogoSize": (max(50, min(200, int(settings["globalLogoSize"]))) if isinstance(settings.get("globalLogoSize"), (int, float)) else None), "globalLogoTopOffset": (max(-50, min(100, int(settings["globalLogoTopOffset"]))) if isinstance(settings.get("globalLogoTopOffset"), (int, float)) else None), "globalFullPageShelf": bool(settings.get("globalFullPageShelf", False)), "settingsPageEnabled": bool(settings.get("settingsPageEnabled", False)), "globalIconVerticalAlign": (settings.get("globalIconVerticalAlign") if settings.get("globalIconVerticalAlign") in ("top", "center", "bottom") else None), "globalShelfTitlePosition": (settings.get("globalShelfTitlePosition") if settings.get("globalShelfTitlePosition") in ("left", "center", "right") else None), "globalGameNamePosition": (settings.get("globalGameNamePosition") if settings.get("globalGameNamePosition") in ("left", "center", "right") else None), "globalPlaytimePosition": (settings.get("globalPlaytimePosition") if settings.get("globalPlaytimePosition") in ("left", "center", "right") else None), "globalDescriptionHeight": (max(1, min(3, int(settings["globalDescriptionHeight"]))) if isinstance(settings.get("globalDescriptionHeight"), (int, float)) else None), "globalDescriptionLogoGap": (max(-40, min(80, int(settings["globalDescriptionLogoGap"]))) if isinstance(settings.get("globalDescriptionLogoGap"), (int, float)) else None), "contextSearchEnabled": None if settings.get("contextSearchEnabled") is None else bool(settings.get("contextSearchEnabled", False)), "sideNavEnabled": None if settings.get("sideNavEnabled") is None else bool(settings.get("sideNavEnabled", False)), "globalHideStatusLine": bool(settings.get("globalHideStatusLine", False)), "globalHideNewBadge": bool(settings.get("globalHideNewBadge", False)), "globalHideDiscountBadge": bool(settings.get("globalHideDiscountBadge", False)), "globalHideCompatIcons": bool(settings.get("globalHideCompatIcons", False)), "globalHideNonSteamBadge": bool(settings.get("globalHideNonSteamBadge", False)), "globalHideShelfTitle": bool(settings.get("globalHideShelfTitle", False)), "globalHideGameNames": bool(settings.get("globalHideGameNames", False)), "globalHideInstallIndicator": bool(settings.get("globalHideInstallIndicator", False)), "globalHideSeeMore": bool(settings.get("globalHideSeeMore", False)), "globalHideRefreshCard": bool(settings.get("globalHideRefreshCard", False)), "globalDedupeByName": bool(settings.get("globalDedupeByName", False)), "globalHeroEnabled": bool(settings.get("globalHeroEnabled", False)), "shelves": sanitized, "smartShelvesEnabled": bool(settings.get("smartShelvesEnabled", False)), "smartShelvesAtBottom": bool(settings.get("smartShelvesAtBottom", False)), "smartShelves": sanitized_smart, "smartSurpriseMe": bool(settings.get("smartSurpriseMe", False)), "smartSurpriseMeCount": surprise_count, "savedFilters": sanitized_saved, "savedSmartFilters": sanitized_saved_smart, "updateNotifyEnabled": bool(settings.get("updateNotifyEnabled", True)), "updateNotifyDismissedVersion": update_dismissed, "onlineFeaturesEnabled": None if settings.get("onlineFeaturesEnabled") is None else bool(settings.get("onlineFeaturesEnabled", False)), "onlineWishlistEnabled": None if settings.get("onlineWishlistEnabled") is None else bool(settings.get("onlineWishlistEnabled", True)), "onlinePriceSortEnabled": None if settings.get("onlinePriceSortEnabled") is None else bool(settings.get("onlinePriceSortEnabled", True)), "onlinePrivacyAccepted": None if settings.get("onlinePrivacyAccepted") is None else bool(settings.get("onlinePrivacyAccepted", False)), "onlineHideOwnedGames": None if settings.get("onlineHideOwnedGames") is None else bool(settings.get("onlineHideOwnedGames", False)), "onlineHideOwnedNonSteam": None if settings.get("onlineHideOwnedNonSteam") is None else bool(settings.get("onlineHideOwnedNonSteam", False)), "onlineHideOwnedNonSteamCloud": None if settings.get("onlineHideOwnedNonSteamCloud") is None else bool(settings.get("onlineHideOwnedNonSteamCloud", False)), "qamHiddenToggles": qam_hidden_toggles, "qamHiddenSections": qam_hidden_sections}
 
 
 class Plugin:

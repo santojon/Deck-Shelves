@@ -660,7 +660,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .ds-card:hover .ds-card-label {
       opacity: 1;
     }
-    .ds-card img { transition: opacity .15s ease; width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    .ds-card img:not(.ds-card-icon):not(.ds-card-logo) { transition: opacity .15s ease; width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    .ds-card .ds-card-icon { width: 20px !important; height: 20px !important; object-fit: contain !important; }
     .ds-compat {
       position: absolute; bottom: 4px; right: 4px;
       display: var(--ds-compat-display, flex); align-items: center;
@@ -753,6 +754,81 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       margin-top: 4px;
       white-space: nowrap;
       overflow: visible;
+    }
+    [data-ds-playtime-position="center"] .ds-card-status { justify-content: center; }
+    [data-ds-playtime-position="right"]  .ds-card-status { justify-content: flex-end; }
+    /* Enrichment renderers — logo overlay over the art, prepended icon,
+       description snippet. Logo: max 80 % of the card width, anchored
+       to the bottom of the art so it composes the same way the native
+       game-view layout does. Icon: square ~14 px before the name span.
+       Description: clamped to 2 lines, ~3 cards wide, ellipsis. */
+    .ds-card-logo-overlay {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+    .ds-card-logo-overlay[data-ds-position="left"] { align-items: flex-start; }
+    .ds-card-logo-overlay[data-ds-position="right"] { align-items: flex-end; }
+    /* Description below the install row inherits the same horizontal
+       alignment when the logo is shown, for visual consistency. */
+    .ds-card-description[data-ds-position="left"] { text-align: left; margin-left: 0; margin-right: auto; }
+    .ds-card-description[data-ds-position="center"] { text-align: center; margin-left: auto; margin-right: auto; }
+    .ds-card-description[data-ds-position="right"] { text-align: right; margin-left: auto; margin-right: 0; }
+    .ds-card-logo {
+      width: 92%;
+      max-height: 60%;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.7));
+    }
+    .ds-card-icon {
+      width: 12px;
+      height: 12px;
+      object-fit: contain;
+      flex-shrink: 0;
+      border-radius: 2px;
+    }
+    .ds-card-description {
+      /* Anchored to the text column (which is set to position:relative
+         in GameCard) so the snippet starts at the same x as the game
+         name / playtime row — even when the icon is shown to its left.
+         Width is 4 cards + 3 inter-card gaps so it visually spans the
+         next 4 cards' worth of space; only the focused card's snippet
+         is visible (others stay opacity:0). */
+      position: absolute;
+      top: 100%;
+      margin-top: 2px;
+      font-size: 0.7em;
+      line-height: 1.2;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      /* min() clamps against the viewport so the snippet never overflows
+         the screen on a card focused near the right edge — without this
+         the absolute element walks straight off the side. */
+      width: min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw);
+      max-width: min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw);
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+      font-weight: normal;
+      text-transform: none;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .ds-card-description[data-ds-position="left"]   { left: 0; right: auto; text-align: left; }
+    .ds-card-description[data-ds-position="center"] { left: 50%; transform: translateX(-50%); text-align: center; }
+    .ds-card-description[data-ds-position="right"]  { right: 0; left: auto; text-align: right; }
+    .ds-card.gpfocus .ds-card-description,
+    .ds-card.gpfocuswithin .ds-card-description { opacity: 0.88; }
+    .ds-card-description--below-logo {
+      margin-top: 6px;
+      max-width: 80%;
     }
     .ds-card-status-icon {
       display: inline-flex;

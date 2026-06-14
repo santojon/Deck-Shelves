@@ -51,6 +51,15 @@ export function toggleQamExpanded(): void {
   setQamExpanded((v) => !v);
 }
 
+// Debug hook used by the screenshot scripts and CDP probes to drive the
+// sidecar open/closed without having to simulate a real gamepad input
+// (SteamClient.Input doesn't fire for dispatched keyboard events). Safe
+// to leave always-on — it's the same setter the React tree calls.
+try {
+  const g = globalThis as unknown as { __ds_qam_expanded__?: unknown };
+  g.__ds_qam_expanded__ = { set: setQamExpanded, get: getQamExpanded, toggle: toggleQamExpanded };
+} catch {}
+
 export function useQamExpanded(): [boolean, (next: boolean | ((prev: boolean) => boolean)) => void] {
   const [value, setValue] = useState(current);
   useEffect(() => {

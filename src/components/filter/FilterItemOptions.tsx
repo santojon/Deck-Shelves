@@ -1,4 +1,4 @@
-import { DropdownItem, Field, SliderField, TextField, ToggleField } from "../../runtime/host/decky";
+import { DropdownItem, Field, TextField, ToggleField } from "../../runtime/host/decky";
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";
 import DeveloperFilterOptions from "./DeveloperFilterOptions";
@@ -6,6 +6,7 @@ import PublisherFilterOptions from "./PublisherFilterOptions";
 import MergeFilterOptions from "./MergeFilterOptions";
 import { COMPAT_LEVELS } from "./utils";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
+import { DSSliderField } from '../ui'
 
 export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: import("../../features/settings/controller").SettingsController; allowOnlineFilters?: boolean }) {
   const t = i18n.t.bind(i18n);
@@ -123,16 +124,16 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const days = Number(p.days ?? 30);
       return (
         <div>
-          <Field label={`${t("filter_days")}: ${days}d`} bottomSeparator="none">
-            <SliderField
-              label=""
-              value={days}
-              min={1}
-              max={365}
-              step={1}
-              onChange={(v: number) => patchParams({ days: v })}
-            />
-          </Field>
+          <DSSliderField
+            label={t("filter_days")}
+            value={days}
+            unit='d'
+            min={1}
+            max={365}
+            step={1}
+            bottomSeparator='none'
+            onChange={(v: number) => patchParams({ days: v })}
+          />
         </div>
       );
     }
@@ -143,28 +144,28 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       return (
         <>
           <div>
-            <Field label={`${t("filter_playtime_min")}: ${minH}h`} bottomSeparator="none">
-              <SliderField
-                label=""
-                value={minH}
-                min={0}
-                max={500}
-                step={5}
-                onChange={(v: number) => patchParams({ minHours: v > 0 ? v : undefined })}
-              />
-            </Field>
+            <DSSliderField
+              label={t("filter_playtime_min")}
+              value={minH}
+              unit='h'
+              min={0}
+              max={500}
+              step={5}
+              bottomSeparator='none'
+              onChange={(v: number) => patchParams({ minHours: v > 0 ? v : undefined })}
+            />
           </div>
           <div>
-            <Field label={`${t("filter_playtime_max")}: ${maxH > 0 ? maxH + "h" : t("filter_playtime_any")}`} bottomSeparator="none">
-              <SliderField
-                label=""
-                value={maxH}
-                min={0}
-                max={500}
-                step={5}
-                onChange={(v: number) => patchParams({ maxHours: v > 0 ? v : undefined })}
-              />
-            </Field>
+            <DSSliderField
+              label={t("filter_playtime_max")}
+              value={maxH}
+              valueLabel={maxH > 0 ? `${maxH}h` : t("filter_playtime_any")}
+              min={0}
+              max={500}
+              step={5}
+              bottomSeparator='none'
+              onChange={(v: number) => patchParams({ maxHours: v > 0 ? v : undefined })}
+            />
           </div>
         </>
       );
@@ -307,9 +308,10 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const days = Number(p.days ?? 14);
       return (
         <>
-          <SliderField
-            label={`${t("filter_friends_played_recently_days")}: ${days}`}
+          <DSSliderField
+            label={t("filter_friends_played_recently_days")}
             value={days}
+            unit='d'
             min={1}
             max={30}
             step={1}
@@ -327,18 +329,20 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const maxDisc = Number(p.maxDiscount ?? 100);
       return (
         <>
-          <SliderField
-            label={`${t("filter_discount_min")}: ${minDisc}%`}
+          <DSSliderField
+            label={t("filter_discount_min")}
             value={minDisc}
+            unit='%'
             min={0}
             max={100}
             step={5}
             onChange={(v: number) => patchParams({ minDiscount: v, maxDiscount: Math.max(v, maxDisc) })}
             bottomSeparator="none"
           />
-          <SliderField
-            label={`${t("filter_discount_max")}: ${maxDisc}%`}
+          <DSSliderField
+            label={t("filter_discount_max")}
             value={maxDisc}
+            unit='%'
             min={0}
             max={100}
             step={5}

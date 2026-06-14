@@ -33,6 +33,15 @@ export interface ShelfRowProps {
   hideNonSteamBadge?: boolean;
   hideGameName?: boolean;
   hideInstallIndicator?: boolean;
+  enableLogo?: boolean;
+  enableIcon?: boolean;
+  enableDescription?: boolean;
+  descriptionBelowLogo?: boolean;
+  logoPosition?: 'left' | 'center' | 'right';
+  descriptionPosition?: 'left' | 'center' | 'right';
+  iconVerticalAlign?: 'top' | 'center' | 'bottom';
+  gameNamePosition?: 'left' | 'center' | 'right';
+  playtimePosition?: 'left' | 'center' | 'right';
   refreshInteractive?: boolean;
   moreInteractive?: boolean;
   // Render badges inside the card instead of via the BP-body portal.
@@ -63,6 +72,7 @@ function ShelfRowImpl({
   hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false,
   hideCompatIcons = false, hideNonSteamBadge = false,
   hideGameName = false, hideInstallIndicator = false,
+  enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left',
   refreshInteractive, moreInteractive,
   inlineBadges = false,
   previewMode = false,
@@ -127,6 +137,15 @@ function ShelfRowImpl({
             hideNonSteamBadge={hideNonSteamBadge}
             hideGameName={hideGameName}
             hideInstallIndicator={hideInstallIndicator}
+            enableLogo={enableLogo}
+            enableIcon={enableIcon}
+            enableDescription={enableDescription}
+            descriptionBelowLogo={descriptionBelowLogo}
+            logoPosition={logoPosition}
+            descriptionPosition={descriptionPosition}
+            iconVerticalAlign={iconVerticalAlign}
+            gameNamePosition={gameNamePosition}
+            playtimePosition={playtimePosition}
             inlineBadges={inlineBadges}
             previewMode={previewMode}
             removableSet={removableSet}

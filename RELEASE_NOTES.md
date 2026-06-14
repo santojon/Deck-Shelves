@@ -5,6 +5,35 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Logo / description / icon banner on every shelf.** Turn on "Show logo" and the focused game's clear-logo art appears prominently above the cards (per shelf, or globally for every shelf). Pair it with "Show description" and the Steam store snippet sits right under the logo. A second "Description below logo" toggle decides whether description follows the logo or stays under the playtime row of each card. Width is capped to roughly four normal cards so long snippets ellipsis cleanly instead of pushing other rows around.
+- **Position + sizing controls for everything visual.** New left / center / right dropdowns for: logo position, description position, shelf title position, game name position, and the playtime row. Plus sliders for logo size (50-200%), top offset, and (when description is under the logo) how many lines tall the description block is (1-6). Set a default globally, override per shelf — globals win when configured.
+- **Small game icon next to the card label.** "Show icon" overlays the game icon to the left of the name + playtime block. A new "Icon vertical align" dropdown picks top / center / bottom alignment for it.
+- **"Full-page shelf" toggle.** Promotes any shelf to the same full-screen hero layout the first shelf gets when "Hide recents" is on. Available per shelf, with a global override. Sits last in the QAM Visual section and as the penultimate item in the Edit Shelf modal (right before the per-card highlights).
+- **Slider values now show next to their labels.** Every slider in the plugin (QAM, sidecar, edit modal, smart-shelf modal, filters) renders the live value flush-right above the bar. The redundant `(value)` we used to embed in some slider labels is gone — the value is shown automatically and is no longer cut off on narrower surfaces.
+- **Logo, icon, and description caching.** Logo and icon URLs now go through the shared image-blob cache, so once you focus a card the assets land in memory and the next focus on the same card is instant. Descriptions are saved to local storage too — reopening the plugin keeps the snippets you already saw rather than re-fetching them from Steam.
+- **Full-page Settings route.** Turn on `settingsPageEnabled` and the gear icon in the QAM opens a dedicated page with five tabs: General (mirrors every side-panel toggle), Shelves (list with edit / delete + add-shelf entry), Filters (saved filters list), Templates (browse the full library and open the editor pre-populated), and Integrations (snapshot of every plugin that registered shelf sources, smart sources, filter types, sort options, or importers via the public API).
+- **Context Search overlay.** Anywhere on the home, start typing and a centered overlay appears with the typed buffer highlighted. When you stop typing, the plugin searches the games currently rendered in your shelves and shows ranked matches. Picking a match focuses the exact card in its shelf (scrolling it into view). Enter activates the top result; Esc / B closes.
+- **Side navigation on dpad-left.** Press left on the first card of any shelf and a side panel slides in listing every visible shelf (regular + smart) — pick one to jump straight to its first card.
+- **`pnpm pnpm:upgrade` / `pnpm pnpm:upgrade:api` scripts.** Pin Corepack to the latest pnpm in one command, for the plugin repo and the standalone API package.
+- **Crash protection for the side panel.** A render error inside the quick-settings panel no longer kills the whole panel; an inline error box appears instead while the rest of the QAM keeps working.
+
+### Changed
+
+- **Side panel title leads with the gear icon** so the panel reads as a settings surface at a glance. The behavior section icon was swapped to a sliders pictogram so the gear is reserved for the full-page Settings entry.
+- **Side panel background matches the QAM theme.** Previously the side panel forced a fixed dark colour even when the QAM around it was themed; now it lets whatever theme the QAM is using show through.
+- **Visual fields grouped by their owner.** In the Edit Shelf modal, the QAM Visual section, and the side panel, each parent toggle is immediately followed by its dependent controls and they only appear once the parent is turned on. No more hunting for the "logo position" dropdown three rows below the "Show logo" toggle.
+- **Sliders in narrow surfaces never trip the side panel.** Holding right on a slider while adjusting its value no longer pops the side panel open.
+
+### Fixed
+
+- **Shelves vanishing after enabling logos.** Some shelves disappeared from the home until the QAM was re-opened because the new position fields rejected the `null` returned by the settings sanitizer. The schema now accepts the missing case cleanly.
+- **Side panel could be pushed below the visible area** with logo + description on. Promoted (full-page) shelves no longer add extra padding for the logo zone — the logo composes inside the existing hero area instead of pushing the card row off the screen.
+- **Accidental side panel open** when moving onto the rightmost button in a row. Pressing right twice on the same focused element is now required to expand the panel; the first press just lands the focus there.
+
+> Plugin API changes (`registerSearchProvider`, `registerSideMenuProvider`, new descriptor types, public registry getters) are tracked in [api/RELEASE_NOTES.md](api/RELEASE_NOTES.md). CDP devkit additions are tracked in [devkit/RELEASE_NOTES.md](devkit/RELEASE_NOTES.md).
+
 ## [2.4.3] - 2026-06-12
 
 ### Added
@@ -17,7 +46,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
-- **Random featured cards (`highlightRandom`).** A new visual toggle that randomly featurises ~25 % of the cards on a shelf — gives the home a Netflix-style mix of large and small cards without manually picking each one. Available on every shelf's context menu, in the edit modal's Visual tab, and as a global toggle in the QAM Visual section. The pick is deterministic per shelf so the same cards stay featured between sessions (no random jiggling).
+- **Random featured cards (`highlightRandom`).** A new visual toggle that randomly featurises ~25 % of the cards on a shelf — gives the home a mix of large and small cards without manually picking each one. Available on every shelf's context menu, in the edit modal's Visual tab, and as a global toggle in the QAM Visual section. The pick is deterministic per shelf so the same cards stay featured between sessions (no random jiggling).
 - **Heroes load instantly for owned games.** The plugin now uses Steam's own cache URL (`steamloopback.host`) for hero art instead of the public CDN — heroes pop up in 3-9 ms when you focus a card instead of fading in over 200-500 ms. Apps Steam hasn't cached yet still fall through to the CDN.
 - **`@deck-shelves/api` package.** Other Decky plugins and themes can now integrate with Deck Shelves through a tiny npm package — `npm install @deck-shelves/api`, then `import { register } from '@deck-shelves/api'`. Register sources, smart-shelf templates, filter types, sort options, import handlers, saved filters. New in this release: subscribe to focused-card changes and ask Deck Shelves to build the right asset URL for an appid without re-implementing the loopback / CDN chain. Ships from the `api/` folder in this repo.
 - **Centralised image-URL provider.** All asset URLs (hero, portrait, landscape, logo, icon, and the new blur placeholder and store-page background variants) come from a single module with a consistent loopback-first, CDN-last chain. Logo and icon getters are exposed even though no current feature uses them — they're ready when a future spine layout or list view wants them.

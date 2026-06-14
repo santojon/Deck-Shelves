@@ -233,6 +233,35 @@ export const SmartShelfSchema = z.object({
   /** Opt-in: warm `appDetailsStore` descriptions for this shelf's cards
    *  + populate `description`/`fullDescription` on the meta. */
   enableDescription: z.boolean().optional(),
+  /** When BOTH logo + description are enabled, render description below
+   *  the logo instead of below the install / playtime row. */
+  descriptionBelowLogo: z.boolean().optional(),
+  /** Where the logo (and description, when paired with the logo) sit
+   *  horizontally on the card. Defaults to centre. */
+  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  /** Horizontal alignment of the description, independent of the logo. */
+  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  /** Logo size as percentage of the base maxHeight. 100 = default, range 50-200. */
+  logoSize: z.number().int().min(50).max(200).nullable().optional(),
+  /** Top offset of the logo overlay within the shelf hero area, 0-100. */
+  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+  /** Force this shelf into a full-page (promoted) layout — same treatment
+   *  the first shelf gets when `hideRecents` is on. The hero art fills
+   *  the viewport and the card row sits at its bottom. */
+  fullPageShelf: z.boolean().optional(),
+  /** Vertical alignment of the small icon prepended to the game name. */
+  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+  /** Horizontal alignment of the shelf title. */
+  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  /** Horizontal alignment of the game name label below each card. */
+  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  /** Horizontal alignment of the playtime / install-status row. */
+  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  /** Number of lines (1-3) shown for the description. Default 2. */
+  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+  /** Vertical gap (px) between the logo bottom and the description top.
+   *  Only used when `descriptionBelowLogo` is on. Default 8. */
+  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
   hideStatusLine: z.boolean().optional(),
   hideNewBadge: z.boolean().optional(),
   hideDiscountBadge: z.boolean().optional(),
@@ -362,6 +391,21 @@ export const ShelfSchema = z.object({
   /** Opt-in: warm `appDetailsStore` descriptions + populate description
    *  fields on the meta. Default off. */
   enableDescription: z.boolean().optional(),
+  /** When BOTH logo + description are enabled, render description below
+   *  the logo instead of below the install / playtime row. */
+  descriptionBelowLogo: z.boolean().optional(),
+  /** Horizontal alignment of the logo (and description if paired). */
+  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  logoSize: z.number().int().min(50).max(200).nullable().optional(),
+  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+  fullPageShelf: z.boolean().optional(),
+  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
   hideStatusLine: z.boolean().default(false),
   hideNewBadge: z.boolean().default(false),
   hideDiscountBadge: z.boolean().default(false),
@@ -447,6 +491,34 @@ export const SettingsSchema = z.object({
   globalEnableLogo: z.boolean().optional(),
   globalEnableIcon: z.boolean().optional(),
   globalEnableDescription: z.boolean().optional(),
+  /** When BOTH the logo AND description toggles are on, place the
+   *  description directly below the logo instead of below the install /
+   *  playtime row. Per-shelf override available on the shelf schema. */
+  globalDescriptionBelowLogo: z.boolean().optional(),
+  /** Global default alignment for the logo (and description if paired).
+   *  Per-shelf `logoPosition` overrides this. Nullable because the Python
+   *  sanitizer normalises the missing case to `null`. */
+  globalLogoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalDescriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalLogoSize: z.number().int().min(50).max(200).nullable().optional(),
+  globalLogoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+  /** When true, every shelf is rendered full-page (promoted) — overrides
+   *  the per-shelf `fullPageShelf` flag. */
+  globalFullPageShelf: z.boolean().optional(),
+  /** When true, the QAM exposes a gear icon next to the docs/about
+   *  button that opens the full-page Settings route. Hidden by default
+   *  while the page is still a placeholder. */
+  settingsPageEnabled: z.boolean().optional(),
+  globalIconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+  globalShelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalGameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalPlaytimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalDescriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+  globalDescriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
+  /** Opt-in toggles for the in-home features (quick search / side nav).
+   *  `.nullable()` round-trips the Python sanitizer's `None`. */
+  contextSearchEnabled: z.boolean().nullable().optional(),
+  sideNavEnabled: z.boolean().nullable().optional(),
   globalHideStatusLine: z.boolean().default(false),
   globalHideNewBadge: z.boolean().default(false),
   globalHideDiscountBadge: z.boolean().default(false),

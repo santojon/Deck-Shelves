@@ -94,6 +94,70 @@ export function DeckQAMStyles() {
         background: #23262e;
         margin: 0;
       }
+
+      /* Side nav row — Netflix / macOS dock style focus animation.
+         No gpfocus ring; instead a thick left bar, a strong tinted
+         gradient, a soft glow, and a tiny scale-bump that slides in
+         from the left. rem / em / vw / clamp so it scales handheld →
+         docked TV → 4K. */
+      @keyframes ds-sidenav-bump {
+        from { transform: translateX(-0.5em) scale(0.98); opacity: 0.75; }
+        to   { transform: translateX(0)      scale(1.05); opacity: 1; }
+      }
+      .ds-sidenav-row {
+        transition: transform 180ms cubic-bezier(0.2, 0.85, 0.3, 1.2),
+                    background 220ms ease,
+                    box-shadow 220ms ease;
+        will-change: transform;
+        transform-origin: left center;
+        border-radius: 6px;
+      }
+      .ds-sidenav-row--focused {
+        background: linear-gradient(
+          to right,
+          var(--gpSystemLighterStill, rgba(255, 255, 255, 0.35)) 0%,
+          var(--gpSystemLighter,      rgba(255, 255, 255, 0.18)) 55%,
+          rgba(255, 255, 255, 0.02) 100%
+        ) !important;
+        box-shadow:
+          -10px 0 24px -4px var(--gpSystemLighterStill, rgba(255, 255, 255, 0.45)),
+          inset 4px 0 0 0 var(--gpSystemLighterStill, rgba(255, 255, 255, 0.95))
+          !important;
+        animation: ds-sidenav-bump 200ms cubic-bezier(0.2, 0.85, 0.3, 1.2) forwards;
+      }
+      .ds-sidenav-row--focused span {
+        color: white !important;
+        font-weight: 700 !important;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      }
+
+      /* Quick Search pill — strip the default Decky TextField chrome so
+         the rendered input looks like a typed-text pill while still
+         being a real input (Steam Deck shows the virtual keyboard only
+         on focused VISIBLE inputs). */
+      .ds-search-pill .${gamepadDialogClasses.Field} {
+        padding: 0;
+        margin: 0;
+        background: transparent;
+        border: none;
+        width: 100%;
+      }
+      .ds-search-pill .${gamepadDialogClasses.Field} input {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: white;
+        font-size: inherit;
+        font-weight: 600;
+        text-align: center;
+        padding: 0;
+        width: 100%;
+        min-width: 0;
+      }
+      .ds-search-pill .${gamepadDialogClasses.FieldChildrenInner} {
+        background: transparent;
+        width: 100%;
+      }
       /* Inside the sidecar, the per-section divider should stop short of
          the eye-button column so it doesn't run under the section eye. */
       .ds-sidecar-body .deck-shelves-separator {
@@ -250,7 +314,11 @@ export function DeckQAMStyles() {
         top: 0;
         width: 503px;
         height: 440px;
-        background: rgb(14, 20, 27);
+        /* No explicit background -- Steam does not expose theme CSS vars
+           on documentElement (CDP confirmed empty main-editor-bg-color /
+           gamepad-ui-bg-color), so we let the QAM popup own gradient
+           show through instead of forcing the legacy rgb(14,20,27). */
+        background: transparent;
         border-left: 1px solid rgba(255, 255, 255, 0.06);
         padding: 0;
         z-index: 5;
@@ -269,7 +337,7 @@ export function DeckQAMStyles() {
         font-size: 18px;
         color: #ffffff;
         letter-spacing: 0.3px;
-        background: rgb(14, 20, 27);
+        background: transparent;
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         box-sizing: border-box;
         z-index: 2;
@@ -279,12 +347,6 @@ export function DeckQAMStyles() {
         top: 24px;
         left: 0;
         right: 0;
-        /* Leave a visual gap below the body so the last item never
-           sits flush against the sidecar's bottom edge. We don't use
-           padding-bottom for this because dpad navigation can't move
-           into padding space — keeping the gap *outside* the scrollable
-           area means the user sees breathing room without dpad ever
-           "missing" a target. */
         bottom: 16px;
         overflow-y: auto;
         padding: 16px;

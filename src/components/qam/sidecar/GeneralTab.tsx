@@ -1,7 +1,7 @@
-import { Focusable, ToggleField } from '../../../runtime/host/decky'
+import { Dropdown, Field, Focusable, ToggleField } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
-import { CollapsibleSection } from '../../ui'
-import { GearIcon, SparkleIcon, WandIcon, PlusCircleIcon, EyeIcon, EyeOffIcon, BookmarkIcon } from '../../icons'
+import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from '../../ui'
+import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, EyeIcon, EyeOffIcon, BookmarkIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
 import { OnlinePrivacyModal } from '../../DeckQAMSettings'
 import { isCssLoaderActive } from '../../../core/cssLoaderDetect'
@@ -98,9 +98,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
     <div className='ds-general-tab'>
       <CollapsibleSection
         id='behavior'
-        icon={<GearIcon />}
+        icon={<SlidersIcon />}
         title={t('section_behavior')}
-        count={[settings.hideRecents, settings.hideHomeTabs].filter(Boolean).length}
+        count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true].filter(Boolean).length}
         headerExtra={<SectionEyeButton id='behavior' hidden={isSecHid('behavior')} setHidden={(v) => setSecHid('behavior', v)} t={t} />}
       >
         {row('hideRecents', (
@@ -123,11 +123,17 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         id='additional'
         icon={<PlusCircleIcon />}
         title={t('section_additional_features')}
-        count={[settings.updateNotifyEnabled !== false, settings.onlineFeaturesEnabled === true, settings.forceCssLoaderThemes === true].filter(Boolean).length}
+        count={[settings.updateNotifyEnabled !== false, (settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true, settings.onlineFeaturesEnabled === true, settings.forceCssLoaderThemes === true].filter(Boolean).length}
         headerExtra={<SectionEyeButton id='additional' hidden={isSecHid('additional')} setHidden={(v) => setSecHid('additional', v)} t={t} />}
       >
         {row('updateNotifyEnabled', (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(v: boolean) => actions.setUpdateNotifyEnabled(v)} />
+        ))}
+        {row('contextSearchEnabled', (
+          <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
+        ))}
+        {row('sideNavEnabled', (
+          <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
         ))}
         {row('onlineFeaturesEnabled', (
           <ToggleField
@@ -194,7 +200,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           id='visual_global'
           icon={<WandIcon />}
           title={t('section_visual_global')}
-          count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
+          count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
           headerExtra={<SectionEyeButton id='visual_global' hidden={isSecHid('visual_global')} setHidden={(v) => setSecHid('visual_global', v)} t={t} />}
         >
           {row('globalMatchNativeSize', (
@@ -244,6 +250,68 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           ))}
           {row('globalHeroEnabled', (
             <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} onChange={(v: boolean) => void (actions as any).setGlobalHeroEnabled(v)} />
+          ))}
+          {/* Group: Logo + dependent options */}
+          {row('globalEnableLogo', (
+            <ToggleField label={t('enable_logo')} checked={(settings as any).globalEnableLogo === true} onChange={(v: boolean) => (actions as any).setGlobalEnableLogo(v)} />
+          ))}
+          {(settings as any).globalEnableLogo === true && row('globalLogoPosition', (
+            <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
+          ))}
+          {(settings as any).globalEnableLogo === true && row('globalLogoSize', (
+            <DSSliderField label={t('logo_size_label' as any)} value={(settings as any).globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
+          ))}
+          {(settings as any).globalEnableLogo === true && row('globalLogoTopOffset', (
+            <DSSliderField label={t('logo_top_offset_label' as any)} value={(settings as any).globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
+          ))}
+
+          {/* Group: Icon + vertical align */}
+          {row('globalEnableIcon', (
+            <ToggleField label={t('enable_icon')} checked={(settings as any).globalEnableIcon === true} onChange={(v: boolean) => (actions as any).setGlobalEnableIcon(v)} />
+          ))}
+          {(settings as any).globalEnableIcon === true && row('globalIconVerticalAlign', (
+            <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
+              <Dropdown
+                rgOptions={[
+                  { data: 'top', label: t('icon_vertical_align_top' as any) },
+                  { data: 'center', label: t('icon_vertical_align_center' as any) },
+                  { data: 'bottom', label: t('icon_vertical_align_bottom' as any) },
+                ]}
+                selectedOption={(settings as any).globalIconVerticalAlign ?? 'top'}
+                onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data ?? 'top')}
+              />
+            </Field>
+          ))}
+
+          {/* Group: Description + dependent options */}
+          {row('globalEnableDescription', (
+            <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} onChange={(v: boolean) => (actions as any).setGlobalEnableDescription(v)} />
+          ))}
+          {(settings as any).globalEnableDescription === true && row('globalDescriptionPosition', (
+            <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
+          ))}
+          {(settings as any).globalEnableLogo === true && (settings as any).globalEnableDescription === true && row('globalDescriptionBelowLogo', (
+            <ToggleField label={t('description_below_logo' as any)} checked={(settings as any).globalDescriptionBelowLogo === true} onChange={(v: boolean) => (actions as any).setGlobalDescriptionBelowLogo(v)} />
+          ))}
+          {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && row('globalDescriptionHeight', (
+            <DSSliderField label={t('description_height_label' as any)} value={(settings as any).globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
+          ))}
+          {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && row('globalDescriptionLogoGap', (
+            <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
+          ))}
+
+          {row('globalShelfTitlePosition', (
+            <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
+          ))}
+          {row('globalGameNamePosition', (
+            <PositionField labelKey='game_name_position_label' value={(settings as any).globalGameNamePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
+          ))}
+          {row('globalPlaytimePosition', (
+            <PositionField labelKey='playtime_position_label' value={(settings as any).globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
+          ))}
+          {/* Last item in the global visual section */}
+          {row('globalFullPageShelf', (
+            <ToggleField label={t('full_page_shelf_label' as any)} checked={(settings as any).globalFullPageShelf === true} onChange={(v: boolean) => (actions as any).setGlobalFullPageShelf(v)} />
           ))}
         </CollapsibleSection>
 

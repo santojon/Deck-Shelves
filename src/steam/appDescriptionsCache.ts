@@ -35,6 +35,54 @@ const MAX_RETRIES = 2;
 const TIMEOUT_MS = 5000;
 const POLL_MS = 100;
 
+// Persistent cache (localStorage) survives plugin reloads — descriptions
+// rarely change for an appid, so caching them across sessions saves the
+// store round-trip on every plugin boot.
+const STORAGE_KEY = 'ds_app_descriptions_v1';
+const STORAGE_MAX = 1500;          // cap entries to keep the JSON blob small
+const STORAGE_SAVE_DEBOUNCE = 1500;
+let saveScheduled = false;
+
+// eslint-disable-next-line complexity
+function loadFromStorage(): void {
+  try {
+    const ls = (globalThis as { localStorage?: Storage }).localStorage;
+    if (!ls) return;
+    const raw = ls.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data && typeof data === 'object') {
+      for (const [k, v] of Object.entries(data)) {
+        const appid = Number(k);
+        const desc = v as Partial<AppDescriptions>;
+        if (Number.isFinite(appid) && appid > 0 && (desc?.snippet || desc?.fullHtml)) {
+          cache.set(appid, { snippet: desc.snippet ?? '', fullHtml: desc.fullHtml ?? '' });
+        }
+      }
+    }
+  } catch { /* swallow — bad JSON / quota / privacy mode */ }
+}
+
+function saveToStorageDebounced(): void {
+  if (saveScheduled) return;
+  saveScheduled = true;
+  setTimeout(() => {
+    saveScheduled = false;
+    try {
+      const ls = (globalThis as { localStorage?: Storage }).localStorage;
+      if (!ls) return;
+      // Cap to STORAGE_MAX most-recently-set entries (Map preserves insertion order).
+      const entries = Array.from(cache.entries());
+      const trimmed = entries.length > STORAGE_MAX ? entries.slice(-STORAGE_MAX) : entries;
+      const obj = Object.fromEntries(trimmed);
+      ls.setItem(STORAGE_KEY, JSON.stringify(obj));
+    } catch { /* swallow — quota / privacy mode */ }
+  }, STORAGE_SAVE_DEBOUNCE);
+}
+
+// Eagerly hydrate the in-memory cache on module load.
+loadFromStorage();
+
 function getStore(): StoreShape | undefined {
   return (globalThis as unknown as { appDetailsStore?: StoreShape }).appDetailsStore;
 }
@@ -69,6 +117,7 @@ function pollUntilReady(store: StoreShape, appid: number): void {
     const found = readDescriptions(store, appid);
     if (found) {
       cache.set(appid, found);
+      saveToStorageDebounced();
       pending.delete(appid);
       failureCount.delete(appid);
       return;

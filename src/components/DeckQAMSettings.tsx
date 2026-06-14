@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ConfirmModal,
+  Dropdown,
   Field,
   Focusable,
-  SliderField,
   ToggleField,
 } from '../runtime/host/decky'
 import { getMountFailed, getMountError, subscribeMountFailed } from '../runtime/homePatch'
@@ -35,11 +35,12 @@ import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
 import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
-import { CollapsibleSection } from './ui'
-import { GearIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon } from './icons'
+import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from './ui'
+import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded } from './qam/qamExpandedStore'
 import { GeneralTab } from './qam/sidecar/GeneralTab'
+import { ErrorBoundary } from './ErrorBoundary'
 
 const DPAD_RIGHT = 23;
 try {
@@ -151,9 +152,14 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
       onCancelButton={onCollapse}
       noFocusRing
     >
-      <div className='ds-sidecar-title'>{controller.t('settings_title')}</div>
+      <div className='ds-sidecar-title'>
+        <GearIcon size={16} style={{ marginRight: 8 }} />
+        {controller.t('settings_title')}
+      </div>
       <div className='ds-sidecar-body' ref={innerRef}>
-        <GeneralTab controller={controller} />
+        <ErrorBoundary title='Deck Shelves — Configurações'>
+          <GeneralTab controller={controller} />
+        </ErrorBoundary>
       </div>
     </Focusable>
   );
@@ -397,6 +403,11 @@ function handleDpadInput(
     return;
   }
   if (button === DPAD_RIGHT && insideMain && main) {
+    // Sliders consume horizontal dpad to change their value (the focus
+    // stays on the slider track) — without this bail, holding right on
+    // a slider would trip the "focus didn't move" check and pop the
+    // sidecar open mid-adjustment.
+    if (focused.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]')) return;
     // Only expand when the focused element is already at (or very near)
     // the right edge of the main panel. Otherwise a dpad-right from a
     // mid-row button (where Steam can't move horizontally) would falsely
@@ -628,7 +639,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
 
       {!isSecHid('behavior') && (
-      <CollapsibleSection id='behavior' icon={<GearIcon />} title={t('section_behavior')} count={[settings.hideRecents, settings.hideHomeTabs].filter(Boolean).length}>
+      <CollapsibleSection id='behavior' icon={<SlidersIcon />} title={t('section_behavior')} count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true].filter(Boolean).length}>
         {settings.enabled && !isHid('hideRecents') && (
           <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
         )}
@@ -638,7 +649,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
             )}
             {!isHid('recentsReplaceSource') && (
-              <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true && !replaceFailed} disabled={mountCrashed || disableHideRecents || replaceFailed} onChange={(value: boolean) => actions.setRecentsReplaceSource(value)} />
+              <>
+                <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true && !replaceFailed} disabled={mountCrashed || disableHideRecents || replaceFailed} onChange={(value: boolean) => actions.setRecentsReplaceSource(value)} />
+                <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+                  {t('recents_replace_source_desc' as any)}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -649,9 +665,25 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
 
       {!isSecHid('additional') && (
-      <CollapsibleSection id='additional' icon={<PlusCircleIcon />} title={t('section_additional_features')} count={[settings.updateNotifyEnabled !== false, settings.onlineFeaturesEnabled === true, settings.forceCssLoaderThemes === true].filter(Boolean).length}>
+      <CollapsibleSection id='additional' icon={<PlusCircleIcon />} title={t('section_additional_features')} count={[settings.updateNotifyEnabled !== false, (settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true, settings.onlineFeaturesEnabled === true, settings.forceCssLoaderThemes === true].filter(Boolean).length}>
         {!isHid('updateNotifyEnabled') && (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
+        )}
+        {!isHid('contextSearchEnabled') && (
+          <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
+        )}
+        {!isHid('contextSearchEnabled') && (
+          <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+            {t('context_search_combo' as any)}
+          </div>
+        )}
+        {!isHid('sideNavEnabled') && (
+          <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
+        )}
+        {!isHid('sideNavEnabled') && (
+          <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+            {t('side_nav_combo' as any)}
+          </div>
         )}
         {!isHid('onlineFeaturesEnabled') && (
         <ToggleField
@@ -778,8 +810,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         {settings.smartShelvesEnabled && settings.smartSurpriseMe && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
-            <SliderField
-              label={settings.smartSurpriseMeCount ? `${t('smart_surprise_count')} (${settings.smartSurpriseMeCount})` : t('smart_surprise_count')}
+            <DSSliderField
+              label={t('smart_surprise_count')}
               value={settings.smartSurpriseMeCount ?? 0}
               min={0}
               max={5}
@@ -833,19 +865,64 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         id='visual_global'
         icon={<WandIcon />}
         title={t('section_visual_global')}
-        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
+        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
       >
         {!isHid('globalMatchNativeSize') && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
         {!isHid('globalHighlightFirst') && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />}
         {!isHid('globalHighlightAll') && <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightAll(value)} />}
         {!isHid('globalHighlightRandom') && <ToggleField label={t('highlight_random')} checked={(settings as any).globalHighlightRandom === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalHighlightRandom(value)} />}
-        {/* Hidden enrichment toggles — schema + persistence wired, UI
-            stays out of sight until a feature renders the data. */}
-        <div style={{ display: 'none' }} aria-hidden="true">
-          <ToggleField label={t('enable_logo')} checked={(settings as any).globalEnableLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableLogo(value)} />
-          <ToggleField label={t('enable_icon')} checked={(settings as any).globalEnableIcon === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableIcon(value)} />
-          <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableDescription(value)} />
-        </div>
+        {/* Group: Logo + dependent options below it */}
+        {!isHid('globalEnableLogo') && <ToggleField label={t('enable_logo')} checked={(settings as any).globalEnableLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableLogo(value)} />}
+        {(settings as any).globalEnableLogo === true && !isHid('globalLogoPosition') && (
+          <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
+        )}
+        {(settings as any).globalEnableLogo === true && !isHid('globalLogoSize') && (
+          <DSSliderField label={t('logo_size_label' as any)} value={(settings as any).globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
+        )}
+        {(settings as any).globalEnableLogo === true && !isHid('globalLogoTopOffset') && (
+          <DSSliderField label={t('logo_top_offset_label' as any)} value={(settings as any).globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
+        )}
+
+        {/* Group: Icon + vertical align */}
+        {!isHid('globalEnableIcon') && <ToggleField label={t('enable_icon')} checked={(settings as any).globalEnableIcon === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableIcon(value)} />}
+        {(settings as any).globalEnableIcon === true && !isHid('globalIconVerticalAlign') && (
+          <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
+            <Dropdown
+              rgOptions={[
+                { data: 'top', label: t('icon_vertical_align_top' as any) },
+                { data: 'center', label: t('icon_vertical_align_center' as any) },
+                { data: 'bottom', label: t('icon_vertical_align_bottom' as any) },
+              ]}
+              selectedOption={(settings as any).globalIconVerticalAlign ?? 'top'}
+              onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data ?? 'top')}
+            />
+          </Field>
+        )}
+
+        {/* Group: Description + position + (paired) below-logo + height */}
+        {!isHid('globalEnableDescription') && <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableDescription(value)} />}
+        {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionPosition') && (
+          <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
+        )}
+        {(settings as any).globalEnableLogo === true && (settings as any).globalEnableDescription === true && !isHid('globalDescriptionBelowLogo') && (
+          <ToggleField label={t('description_below_logo' as any)} checked={(settings as any).globalDescriptionBelowLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDescriptionBelowLogo(value)} />
+        )}
+        {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionHeight') && (
+          <DSSliderField label={t('description_height_label' as any)} value={(settings as any).globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
+        )}
+        {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionLogoGap') && (
+          <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
+        )}
+
+        {!isHid('globalShelfTitlePosition') && (
+          <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
+        )}
+        {!isHid('globalGameNamePosition') && (
+          <PositionField labelKey='game_name_position_label' value={(settings as any).globalGameNamePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
+        )}
+        {!isHid('globalPlaytimePosition') && (
+          <PositionField labelKey='playtime_position_label' value={(settings as any).globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
+        )}
         {!isHid('globalHideShelfTitle') && <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideShelfTitle(value)} />}
         {!isHid('globalHideGameNames') && <ToggleField label={t('hide_game_names')} checked={settings.globalHideGameNames === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideGameNames(value)} />}
         {!isHid('globalHideStatusLine') && <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />}
@@ -860,6 +937,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('globalHideRefreshCard') && <ToggleField label={t('hide_refresh_card')} checked={settings.globalHideRefreshCard === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideRefreshCard(value)} />}
         {!isHid('globalDedupeByName') && <ToggleField label={t('global_dedupe_by_name' as any)} checked={(settings as any).globalDedupeByName === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDedupeByName(value)} />}
         {!isHid('globalHeroEnabled') && <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalHeroEnabled(value)} />}
+        {!isHid('globalFullPageShelf') && <ToggleField label={t('full_page_shelf_label' as any)} checked={(settings as any).globalFullPageShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalFullPageShelf(value)} />}
       </CollapsibleSection>
       )}
 

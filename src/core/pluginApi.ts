@@ -282,6 +282,86 @@ export interface PublicSavedSmartFilter {
   readonly visibleDaysOfWeek?: ReadonlyArray<number>;
 }
 
+// ---- 1g. Context Search provider (v4, opt-in feature) --------------------
+
+/**
+ * Search provider — surfaces results when the user types in the
+ * context-search overlay (dpad-up + keyboard). The DS overlay collects
+ * the query, debounces it, and asks every registered provider for hits.
+ *
+ * Phase 1: providers return appid-shaped hits and the overlay renders
+ * them as small cards. Phase 2 will allow arbitrary `renderHit` for
+ * non-game targets (settings entries, store pages, etc.).
+ */
+export interface SearchProviderDescriptor {
+  id: string;
+  displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
+  /** Provider priority — higher numbers list first. Built-in providers
+   *  use 100 (shelf-content) / 50 (library). Defaults to 0. */
+  priority?: number;
+  /** Resolve hits for the current query. `limit` is a hint, not a hard
+   *  cap. Return `[]` on miss; throw to be silently treated as `[]`. */
+  search: (query: string, limit: number) => Promise<SearchHit[]>;
+}
+
+export interface SearchHit {
+  /** Stable id within the provider — used for dedup + key. */
+  id: string;
+  /** When set, the overlay renders a GameCard for this appid. */
+  appid?: number;
+  /** Display text; falls back to the app name when `appid` resolves. */
+  title?: string;
+  /** Optional subtitle (e.g. "in shelf: Action games"). */
+  subtitle?: string;
+  /** Higher score = more relevant. Provider-local; the overlay
+   *  interleaves providers by `priority` first, then by score. */
+  score?: number;
+  /** Optional click handler. When omitted and `appid` is set, the
+   *  overlay routes to the app's library page. */
+  onActivate?: () => void;
+}
+
+// ---- 1h. Side-menu provider (v4, opt-in feature) -------------------------
+
+/**
+ * Side-menu provider — contributes entries to the side menu that opens
+ * when the user presses dpad-left on the first card of a shelf. Each
+ * provider can return any number of entries; the DS menu groups them
+ * by `category` if present.
+ */
+export interface SideMenuProviderDescriptor {
+  id: string;
+  displayName: string;
+  /** Optional descriptor schema version (default `1`). */
+  version?: number;
+  /** Returns the entries to render for the given context. `context.shelfId`
+   *  is null when the menu was opened from a non-shelf surface (future). */
+  resolve: (context: SideMenuContext) => Promise<SideMenuEntry[]> | SideMenuEntry[];
+}
+
+export interface SideMenuContext {
+  /** The shelf the user opened the menu from. */
+  shelfId: string | null;
+  /** The appid of the currently focused card, when known. */
+  focusedAppid: number | null;
+}
+
+export interface SideMenuEntry {
+  /** Stable per-provider id. */
+  id: string;
+  label: string;
+  /** Optional grouping key (e.g. "actions", "shortcuts"). */
+  category?: string;
+  /** Optional icon rendered before the label. */
+  icon?: ReactNode;
+  /** Disabled entries are visible but not actionable. */
+  disabled?: boolean;
+  /** Activation handler; runs on click / OK button. */
+  onActivate: () => void | Promise<void>;
+}
+
 // ---------------------------------------------------------------------------
 // 2. API SURFACE — what `window.deckShelves.api` exposes
 // ---------------------------------------------------------------------------
@@ -304,8 +384,9 @@ export interface DeckShelvesIntegration {
 }
 
 export interface DeckShelvesPublicAPI {
-  /** API surface version. v3 is the first import + register revision. */
-  readonly version: 3;
+  /** API surface version. v3 added register + focus + assets. v4 adds
+   *  `registerSearchProvider` + `registerSideMenuProvider` (additive). */
+  readonly version: 4;
 
   // --- Registries --------------------------------------------------------
   registerShelfSource(d: ExternalShelfSourceDescriptor): Unsubscribe;
@@ -347,6 +428,12 @@ export interface DeckShelvesPublicAPI {
 
   // --- Environment probes ------------------------------------------------
   hasTabMaster(): boolean;
+
+  // --- Search + side-menu providers (v4 surfaces, additive) --------------
+  registerSearchProvider(d: SearchProviderDescriptor): Unsubscribe;
+  getRegisteredSearchProviders(): ReadonlyArray<SearchProviderDescriptor>;
+  registerSideMenuProvider(d: SideMenuProviderDescriptor): Unsubscribe;
+  getRegisteredSideMenuProviders(): ReadonlyArray<SideMenuProviderDescriptor>;
 }
 
 // ---------------------------------------------------------------------------
@@ -358,6 +445,8 @@ const smartSources = new Map<string, SmartShelfSourceDescriptor>();
 const filterTypes = new Map<string, ExternalFilterTypeDescriptor>();
 const sortOptions = new Map<string, ExternalSortOptionDescriptor>();
 const importTypes = new Map<string, ExternalImportTypeDescriptor>();
+const searchProviders = new Map<string, SearchProviderDescriptor>();
+const sideMenuProviders = new Map<string, SideMenuProviderDescriptor>();
 
 // ---------------------------------------------------------------------------
 // 4. INTERNAL ACCESSORS — used by `src/steam/index.ts` resolver paths to
@@ -392,6 +481,30 @@ export function resolveExternalSmartSource(
 
 export function getExternalSmartSourceMeta(id: string): SmartShelfSourceDescriptor | undefined {
   return smartSources.get(id);
+}
+
+export function getExternalSmartSources(): SmartShelfSourceDescriptor[] {
+  return Array.from(smartSources.values());
+}
+
+export function getExternalFilterTypes(): ExternalFilterTypeDescriptor[] {
+  return Array.from(filterTypes.values());
+}
+
+export function getExternalSortOptions(): ExternalSortOptionDescriptor[] {
+  return Array.from(sortOptions.values());
+}
+
+export function getExternalSearchProviders(): SearchProviderDescriptor[] {
+  // Sorted by `priority` desc so the overlay can iterate in the order
+  // hits should appear when scores are tied.
+  return Array.from(searchProviders.values()).sort(
+    (a, b) => (b.priority ?? 0) - (a.priority ?? 0),
+  );
+}
+
+export function getExternalSideMenuProviders(): SideMenuProviderDescriptor[] {
+  return Array.from(sideMenuProviders.values());
 }
 
 export function hasExternalFilterType(id: string): boolean {
@@ -591,7 +704,7 @@ function projectSavedSmartFilters(s: Settings | null): ReadonlyArray<PublicSaved
 
 function makeApi(): DeckShelvesPublicAPI {
   return {
-    version: 3,
+    version: 4,
 
     // v1
     registerShelfSource(d) {
@@ -639,6 +752,20 @@ function makeApi(): DeckShelvesPublicAPI {
 
     // Environment probe
     hasTabMaster() { return isTabMasterInstalled(); },
+
+    // Search providers
+    registerSearchProvider(d) {
+      searchProviders.set(d.id, d);
+      return () => { searchProviders.delete(d.id); };
+    },
+    getRegisteredSearchProviders() { return getExternalSearchProviders(); },
+
+    // Side-menu providers
+    registerSideMenuProvider(d) {
+      sideMenuProviders.set(d.id, d);
+      return () => { sideMenuProviders.delete(d.id); };
+    },
+    getRegisteredSideMenuProviders() { return getExternalSideMenuProviders(); },
 
     // ---- Consumer contracts ------------------------------------------------
     // Reads project from the live settings snapshot in `settingsStore`.

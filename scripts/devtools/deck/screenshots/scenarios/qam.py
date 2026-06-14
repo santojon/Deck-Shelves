@@ -135,6 +135,37 @@ def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
     return {"saved-filters-qam.png": p} if p else {}
 
 
+@register("sidecar")
+def sidecar(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
+    """QAM with the expandable "Configurações" sidecar open. Drives the
+    open/close state via the `__ds_qam_expanded__` debug hook so we don't
+    have to simulate a real gamepad dpad-right (SteamClient.Input doesn't
+    fire for CDP-dispatched keypresses)."""
+    navigate_to_ds_qam(sjc, host, port)
+    expand_qam_sections(host, port)
+    _qam_eval(host, port, """
+(function(){
+  try {
+    var h = window.__ds_qam_expanded__;
+    if (h && typeof h.set === 'function') { h.set(true); return 'expanded'; }
+  } catch (e) { return 'err:' + String(e); }
+  return 'no-hook';
+})()
+""")
+    time.sleep(1.2)
+    out = out_dir / "sidecar.png"
+    p = capture_qam(host, port, out)
+    # Collapse before closing the QAM so other scenarios start clean.
+    _qam_eval(host, port, """
+(function(){
+  try { var h = window.__ds_qam_expanded__; if (h) h.set(false); } catch (e) {}
+  return 'collapsed';
+})()
+""")
+    close_qam(sjc)
+    return {"sidecar.png": p} if p else {}
+
+
 @register("import_overflow")
 def import_overflow(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM with the import overflow menu open."""

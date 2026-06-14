@@ -1,0 +1,113 @@
+{
+  "sampleMs": 5000,
+  "footprint": {
+    "cards": 102,
+    "heroImgs": 4,
+    "heroEnabledShelves": 4,
+    "nodes": 1473
+  },
+  "metricsDelta": {
+    "Timestamp": {
+      "before": 55183.755071,
+      "after": 55189.331967,
+      "delta": 5.576895999998669
+    },
+    "TaskDuration": {
+      "before": 0.243704,
+      "after": 0.836458,
+      "delta": 0.592754
+    },
+    "ScriptDuration": {
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    "LayoutDuration": {
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    "RecalcStyleDuration": {
+      "before": 0.00585,
+      "after": 0.009438,
+      "delta": 0.003588
+    },
+    "JSHeapUsedSize": {
+      "before": 88527896,
+      "after": 85292044,
+      "delta": -3235852
+    },
+    "Nodes": {
+      "before": 4281,
+      "after": 4281,
+      "delta": 0
+    },
+    "JSEventListeners": {
+      "before": 4666,
+      "after": 5244,
+      "delta": 578
+    }
+  },
+  "hotSelfTimeUs": [
+    {
+      "fn": "(idle)",
+      "url": "",
+      "line": -1,
+      "selfTimeUs": 4959468
+    },
+    {
+      "fn": "(program)",
+      "url": "",
+      "line": -1,
+      "selfTimeUs": 418350
+    },
+    {
+      "fn": "next",
+      "url": "https://steamloopback.host/libraries/libraries~00299a408.js",
+      "line": 1,
+      "selfTimeUs": 55888
+    },
+    {
+      "fn": "querySelector",
+      "url": "",
+      "line": -1,
+      "selfTimeUs": 4237
+    },
+    {
+      "fn": "debug",
+      "url": "http://localhost:1337/frontend/chunk-St9casVY.js",
+      "line": 3,
+      "selfTimeUs": 2189
+    },
+    {
+      "fn": "detectNativeNewBadgeRadius",
+      "url": ".1:1337/plugins/Deck%20Shelves/dist/index.js?t=1781359514248",
+      "line": 6989,
+      "selfTimeUs": 2105
+    },
+    {
+      "fn": "addEventListener",
+      "url": "",
+      "line": -1,
+      "selfTimeUs": 1210
+    },
+    {
+      "fn": "$s",
+      "url": "https://steamloopback.host/libraries/libraries~00299a408.js",
+      "line": 1,
+      "selfTimeUs": 1102
+    },
+    {
+      "fn": "(anonymous)",
+      "url": ".1:1337/plugins/Deck%20Shelves/dist/index.js?t=1781359514248",
+      "line": 15674,
+      "selfTimeUs": 1088
+    },
+    {
+      "fn": "t.setObservablePropValue_",
+      "url": "https://steamloopback.host/libraries/libraries~00299a408.js",
+      "line": 1,
+      "selfTimeUs": 1079
+    }
+  ]
+}

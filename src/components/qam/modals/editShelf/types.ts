@@ -26,6 +26,18 @@ export type EditableShelfState = {
   enableLogo: boolean
   enableIcon: boolean
   enableDescription: boolean
+  descriptionBelowLogo: boolean
+  logoPosition: 'left' | 'center' | 'right'
+  descriptionPosition: 'left' | 'center' | 'right'
+  logoSize: number
+  logoTopOffset: number
+  iconVerticalAlign: 'top' | 'center' | 'bottom'
+  shelfTitlePosition: 'left' | 'center' | 'right'
+  gameNamePosition: 'left' | 'center' | 'right'
+  playtimePosition: 'left' | 'center' | 'right'
+  descriptionHeight: number
+  descriptionLogoGap: number
+  fullPageShelf: boolean
   highlightedAppIds: number[]
   manualOrder: number[]
   hideStatusLine: boolean
