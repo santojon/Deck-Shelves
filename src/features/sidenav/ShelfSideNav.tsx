@@ -184,12 +184,15 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstBtnRef = useRef<HTMLDivElement | null>(null);
+  // Ref attached to the row matching the CURRENT shelf — we focus this
+  // on mount so the user lands on "their" shelf, not always the first.
+  const activeBtnRef = useRef<HTMLDivElement | null>(null);
 
-  // Push NavTree focus into the first shelf button after Steam settles
-  // the new Focusable tree.
+  // Push NavTree focus into the user's current shelf row (or the first
+  // row as fallback) after Steam settles the new Focusable tree.
   useEffect(() => {
     const id = window.setTimeout(() => {
-      const el = firstBtnRef.current;
+      const el = activeBtnRef.current ?? firstBtnRef.current;
       if (el) { try { focusElement(el); } catch {} }
     }, 80);
     return () => window.clearTimeout(id);
@@ -288,7 +291,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
                 else setFocusedKey((cur) => (cur === s.id ? null : cur));
               }}
               hoverFocusTimeoutMs={3000}
-              ref={idx === 0 ? firstBtnRef : undefined}
+              ref={s.id === anchor.shelfId ? activeBtnRef : (idx === 0 ? firstBtnRef : undefined)}
             />
           ))
         )}

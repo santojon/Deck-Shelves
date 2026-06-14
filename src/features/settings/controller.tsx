@@ -403,6 +403,16 @@ export function useSettingsController() {
       if (!s || (s as any).sideNavEnabled === sideNavEnabled) return;
       await persist({ ...s, sideNavEnabled } as any);
     },
+    async setContextSearchKeyboardEnabled(contextSearchKeyboardEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).contextSearchKeyboardEnabled === contextSearchKeyboardEnabled) return;
+      await persist({ ...s, contextSearchKeyboardEnabled } as any);
+    },
+    async setContextSearchOnEnter(contextSearchOnEnter: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).contextSearchOnEnter === contextSearchOnEnter) return;
+      await persist({ ...s, contextSearchOnEnter } as any);
+    },
     async setGlobalHideNewBadge(globalHideNewBadge: boolean) {
       const s = liveSettings();
       if (!s || s.globalHideNewBadge === globalHideNewBadge) return;

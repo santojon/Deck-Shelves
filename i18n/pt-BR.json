@@ -134,6 +134,8 @@
   "description_position_label": "Posicionamento da descrição",
   "context_search_toggle": "Busca rápida",
   "context_search_combo": "L1+R1 num card pra abrir/fechar.",
+  "context_search_keyboard": "Abrir teclado virtual",
+  "context_search_on_enter": "Buscar apenas com Enter",
   "side_nav_combo": "L1 duas vezes (ou L2/R2) num card.",
   "context_search_desc": "Comece a digitar no teclado enquanto estiver na home para abrir uma busca pelos jogos das suas prateleiras. Enter foca o card correspondente.",
   "side_nav_toggle": "Navegação lateral",

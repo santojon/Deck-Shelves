@@ -677,6 +677,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             {t('context_search_combo' as any)}
           </div>
         )}
+        {!isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
+          <ToggleField label={t('context_search_keyboard' as any)} checked={(settings as any).contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
+        )}
+        {!isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
+          <ToggleField label={t('context_search_on_enter' as any)} checked={(settings as any).contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
+        )}
         {!isHid('sideNavEnabled') && (
           <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
         )}

@@ -43,10 +43,27 @@ function tryOpenSteamKeyboard(): void {
   }
 }
 
+function dismissSteamKeyboard(): void {
+  try {
+    const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
+    const Input = view?.SteamClient?.Input ?? view?.opener?.SteamClient?.Input;
+    Input?.ModalKeyboardDismissed?.();
+    Input?.StandaloneKeyboardDismissed?.();
+  } catch {}
+}
+
 export function SearchOverlay() {
   try { (globalThis as any).__ds_search_mounted = (((globalThis as any).__ds_search_mounted ?? 0) + 1); } catch {}
   const [enabled, setEnabled] = useState(() => (getCurrentSettings() as any)?.contextSearchEnabled === true);
-  useEffect(() => subscribeSettings((s) => setEnabled((s as any)?.contextSearchEnabled === true)), []);
+  // Virtual-keyboard default is ON; opt-out via the new toggle.
+  const [kbEnabled, setKbEnabled] = useState(() => (getCurrentSettings() as any)?.contextSearchKeyboardEnabled !== false);
+  // Enter-only default is OFF (debounce mode).
+  const [onEnter, setOnEnter] = useState(() => (getCurrentSettings() as any)?.contextSearchOnEnter === true);
+  useEffect(() => subscribeSettings((s) => {
+    setEnabled((s as any)?.contextSearchEnabled === true);
+    setKbEnabled((s as any)?.contextSearchKeyboardEnabled !== false);
+    setOnEnter((s as any)?.contextSearchOnEnter === true);
+  }), []);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const debounceRef = useRef<number | null>(null);
@@ -63,6 +80,11 @@ export function SearchOverlay() {
       lastSessionQuery = query;
       lastSessionAt = Date.now();
     }
+    // Dismiss the on-screen keyboard explicitly BEFORE the unmount —
+    // covers the match path, where the post-unmount cleanup runs but
+    // Steam's keyboard sometimes sticks around because focus jumps to
+    // the hit's card a beat later.
+    dismissSteamKeyboard();
     setOpen(false);
     setQuery("");
     if (debounceRef.current != null) {
@@ -84,6 +106,37 @@ export function SearchOverlay() {
       }, 180);
     }
   }, [query]);
+
+  // Runner used by both debounce path AND the Enter-only path. Picks
+  // the top hit across all providers and navigates to it (or closes
+  // silently if nothing matched).
+  const runQuery = useCallback(async (q: string) => {
+    if (q.trim().length < MIN_CHARS) return;
+    const myToken = ++searchAbort.current;
+    const providers = [BUILT_IN_SHELF_SEARCH, ...getExternalSearchProviders()];
+    const settled = await Promise.allSettled(
+      providers.map((p) => Promise.resolve(p.search(q, SEARCH_LIMIT)).catch(() => [])),
+    );
+    if (myToken !== searchAbort.current) return;
+    const merged: SearchHit[] = [];
+    const seen = new Set<string>();
+    for (const result of settled) {
+      if (result.status !== "fulfilled") continue;
+      for (const hit of result.value) {
+        if (seen.has(hit.id)) continue;
+        seen.add(hit.id);
+        merged.push(hit);
+      }
+    }
+    merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const first = merged[0];
+    if (first) {
+      close({ restorePrior: false, clearSession: true });
+      window.setTimeout(() => { try { first.onActivate?.(); } catch {} }, 180);
+    } else {
+      close();
+    }
+  }, [close]);
 
   // L1+R1 chord TOGGLES. When OPEN, any single L1, R1, or B closes —
   // chord-only-to-close was unreliable because controller poll latency
@@ -137,74 +190,56 @@ export function SearchOverlay() {
     });
   }, [open, close]);
 
-  // Search 5 s after the last keystroke, then pause 5 s before moving.
+  // Auto-debounce path — only when the user did NOT opt into Enter-only.
   useEffect(() => {
     if (!open) return;
+    if (onEnter) return;
     if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
     if (moveTimerRef.current != null) window.clearTimeout(moveTimerRef.current);
     if (query.trim().length < MIN_CHARS) return;
-    const myToken = ++searchAbort.current;
-    debounceRef.current = window.setTimeout(async () => {
-      const providers = [BUILT_IN_SHELF_SEARCH, ...getExternalSearchProviders()];
-      const settled = await Promise.allSettled(
-        providers.map((p) => Promise.resolve(p.search(query, SEARCH_LIMIT)).catch(() => [])),
-      );
-      if (myToken !== searchAbort.current) return;
-      const merged: SearchHit[] = [];
-      const seen = new Set<string>();
-      for (const result of settled) {
-        if (result.status !== "fulfilled") continue;
-        for (const hit of result.value) {
-          if (seen.has(hit.id)) continue;
-          seen.add(hit.id);
-          merged.push(hit);
-        }
-      }
-      merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-      const first = merged[0];
+    debounceRef.current = window.setTimeout(() => {
       moveTimerRef.current = window.setTimeout(() => {
         moveTimerRef.current = null;
-        if (myToken !== searchAbort.current) return;
-        if (first) {
-          // Match found — close the overlay FIRST (releases the input
-          // from the focus tree) AND clear the session query so the
-          // next open starts fresh; then jump to the hit in the next
-          // frame so the NavTree has settled before `focusElement` runs.
-          close({ restorePrior: false, clearSession: true });
-          // 180 ms gives the overlay time to unmount, the NavTree time
-          // to drop the input node, then we land focus on the hit's
-          // card. 60 ms was tight enough that the input still won.
-          window.setTimeout(() => { try { first.onActivate?.(); } catch {} }, 180);
-        } else {
-          // No match — close at the same time as a successful run so
-          // the overlay never lingers. Session memory keeps the query
-          // for `MEMORY_TTL_MS`, then clears itself.
-          close();
-        }
+        void runQuery(query);
       }, PAUSE_BEFORE_MOVE_MS);
     }, DEBOUNCE_MS);
-  }, [query, open, close]);
+  }, [query, open, onEnter, runQuery]);
 
   if (!open) return null;
-  return <SearchPill query={query} onChange={setQuery} />;
+  return (
+    <SearchPill
+      query={query}
+      onChange={setQuery}
+      keyboardEnabled={kbEnabled}
+      onEnter={onEnter ? () => void runQuery(query) : undefined}
+    />
+  );
 }
 
-function SearchPill({ query, onChange }: { query: string; onChange: (q: string) => void }) {
+function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
+  query: string;
+  onChange: (q: string) => void;
+  keyboardEnabled: boolean;
+  onEnter?: () => void;
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e?.target?.value ?? "");
   };
   // Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
-  // keyboard looks for. Then dispatch a synthetic pointer sequence —
-  // that's what a touchscreen tap does, and tapping a TextField opens
-  // the keyboard reliably. The retries cover the post-mount race.
+  // keyboard looks for. Synthetic pointer sequence ONLY when the
+  // virtual-keyboard toggle is on — that's the trigger that pops the
+  // Deck's keyboard. Cleanup blurs + fires Steam's dismissed
+  // notifications so the keyboard exits with the overlay.
   useEffect(() => {
     let cancelled = false;
+    let captured: HTMLInputElement | null = null;
     const tryFocus = (n: number) => {
       if (cancelled) return;
       const host = hostRef.current;
       const input = host?.querySelector<HTMLInputElement>("input");
       if (input && input.isConnected) {
+        captured = input;
         try {
           input.setAttribute("inputmode", "text");
           input.setAttribute("autocomplete", "off");
@@ -215,10 +250,7 @@ function SearchPill({ query, onChange }: { query: string; onChange: (q: string) 
           if (!input.hasAttribute("tabindex")) input.setAttribute("tabindex", "0");
         } catch {}
         try { input.focus(); } catch {}
-        if (n === 8) {
-          // Simulate the "touchscreen tap" that reliably opens the
-          // keyboard on Big Picture. Only on the first attempt to
-          // avoid loops.
+        if (n === 8 && keyboardEnabled) {
           try {
             const r = input.getBoundingClientRect();
             const x = r.left + r.width / 2;
@@ -239,14 +271,35 @@ function SearchPill({ query, onChange }: { query: string; onChange: (q: string) 
             activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
             type: input.type,
             tabIndex: input.tabIndex,
+            kb: keyboardEnabled,
           };
         } catch {}
       }
       if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
     };
     tryFocus(8);
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+      try { captured?.blur(); } catch {}
+      dismissSteamKeyboard();
+    };
+  }, [keyboardEnabled]);
+
+  // Enter handler (only when caller passed `onEnter` — i.e. when the
+  // user opted into the "search only on Enter" toggle).
+  useEffect(() => {
+    if (!onEnter) return;
+    const input = hostRef.current?.querySelector<HTMLInputElement>("input");
+    if (!input) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onEnter();
+      }
+    };
+    input.addEventListener("keydown", handler);
+    return () => { input.removeEventListener("keydown", handler); };
+  }, [onEnter]);
   // Width grows with the typed string, in ch units so it scales with
   // the (vw-clamped) font-size. Floor keeps a sensible empty width;
   // ceil prevents runaway growth on long queries.

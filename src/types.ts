@@ -518,6 +518,8 @@ export const SettingsSchema = z.object({
   /** Opt-in toggles for the in-home features (quick search / side nav).
    *  `.nullable()` round-trips the Python sanitizer's `None`. */
   contextSearchEnabled: z.boolean().nullable().optional(),
+  contextSearchKeyboardEnabled: z.boolean().nullable().optional(),
+  contextSearchOnEnter: z.boolean().nullable().optional(),
   sideNavEnabled: z.boolean().nullable().optional(),
   globalHideStatusLine: z.boolean().default(false),
   globalHideNewBadge: z.boolean().default(false),

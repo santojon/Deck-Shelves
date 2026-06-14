@@ -134,6 +134,8 @@
   "description_position_label": "Description position",
   "context_search_toggle": "Quick search",
   "context_search_combo": "L1+R1 on a card to open/close.",
+  "context_search_keyboard": "Open virtual keyboard",
+  "context_search_on_enter": "Search only on Enter",
   "side_nav_combo": "L1 twice (or L2/R2) on a card.",
   "context_search_desc": "Type on the keyboard while on the home to open a search over the games currently in your shelves. Enter focuses the matching card.",
   "side_nav_toggle": "Side navigation",
