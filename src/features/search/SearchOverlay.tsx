@@ -75,8 +75,13 @@ export function SearchOverlay() {
     }
     const prior = priorFocusRef.current;
     priorFocusRef.current = null;
-    if (restorePrior && prior && prior.isConnected) {
-      try { focusElement(prior); } catch {}
+    if (restorePrior && prior) {
+      // Same delay as the match path — overlay unmounts, NavTree drops
+      // the input node, THEN we land focus on the prior card. Without
+      // the delay the input still wins the focus race.
+      window.setTimeout(() => {
+        try { if (prior.isConnected) focusElement(prior); } catch {}
+      }, 180);
     }
   }, [query]);
 
