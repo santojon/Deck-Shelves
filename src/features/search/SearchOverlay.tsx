@@ -194,11 +194,10 @@ function SearchPill({ query, onChange }: { query: string; onChange: (q: string) 
   const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e?.target?.value ?? "");
   };
-  // Kick HTML focus straight onto the underlying input. Steam Deck's
-  // on-screen keyboard (auto-popup + Steam+X chord) reads the focused
-  // input on BP; without an explicit `.focus()` the NavTree thinks the
-  // input is focused while `document.activeElement` is the body, and
-  // Steam+X silently no-ops. Retries cover the post-mount timing race.
+  // Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
+  // keyboard looks for. Then dispatch a synthetic pointer sequence —
+  // that's what a touchscreen tap does, and tapping a TextField opens
+  // the keyboard reliably. The retries cover the post-mount race.
   useEffect(() => {
     let cancelled = false;
     const tryFocus = (n: number) => {
@@ -206,10 +205,33 @@ function SearchPill({ query, onChange }: { query: string; onChange: (q: string) 
       const host = hostRef.current;
       const input = host?.querySelector<HTMLInputElement>("input");
       if (input && input.isConnected) {
-        try { input.focus(); } catch {}
         try {
-          // Diagnose via CDP whether the input actually owns
-          // document.activeElement (Steam+X's gate).
+          input.setAttribute("inputmode", "text");
+          input.setAttribute("autocomplete", "off");
+          input.setAttribute("autocorrect", "off");
+          input.setAttribute("autocapitalize", "none");
+          input.setAttribute("spellcheck", "false");
+          input.setAttribute("enterkeyhint", "search");
+          if (!input.hasAttribute("tabindex")) input.setAttribute("tabindex", "0");
+        } catch {}
+        try { input.focus(); } catch {}
+        if (n === 8) {
+          // Simulate the "touchscreen tap" that reliably opens the
+          // keyboard on Big Picture. Only on the first attempt to
+          // avoid loops.
+          try {
+            const r = input.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const PD = (typeof PointerEvent !== "undefined") ? PointerEvent : null;
+            if (PD) {
+              input.dispatchEvent(new PD("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+              input.dispatchEvent(new PD("pointerup",   { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+            }
+            input.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: x, clientY: y }));
+          } catch {}
+        }
+        try {
           const g = globalThis as any;
           g.__ds_search_active = {
             n,
