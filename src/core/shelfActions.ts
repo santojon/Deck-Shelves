@@ -8,24 +8,12 @@ import {
 import { randomShelfId } from "../domain/defaults";
 import type { Shelf, SmartShelf } from "../types";
 
-/** Returns whether the given id belongs to the smart-shelves list. Regular
- *  and smart shelves have disjoint id spaces in practice but we look at the
- *  smart list directly to avoid relying on naming conventions. */
 function isSmartShelfId(id: string): boolean {
   const s = getCurrentSettings();
   if (!s) return false;
   return (s.smartShelves ?? []).some((sh: SmartShelf) => sh.id === id);
 }
 
-/**
- * Non-React shelf-action handlers callable from places that don't have a
- * SettingsController in scope (e.g. native game-capsule context menu).
- *
- * All mutate via `getCurrentSettings + saveSettings` so they participate in
- * the same persistence path as the QAM controller — no diverging state.
- */
-
-/** Clears online feature caches (store, wishlist, price, name). */
 export function clearOnlineShelfCache(): void {
   const keys = [
     "ds-store-cache-v1",
@@ -113,10 +101,6 @@ export async function deleteShelfById(id: string): Promise<void> {
   await saveSettings(deleteShelfFromSettings(s, id));
 }
 
-/**
- * Persists the collapsed state for a shelf and notifies any mounted DeckRow
- * via a window event so the home view updates without remount.
- */
 export function setShelfCollapsed(shelfId: string, collapsed: boolean): void {
   try {
     if (collapsed) localStorage.setItem(`ds-collapsed-${shelfId}`, "1");
@@ -127,12 +111,6 @@ export function setShelfCollapsed(shelfId: string, collapsed: boolean): void {
   } catch {}
 }
 
-/**
- * Edit / Delete need the React modal flow (controller + ConfirmModal). The
- * QAM controller registers a handler at mount; non-React callers dispatch
- * via the registry so the modal opens through the existing managed-modal
- * primitive. When no controller is mounted, the action is a silent no-op.
- */
 type ShelfModalKind = "edit" | "delete";
 type ShelfModalHandler = (kind: ShelfModalKind, shelfId: string) => void;
 

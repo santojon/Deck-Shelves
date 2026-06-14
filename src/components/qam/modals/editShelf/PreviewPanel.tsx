@@ -1,19 +1,6 @@
 import { ShelfPreview } from './ShelfPreview'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 
-/**
- * Bottom preview region rendered by both `EditShelfModal` and
- * `EditSmartShelfModal`. Picks one of five render modes based on the
- * active tab and which picker is open:
- * - hidden picker (Display tab): mini-card row of overshoot candidates
- * - loading: when the shelf hasn't resolved any apps yet
- * - manual sort (Source tab + sort='manual'): drag-to-reorder row
- * - highlight picker (Visual tab): mini-card row for selecting featured games
- * - default: the shared `ShelfPreview` with display flags applied
- *
- * State is owned by the parent — every callback / id list flows in through
- * props. Adding a new mode means editing one place instead of two modals.
- */
 export type PreviewPanelProps = {
   t: (k: any, opts?: any) => string
   title: string
@@ -160,7 +147,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
     <div style={{ flexShrink: 0, padding: '0 24px' }}>
       {!hideShelfTitle && (
         <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {title || t('newShelf')}
+          {title || t('new_shelf')}
         </div>
       )}
       {body}

@@ -1,33 +1,7 @@
 import type { SmartShelfMode } from "../types";
 
-/**
- * Per-mode default smart parameters and UI metadata.
- *
- * Smart shelves are heuristic — each mode has hardcoded thresholds (e.g.
- * `quick_play` uses `playtime < 120 min`, `rediscover` uses `last played
- * > 6 months ago`). This module exposes those thresholds as named
- * parameters that the user can override per-shelf via the EditSmartShelfModal
- * Source tab, while keeping the defaults in one place for the resolvers in
- * `smartShelves.ts` to fall back to.
- *
- * Adding a new param:
- *   1. Add it to `SMART_PARAM_DEFAULTS[mode]` with a sensible default.
- *   2. Add metadata to `SMART_PARAM_META` (i18n label key, min/max/step).
- *   3. Read it from inside the resolver via `getParam(params, "...", default)`.
- */
-
 export type SmartParams = Record<string, number>;
 
-/**
- * Default explicit sort per smart-shelf mode. These are the closest public
- * sort enums to each mode's natural ordering — used to seed the sort
- * dropdown when a shelf has no explicit `sort` set, so the UI never shows
- * an empty selection for an existing or freshly-created smart shelf.
- *
- * The resolver itself still applies the mode's internal sort when no
- * `sort` override is set; this map is purely for surfacing a sane
- * default to the user.
- */
 export const DEFAULT_SORT_FOR_MODE: Record<SmartShelfMode, string> = {
   quick_play:      "recent",
   not_started:     "alphabetical",
@@ -129,28 +103,19 @@ export type SmartParamKind = "slider" | "text" | "dropdown";
 
 export type SmartParamOption = {
   value: number;
-  /** i18n key for this option's label. */
   labelKey: string;
 };
 
 export type SmartParamMeta = {
-  /** i18n key for the field label. */
   labelKey: string;
   min: number;
   max: number;
   step: number;
-  /** i18n key for the unit suffix shown after the value (e.g. "min", "days"). */
   unitKey?: string;
-  /** Render kind. Defaults to "slider" when omitted. */
   kind?: SmartParamKind;
-  /** Discrete options when `kind === "dropdown"`. */
   options?: ReadonlyArray<SmartParamOption>;
 };
 
-/**
- * UI hints per param key. Same key may appear in multiple modes (e.g.
- * `maxPlaytimeMinutes`); the metadata is shared.
- */
 export const SMART_PARAM_META: Record<string, SmartParamMeta> = {
   // Playtime knobs as numeric text fields — sliders are too coarse for free-form
   // minute values; users typically know the threshold they want.
@@ -195,18 +160,10 @@ export const SMART_PARAM_META: Record<string, SmartParamMeta> = {
   },
 };
 
-/**
- * Returns the param keys a given mode supports, in stable order. Empty for
- * modes that have no tunable parameters (the EditSmartShelfModal will hide
- * the params section in that case).
- */
 export function paramKeysForMode(mode: SmartShelfMode): string[] {
   return Object.keys(SMART_PARAM_DEFAULTS[mode] ?? {});
 }
 
-/**
- * Resolve the effective value for a param: user override → mode default → 0.
- */
 export function getParam(
   mode: SmartShelfMode,
   params: SmartParams | undefined,

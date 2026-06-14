@@ -20,10 +20,12 @@ import { ActionButton } from './qam/common/ActionButton'
 import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButton'
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
+import { formatComboForDisplay, resolveBindings } from '../runtime/buttonBindings'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
 import { TemplatePickerModal } from './qam/modals/TemplatePickerModal'
+import { CreateShelfModal } from './qam/modals/CreateShelfModal'
 import { FirstRunBanner } from './qam/modals/FirstRunBanner'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
@@ -40,6 +42,7 @@ import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, 
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded } from './qam/qamExpandedStore'
 import { GeneralTab } from './qam/sidecar/GeneralTab'
+import { ProfilesSection } from './qam/sections/ProfilesSection'
 import { ErrorBoundary } from './ErrorBoundary'
 
 const DPAD_RIGHT = 23;
@@ -50,7 +53,6 @@ try {
   }
   try { document.documentElement.setAttribute('data-ds-module-loaded', 'yes@' + Date.now()); } catch {}
 } catch {}
-
 
 type NavNode = {
   m_element?: HTMLElement;
@@ -594,7 +596,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   // controller hydration tick).
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const isFirstRun = shelves.length === 0 && !settings.enabled
-  const handleAdd = () => openManagedModal((close) => <TemplatePickerModal closeModal={close} controller={controller} />)
+  const handleAdd = () => openManagedModal((close) => (
+    // Sprint 12 PR3 — unified mode opens the generalized creation
+    // modal (Standard + Smart tabs); split mode keeps the original
+    // template picker.
+    (settings as any).unifiedListEnabled === true
+      ? <CreateShelfModal closeModal={close} controller={controller} />
+      : <TemplatePickerModal closeModal={close} controller={controller} />
+  ))
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-shelves.json')} scope='shelves' />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='shelves' />)
   const handleImportSmart = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-smart-shelves.json')} scope='smart' />)
@@ -638,6 +647,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
 
+      {/* Sprint 13 — Profiles section sits ABOVE Behavior per the
+          roadmap; the component hides itself when the user has zero
+          shelves (regular + smart combined). */}
+      <ProfilesSection controller={controller} hidden={isSecHid('profiles')} />
+
       {!isSecHid('behavior') && (
       <CollapsibleSection id='behavior' icon={<SlidersIcon />} title={t('section_behavior')} count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true].filter(Boolean).length}>
         {settings.enabled && !isHid('hideRecents') && (
@@ -674,7 +688,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         {!isHid('contextSearchEnabled') && (
           <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
-            {t('context_search_combo' as any)}
+            {t('context_search_combo' as any, { combo: formatComboForDisplay(resolveBindings((settings as any).buttonBindings).navSearch) })}
           </div>
         )}
         {!isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
@@ -688,7 +702,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         {!isHid('sideNavEnabled') && (
           <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
-            {t('side_nav_combo' as any)}
+            {t('side_nav_combo' as any, { combo: formatComboForDisplay(resolveBindings((settings as any).buttonBindings).navSideNav) })}
           </div>
         )}
         {!isHid('onlineFeaturesEnabled') && (
@@ -762,7 +776,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
           <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
             <div style={{ display: 'flex' }}>
-              <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('addShelf')} />
+              <ActionButton iconNode={icons.add} onClick={handleAdd} okDescription={t('add_shelf')} />
               <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.import} onClick={handleImport} okDescription={t('import_shelves')} /></div>
               <div style={{ marginLeft: '10px' }}><ActionButton iconNode={icons.export} onClick={handleExport} okDescription={t('export_shelves')} /></div>
             </div>

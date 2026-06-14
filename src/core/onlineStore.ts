@@ -1,8 +1,3 @@
-/**
- * Online Steam Store data — wishlist + price/discount. Opt-in, demand-driven,
- * single-flight per feature, cached in localStorage with explicit TTLs.
- * Returns null when offline + cache empty; callers treat null as "hidden".
- */
 
 import { call } from "../shims/decky-api";
 import { logInfo, logWarn } from "../runtime/logger";
@@ -34,14 +29,6 @@ interface WishlistCache { ids: number[] }
 
 let wishlistInFlight: Promise<number[] | null> | null = null;
 
-/**
- * Returns wishlist appids for the current user, or null if unavailable.
- *
- * The Steam wishlist API (`store.steampowered.com/wishlist/id/…`) is blocked
- * by CORS in the SharedJSContext (different origin). The fetch is routed
- * through the plugin's Python backend (`get_wishlist` in main.py), which
- * runs without browser CORS restrictions and uses urllib.request directly.
- */
 export async function getWishlistIds(): Promise<number[] | null> {
   const cached = readCache<WishlistCache>(WISHLIST_KEY, WISHLIST_TTL);
   if (cached) return cached.ids;
@@ -99,34 +86,11 @@ const STORE_TTL = 6 * 60 * 60 * 1000; // 6h
 
 type StoreCacheV2 = {
   ids: number[];
-  /** Per-item price hint captured from the search-row data (Steam's
-   *  /search/results JSON carries final_price + original_price + discounted
-   *  per item). Replay-written to the price cache on every getStoreGameIds
-   *  call so a "100% off" / "Free now" discount filter sees real data even
-   *  on warm cache, AND so previously-polluted unpriced:true entries from
-   *  before this fix get overwritten. */
   priceHints?: Array<{ id: number; original: number; final: number }>;
 };
 
 let storeInFlight: Promise<number[] | null> | null = null;
 
-/**
- * Returns a broad set of appids from the Steam Store (featured/popular +
- * currently on-sale games). Accessible from the browser — no CORS restriction
- * for the public search JSON endpoint. Appids are extracted from item logo URLs.
- * 6-hour cache (`ds-store-cache-v1`).
- *
- * Callers that apply a `discount` childFilter should also call
- * `getPriceMap(ids)` before evaluating the filter so the price cache is warm.
- */
-/**
- * Replays price hints from the store cache into the price cache. Runs on
- * every getStoreGameIds call (cache hit AND miss) so the discount filter
- * always sees fresh, authoritative store-search data — overwriting any
- * stale `unpriced: true` entries that may have been written by an earlier
- * api/appdetails fetch (which often returns `success: false` for
- * free-weekend titles).
- */
 function replayPriceHints(hints: Array<{ id: number; original: number; final: number }> | undefined): void {
   if (!Array.isArray(hints) || !hints.length) return;
   for (const h of hints) {
@@ -295,12 +259,6 @@ function writePriceCacheEntry(appid: number, data: PriceData): void {
   } catch {}
 }
 
-/**
- * Fetches price/discount data for a batch of appids.
- * Returns a map appid → PriceData. Missing entries mean "no data" (free game
- * without a price_overview, region block, etc.) — callers should treat null as
- * free / unknown.
- */
 export async function getPriceMap(appids: number[]): Promise<Map<number, PriceData>> {
   const result = new Map<number, PriceData>();
   if (!appids.length) return result;

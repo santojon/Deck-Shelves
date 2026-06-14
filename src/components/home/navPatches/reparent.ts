@@ -1,14 +1,5 @@
 import { logInfo } from "../../../runtime/logger";
 
-/**
- * Moves the shelf's nav-tree nodes into the correct position inside
- * Steam's focus navigation tree. The React portal registers our
- * `Focusable` at the wrong tree depth (no home context), so D-pad
- * traversal would otherwise skip our shelves or snap to the tabs.
- *
- * Stability guard: once our nodes are parented under the chosen target,
- * the function short-circuits — no churn in steady state.
- */
 export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   const ctrl = (globalThis as any).FocusNavController
     ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;

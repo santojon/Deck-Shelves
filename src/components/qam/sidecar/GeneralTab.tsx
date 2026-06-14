@@ -1,6 +1,6 @@
 import { Dropdown, Field, Focusable, ToggleField } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
-import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from '../../ui'
+import { CollapsibleSection, DSSliderField, PositionField, useLightMode, type HorizontalPosition } from '../../ui'
 import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, EyeIcon, EyeOffIcon, BookmarkIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
 import { OnlinePrivacyModal } from '../../DeckQAMSettings'
@@ -89,6 +89,11 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
   const hasNonSteamBadges = isNonSteamBadgesAvailable()
   let hasCssLoader = false
   try { hasCssLoader = isCssLoaderActive() } catch {}
+  // Sprint 13 — light mode hides genuinely advanced controls so casual
+  // users don't see them on first open. The `forceCssLoaderThemes`
+  // toggle is the first one gated; per-section advanced expanders
+  // come incrementally as we touch each surface.
+  const lightMode = useLightMode()
   const mode: Mode = 'sidecar'
   const row = (tk: string, node: React.ReactNode) => (
     <HideableRow tk={tk} hidden={isHid(tk)} setHidden={(v) => setHid(tk, v)} mode={mode} t={t}>{node}</HideableRow>
@@ -171,7 +176,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
             </div>
           </div>
         </div>
-        {hasCssLoader && row('forceCssLoaderThemes', (
+        {hasCssLoader && !lightMode && row('forceCssLoaderThemes', (
           <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(v: boolean) => void actions.setForceCssLoaderThemes(v)} />
         ))}
       </CollapsibleSection>
@@ -187,11 +192,21 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           <ToggleField label={t('smart_shelves_enabled')} checked={settings.smartShelvesEnabled === true} onChange={(v: boolean) => actions.setSmartShelvesEnabled(v)} />
         ))}
         <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          {row('smartShelvesAtBottom', (
+          {!lightMode && row('smartShelvesAtBottom', (
             <ToggleField label={t('smart_shelves_at_bottom')} checked={settings.smartShelvesAtBottom === true} onChange={(v: boolean) => actions.setSmartShelvesAtBottom(v)} />
           ))}
-          {row('smartSurpriseMe', (
+          {!lightMode && row('smartSurpriseMe', (
             <ToggleField label={t('smart_surprise_me')} checked={settings.smartSurpriseMe === true} onChange={(v: boolean) => actions.setSmartSurpriseMe(v)} />
+          ))}
+          {/* Sprint 12 toggle — schema accepts and persists, render
+             path is still split until Sprint 12 PR2 wires it. */}
+          {row('unifiedListEnabled', (
+            <ToggleField label={t('unified_list_enabled' as any)} checked={(settings as any).unifiedListEnabled === true} onChange={(v: boolean) => (actions as any).setUnifiedListEnabled?.(v)} />
+          ))}
+          {/* Sprint 13 toggle — schema lives, light-mode gates land
+             alongside Sprint 13 PR2's per-section visibility hooks. */}
+          {row('lightModeEnabled', (
+            <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
           ))}
         </div>
       </CollapsibleSection>
@@ -258,10 +273,10 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {(settings as any).globalEnableLogo === true && row('globalLogoPosition', (
             <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
           ))}
-          {(settings as any).globalEnableLogo === true && row('globalLogoSize', (
+          {(settings as any).globalEnableLogo === true && !lightMode && row('globalLogoSize', (
             <DSSliderField label={t('logo_size_label' as any)} value={(settings as any).globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
           ))}
-          {(settings as any).globalEnableLogo === true && row('globalLogoTopOffset', (
+          {(settings as any).globalEnableLogo === true && !lightMode && row('globalLogoTopOffset', (
             <DSSliderField label={t('logo_top_offset_label' as any)} value={(settings as any).globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
           ))}
 
@@ -293,10 +308,10 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {(settings as any).globalEnableLogo === true && (settings as any).globalEnableDescription === true && row('globalDescriptionBelowLogo', (
             <ToggleField label={t('description_below_logo' as any)} checked={(settings as any).globalDescriptionBelowLogo === true} onChange={(v: boolean) => (actions as any).setGlobalDescriptionBelowLogo(v)} />
           ))}
-          {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && row('globalDescriptionHeight', (
+          {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !lightMode && row('globalDescriptionHeight', (
             <DSSliderField label={t('description_height_label' as any)} value={(settings as any).globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
           ))}
-          {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && row('globalDescriptionLogoGap', (
+          {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !lightMode && row('globalDescriptionLogoGap', (
             <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
           ))}
 

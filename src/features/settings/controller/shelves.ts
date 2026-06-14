@@ -17,10 +17,6 @@ export interface ShelvesDeps {
   t: (key: string) => string;
 }
 
-/** Regular-shelf CRUD slice. Cross-call methods (toggleShelfHidden,
- *  patchFilter, setSourceType) reach the LOCAL `patchShelfFn` instead
- *  of the parent `actions.patchShelf`, so the slice is self-contained
- *  and works whether the spread lands before or after other groups. */
 export function createShelfActions(deps: ShelvesDeps) {
   const { liveSettings, persist, setSelectedId, collections, tabs, shelves, t } = deps;
 
@@ -38,18 +34,14 @@ export function createShelfActions(deps: ShelvesDeps) {
     async addShelf(): Promise<Shelf | undefined> {
       const s = liveSettings();
       if (!s) return;
-      const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
+      const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("new_shelf")), title: t("new_shelf") };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       return shelf;
     },
-    /** Returns a default shelf object **without persisting** — for the
-     *  modal-driven create flow that should only commit on Save. */
     createDraftShelf(): Shelf {
-      return { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
+      return { ...createDefaultShelf(collections[0]?.id ?? "", t("new_shelf")), title: t("new_shelf") };
     },
-    /** Persists a shelf object built locally (e.g. from `createDraftShelf`
-     *  + edits in the modal). Used by the modal-driven create flow on Save. */
     async commitShelf(shelf: Shelf): Promise<Shelf | undefined> {
       const s = liveSettings();
       if (!s) return;
@@ -81,7 +73,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       if (!s) return;
       await persist({ ...s, shelves: [] });
       setSelectedId(null);
-      toaster.toast({ title: t("pluginName"), body: t("toast_shelves_reset") });
+      toaster.toast({ title: t("plugin_name"), body: t("toast_shelves_reset") });
     },
     async createDefaultShelves() {
       const s = liveSettings();
@@ -110,7 +102,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       if (!sourceShelf) return;
       const duplicate: Shelf = JSON.parse(JSON.stringify(sourceShelf));
       duplicate.id = randomShelfId();
-      duplicate.title = `${sourceShelf.title} ${t("copySuffix")}`.trim();
+      duplicate.title = `${sourceShelf.title} ${t("copy_suffix")}`.trim();
       await persist(addShelfToSettings(s, duplicate, id));
       setSelectedId(duplicate.id);
     },

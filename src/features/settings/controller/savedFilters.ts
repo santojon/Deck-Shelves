@@ -1,16 +1,10 @@
 import type { FilterGroup, SavedFilter, SavedSmartFilter, Settings } from "../../../types";
 
-/** Dependencies the saved-filter actions read at call time. The hook
- *  rebuilds this object on every render so closures see the latest
- *  settings without each action needing its own subscription. */
 export interface SavedFilterDeps {
   liveSettings: () => Settings | null;
   persist: (next: Settings) => Promise<boolean>;
 }
 
-/** Factory for the saved-filter CRUD slice of `useSettingsController`.
- *  Returns plain functions that mutate `Settings.savedFilters` and
- *  `Settings.savedSmartFilters` through the injected `persist`. */
 export function createSavedFilterActions(deps: SavedFilterDeps) {
   const { liveSettings, persist } = deps;
   return {

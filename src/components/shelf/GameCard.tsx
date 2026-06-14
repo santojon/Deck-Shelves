@@ -15,6 +15,46 @@ import { resolveNativeCardClass } from "./cardUtils";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
+import { BTN, createMatcherState, matchEvent, parseCombo, resolveBindings } from "../../runtime/buttonBindings";
+
+// Build a {buttonId: label} map for Decky's Focusable `actionDescriptionMap`.
+// Only single-button bindings get a legend; chords/doubles silently drop.
+function buildActionDescriptionMap(args: {
+  previewMode: boolean;
+  appid: number | undefined;
+  isLibraryGame: boolean;
+  quickLaunchLabel: string | undefined;
+  removable: boolean;
+  hideable: boolean;
+  hiddenNow: boolean;
+}): Record<number, string> | undefined {
+  const b = resolveBindings(getCurrentSettings()?.buttonBindings as any);
+  const TOKEN_TO_BTN: Record<string, number> = {
+    X: BTN.SECONDARY, Y: BTN.OPTIONS,
+    L1: BTN.L1, R1: BTN.R1, L2: BTN.L2, R2: BTN.R2,
+    VIEW: BTN.VIEW, SELECT: BTN.VIEW,
+    LSTICK: BTN.LSTICK, RSTICK: BTN.RSTICK,
+    DPAD_UP: BTN.DPAD_UP, DPAD_DOWN: BTN.DPAD_DOWN,
+    DPAD_LEFT: BTN.DPAD_LEFT, DPAD_RIGHT: BTN.DPAD_RIGHT,
+  };
+  const single = (raw: string | null | undefined): number | null => {
+    if (!raw || raw.includes("+")) return null;
+    return TOKEN_TO_BTN[raw.trim().toUpperCase()] ?? null;
+  };
+  const out: Record<number, string> = {};
+  if (!args.previewMode && args.appid) {
+    const qb = single(b.cardQuickLaunch);
+    if (qb !== null && args.isLibraryGame && args.quickLaunchLabel) out[qb] = args.quickLaunchLabel;
+    const hb = single(b.cardHideRemove);
+    if (hb !== null) {
+      if (args.removable) out[hb] = i18n.t('card_remove');
+      else if (args.hideable) out[hb] = i18n.t(args.hiddenNow ? 'card_show' : 'card_hide');
+    }
+    const yb = single(b.cardHighlightToggle);
+    if (yb !== null) out[yb] = i18n.t('card_highlight_toggle');
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 
 // Y-button quick-action: toggle a per-card highlight (entry in
 // `highlightedAppIds`). When the card was being highlighted via the
@@ -215,19 +255,26 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
     catch { return false; }
   }, [appid, previewMode]);
+  const matcherRef = useRef(createMatcherState());
   const buttonDownHandler = useCallback((evt: any) => {
     if (previewMode) return;
-    // Forward EVERY button-down event to the home input bus so features
-    // (Quick Search L1+R1 chord, etc.) can react. The bus listeners no-op
-    // unless they're enabled, so the overhead is negligible.
     try { dispatchHomeButtonDown(evt); } catch {}
     if (!appid) return;
     try {
-      if (evt?.detail?.button === GamepadButton.SELECT) {
-        quickLaunch();
+      const b = resolveBindings(getCurrentSettings()?.buttonBindings as any);
+      const state = matcherRef.current;
+      if (matchEvent(evt, parseCombo(b.cardQuickLaunch), state)) { quickLaunch(); return; }
+      if (matchEvent(evt, parseCombo(b.cardHideRemove), state)) {
+        if (removableSet?.has(appid) && onRemoveCard) onRemoveCard(appid);
+        else if (onHideCard) onHideCard(appid);
+        return;
+      }
+      if (matchEvent(evt, parseCombo(b.cardHighlightToggle), state)) {
+        try { toggleCardHighlight(item.shelfId, appid); } catch {}
+        return;
       }
     } catch {}
-  }, [appid, previewMode, quickLaunch]);
+  }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, item.shelfId]);
 
   useEffect(() => {
     function injectNativeClasses(): boolean {
@@ -494,34 +541,13 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       onMenuButton={item.onMenuButton}
       onMenuActionDescription={!previewMode && item.onMenuButton ? i18n.t('card_options') : undefined}
       onContextMenu={item.onMenuButton}
-      // View (Select) button bound to RunGame — only when the appid is in
-      // the user's local Steam library. Wishlist / store / decoration
-      // cards have no install / play / update to dispatch to, so neither
-      // the binding nor the legend slot should appear for them.
       onButtonDown={previewMode ? undefined : buttonDownHandler}
-      actionDescriptionMap={isLibraryGame && quickLaunchLabel ? { [GamepadButton.SELECT]: quickLaunchLabel } : undefined}
-      // Y → quick highlight toggle. Static label avoids legend churn.
-      // No-op when no appid or in modal preview (the modal owns highlight).
-      onOptionsActionDescription={!previewMode && appid
-        ? i18n.t('card_highlight_toggle')
-        : undefined}
-      onOptionsButton={!previewMode && appid ? () => { try { toggleCardHighlight(item.shelfId, appid); } catch {} } : undefined}
-      // X → remove (if menu-added) or toggle hide. Modal preview omits
-      // the hide path since the picker owns it.
-      onSecondaryActionDescription={
-        appid && removableSet?.has(appid) && onRemoveCard
-          ? i18n.t(previewMode ? 'menu_remove_from_shelf' : 'card_remove')
-          : appid && onHideCard
-            ? i18n.t(previewMode
-                ? (hiddenSet?.has(appid) ? 'show_in_shelf' : 'hide_from_shelf')
-                : (hiddenSet?.has(appid) ? 'card_show' : 'card_hide'))
-            : undefined}
-      onSecondaryButton={
-        appid && removableSet?.has(appid) && onRemoveCard
-          ? () => { try { onRemoveCard(appid); } catch {} }
-          : appid && onHideCard
-            ? () => { try { onHideCard(appid); } catch {} }
-            : undefined}
+      actionDescriptionMap={buildActionDescriptionMap({
+        previewMode, appid, isLibraryGame, quickLaunchLabel,
+        removable: !!(appid && removableSet?.has(appid) && onRemoveCard),
+        hideable: !!(appid && onHideCard),
+        hiddenNow: !!(appid && hiddenSet?.has(appid)),
+      })}
       data-appid={appid || undefined}
       data-shelfid={item.shelfId || undefined}
       data-name={item.name || undefined}

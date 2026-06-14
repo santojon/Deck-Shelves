@@ -5,9 +5,6 @@ export interface OnlineDeps {
   persist: (next: Settings) => Promise<boolean>;
 }
 
-/** Online-features slice of the settings controller. Six boolean-style
- *  setters + the `acceptOnlinePrivacy` one-shot. All follow the same
- *  read-current → diff → persist pattern. */
 export function createOnlineActions(deps: OnlineDeps) {
   const { liveSettings, persist } = deps;
   return {

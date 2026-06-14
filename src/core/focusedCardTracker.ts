@@ -1,14 +1,3 @@
-/**
- * Shared focused-card tracker. Replaces BadgeFocusOverlay's bespoke
- * focusin/focusout listener with a single module-level observer so
- * multiple consumers (badge overlay, integrations via pluginApi,
- * future tooling) all see the same source of truth without each one
- * attaching its own listener pyramid.
- *
- * Tracks the currently focused `.ds-card` element and exposes:
- *   - `getFocusedCard()`        — synchronous current state
- *   - `subscribeFocusedCard()`  — fires on every change
- */
 
 import { getAllSteamDocuments, getPreferredSteamDocument } from "../runtime/steamHost";
 
@@ -95,15 +84,11 @@ function ensureInstalled(): void {
   }
 }
 
-/** Returns the focused card or null. Triggers lazy listener install on
- *  first call so the tracker only attaches when something cares. */
 export function getFocusedCard(): FocusedCardInfo | null {
   ensureInstalled();
   return current;
 }
 
-/** Subscribes to focused-card changes. Returns an unsubscribe function.
- *  First call also installs the underlying listeners. */
 export function subscribeFocusedCard(cb: (info: FocusedCardInfo | null) => void): () => void {
   ensureInstalled();
   listeners.add(cb);
@@ -112,7 +97,6 @@ export function subscribeFocusedCard(cb: (info: FocusedCardInfo | null) => void)
   return () => { listeners.delete(cb); };
 }
 
-/** Tears down all listeners. Called from the plugin's unload path. */
 export function uninstallFocusedCardTracker(): void {
   for (const fn of teardowns) { try { fn(); } catch {} }
   teardowns = [];

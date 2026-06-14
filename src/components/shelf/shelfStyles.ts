@@ -237,11 +237,6 @@ function detectNativeCardRadius(): string {
   return "0px";
 }
 
-/**
- * Reads the native NEW badge radius so DS badges match SteamOS. Returns
- * "" when no native badge is rendered (recents hidden / no qualifying
- * game) so the CSS fallback chain stays in effect for Round-family themes.
- */
 function detectNativeNewBadgeRadius(): string {
   try {
     const docs = [getPreferredSteamDocument(), document];

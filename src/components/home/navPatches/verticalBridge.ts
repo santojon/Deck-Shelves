@@ -3,15 +3,6 @@ import { logInfo } from "../../../runtime/logger";
 import { focusElement } from "../../../core/focusRestore";
 import { DIR_DOWN, DIR_UP, DS_BRIDGE_ATTACHED } from "./constants";
 
-/**
- * D-pad DOWN bridge: when focus is in a sibling of our mount (native top
- * section: recents/friends/novidades) and Steam's native nav doesn't move
- * focus into our shelves on DOWN, take focus on our first card. Runs as a
- * post-nav fallback (rAF after the event) so legitimate native moves still
- * win. Mirrors upward bridge on UP when focus is in the first shelf.
- *
- * We never manipulate the nav tree — purely event-level focus redirection.
- */
 export function installVerticalFocusBridge(mountEl: HTMLElement): void {
   const doc = getPreferredSteamDocument();
   if (!doc || (doc as any)[DS_BRIDGE_ATTACHED]) return;

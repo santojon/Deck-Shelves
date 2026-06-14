@@ -224,12 +224,6 @@ export function applyHideHomeTabs(hidden: boolean): void {
   } catch (e) { logInfo("HOME", "applyHideHomeTabs failed", String(e)); }
 }
 
-/**
- * Re-applies BOTH the most recent hide-recents AND hide-home-tabs requests.
- * Used after Steam re-renders the home DOM (e.g. user goes to library and
- * comes back with B): the freshly mounted native recents/tabs arrive without
- * our hides applied, so this re-runs both apply paths with the cached flags.
- */
 export function reapplyHomeHides(): void {
   applyHideRecents(pendingHideRecents);
   applyHideHomeTabs(pendingHideHomeTabs);

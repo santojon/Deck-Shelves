@@ -13,14 +13,6 @@ const iconButtonStyle = {
   flexShrink: 0,
 }
 
-/**
- * Asc/desc toggle that sits next to a sort dropdown. Same shape as the
- * icon-only buttons used by SavedFiltersBar (40x40 DialogButton with an
- * SVG icon, square, lateral D-pad navigation when wrapped in a row
- * Focusable). Click flips between descending (default — natural order)
- * and ascending (reversed). Returns `null` for sorts where direction has
- * no meaning (`manual`, `random`).
- */
 export function SortDirectionButton({
   sort,
   reverse,

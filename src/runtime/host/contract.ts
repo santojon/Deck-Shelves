@@ -11,32 +11,18 @@ import type { PlatformApi } from "../platform";
 
 export const HOST_API_VERSION = "1.0.0" as const;
 
-/** Plugin identity passed to `lifecycle.register` at boot. */
 export interface PluginDescriptor {
-  /** Plugin id — matches the bundle manifest `name` field. */
   name: string;
-  /** Plugin semver. Surfaced to host diagnostics surfaces. */
   version: string;
 }
 
-/** Standard Disposable shape — return value of `register` calls so the
- *  host (or the plugin itself) can tear down side effects. */
 export interface Disposable {
   dispose(): void;
 }
 
 export interface HostLifecycle {
-  /** Called once at bundle boot. Returns a Disposable the host invokes
-   *  on unload. Implementations may track the registered plugin for
-   *  diagnostics even when only one bundle (Deck Shelves) is loaded. */
   register(plugin: PluginDescriptor): Disposable;
-  /** Fires after the bundle has been mounted into the Steam UI (the
-   *  CEF renderer has accepted our injected `<script>` and our root
-   *  React component has rendered at least once). */
   onMount(cb: () => void): void;
-  /** Fires when the bundle is about to be torn down — typically the
-   *  Steam UI renderer is reloading or the host is unloading the
-   *  plugin. */
   onUnmount(cb: () => void): void;
 }
 
@@ -47,18 +33,12 @@ export interface HostRpc {
 }
 
 export interface HostRoutes {
-  /** Registers a route. Returns a Disposable the caller invokes to
-   *  remove the route. */
   register(path: string, component: () => any): Disposable;
 }
 
 export interface ToastOptions {
-  /** Short title (header line). When omitted the host shows the body
-   *  text without a title row. */
   title?: string;
-  /** Main body text. Required — a toast with no body is a no-op. */
   body: string;
-  /** Auto-dismiss timeout in ms. Host default when omitted. */
   durationMs?: number;
 }
 

@@ -9,10 +9,6 @@ export interface SmartShelfDeps {
   t: (key: string) => string;
 }
 
-/** Smart-shelf CRUD slice. Handles the entire SmartShelf surface that
- *  was inlined in the original `useSettingsController`: master toggles,
- *  at-bottom flag, reorder, add/commit/remove/toggle/patch, surprise-me,
- *  move, reset + import/export. */
 export function createSmartShelfActions(deps: SmartShelfDeps) {
   const { liveSettings, persist, t } = deps;
   return {
@@ -41,13 +37,9 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
       return shelf;
     },
-    /** Returns a default smart shelf object **without persisting** — for
-     *  the modal-driven create flow that should only commit on Save. */
     createDraftSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
       return createDefaultSmartShelf(mode, title);
     },
-    /** Persists a smart shelf object built locally. Used by the modal-driven
-     *  create flow on Save. */
     async commitSmartShelf(shelf: SmartShelf): Promise<SmartShelf | undefined> {
       const s = liveSettings();
       if (!s) return;
@@ -101,7 +93,7 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       const s = liveSettings();
       if (!s) return;
       await persist({ ...s, smartShelves: [], smartShelvesEnabled: false, smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
-      toaster.toast({ title: t("pluginName"), body: t("toast_smart_shelves_reset") });
+      toaster.toast({ title: t("plugin_name"), body: t("toast_smart_shelves_reset") });
     },
     async exportSmartShelves(destPath: string): Promise<boolean> {
       const s = liveSettings();

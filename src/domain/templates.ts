@@ -107,7 +107,6 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
   },
 ];
 
-/** Gated templates — only shown in the picker when onlineFeaturesEnabled is on. */
 export const ONLINE_SHELF_TEMPLATES: ShelfTemplate[] = [
   {
     id: "wishlist",

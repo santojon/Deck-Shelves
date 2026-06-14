@@ -72,7 +72,6 @@ export function DeckModalStyles() {
         box-sizing: border-box;
       }
 
-
       .deck-shelves-modal-scope .deck-shelves-wide-field,
       .deck-shelves-modal-scope .deck-shelves-wide-field > div,
       .deck-shelves-modal-scope .deck-shelves-wide-field input {

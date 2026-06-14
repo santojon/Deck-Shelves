@@ -16,8 +16,6 @@ function pickHashedClass(el: HTMLElement): string | null {
   return null;
 }
 
-/** Scans the document for a webpack-hashed CSS class token (starts with `_`, length > 5)
- *  on a visible scrollable element. Used as a seed for the class map discovery. */
 export function findWebpackHashedClass(doc: Document): string | null {
   try {
     for (const el of Array.from(doc.querySelectorAll<HTMLElement>('[class]'))) {
@@ -29,14 +27,11 @@ export function findWebpackHashedClass(doc: Document): string | null {
   return null;
 }
 
-/** Converts a class token (or space-separated tokens) into a CSS selector string. */
 export function buildSelectorFromToken(token: string | null): string | null {
   if (!token) return null;
   return `.${token.replace(/\s+/g, '.')}`;
 }
 
-/** Returns the cached class map for the given document window, from in-memory store
- *  (`__DS_CLASS_MAP`) or localStorage fallback. Returns null if not yet discovered. */
 export function getRuntimeClassMap(doc: Document): Record<string, string> | null {
   try {
     const w = (doc as any).defaultView as Window | undefined;
@@ -49,8 +44,6 @@ export function getRuntimeClassMap(doc: Document): Record<string, string> | null
   return null;
 }
 
-/** Persists the class map to `__DS_CLASS_MAP` (in-memory) and `localStorage` for the
- *  given document window. Called after a successful discovery pass. */
 export function setRuntimeClassMap(doc: Document, map: Record<string, string>) {
   try {
     const w = (doc as any).defaultView as Window | undefined;
@@ -411,15 +404,6 @@ export type NativeCardDims = {
  *  theme shows a landscape highlight card before the portrait row).
  *  Returns { width, height, gap, featuredWidth?, featuredHeight? } or null.
  */
-/**
- * Fallback measurement when native cards are hidden (display:none).
- * Creates a temporary element with the native card CSS class — inside a
- * container that mirrors the native shelf row's flex context when possible
- * — and reads its computed dimensions. Works regardless of whether recents
- * are visible, so matchNativeSize keeps responding to viewport changes
- * (e.g. Deck ↔ external monitor) even when the recents shelf is
- * display:none for nav-tree exclusion.
- */
 function buildMeasurementHost(doc: Document, rowToken: string): HTMLElement {
   const host = doc.createElement('div');
   if (rowToken) {
@@ -608,10 +592,6 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
   return null;
 }
 
-
-/** Build a Set of "primary" tokens already named under a stable key in the
- *  base discovery output, so the container-chain helper can skip them and
- *  avoid duplicate entries under generic `homeLayerN` keys. */
 function _namedPrimaries(base: Record<string, string>): Set<string> {
   const out = new Set<string>();
   for (const v of Object.values(base)) {
@@ -764,18 +744,6 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
   } catch { return null; }
 }
 
-/**
- * Scan the document stylesheets for the native Deck compat icon color rules
- * and return the obfuscated class name for each level.
- *
- * Steam's base stylesheet sets:
- *   .kEODDe6M5cuHWuPlcQexX           { color: rgb(89, 191, 64);   }  ← Verified
- *   .mPD42Bwx3VAs0qw9wubf2           { color: rgb(255, 200, 44);  }  ← Playable
- *   ._2LAaxz6RtHXrJJj9NzCNL4, ...   { color: rgb(220, 222, 223); }  ← Unsupported/Unknown
- *
- * We find these rules by their exact color values (not by class name) so the
- * detection survives Steam bundle renames.
- */
 const SINGLE_CLASS_RE = /^\.[A-Za-z_][A-Za-z0-9_-]+$/;
 
 const COMPAT_COLOR_TO_KEY: Record<string, 'verified' | 'playable' | 'unsupported'> = {

@@ -1,17 +1,3 @@
-/**
- * Image cache for shelf cards.
- *
- * Two layers:
- *  1. In-memory LRU (hot path) — sync get(), returns blob URL for instant
- *     re-render. Capped at HOT_CACHE_LIMIT entries to keep memory bounded.
- *  2. Cache Storage API (persistent) — blobs survive Steam restarts.
- *     Loaded into the hot cache on first access via background fetch.
- *
- * Each cached response carries an `x-ds-cached-at` header (ms epoch) used
- * for staleness checks. Entries older than STALE_AFTER_MS trigger a
- * background revalidation on access; entries older than EVICT_AFTER_MS are
- * removed on the next pruneCache() pass.
- */
 
 const STORAGE_NAME = "ds-images-v1";
 // 320 entries fits ~150-200 visible cards (portrait + hero each) with
@@ -50,9 +36,6 @@ function supported(): boolean {
   catch { return false; }
 }
 
-/** Local + loopback URLs are already filesystem-served and don't
- *  benefit from blob caching; cache only remote CDN URLs which also
- *  carry cache-bust via `?c=mtime`. */
 function cacheable(url: string): boolean {
   if (typeof url !== "string") return false;
   if (!/^https?:\/\//i.test(url)) return false;
@@ -60,19 +43,11 @@ function cacheable(url: string): boolean {
   return true;
 }
 
-/** First URL in the chain that the cache can store (HTTPS, non-loopback).
- *  Use instead of `urls[0]` when warming — urls[0] is typically a
- *  /customimages/ local 404 path that the cache can't store anyway. */
 export function firstCacheableUrl(urls: ReadonlyArray<string>): string | null {
   for (const u of urls) if (cacheable(u)) return u;
   return null;
 }
 
-/**
- * Sync hot-cache lookup. Returns a blob URL ready to feed to `<img src>`
- * if the URL is in memory; otherwise returns null and the caller should
- * use the original URL while warmCacheBackground() populates the cache.
- */
 export function getHotCachedImageSrc(url: string): string | null {
   if (!cacheable(url)) return null;
   const hit = hot.get(url);
@@ -87,11 +62,6 @@ export function getHotCachedImageSrc(url: string): string | null {
   return hit.blobUrl;
 }
 
-/**
- * Best-effort async cache warmer: populates hot + Cache Storage in the
- * background. Safe to call repeatedly for the same URL — concurrent calls
- * dedupe via the inflight set. No-op for local (non-http) URLs.
- */
 export function warmCacheBackground(url: string): void {
   if (!cacheable(url) || !supported()) return;
   if (hot.has(url) || inflight.has(url)) return;
@@ -173,9 +143,6 @@ async function hydrateOne(cache: Cache, url: string, storedAt: number): Promise<
   } catch { return false; }
 }
 
-/** Pre-loads the hot cache from persistent Cache Storage on boot so
- *  the first focus on every card is a blob-URL hit. Capped at
- *  HOT_CACHE_LIMIT entries (newest first), idempotent. */
 export async function hydrateHotCacheFromStorage(): Promise<{ hydrated: number; skipped: number }> {
   if (!supported()) return { hydrated: 0, skipped: 0 };
   let hydrated = 0;
@@ -192,10 +159,6 @@ export async function hydrateHotCacheFromStorage(): Promise<{ hydrated: number; 
   return { hydrated, skipped };
 }
 
-/**
- * Periodic cleanup: removes Cache Storage entries older than
- * EVICT_AFTER_MS. Safe to call on plugin init; idempotent + async.
- */
 export async function pruneCache(): Promise<{ removed: number; kept: number }> {
   if (!supported()) return { removed: 0, kept: 0 };
   let removed = 0;
@@ -219,7 +182,6 @@ export async function pruneCache(): Promise<{ removed: number; kept: number }> {
   return { removed, kept };
 }
 
-/** Hot-cache stats — used by diagnostics / tests, not by hot-path code. */
 export function imageCacheStats(): { hotEntries: number; inflight: number } {
   return { hotEntries: hot.size, inflight: inflight.size };
 }

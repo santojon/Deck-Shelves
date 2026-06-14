@@ -1,19 +1,3 @@
-/**
- * SteamOS version detection. Used to branch behavior that depends on
- * platform build (e.g. the native context-menu extraction path on
- * SteamOS ≤ 3.7 vs 3.8/3.9).
- *
- * Detection sources, in priority:
- *   1. `SteamClient.System.GetOSVersion()` (3.8+ only — sync).
- *   2. `SteamUIStore.DeckySettings.steamos_version` (Decky-injected).
- *   3. UA `SteamOS/<x.y[.z]>` regex.
- *   4. `SteamClient.System.GetSystemInfo()` `sOSVersionId` (async — 3.7+,
- *      always present, only source available on 3.7.21).
- *
- * The first three are sync; the fourth is async and is prefetched at
- * plugin init via `prefetchSteamOSVersion()` so subsequent sync callers
- * (e.g. `isLegacyMenuFlow()` in `steamGameMenu.ts`) get a resolved value.
- */
 let cachedVersion: string | null | undefined;
 let prefetchPromise: Promise<string | null> | null = null;
 
@@ -52,12 +36,6 @@ async function readRawVersionAsync(): Promise<string | null> {
   return null;
 }
 
-/**
- * Eagerly resolve the OS version and cache it. Call once at plugin init —
- * after this resolves, `getSteamOSVersion()` returns the real value
- * synchronously even on SteamOS 3.7.x where the only source is the async
- * `GetSystemInfo()`.
- */
 export async function prefetchSteamOSVersion(): Promise<string | null> {
   if (cachedVersion !== undefined) return cachedVersion ?? null;
   if (prefetchPromise) return prefetchPromise;
@@ -68,12 +46,6 @@ export async function prefetchSteamOSVersion(): Promise<string | null> {
   return prefetchPromise;
 }
 
-/**
- * Returns the detected SteamOS version as a string (e.g. "3.9" or "3.7.21"),
- * or `null` when unknown. Synchronous: returns from cache when populated by
- * `prefetchSteamOSVersion()`, otherwise tries the sync sources, otherwise
- * returns `null` and kicks off the async prefetch in the background.
- */
 export function getSteamOSVersion(): string | null {
   if (cachedVersion !== undefined) return cachedVersion ?? null;
   const sync = readRawVersionSync();
@@ -86,7 +58,6 @@ export function getSteamOSVersion(): string | null {
   return null;
 }
 
-/** Returns `true` when the device is on SteamOS ≥ 3.9, `false` for ≤ 3.8, `null` when unknown. */
 export function isSteamOS39OrLater(): boolean | null {
   const v = getSteamOSVersion();
   if (!v) return null;
@@ -98,16 +69,6 @@ export function isSteamOS39OrLater(): boolean | null {
   return major > 3 || (major === 3 && minor >= 9);
 }
 
-/**
- * Returns `true` when the device is on SteamOS ≥ 3.8 (or equivalent recent
- * SteamOS-fork build like Bazzite tracking SteamOS 3.8/3.9), `false` for
- * ≤ 3.7.x, `null` when the version can't be determined.
- *
- * Used to gate the modern menu-extraction path. Pre-3.8 SteamOS builds (e.g.
- * 3.7.21 stable) need the simpler flow because the cross-window
- * card anchor walk + prewarm + passive showContextMenu hook all assume the
- * 3.8+ runtime shape (multiple top-level documents, modern overlay timing).
- */
 export function isSteamOS38OrLater(): boolean | null {
   const v = getSteamOSVersion();
   if (!v) return null;
@@ -119,24 +80,6 @@ export function isSteamOS38OrLater(): boolean | null {
   return major > 3 || (major === 3 && minor >= 8);
 }
 
-/**
- * Returns props to spread onto a `<Focusable>` to set its gamepad-nav
- * `flow-children` direction safely across SteamOS versions.
- *
- * Currently always returns `{}` (drops the prop entirely). CDP probing
- * confirmed Steam's `library.js` throws `Assertion Failed: Unhandled
- * flow-children: <value>` on **both** 3.7.21 and 3.8/3.9 — the assertion
- * bubbles through React render and Decky's ErrorBoundary catches it,
- * leaving the surrounding panel blank (this is how the QAM ends up empty
- * once any plugin renders a `flow-children`-enabled Focusable). The
- * `direction` argument is kept for documentation / future reactivation
- * if Steam ever ships a build that accepts the prop without asserting,
- * but the runtime contract is "drop, always, on every version".
- *
- * Gamepad navigation still works via DOM order — for our use cases
- * (horizontal card row, button toolbar) sibling-walk reproduces the
- * intended L/R or U/D nav without an explicit hint.
- */
 export function flowChildrenProps(_direction: "horizontal" | "vertical" | "column"):
   Record<string, never> {
   return {};

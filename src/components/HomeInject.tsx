@@ -463,22 +463,47 @@ export function HomeShelves() {
   }
 
   // Placement:
+  // - Sprint 12 PR2 — when `unifiedListEnabled` is on, ignore the
+  //   atBottom / hideRecents split and emit shelves in the explicit
+  //   `allShelvesOrder` (ids the user reorganised in the Prateleiras
+  //   detail panel). Anything not in the array falls to the end in
+  //   its original sub-list order so newly-added shelves still
+  //   appear. The interleave / order-css path skips entirely in
+  //   unified mode — the user picked the order, we honour it.
   // - atBottom: normal then smart
   // - hideRecents + !replace-injecting: normal then smart in DOM, CSS
   //   `order` restores visual interleave
   // - else: smart then normal
+  const unifiedOn = (settings as any).unifiedListEnabled === true;
+  const allShelvesOrder: string[] = ((settings as any).allShelvesOrder ?? []) as string[];
   const normalFirst = settings.smartShelvesAtBottom
     || (settings.hideRecents === true && !(replaceInjecting && !replaceKillSwitch));
-  const shelves: Shelf[] = normalFirst
-    ? [...normalShelves, ...smartShelves]
-    : [...smartShelves, ...normalShelves];
+  let shelves: Shelf[];
+  if (unifiedOn) {
+    const combined = [...normalShelves, ...smartShelves];
+    const byId = new Map(combined.map((s) => [s.id, s] as const));
+    const ordered: Shelf[] = [];
+    for (const id of allShelvesOrder) {
+      const found = byId.get(id);
+      if (found) { ordered.push(found); byId.delete(id); }
+    }
+    // Append anything the user has but hasn't placed yet (new shelves).
+    for (const remaining of byId.values()) ordered.push(remaining);
+    shelves = ordered;
+  } else {
+    shelves = normalFirst
+      ? [...normalShelves, ...smartShelves]
+      : [...smartShelves, ...normalShelves];
+  }
 
   // Visual interleave mode: when hiding recents AND the user did NOT request
   // smart-shelves-at-bottom, we render [normal..., smart...] in the DOM but
   // present them visually as [promoted normal, smart, rest of normal] via
   // flex `order`. When `smartShelvesAtBottom=true`, the user explicitly
   // wants smart at the end — no reorder needed, the array order matches.
-  const interleaveSmart = settings.hideRecents === true
+  // Disabled entirely in unified mode (user-defined order is authoritative).
+  const interleaveSmart = !unifiedOn
+    && settings.hideRecents === true
     && !settings.smartShelvesAtBottom
     && !(replaceInjecting && !replaceKillSwitch);
 

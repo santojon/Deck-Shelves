@@ -174,7 +174,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     case "nameIncludes":
       return (
         <div>
-          <Field label={t("filter_type_nameIncludes")} bottomSeparator="none">
+          <Field label={t("filter_type_name_includes")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
                 <TextField
                 value={String(p.text ?? "")}
@@ -191,7 +191,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     case "nameRegex":
       return (
         <div>
-          <Field label={t("filter_type_nameRegex")} bottomSeparator="none">
+          <Field label={t("filter_type_name_regex")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
               <TextField
                 value={String(p.pattern ?? "")}
@@ -243,7 +243,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const tags: string[] = Array.isArray(p.tags) ? p.tags : [];
       return (
         <div>
-          <Field label={t("filter_type_storeTag")} description={t("filter_tags_hint")} bottomSeparator="none">
+          <Field label={t("filter_type_store_tag")} description={t("filter_tags_hint")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
               <TextField
                 value={tags.join(", ")}
@@ -268,7 +268,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const ids: number[] = Array.isArray(p.appIds) ? p.appIds : [];
       return (
         <div>
-          <Field label={t("filter_type_appIdList")} description={t("filter_appIdList_hint")} bottomSeparator="none">
+          <Field label={t("filter_type_app_id_list")} description={t("filter_app_id_list_hint")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
               <TextField
                 value={ids.join(", ")}

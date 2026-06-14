@@ -7,10 +7,6 @@ export interface GlobalVisualDeps {
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(v)));
 
-/** Global visual-settings slice. All ~30 setters follow the same shape:
- *  read-current → diff → persist. The position/size setters add a clamp
- *  on the way through. Bundled here so `controller.tsx` stays focused
- *  on shelf CRUD + lifecycle. */
 export function createGlobalVisualActions(deps: GlobalVisualDeps) {
   const { liveSettings, persist } = deps;
   const setBool = async (key: keyof Settings, value: boolean) => {

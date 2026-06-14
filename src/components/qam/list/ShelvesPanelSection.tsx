@@ -8,7 +8,7 @@ export function ShelvesPanelSection({ controller }: { controller: SettingsContro
   return (
     <ReorderableShelfList<Shelf>
       items={shelves}
-      emptyText={t('noShelves')}
+      emptyText={t('no_shelves')}
       renderActions={(shelf) => <ShelfActionsButton controller={controller} shelf={shelf} />}
       onReorder={actions.reorderShelfIds}
     />

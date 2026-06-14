@@ -45,20 +45,6 @@ function interceptMenuBtn(button: number): boolean {
   return false;
 }
 
-/**
- * Intercepts the Options/Menu button so pressing it on a shelf card opens
- * our game context menu instead of Steam's default behavior (which crashes
- * on our synthetic cards). Installs three layers:
- *
- * - Document-level `vgp_onmenubutton` / `contextmenu` listeners (one per
- *   known Steam document) — first chance to catch the press.
- * - `ctrl.DispatchVirtualButtonClick` instance-level patch.
- * - Prototype-level patch as fallback when the controller doesn't own
- *   its own dispatch fn.
- *
- * All three dedupe through `patchedMenuControllers: WeakSet` so repeat
- * calls (e.g. from observer-driven re-runs) are no-ops.
- */
 export function patchMenuButton(): void {
   const DS_DOC_MENU = "__ds_doc_menu__";
   // Register on every Steam document we can see: ds-cards may live in the

@@ -47,10 +47,6 @@ export function takeNavTreeFocus(el: HTMLElement): boolean {
   }
 }
 
-/**
- * Resolve the first nested Focusable element and pull NavTree focus to
- * it. Mirrors the sidecar's auto-focus pattern.
- */
 export function takeNavTreeFocusOnFirstChild(container: HTMLElement): boolean {
   const first = container.querySelector(".Focusable") as HTMLElement | null;
   if (!first) return false;

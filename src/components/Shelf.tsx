@@ -20,10 +20,6 @@ import { fetchGameNames } from "../core/onlineStore";
 import { getCurrentSettings } from "../store/settingsStore";
 import { publishShelf, unpublishShelf } from "../features/search/shelfRegistry";
 
-/** Opens the Steam Store page for an appid using the best available method.
- *  Tries the steam:// protocol first since it is the only path that works
- *  reliably in Big Picture / Gaming Mode — WebChat.OpenURLInClient exists in
- *  Gaming Mode but silently routes to the (hidden) chat window. */
 function openSteamStorePage(appid: number) {
   try {
     const sc = (globalThis as any).SteamClient;
@@ -42,7 +38,6 @@ function openSteamStorePage(appid: number) {
   } catch {}
 }
 
-/** Opens an arbitrary Steam Store URL. Same precedence as openSteamStorePage. */
 function openSteamStoreUrl(url: string, steamUrl?: string) {
   try {
     const sc = (globalThis as any).SteamClient;
@@ -61,7 +56,6 @@ function openSteamStoreUrl(url: string, steamUrl?: string) {
   } catch {}
 }
 
-/** Reads discount% from the price cache for a given appid, or null. */
 function getCachedDiscount(appid: number): number | null {
   try {
     const raw = (globalThis as any).localStorage?.getItem?.('ds-price-cache-v1');

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TextField } from "../../runtime/host/decky";
 import { getExternalSearchProviders, type SearchHit } from "../../core/pluginApi";
-import { BUILT_IN_SHELF_SEARCH } from "./builtInProvider";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { GamepadButton, subscribeHomeButton } from "../../runtime/homeInputBus";
+import { createMatcherState, matchEvent, parseCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
@@ -13,7 +13,6 @@ const MIN_CHARS = 3;
 const SEARCH_LIMIT = 30;
 const DEBOUNCE_MS = 1200;
 const PAUSE_BEFORE_MOVE_MS = 800;
-const CHORD_WINDOW_MS = 350;
 const MEMORY_TTL_MS = 30_000;
 
 // Session memory: last typed query lives MEMORY_TTL_MS, then resets.
@@ -113,7 +112,15 @@ export function SearchOverlay() {
   const runQuery = useCallback(async (q: string) => {
     if (q.trim().length < MIN_CHARS) return;
     const myToken = ++searchAbort.current;
-    const providers = [BUILT_IN_SHELF_SEARCH, ...getExternalSearchProviders()];
+    // The built-in Quick Search provider is registered through the
+    // public Plugin API (`internalRegistry.ts`) so it lives in the
+    // same `getExternalSearchProviders()` list as third-party
+    // providers. Ordering is by `priority` desc — the built-in's
+    // priority of 100 keeps it first when ties on hit score appear.
+    // Sprint 11 PR3 — drop providers the user explicitly disabled in
+    // the Integrations detail panel (`integrationsEnabled[id] === false`).
+    const integrationsEnabled = (getCurrentSettings() as any)?.integrationsEnabled ?? {};
+    const providers = getExternalSearchProviders().filter((p) => integrationsEnabled[p.id] !== false);
     const settled = await Promise.allSettled(
       providers.map((p) => Promise.resolve(p.search(q, SEARCH_LIMIT)).catch(() => [])),
     );
@@ -138,10 +145,10 @@ export function SearchOverlay() {
     }
   }, [close]);
 
-  // L1+R1 chord TOGGLES. When OPEN, any single L1, R1, or B closes —
-  // chord-only-to-close was unreliable because controller poll latency
-  // sometimes pushed the two presses past the 350 ms window.
-  const heldRef = useRef<{ l1: number; r1: number }>({ l1: 0, r1: 0 });
+  // Open trigger driven by the configured navSearch combo. When OPEN,
+  // any single CANCEL/L1/R1 closes (the close legend stays fixed so the
+  // user always has a graceful out).
+  const matcherStateRef = useRef(createMatcherState());
   useEffect(() => {
     if (!enabled) return;
     try { (globalThis as any).__ds_search_enabled = enabled; } catch {}
@@ -154,24 +161,17 @@ export function SearchOverlay() {
         ) { close(); return; }
         return;
       }
-      const now = Date.now();
-      if (e.button === GamepadButton.BUMPER_LEFT) heldRef.current.l1 = now;
-      else if (e.button === GamepadButton.BUMPER_RIGHT) heldRef.current.r1 = now;
-      else return;
-      const { l1, r1 } = heldRef.current;
-      if (l1 && r1 && Math.abs(l1 - r1) <= CHORD_WINDOW_MS) {
-        heldRef.current.l1 = 0;
-        heldRef.current.r1 = 0;
-        if (!isHomeRoute()) return;
-        try {
-          const doc = getPreferredSteamDocument() ?? document;
-          const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
-          if (focused) priorFocusRef.current = focused;
-        } catch {}
-        setQuery(readSessionQuery());
-        setOpen(true);
-        window.setTimeout(tryOpenSteamKeyboard, 60);
-      }
+      const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any).navSearch);
+      if (!matchEvent({ button: e.button }, combo, matcherStateRef.current)) return;
+      if (!isHomeRoute()) return;
+      try {
+        const doc = getPreferredSteamDocument() ?? document;
+        const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
+        if (focused) priorFocusRef.current = focused;
+      } catch {}
+      setQuery(readSessionQuery());
+      setOpen(true);
+      window.setTimeout(tryOpenSteamKeyboard, 60);
     });
   }, [enabled, open, close]);
 

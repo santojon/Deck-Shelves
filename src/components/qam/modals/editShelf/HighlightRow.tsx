@@ -2,15 +2,6 @@ import { useEffect, useRef } from 'react'
 import { Focusable } from '../../../../runtime/host/decky'
 import { computeCenteredScrollLeft } from '../../../../core/scrollUtils'
 
-/**
- * Horizontal scrollable row that auto-centers the focused mini-card.
- *
- * Used by the Visual tab preview. Extends past the container's horizontal
- * padding with `margin: 0 -24px` so the first/last card align with the
- * Decky Field content above (which has matching negative margins), then
- * insets content with `padding: 0 24px` so cards don't butt against the
- * container edges.
- */
 export function HighlightRow({ children }: { children: React.ReactNode }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
 

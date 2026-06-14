@@ -7,25 +7,15 @@ export type ImportEntry = {
   id: string
   label: string
   icon: React.ReactNode
-  /** Description used by the gamepad OK overlay and modal title. */
   okDescription: string
   onActivate: () => void
 }
 
-/**
- * Action-row button that lists multiple registered import types behind
- * a `[…]` overflow menu when more than one is available; renders the
- * single icon directly when only one is registered (mirrors the legacy
- * one-icon-per-import behavior).
- *
- * Used by both the regular shelves and smart shelves sections in the QAM.
- */
 export function ImportMenuButton({
   entries,
   overflowDescription,
 }: {
   entries: ImportEntry[]
-  /** Label shown on the overflow `[…]` button when 2+ entries collapse. */
   overflowDescription: string
 }) {
   const [open, setOpen] = useState(false)

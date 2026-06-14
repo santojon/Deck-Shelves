@@ -29,8 +29,6 @@ function collectAdditionalKeys(state: EditableShelfState, type: string, key: str
   return out;
 }
 
-/** Counts source-type usage across primary + additional rows, with an
- *  optional `excludeRow` so a row can see itself as "free". */
 export function computeSourceUsage(state: EditableShelfState, excludeRow?: number | 'primary'): SourceUsage {
   const usedTabs = new Set<string>(collectAdditionalKeys(state, 'tab', 'tab', excludeRow));
   if (state.sourceType === 'tab' && excludeRow !== 'primary') usedTabs.add(state.tab);
@@ -61,8 +59,6 @@ type Opts = {
   labels: LabelFns;
 };
 
-/** Builds the source-type dropdown for an additional-source slot,
- *  hiding types that have hit their cap. */
 export function buildChildTypeOptions(opts: Opts, excludeRow: number): SingleDropdownOption[] {
   const { state, collectionOptions, tabOptions, onlineEnabled, labels } = opts;
   const u = computeSourceUsage(state, excludeRow);
@@ -81,13 +77,11 @@ export function buildChildTypeOptions(opts: Opts, excludeRow: number): SingleDro
   return out;
 }
 
-/** Filters the collection picker for a row to entries not already in use. */
 export function buildCollectionValueOpts(state: EditableShelfState, collectionOptions: SingleDropdownOption[], excludeRow: number): SingleDropdownOption[] {
   const u = computeSourceUsage(state, excludeRow);
   return collectionOptions.filter((o) => !u.usedCollections.has(String(o.data)));
 }
 
-/** Filters the tab picker for a row to entries not already in use. */
 export function buildTabValueOpts(state: EditableShelfState, tabOptions: SingleDropdownOption[], excludeRow: number): SingleDropdownOption[] {
   const u = computeSourceUsage(state, excludeRow);
   return tabOptions.filter((o) => !u.usedTabs.has(String(o.data)));
@@ -109,8 +103,6 @@ const NEXT_SOURCE_FACTORIES: Record<SourceTypeId, (opts: Opts) => any> = {
   filter: () => ({ type: 'filter', filter: { sort: 'alphabetical' } }),
 };
 
-/** First-available source descriptor used when "+ Add source" is clicked.
- *  Returns `null` when every type is exhausted. */
 export function pickNextAvailableSource(opts: Opts): any {
   const types = buildChildTypeOptions(opts, -1);
   const t0 = String(types[0]?.data ?? '');

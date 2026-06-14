@@ -23,22 +23,6 @@ type SyntheticCardSpec = {
   placeholder?: boolean;
 }
 
-/**
- * Horizontal row used in the Source tab when sort === "manual". Renders
- * through the SAME `ShelfRow` the other preview tabs use so cards (hide
- * flags, synthetics, badges, X-button bindings, sizing) match 1:1
- * across every tab and across both shelf modal types. The only extras
- * here are the manual-sort interaction layer:
- *
- * - Gamepad grab mode: A to grab, L/R d-pad to shift, A to drop. While
- *   grabbed, `FocusNavController.DispatchVirtualButtonClick` is patched so
- *   directional input is consumed before Steam moves focus away — otherwise
- *   the next A press can land on Save/Cancel instead of releasing the grab.
- * - Pointer-hold grab: hold ~300ms, drag to reorder, release to drop.
- * - Re-centers the shifted card after every move (focus-centered scroll
- *   only fires on `focusin`, which doesn't re-fire when the same card
- *   stays focused but moves in the DOM).
- */
 export function ManualSortRow({
   order, meta, onReorder, t, highlightFirst, highlightAll, highlightedAppIds, highlightPickerOpen,
   shelfSource,

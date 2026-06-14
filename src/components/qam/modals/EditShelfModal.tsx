@@ -50,7 +50,6 @@ import {
 } from './editShelf/compositeSourceUtils'
 import { buildInitialShelfState } from './editShelf/buildInitialState'
 
-
 // Native library tabs. If the controller's async `listLibraryTabs` resolved
 // to an empty list (a host-window store throwing on enumeration has been
 // seen in the wild, and the controller's `.catch` falls back to `[]`), we
@@ -310,17 +309,17 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       const wipeExtras = type === 'filter' ? { additionalSources: [] } : {}
       if (type === 'collection') {
         const first = collectionOptions[0]
-        const nextTitle = String(first?.label ?? t('newShelf'))
+        const nextTitle = String(first?.label ?? t('new_shelf'))
         return { ...prev, sourceType: type, title: nextTitle, collectionId: String(first?.data ?? ''), filter: normalizeFilter({ type: 'filter', filter: prev.filter }), ...wipeExtras }
       }
       if (type === 'tab') {
         const first = tabOptions[0]
-        const nextTitle = first ? (tabTextLabels.get(String(first.data)) ?? t('newShelf')) : t('newShelf')
+        const nextTitle = first ? (tabTextLabels.get(String(first.data)) ?? t('new_shelf')) : t('new_shelf')
         return { ...prev, sourceType: type, title: nextTitle, tab: String(first?.data ?? 'all'), ...wipeExtras }
       }
       if (type === 'external') {
         const first = externalOptions[0]
-        const nextTitle = String(first?.label ?? t('newShelf'))
+        const nextTitle = String(first?.label ?? t('new_shelf'))
         return { ...prev, sourceType: type, title: nextTitle, externalSourceId: String(first?.data ?? ''), ...wipeExtras }
       }
       if (type === 'wishlist') {
@@ -349,7 +348,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const handleSave = () => {
     closeModal?.();
     (async () => {
-      const title = state.title.trim() || t('newShelf');
+      const title = state.title.trim() || t('new_shelf');
       const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
       const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
       const { baseSort, baseReverse } = buildSortPatchFields(state, isManualSort)

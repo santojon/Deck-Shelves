@@ -2,18 +2,6 @@ import { useMemo, type MutableRefObject } from 'react'
 import { DialogButton, Dropdown, Field, Focusable, ToggleField } from '../../../../runtime/host/decky'
 import { FieldContainer , DSSliderField} from '../../../ui'
 
-/**
- * Shared Visual tab body rendered by both `EditShelfModal` and
- * `EditSmartShelfModal`. Encapsulates:
- * - match-native-size, highlight-first, highlight-all toggles
- * - the "highlight specific games" picker
- * - odd/even alternating pattern buttons (appear when picker is open)
- * - the preview row with featured/selected card rendering
- *
- * State is owned by the parent modal — this component reads through props
- * and calls back via setters. `effectiveManualOrder` drives the odd/even
- * pattern generator and the preview order, already reflecting `manualOrder`.
- */
 // eslint-disable-next-line complexity
 export function VisualTabContent({
   t,

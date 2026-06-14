@@ -1,17 +1,3 @@
-/**
- * Runtime-aware smart-shelf resolver tests.
- *
- * These templates depend on data outside `AppOverview`:
- *   - low_battery_mode → src/runtime/batteryState
- *   - almost_finished / couch_gaming / coop_ready / party_games → src/steam/appDetailsCache
- *   - friends_playing → src/runtime/friendsState + onlineFeaturesEnabled
- *
- * Each resolver uses `require()` internally to break circular imports, so the
- * test stubs the runtime modules via `vi.mock` BEFORE importing the resolver
- * under test. The mock surface is intentionally minimal — only the symbols
- * the resolvers actually call, with deterministic stubs we can drive per
- * test via `vi.mocked(...).mockReturnValue(...)`.
- */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Stub the runtime modules BEFORE importing the resolver. vi.mock is hoisted.

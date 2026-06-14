@@ -2,7 +2,7 @@
 
 Drives the QAM to take per-locale screenshots used in release
 publishing. Until the split, the runner lives at
-`scripts/devtools/deck/screenshots/`. The package script
+`devkit/screenshots/`. The package script
 
 ```bash
 pnpm screenshots

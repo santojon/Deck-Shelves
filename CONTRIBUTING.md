@@ -37,7 +37,7 @@ The dev / build / validation flows run on **Linux, macOS, and Windows**.
 
 1. Install [Node.js 20+](https://nodejs.org/), [Git for Windows](https://git-scm.com/download/win),
    and [Python 3.9+](https://www.python.org/).
-2. From Git Bash (or PowerShell): `corepack enable && pnpm install`.
+2. From Git Bash (or PowerShell): `corepack enable && pnpm install`. If `corepack` isn't on PATH (some Node packagers don't link it), run `pnpm run upgrade` instead — the helper script (`scripts/build/upgrade-pnpm.cjs`) finds Corepack from `node`'s bundled location and falls back to `npm install -g pnpm@latest` if Corepack is missing entirely.
 3. `pnpm run dev:check` to verify the OS-independent path works.
 4. For the full pre-commit suite (`validate:compat`, `package`), use Git Bash
    so `bash` is available.
@@ -108,6 +108,7 @@ src/features/            Feature controllers
       savedFilters.ts    SavedFilter + SavedSmartFilter CRUD
       online.ts          Online-features toggles + acceptOnlinePrivacy
       globalVisual.ts    30 global visual setters (consolidated)
+      profiles.ts        Usage profiles + unified/lightMode/featureToggle setters
 src/integrations/        Third-party plugin integration (TabMaster, UnifiDeck)
 src/shims/               React/Decky GamepadUI shims
 src/test/                Vitest test suites

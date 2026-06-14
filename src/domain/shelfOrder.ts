@@ -4,24 +4,6 @@
 
 type ShelfLike = { id: string; source?: { type?: string } } | null | undefined;
 
-/**
- * Walk `shelves` in CONFIG order and return the id of the first shelf that's
- * currently rendering content (`renderedIds.has(sh.id)`).
- *
- * Prefers a STRONG shelf — a local, non-smart shelf — over WEAK ones (smart
- * shelves and online wishlist/store shelves). Weak shelves are only returned
- * as a last-resort fallback when no strong shelf is rendering. Reasons:
- *  - Smart shelves appear/disappear heuristically, so the promoted slot's
- *    identity would flicker if they could claim it.
- *  - Online shelves render fast from their HTTP cache. On a cold Steam restart
- *    they finish before an earlier-config local shelf has resolved its app
- *    data, so a pure "first rendering" scan would hand the promoted slot to
- *    the online shelf — visibly "stealing" the top position until the local
- *    shelf catches up. Deferring them keeps the promoted slot on the user's
- *    intended local shelf.
- *
- * Returns `null` when no shelf in the config is rendering yet.
- */
 export function pickFirstVisibleShelfId(
   shelves: readonly ShelfLike[],
   renderedIds: ReadonlySet<string>,
@@ -40,19 +22,6 @@ export function pickFirstVisibleShelfId(
   return firstWeak;
 }
 
-/**
- * Reorder `shelves` so the promoted shelf comes first, then the remaining
- * smart shelves, then the remaining normal shelves. CSS `order` was tried
- * but doesn't affect gamepad/accessibility focus — DOM order matters for
- * navigation.
- *
- * The promoted shelf can now be either a normal shelf or a smart shelf
- * (when no normal shelf is rendering — see `pickFirstVisibleShelfId`).
- *
- * When `firstVisibleId` is `null` or doesn't match any shelf, returns the
- * original array reference unchanged (callers depend on the identity for
- * memo equality).
- */
 export function interleaveSmartShelves<T extends ShelfLike>(
   shelves: readonly T[],
   firstVisibleId: string | null,

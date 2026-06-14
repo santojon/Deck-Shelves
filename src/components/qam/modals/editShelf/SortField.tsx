@@ -3,27 +3,6 @@ import i18n from '../../../../i18n'
 import { SortDirectionButton } from './SortDirectionButton'
 import { optionData } from './utils'
 
-/**
- * Inline sort field: `Field` row containing a sort `Dropdown` and a
- * `SortDirectionButton` for asc/desc inversion. Shared by both edit
- * modals to render the primary sort control AND the manual-base sort
- * sub-field (the secondary selector that appears under manual sort).
- *
- * Single-key vs multi-key:
- * - When `sort` is a string, renders the legacy one-row UI plus a
- *   "+ Add secondary sort" button under it (when `allowMultiKey`).
- *   First add converts state to an array.
- * - When `sort` is an array, renders one row per key with a per-row
- *   reverse + remove button (remove disabled for primary). The
- *   "+ Add secondary sort" button appends another key.
- *
- * `manual` and `random` are filtered from the OPTIONS list for any
- * secondary key — those keys are non-deterministic and can't act as a
- * tiebreaker. They remain valid for the primary key (back-compat).
- *
- * `allowMultiKey` defaults to false so the manual-base-sort sub-field
- * (which is conceptually always single-key) stays single-row.
- */
 export function SortField({
   label,
   options,

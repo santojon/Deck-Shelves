@@ -2,12 +2,6 @@ import { Dropdown, Field } from '../../runtime/host/decky'
 
 export type HorizontalPosition = 'left' | 'center' | 'right'
 
-/**
- * Standardised left/center/right dropdown row. Used across the QAM
- * Visual Global section, the sidecar General tab, and the modal Visual
- * tab so every position selector reads the same and reuses the same
- * three-option dropdown shape.
- */
 export function PositionField({
   labelKey,
   value,

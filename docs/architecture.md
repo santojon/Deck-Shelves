@@ -6,152 +6,182 @@ Deck Shelves is a [Decky Loader](https://decky.xyz) plugin that injects custom g
 
 ```
 src/
-├── index.tsx                  Plugin entry point (Decky lifecycle)
-├── types.ts                   Zod schemas: Shelf, Settings, FilterGroup
-├── i18n.ts                    i18next initialization
+├── index.tsx Plugin entry point (Decky lifecycle)
+├── types.ts Zod schemas: Shelf, Settings, FilterGroup
+├── i18n.ts i18next initialization
 │
-├── components/                React UI
-│   ├── HomeInject.tsx          Portal renderer for home screen shelves
-│   ├── DeckRow.tsx             Shelf row layout (imports shelf/ modules)
-│   ├── Shelf.tsx               Single shelf data resolver (memoized + generation-id cancel)
-│   ├── DeckQAMSettings.tsx     Quick Access Menu settings panel
-│   ├── FilterPanel.tsx         Filter group editor UI
-│   ├── AboutPage.tsx           About / documentation page
-│   ├── Settings.tsx            Settings page wrapper
-│   ├── ErrorBoundary.tsx       React error boundary
-│   ├── icons.tsx               Shared feather-style SVG icons (FunnelIcon, EyeIcon, …)
-│   ├── home/navPatches/         Split nav-patch modules (one concern per file)
-│   │   ├── reparent.ts          reparentNavTreeNodes — splice between recents and tabs
-│   │   ├── menuButton.ts        MENU button → game context menu
-│   │   ├── edgeNavigation.ts    L/R throttle + DOWN tilt guard (when home tabs hidden)
-│   │   ├── verticalBridge.ts    DOWN/UP bridge between mount and native neighbors
-│   │   └── constants.ts         DIR_*, DS_*_PATCHED, OPTIONS_BUTTON
-│   ├── filter/                 Filter group editor (recursive UI)
-│   ├── ui/                     Shared domain-agnostic primitives
-│   │   ├── ModalShell           .deck-shelves-modal-scope + DeckModalStyles
-│   │   ├── FieldContainer       .field-item-container + scrollable mode (focusin → scrollIntoView)
-│   │   ├── LabeledTextField     Field + TextField + textFromDeckyChange
-│   │   └── CollapsibleSection   QAM collapsible section with localStorage state
-│   ├── qam/
-│   │   ├── common/
-│   │   ├── list/
-│   │   └── modals/
-│   │       ├── EditShelfModal.tsx          Regular shelf editor
-│   │       ├── EditSmartShelfModal.tsx     Smart shelf editor (sort override, filterGroup, smartParams, refresh interval)
-│   │       ├── (Export/Import/Template/ResetAll/Delete/ImportFromCustomFilters with `scope`)
-│   │       └── editShelf/                  Components shared by both edit modals
-│   │           ├── HighlightMiniCard.tsx   Mini-card with fallback art chain + chevrons + selected/grabbed states
-│   │           ├── HighlightRow.tsx        Horizontal row with focus-centered scroll + re-center
-│   │           ├── ManualSortRow.tsx       Manual order row — gamepad grab + pointer-hold drag + chevrons
-│   │           ├── SavedFiltersBar.tsx     Saved-filters dropdown + "save current"
-│   │           ├── VisualTabContent.tsx    Toggles + highlight picker + odd/even patterns + preview
-│   │           ├── DisplayTabContent.tsx   hide-* toggles (status line, install indicator, new badge, compat icons, non-steam, shelf title, game names)
-│   │           ├── ModalHeader.tsx         Title + preview counter
-│   │           └── constants/types/utils.ts
-│   ├── shelf/
-│   │   ├── types.ts            DeckRowItem, card dimensions, REFRESHABLE_SMART_MODES
-│   │   ├── shelfStyles.ts      CSS injection, native dim discovery, ds-refresh-spin keyframes, TiltedHome compat
-│   │   ├── GameCard.tsx         Game card with native class injection + label/status gates
-│   │   ├── MoreCard.tsx         "View more" trailing tile (non-smart shelves)
-│   │   ├── RefreshCard.tsx      Refresh trailing tile (refreshable smart shelves and sort=random)
-│   │   ├── PlaceholderCard.tsx  Fallback card
-│   │   └── HeroBackground.tsx   Two-layer cross-fade hero art + ArtHero label overlay
-│   ├── about/
-│   │   ├── DocSection.tsx
-│   │   ├── DocCallout.tsx
-│   │   ├── DocAccordion.tsx
-│   │   ├── OverviewPage.tsx / HowToPage.tsx / ShelvesPage.tsx / FiltersPage.tsx
-│   │   ├── SortPage.tsx / SmartShelvesPage.tsx / SupportPage.tsx
-│   └── styles/
-│       ├── DeckModalStyles.tsx
-│       └── DeckQAMStyles.tsx
+├── components/ React UI
+│ ├── HomeInject.tsx Portal renderer for home screen shelves
+│ ├── DeckRow.tsx Shelf row layout (imports shelf/ modules)
+│ ├── Shelf.tsx Single shelf data resolver (memoized + generation-id cancel)
+│ ├── DeckQAMSettings.tsx Quick Access Menu settings panel
+│ ├── FilterPanel.tsx Filter group editor UI
+│ ├── AboutPage.tsx About / documentation page
+│ ├── Settings.tsx Settings page wrapper
+│ ├── SettingsPage.tsx Two-pane Settings shell (left toggle list + right card grid)
+│ ├── ErrorBoundary.tsx React error boundary
+│ ├── icons.tsx Shared feather-style SVG icons (FunnelIcon, EyeIcon, …)
+│ ├── home/navPatches/ Split nav-patch modules (one concern per file)
+│ │ ├── reparent.ts reparentNavTreeNodes — splice between recents and tabs
+│ │ ├── menuButton.ts MENU button → game context menu
+│ │ ├── edgeNavigation.ts L/R throttle + DOWN tilt guard (when home tabs hidden)
+│ │ ├── verticalBridge.ts DOWN/UP bridge between mount and native neighbors
+│ │ └── constants.ts DIR_*, DS_*_PATCHED, OPTIONS_BUTTON
+│ ├── filter/ Filter group editor (recursive UI)
+│ ├── ui/ Shared domain-agnostic primitives
+│ │ ├── ModalShell.deck-shelves-modal-scope + DeckModalStyles
+│ │ ├── FieldContainer.field-item-container + scrollable mode (focusin → scrollIntoView)
+│ │ ├── LabeledTextField Field + TextField + textFromDeckyChange
+│ │ ├── CollapsibleSection QAM collapsible section with localStorage state
+│ │ └── PageHeader Back arrow + title + trailing slot for dedicated routes
+│ ├── settings/ Two-pane Settings shell parts (SettingsPage children)
+│ │ ├── SettingsLeftPane Left toggle list (mirrors sidecar's GeneralTab) + PageHeader
+│ │ ├── SettingsCardGrid Right 2×3 grid of SettingsCard tiles
+│ │ ├── SettingsCard Single tile primitive (icon + title + description)
+│ │ ├── SettingsDetailPanel Slide-in right panel (B closes) — dispatches per card
+│ │ └── details/ One file per card detail panel
+│ │ ├── QuickDetail QAM-visibility eye-hide manager
+│ │ ├── ShelvesDetail Regular + smart shelves CRUD (chips, edit/delete, unified reorder ↑↓)
+│ │ ├── ProfilesDetail Usage profiles (save, apply, duplicate, rename, delete)
+│ │ ├── IntegrationsDetail Plugin descriptors with per-row enable/disable
+│ │ ├── BackupDetail 3-scope import/export wrap (regulars, smart, all)
+│ │ └── AdvancedDetail Live diagnostics log + factory-reset triple
+│ ├── qam/
+│ │ ├── common/
+│ │ ├── list/
+│ │ └── modals/
+│ │ ├── EditShelfModal.tsx Regular shelf editor
+│ │ ├── EditSmartShelfModal.tsx Smart shelf editor (sort override, filterGroup, smartParams, refresh interval)
+│ │ ├── (Export/Import/Template/ResetAll/Delete/ImportFromCustomFilters with `scope`)
+│ │ └── editShelf/ Components shared by both edit modals
+│ │ ├── HighlightMiniCard.tsx Mini-card with fallback art chain + chevrons + selected/grabbed states
+│ │ ├── HighlightRow.tsx Horizontal row with focus-centered scroll + re-center
+│ │ ├── ManualSortRow.tsx Manual order row — gamepad grab + pointer-hold drag + chevrons
+│ │ ├── SavedFiltersBar.tsx Saved-filters dropdown + "save current"
+│ │ ├── VisualTabContent.tsx Toggles + highlight picker + odd/even patterns + preview
+│ │ ├── DisplayTabContent.tsx hide-* toggles (status line, install indicator, new badge, compat icons, non-steam, shelf title, game names)
+│ │ ├── ModalHeader.tsx Title + preview counter
+│ │ └── constants/types/utils.ts
+│ ├── shelf/
+│ │ ├── types.ts DeckRowItem, card dimensions, REFRESHABLE_SMART_MODES
+│ │ ├── shelfStyles.ts CSS injection, native dim discovery, ds-refresh-spin keyframes, TiltedHome compat
+│ │ ├── GameCard.tsx Game card with native class injection + label/status gates
+│ │ ├── MoreCard.tsx "View more" trailing tile (non-smart shelves)
+│ │ ├── RefreshCard.tsx Refresh trailing tile (refreshable smart shelves and sort=random)
+│ │ ├── PlaceholderCard.tsx Fallback card
+│ │ └── HeroBackground.tsx Two-layer cross-fade hero art + ArtHero label overlay
+│ ├── about/
+│ │ ├── DocSection.tsx
+│ │ ├── DocCallout.tsx
+│ │ ├── DocAccordion.tsx
+│ │ ├── OverviewPage.tsx / HowToPage.tsx / ShelvesPage.tsx / FiltersPage.tsx
+│ │ ├── SortPage.tsx / SmartShelvesPage.tsx / SupportPage.tsx
+│ └── styles/
+│ ├── DeckModalStyles.tsx
+│ └── DeckQAMStyles.tsx
 │
 ├── steam/
-│   └── index.ts               Steam API access: app overviews, collections,
-│                                tabs, filters, sorting, developer data (2100+ lines)
+│ ├── index.ts Steam API access: app overviews, collections,
+│ │ tabs, filters, sorting, developer data (~3500 LoC).
+│ │ Dispatches first-party v3 ids through `v3Extensions`
+│ │ BEFORE the external-plugin fallback so collisions
+│ │ resolve to built-in implementations.
+│ ├── v3Extensions.ts First-party Filter v3 (32 evaluators), Sort v3 (25
+│ │ comparators), Shelf Source Ecosystem v3 (19
+│ │ resolvers) + descriptive registry entries used
+│ │ by `internalRegistry.ts` to surface them via
+│ │ the public Plugin API.
+│ └── smartShelves.ts Smart-shelf candidate resolution per mode
 │
 ├── store/
-│   └── settingsStore.ts       Settings persistence: backend RPC + localStorage cache
+│ └── settingsStore.ts Settings persistence: backend RPC + localStorage cache
 │
 ├── core/
-│   ├── focusRestore.ts         Focus restoration after navigation
-│   ├── scrollUtils.ts          Centered scroll calculation
-│   ├── shelfRefresh.ts         Global shelf refresh emitter
-│   ├── steamAssets.ts          Image URL generation (portrait, landscape, hero)
-│   ├── steamGameMenu.ts        Native game context menu extraction
-│   ├── webpackCompat.ts        Runtime class discovery (viewport + native shelf/card/section tokens)
-│   ├── reorder.ts              useContainerDragReorder + pure helpers (findReorderTargetIndex, moveInOrder)
-│   ├── cssLoaderDetect.ts      isCssLoaderActive(), isArtHeroActive(), getNativeRecentsClassName()
-│   ├── steamOSVersion.ts       getSteamOSVersion() helper
-│   ├── pluginApi.ts            Public inter-plugin API (v2)
-│   └── perf.ts                 Performance marks/measures
+│ ├── focusRestore.ts Focus restoration after navigation
+│ ├── scrollUtils.ts Centered scroll calculation
+│ ├── shelfRefresh.ts Global shelf refresh emitter
+│ ├── steamAssets.ts Image URL generation (portrait, landscape, hero)
+│ ├── steamGameMenu.ts Native game context menu extraction
+│ ├── webpackCompat.ts Runtime class discovery (viewport + native shelf/card/section tokens)
+│ ├── reorder.ts useContainerDragReorder + pure helpers (findReorderTargetIndex, moveInOrder)
+│ ├── cssLoaderDetect.ts isCssLoaderActive(), isArtHeroActive(), getNativeRecentsClassName()
+│ ├── steamOSVersion.ts getSteamOSVersion() helper
+│ ├── pluginApi.ts Public inter-plugin API (v2)
+│ └── perf.ts Performance marks/measures
 │
 ├── domain/
-│   ├── settings.ts             Pure settings operations (patch, add, delete, move)
-│   ├── defaults.ts             Default shelf/settings/filter factories
-│   ├── templates.ts            Shelf preset templates (11 entries)
-│   ├── shelfOrder.ts           pickFirstVisibleShelfId + interleaveSmartShelves (pure helpers)
-│   └── customfilters.ts        TabMaster filter conversion
+│ ├── settings.ts Pure settings operations (patch, add, delete, move)
+│ ├── defaults.ts Default shelf/settings/filter factories
+│ ├── templates.ts Shelf preset templates (11 entries)
+│ ├── shelfOrder.ts pickFirstVisibleShelfId + interleaveSmartShelves (pure helpers)
+│ └── customfilters.ts TabMaster filter conversion
 │
 ├── features/
-│   └── settings/
-│       ├── controller.tsx      Hook entry (state + effects + spread compose)
-│       └── controller/         Action slices (composed via spreads)
-│           ├── shelves.ts      Regular-shelf CRUD + import/export/reset
-│           ├── smartShelves.ts Smart-shelf CRUD + surprise-me + import/export
-│           ├── savedFilters.ts SavedFilter + SavedSmartFilter CRUD
-│           ├── online.ts       Online-features toggles + acceptOnlinePrivacy
-│           └── globalVisual.ts 30 global visual setters (consolidated)
+│ └── settings/
+│ ├── controller.tsx Hook entry (state + effects + spread compose)
+│ └── controller/ Action slices (composed via spreads)
+│ ├── shelves.ts Regular-shelf CRUD + import/export/reset
+│ ├── smartShelves.ts Smart-shelf CRUD + surprise-me + import/export
+│ ├── savedFilters.ts SavedFilter + SavedSmartFilter CRUD
+│ ├── online.ts Online-features toggles + acceptOnlinePrivacy
+│ ├── globalVisual.ts 30 global visual setters (consolidated)
+│ └── profiles.ts Usage profiles + unified/lightMode/featureToggle setters
 │
 ├── integrations/
-│   ├── index.ts                Integration barrel
-│   ├── registry.ts             Plugin detection (TabMaster, UnifiDeck)
-│   ├── tabmaster.ts            TabMaster settings file reader
-│   ├── unifideck.ts            UnifiDeck non-Steam app detection
-│   └── domtabs.ts              DOM-based tab discovery
+│ ├── index.ts Integration barrel
+│ ├── registry.ts Plugin detection (TabMaster, UnifiDeck)
+│ ├── tabmaster.ts TabMaster settings file reader
+│ ├── unifideck.ts UnifiDeck non-Steam app detection
+│ └── domtabs.ts DOM-based tab discovery
 │
 ├── runtime/
-│   ├── homePatch.tsx           Home screen DOM patching + fallback renderer
-│   ├── recentsReplace.tsx      Experimental: replaces native recents data source with first shelf
-│   ├── steamHost.ts            Steam window/document discovery
-│   ├── deckyPlatform.ts        Platform interface implementation
-│   ├── platform.ts             Platform interface definition
-│   ├── platformContext.tsx      React context provider
-│   ├── logger.ts               Colored console logger (__DEV__ gated)
-│   ├── diagnostics.ts          Diagnostic event collection
-│   ├── systemEvents.ts         Suspend/resume event handlers
-│   └── embeddedClassMap.ts     Bootstrap webpack class seed
+│ ├── homePatch.tsx Home screen DOM patching + fallback renderer
+│ ├── recentsReplace.tsx Experimental: replaces native recents data source with first shelf
+│ ├── steamHost.ts Steam window/document discovery
+│ ├── deckyPlatform.ts Platform interface implementation
+│ ├── platform.ts Platform interface definition
+│ ├── platformContext.tsx React context provider
+│ ├── logger.ts Colored console logger (__DEV__ gated)
+│ ├── diagnostics.ts Diagnostic event collection
+│ ├── systemEvents.ts Suspend/resume event handlers
+│ └── embeddedClassMap.ts Bootstrap webpack class seed
 │
-├── shims/                     React/Decky UI shims for GamepadUI environment
+├── shims/ React/Decky UI shims for GamepadUI environment
 │
-└── test/                      Vitest + Python test suites
-    ├── steam/                  applyManualOrder, evaluateFilterGroup, smartShelves
-    ├── components/             refreshableSmartModes
-    ├── core/                   reorder, webpackCompat
-    ├── domain/                 settings, customfilters, shelfOrder, templates, schemas
-    ├── qa/                     qam-visibility
-    ├── stubs/                  decky-api / decky-manifest stubs (vitest aliases)
-    ├── steam.test.ts
-    ├── scrollUtils.test.ts
-    └── test_main.py            Python sanitizer tests (pytest)
+└── test/ Vitest + Python test suites
+ ├── steam/ applyManualOrder, evaluateFilterGroup, smartShelves
+ ├── components/ refreshableSmartModes
+ ├── core/ reorder, webpackCompat
+ ├── domain/ settings, customfilters, shelfOrder, templates, schemas
+ ├── qa/ qam-visibility
+ ├── stubs/ decky-api / decky-manifest stubs (vitest aliases)
+ ├── steam.test.ts
+ ├── scrollUtils.test.ts
+ └── test_main.py Python sanitizer tests (pytest)
 
-main.py                        Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
-                               (lifecycle + RPC). Re-exports helpers from below.
-paths.py                       _steam_install_candidates, _normalize_path
-                               (path discovery + home-confined validation)
-storage.py                     _settings_dir, _primary_file, _safe_read_json
-                               (settings.json read helpers, Decky env-var aware)
-sanitizer.py                   _sanitize_settings (settings-shape normaliser,
-                               mirrors the Zod schemas in src/types.ts)
-plugin.json                    Decky plugin manifest
+main.py Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
+ (lifecycle + RPC). Re-exports helpers from below.
+paths.py _steam_install_candidates, _normalize_path
+ (path discovery + home-confined validation)
+storage.py _settings_dir, _primary_file, _safe_read_json
+ (settings.json read helpers, Decky env-var aware)
+sanitizer.py _sanitize_settings (settings-shape normaliser,
+ mirrors the Zod schemas in src/types.ts)
+launchers.py External launcher discovery probe :
+ EmuDeck / RetroDECK / Heroic / Lutris / Moonlight /
+ Chiaki. stdlib-only (configparser, sqlite3, json),
+ every helper degrades to [] on missing dir / parse
+ error. Exposed via Plugin RPCs
+ list_available_launchers + list_launcher_games.
+plugin.json Decky plugin manifest
 ```
 
 ## Data Flow
 
 ```
 Settings (backend JSON) → settingsStore → controller → HomeInject → Shelf → DeckRow → GameCard
-                                                          ↓
-                                                    homePatch (fallback DOM renderer)
+ ↓
+ homePatch (fallback DOM renderer)
 ```
 
 1. **Settings** are persisted by the Python backend (`main.py` → atomic write via `paths.py` + `storage.py`; shape-checked through `sanitizer.py` on every read AND write) and cached in `localStorage`
@@ -186,7 +216,7 @@ The hero background replicates the exact native SteamOS "Recent Games" hero stru
 |-------|-------------|----------------|
 | `IMG` | Hero art with `grayscale(1) contrast(1)`, 0.3s fade-in animation | Applies discovered or fallback filter + animation |
 | Zoom container | 25s slow zoom (`ease 0s 1 alternate`) | Discovered animation or `@keyframes ds-hero-zoom` fallback |
-| Mask wrapper 1 | `mask-image: radial-gradient(75% 83% at 50% 18%, ...)` | Applied via inline style with webkit prefix |
+| Mask wrapper 1 | `mask-image: radial-gradient(75% 83% at 50% 18%,...)` | Applied via inline style with webkit prefix |
 | Mask wrapper 2 | Same radial-gradient mask (double masking for stronger fade) | Second nested div with identical mask |
 
 The native hero does **not** use linear gradients or pseudo-elements for the bottom fade. The vignette effect is entirely achieved via radial-gradient `mask-image` on two wrapper divs, creating a soft oval reveal centered at 50% 18% (upper center).
@@ -206,7 +236,7 @@ At runtime, the component discovers native classes from the recents section's si
 > **Note:** the API surface at `window.__DECK_SHELVES_API__` is **v2** — registries (`registerShelfSource` / `registerSmartShelfSource` / `registerFilterType` / `registerSortOption` / `registerImportType` / `registerSavedFilter`) are wired and live; the consumer-side accessors (`getShelves`, `getSmartShelves`, `getSavedFilters`, `subscribeTo*`) are stubbed and connect to the live `settingsStore` in v2.0.0. See [`plugin-api.md`](./plugin-api.md).
 
 ### Recents Replace (`recentsReplace.tsx`)
-Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`). Instead of visually hiding the native "Recently Played" section, it patches the section's render output via `routerHook.addPatch("/library/home", ...)` + nested `afterPatch` calls to replace the `games` prop with the first visible shelf's app IDs. The native DOM, CSS, animations, hero background, and focus callbacks are preserved entirely. Safety mechanisms:
+Experimental feature (`recentsReplaceSource` setting, gated behind `hideRecents`). Instead of visually hiding the native "Recently Played" section, it patches the section's render output via `routerHook.addPatch("/library/home",...)` + nested `afterPatch` calls to replace the `games` prop with the first visible shelf's app IDs. The native DOM, CSS, animations, hero background, and focus callbacks are preserved entirely. Safety mechanisms:
 - App IDs are filtered by `app_type` (1 = Game, 2 = Application) before injection — shortcuts, DLC, and music entries crash Steam's `userCollections` getter.
 - A global `error`/`unhandledrejection` trap detects `userCollections`-class errors and auto-disables the experiment.
 - On failure, `isRecentsReplaceInjecting()` returns `false` and `HomeInject` falls back to the standard visual-hide behaviour. The QAM shows a `RecentsReplaceErrorBanner`.
@@ -220,9 +250,9 @@ When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection 
 External plugins can register custom shelf sources, filter types, sort options, smart-shelf modes, import formats, and pre-baked saved filters at runtime. The full API is documented in [`plugin-api.md`](./plugin-api.md). Quick example:
 ```ts
 const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
-  id: "my-plugin-source",
-  displayName: "My Custom Source",
-  resolve: async (limit) => [appid1, appid2, ...],
+ id: "my-plugin-source",
+ displayName: "My Custom Source",
+ resolve: async (limit) => [appid1, appid2,...],
 });
 ```
 
@@ -231,7 +261,7 @@ const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
 - `getNativeRecentsClassName(mountEl)` reads the live native-recents wrapper class from `mountEl.previousElementSibling` — never hardcoded.
 - When `hideRecents=true` and a CSS Loader theme is active, `HomeInject` adds `data-ds-recents-slot="true"` plus the live wrapper class to the first DS shelf — additively (existing `ds-*` classes are preserved). Invariants enforced by the guard chain are documented inline in `HomeInject.tsx`.
 - ArtHero label overlay (in `HeroBackground.tsx`) clones the focused card's `.ds-card-label` as a `position: fixed` overlay above the row; tracks the focused card horizontally on row scroll; reactive to runtime CSS Loader toggles via `MutationObserver` on the Big Picture document's `<head>`.
-- TiltedHome compat applies `skew(var(--ren-tilt-angle))` to the entire `.ds-card` (image + label + glow + MoreCard + RefreshCard). Focus state composes `skew + scale + translateZ` with `!important` to win over Steam's higher-specificity `.BasicUI .NATIVE.Focusable:focus { transform: translateZ(15px) }` rule. The selector intentionally omits `.gpfocuswithin` (Steam applies that to every card when any descendant of the row has focus — including it would scale every card and erase the focus indicator).
+- TiltedHome compat applies `skew(var(--ren-tilt-angle))` to the entire `.ds-card` (image + label + glow + MoreCard + RefreshCard). Focus state composes `skew + scale + translateZ` with `!important` to win over Steam's higher-specificity `.BasicUI.NATIVE.Focusable:focus { transform: translateZ(15px) }` rule. The selector intentionally omits `.gpfocuswithin` (Steam applies that to every card when any descendant of the row has focus — including it would scale every card and erase the focus indicator).
 
 ### Refresh card on shelves (`shelf/RefreshCard.tsx` + `shelf/types.ts > REFRESHABLE_SMART_MODES`)
 Smart shelves whose result can change between two clicks (`random_pick` / `time_of_day` / `spare_time` / `recently_played`) get a Refresh card instead of the "view more in library" tile. Non-smart shelves with `sort === "random"` also get the Refresh card (it's the only non-smart case whose order can change between clicks; clicking clears the `ds-random-*` localStorage cache and re-resolves only that shelf). Spin animation is driven by a CSS keyframe via DOM class toggle (`.ds-refresh-spinning` on `iconRef`) — not React state, so `setAppIds()` reconciliation cannot cancel the animation mid-flight. Per-shelf `hideRefreshCard` and global `globalHideRefreshCard` suppress the trailing refresh card without changing recompute / cache cadence; `hideSeeMore` / `globalHideSeeMore` mirror the same per-shelf vs. global pair for the trailing "See more" card.

@@ -51,13 +51,13 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all' 
               else if (scope === 'smart') ok = await actions.exportSmartShelves(target)
               else ok = await exportSettingsToFile(target)
               if (!ok) {
-                toaster.toast({ title: t('pluginName'), body: t('toast_failed_export') });
+                toaster.toast({ title: t('plugin_name'), body: t('toast_failed_export') });
                 return;
               }
-              toaster.toast({ title: t('pluginName'), body: t('toast_exported_file') });
+              toaster.toast({ title: t('plugin_name'), body: t('toast_exported_file') });
               closeModal?.();
             } catch (error) {
-              toaster.toast({ title: t('pluginName'), body: String(error) });
+              toaster.toast({ title: t('plugin_name'), body: String(error) });
             } finally {
               setSaveBusy(false);
             }
@@ -76,7 +76,7 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all' 
                     const picked = await pickFolder(folder)
                     if (picked) setFolder(picked)
                   } catch (error) {
-                    toaster.toast({ title: t('pluginName'), body: String(error) })
+                    toaster.toast({ title: t('plugin_name'), body: String(error) })
                   } finally {
                     setBrowseBusy(false)
                   }

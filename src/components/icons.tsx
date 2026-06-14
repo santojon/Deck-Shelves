@@ -1,10 +1,3 @@
-/**
- * Inline SVG icons used by tab strips (edit modals, About) and QAM
- * collapsible section headers. All icons share the same stroke-only
- * Feather-style aesthetic so the set reads as a coherent family on the
- * Steam Deck UI. Default size (14×14) fits both contexts; overrideable
- * via the `size` prop.
- */
 type IconProps = { size?: number; style?: React.CSSProperties };
 
 const baseProps = (size: number, style?: React.CSSProperties): React.SVGProps<SVGSVGElement> => ({
@@ -213,9 +206,152 @@ export function OnlineIcon({ size = 12, style }: IconProps) {
   );
 }
 
+// Left-pointing chevron — back / dismiss control on dedicated page
+// routes (PageHeader, detail panels). Bigger default size since the
+// header button it sits inside is much larger than a row indicator.
+export function ChevronLeftIcon({ size = 22, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)} strokeWidth={2.5}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+export function PersonIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)} strokeWidth={2}>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+export function PuzzleIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)} strokeWidth={2}>
+      <path d="M19.5 14.5c-1 0-2 .5-2 1.5s1 1.5 2 1.5c.5 0 1-.5 1-1V9c0-.5-.5-1-1-1h-4.5c0-1-.5-2-1.5-2s-1.5 1-1.5 2H7c-.5 0-1 .5-1 1v3.5c-1 0-2 .5-2 1.5s1 1.5 2 1.5V19c0 .5.5 1 1 1h4.5c0 1 .5 2 1.5 2s1.5-1 1.5-2H19c.5 0 1-.5 1-1v-4.5z" />
+    </svg>
+  );
+}
+
+export function SaveIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)} strokeWidth={2}>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+}
+
+export function ToolsIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)} strokeWidth={2}>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </svg>
+  );
+}
+
 // Filled style breaks the Feather aesthetic of the rest of the set, but
 // the brand mark is a standard recognition cue and a stroke version
 // would be unrecognizable.
+export function CopyIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <rect x="9" y="9" width="11" height="11" rx="1.5" />
+      <path d="M4 15V5a1 1 0 0 1 1-1h10" />
+    </svg>
+  );
+}
+
+export function PencilIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <path d="M14.06 5.94l3.99 4M3 21h4l11-11-4-4L3 17v4z" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <path d="M12 3v12m0 0l-5-5m5 5l5-5" />
+      <path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <path d="M12 21V9m0 0l-5 5m5-5l5 5" />
+      <path d="M4 7V4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+}
+
+export function PlayIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+export function TargetIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function BanIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <circle cx="12" cy="12" r="9" />
+      <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+    </svg>
+  );
+}
+
+export function RefreshIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
+      <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" />
+    </svg>
+  );
+}
+
+export function GamepadIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0, ...style }}
+    >
+      <line x1="6" y1="11" x2="10" y2="11" />
+      <line x1="8" y1="9" x2="8" y2="13" />
+      <line x1="15" y1="12" x2="15.01" y2="12" />
+      <line x1="18" y1="10" x2="18.01" y2="10" />
+      <path d="M17.32 5H6.68A5 5 0 0 0 2 10.36V14a3 3 0 0 0 5.6 1.5L8.4 14h7.2l.8 1.5A3 3 0 0 0 22 14v-3.64A5 5 0 0 0 17.32 5z" />
+    </svg>
+  );
+}
+
 export function SteamIcon({ size = 14, style }: IconProps) {
   return (
     <svg

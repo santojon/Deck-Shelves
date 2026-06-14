@@ -5,13 +5,6 @@ import { readRegistry } from "./shelfRegistry";
 
 interface ShelfHit { appid: number; name: string; shelfId: string; shelfTitle: string }
 
-/**
- * Reads from the shelf registry — every Shelf component publishes its
- * resolved appids + names there on mount and on every update, so this
- * sees EVERY game across EVERY visible shelf, not just the cards
- * currently rendered in the DOM. Items below the fold, virtualised, or
- * still streaming meta all count.
- */
 function collectShelfApps(): ShelfHit[] {
   const out: ShelfHit[] = [];
   const seen = new Set<number>();
@@ -43,12 +36,6 @@ function subsequenceScore(n: string, qLower: string): number {
   return qi === qLower.length ? 100 - (n.length - qLower.length) : -1;
 }
 
-/**
- * Score a name against a query. Returns -1 when no match. Higher wins.
- * Cheap fuzzy: prefix > substring (word-boundary) > substring (mid-word) >
- * all-chars-in-order subsequence. Diacritics are stripped on both sides
- * so "Pokemon" matches "Pokémon" and vice-versa.
- */
 function scoreMatch(name: string, qLower: string): number {
   if (!name) return -1;
   const n = normalize(name);
@@ -60,16 +47,6 @@ function scoreMatch(name: string, qLower: string): number {
   return (isBoundary ? 700 : 500) - idx;
 }
 
-/**
- * Built-in search provider — scans the appids of every card currently
- * rendered across visible Deck Shelves shelves and ranks by name match.
- * Restricts hits to what the user can actually see on the home, not the
- * full Steam library.
- *
- * Synchronous under the hood (DOM walk + appStore lookups are local),
- * but the API surface is Promise-based so the overlay can interleave
- * with async provider hits without branching.
- */
 export const BUILT_IN_SHELF_SEARCH: SearchProviderDescriptor = {
   id: "deck-shelves.shelves",
   displayName: "Shelves",

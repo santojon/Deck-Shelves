@@ -14,7 +14,7 @@ function SmartShelfActionsContextMenu({ controller, shelf }: { controller: Setti
   return (
     <Menu label={shelf.title || t('actions')}>
       <MenuItem onSelected={() => openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={shelf} />)}>
-        {t('editShelf')}
+        {t('edit_shelf')}
       </MenuItem>
       <MenuItem onSelected={() => actions.toggleSmartShelfHidden(shelf.id)}>
         {shelf.hidden ? t('show_shelf') : t('hide_shelf')}
@@ -26,7 +26,7 @@ function SmartShelfActionsContextMenu({ controller, shelf }: { controller: Setti
         {t('move_down')}
       </MenuItem>
       <MenuItem onSelected={() => openManagedModal((close) => <DeleteConfirmSmartModal closeModal={close} controller={controller} shelf={shelf} />)}>
-        {t('deleteShelf')}
+        {t('delete_shelf')}
       </MenuItem>
     </Menu>
   )

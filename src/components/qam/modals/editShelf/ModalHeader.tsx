@@ -1,10 +1,5 @@
 import { LabeledTextField } from '../../../ui'
 
-/**
- * Shared modal header used by both edit modals — title input + resolved
- * preview count indicator. Amber when the current configuration resolves
- * to zero games, neutral otherwise.
- */
 export function ModalHeader({ t, title, onTitleChange, previewCount }: {
   t: (k: any, opts?: any) => string;
   title: string;

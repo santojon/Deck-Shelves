@@ -3,15 +3,6 @@ import { Focusable } from '../../../../runtime/host/decky'
 import { CheckIcon } from '../../../filter/utils'
 import { getLandscapeUrls, getPortraitUrls } from '../../../../core/steamAssets'
 
-/**
- * Mini art card rendered in the shelf preview rows. Handles:
- * - Portrait vs landscape (featured) art with fallback chain through
- *   customimages, hero/portrait URLs, and Steam CDN variants.
- * - Name-only placeholder when no image resolves.
- * - Selected indicator (green outline + CheckIcon) for highlight picker.
- * - Grabbed indicator (amber outline + glow) for manual-sort grab mode.
- * - Optional left/right shift chevrons (Source tab only).
- */
 export function HighlightMiniCard({
   appid, name, portraitUrl, heroUrl, featured, selected, grabbed, hiddenMark, width, height, onToggle, onShiftLeft, onShiftRight, onPointerDown,
 }: {

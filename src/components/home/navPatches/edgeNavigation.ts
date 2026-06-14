@@ -2,15 +2,6 @@ import { getPreferredSteamDocument } from "../../../runtime/steamHost";
 import { logInfo } from "../../../runtime/logger";
 import { DIR_DOWN, DIR_LEFT, DIR_RIGHT, DS_EDGE_PATCHED, DS_EDGE_LISTENER } from "./constants";
 
-/**
- * Patches `BTryInternalNavigation` on the nav-tree root prototype to
- * prevent the D-pad from escaping a shelf row horizontally past its
- * content, and from wrapping DOWN past the last shelf when the native
- * tab bar is hidden (hideHomeTabs).
- *
- * Also stops `vgp_ondirection` L/R from bubbling out of our wrapper so
- * Steam's global nav can't steal the event while a row is mid-throttle.
- */
 export function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   const ctrl = (globalThis as any).FocusNavController
     ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;

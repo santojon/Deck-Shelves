@@ -67,10 +67,6 @@ function findNavNodeForElement(el: HTMLElement): any {
   return null;
 }
 
-/** Move gamepad focus to a navigation node. Returns true if a gamepad-tree
- *  API was invoked, false if none was available. Note: a true return does NOT
- *  guarantee focus actually landed — Steam's BTakeFocus reports success even
- *  on a stale node while the nav tree is mid-rebuild. */
 function takeNavFocus(navNode: any): boolean {
   try {
     if (typeof navNode.BTakeFocus === "function") { navNode.BTakeFocus(2); return true; }
@@ -82,9 +78,6 @@ function takeNavFocus(navNode: any): boolean {
   return false;
 }
 
-/** Move gamepad focus to a specific DOM element using the Steam nav tree API.
- *  Returns true if BTakeFocus or equivalent succeeded, false if it had to
- *  fall back to element.focus(). */
 export function focusElement(el: HTMLElement): boolean {
   const navNode = findNavNodeForElement(el);
   if (navNode && takeNavFocus(navNode)) return true;
@@ -114,12 +107,6 @@ function clearPending(): void {
   pendingShelfId = null;
 }
 
-/**
- * Single restore attempt. Clears the pending state ONLY when the target card
- * is confirmed focused — calling BTakeFocus is not proof of success, so an
- * unconfirmed attempt leaves the pending state intact for the next caller to
- * retry (HomeInject re-invokes this on every mount mutation).
- */
 export function tryRestoreFocus(): boolean {
   if (!pendingAppid) return false;
   if (Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) {

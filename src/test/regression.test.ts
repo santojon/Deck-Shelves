@@ -3,12 +3,6 @@ import { SettingsSchema, ShelfSourceSchema } from "../types";
 import { canBeInverted } from "../components/filter/utils";
 import { evaluateFilterGroup, type AppOverview } from "../steam";
 
-/**
- * Regression coverage.
- * Each test pins a fixed bug so future edits can't silently
- * reintroduce it.
- */
-
 describe("SettingsSchema — Python sanitizer compatibility", () => {
   // Reproduces the bug report: "after the changes nothing saves anymore,
   // shelves on home get deactivated". Root cause was Zod rejecting `null`

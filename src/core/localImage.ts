@@ -20,15 +20,6 @@ function isAbsolutePosixPath(s: string): boolean {
   return typeof s === "string" && s.length > 0 && s.startsWith("/");
 }
 
-/**
- * Returns the displayable URL for a synthetic-card image value.
- *  - http(s):// URLs pass through unchanged (CDN art, etc.).
- *  - data: URLs pass through unchanged (already inline).
- *  - absolute local paths trigger the backend RPC, cached.
- * Returns `null` while the RPC is in flight; the caller re-renders
- * once the cache fills (helper exports a tiny subscribe hook for
- * components that need the latest mapping).
- */
 export function resolveLocalImage(value: string | undefined | null): string | null {
   if (!value) return null;
   const raw = String(value).trim();
@@ -64,9 +55,6 @@ export function resolveLocalImage(value: string | undefined | null): string | nu
 const subs = new Set<() => void>();
 function notify(): void { for (const fn of subs) try { fn(); } catch {} }
 
-/** Subscribe to cache updates — components call this in a useEffect
- *  and force a re-render via the supplied callback. Unsubscribe on
- *  cleanup. Keeps the helper free of React imports. */
 export function subscribeLocalImage(fn: () => void): () => void {
   subs.add(fn);
   return () => { subs.delete(fn); };

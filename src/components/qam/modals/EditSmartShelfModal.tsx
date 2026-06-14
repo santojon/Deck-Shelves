@@ -64,12 +64,7 @@ type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'di
 
 type EditState = {
   title: string
-  /** Editable smart-shelf mode. Initialized from shelf.mode; user can switch
-   *  via the Source-tab dropdown. Changing mode resets `smartParams` to the
-   *  new mode's defaults. */
   mode: SmartShelfMode
-  /** Optional source-mixing — when non-empty, the resolver evaluates each
-   *  mode in `[mode, ...compositeModes]` and merges by `compositeCombine`. */
   compositeModes: SmartShelfMode[]
   compositeCombine: 'union' | 'intersection'
   limit: number

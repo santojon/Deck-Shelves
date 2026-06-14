@@ -23,7 +23,6 @@ function stripDefaultShadow(out: any): void {
   if (out.shadowMode === 'never') delete out.shadowMode;
 }
 
-/** Strip a synthetic-card object to its persisted shape. */
 export function sanitizeSyntheticCard(card: any): any {
   const out: any = { ...card };
   emptyStringToUndef(out);
@@ -40,9 +39,6 @@ function sanitizeUrlLink(link: any): any {
   catch { return undefined; }
 }
 
-/** Returns `[manualBaseSort, manualBaseSortReverse]` shaped for persistence.
- *  Single-key default 'alphabetical' is dropped; multi-key arrays only
- *  persist when non-empty. */
 export function buildSortPatchFields(
   state: EditableShelfState,
   isManualSort: boolean,
@@ -83,9 +79,6 @@ function buildFilterSource(state: EditableShelfState): any {
   return { type: 'filter', filter: filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'], state.filter.sortReverse) };
 }
 
-/** Builds the primary source object from form state. The save path passes
- *  `platformTabs` so the tab branch can pick up TabMaster-style source
- *  overrides; the preview path omits it and uses a plain `tab` source. */
 export function buildPrimarySource(ctx: PrimaryBuildCtx): any {
   const builder = SOURCE_BUILDERS[ctx.state.sourceType];
   return builder ? builder(ctx) : buildFilterSource(ctx.state);
@@ -101,7 +94,6 @@ function buildOnlineSource(type: 'wishlist' | 'store', state: EditableShelfState
   };
 }
 
-/** Drops `childFilter` when its items list is empty so saved JSON stays minimal. */
 export function dropEmptyChildFilter(s: any): any {
   if (!s?.childFilter) return s;
   const items = s.childFilter.items;
@@ -110,16 +102,12 @@ export function dropEmptyChildFilter(s: any): any {
   return rest;
 }
 
-/** Wraps primary + additionalSources into a composite when there are
- *  extras, otherwise returns the primary flat. Used by both preview and save. */
 export function assembleFinalSource(primary: any, state: EditableShelfState): any {
   if (state.sourceType === 'filter' || state.additionalSources.length === 0) return primary;
   const allChildren = [primary, ...state.additionalSources].map(dropEmptyChildFilter);
   return { type: 'composite', combine: state.compositeCombine, sources: allChildren };
 }
 
-/** Persists `shelf.sort` as a string for single-key, array for multi-key,
- *  undefined for the default alphabetical. */
 export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['sort'] {
   if (state.sourceType === 'filter') return undefined;
   const hasUserSort = Array.isArray(state.sort) ? state.sort.length > 0 : state.sort !== 'alphabetical';

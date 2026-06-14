@@ -70,10 +70,6 @@ export function hiddenValueFromMode(mode: string): ShelfFilter["hidden"] {
   return undefined;
 }
 
-/**
- * Converts a legacy flat ShelfFilter into the new CustomTabs-style FilterGroup.
- * Used when opening an old shelf for editing in the new filter UI.
- */
 export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
   const items: FilterItem[] = [];
 
@@ -121,14 +117,6 @@ export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
   return { mode: "and", items };
 }
 
-/**
- * Returns a ShelfFilter that uses the new filterGroup system, preserving
- * the sort + sortReverse fields. `sortReverse` accepts the same
- * `boolean | boolean[]` shape that the schema does — required for
- * multi-key sort chains saved on filter sources, since the shelf-level
- * `sortReverse` field is never populated for filter shelves (filter sort
- * lives entirely inside the filter object).
- */
 export function filterGroupToFilter(
   group: FilterGroup,
   sort: ShelfFilter["sort"] = "alphabetical",
@@ -142,10 +130,6 @@ export function filterGroupToFilter(
   return out;
 }
 
-/**
- * Returns the effective FilterGroup for a ShelfFilter — using the new filterGroup if present,
- * or migrating from legacy fields otherwise.
- */
 export function getEffectiveFilterGroup(filter: ShelfFilter): FilterGroup {
   if (filter.filterGroup && Array.isArray(filter.filterGroup.items) && filter.filterGroup.items.length > 0) {
     return filter.filterGroup;

@@ -6,9 +6,9 @@ export function DeleteConfirmSmartModal({ closeModal, controller, shelf }: { clo
   const { t, actions } = controller
   return (
     <ConfirmModal
-      strTitle={t('deleteShelf')}
+      strTitle={t('delete_shelf')}
       strDescription={shelf.title}
-      strOKButtonText={t('deleteShelf')}
+      strOKButtonText={t('delete_shelf')}
       strCancelButtonText={t('cancel')}
       bDestructiveWarning
       onCancel={closeModal}

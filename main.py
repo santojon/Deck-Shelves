@@ -25,6 +25,7 @@ import decky
 from paths import _steam_install_candidates, _normalize_path
 from storage import _settings_dir, _primary_file, _safe_read_json
 from sanitizer import _sanitize_settings
+from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
 
@@ -201,6 +202,22 @@ class Plugin:
             if os.path.exists(candidate):
                 return candidate
         return os.path.expanduser("~")
+
+    async def list_launcher_games(self, launcher_id: str = "", *args, **kwargs) -> List[Dict[str, Any]]:
+        _ = (args, kwargs)
+        if not isinstance(launcher_id, str) or not launcher_id:
+            return []
+        try:
+            return _list_launcher_games(launcher_id)
+        except Exception:
+            return []
+
+    async def list_available_launchers(self, *args, **kwargs) -> List[str]:
+        _ = (args, kwargs)
+        try:
+            return _list_available_launchers()
+        except Exception:
+            return []
 
     async def export_settings(self, dest_path: Any = None, *args, **kwargs) -> bool:
         path = _normalize_path(dest_path if dest_path is not None else (args[0] if args else kwargs))

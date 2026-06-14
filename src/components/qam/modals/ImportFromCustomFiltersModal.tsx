@@ -80,10 +80,10 @@ export function ImportFromCustomFiltersModal({ closeModal, controller }: { close
       const src = entry.source ?? { type: 'tab', tab: entry.id }
       const shelfSource = (src.type === 'tab' || src.type === 'collection' || src.type === 'filter') ? src : tabContainerToShelfSource(src)
       await actions.addShelfWith(entry.title, shelfSource)
-      toaster.toast({ title: t('pluginName'), body: `${t('toast_imported')}: ${entry.title}` })
+      toaster.toast({ title: t('plugin_name'), body: `${t('toast_imported')}: ${entry.title}` })
       closeModal?.()
     } catch (e) {
-      toaster.toast({ title: t('pluginName'), body: String(e) })
+      toaster.toast({ title: t('plugin_name'), body: String(e) })
     }
   }
 

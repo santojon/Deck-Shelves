@@ -39,16 +39,16 @@ export function ExportAndClearModal({ closeModal, controller, folderPath }: { cl
             try {
               const ok = await exportSettingsToFile(target);
               if (!ok) {
-                toaster.toast({ title: t('pluginName'), body: t('toast_failed_export') });
+                toaster.toast({ title: t('plugin_name'), body: t('toast_failed_export') });
                 setSaveBusy(false);
                 return;
               }
-              toaster.toast({ title: t('pluginName'), body: t('toast_exported_file') });
+              toaster.toast({ title: t('plugin_name'), body: t('toast_exported_file') });
               await actions.resetAll();
               resetMountFailed();
               closeModal?.();
             } catch (error) {
-              toaster.toast({ title: t('pluginName'), body: String(error) });
+              toaster.toast({ title: t('plugin_name'), body: String(error) });
               setSaveBusy(false);
             }
           })();
@@ -66,7 +66,7 @@ export function ExportAndClearModal({ closeModal, controller, folderPath }: { cl
                     const picked = await pickFolder(folder)
                     if (picked) setFolder(picked)
                   } catch (error) {
-                    toaster.toast({ title: t('pluginName'), body: String(error) })
+                    toaster.toast({ title: t('plugin_name'), body: String(error) })
                   } finally {
                     setBrowseBusy(false)
                   }

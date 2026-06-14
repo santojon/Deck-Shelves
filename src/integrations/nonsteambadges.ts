@@ -1,12 +1,3 @@
-/**
- * Non-SteamBadges integration.
- *
- * Non-SteamBadges (https://github.com/moraroy/NonSteamLaunchersBadges) renders
- * launcher badges on library cards via a `.nonsteam-badge` className.
- *
- * This integration detects the plugin and exposes the CSS class we hide so the
- * hide-toggle can be gated on actual plugin presence.
- */
 import { isNonSteamBadgesInstalled } from './registry';
 import { getPreferredSteamDocument } from '../runtime/steamHost';
 

@@ -157,14 +157,14 @@ function buildMgmt(ctx: Ctx, mk: Mk): any[] {
   const { item } = mk;
   const refreshLabel = isOnline ? tLabel("refresh_cache", "Refresh cache") : tLabel("refresh", "Refresh");
   return [
-    item("ds-edit", tLabel("editShelf", "Edit"), () => dispatchShelfModal("edit", shelfId)),
-    item("ds-duplicate", tLabel("duplicateShelf", "Duplicate"), () => { void duplicateShelfById(shelfId, tLabel("copySuffix", "(Copy)")); }),
+    item("ds-edit", tLabel("edit_shelf", "Edit"), () => dispatchShelfModal("edit", shelfId)),
+    item("ds-duplicate", tLabel("duplicate_shelf", "Duplicate"), () => { void duplicateShelfById(shelfId, tLabel("copy_suffix", "(Copy)")); }),
     item("ds-collapse", isCollapsed ? tLabel("expand_shelf", "Expand shelf") : tLabel("collapse_shelf", "Collapse shelf"), () => setShelfCollapsed(shelfId, !isCollapsed)),
     item("ds-hide", isHidden ? tLabel("show_shelf", "Show shelf") : tLabel("hide_shelf", "Hide shelf"), () => { void toggleShelfHiddenById(shelfId); }),
     item("ds-move-up", tLabel("move_up", "Move up"), () => { void moveShelfById(shelfId, -1); }, idx <= 0),
     item("ds-move-down", tLabel("move_down", "Move down"), () => { void moveShelfById(shelfId, 1); }, idx >= listLen - 1),
     ...(isRandomOrSmart ? [item("ds-refresh", refreshLabel, () => runRefreshAction(ctx))] : []),
-    item("ds-delete", tLabel("deleteShelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
+    item("ds-delete", tLabel("delete_shelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
   ];
 }
 
@@ -312,8 +312,6 @@ function hasMenuPrimitives(dfl: any, R: any): boolean {
   return !!(dfl?.MenuItem && dfl?.MenuGroup && R?.createElement);
 }
 
-/** Builds the per-shelf submenu tree (Card actions + Shelf root group with
- *  Management / Display / Visual / Decoration / sort toggle). */
 export function buildDeckShelvesMenuItems(
   shelfId: string,
   dfl: any,
@@ -344,7 +342,6 @@ export function buildDeckShelvesMenuItems(
   ];
 }
 
-/** Public wrapper used by Shelf.tsx (online shelf card menu). */
 export function buildShelfContextMenu(shelfId: string, appid: number, dfl: any, R: any): any[] {
   return buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
 }
@@ -368,7 +365,6 @@ function libraryCandidates(s: any, appid: number): { eligible: any[]; removable:
   };
 }
 
-/** Library-card Add/Remove-to-shelf injection — emits up to two `MenuGroup`s. */
 export function buildLibraryAddToShelfItems(appid: number, _dfl: any, R: any): any[] {
   if (!R?.createElement || !appid) return [];
   const s = getCurrentSettings?.();

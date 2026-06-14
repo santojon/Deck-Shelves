@@ -26,7 +26,6 @@ import { getCurrentSettings, saveSettings } from "../store/settingsStore";
 import { patchShelfInSettings } from "../domain/settings";
 import { PerShelfHero } from "./shelf/PerShelfHero";
 
-
 function readCollapsed(shelfId: string): boolean {
   try { return localStorage.getItem(`ds-collapsed-${shelfId}`) === '1'; } catch (e) { logInfo("HOME", "readCollapsed failed", String(e)); return false; }
 }
@@ -360,7 +359,6 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       if (verifyTimer) clearTimeout(verifyTimer);
     };
   }, []);
-
 
   useEffect(() => {
     const rowEl = rowRef.current;

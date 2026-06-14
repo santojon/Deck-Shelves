@@ -1,25 +1,3 @@
-/**
- * Experimental: substitui o data source da seção nativa "Jogos recentes"
- * pelas apps da primeira shelf do usuário. Gated atrás do toggle
- * `recentsReplaceSource` (só aparece quando `hideRecents` está ativo).
- *
- * Mecanismo: patch-of-render em três níveis via
- * `routerHook.addPatch("/library/home", ...)` + `afterPatch(el, "type", ...)`
- * + `findInReactTree(x => x.props.games && x.props.onItemFocus)`. A mutação
- * é minimal: `p.props.games = ourAppIds`. O restante do DOM/CSS/animações
- * continua 100% nativo — incluindo o hero background, que reage naturalmente
- * ao foco dos cards via o callback `onItemFocus` preservado.
- *
- * Segurança:
- * - Toda a cadeia de patch fica dentro de try/catch.
- * - Só injetamos appids que o Steam reconhece (via `appStore.GetAppOverviewByAppID`
- *   ou `m_mapApps`) — evita a exceção `Cannot read properties of undefined
- *   (reading 'values')` no getter `userCollections` quando passamos ids
- *   órfãos.
- * - Se o render nativo falhar (Decky ErrorBoundary captura), marcamos o
- *   experimento como falho via pub/sub; QAM exibe banner e o consumidor
- *   (HomeInject) cai de volta na ocultação visual tradicional.
- */
 import type { ReactElement } from "react";
 import { afterPatch, findInReactTree } from "./host/decky";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
@@ -62,9 +40,6 @@ export function subscribeRecentsReplaceFailed(cb: () => void): () => void {
   failedListeners.add(cb);
   return () => { failedListeners.delete(cb); };
 }
-/** True when the toggle is active AND we have cached app ids ready to be
- *  injected into the native recents shelf. Consumers use this to avoid
- *  rendering the first shelf twice (once natively, once in the DS mount). */
 export function getRecentsReplaceActiveShelfId(): string | null { return cachedShelfId; }
 export function isRecentsReplaceInjecting(): boolean {
   if (replaceFailed) return false;
@@ -101,20 +76,8 @@ function markReplaceFailed(reason: string) {
 }
 
 // --- Steam app validation -----------------------------------------------
-/** Only Steam-native app types the recents component can safely render.
- *  Confirmed via CDP: native recents only contains `app_type === 1` (Game).
- *  Passing Shortcut (1073741824), Music, DLC, Tool etc. crashes Steam's
- *  `userCollections` getter because those collections don't index them. */
 const RENDERABLE_STEAM_APP_TYPES: ReadonlySet<number> = new Set([1, 2, 1073741824]); // Game, Application, Non-Steam Shortcut
 
-/** The crash in issue #60 ("Cannot read properties of undefined (reading
- *  'values')") originates from Steam's `userCollections` getter — which
- *  lives in `collectionStore`, NOT `appStore`. An appid can have a valid
- *  appStore overview yet not be present in any user collection (typical
- *  for wishlist / store-recommendation ids the user doesn't own), and
- *  those are the ones that crash the recents renderer. Membership in
- *  `allAppsCollection.apps` (a Set of owned/installed appids) is the only
- *  reliable signal that an id is safe to inject. */
 function getOwnedAppIdSet(): Set<number> | null {
   const cs: any = (globalThis as any).collectionStore;
   if (!cs) return null;
@@ -165,9 +128,6 @@ function filterKnownAppIds(ids: number[]): number[] {
   return out;
 }
 
-/** Convert a smart shelf entry into a shelf-shaped object the resolver path
- *  understands. Source carries the smart mode + optional filter / params /
- *  refresh-interval so `resolveShelfAppIds` dispatches correctly. */
 function smartShelfToCandidate(s: any) {
   if (!s) return null;
   return {
@@ -189,14 +149,6 @@ function smartShelfToCandidate(s: any) {
   };
 }
 
-/** Online-source shelves (wishlist/store) resolve to appids the user doesn't
- *  own — Steam's native recents renderer only handles appids in the local
- *  app store, so an online-source promotion always falls back. Exclude them
- *  from the candidate list so the promotion advances to the next renderable
- *  shelf. */
-
-/** Build the ordered list of replace-candidate shelves: visible normals
- *  (excluding online sources) first, then visible smart shelves. */
 function visibleCandidateShelves(): any[] {
   const s = getCurrentSettings();
   if (!s) return [];
@@ -340,7 +292,6 @@ function scheduleResolve(shelf: any) {
     .finally(() => { resolvePromise = null; });
 }
 
-/** Force the native recents React subtree to re-render. */
 function forceRemountRecents() {
   try {
     const win: any = globalThis;

@@ -41,14 +41,6 @@ function findNativeAssetProto(): any {
   return null;
 }
 
-/** Steam's native `<S>` asset component computes hero URLs via `GetHeroImages`
- *  which has access to hash filenames that aren't exposed on the basic
- *  `appStore.GetAppOverviewByAppID` overview (observed for Candellum,
- *  appid 4514790: only the hashed `/assets/{appid}/{hash}/library_hero.jpg`
- *  serves the real 1920×620 hero — everything else 404s or returns the
- *  smaller header crop). Instantiate the class via `Object.create` on its
- *  prototype, call `GetSourcesForAsset` with our app + `eAssetType=1` (hero),
- *  and get back exactly the URL list Steam itself would render. */
 // Allowlist of URL schemes safe to pass to `<img src>`. Anything outside
 // this set (most notably `javascript:` and `data:text/html`) returns
 // `null` so the synth-hero pipeline treats the attribute as missing.
@@ -103,14 +95,6 @@ function getNativeHeroUrls(appid: number): string[] | null {
   } catch { return null; }
 }
 
-/** Kick off Steam's own `RegisterForAppData(appid)` via a fake S instance.
- *  Without this the hero hash never lands in the data store for an app that
- *  isn't currently mounted in native UI — observed for Candellum: hero only
- *  appeared once the user focused it in native recents, which mounted the
- *  S instance and triggered the load. Calling it here pre-loads the data
- *  for every app we want to render a hero for, so the next pass of
- *  `getNativeHeroUrls` picks up the real hashed URL. Best-effort, no-op
- *  if anything is missing. */
 function prefetchNativeAppData(appid: number): void {
   try {
     const app: any = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
@@ -126,10 +110,6 @@ function prefetchNativeAppData(appid: number): void {
   } catch { /* best-effort */ }
 }
 
-/** Hero URL list: starts with the central loopback/CDN chain from
- *  steamAssets, then layers in any hashed sources Steam's own `<S>`
- *  component exposes via the React fiber (covers rare apps where the
- *  hashed URL is the only one that serves). */
 function getHeroUrls(appid: number): string[] {
   const base = getCentralHeroUrls(appid);
   const native = getNativeHeroUrls(appid);
@@ -154,10 +134,6 @@ function resolveHeroSrcFromCache(url0: string | null, urls: ReadonlyArray<string
   try { warmCacheBackground(warmTarget); } catch {}
   return url0;
 }
-
-/** Lightweight per-shelf hero background. Rendered inside the .ds-shelf div
- *  (z-index:-1) so it appears behind that shelf's cards only. Separate from
- *  the global HeroBackground which handles the recents-slot promoted shelf. */
 
 // Hero height, viewport-parameterized: scales proportionally with the screen
 // instead of a hard pixel value. Used for the first shelf, and for every

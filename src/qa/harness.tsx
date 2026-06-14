@@ -57,12 +57,6 @@ function qaAllShelvesFixture(): Shelf[] {
   ];
 }
 
-/**
- * Bazzite #55 repro fixture — a filter shelf whose collection-filter points
- * at a non-existent collection. Pre-fix this leaked the entire library; with
- * the fix in place the shelf renders empty (and thus is hidden by the
- * `!appIds.length` guard in `Shelf.tsx`). Useful as a regression smoke test.
- */
 function qaCollectionEmptyFixture(): Shelf[] {
   const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
   return [
@@ -75,11 +69,6 @@ function qaCollectionEmptyFixture(): Shelf[] {
   ];
 }
 
-/**
- * Bazzite #56 demo fixture — same library minus one collection. Two shelves
- * side by side: the in-collection set and its complement. Useful to visually
- * confirm the inverted-collection toggle is working.
- */
 function qaCollectionInvertedFixture(): Shelf[] {
   const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
   return [
@@ -478,21 +467,11 @@ export function applyQASettingsOverride(s: Settings): Settings {
   };
 }
 
-/**
- * Returns a fake `UpdateCheckResult`-shaped payload when `qa:update-available`
- * is on, so the QAM banner renders without any network round trip. Returns
- * `null` otherwise — `checkForUpdate` falls through to its real flow.
- */
 export function qaForcedUpdateResult(): { hasUpdate: boolean; latestVersion: string | null; releaseUrl: string | null } | null {
   if (!updateAvailable) return null;
   return { hasUpdate: true, latestVersion: QA_FAKE_LATEST_VERSION, releaseUrl: QA_FAKE_RELEASE_URL };
 }
 
-/**
- * Returns `true` when `qa:update-offline` is set so the connectivity helper
- * can short-circuit `isOnline()` without touching the network. Lets QA
- * verify offline gating without unplugging the Deck.
- */
 export function isQAUpdateOffline(): boolean {
   return updateOffline;
 }
@@ -518,8 +497,6 @@ export function wrapHomeShelves<P extends object>(Component: React.ComponentType
   };
 }
 
-/** Returns `true` when the current build should pretend the recents-replace
- *  kill-switch fired, surfacing the `RecentsReplaceErrorBanner` in the QAM. */
 export function isReplaceFailedForced(): boolean {
   return !!forceReplaceFailed;
 }

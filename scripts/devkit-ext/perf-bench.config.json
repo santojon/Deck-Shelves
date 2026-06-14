@@ -1,0 +1,19 @@
+{
+  "name": "Deck Shelves",
+  "navigate": ["/library", "/library/home"],
+  "mount_selector": ".ds-card[data-appid]",
+  "count_selectors": {
+    "shelves":  ".ds-shelf[data-shelfid]",
+    "cards":    ".ds-card[data-appid]",
+    "featured": ".ds-card--featured"
+  },
+  "shelf_id_attribute": "data-shelfid",
+  "settings_cache_key": "deck-shelves-settings-cache-v3",
+  "settings_count_paths": ["shelves", "smartShelves"],
+  "thresholds": {
+    "mount_ms_warn": 3000,
+    "mount_ms_fail": 6000,
+    "frame_gap_warn": 50,
+    "frame_gap_fail": 100
+  }
+}

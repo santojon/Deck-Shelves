@@ -11,9 +11,6 @@ import type { AppOverview } from "./index";
 const appIdOf = (a: AppOverview) => (a as any).appid as number;
 const SEC_PER_DAY = 86400;
 
-/** Weighted scoring — caller supplies per-app numeric signals (in the
- *  range it cares about) and a weight map; returns the apps sorted by
- *  ∑ (signal * weight) desc. Signals NaN/undefined contribute 0. */
 export function weightedRank(
   apps: AppOverview[],
   signals: ReadonlyArray<{ key: string; get: (a: AppOverview) => number }>,
@@ -33,9 +30,6 @@ export function weightedRank(
   return scored.map((s) => s.a);
 }
 
-/** Multi-factor ranking — composite comparator (similar to weighted
- *  but with explicit primary/secondary signal chain). Useful when one
- *  signal dominates and the rest only break ties. */
 export function multiFactorRank(
   apps: AppOverview[],
   chain: ReadonlyArray<{ get: (a: AppOverview) => number; reverse?: boolean }>,
@@ -52,9 +46,6 @@ export function multiFactorRank(
   return out;
 }
 
-/** Time decay — half-life weighting around a per-app event timestamp
- *  (seconds since epoch). Apps with `eventSec === 0` (no event)
- *  receive `baseWeight`. `halfLifeDays` controls the decay rate. */
 export function timeDecayScore(
   eventSec: number,
   halfLifeDays: number,
@@ -89,8 +80,6 @@ function getCooldownMap(shelfKey: string): Map<number, number> {
   return m;
 }
 
-/** Cooldown — filter out apps surfaced for this shelf within the
- *  cooldown window, then record the survivors as freshly surfaced. */
 export function applyCooldown(
   apps: AppOverview[],
   shelfKey: string,
@@ -109,9 +98,6 @@ export function applyCooldown(
   return picked;
 }
 
-/** Visibility rotation — round-robin slice over a candidate pool keyed
- *  by `shelfKey` + the current day. Caller supplies `rotateEveryDays`;
- *  the same window keeps returning the same slice within that span. */
 export function rotateWindow(
   apps: AppOverview[],
   shelfKey: string,

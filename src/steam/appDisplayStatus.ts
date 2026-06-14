@@ -1,9 +1,3 @@
-/**
- * Steam's EAppDisplayStatus enum — values observed in `per_client_data[0].display_status`.
- * Confirmed: Running=4, Installing=3 (user-verified: games showed under the "installing"
- * group filter while actually running, proving the previous Running=5/Installing=4 mapping
- * was shifted by 1 for values in the 2–6 range).
- */
 export const EAppDisplayStatus = {
   Invalid:        0,
   Launching:      1,  // pre-launch transition
@@ -21,7 +15,6 @@ export const EAppDisplayStatus = {
 } as const;
 export type EAppDisplayStatus = typeof EAppDisplayStatus[keyof typeof EAppDisplayStatus];
 
-/** Statuses where an update is actively progressing (progress bar moving). */
 export const UPDATE_ACTIVE_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.Downloading,
   EAppDisplayStatus.Staging,
@@ -29,40 +22,17 @@ export const UPDATE_ACTIVE_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.Validating,
 ];
 
-/** Statuses where an update exists but is not actively running. */
 export const UPDATE_QUEUED_STATUSES: ReadonlyArray<number> = [
   EAppDisplayStatus.UpdateQueued,
   EAppDisplayStatus.UpdatePaused,
   EAppDisplayStatus.Reconfiguring,
 ];
 
-/** All statuses that trigger update_pending = true. */
 export const UPDATE_PENDING_STATUSES: ReadonlyArray<number> = [
   ...UPDATE_ACTIVE_STATUSES,
   ...UPDATE_QUEUED_STATUSES,
 ];
 
-/**
- * Named groups exposed by the `appStatus` filter.
- *
- * The original four ("downloading", "queued", "installing", "running")
- * are kept as compound groups for back-compat — picking one matches
- * the union of statuses it represents. The remainder break those
- * groups down into individual EAppDisplayStatus values so users can
- * scope shelves more precisely (e.g. "currently downloading bytes"
- * vs "queued waiting for disk space" vs "validating after update").
- *
- * Coarse groups (compound):
- *   - downloading: actively transferring / staging / committing / validating
- *   - queued:      update pending but not progressing (Reconfiguring + the two paused states)
- *   - installing:  in the middle of a fresh install
- *   - running:     game launched (incl. the launch transition)
- *
- * Fine-grained groups (single status each):
- *   - launching, reconfiguring, validating, downloading_only,
- *     staging, committing, update_queued, update_paused,
- *     not_installed, installed_idle
- */
 export const APP_STATUS_GROUPS = {
   // Coarse groups — back-compat with existing saved filters.
   downloading: UPDATE_ACTIVE_STATUSES,

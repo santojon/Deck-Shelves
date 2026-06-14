@@ -7,7 +7,9 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/tests-339%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/vitest-369%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-48%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
@@ -21,6 +23,17 @@
 A [Decky](https://decky.xyz) plugin for Steam Deck that injects configurable shelves into the Home screen with a built-in Quick Access Menu editor.
 
 Get started [here](https://github.com/santojon/Deck-Shelves/discussions/48).
+
+## What's new
+
+- **Dedicated Settings page** opened from the gear icon next to the docs icon in the QAM title bar — a single full-page route with seven tabs (Quick settings, Shelves, Profiles, Integrations, Shortcuts, Backup, Advanced tools), each backed by the same actions you'd reach from the QAM and sidecar.
+- **Usage profiles** — save the entire setup (every toggle, every shelf, every saved filter) as a named profile, switch in one tap, import / export to JSON, and keep a read-only **Default** profile that resets to factory.
+- **Customizable button shortcuts** — remap or disable the gamepad triggers for hide / highlight / quick-launch on cards; remap (but not disable) the chords for Quick Search and Side Navigation. Single (e.g. `Y`), chord (e.g. `L1+R1`), and double-tap (e.g. `L1+L1`) all supported. Reserved system buttons (`A`, `B`, `MENU`, `STEAM`, `…`) are rejected even in combinations.
+- **Unified shelf list + drag-and-drop reorder** — opt in to merge regular and smart shelves into a single ordered list, then drag rows directly in the Shelves panel. Gamepad-friendly `↑` / `↓` buttons stay as a fallback.
+- **External launcher discovery** — EmuDeck, RetroDECK, Heroic (Epic / GOG / Amazon), Lutris, Moonlight, and Chiaki games surface through dedicated shelf sources. Read-only, runs in the background, refreshes every 15 minutes.
+- **Light mode** — hides advanced toggles and sliders in the QAM / sidecar so the panel stays uncluttered for users who never touch them.
+- **76 new built-in filters / sorts / sources** — 32 filters, 25 sorts, and 19 shelf sources covering Steam metadata, user behaviour, storage device, completion %, achievement rarity, friends activity, dynamic Steam collections, followed / ignored / DLC / soundtrack / pinned / history / queue surfaces, plus composite modes (weighted, priority, exclusion group).
+- **Integrations panel toggles** — every registered descriptor (built-in or third-party) gets a per-row enable / disable. First-party Deck Shelves entries are tagged with a green BUILT-IN chip so you can tell them apart from external plugin contributions.
 
 ## Features
 

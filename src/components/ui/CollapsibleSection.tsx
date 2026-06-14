@@ -1,16 +1,6 @@
 import { useState } from 'react'
 import { Focusable } from '../../runtime/host/decky'
 
-/**
- * Collapsible section used by the QAM panel (Behavior / Shelves / Smart /
- * Visual Global / Saved Filters). Header click toggles, localStorage
- * persists open state per `id`, and a badge shows the live count when the
- * section is closed.
- *
- * The toggle state is stored at module scope so re-mounting the QAM panel
- * doesn't reset the user's expand/collapse choices. Separator + badge
- * styling lives in [DeckQAMStyles](../styles/DeckQAMStyles.tsx).
- */
 const SECTIONS_KEY = 'ds-qam-sections'
 
 function loadSections(): Record<string, boolean> {

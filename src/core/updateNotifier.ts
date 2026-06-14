@@ -2,28 +2,15 @@ import pkg from "../../package.json";
 import { isOnline } from "./connectivity";
 import { logInfo } from "../runtime/logger";
 
-/**
- * GitHub-release update notifier — compares the bundled `pkg.version`
- * against the latest release of `santojon/Deck-Shelves`. Strictly
- * notification-only: no auto-update, no schema-changing fetch beyond a
- * single `releases/latest` GET per probe.
- *
- * Cache: 24h in localStorage (`ds-update-check-v1`). Cache hits skip the
- * network entirely. Failures (offline, 4xx, schema mismatch) silently
- * resolve to "no update available" so the UI never shows a broken banner.
- */
-
 const CACHE_KEY = "ds-update-check-v1";
 const RELEASES_URL = "https://api.github.com/repos/santojon/Deck-Shelves/releases/latest";
 const FETCH_TIMEOUT_MS = 5000;
 
 export interface UpdateCheckResult {
-  /** True when `latestVersion` is strictly newer than the running build. */
   hasUpdate: boolean;
   currentVersion: string;
   latestVersion: string | null;
   releaseUrl: string | null;
-  /** ms timestamp the cached payload was written. */
   checkedAt: number;
 }
 
@@ -51,11 +38,6 @@ function writeCache(payload: CachedPayload): void {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch {}
 }
 
-/**
- * Strict-numeric semver compare. Returns 1 if `a > b`, -1 if `a < b`, 0 if
- * equal. Pre-release / build metadata is ignored (sufficient for
- * release-tag matching where pre-releases are unusual).
- */
 export function compareSemver(a: string, b: string): number {
   const norm = (v: string) => v.replace(/^v/, "").split(/[+-]/, 1)[0];
   const pa = norm(a).split(".").map((n) => parseInt(n, 10) || 0);
@@ -98,11 +80,6 @@ async function fetchLatest(): Promise<{ version: string | null; url: string | nu
   }
 }
 
-/**
- * Returns the current update status. Uses the 24h cache when warm; only
- * probes the network when the cache is expired AND `isOnline()` returns
- * true. Single-flight — concurrent callers share the in-flight result.
- */
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
   const now = Date.now();
   // QA harness: when `qa:update-available` is on, skip the cache + network
@@ -146,7 +123,6 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   return inFlight;
 }
 
-/** Test/QA helper — clears localStorage cache so the next probe re-fetches. */
 export function __resetUpdateCheckCache(): void {
   try { localStorage.removeItem(CACHE_KEY); } catch {}
   inFlight = null;

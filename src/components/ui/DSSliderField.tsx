@@ -1,18 +1,5 @@
 import { SliderField } from '../../runtime/host/decky'
 
-/**
- * Standardised slider row used across QAM, sidecar, and modals.
- *
- * Renders a label-on-top / value-on-the-right header above an unlabeled
- * Decky `SliderField`. No extra `Field` wrapping — the SliderField is
- * the only Focusable in the row, which avoids the nested-focus-ring
- * artefact (`Focusable` inside `Focusable`) that the previous custom
- * `Field` wrapper introduced.
- *
- * Drop-in replacement for `SliderField` props. Optional `unit` suffix
- * and `valueLabel` override for non-numeric mappings (e.g. line counts
- * → "1 linha"). `bottomSeparator` is forwarded to the SliderField.
- */
 export function DSSliderField({
   label,
   value,

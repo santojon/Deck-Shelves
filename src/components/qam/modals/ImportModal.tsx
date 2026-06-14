@@ -48,9 +48,9 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
                 ok = !!next
                 if (ok && next.shelves[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
               }
-              toaster.toast({ title: t('pluginName'), body: ok ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
+              toaster.toast({ title: t('plugin_name'), body: ok ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
             } catch (error) {
-              toaster.toast({ title: t('pluginName'), body: String(error) });
+              toaster.toast({ title: t('plugin_name'), body: String(error) });
             } finally {
               setImportBusy(false);
             }
@@ -69,7 +69,7 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
                     const picked = await pickJsonFile(initialPath)
                     if (picked) setPath(picked)
                   } catch (error) {
-                    toaster.toast({ title: t('pluginName'), body: String(error) })
+                    toaster.toast({ title: t('plugin_name'), body: String(error) })
                   } finally {
                     setBrowseBusy(false)
                   }

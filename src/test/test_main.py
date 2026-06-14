@@ -406,3 +406,34 @@ def test_sanitize_settings_single_key_sort_still_works():
     })
     assert result["shelves"][0].get("sort") == "recent"
     assert result["shelves"][0].get("sortReverse") is True
+
+
+def test_sanitize_settings_buttonBindings_passthrough():
+    result = _sanitize_settings({
+        "buttonBindings": {
+            "cardHideRemove": "X",
+            "cardHighlightToggle": "Y",
+            "cardQuickLaunch": None,
+            "navSearch": "L1+R1",
+            "navSideNav": "L1+L1",
+        }
+    })
+    bb = result.get("buttonBindings")
+    assert bb is not None
+    assert bb.get("cardHideRemove") == "X"
+    assert bb.get("cardHighlightToggle") == "Y"
+    assert bb.get("cardQuickLaunch") is None
+    assert bb.get("navSearch") == "L1+R1"
+    assert bb.get("navSideNav") == "L1+L1"
+
+
+def test_sanitize_settings_buttonBindings_missing_yields_empty_dict():
+    result = _sanitize_settings({})
+    assert result.get("buttonBindings") == {}
+
+
+def test_sanitize_settings_buttonBindings_uppercases_and_trims():
+    result = _sanitize_settings({
+        "buttonBindings": {"cardHideRemove": "  l1+r1  "}
+    })
+    assert result["buttonBindings"]["cardHideRemove"] == "L1+R1"

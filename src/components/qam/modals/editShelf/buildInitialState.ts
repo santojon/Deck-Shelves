@@ -167,7 +167,6 @@ function readSyntheticCards(shelf: Shelf): any[] {
   return list?.map(sanitizeSyntheticForState) ?? [];
 }
 
-/** Derives the editor's initial state from a Shelf snapshot. */
 export function buildInitialShelfState(ctx: Ctx): EditableShelfState {
   const { shelf, mode, collections, platformTabs, externalSources } = ctx;
   const hydratedCompositeChildren = hydrateCompositeChildren(shelf);

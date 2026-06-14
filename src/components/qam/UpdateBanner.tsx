@@ -5,14 +5,6 @@ import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from 
 import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
 
-/**
- * Update banner — renders inside the QAM Deck Shelves panel above the shelf
- * list when a newer GitHub release is available AND the user has not
- * dismissed it for that specific version. Hidden when the toggle is off.
- *
- * Probe is a single demand call to `checkForUpdate()` per QAM open. The
- * notifier owns its 24h cache so back-to-back QAM opens reuse the result.
- */
 export function UpdateBanner({ controller }: { controller: SettingsController }) {
   const { t, settings, actions } = controller;
   const [result, setResult] = useState<UpdateCheckResult | null>(null);

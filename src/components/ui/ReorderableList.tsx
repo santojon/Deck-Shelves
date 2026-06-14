@@ -15,7 +15,6 @@ export type ReorderableListProps<T> = {
   entries: ReorderableEntry<T>[];
   onSave: (entries: ReorderableEntry<T>[]) => void;
   interactables?: (props: { entry: ReorderableEntry<T> }) => ReactNode;
-  /** Kept for API parity. Animation is always CSS-driven. */
   animate?: boolean;
   fieldProps?: any;
 };

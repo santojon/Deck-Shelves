@@ -1,15 +1,3 @@
-/**
- * SteamOS system lifecycle event hooks.
- *
- * Subscribes to suspend/resume events from the Steam client and coordinates
- * with the shelf refresh emitter and app overview cache to:
- *  - Pause refresh timers while the device is suspended (saves battery on wake)
- *  - Invalidate stale caches on resume
- *  - Trigger an immediate re-resolve of all shelf app IDs after resume
- *
- * All hooks are treated as optional — if the Steam API shape changes, the
- * plugin continues to function without suspend/resume awareness.
- */
 
 import { invalidateAppOverviewCache } from '../steam';
 import { pauseShelfRefresh, resumeShelfRefresh } from '../core/shelfRefresh';

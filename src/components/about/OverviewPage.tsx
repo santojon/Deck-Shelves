@@ -9,6 +9,23 @@ const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color
 
 const GROUPS: { labelKey: string; keys: string[] }[] = [
   {
+    labelKey: 'about_group_v25_new',
+    keys: [
+      'about_feature_settings_page',
+      'about_feature_profiles',
+      'about_feature_button_bindings',
+      'about_feature_unified_list',
+      'about_feature_drag_reorder',
+      'about_feature_light_mode',
+      'about_feature_external_launchers',
+      'about_feature_integrations_toggle',
+      'about_feature_built_in_chip',
+      'about_feature_filter_v3',
+      'about_feature_sort_v3',
+      'about_feature_source_v3',
+    ],
+  },
+  {
     labelKey: 'about_group_shelves_filters',
     keys: [
       'about_feature_shelves', 'about_feature_sources', 'about_feature_filters',

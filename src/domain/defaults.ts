@@ -79,5 +79,18 @@ export function defaultSettings(): Settings {
     forceCssLoaderThemes: false,
     qamHiddenToggles: [],
     qamHiddenSections: [],
+    unifiedListEnabled: false,
+    allShelvesOrder: [],
+    lightModeEnabled: false,
+    featureToggles: {},
+    profiles: [],
+    integrationsEnabled: {},
+    buttonBindings: {
+      cardHideRemove: "X",
+      cardHighlightToggle: "Y",
+      cardQuickLaunch: "VIEW",
+      navSearch: "L1+R1",
+      navSideNav: "L1+L1",
+    },
   };
 }

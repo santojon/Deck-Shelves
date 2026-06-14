@@ -1,16 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
 
-/**
- * The shared container used inside `Tabs` tab-content regions — sets the
- * 24px horizontal padding that aligns with Decky's `Field` negative
- * margins so extended-width fields hit the container edge cleanly.
- *
- * Pass `scrollable` to cap height and enable vertical scroll (Source /
- * Visual tabs). When scrollable, a `focusin` handler scrolls the focused
- * descendant into view on the nearest edge — so gamepad navigation to the
- * last item lands the item fully visible instead of clipping it at the
- * bottom of the container.
- */
 export function FieldContainer({
   children,
   scrollable = false,

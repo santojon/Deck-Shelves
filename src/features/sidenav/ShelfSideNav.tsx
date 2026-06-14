@@ -6,6 +6,7 @@ import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry 
 import type { Settings, Shelf, SmartShelf } from "../../types";
 import { focusElement } from "../../core/focusRestore";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton } from "../../runtime/homeInputBus";
+import { createMatcherState, matchEvent, parseCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { isInVisibilityWindow } from "../../steam/smartShelves";
@@ -17,16 +18,6 @@ type Anchor = {
   focusedAppid: number | null;
 };
 
-/**
- * Side-nav overlay — opens when the user presses dpad-left (ArrowLeft)
- * on the FIRST card of any shelf. Lists every visible shelf so the user
- * can jump straight to one; plugins can contribute extra rows via
- * `registerSideMenuProvider`.
- *
- * Mount once near the home root. The listener is global but bails when
- * the focused element isn't a `[data-ds-card-index="0"]` card under the
- * home root, so it's a no-op everywhere else.
- */
 export function ShelfSideNav() {
   try { (globalThis as any).__ds_sidenav_mounted = (((globalThis as any).__ds_sidenav_mounted ?? 0) + 1); } catch {}
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -38,15 +29,10 @@ export function ShelfSideNav() {
 
   const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
   const priorFocusRef = useRef<HTMLElement | null>(null);
-  const lastL1AtRef = useRef<number>(0);
-  // Runtime gate read inside the bus listener — even if the listener
-  // somehow survives an effect cleanup race, this ref always reflects
-  // the LATEST toggle state, so a disabled sidenav can't open.
   const enabledRef = useRef<boolean>(enabled);
   useEffect(() => {
     enabledRef.current = enabled;
     if (!enabled) {
-      lastL1AtRef.current = 0;
       setAnchor(null);
     }
   }, [enabled]);
@@ -127,22 +113,15 @@ export function ShelfSideNav() {
       try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: Date.now() }; } catch {}
       setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? appid : null });
     };
-    // ONLY trigger: L1 pressed twice within 300 ms. `lastL1AtRef` is a
-    // ref so the timestamp survives effect re-runs. Runtime-gated by
-    // `enabledRef` so a stale subscription can never open a disabled
-    // sidenav.
+    const matcherState = createMatcherState();
     const unsubBtn = subscribeHomeButton((e) => {
       if (!enabledRef.current) return;
       try { (globalThis as any).__ds_sidenav_last_btn = { b: e.button, t: Date.now() }; } catch {}
-      if (e.button !== GamepadButton.BUMPER_LEFT) return;
-      const now = Date.now();
-      if (lastL1AtRef.current && (now - lastL1AtRef.current) <= 300) {
-        lastL1AtRef.current = 0;
-        try { (globalThis as any).__ds_sidenav_fired = now; } catch {}
+      const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any).navSideNav);
+      if (matchEvent({ button: e.button }, combo, matcherState)) {
+        try { (globalThis as any).__ds_sidenav_fired = Date.now(); } catch {}
         tryOpen();
-        return;
       }
-      lastL1AtRef.current = now;
     });
     return () => { unsubBtn(); };
   }, [anchor, enabled]);

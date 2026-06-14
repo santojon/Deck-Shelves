@@ -5,15 +5,6 @@ import type { SavedFilter } from '../../../types'
 import { openManagedModal } from '../common/openManagedModal'
 import { RenameSavedFilterModal } from '../modals/RenameSavedFilterModal'
 
-/**
- * Single saved-filter row in the QAM Saved Filters section.
- *
- * Mirrors the shelves list visual: label on the left (filter name) and an
- * ellipsis (⋯) button on the right that opens a context menu with Rename
- * and Delete. Reuses the same `Field`/`Focusable`/`DialogButton`/icon
- * primitives that `ShelfActionsButton` and `ShelfListLabel` use, so the
- * two lists look and focus identically.
- */
 export function SavedFilterRow({ controller, savedFilter }: { controller: SettingsController; savedFilter: SavedFilter }) {
   const { t, actions } = controller
   const onActions = () => showContextMenu(
