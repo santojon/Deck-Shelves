@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Espacio descripción / logo",
   "context_search_toggle": "Búsqueda rápida",
+  "context_search_keyboard": "Abrir teclado virtual",
+  "context_search_on_enter": "Buscar solo con Enter",
   "context_search_desc": "Escribe en el teclado mientras estés en el inicio para abrir una búsqueda sobre los juegos de tus estantes. Enter enfoca la tarjeta.",
   "side_nav_toggle": "Navegación lateral",
   "side_nav_desc": "Presiona dpad-izquierda en la primera tarjeta de un estante para abrir un panel lateral y saltar a otro estante.",

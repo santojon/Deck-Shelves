@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Espaço descrição / logótipo",
   "context_search_toggle": "Pesquisa rápida",
+  "context_search_keyboard": "Abrir teclado virtual",
+  "context_search_on_enter": "Pesquisar apenas com Enter",
   "context_search_desc": "Escreve no teclado enquanto estiveres no início para abrir uma pesquisa pelos jogos nas prateleiras. Enter foca o cartão correspondente.",
   "side_nav_toggle": "Navegação lateral",
   "side_nav_desc": "Carrega no dpad-esquerda no primeiro cartão de uma prateleira para abrir um painel lateral e saltar para outra prateleira.",

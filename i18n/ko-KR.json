@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "설명 / 로고 간격",
   "context_search_toggle": "빠른 검색",
+  "context_search_keyboard": "가상 키보드 열기",
+  "context_search_on_enter": "Enter 키로만 검색",
   "context_search_desc": "홈에서 키보드를 입력하면 선반에 있는 게임을 검색할 수 있습니다. Enter로 일치하는 카드에 포커스됩니다.",
   "side_nav_toggle": "사이드 내비게이션",
   "side_nav_desc": "선반 첫 카드에서 방향키 왼쪽을 누르면 사이드 패널이 열려 다른 선반으로 이동할 수 있습니다.",

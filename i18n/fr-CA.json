@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Espace description / logo",
   "context_search_toggle": "Recherche rapide",
+  "context_search_keyboard": "Ouvrir le clavier virtuel",
+  "context_search_on_enter": "Rechercher uniquement avec Entrée",
   "context_search_desc": "Tape sur le clavier depuis l'accueil pour ouvrir une recherche dans les jeux de tes étagères. Entrée focus la carte correspondante.",
   "side_nav_toggle": "Navigation latérale",
   "side_nav_desc": "Appuie sur croix-gauche sur la première carte d'une étagère pour ouvrir un panneau latéral et sauter à une autre étagère.",

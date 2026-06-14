@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Відступ опис / логотип",
   "context_search_toggle": "Швидкий пошук",
+  "context_search_keyboard": "Відкрити віртуальну клавіатуру",
+  "context_search_on_enter": "Шукати лише за Enter",
   "context_search_desc": "Друкуйте на клавіатурі на головній, щоб відкрити пошук серед ігор ваших поличок. Enter фокусує картку.",
   "side_nav_toggle": "Бічна навігація",
   "side_nav_desc": "Натисніть dpad-вліво на першій картці полички, щоб відкрити бічну панель і перейти до іншої.",

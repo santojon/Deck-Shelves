@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Отступ описание / логотип",
   "context_search_toggle": "Быстрый поиск",
+  "context_search_keyboard": "Открыть виртуальную клавиатуру",
+  "context_search_on_enter": "Поиск только по Enter",
   "context_search_desc": "Печатайте на клавиатуре на главной, чтобы открыть поиск по играм ваших полок. Enter фокусирует карточку.",
   "side_nav_toggle": "Боковая навигация",
   "side_nav_desc": "Нажмите dpad-влево на первой карточке полки, чтобы открыть боковую панель и перейти к другой полке.",

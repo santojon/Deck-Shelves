@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "描述 / 標誌間距",
   "context_search_toggle": "快速搜尋",
+  "context_search_keyboard": "開啟虛擬鍵盤",
+  "context_search_on_enter": "僅按 Enter 時搜尋",
   "context_search_desc": "在主畫面用鍵盤輸入即可開啟搜尋，範圍是貨架上的遊戲。Enter 聚焦對應卡片。",
   "side_nav_toggle": "側邊導覽",
   "side_nav_desc": "在貨架第一張卡片按方向鍵左，開啟側邊面板跳到其他貨架。",

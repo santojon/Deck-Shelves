@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Açıklama / logo aralığı",
   "context_search_toggle": "Hızlı arama",
+  "context_search_keyboard": "Sanal klavyeyi aç",
+  "context_search_on_enter": "Yalnızca Enter ile ara",
   "context_search_desc": "Ana ekrandayken klavyede yazmaya başla — raflarındaki oyunlar üzerinde arama açılır. Enter eşleşen kartı odaklar.",
   "side_nav_toggle": "Yan gezinme",
   "side_nav_desc": "Bir rafın ilk kartında dpad-sol bas — yan panel açılır, başka bir rafa atlayabilirsin.",

@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Description / logo gap",
   "context_search_toggle": "Quick search",
+  "context_search_keyboard": "Open virtual keyboard",
+  "context_search_on_enter": "Search only on Enter",
   "context_search_desc": "Type on the keyboard while on the home to open a search over the games currently in your shelves. Enter focuses the matching card.",
   "side_nav_toggle": "Side navigation",
   "side_nav_desc": "Press dpad-left on the first card of a shelf to open a side panel and jump to another shelf.",

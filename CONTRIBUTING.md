@@ -73,7 +73,15 @@ pnpm run watch:deck <deck-hostname>
 ## Project Structure
 
 ```
-main.py                  Python backend (settings persistence)
+main.py                  Python backend entry — DEFAULT_SETTINGS, _SSL_CTX,
+                         Plugin class (lifecycle + RPC). Re-exports the
+                         helper modules below for back-compat imports.
+paths.py                 _steam_install_candidates, _normalize_path —
+                         path discovery + home-confined path validation.
+storage.py               _settings_dir, _primary_file, _safe_read_json —
+                         settings.json read helpers (Decky env-var aware).
+sanitizer.py             _sanitize_settings — settings-shape normaliser
+                         (mirrors the Zod schemas in src/types.ts).
 src/index.tsx            Frontend entry point (Decky lifecycle)
 src/types.ts             Zod schemas (Shelf, Settings, FilterGroup)
 src/steam/               Steam API access (collections, tabs, filters, apps)
@@ -91,7 +99,15 @@ src/components/          React components
 src/core/                Utilities (focus, scroll, assets, webpack compat, plugin API)
 src/domain/              Pure domain logic (settings operations, defaults, templates)
 src/runtime/             Platform integration (home patching, Steam host, logger)
-src/features/            Feature controllers (settings)
+src/features/            Feature controllers
+  settings/
+    controller.tsx       Hook entry (state + effects + compose action slices)
+    controller/          Action slices spread into the public `actions`
+      shelves.ts         Regular-shelf CRUD + import / export / reset
+      smartShelves.ts    Smart-shelf CRUD + surprise-me + import / export
+      savedFilters.ts    SavedFilter + SavedSmartFilter CRUD
+      online.ts          Online-features toggles + acceptOnlinePrivacy
+      globalVisual.ts    30 global visual setters (consolidated)
 src/integrations/        Third-party plugin integration (TabMaster, UnifiDeck)
 src/shims/               React/Decky GamepadUI shims
 src/test/                Vitest test suites

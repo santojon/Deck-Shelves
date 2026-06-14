@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "説明 / ロゴの間隔",
   "context_search_toggle": "クイック検索",
+  "context_search_keyboard": "仮想キーボードを開く",
+  "context_search_on_enter": "Enterキー押下時のみ検索",
   "context_search_desc": "ホームでキーボードを入力すると、棚にあるゲームを検索できます。Enterで該当カードにフォーカスします。",
   "side_nav_toggle": "サイドナビゲーション",
   "side_nav_desc": "棚の最初のカードで十字キー左を押すと、サイドパネルで別の棚にジャンプできます。",

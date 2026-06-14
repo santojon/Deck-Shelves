@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "描述 / 标志间距",
   "context_search_toggle": "快速搜索",
+  "context_search_keyboard": "打开虚拟键盘",
+  "context_search_on_enter": "仅按 Enter 时搜索",
   "context_search_desc": "在主页上用键盘输入即可打开搜索，搜索范围是货架上的游戏。Enter 聚焦对应卡片。",
   "side_nav_toggle": "侧边导航",
   "side_nav_desc": "在货架第一张卡片按方向键左，打开侧边面板跳转到其他货架。",

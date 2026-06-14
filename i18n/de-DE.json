@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Abstand Beschreibung / Logo",
   "context_search_toggle": "Schnellsuche",
+  "context_search_keyboard": "Virtuelle Tastatur öffnen",
+  "context_search_on_enter": "Nur mit Eingabe suchen",
   "context_search_desc": "Tippe auf der Tastatur im Home, um eine Suche über die Spiele in deinen Regalen zu öffnen. Enter fokussiert die passende Karte.",
   "side_nav_toggle": "Seitliche Navigation",
   "side_nav_desc": "Drücke D-Pad links auf der ersten Karte eines Regals, um ein Seitenpanel zu öffnen und zu einem anderen Regal zu springen.",

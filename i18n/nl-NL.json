@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Ruimte beschrijving / logo",
   "context_search_toggle": "Snel zoeken",
+  "context_search_keyboard": "Virtueel toetsenbord openen",
+  "context_search_on_enter": "Alleen zoeken met Enter",
   "context_search_desc": "Typ op het toetsenbord in het home-scherm om te zoeken in de games van je planken. Enter focust de overeenkomende kaart.",
   "side_nav_toggle": "Zij-navigatie",
   "side_nav_desc": "Druk dpad-links op de eerste kaart van een plank om een zijpaneel te openen en naar een andere plank te springen.",

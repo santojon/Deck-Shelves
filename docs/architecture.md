@@ -95,7 +95,13 @@ src/
 │
 ├── features/
 │   └── settings/
-│       └── controller.tsx      Settings controller hook (useSettingsController)
+│       ├── controller.tsx      Hook entry (state + effects + spread compose)
+│       └── controller/         Action slices (composed via spreads)
+│           ├── shelves.ts      Regular-shelf CRUD + import/export/reset
+│           ├── smartShelves.ts Smart-shelf CRUD + surprise-me + import/export
+│           ├── savedFilters.ts SavedFilter + SavedSmartFilter CRUD
+│           ├── online.ts       Online-features toggles + acceptOnlinePrivacy
+│           └── globalVisual.ts 30 global visual setters (consolidated)
 │
 ├── integrations/
 │   ├── index.ts                Integration barrel
@@ -129,7 +135,14 @@ src/
     ├── scrollUtils.test.ts
     └── test_main.py            Python sanitizer tests (pytest)
 
-main.py                        Python backend (settings read/write, atomic saves)
+main.py                        Python entry: DEFAULT_SETTINGS, _SSL_CTX, Plugin class
+                               (lifecycle + RPC). Re-exports helpers from below.
+paths.py                       _steam_install_candidates, _normalize_path
+                               (path discovery + home-confined validation)
+storage.py                     _settings_dir, _primary_file, _safe_read_json
+                               (settings.json read helpers, Decky env-var aware)
+sanitizer.py                   _sanitize_settings (settings-shape normaliser,
+                               mirrors the Zod schemas in src/types.ts)
 plugin.json                    Decky plugin manifest
 ```
 
@@ -141,7 +154,7 @@ Settings (backend JSON) → settingsStore → controller → HomeInject → Shel
                                                     homePatch (fallback DOM renderer)
 ```
 
-1. **Settings** are persisted by the Python backend (`main.py`) and cached in `localStorage`
+1. **Settings** are persisted by the Python backend (`main.py` → atomic write via `paths.py` + `storage.py`; shape-checked through `sanitizer.py` on every read AND write) and cached in `localStorage`
 2. **`settingsStore`** manages the cache, backend RPC calls, and subscriber notifications
 3. **`controller`** (React hook) provides actions and state to QAM components
 4. **`HomeInject`** creates a portal into the Steam home screen DOM

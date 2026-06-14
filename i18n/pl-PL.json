@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Odstęp opis / logo",
   "context_search_toggle": "Szybkie wyszukiwanie",
+  "context_search_keyboard": "Otwórz klawiaturę wirtualną",
+  "context_search_on_enter": "Szukaj tylko po wciśnięciu Enter",
   "context_search_desc": "Pisz na klawiaturze będąc na ekranie głównym, aby otworzyć wyszukiwanie wśród gier na półkach. Enter ustawia fokus na dopasowanej karcie.",
   "side_nav_toggle": "Nawigacja boczna",
   "side_nav_desc": "Naciśnij dpad-lewo na pierwszej karcie półki, aby otworzyć panel boczny i przejść do innej półki.",

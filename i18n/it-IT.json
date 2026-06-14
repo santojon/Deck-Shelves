@@ -802,6 +802,8 @@
   "working": "Working…",
   "description_logo_gap_label": "Spazio descrizione / logo",
   "context_search_toggle": "Ricerca rapida",
+  "context_search_keyboard": "Apri tastiera virtuale",
+  "context_search_on_enter": "Cerca solo con Invio",
   "context_search_desc": "Scrivi sulla tastiera mentre sei nella home per aprire una ricerca tra i giochi nei tuoi scaffali. Invio focalizza la scheda.",
   "side_nav_toggle": "Navigazione laterale",
   "side_nav_desc": "Premi dpad-sinistra sulla prima scheda di uno scaffale per aprire un pannello laterale e saltare a un altro scaffale.",
