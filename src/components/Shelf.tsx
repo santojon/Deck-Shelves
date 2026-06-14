@@ -18,6 +18,7 @@ import { invalidateSmartShelfCache } from "../steam/smartShelves";
 import { clearOnlineShelfCache } from "../core/shelfActions";
 import { fetchGameNames } from "../core/onlineStore";
 import { getCurrentSettings } from "../store/settingsStore";
+import { publishShelf, unpublishShelf } from "../features/search/shelfRegistry";
 
 /** Opens the Steam Store page for an appid using the best available method.
  *  Tries the steam:// protocol first since it is the only path that works
@@ -446,6 +447,23 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     }
     return () => { cancelled = true; };
   }, [needsExternalNames, appIds?.join(','), items, sourceIncludesNonOwned]);
+
+  // Publish resolved items into a global registry so Quick Search can
+  // match against EVERY game in the shelf, not just the cards currently
+  // mounted in the DOM. Without this, items below the fold (or recycled
+  // out by virtualisation) silently miss every query.
+  useEffect(() => {
+    if (!appIds?.length) {
+      unpublishShelf(shelf.id);
+      return;
+    }
+    const list = appIds.map((id) => {
+      const meta = items.get(id);
+      return { appid: id, name: meta?.name ?? "" };
+    }).filter((x) => x.name && !/^App \d+$/.test(x.name));
+    publishShelf(shelf.id, shelf.title, list);
+    return () => { unpublishShelf(shelf.id); };
+  }, [shelf.id, shelf.title, appIds, items]);
 
   const rowItems = useMemo((): DeckRowItem[] => {
     if (!appIds?.length) return [];

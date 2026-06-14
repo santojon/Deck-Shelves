@@ -39,6 +39,17 @@ export function ShelfSideNav() {
   const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
   const priorFocusRef = useRef<HTMLElement | null>(null);
   const lastL1AtRef = useRef<number>(0);
+  // Runtime gate read inside the bus listener — even if the listener
+  // somehow survives an effect cleanup race, this ref always reflects
+  // the LATEST toggle state, so a disabled sidenav can't open.
+  const enabledRef = useRef<boolean>(enabled);
+  useEffect(() => {
+    enabledRef.current = enabled;
+    if (!enabled) {
+      lastL1AtRef.current = 0;
+      setAnchor(null);
+    }
+  }, [enabled]);
 
   const closeAndRestore = () => {
     const prior = priorFocusRef.current;
@@ -99,8 +110,11 @@ export function ShelfSideNav() {
       setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? appid : null });
     };
     // ONLY trigger: L1 pressed twice within 300 ms. `lastL1AtRef` is a
-    // ref so the timestamp survives effect re-runs.
+    // ref so the timestamp survives effect re-runs. Runtime-gated by
+    // `enabledRef` so a stale subscription can never open a disabled
+    // sidenav.
     const unsubBtn = subscribeHomeButton((e) => {
+      if (!enabledRef.current) return;
       try { (globalThis as any).__ds_sidenav_last_btn = { b: e.button, t: Date.now() }; } catch {}
       if (e.button !== GamepadButton.BUMPER_LEFT) return;
       const now = Date.now();
@@ -115,7 +129,7 @@ export function ShelfSideNav() {
     return () => { unsubBtn(); };
   }, [anchor, enabled]);
 
-  if (!anchor || !settings) return null;
+  if (!enabled || !anchor || !settings) return null;
   // Inline render (no portal) keeps the overlay inside Steam's NavTree
   // so B closes it via `onCancelButton`.
   return (
@@ -213,11 +227,11 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
       style={{
         position: "fixed",
         inset: 0,
-        // Fade-out backdrop matches the reference image: dark wash with
-        // a slight backdrop blur that softens whatever is behind it.
-        background: "linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.4) 38%, rgba(0,0,0,0.0) 60%)",
-        backdropFilter: "blur(4px)",
-        WebkitBackdropFilter: "blur(4px)",
+        // Deeper black wash with stronger blur so the column sits over
+        // a really dark backdrop — easier to read at any home wallpaper.
+        background: "linear-gradient(to right, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.55) 38%, rgba(0,0,0,0) 62%)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
         zIndex: 9_998,
         display: "flex",
         alignItems: "center",
@@ -340,11 +354,14 @@ const ShelfButton = forwardRef<HTMLDivElement, {
     gap: "0.5em",
     padding: "0.55em 0.9em 0.55em 1em",
     borderRadius: 6,
+    // Dark-tinted focus palette: black gradient + a theme-coloured edge
+    // bar (Steam's --gpSystemLighter; falls back to a muted neutral so
+    // it still works on themes that don't define the var).
     background: focused
-      ? "linear-gradient(to right, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.14) 55%, rgba(255,255,255,0) 100%)"
+      ? "linear-gradient(to right, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0) 100%)"
       : "transparent",
     boxShadow: focused
-      ? "inset 4px 0 0 0 rgba(255,255,255,0.95), -10px 0 24px -4px rgba(255,255,255,0.35)"
+      ? "inset 4px 0 0 0 var(--gpSystemLighter, rgba(180,190,210,0.55)), -10px 0 24px -4px rgba(0,0,0,0.55)"
       : undefined,
     transform: focused ? "translateX(0) scale(1.04)" : "translateX(0) scale(1)",
     transformOrigin: "left center",

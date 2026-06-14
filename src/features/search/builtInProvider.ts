@@ -1,60 +1,34 @@
 import type { SearchHit, SearchProviderDescriptor } from "../../core/pluginApi";
 import { focusElement } from "../../core/focusRestore";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
+import { readRegistry } from "./shelfRegistry";
 
-interface SteamAppOverviewLite {
-  appid: number;
-  display_name?: string;
-  name?: string;
-  installed?: boolean;
-}
-
-function getOverview(appid: number): SteamAppOverviewLite | null {
-  try {
-    const store = (globalThis as unknown as {
-      appStore?: { GetAppOverviewByAppID?: (id: number) => SteamAppOverviewLite | null };
-    }).appStore;
-    return store?.GetAppOverviewByAppID?.(appid) ?? null;
-  } catch { return null; }
-}
-
-function nameOf(appid: number): string {
-  const ov = getOverview(appid);
-  return ov?.display_name ?? ov?.name ?? "";
-}
-
-interface ShelfHit { appid: number; name: string; shelfId: string | null; shelfTitle: string | null }
+interface ShelfHit { appid: number; name: string; shelfId: string; shelfTitle: string }
 
 /**
- * Walks the rendered DS shelves on the home and collects every card
- * currently in the DOM. Reads names from `data-name` (set directly by
- * GameCard) so the search doesn't depend on appStore being warm —
- * non-library appids (store, wishlist, friends_playing) used to come
- * back nameless and silently miss every query.
+ * Reads from the shelf registry — every Shelf component publishes its
+ * resolved appids + names there on mount and on every update, so this
+ * sees EVERY game across EVERY visible shelf, not just the cards
+ * currently rendered in the DOM. Items below the fold, virtualised, or
+ * still streaming meta all count.
  */
 function collectShelfApps(): ShelfHit[] {
-  const seen = new Map<number, ShelfHit>();
-  const doc = getPreferredSteamDocument() ?? document;
-  const root = doc.querySelector<HTMLElement>(".deck-shelves-root") ?? doc;
-  const shelves = root.querySelectorAll<HTMLElement>(".ds-shelf[data-shelfid]");
-  for (const shelfEl of Array.from(shelves)) {
-    const shelfId = shelfEl.getAttribute("data-shelfid");
-    const titleEl = shelfEl.querySelector<HTMLElement>(".ds-shelf-title");
-    const shelfTitle = titleEl?.textContent?.trim() ?? null;
-    const cards = shelfEl.querySelectorAll<HTMLElement>("[data-appid]");
-    for (const card of Array.from(cards)) {
-      const raw = card.getAttribute("data-appid");
-      if (!raw) continue;
-      const appid = Number(raw);
-      if (!Number.isFinite(appid) || appid <= 0) continue;
-      if (seen.has(appid)) continue;
-      const name = (card.getAttribute("data-name") || nameOf(appid) || "").trim();
-      if (!name) continue;
-      seen.set(appid, { appid, name, shelfId, shelfTitle });
+  const out: ShelfHit[] = [];
+  const seen = new Set<number>();
+  for (const shelf of readRegistry()) {
+    for (const item of shelf.items) {
+      if (seen.has(item.appid)) continue;
+      seen.add(item.appid);
+      out.push({
+        appid: item.appid,
+        name: item.name,
+        shelfId: shelf.shelfId,
+        shelfTitle: shelf.title,
+      });
     }
   }
-  try { (globalThis as any).__ds_search_pool = seen.size; } catch {}
-  return Array.from(seen.values());
+  try { (globalThis as any).__ds_search_pool = out.length; } catch {}
+  return out;
 }
 
 function normalize(s: string): string {
@@ -126,22 +100,43 @@ export const BUILT_IN_SHELF_SEARCH: SearchProviderDescriptor = {
 };
 
 function focusShelfCard(appid: number, shelfId: string | null): void {
-  // Resolve the exact card the user picked. Scope to the shelf the hit
-  // came from so two shelves containing the same app land on the one the
-  // search was answering from; fall back to a global lookup when the
-  // shelf id is missing or the card has already been recycled out of
-  // that container.
   const g = globalThis as unknown as { CSS?: { escape?: (s: string) => string } };
   const escape = (s: string) => g.CSS?.escape?.(s) ?? s.replace(/["\\]/g, "\\$&");
   const doc = getPreferredSteamDocument() ?? document;
-  let target: HTMLElement | null = null;
-  if (shelfId) {
-    target = doc.querySelector<HTMLElement>(
-      `[data-shelfid="${escape(shelfId)}"] [data-appid="${appid}"]`,
-    );
-  }
-  if (!target) {
-    target = doc.querySelector<HTMLElement>(`[data-appid="${appid}"]`);
+  const findTarget = (): HTMLElement | null => {
+    let t: HTMLElement | null = null;
+    if (shelfId) {
+      t = doc.querySelector<HTMLElement>(
+        `.ds-shelf[data-shelfid="${escape(shelfId)}"] [data-appid="${appid}"]`,
+      );
+    }
+    if (!t) {
+      t = doc.querySelector<HTMLElement>(`.ds-shelf [data-appid="${appid}"]`);
+    }
+    return t;
+  };
+  let target = findTarget();
+  if (!target && shelfId) {
+    // Card not mounted — scroll the shelf into view first, then retry a
+    // few times while the DOM catches up. Steam virtualises long rows so
+    // off-screen items don't render until they're near the viewport.
+    const shelfEl = doc.querySelector<HTMLElement>(`.ds-shelf[data-shelfid="${escape(shelfId)}"]`);
+    if (shelfEl) {
+      try { shelfEl.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
+      let attempt = 0;
+      const id = setInterval(() => {
+        attempt++;
+        const found = findTarget();
+        if (found) {
+          clearInterval(id);
+          try { found.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
+          try { focusElement(found); } catch {}
+        } else if (attempt > 20) {
+          clearInterval(id);
+        }
+      }, 60);
+    }
+    return;
   }
   if (!target) return;
   try {

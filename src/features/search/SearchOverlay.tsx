@@ -5,6 +5,7 @@ import { BUILT_IN_SHELF_SEARCH } from "./builtInProvider";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { GamepadButton, subscribeHomeButton } from "../../runtime/homeInputBus";
+import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
 
@@ -53,10 +54,17 @@ export function SearchOverlay() {
   const searchAbort = useRef(0);
   const priorFocusRef = useRef<HTMLElement | null>(null);
 
-  const close = useCallback(() => {
-    lastSessionQuery = query;
-    lastSessionAt = Date.now();
+  const close = useCallback((opts?: { restorePrior?: boolean; clearSession?: boolean }) => {
+    const restorePrior = opts?.restorePrior !== false;
+    if (opts?.clearSession) {
+      lastSessionQuery = "";
+      lastSessionAt = 0;
+    } else {
+      lastSessionQuery = query;
+      lastSessionAt = Date.now();
+    }
     setOpen(false);
+    setQuery("");
     if (debounceRef.current != null) {
       window.clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -67,7 +75,7 @@ export function SearchOverlay() {
     }
     const prior = priorFocusRef.current;
     priorFocusRef.current = null;
-    if (prior && prior.isConnected) {
+    if (restorePrior && prior && prior.isConnected) {
       try { focusElement(prior); } catch {}
     }
   }, [query]);
@@ -109,6 +117,21 @@ export function SearchOverlay() {
     });
   }, [enabled, open, close]);
 
+  // While the pill is open, listen on the BP-polled controller bus
+  // directly — it fires regardless of which element holds gpfocus, so
+  // L1, R1 and B close even when the input has the NavTree focus.
+  useEffect(() => {
+    if (!open) return;
+    return subscribeControllerInput((e) => {
+      if (!e.pressed) return;
+      if (
+        e.button === RawBtn.L1
+        || e.button === RawBtn.R1
+        || e.button === RawBtn.B
+      ) close();
+    });
+  }, [open, close]);
+
   // Search 5 s after the last keystroke, then pause 5 s before moving.
   useEffect(() => {
     if (!open) return;
@@ -134,12 +157,25 @@ export function SearchOverlay() {
       }
       merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
       const first = merged[0];
-      if (!first) return;
       moveTimerRef.current = window.setTimeout(() => {
         moveTimerRef.current = null;
         if (myToken !== searchAbort.current) return;
-        try { first.onActivate?.(); } catch {}
-        close();
+        if (first) {
+          // Match found — close the overlay FIRST (releases the input
+          // from the focus tree) AND clear the session query so the
+          // next open starts fresh; then jump to the hit in the next
+          // frame so the NavTree has settled before `focusElement` runs.
+          close({ restorePrior: false, clearSession: true });
+          // 180 ms gives the overlay time to unmount, the NavTree time
+          // to drop the input node, then we land focus on the hit's
+          // card. 60 ms was tight enough that the input still won.
+          window.setTimeout(() => { try { first.onActivate?.(); } catch {} }, 180);
+        } else {
+          // No match — close at the same time as a successful run so
+          // the overlay never lingers. Session memory keeps the query
+          // for `MEMORY_TTL_MS`, then clears itself.
+          close();
+        }
       }, PAUSE_BEFORE_MOVE_MS);
     }, DEBOUNCE_MS);
   }, [query, open, close]);
@@ -149,25 +185,71 @@ export function SearchOverlay() {
 }
 
 function SearchPill({ query, onChange }: { query: string; onChange: (q: string) => void }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e?.target?.value ?? "");
   };
+  // Kick HTML focus straight onto the underlying input. Steam Deck's
+  // on-screen keyboard (auto-popup + Steam+X chord) reads the focused
+  // input on BP; without an explicit `.focus()` the NavTree thinks the
+  // input is focused while `document.activeElement` is the body, and
+  // Steam+X silently no-ops. Retries cover the post-mount timing race.
+  useEffect(() => {
+    let cancelled = false;
+    const tryFocus = (n: number) => {
+      if (cancelled) return;
+      const host = hostRef.current;
+      const input = host?.querySelector<HTMLInputElement>("input");
+      if (input && input.isConnected) {
+        try { input.focus(); } catch {}
+        try {
+          // Diagnose via CDP whether the input actually owns
+          // document.activeElement (Steam+X's gate).
+          const g = globalThis as any;
+          g.__ds_search_active = {
+            n,
+            isInput: input === input.ownerDocument?.activeElement,
+            activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
+            type: input.type,
+            tabIndex: input.tabIndex,
+          };
+        } catch {}
+      }
+      if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
+    };
+    tryFocus(8);
+    return () => { cancelled = true; };
+  }, []);
   // Width grows with the typed string, in ch units so it scales with
   // the (vw-clamped) font-size. Floor keeps a sensible empty width;
   // ceil prevents runaway growth on long queries.
   const chars = Math.max(8, Math.min(40, query.length + 3));
   return (
     <>
-      {/* Inline styles for the TextField — DeckQAMStyles is only mounted
-          in the QAM Settings tree, never on the home, so anything that
-          relies on it (chrome stripping, input width-100%) has to live
-          here. Heavy text-shadow makes the white text legible over
-          bright backdrops too. */}
+      {/* The styles below live inline because DeckQAMStyles only mounts
+          in the QAM Settings tree, never on the home. The dark backdrop
+          sits ONLY on the input itself — nothing wraps the field. */}
       <style>{`
-        .ds-search-pill-host { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; width: 100%; }
-        .ds-search-pill-host input { background: transparent !important; border: none !important; outline: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; min-width: 0 !important; color: white !important; font-size: inherit !important; font-weight: 700 !important; text-align: center !important; caret-color: white !important; text-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 18px rgba(0,0,0,0.6); }
-        .ds-search-pill-host input::placeholder { color: rgba(255,255,255,0.65) !important; }
-        .ds-search-pill-host > div, .ds-search-pill-host > div > div { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }
+        .ds-search-pill-host { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; width: 100%; }
+        .ds-search-pill-host > div, .ds-search-pill-host > div > div { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; width: 100% !important; }
+        .ds-search-pill-host input {
+          background: rgba(0, 0, 0, 0.55) !important;
+          border: none !important;
+          outline: none !important;
+          padding: 0.35em 0.9em !important;
+          margin: 0 !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          color: white !important;
+          font-size: inherit !important;
+          font-weight: 700 !important;
+          text-align: center !important;
+          caret-color: white !important;
+          border-radius: 0.5em !important;
+          box-shadow: 0 0 18px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.10) !important;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+        }
+        .ds-search-pill-host input::placeholder { color: rgba(255,255,255,0.55) !important; }
       `}</style>
       <div
         className="ds-search-overlay"
@@ -182,13 +264,14 @@ function SearchPill({ query, onChange }: { query: string; onChange: (q: string) 
         }}
       >
         <div
+          ref={hostRef}
           className="ds-search-pill-host"
           style={{
             width: `${chars}ch`,
             maxWidth: "70vw",
-            padding: 0,
             background: "transparent",
             border: "none",
+            boxShadow: "none",
             color: "white",
             fontSize: "clamp(20px, 3vw, 30px)",
             fontWeight: 700,
