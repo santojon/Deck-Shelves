@@ -5,12 +5,10 @@ import { openManagedModal } from "../../qam/common/openManagedModal";
 import { ExportModal } from "../../qam/modals/ExportModal";
 import { ImportModal } from "../../qam/modals/ImportModal";
 import { getUserDownloadsDir, joinDownloads } from "../../../core/userPaths";
+import { SettingsSection } from "../../ui/SettingsSection";
 import { DownloadIcon, UploadIcon } from "../../icons";
+import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
 
-const ICON_BTN_STYLE: React.CSSProperties = {
-  minWidth: 0, width: 32, height: 32, padding: 0,
-  display: "flex", alignItems: "center", justifyContent: "center",
-};
 
 export interface BackupDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -43,7 +41,7 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
   };
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       <BackupGroup
         title={t("settings_backup_shelves_title")}
         description={t("settings_backup_shelves_desc")}
@@ -68,7 +66,7 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
         onExport={exportFor("all", "deck-shelves.json")}
         onImport={importFor("all", "deck-shelves.json")}
       />
-      <div style={{ fontSize: 12, opacity: 0.55, padding: "4px 4px 16px" }}>
+      <div style={{ fontSize: 11, opacity: 0.55, padding: "4px 4px 0" }}>
         {t("settings_backup_path_hint").replace("{{path}}", getUserDownloadsDir())}
       </div>
     </Focusable>
@@ -86,30 +84,23 @@ function BackupGroup({
   onImport: () => void;
 }) {
   return (
-    <Focusable
-      flow-children="horizontal"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        padding: "14px 16px",
-        borderRadius: 8,
-        background: "rgba(255, 255, 255, 0.04)",
-        border: "1px solid rgba(255, 255, 255, 0.06)",
-      }}
+    <SettingsSection
+      title={title}
+      description={description}
+      trailing={
+        <>
+          <DialogButton onClick={onExport} onOKButton={onExport} style={BTN_COMPACT_STYLE}>
+            <DownloadIcon size={12} />
+            <span>{exportLabel}</span>
+          </DialogButton>
+          <DialogButton onClick={onImport} onOKButton={onImport} style={BTN_COMPACT_STYLE}>
+            <UploadIcon size={12} />
+            <span>{importLabel}</span>
+          </DialogButton>
+        </>
+      }
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, color: "white" }}>{title}</div>
-        <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4, lineHeight: 1.35 }}>{description}</div>
-      </div>
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-        <DialogButton onClick={onExport} onOKButton={onExport} style={ICON_BTN_STYLE} aria-label={exportLabel}>
-          <DownloadIcon size={16} />
-        </DialogButton>
-        <DialogButton onClick={onImport} onOKButton={onImport} style={ICON_BTN_STYLE} aria-label={importLabel}>
-          <UploadIcon size={16} />
-        </DialogButton>
-      </div>
-    </Focusable>
+      {null}
+    </SettingsSection>
   );
 }

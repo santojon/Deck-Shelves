@@ -14,7 +14,7 @@ const RELEASES_URL = 'https://github.com/santojon/Deck-Shelves/releases'
 // `assets/kofi-qr.png`. Inlining (1078 B → ~1440 B b64) sidesteps the
 // Decky-vs-standalone asset-loading dance and works in every host
 // because data: URLs are first-class on Chromium.
-const KOFI_QR_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAzQAAAM0AQMAAABXvPU0AAAABlBMVEUAAAD///+l2Z/dAAAD60lEQVR4nO3dUXLbMAwEUN3A979lb5BOW2dIAqBUfzgN1McPTxxbXA0G2F2BEn18fMn4ccARN3mgfvABHqUL9JQ/4Kv4RP7a9YLrLNeNrrf1D/Rd9JH03/QT3zn0YcVNHqgffIBH6QI95Q/4qu/iE484Hn++cfx+md+GIx6//nrsJoAjbvJA/eADPEoXWuvp+P/n24CYsJfpqgngiJs8UD/4AI/Shf56GqxFmnMxGcmHVBPAETd5oH7wAR6lCzfT0+plHksXA464yQP1gw/wKF34T/T0eM40Jr46FTjiJg/UDz7Ao3ThZnpavX2CDZzwweJD6vngiJs8UD/4AI/Shf56WoxnLNhV4LcLEqW6sEjnX+kVhCMCJg/UDz7Ao3Shr55C/9LXMcfQXMTvBVgIRMgRMHmgfvABHqUL3fW0HMcwWxbDh5dXMezGEzD1QPzNg/eADPEoXWulpsP7Q1aVk1uRoBfnTNAm44ggHkwfqBx/gUbrQVU+rt0+wgRM+WHxIPR8ccZMH6gcf4FG60FVPq5d5LF0MOOImD9QPPsCjdKG1nlYjHDh7jjHT4k3qAUfc5IH6wQd4lC701dMy67Rk5L0xVOJWvjVtP8aBgPQNXg+OuMkD9YMP8Chd6KqnNF93sNiziH3hT2kEMG7QSWICTjiJg/UDz7Ao3Shp56OmShzVOnCVVrA3PiW5O5ImDzAcM2dT1IkS+3VAxV6elHV+plHksXA464yQP1gw/wKF1orafVCAfOnmPMtHiTesARN3mgfvABHqULXfU0P/8wz55HOp9q5QOOuMkD9YMP8ChcaKyns7VY/pe8ydlXqrOAI27yQP3gAzxKF/rq6bzusHw3uYr9gxHhLRxxkwfqBx/gUbrQWk9PRt5sYWBX90ue+hA44iYP1A8+wKN0oY+e1oYiTBxWNMbCxSv7NMIRN3mgfvABHqUL/fQ0uY/HSe8inEV9WyQccZMH6gcf4FG60FNPt9s1J7Blka7FsLbx2j4LcMRNHqgffIBH6cJ31NPt1kppd4UFp3YuYcARN3mgfvABHqULPfU0OYjctqiMR+hTJAsCR9zkgfrBB3iULjTW03FoelIyWJDQrMh3PFz0KeCImzxQP/gAj9KFVnoaeg1hpvl7m/scwqdwxE0eqB98gEfpQms9nY9aFi5mxOdR0ZGsc/7FfZBwxE0eqB98gEfpQgs9TY9QVjc0Vtstnbk0OOImD9QPPsCjdOE2enr5E5EVbMA+fU4CjrjJA/WDD/AoXeikp8NVLBsvzX+lmximDRyrU4YjbvJA/eADPEoX+upp+M3ovPFSZUvGsadrG3DETR6oH3yAR+lCRz2txhYsrV6cP0wJR9zkgfrBB3iULvTU09lLZB8SpiV7M+U9nOYBR9zkgfrBB3iULnTV0/wzj7X7yGsW244FHHGTB+oHH+BRutBfT5Or2PwI5Jgs7edYmxY44iYP1A8+wKN04T56utwbWZ3F/JVXfgcKjrjJA/WDD/AoXWiqp8mCLHZjNCtSA+PqOUo44iYP1A8+wKN0oY+eJtjLOxkGWDgBOOImD9QPPsCjdOEOehrGdlum6nw2n8IRN3mgfvABHqULrfX0nQOOuMkD9YMP8ChdoKf8AV/FJ/LXrhdcZ7ludL2tf6Dvoo+k/6af+N6hDytu8kD94AM8ShfoKX/AV338S5/4E3wgNMyixE2eAAAAAElFTkSuQmCC'
+const KOFI_QR_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAuQAAALkCAIAAADIxrcyAAANRElEQVR42u3ZQY7kNhBFQaah+1/5e+HNADYGZeV0UVRG7AsSU5T6gV1JFgDAU/1lBACAWAEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAECsAABiBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECAIgVAACxAgCIFQAAsQIAIFYAALECACBWAADECgAgVgAAxAoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAACIFQBArAAAiBUAQKwAAIgVAACxAgCIFQAAsQIAiBUAALECACBWAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAAD/dk1bcFV56g+X5Li9seuep70L0+Z84ruAd2E5WQEAln8DAQCIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAGuIzgc0kM4UNVZb325KPm3JnVruv6TtrPLCcrAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAAA802UE31FVx91zEnP+wqw69zxtvbv25K71en99J1lOVgAAsQIAIFYAALECACBWAADECgAgVgAAxAoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAeKbLCOAfSY67blUdd137ypxhOVkBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAECsAABiBQBArAAAYgUAQKwAAIgVAOB0lxEA/1eS27+tqi2/7dxzx4n3DMvJCgCAWAEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAA/N5lBN+RxBAerqo83xe/C7uer71hViwnKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAvM9lBJ+rKkN4sSRb9kbnuie+CyfOedp1fSdZTlYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAOD3rmkLTuKp85+qyn7mj8/ZvoLlZAUAECsAAGIFAECsAABiBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECAIgVAACxAgCIFQAAsQIAIFYAgPepJLMWXHX7t51Zda47jT1pVmZ17px9r1hOVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAmKCSzFpw1ZbrduZ84j1P2xsnzmrXvjpxT+7aGyc+o2l7wzdnOVkBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAGCmywieL8nt31bVlnvedd0TdWbV2Rtm9fw5n/juT9uTZrWcrAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAALECACBWAADECgAgVgAAxAoAMFMlmbXgqlHr9Xzf/Yx2rXfXPZ+4n63XO+j7vJysAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAALECACBWAADECgDwPpVk1oKrbv+2M6vOdXm+E/eGe3bPP3HPJ37bp81qOVkBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAAGLFCAAAsQIAIFYAALECACBWAADECgAgVgAA+irJrAVXjVqv5/v8WZ14zye+g9Oer2+d79VysgIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQAQKwAAYgUAECsAAD+nksxacNWW6544512zOlHn+XbmPO393bWffSexN5aTFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAALECACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEA+FUlMYVPh1W15brTntG0OXfWO+2ep81qmhO/dSfuyeVkBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECAIgVAACxAgCIFSMAAMQKAIBYAQDECgCAWAEAECsAgFgBAOirJKbw6bCqbv/2xDl31tvRmdWJ98zzn6+9YW94vsvJCgCAWAEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAA/KqSzFpw1aj1nvh8O8+os94T94b1+l7Zk667nKwAAIgVAACxAgCIFQAAsQIAiBUAALECACBWAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgCAWAEAxAoAgFgBAMQKAMD3XUbwuSS3f1tVW+5513V3zXna851m15x37clp3zpzZjlZAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQBArAAAYgUAQKwAAGIFAECsAACIFQDgFJcRfEeS27+tquPuuaOz3l1z3jWrafv5xD3pm2NWvhvLyQoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAO9TSWYtuOr2bzuz2nXdXbPaxayev59PfL7T9saJTtzP096F5WQFABArAABiBQBArAAAYgUAQKwAAGIFAECsAACIFQBArAAAiBUAQKwAAIgVAACxAgCIFQAAsQIAiBUAALECACBWAIA3qSSmwHs2dNXt33behc51O058f83q+ft52t440bS/3U5WAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQB4nGvagqvKU3+4JFt+y/Of7653v3PPJ35zds3KfmY5WQEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUA4BSXEXwuiSF8qKpGXXfavurMubNe17Unn3bPu/bGcrICACBWAADECgAgVgAAxAoAIFYAAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAAB7XUbwHVV13D0nGfWMdq13197orHfa3vDNMaufeBd2XXc5WQEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAECsAABiBQBArAAAYsUIAACxAgAgVgAAsQIAIFYAAMQKACBWAAD6LiOAf1TV7d8m2fLbzj3vmlXHtFl11uv9fT7PdzlZAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAAGIFAECsAACIFQDgXJcRQF9V3f5tklH33Llu57cd09bLu9/95WQFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVIwAAxAoAgFgBAMQKAIBYAQAQKwCAWAEA6LuM4DuSGMLD51xVo67r+dobP3Fd7y/LyQoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAABNcRvC5qjIEz+iPXzeJe/4Cc373nDvXnfaMlpMVAACxAgCIFQAAsQIAIFYAALECACBWAACxAgAgVgAAxAoAIFYAAMQKACBWjAAAECsAAGIFABArAABiBQBArAAAYgUAoK+SmAIAsJysAACIFQBArAAAiBUAALECAIgVAACxAgCIFQAAsQIAIFYAALECACBWAACxAgAgVgAAxAoAIFYAAMQKACBWAADECgCAWAEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECABzkb8NBQq2BVSslAAAAAElFTkSuQmCC'
 const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
 const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
 const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: '#dcdedf' }
@@ -67,52 +67,63 @@ export function SupportPage() {
           on the right ("scan or click"). Matches the WineCellar /
           SDH-PlayTime pattern of pairing the QR with the action so
           either input modality works without leaving the page. */}
-      <Field bottomSeparator="none" childrenLayout="below">
+      <div style={{
+        display: 'flex',
+        gap: 16,
+        alignItems: 'center',
+        padding: '12px 14px',
+        margin: '8px 0',
+        borderRadius: 10,
+        background: 'rgba(255, 94, 91, 0.08)',
+        border: '1px solid rgba(255, 94, 91, 0.25)',
+        boxSizing: 'border-box',
+        width: '100%',
+        overflow: 'hidden',
+      }}>
         <div style={{
+          width: 128,
+          height: 128,
+          minWidth: 128,
+          flexShrink: 0,
+          padding: 8,
+          background: 'white',
+          borderRadius: 6,
+          boxSizing: 'content-box',
           display: 'flex',
-          gap: 16,
           alignItems: 'center',
-          padding: '12px 14px',
-          borderRadius: 10,
-          background: 'rgba(255, 94, 91, 0.08)',
-          border: '1px solid rgba(255, 94, 91, 0.25)',
-          boxSizing: 'border-box',
-          maxWidth: '100%',
+          justifyContent: 'center',
         }}>
           <img
             src={KOFI_QR_DATA_URL}
             alt='Ko-fi QR code'
+            width={128}
+            height={128}
             style={{
-              width: 112,
-              height: 112,
-              boxSizing: 'border-box',
-              imageRendering: 'pixelated',
-              background: 'white',
-              padding: 6,
-              borderRadius: 6,
-              flexShrink: 0,
+              width: 128,
+              height: 128,
               display: 'block',
+              objectFit: 'contain',
             }}
           />
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 13, color: '#dcdedf', lineHeight: 1.4 }}>
-              {t('about_kofi_qr_hint')}
-            </div>
-            <div style={{ display: 'flex' }}>
-              <DialogButton
-                onClick={openKofi}
-                onOKButton={openKofi}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
-              >
-                <svg viewBox='0 0 24 24' fill='none' style={{ width: 15, height: 15, marginRight: 6, flexShrink: 0 }}>
-                  <path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='#ff5e5b' />
-                </svg>
-                Ko-fi
-              </DialogButton>
-            </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 13, color: '#dcdedf', lineHeight: 1.4 }}>
+            {t('about_kofi_qr_hint')}
+          </div>
+          <div style={{ display: 'flex' }}>
+            <DialogButton
+              onClick={openKofi}
+              onOKButton={openKofi}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+            >
+              <svg viewBox='0 0 24 24' fill='none' style={{ width: 15, height: 15, marginRight: 6, flexShrink: 0 }}>
+                <path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' fill='#ff5e5b' />
+              </svg>
+              Ko-fi
+            </DialogButton>
           </div>
         </div>
-      </Field>
+      </div>
       <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('about_limitations_title')}</span>} />
       {limitations.map((l, i) => (
         <Field key={i} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• {l}</span>} />

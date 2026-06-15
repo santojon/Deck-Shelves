@@ -1,14 +1,11 @@
 import React, { useState } from "react";
-import { DialogButton, Focusable } from "../../../runtime/host/decky";
+import { DialogButton, Focusable, ToggleField } from "../../../runtime/host/decky";
+import { SettingsSection } from "../../ui/SettingsSection";
 import { PencilIcon, PlusCircleIcon, TrashIcon } from "../../icons";
+import { BTN_ICON_COMPACT_STYLE } from "../../ui/buttonStyles";
 
-const ICON_BTN_STYLE: React.CSSProperties = {
-  minWidth: 0, width: 32, height: 32, padding: 0,
-  display: "flex", alignItems: "center", justifyContent: "center",
-};
 import type { useSettingsController } from "../../../features/settings/controller";
 import { openManagedModal } from "../../qam/common/openManagedModal";
-import { TemplatePickerModal } from "../../qam/modals/TemplatePickerModal";
 import { CreateShelfModal } from "../../qam/modals/CreateShelfModal";
 import { EditShelfModal } from "../../qam/modals/EditShelfModal";
 import { EditSmartShelfModal } from "../../qam/modals/EditSmartShelfModal";
@@ -28,19 +25,26 @@ export function ShelvesDetail({ controller, t }: ShelvesDetailProps) {
   const smarts: any[] = (settings as any).smartShelves ?? [];
   const unifiedOn = (settings as any).unifiedListEnabled === true;
 
+  // Always use the unified Create modal (Standard + Smart tabs) so
+  // users can create either type regardless of the unified-list flag.
   const handleAdd = () => openManagedModal((close) => (
-    unifiedOn
-      ? <CreateShelfModal closeModal={close} controller={controller} />
-      : <TemplatePickerModal closeModal={close} controller={controller} />
+    <CreateShelfModal closeModal={close} controller={controller} />
   ));
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <Focusable flow-children="row" style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+      <Focusable flow-children="row" style={{ display: "flex", gap: 8, marginBottom: 4, alignItems: "center" }}>
         <DialogButton onClick={handleAdd} onOKButton={handleAdd} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 32 }}>
           <PlusCircleIcon size={14} />
           <span>{t("add_shelf")}</span>
         </DialogButton>
+        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <ToggleField
+            label={t("unified_list_enabled")}
+            checked={unifiedOn}
+            onChange={(v: boolean) => void (controller.actions as any).setUnifiedListEnabled?.(v)}
+          />
+        </div>
       </Focusable>
       {unifiedOn ? (
         <UnifiedColumn
@@ -51,7 +55,7 @@ export function ShelvesDetail({ controller, t }: ShelvesDetailProps) {
           t={t}
         />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <Focusable flow-children="horizontal" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <ShelfColumn
             title={t("settings_tab_shelves")}
             shelves={regulars}
@@ -66,7 +70,7 @@ export function ShelvesDetail({ controller, t }: ShelvesDetailProps) {
             controller={controller}
             t={t}
           />
-        </div>
+        </Focusable>
       )}
     </Focusable>
   );
@@ -81,28 +85,36 @@ function ShelfColumn({
   controller: ReturnType<typeof useSettingsController>;
   t: (k: string) => string;
 }) {
+  const move = (id: string, dir: -1 | 1) => {
+    const action = isSmart
+      ? (controller.actions as any).moveSmartShelf
+      : (controller.actions as any).moveShelf;
+    void action?.(id, dir);
+  };
   return (
-    <div style={{
-      padding: "12px 14px",
-      borderRadius: 8,
-      background: "rgba(255, 255, 255, 0.04)",
-      border: "1px solid rgba(255, 255, 255, 0.06)",
-    }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, opacity: 0.8, marginBottom: 8 }}>
-        {title}
-      </div>
+    <SettingsSection title={title}>
       {shelves.length === 0 ? (
         <div style={{ opacity: 0.55, padding: 8, fontStyle: "italic", fontSize: 12 }}>
           {t("settings_empty_shelves")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {shelves.map((shelf) => (
-            <ShelfRow key={shelf.id} shelf={shelf} isSmart={isSmart} controller={controller} t={t} />
+          {shelves.map((shelf, idx) => (
+            <ShelfRow
+              key={shelf.id}
+              shelf={shelf}
+              isSmart={isSmart}
+              controller={controller}
+              t={t}
+              reorder={{
+                moveUp: idx > 0 ? () => move(shelf.id, -1) : undefined,
+                moveDown: idx < shelves.length - 1 ? () => move(shelf.id, 1) : undefined,
+              }}
+            />
           ))}
         </div>
       )}
-    </div>
+    </SettingsSection>
   );
 }
 
@@ -167,15 +179,7 @@ function UnifiedColumn({
   const onDragEnd = () => { setDragId(null); setHoverId(null); };
 
   return (
-    <div style={{
-      padding: "12px 14px",
-      borderRadius: 8,
-      background: "rgba(255, 255, 255, 0.04)",
-      border: "1px solid rgba(255, 255, 255, 0.06)",
-    }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, opacity: 0.8, marginBottom: 8 }}>
-        {title}
-      </div>
+    <SettingsSection title={title}>
       {ordered.length === 0 ? (
         <div style={{ opacity: 0.55, padding: 8, fontStyle: "italic", fontSize: 12 }}>
           {t("settings_empty_shelves")}
@@ -206,7 +210,7 @@ function UnifiedColumn({
           ))}
         </div>
       )}
-    </div>
+    </SettingsSection>
   );
 }
 
@@ -265,11 +269,6 @@ function ShelfRow({
         onDragEnd: dnd.onDragEnd,
       } as any : {})}
     >
-      {dnd ? (
-        <span aria-hidden style={{ opacity: 0.45, fontSize: 14, lineHeight: 1, padding: "0 4px", userSelect: "none" }}>
-          ⋮⋮
-        </span>
-      ) : null}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 600, fontSize: 13 }}>
           <span>{shelf.title || "—"}</span>
@@ -281,20 +280,16 @@ function ShelfRow({
       </div>
       <Focusable flow-children="row" style={{ display: "flex", gap: 4 }}>
         {reorder?.moveUp ? (
-          <DialogButton onClick={reorder.moveUp} onOKButton={reorder.moveUp} style={ICON_BTN_STYLE} aria-label="↑">
-            ↑
-          </DialogButton>
+          <DialogButton onClick={reorder.moveUp} onOKButton={reorder.moveUp} style={BTN_ICON_COMPACT_STYLE} aria-label={t("settings_move_up")}>↑</DialogButton>
         ) : null}
         {reorder?.moveDown ? (
-          <DialogButton onClick={reorder.moveDown} onOKButton={reorder.moveDown} style={ICON_BTN_STYLE} aria-label="↓">
-            ↓
-          </DialogButton>
+          <DialogButton onClick={reorder.moveDown} onOKButton={reorder.moveDown} style={BTN_ICON_COMPACT_STYLE} aria-label={t("settings_move_down")}>↓</DialogButton>
         ) : null}
-        <DialogButton onClick={handleEdit} onOKButton={handleEdit} style={ICON_BTN_STYLE} aria-label={t("settings_edit_action")}>
-          <PencilIcon size={16} />
+        <DialogButton onClick={handleEdit} onOKButton={handleEdit} style={BTN_ICON_COMPACT_STYLE} aria-label={t("settings_edit_action")}>
+          <PencilIcon size={14} />
         </DialogButton>
-        <DialogButton onClick={handleDelete} onOKButton={handleDelete} style={ICON_BTN_STYLE} aria-label={t("settings_delete_action")}>
-          <TrashIcon size={16} />
+        <DialogButton onClick={handleDelete} onOKButton={handleDelete} style={BTN_ICON_COMPACT_STYLE} aria-label={t("settings_delete_action")}>
+          <TrashIcon size={14} />
         </DialogButton>
       </Focusable>
     </Focusable>

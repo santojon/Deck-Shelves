@@ -14,6 +14,7 @@ import {
   isInternalFilterType,
   isInternalSortOption,
 } from "../../../core/pluginApi";
+import { SettingsSection } from "../../ui/SettingsSection";
 
 export interface IntegrationsDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -39,6 +40,11 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
   const importTypes   = useMemo(() => getExternalImportTypes(),     []);
   const searches      = useMemo(() => getExternalSearchProviders(), []);
 
+  const targetLabel = (target?: string) => {
+    if (target === "smart_shelves") return t("settings_integration_target_smart");
+    return t("settings_integration_target_shelves");
+  };
+
   const entries: IntegrationEntry[] = [
     ...sources.map((d: any) => ({
       id: d.id,
@@ -59,7 +65,7 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
       name: d.displayName,
       group: t("settings_integration_filters"),
       builtIn: isInternalFilterType(d.id),
-      meta: d.invertible === false ? undefined : "invertible",
+      meta: d.invertible === false ? undefined : t("settings_integration_invertible"),
     })),
     ...sortOptions.map((d: any) => ({
       id: d.id,
@@ -72,14 +78,14 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
       name: d.displayName,
       group: t("settings_integration_imports"),
       builtIn: false,
-      meta: d.target ?? "shelves",
+      meta: targetLabel(d.target),
     })),
     ...searches.map((d: any) => ({
       id: d.id,
       name: d.displayName,
       group: t("settings_integration_search"),
       builtIn: isInternalSearchProvider(d.id),
-      meta: typeof d.priority === "number" ? `prio ${d.priority}` : undefined,
+      meta: typeof d.priority === "number" ? t("settings_integration_priority").replace("{{n}}", String(d.priority)) : undefined,
     })),
   ];
 
@@ -99,20 +105,9 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
   };
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       {Array.from(grouped.entries()).map(([group, items]) => (
-        <div
-          key={group}
-          style={{
-            padding: "12px 14px",
-            borderRadius: 8,
-            background: "rgba(255, 255, 255, 0.04)",
-            border: "1px solid rgba(255, 255, 255, 0.06)",
-          }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, opacity: 0.8, marginBottom: 8 }}>
-            {group}
-          </div>
+        <SettingsSection key={group} title={group}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {items.map((entry) => {
               const enabled = enabledMap[entry.id] !== false;
@@ -150,7 +145,7 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
               );
             })}
           </div>
-        </div>
+        </SettingsSection>
       ))}
     </Focusable>
   );

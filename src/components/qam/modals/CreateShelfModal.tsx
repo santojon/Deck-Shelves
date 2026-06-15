@@ -62,7 +62,7 @@ export function CreateShelfModal({ closeModal, controller }: CreateShelfModalPro
         onOK={() => closeModal?.()}
         onCancel={() => closeModal?.()}
       >
-        <div style={{ minHeight: 460 }}>
+        <div style={{ height: "min(560px, 65vh)", display: "flex", flexDirection: "column" }}>
           <Tabs
             activeTab={tab}
             onShowTab={(id: string) => setTab(id as "standard" | "smart")}
@@ -113,7 +113,7 @@ function StandardPanel({ controller, closeModal }: { controller: SettingsControl
     openManagedModal((close) => <EditShelfModal closeModal={close} controller={controller} shelf={draft} mode="create" />);
   };
   return (
-    <Focusable style={{ padding: 8 }}>
+    <Focusable style={{ padding: 8, maxHeight: "calc(min(560px, 65vh) - 60px)", overflowY: "auto" }}>
       <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
         <DialogButton
           style={btnStyle}
@@ -177,7 +177,7 @@ function SmartPanel({ controller, closeModal }: { controller: SettingsController
     openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={draft} mode="create" />);
   };
   return (
-    <Focusable style={{ padding: 8 }}>
+    <Focusable style={{ padding: 8, maxHeight: "calc(min(560px, 65vh) - 60px)", overflowY: "auto" }}>
       <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
         <DialogButton
           style={btnStyle}

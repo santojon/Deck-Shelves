@@ -3,6 +3,7 @@ import { Tabs, Focusable } from "../runtime/host/decky";
 import { Navigation } from "@decky/ui";
 import { useSettingsController } from "../features/settings/controller";
 import { PageHeader } from "./ui/PageHeader";
+import { DeckQAMStyles } from "./styles/DeckQAMStyles";
 import { ShelvesDetail } from "./settings/details/ShelvesDetail";
 import { ProfilesDetail } from "./settings/details/ProfilesDetail";
 import { IntegrationsDetail } from "./settings/details/IntegrationsDetail";
@@ -39,6 +40,7 @@ export function SettingsPage() {
       onCancelButton={goBack}
       style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", color: "white" }}
     >
+      <DeckQAMStyles />
       <PageHeader title={t("settings_page_title")} onBack={goBack} />
       <div style={{ flex: 1, minHeight: 0 }}>
         <Tabs

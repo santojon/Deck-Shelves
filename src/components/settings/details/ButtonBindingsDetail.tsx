@@ -4,7 +4,9 @@ import type { useSettingsController } from "../../../features/settings/controlle
 import { subscribeHomeButton } from "../../../runtime/homeInputBus";
 import { BTN, DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
 import type { ButtonBindings } from "../../../types";
+import { SettingsSection } from "../../ui/SettingsSection";
 import { BanIcon, RefreshIcon, TargetIcon } from "../../icons";
+import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 
 export interface ButtonBindingsDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -26,6 +28,42 @@ const ROWS: BindingRow[] = [
   { key: "navSearch",           labelKey: "binding_nav_search",       nullable: false },
   { key: "navSideNav",          labelKey: "binding_nav_sidenav",      nullable: false },
 ];
+
+// Quick gamepad-button glyph. Renders a small bordered chip with the
+// token name. Steam doesn't expose a per-controller button icon API we
+// can call from inside the plugin, so we use the literal token name
+// (VIEW / MENU / X / Y / L1 / R1 / …) as a stable label.
+function ButtonGlyph({ token }: { token: string }) {
+  const t = token.toUpperCase();
+  const styleBase: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    minWidth: 22, height: 18, padding: "0 5px",
+    borderRadius: 4, fontSize: 10, fontWeight: 700,
+    background: "var(--gpSystemLighterStill, rgba(255,255,255,0.18))",
+    color: "white",
+    fontFamily: "monospace", letterSpacing: 0.2,
+  };
+  return <span style={styleBase}>{t}</span>;
+}
+
+function renderCombo(raw: string | null | undefined): React.ReactNode {
+  if (!raw) return null;
+  const tokens = String(raw).split("+").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  if (tokens.length === 0) return null;
+  if (tokens.length === 2 && tokens[0] === tokens[1]) {
+    return <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><ButtonGlyph token={tokens[0]} /><span style={{ fontSize: 11, opacity: 0.7 }}>×2</span></span>;
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+      {tokens.map((tok, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? <span style={{ fontSize: 10, opacity: 0.55 }}>+</span> : null}
+          <ButtonGlyph token={tok} />
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
 
 const BTN_TO_TOKEN: Record<number, string> = {
   [BTN.SECONDARY]:  "X",
@@ -51,29 +89,29 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   const collisionTokens = new Set(collisions.flat());
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ opacity: 0.85, fontSize: 13, lineHeight: 1.4 }}>
-        {t("binding_help")}
-      </div>
-      {ROWS.map((row) => (
-        <BindingRowView
-          key={row.key}
-          row={row}
-          current={bindings[row.key]}
-          colliding={collisionTokens.has(row.key)}
-          controller={controller}
-          t={t}
-        />
-      ))}
-      <Focusable flow-children="row" style={{ display: "flex", gap: 8, marginTop: 6 }}>
-        <DialogButton
-          onClick={() => void (controller.actions as any).resetButtonBindings?.()}
-          onOKButton={() => void (controller.actions as any).resetButtonBindings?.()}
-          style={{ minWidth: 0 }}
-        >
-          {t("binding_reset_all")}
-        </DialogButton>
-      </Focusable>
+    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+      <SettingsSection description={t("binding_help")}>
+        {ROWS.map((row) => (
+          <BindingRowView
+            key={row.key}
+            row={row}
+            current={bindings[row.key]}
+            colliding={collisionTokens.has(row.key)}
+            controller={controller}
+            t={t}
+          />
+        ))}
+        <Focusable flow-children="row" style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <DialogButton
+            onClick={() => void (controller.actions as any).resetButtonBindings?.()}
+            onOKButton={() => void (controller.actions as any).resetButtonBindings?.()}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 32 }}
+          >
+            <RefreshIcon size={14} />
+            <span>{t("binding_reset_all")}</span>
+          </DialogButton>
+        </Focusable>
+      </SettingsSection>
     </Focusable>
   );
 }
@@ -152,18 +190,12 @@ function BindingRowView({
     void (controller.actions as any).setButtonBinding?.(row.key, def);
   };
 
-  const display = captured ?? current ?? t("binding_disabled");
-
-  const ICON_BTN_STYLE: React.CSSProperties = {
-    minWidth: 0, width: 32, height: 32, padding: 0,
-    display: "flex", alignItems: "center", justifyContent: "center",
-  };
   return (
     <div style={{
       padding: "10px 12px",
       borderRadius: 8,
-      background: colliding ? "rgba(255, 80, 80, 0.10)" : "rgba(255, 255, 255, 0.04)",
-      border: colliding ? "1px solid rgba(255, 80, 80, 0.45)" : "1px solid rgba(255, 255, 255, 0.06)",
+      background: colliding ? "var(--ds-danger-soft, rgba(255, 80, 80, 0.10))" : "var(--ds-surface, rgba(255, 255, 255, 0.04))",
+      border: colliding ? "1px solid rgba(255, 80, 80, 0.45)" : "1px solid var(--ds-border, rgba(255, 255, 255, 0.06))",
       display: "flex",
       flexDirection: "column",
       gap: 6,
@@ -172,16 +204,18 @@ function BindingRowView({
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600, minWidth: 0 }}>{t(row.labelKey)}</div>
         <div style={{
           fontSize: 12, padding: "3px 8px", borderRadius: 4,
-          background: "rgba(255,255,255,0.08)", fontFamily: "monospace",
-          whiteSpace: "nowrap",
+          whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4,
         }}>
-          {capturing ? t("binding_waiting") : display}
+          {capturing ? <span style={{ opacity: 0.85 }}>{t("binding_waiting")}</span>
+            : (captured ?? current)
+              ? renderCombo(captured ?? current)
+              : <span style={{ opacity: 0.55, fontStyle: "italic" }}>{t("binding_disabled")}</span>}
         </div>
         <DialogButton
           onClick={startCapture}
           onOKButton={startCapture}
           disabled={capturing}
-          style={ICON_BTN_STYLE}
+          style={BTN_ICON_STYLE}
           aria-label={capturing ? t("binding_cancel") : t("binding_capture")}
         >
           <TargetIcon size={16} />
@@ -191,7 +225,7 @@ function BindingRowView({
             onClick={clearBinding}
             onOKButton={clearBinding}
             disabled={capturing || !current}
-            style={ICON_BTN_STYLE}
+            style={BTN_ICON_STYLE}
             aria-label={t("binding_disable")}
           >
             <BanIcon size={16} />
@@ -201,7 +235,7 @@ function BindingRowView({
           onClick={reset}
           onOKButton={reset}
           disabled={capturing}
-          style={ICON_BTN_STYLE}
+          style={BTN_ICON_STYLE}
           aria-label={t("binding_reset")}
         >
           <RefreshIcon size={16} />

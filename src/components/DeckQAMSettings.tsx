@@ -24,7 +24,6 @@ import { formatComboForDisplay, resolveBindings } from '../runtime/buttonBinding
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
-import { TemplatePickerModal } from './qam/modals/TemplatePickerModal'
 import { CreateShelfModal } from './qam/modals/CreateShelfModal'
 import { FirstRunBanner } from './qam/modals/FirstRunBanner'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
@@ -33,6 +32,7 @@ import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplac
 import { ResetAllModal } from './qam/modals/ResetAllModal'
 import { ShelvesPanelSection } from './qam/list/ShelvesPanelSection'
 import { SmartShelvesPanelSection } from './qam/list/SmartShelvesPanelSection'
+import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSection'
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
@@ -596,13 +596,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   // controller hydration tick).
   if (!settings) return <div style={{ padding: 16 }}>{t('loading')}</div>
   const isFirstRun = shelves.length === 0 && !settings.enabled
+  // Always use the unified Create modal (Standard + Smart tabs) so
+  // users can create either type regardless of the unified-list flag.
   const handleAdd = () => openManagedModal((close) => (
-    // Sprint 12 PR3 — unified mode opens the generalized creation
-    // modal (Standard + Smart tabs); split mode keeps the original
-    // template picker.
-    (settings as any).unifiedListEnabled === true
-      ? <CreateShelfModal closeModal={close} controller={controller} />
-      : <TemplatePickerModal closeModal={close} controller={controller} />
+    <CreateShelfModal closeModal={close} controller={controller} />
   ))
   const handleImport = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves-shelves.json')} scope='shelves' />)
   const handleExport = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='shelves' />)
@@ -795,10 +792,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           </Focusable>
         </Field>
         <div className='deck-shelves-separator' />
-        <ShelvesPanelSection controller={controller} />
+        {(settings as any).unifiedListEnabled === true
+          ? <UnifiedShelvesPanelSection controller={controller} />
+          : <ShelvesPanelSection controller={controller} />}
       </CollapsibleSection>
 
-      {settings.enabled && !isSecHid('smart') && (
+      {settings.enabled && !isSecHid('smart') && (settings as any).unifiedListEnabled !== true && (
       <CollapsibleSection id='smart' icon={<SparkleIcon />} title={t('smart_section_header')} count={settings.smartShelvesEnabled ? (settings.smartShelves ?? []).filter((s: any) => !s.hidden).length : 0}>
         {!isHid('smartShelvesEnabled') && (
         <ToggleField

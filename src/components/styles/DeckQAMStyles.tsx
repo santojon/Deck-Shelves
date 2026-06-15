@@ -21,6 +21,35 @@ try {
 export function DeckQAMStyles() {
   return (
     <style>{`
+      /* ───── Deck Shelves design tokens ─────
+         Single source of truth for colour / radius / spacing across QAM,
+         sidecar, About page, Settings page and modals. Themes can
+         override at the :root level via CSS Loader. */
+      :where(.deck-shelves-qam-scope, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-about) {
+        --ds-surface:        rgba(255, 255, 255, 0.04);
+        --ds-surface-hi:     rgba(255, 255, 255, 0.08);
+        --ds-surface-row:    rgba(255, 255, 255, 0.03);
+        --ds-border:         rgba(255, 255, 255, 0.06);
+        --ds-border-strong:  rgba(255, 255, 255, 0.10);
+        --ds-text:           #fff;
+        --ds-text-dim:       rgba(255, 255, 255, 0.65);
+        --ds-text-faint:     rgba(255, 255, 255, 0.45);
+        --ds-accent:         var(--gpSystemLighterStill, rgba(120, 180, 255, 0.85));
+        --ds-accent-soft:    rgba(120, 180, 255, 0.18);
+        --ds-danger:         rgba(255, 110, 110, 0.95);
+        --ds-danger-soft:    rgba(255, 80, 80, 0.10);
+        --ds-warn:           rgba(255, 200, 90, 0.9);
+        --ds-radius-sm: 4px;
+        --ds-radius-md: 6px;
+        --ds-radius-lg: 8px;
+        --ds-gap-xs:  4px;
+        --ds-gap-sm:  6px;
+        --ds-gap-md:  8px;
+        --ds-gap-lg: 12px;
+        --ds-pad-row:    "8px 10px";
+        --ds-pad-card:   "12px 14px";
+      }
+
       .deck-shelves-qam-scope {
         width: inherit;
         height: inherit;
@@ -275,6 +304,148 @@ export function DeckQAMStyles() {
         font-weight: 700;
         margin-right: 4px;
         color: #fff;
+      }
+
+      /* ───── Shared "card" surface used by Settings details + About
+         page + modals. Uses --ds-* tokens so themes can override. */
+      .ds-settings-section,
+      .ds-about-section {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ds-gap-md, 8px);
+        padding: 12px 14px;
+        margin-bottom: var(--ds-gap-md, 8px);
+        border-radius: var(--ds-radius-lg, 8px);
+        background: var(--ds-surface, rgba(255, 255, 255, 0.04));
+        border: 1px solid var(--ds-border, rgba(255, 255, 255, 0.06));
+      }
+      .ds-settings-section__header {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--ds-gap-lg, 12px);
+      }
+      .ds-settings-section__heading { flex: 1; min-width: 0; }
+      .ds-settings-section__title {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--ds-text, #fff);
+      }
+      .ds-settings-section__desc {
+        font-size: 12px;
+        color: var(--ds-text-dim, rgba(255, 255, 255, 0.65));
+        margin-top: 4px;
+        line-height: 1.35;
+      }
+      .ds-settings-section__trailing { flex-shrink: 0; display: inline-flex; align-items: center; gap: var(--ds-gap-sm, 6px); }
+      .ds-settings-section__body { display: flex; flex-direction: column; gap: var(--ds-gap-md, 8px); }
+      .ds-settings-row {
+        display: flex;
+        align-items: center;
+        gap: var(--ds-gap-md, 10px);
+        padding: 8px 10px;
+        border-radius: var(--ds-radius-md, 6px);
+        background: var(--ds-surface-row, rgba(255, 255, 255, 0.03));
+      }
+      .ds-settings-row--danger {
+        background: var(--ds-danger-soft, rgba(255, 80, 80, 0.10));
+        border: 1px solid rgba(255, 80, 80, 0.25);
+      }
+
+      /* ───── Shared button primitives. Compose with default
+         DialogButton — these add layout, not chrome (so the underlying
+         Decky DialogButton colour/focus rules continue to apply). */
+      .ds-btn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: var(--ds-gap-xs, 4px);
+        padding: 0 12px !important;
+        height: 32px !important;
+        min-width: 0 !important;
+        font-size: 13px !important;
+      }
+      .ds-btn--compact {
+        height: 28px !important;
+        padding: 0 10px !important;
+        font-size: 12px !important;
+      }
+      .ds-btn--icon {
+        width: 32px !important;
+        padding: 0 !important;
+      }
+      .ds-btn--icon-compact {
+        width: 28px !important;
+        height: 28px !important;
+        padding: 0 !important;
+      }
+      .ds-btn--danger {
+        color: var(--ds-danger, rgba(255, 110, 110, 0.95)) !important;
+      }
+
+      /* Log row focus state — visible highlight on gamepad focus */
+      .ds-log-row.gpfocus,
+      .ds-log-row:focus,
+      .ds-log-row:focus-within,
+      .ds-log-row[data-cs-gpfocused="true"] {
+        background: var(--ds-surface-hi, rgba(255,255,255,0.10)) !important;
+        outline: none;
+      }
+
+      /* Chip / badge used for BUILT-IN / ACTIVE / log level markers */
+      .ds-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 6px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-radius: 999px;
+        background: var(--ds-surface-hi, rgba(255, 255, 255, 0.10));
+        color: var(--ds-text, #fff);
+      }
+      .ds-chip--accent {
+        background: var(--ds-accent-soft, rgba(120, 180, 255, 0.18));
+        color: var(--ds-accent, rgba(120, 180, 255, 0.95));
+      }
+      .ds-chip--builtin {
+        background: rgba(120, 220, 120, 0.18);
+        color: rgba(180, 240, 180, 0.95);
+      }
+      .ds-settings-section__header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .ds-settings-section__heading { flex: 1; min-width: 0; }
+      .ds-settings-section__title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #fff;
+      }
+      .ds-settings-section__desc {
+        font-size: 12px;
+        opacity: 0.65;
+        margin-top: 4px;
+        line-height: 1.35;
+      }
+      .ds-settings-section__trailing { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; }
+      .ds-settings-section__body { display: flex; flex-direction: column; gap: 8px; }
+      .ds-settings-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .ds-settings-row__main { flex: 1; min-width: 0; }
+      .ds-settings-row__name { font-weight: 600; font-size: 13px; }
+      .ds-settings-row__sub { opacity: 0.55; font-size: 11px; margin-top: 2px; }
+      .ds-settings-row__actions { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+      .ds-settings-row--danger {
+        background: rgba(255, 80, 80, 0.08);
+        border: 1px solid rgba(255, 80, 80, 0.25);
       }
 
       /* Expand-toggle button (always visible, top of panel). */

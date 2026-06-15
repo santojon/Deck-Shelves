@@ -3,12 +3,10 @@ import { DialogButton, Focusable, TextField } from "../../../runtime/host/decky"
 import type { useSettingsController } from "../../../features/settings/controller";
 import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../../../features/settings/controller/profiles";
 import { joinDownloads } from "../../../core/userPaths";
+import { SettingsSection } from "../../ui/SettingsSection";
 import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon } from "../../icons";
+import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../ui/buttonStyles";
 
-const ICON_BTN_STYLE: React.CSSProperties = {
-  minWidth: 0, width: 32, height: 32, padding: 0,
-  display: "flex", alignItems: "center", justifyContent: "center",
-};
 
 export interface ProfilesDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -80,42 +78,42 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   };
 
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Section
-        title={t("settings_profiles_io_title")}
-        description={t("settings_profiles_io_desc")}
-      >
-        <Focusable flow-children="row" style={{ display: "flex", gap: 6 }}>
-          <DialogButton onClick={exportAll} onOKButton={exportAll} style={ICON_BTN_STYLE} aria-label={t("settings_profiles_export_all")}>
-            <DownloadIcon size={16} />
+    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+      <SettingsSection title={t("settings_profiles_io_title")} description={t("settings_profiles_io_desc")}>
+        <Focusable flow-children="row" style={{ display: "flex", gap: 8 }}>
+          <DialogButton onClick={exportAll} onOKButton={exportAll} style={BTN_STYLE}>
+            <DownloadIcon size={14} />
+            <span>{t("settings_profiles_export_all")}</span>
           </DialogButton>
-          <DialogButton onClick={importMerge} onOKButton={importMerge} style={ICON_BTN_STYLE} aria-label={t("settings_profiles_import")}>
-            <UploadIcon size={16} />
+          <DialogButton onClick={importMerge} onOKButton={importMerge} style={BTN_STYLE}>
+            <UploadIcon size={14} />
+            <span>{t("settings_profiles_import")}</span>
           </DialogButton>
         </Focusable>
-      </Section>
+      </SettingsSection>
 
-      <Section
-        title={t("settings_profiles_save_title")}
-        description={t("settings_profiles_save_desc")}
-      >
-        <Focusable flow-children="row" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <div style={{ flex: 1 }}>
+      <SettingsSection title={t("settings_profiles_save_title")} description={t("settings_profiles_save_desc")}>
+        <Focusable flow-children="row" style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <TextField
               value={newName}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e?.target?.value ?? "")}
+              style={{ width: "100%" } as any}
             />
           </div>
-          <DialogButton onClick={handleSave} onOKButton={handleSave} disabled={!newName.trim()} style={ICON_BTN_STYLE} aria-label={t("settings_profiles_save_action")}>
-            <SaveIcon size={16} />
+          <DialogButton
+            onClick={handleSave}
+            onOKButton={handleSave}
+            disabled={!newName.trim()}
+            style={{ ...BTN_ICON_COMPACT_STYLE, flexShrink: 0 }}
+            aria-label={t("settings_profiles_save_action")}
+          >
+            <SaveIcon size={14} />
           </DialogButton>
         </Focusable>
-      </Section>
+      </SettingsSection>
 
-      <Section
-        title={t("settings_profiles_list_title")}
-        description={t("settings_profiles_list_desc")}
-      >
+      <SettingsSection title={t("settings_profiles_list_title")} description={t("settings_profiles_list_desc")}>
         {profiles.length === 0 ? (
           <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>
             {t("settings_profiles_empty")}
@@ -173,11 +171,11 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                   )}
                   {isRenaming ? (
                     <Focusable flow-children="row" style={{ display: "flex", gap: 4 }}>
-                      <DialogButton onClick={handleRename} onOKButton={handleRename} style={ICON_BTN_STYLE} aria-label={t("settings_profiles_save_action")}>
-                        <CheckIcon size={16} />
+                      <DialogButton onClick={handleRename} onOKButton={handleRename} style={BTN_ICON_COMPACT_STYLE} aria-label={t("settings_profiles_save_action")}>
+                        <CheckIcon size={14} />
                       </DialogButton>
-                      <DialogButton onClick={() => { setRenameId(null); setRenameDraft(""); }} style={ICON_BTN_STYLE} aria-label={t("settings_profiles_cancel")}>
-                        <XIcon size={16} />
+                      <DialogButton onClick={() => { setRenameId(null); setRenameDraft(""); }} style={BTN_ICON_COMPACT_STYLE} aria-label={t("settings_profiles_cancel")}>
+                        <XIcon size={14} />
                       </DialogButton>
                     </Focusable>
                   ) : (
@@ -185,52 +183,52 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                       <DialogButton
                         onClick={() => setConfirmApplyId(profile.id)}
                         onOKButton={() => setConfirmApplyId(profile.id)}
-                        style={ICON_BTN_STYLE}
+                        style={BTN_ICON_COMPACT_STYLE}
                         aria-label={t("settings_profiles_apply")}
                       >
-                        <PlayIcon size={16} />
+                        <PlayIcon size={14} />
                       </DialogButton>
                       {!isFactory ? (
                         <>
                           <DialogButton
                             onClick={() => (controller.actions as any).updateProfileSnapshot?.(profile.id)}
                             onOKButton={() => (controller.actions as any).updateProfileSnapshot?.(profile.id)}
-                            style={ICON_BTN_STYLE}
+                            style={BTN_ICON_COMPACT_STYLE}
                             aria-label={t("settings_profiles_update")}
                           >
-                            <SaveIcon size={16} />
+                            <SaveIcon size={14} />
                           </DialogButton>
                           <DialogButton
                             onClick={() => (controller.actions as any).duplicateProfile?.(profile.id)}
                             onOKButton={() => (controller.actions as any).duplicateProfile?.(profile.id)}
-                            style={ICON_BTN_STYLE}
+                            style={BTN_ICON_COMPACT_STYLE}
                             aria-label={t("settings_profiles_duplicate")}
                           >
-                            <CopyIcon size={16} />
+                            <CopyIcon size={14} />
                           </DialogButton>
                           <DialogButton
                             onClick={() => { setRenameId(profile.id); setRenameDraft(profile.name); }}
                             onOKButton={() => { setRenameId(profile.id); setRenameDraft(profile.name); }}
-                            style={ICON_BTN_STYLE}
+                            style={BTN_ICON_COMPACT_STYLE}
                             aria-label={t("settings_profiles_rename")}
                           >
-                            <PencilIcon size={16} />
+                            <PencilIcon size={14} />
                           </DialogButton>
                           <DialogButton
                             onClick={() => (controller.actions as any).exportProfiles?.(joinDownloads(`profile-${profile.name}.json`.replace(/\s+/g, "-").toLowerCase()), profile.id)}
                             onOKButton={() => (controller.actions as any).exportProfiles?.(joinDownloads(`profile-${profile.name}.json`.replace(/\s+/g, "-").toLowerCase()), profile.id)}
-                            style={ICON_BTN_STYLE}
+                            style={BTN_ICON_COMPACT_STYLE}
                             aria-label={t("settings_profiles_export")}
                           >
-                            <DownloadIcon size={16} />
+                            <DownloadIcon size={14} />
                           </DialogButton>
                           <DialogButton
                             onClick={() => setConfirmDeleteId(profile.id)}
                             onOKButton={() => setConfirmDeleteId(profile.id)}
-                            style={ICON_BTN_STYLE}
+                            style={BTN_ICON_COMPACT_STYLE}
                             aria-label={t("settings_profiles_delete")}
                           >
-                            <TrashIcon size={16} />
+                            <TrashIcon size={14} />
                           </DialogButton>
                         </>
                       ) : (
@@ -253,10 +251,10 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
             })}
           </div>
         )}
-      </Section>
+      </SettingsSection>
 
       {activeName ? (
-        <Section
+        <SettingsSection
           title={t("settings_profiles_active_title")}
           description={t("settings_profiles_active_desc").replace("{{name}}", activeName)}
         >
@@ -266,7 +264,7 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
           >
             {t("settings_profiles_clear_active")}
           </DialogButton>
-        </Section>
+        </SettingsSection>
       ) : null}
 
       {confirmApplyId ? (
@@ -290,27 +288,6 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
         />
       ) : null}
     </Focusable>
-  );
-}
-
-function Section({
-  title, description, children,
-}: { title: string; description?: string; children: React.ReactNode }) {
-  return (
-    <div style={{
-      padding: "14px 16px",
-      borderRadius: 8,
-      background: "rgba(255, 255, 255, 0.04)",
-      border: "1px solid rgba(255, 255, 255, 0.06)",
-    }}>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, color: "white" }}>{title}</div>
-        {description ? (
-          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4, lineHeight: 1.35 }}>{description}</div>
-        ) : null}
-      </div>
-      {children}
-    </div>
   );
 }
 

@@ -622,8 +622,13 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     button_bindings_raw = settings.get("buttonBindings")
     button_bindings: Dict[str, Any] = {}
     if isinstance(button_bindings_raw, dict):
+        # Only emit keys that are EXPLICITLY present in the input so the
+        # round-trip preserves shape. Without this, "{}" expands to
+        # "{5 nulls}" and breaks settingsStore's post-save verification.
         for key in ("cardHideRemove", "cardHighlightToggle", "cardQuickLaunch", "navSearch", "navSideNav"):
-            v = button_bindings_raw.get(key)
+            if key not in button_bindings_raw:
+                continue
+            v = button_bindings_raw[key]
             if v is None:
                 button_bindings[key] = None
             elif isinstance(v, str):

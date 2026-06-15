@@ -148,6 +148,7 @@ export async function saveSettings(next: Settings): Promise<boolean> {
       const ok = await withTimeout(call<[unknown], boolean>("set_settings", { settings: next }), 8000);
       if (!ok) {
         logWarn("STORAGE", `saveSettings backend returned false (attempt ${attempt})`);
+        try { (globalThis as any).__ds_save_last_err = { kind: "backend-false", attempt, at: Date.now() }; } catch {}
         if (attempt < maxRetries) continue;
         return false;
       }
@@ -156,12 +157,26 @@ export async function saveSettings(next: Settings): Promise<boolean> {
       try {
         const serverRaw = await withTimeout(call<[], unknown>("get_settings"), 5000);
         const serverNorm = normalize(serverRaw);
-        if (JSON.stringify(serverNorm) !== JSON.stringify(next)) {
-          logWarn("STORAGE", `post-save verification mismatch (attempt ${attempt})`, { serverShelves: serverNorm.shelves.length, localShelves: next.shelves.length });
+        const sentJson = JSON.stringify(next);
+        const backJson = JSON.stringify(serverNorm);
+        if (backJson !== sentJson) {
+          // Diff which top-level keys mismatch so we can debug round-trip
+          // losses (sanitiser stripping a field, order skew, etc.)
+          const diffs: string[] = [];
+          try {
+            const a = next as any; const b = serverNorm as any;
+            const ks = new Set([...Object.keys(a), ...Object.keys(b)]);
+            for (const k of ks) {
+              if (JSON.stringify(a?.[k]) !== JSON.stringify(b?.[k])) diffs.push(k);
+            }
+          } catch {}
+          logWarn("STORAGE", `post-save verification mismatch (attempt ${attempt})`, { serverShelves: serverNorm.shelves.length, localShelves: next.shelves.length, diffKeys: diffs.slice(0, 10) });
+          try { (globalThis as any).__ds_save_last_err = { kind: "verify-mismatch", attempt, at: Date.now(), diffKeys: diffs.slice(0, 20), serverRaw: typeof serverRaw === "object" ? Object.keys(serverRaw as any) : null }; } catch {}
           if (attempt < maxRetries) continue;
         }
       } catch (verErr) {
         logWarn("STORAGE", `post-save verification failed (attempt ${attempt})`, String(verErr));
+        try { (globalThis as any).__ds_save_last_err = { kind: "verify-throw", attempt, at: Date.now(), err: String(verErr) }; } catch {}
         // If verification fails, don't immediately treat as fatal; only retry a few times.
         if (attempt < maxRetries) continue;
       }
@@ -170,6 +185,7 @@ export async function saveSettings(next: Settings): Promise<boolean> {
       return true;
     } catch (error) {
       logError("STORAGE", `saveSettings failed (attempt ${attempt})`, String(error));
+      try { (globalThis as any).__ds_save_last_err = { kind: "call-throw", attempt, at: Date.now(), err: String(error) }; } catch {}
       if (attempt < maxRetries) continue;
       return false;
     }
