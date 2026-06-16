@@ -20,6 +20,12 @@ import time
 WS_HOST = os.getenv('DECK_CDP_HOST', '127.0.0.1')
 WS_PORT = int(os.getenv('DECK_CDP_PORT', '8081'))
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from lib import selectors as S  # noqa: E402
+
+CLASS_MAP_GLOBAL = S.CLASS_MAP_GLOBAL
+CLASS_MAP_LS_KEY = S.CLASS_MAP_LS_KEY
+
 
 def ws_connect(path: str) -> socket.socket:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -186,10 +192,13 @@ def main():
         print(json.dumps({"error": "invalid CLASS_MAP JSON", "msg": str(e)}))
         return 2
 
-    # Build a safe JS expression that sets window.__DS_CLASS_MAP and localStorage
+    # Build a safe JS expression that sets the global class-map and persists
+    # it in localStorage under the configured keys.
     js = (
-        "(function(){try{var m=" + json.dumps(cmap) + ";try{window.__DS_CLASS_MAP=m}catch(e){};"
-        "try{localStorage.setItem('ds_class_map', JSON.stringify(m))}catch(e){}; return {ok:true}}catch(e){return {error:e.message}}})()"
+        "(function(){try{var m=" + json.dumps(cmap)
+        + ";try{window[" + json.dumps(CLASS_MAP_GLOBAL) + "]=m}catch(e){};"
+        + "try{localStorage.setItem(" + json.dumps(CLASS_MAP_LS_KEY) + ", JSON.stringify(m))}catch(e){};"
+        + " return {ok:true}}catch(e){return {error:e.message}}})()"
     )
 
     try:

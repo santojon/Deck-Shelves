@@ -34,7 +34,12 @@ export function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
           const mount = doc?.getElementById("deck-shelves-home-root") as HTMLElement | null;
           const focused = (doc?.querySelector(".gpfocus") as HTMLElement | null) ?? null;
           if (mount && focused && mount.contains(focused)) {
-            const lastShelf = mount.querySelector<HTMLElement>(".ds-shelf:last-child");
+            // Find the last *.ds-shelf* directly — :last-child fails when
+            // Steam re-injects an empty-state div as the trailing sibling
+            // of our shelves inside .deck-shelves-root, leaving no shelf
+            // as the literal last child of its parent.
+            const shelves = mount.querySelectorAll<HTMLElement>(".ds-shelf");
+            const lastShelf = shelves[shelves.length - 1] ?? null;
             if (lastShelf && lastShelf.contains(focused)) {
               const tabs = doc?.querySelector('[role="tablist"]') as HTMLElement | null;
               const tabsVisible = !!tabs && tabs.getBoundingClientRect().height > 0;

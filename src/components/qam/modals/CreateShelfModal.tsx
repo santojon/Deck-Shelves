@@ -57,7 +57,6 @@ export function CreateShelfModal({ closeModal, controller }: CreateShelfModalPro
     <ModalShell>
       <ConfirmModal
         strTitle={t("create_shelf_modal_title" as any) || "Add shelf"}
-        strDescription={t("create_shelf_modal_desc" as any) || "Pick a template — Standard for collection / tab / filter shelves, Smart for adaptive (heuristic, runtime-aware) shelves."}
         strOKButtonText={t("close")}
         onOK={() => closeModal?.()}
         onCancel={() => closeModal?.()}

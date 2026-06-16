@@ -1,15 +1,43 @@
 import { Focusable } from "../../runtime/host/decky";
-import { ChevronLeftIcon } from "../icons";
+import { Navigation } from "@decky/ui";
+import { ChevronLeftIcon, DocsIcon, GearIcon } from "../icons";
+
+const ABOUT_ROUTE = "/deck-shelves/about";
+const SETTINGS_ROUTE = "/deck-shelves/settings";
 
 export interface PageHeaderProps {
   title: string;
   onBack: () => void;
   trailing?: React.ReactNode;
+  /** Which route is active — used to dim the matching icon button. */
+  active?: "about" | "settings";
 }
 
-export function PageHeader({ title, onBack, trailing }: PageHeaderProps) {
+const iconBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 40,
+  height: 40,
+  borderRadius: 999,
+  background: "var(--ds-surface, rgba(255,255,255,0.06))",
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+function goAbout() {
+  try { (Navigation as any).CloseSideMenus?.(); } catch {}
+  try { Navigation.Navigate(ABOUT_ROUTE); } catch {}
+}
+function goSettings() {
+  try { (Navigation as any).CloseSideMenus?.(); } catch {}
+  try { Navigation.Navigate(SETTINGS_ROUTE); } catch {}
+}
+
+export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps) {
   return (
-    <div
+    <Focusable
+      flow-children="row"
       className="ds-page-header"
       style={{
         display: "flex",
@@ -19,20 +47,10 @@ export function PageHeader({ title, onBack, trailing }: PageHeaderProps) {
       }}
     >
       <Focusable
-        noFocusRing
         onClick={onBack}
         onOKButton={onBack}
         onActivate={onBack}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 40,
-          height: 40,
-          borderRadius: 999,
-          background: "rgba(255,255,255,0.06)",
-          cursor: "pointer",
-        }}
+        style={iconBtnStyle}
       >
         <ChevronLeftIcon />
       </Focusable>
@@ -46,9 +64,23 @@ export function PageHeader({ title, onBack, trailing }: PageHeaderProps) {
           letterSpacing: 0.2,
         }}
       >{title}</h1>
-      {trailing ? (
-        <div style={{ display: "inline-flex", alignItems: "center" }}>{trailing}</div>
-      ) : null}
-    </div>
+      {trailing ? <div style={{ display: "inline-flex", alignItems: "center" }}>{trailing}</div> : null}
+      <Focusable
+        onClick={goAbout}
+        onOKButton={goAbout}
+        onActivate={goAbout}
+        style={{ ...iconBtnStyle, opacity: active === "about" ? 0.4 : 1 }}
+      >
+        <DocsIcon size={20} />
+      </Focusable>
+      <Focusable
+        onClick={goSettings}
+        onOKButton={goSettings}
+        onActivate={goSettings}
+        style={{ ...iconBtnStyle, opacity: active === "settings" ? 0.4 : 1 }}
+      >
+        <GearIcon size={20} />
+      </Focusable>
+    </Focusable>
   );
 }

@@ -18,6 +18,7 @@ import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibra
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
+import { bumpAssetRevision } from "../core/assetRevision";
 import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
 import { isInVisibilityWindow, nextVisibilityBoundary, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { flowChildrenProps } from "../core/steamOSVersion";
@@ -141,6 +142,12 @@ export function HomeShelves() {
       const nowOnHome = isHomeRoute();
       if (nowOnHome && !wasOnHome) {
         updateMount();
+        // Bump asset revision + force a shelf resolve so any custom
+        // artwork the user replaced off-screen flushes through the
+        // `?c=<rev>` cache buster on /customimages/ paths. The resolve
+        // is debounced by shelfRefresh's existing throttle.
+        try { bumpAssetRevision(); } catch {}
+        try { triggerShelfRefresh(); } catch {}
         // No triggerShelfRefresh here — B-return shouldn't force a
         // global online re-fetch.
         // Steam re-renders BOTH native recents AND home tabs on every route
@@ -966,6 +973,31 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     if (!interleaveSmart) return shelves;
     return interleaveSmartShelves(shelves, firstVisibleId);
   }, [shelves, interleaveSmart, firstVisibleId]);
+
+  // Steam occasionally injects React-owned children (empty-state SVGs,
+  // hint overlays) directly into our root; they show up as direct
+  // siblings of the `.ds-shelf` nodes and consume vertical space at the
+  // bottom of the home. Hide them so they don't expand the scroll
+  // height. We never remove the node — React's reconciler may still
+  // own its subtree — only `display: none` it, and tag with
+  // `data-ds-foreign` so the same observer is idempotent.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const hideForeign = () => {
+      for (const child of Array.from(root.children)) {
+        if (!(child instanceof HTMLElement)) continue;
+        if (child.classList.contains('ds-shelf')) continue;
+        if (child.getAttribute('data-ds-foreign') === 'true') continue;
+        child.setAttribute('data-ds-foreign', 'true');
+        child.style.display = 'none';
+      }
+    };
+    hideForeign();
+    const obs = new MutationObserver(hideForeign);
+    obs.observe(root, { childList: true });
+    return () => obs.disconnect();
+  }, []);
 
   return (
     <Focusable

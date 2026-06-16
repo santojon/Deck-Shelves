@@ -1,12 +1,35 @@
 import React, { useEffect, useRef, useState } from "react";
 import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
-import { subscribeHomeButton } from "../../../runtime/homeInputBus";
-import { BTN, DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
+import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/controllerInput";
+import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
 import type { ButtonBindings } from "../../../types";
 import { SettingsSection } from "../../ui/SettingsSection";
-import { BanIcon, RefreshIcon, TargetIcon } from "../../icons";
-import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
+import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon } from "../../icons";
+import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
+
+// Maps the raw controller event button id (from `controllerInput`) to
+// the token name used by the bindings parser. Required because this
+// settings route doesn't host the home-input bus.
+const RAW_TO_TOKEN: Record<number, string> = {
+  [RawBtn.X]: "X",
+  [RawBtn.Y]: "Y",
+  [RawBtn.L1]: "L1",
+  [RawBtn.R1]: "R1",
+  [RawBtn.L2]: "L2",
+  [RawBtn.R2]: "R2",
+  [RawBtn.L3]: "L3",
+  [RawBtn.R3]: "R3",
+  [RawBtn.L4]: "L4",
+  [RawBtn.R4]: "R4",
+  [RawBtn.L5]: "L5",
+  [RawBtn.R5]: "R5",
+  [RawBtn.VIEW]: "VIEW",
+  [RawBtn.DPAD_UP]: "DPAD_UP",
+  [RawBtn.DPAD_DOWN]: "DPAD_DOWN",
+  [RawBtn.DPAD_LEFT]: "DPAD_LEFT",
+  [RawBtn.DPAD_RIGHT]: "DPAD_RIGHT",
+};
 
 export interface ButtonBindingsDetailProps {
   controller: ReturnType<typeof useSettingsController>;
@@ -65,62 +88,124 @@ function renderCombo(raw: string | null | undefined): React.ReactNode {
   );
 }
 
-const BTN_TO_TOKEN: Record<number, string> = {
-  [BTN.SECONDARY]:  "X",
-  [BTN.OPTIONS]:    "Y",
-  [BTN.L1]:         "L1",
-  [BTN.R1]:         "R1",
-  [BTN.L2]:         "L2",
-  [BTN.R2]:         "R2",
-  [BTN.VIEW]:       "VIEW",
-  [BTN.DPAD_UP]:    "DPAD_UP",
-  [BTN.DPAD_DOWN]:  "DPAD_DOWN",
-  [BTN.DPAD_LEFT]:  "DPAD_LEFT",
-  [BTN.DPAD_RIGHT]: "DPAD_RIGHT",
-  [BTN.LSTICK]:     "LSTICK",
-  [BTN.RSTICK]:     "RSTICK",
-};
-
 export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProps) {
   const settings = controller.settings;
   if (!settings) return null;
-  const bindings: Required<ButtonBindings> = resolveBindings((settings as any).buttonBindings);
+  const disabledList: string[] = ((settings as any).buttonBindingsDisabled ?? []) as string[];
+  const rawBindings: ButtonBindings = (settings as any).buttonBindings ?? {};
+  const bindings: Required<ButtonBindings> = resolveBindings(rawBindings, disabledList);
   const collisions = findCollisions(bindings);
   const collisionTokens = new Set(collisions.flat());
+  const resetAll = () => void (controller.actions as any).resetButtonBindings?.();
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
-      <SettingsSection description={t("binding_help")}>
+      <SettingsSection
+        description={t("binding_help")}
+        trailing={
+          <DialogButton onClick={resetAll} onOKButton={resetAll} style={BTN_COMPACT_STYLE}>
+            <RefreshIcon size={12} /><span>{t("binding_reset_all")}</span>
+          </DialogButton>
+        }
+      >
         {ROWS.map((row) => (
           <BindingRowView
             key={row.key}
             row={row}
-            current={bindings[row.key]}
+            rawValue={(rawBindings as any)[row.key] ?? null}
+            disabled={disabledList.includes(row.key)}
             colliding={collisionTokens.has(row.key)}
             controller={controller}
             t={t}
           />
         ))}
-        <Focusable flow-children="row" style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <DialogButton
-            onClick={() => void (controller.actions as any).resetButtonBindings?.()}
-            onOKButton={() => void (controller.actions as any).resetButtonBindings?.()}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 32 }}
-          >
-            <RefreshIcon size={14} />
-            <span>{t("binding_reset_all")}</span>
-          </DialogButton>
-        </Focusable>
       </SettingsSection>
     </Focusable>
   );
 }
 
+function BindingStatus({ capturing, disabled, value, t }: {
+  capturing: boolean;
+  disabled: boolean;
+  value: string | null;
+  t: (key: string) => string;
+}) {
+  const wrapperStyle: React.CSSProperties = {
+    fontSize: 12, padding: "3px 8px", borderRadius: 4,
+    whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4,
+    opacity: disabled ? 0.55 : 1,
+  };
+  let content: React.ReactNode;
+  if (capturing) content = <span style={{ opacity: 0.85 }}>{t("binding_waiting")}</span>;
+  else if (disabled) content = <span style={{ fontStyle: "italic" }}>{t("binding_disabled")}</span>;
+  else if (value) content = renderCombo(value);
+  else content = <span style={{ opacity: 0.55, fontStyle: "italic" }}>{t("binding_unset")}</span>;
+  return <div style={wrapperStyle}>{content}</div>;
+}
+
+function BindingRowButtons({
+  capturing, disabled, rawValue, nullable, startCapture, toggleDisabled, deleteBinding, reset, t,
+}: {
+  capturing: boolean;
+  disabled: boolean;
+  rawValue: string | null;
+  nullable: boolean;
+  startCapture: () => void;
+  toggleDisabled: () => void;
+  deleteBinding: () => void;
+  reset: () => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <>
+      <DialogButton
+        onClick={startCapture}
+        onOKButton={startCapture}
+        disabled={capturing}
+        style={BTN_ICON_STYLE}
+        aria-label={capturing ? t("binding_cancel") : t("binding_capture")}
+      >
+        <TargetIcon size={16} />
+      </DialogButton>
+      <DialogButton
+        onClick={toggleDisabled}
+        onOKButton={toggleDisabled}
+        disabled={capturing}
+        style={BTN_ICON_STYLE}
+        aria-label={disabled ? t("binding_enable") : t("binding_disable")}
+      >
+        {disabled ? <CheckIcon size={16} /> : <BanIcon size={16} />}
+      </DialogButton>
+      {nullable && (
+        <DialogButton
+          onClick={deleteBinding}
+          onOKButton={deleteBinding}
+          disabled={capturing || !rawValue}
+          style={BTN_ICON_STYLE}
+          aria-label={t("binding_delete")}
+        >
+          <TrashIcon size={16} />
+        </DialogButton>
+      )}
+      <DialogButton
+        onClick={reset}
+        onOKButton={reset}
+        disabled={capturing}
+        style={BTN_ICON_STYLE}
+        aria-label={t("binding_reset")}
+      >
+        <RefreshIcon size={16} />
+      </DialogButton>
+    </>
+  );
+}
+
 function BindingRowView({
-  row, current, colliding, controller, t,
+  row, rawValue, disabled, colliding, controller, t,
 }: {
   row: BindingRow;
-  current: string | null;
+  rawValue: string | null;
+  disabled: boolean;
   colliding: boolean;
   controller: ReturnType<typeof useSettingsController>;
   t: (key: string) => string;
@@ -130,11 +215,17 @@ function BindingRowView({
   const [error, setError] = useState<"reserved" | "unknown" | "duplicate" | "empty" | null>(null);
   const buffer = useRef<{ tokens: string[]; firstAt: number }>({ tokens: [], firstAt: 0 });
   const timerRef = useRef<number | null>(null);
+  const captureStartedAtRef = useRef<number>(0);
+  // External state changes (Reset all / Delete from a different row) bring
+  // a fresh `rawValue` in via props. Drop any locally-captured combo so the
+  // chip mirrors the persisted value instead of the last capture attempt.
+  useEffect(() => { setCaptured(null); setError(null); }, [rawValue, disabled]);
 
   const startCapture = () => {
     buffer.current = { tokens: [], firstAt: 0 };
     setCaptured(null);
     setError(null);
+    captureStartedAtRef.current = Date.now();
     setCapturing(true);
   };
   const stopCapture = () => {
@@ -144,12 +235,16 @@ function BindingRowView({
 
   useEffect(() => {
     if (!capturing) return;
-    const unsub = subscribeHomeButton((e) => {
-      const token = BTN_TO_TOKEN[e.button];
+    const handle = (token: string | null) => {
       const now = Date.now();
-      if (!token) {
-        const validation = validateCombo(String(e.button));
-        if (!validation.ok && validation.reason === "reserved") { setError("reserved"); stopCapture(); return; }
+      // 250ms grace — eats the A press that activated Capture itself.
+      if (now - captureStartedAtRef.current < 250) return;
+      if (!token) return;
+      // Reserved-button rejection (A/B/Menu/Steam/Screenshot).
+      const validation = validateCombo(token);
+      if (!validation.ok && validation.reason === "reserved") {
+        setError("reserved");
+        stopCapture();
         return;
       }
       const buf = buffer.current;
@@ -174,20 +269,33 @@ function BindingRowView({
         else setError(v.reason ?? "unknown");
         stopCapture();
       }
+    };
+    const unsubRaw = subscribeControllerInput((e) => {
+      if (!e.pressed) return;
+      const token = RAW_TO_TOKEN[e.button] ?? null;
+      // Surface the raw id so the user can see what an unmapped button emits.
+      setLastRawId({ id: e.button, token });
+      handle(token);
     });
-    return () => { unsub(); stopCapture(); };
+    return () => { unsubRaw(); stopCapture(); };
   }, [capturing]);
+  const [lastRawId, setLastRawId] = useState<{ id: number; token: string | null } | null>(null);
+  useEffect(() => { if (!capturing) setLastRawId(null); }, [capturing]);
 
   const persist = (combo: string) => {
     void (controller.actions as any).setButtonBinding?.(row.key, combo);
   };
-  const clearBinding = () => {
+  const deleteBinding = () => {
     if (!row.nullable) return;
     void (controller.actions as any).setButtonBinding?.(row.key, null);
+  };
+  const toggleDisabled = () => {
+    void (controller.actions as any).setBindingDisabled?.(row.key, !disabled);
   };
   const reset = () => {
     const def = (DEFAULT_BINDINGS as any)[row.key] as string;
     void (controller.actions as any).setButtonBinding?.(row.key, def);
+    if (disabled) void (controller.actions as any).setBindingDisabled?.(row.key, false);
   };
 
   return (
@@ -202,45 +310,24 @@ function BindingRowView({
     }}>
       <Focusable flow-children="row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600, minWidth: 0 }}>{t(row.labelKey)}</div>
-        <div style={{
-          fontSize: 12, padding: "3px 8px", borderRadius: 4,
-          whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4,
-        }}>
-          {capturing ? <span style={{ opacity: 0.85 }}>{t("binding_waiting")}</span>
-            : (captured ?? current)
-              ? renderCombo(captured ?? current)
-              : <span style={{ opacity: 0.55, fontStyle: "italic" }}>{t("binding_disabled")}</span>}
-        </div>
-        <DialogButton
-          onClick={startCapture}
-          onOKButton={startCapture}
-          disabled={capturing}
-          style={BTN_ICON_STYLE}
-          aria-label={capturing ? t("binding_cancel") : t("binding_capture")}
-        >
-          <TargetIcon size={16} />
-        </DialogButton>
-        {row.nullable && (
-          <DialogButton
-            onClick={clearBinding}
-            onOKButton={clearBinding}
-            disabled={capturing || !current}
-            style={BTN_ICON_STYLE}
-            aria-label={t("binding_disable")}
-          >
-            <BanIcon size={16} />
-          </DialogButton>
-        )}
-        <DialogButton
-          onClick={reset}
-          onOKButton={reset}
-          disabled={capturing}
-          style={BTN_ICON_STYLE}
-          aria-label={t("binding_reset")}
-        >
-          <RefreshIcon size={16} />
-        </DialogButton>
+        <BindingStatus capturing={capturing} disabled={disabled} value={captured ?? rawValue} t={t} />
+        <BindingRowButtons
+          capturing={capturing}
+          disabled={disabled}
+          rawValue={rawValue}
+          nullable={row.nullable}
+          startCapture={startCapture}
+          toggleDisabled={toggleDisabled}
+          deleteBinding={deleteBinding}
+          reset={reset}
+          t={t}
+        />
       </Focusable>
+      {capturing && lastRawId && (
+        <div style={{ fontSize: 11, opacity: 0.6, fontFamily: "monospace" }}>
+          raw id {lastRawId.id} {lastRawId.token ? `→ ${lastRawId.token}` : "→ (unmapped)"}
+        </div>
+      )}
       {error && (
         <div style={{ fontSize: 12, color: "rgb(255, 120, 120)" }}>
           {t(`binding_error_${error}`)}

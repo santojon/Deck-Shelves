@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { isArtHeroActive } from "../../core/cssLoaderDetect";
-import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls, getLogoUrls } from "../../core/steamAssets";
+import { getLandscapeUrls, getPortraitUrls, getHeroUrls as getCentralHeroUrls, getLogoUrls, getAppAssetCacheKey } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 
@@ -287,7 +287,14 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // shown above the row exactly like the native recents hero label.
   // Rendered inside THIS shelf (position:absolute relative to it) so it
   // always follows the shelf — no global/fixed anchoring.
-  const [labelHtml, setLabelHtml] = useState<string | null>(null);
+  const [labelNode, setLabelNode] = useState<HTMLElement | null>(null);
+  const labelMountRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const host = labelMountRef.current;
+    if (!host) return;
+    while (host.firstChild) host.removeChild(host.firstChild);
+    if (labelNode) host.appendChild(labelNode);
+  }, [labelNode]);
   const [needsLabel, setNeedsLabel] = useState(() => { try { return isArtHeroActive(); } catch { return false; } });
   const [rowH, setRowH] = useState(310);
   const [labelLeft, setLabelLeft] = useState(40);
@@ -519,7 +526,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (synthHero) {
         // No DS-card-label to clone for synth cards — clear the overlay
         // label and leave hero label hidden.
-        setLabelHtml(null);
+        setLabelNode(null);
         const synthKey = -Math.abs(hashStringFastForHero(synthHero));
         if (synthKey !== currentAppid.current) {
           currentAppid.current = synthKey;
@@ -550,7 +557,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // visual continuity (avoids a fade flash when stepping into the
       // tail card and immediately back).
       if (appid <= 0) {
-        setLabelHtml(null);
+        setLabelNode(null);
         return;
       }
       // Align the overlay label horizontally with the focused card's left
@@ -567,10 +574,9 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       // Always re-clone the card's label DOM so the overlay mirrors it
       // byte-for-byte. Online shelves resolve game names asynchronously — if
       // the first clone happened during the brief "#appid" window, re-cloning
-      // picks up the resolved name once it lands. Cloning identical content
-      // yields the same string, so setLabelHtml bails out (no re-render).
+      // picks up the resolved name once it lands.
       const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-      setLabelHtml(labelEl ? labelEl.outerHTML : null);
+      setLabelNode(labelEl ? (labelEl.cloneNode(true) as HTMLElement) : null);
       // Hero ART loads only when enabled for this shelf AND the game changed.
       // `forceCssLoader` promotes a shelf (full-page + label) WITHOUT forcing
       // hero art — the per-shelf / global hero-art setting is respected.
@@ -770,7 +776,18 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // list runs through the shared blob cache so warm cache hits (~3 ms)
   // skip the network when the user re-focuses a card they've already
   // seen this session.
-  const logoUrls = useMemo(() => (enableLogo && focusedAppid > 0 ? getLogoUrls(focusedAppid) : []), [enableLogo, focusedAppid]);
+  const logoAssetKey = getAppAssetCacheKey(focusedAppid);
+  const logoUrls = useMemo(() => (enableLogo && focusedAppid > 0 ? getLogoUrls(focusedAppid) : []), [enableLogo, focusedAppid, logoAssetKey]);
+  // When the user replaces hero artwork for the focused game, Steam bumps
+  // `local_cache_version` / `header_filename` etc. The asset key flips, but
+  // `currentAppid.current === focusedAppid` so the hero-swap path is gated
+  // out. Force the next update() pass to refetch by zeroing the guard.
+  useEffect(() => {
+    if (focusedAppid > 0) currentAppid.current = 0;
+    const el = containerRef.current;
+    const focused = el?.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
+    try { focused?.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); } catch {}
+  }, [logoAssetKey]);
   const [logoIdx, setLogoIdx] = useState(0);
   useEffect(() => { setLogoIdx(0); }, [focusedAppid]);
   useEffect(() => {
@@ -798,7 +815,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const wantsDescriptionBelowLogo = enableDescription && !!overlayDescription && descriptionBelowLogo && hasFocusedApp;
   const showOverlayContainer = wantsLogo || wantsDescriptionBelowLogo;
   const hasArt = showArt && !!(slotA || slotB);
-  const showLabel = needsLabel && isPromoted && !!labelHtml;
+  const showLabel = needsLabel && isPromoted && !!labelNode;
   if (!hasArt && !showLabel && !showOverlayContainer) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   // "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
@@ -971,6 +988,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         on normal shelves it would stack on top of the visible texts. */}
     {showLabel && (
       <div
+        ref={labelMountRef}
         className="ds-promoted-hero-label"
         style={{
           position: 'absolute',
@@ -981,7 +999,6 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           opacity: visible ? 1 : 0,
           transition: 'opacity 0.4s cubic-bezier(0.17,0.45,0.14,0.83), left 0.2s ease',
         }}
-        dangerouslySetInnerHTML={{ __html: labelHtml }}
       />
     )}
     {showOverlayContainer && (

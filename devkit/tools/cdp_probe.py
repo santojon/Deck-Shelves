@@ -20,6 +20,19 @@ from typing import Any, Dict, List, Optional
 WS_HOST = os.getenv('DECK_CDP_HOST', '127.0.0.1')
 WS_PORT = int(os.getenv('DECK_CDP_PORT', '8081'))
 
+# Selectors / DOM ids the probes inspect. Defaults match Deck Shelves;
+# override via env to retarget against a different plugin (see
+# devkit/lib/selectors.py for the full list).
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from lib import selectors as S  # noqa: E402
+
+MOUNT_ID            = S.HOME_MOUNT_ID
+ROW_SEL             = S.ROW_SEL
+CARD_SEL            = S.CARD_SEL
+FOCUS_CLS           = S.FOCUS_CLASS
+VIEWPORT_SEL        = S.VIEWPORT_SEL
+NEWS_SEL            = S.NEWS_SEL
+
 
 def ws_connect(path: str) -> socket.socket:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -609,8 +622,20 @@ DIFF_FOCUS_EXPR = r"""
 """
 
 
+def _apply_selectors(expr: str) -> str:
+    # Substitute the canonical Deck Shelves selectors baked into the raw
+    # probe strings with the env-driven values from devkit/lib/selectors.py.
+    return (expr
+        .replace("deck-shelves-home-root", MOUNT_ID)
+        .replace("._3PhGYbMWIcIaZCfllWN19N", VIEWPORT_SEL)
+        .replace(".cE1SaW6jrVUDxcqRtyMo1", NEWS_SEL)
+        .replace(".ds-row-scroll", ROW_SEL)
+        .replace(".ds-card", CARD_SEL)
+        .replace("gpfocus", FOCUS_CLS))
+
+
 def run_mode(mode: str) -> int:
-    expr = {
+    expr = _apply_selectors({
         "mount": MOUNT_EXPR,
         "rows": ROWS_EXPR,
         "smoke": SMOKE_EXPR,
@@ -619,7 +644,7 @@ def run_mode(mode: str) -> int:
     "center-watch": CENTER_WATCH_EXPR,
     "diff-focus": DIFF_FOCUS_EXPR,
     "ancestors": ANCESTORS_EXPR,
-    }[mode]
+    }[mode])
 
     raw = eval_in_shared(expr)
     if isinstance(raw, str):

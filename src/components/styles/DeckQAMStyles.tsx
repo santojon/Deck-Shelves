@@ -25,7 +25,7 @@ export function DeckQAMStyles() {
          Single source of truth for colour / radius / spacing across QAM,
          sidecar, About page, Settings page and modals. Themes can
          override at the :root level via CSS Loader. */
-      :where(.deck-shelves-qam-scope, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-about) {
+      :where(.deck-shelves-qam-scope, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-about, .deck-shelves-modal-scope) {
         --ds-surface:        rgba(255, 255, 255, 0.04);
         --ds-surface-hi:     rgba(255, 255, 255, 0.08);
         --ds-surface-row:    rgba(255, 255, 255, 0.03);
@@ -39,6 +39,12 @@ export function DeckQAMStyles() {
         --ds-danger:         rgba(255, 110, 110, 0.95);
         --ds-danger-soft:    rgba(255, 80, 80, 0.10);
         --ds-warn:           rgba(255, 200, 90, 0.9);
+        --ds-callout-note:        #5b9bd5;
+        --ds-callout-note-soft:   rgba(91, 155, 213, 0.10);
+        --ds-callout-tip:         #4caf50;
+        --ds-callout-tip-soft:    rgba(76, 175, 80, 0.10);
+        --ds-callout-caution:     #f0a742;
+        --ds-callout-caution-soft:rgba(240, 167, 66, 0.10);
         --ds-radius-sm: 4px;
         --ds-radius-md: 6px;
         --ds-radius-lg: 8px;
@@ -297,8 +303,8 @@ export function DeckQAMStyles() {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255,255,255,0.14);
-        border-radius: 8px;
+        background: var(--ds-surface-hi, rgba(255,255,255,0.14));
+        border-radius: var(--ds-radius-lg, 8px);
         padding: 1px 7px;
         font-size: 10px;
         font-weight: 700;

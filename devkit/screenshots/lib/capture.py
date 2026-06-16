@@ -12,7 +12,19 @@ Surfaces:
 from __future__ import annotations
 
 import base64
+import os
+import sys
 import time
+
+_DEVKIT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if _DEVKIT_DIR not in sys.path:
+    sys.path.insert(0, _DEVKIT_DIR)
+from lib import selectors as _SEL  # noqa: E402
+_QAM_SCOPE = _SEL.QAM_SCOPE_SEL
+
+
+def _sub_sel(expr: str) -> str:
+    return expr.replace("__QAM_SCOPE__", _QAM_SCOPE)
 from pathlib import Path
 from typing import Optional
 
@@ -45,7 +57,7 @@ _QAM_PANEL_CLIP_EXPR = """
   ];
   for (var s of sel) { var m = document.querySelector(s); if (m) { el = m; break; } }
   // Fallback: our own scope element.
-  if (!el) el = document.querySelector('.deck-shelves-qam-scope');
+  if (!el) el = document.querySelector('__QAM_SCOPE__');
   if (!el) {
     var cands = Array.from(document.querySelectorAll('[class]'));
     for (var c of cands) {
@@ -101,7 +113,7 @@ def _qam_panel_clip(session: Session) -> Optional[dict]:
     `Page.captureScreenshot` clip dict, or `None` when no panel is
     present / the rect is too small to be meaningful."""
     try:
-        rect = session.evaluate(_QAM_PANEL_CLIP_EXPR)
+        rect = session.evaluate(_sub_sel(_QAM_PANEL_CLIP_EXPR))
     except Exception:
         return None
     if not isinstance(rect, dict):
@@ -158,13 +170,13 @@ def capture_qam(host: str, port: int, out_path: Path, fallback_to_bp: bool = Tru
                 from .cdp import Session as _S
                 ns = _S.open(host, port, target)
                 try:
-                    ns.evaluate("""(function(){
-  var s = document.querySelector('.deck-shelves-qam-scope') || document.body;
+                    ns.evaluate(_sub_sel("""(function(){
+  var s = document.querySelector('__QAM_SCOPE__') || document.body;
   if (s) { s.scrollTop += 1; s.scrollTop -= 1; }
   var f = document.activeElement;
   if (f && f.blur) f.blur();
   if (f && f.focus) f.focus();
-})()""")
+})()"""))
                 finally:
                     ns.close()
             except Exception:

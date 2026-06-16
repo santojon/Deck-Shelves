@@ -4,10 +4,30 @@ specific state before a screenshot is taken.
 """
 from __future__ import annotations
 
+import os
+import sys
 import time
 from typing import Any
 
 from .cdp import Session, open_session
+
+# Bridge to the central selectors module. devkit/lib is a sibling of
+# devkit/screenshots — add devkit/ to sys.path so we can import lib.selectors
+# without forcing the consumer to install the devkit as a package.
+_DEVKIT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if _DEVKIT_DIR not in sys.path:
+    sys.path.insert(0, _DEVKIT_DIR)
+from lib import selectors as S  # noqa: E402
+
+_QAM_SCOPE = S.QAM_SCOPE_SEL
+_COLLAPSIBLE_HEADER = S.COLLAPSIBLE_HEADER_SEL
+_ABOUT_ROUTE = S.ABOUT_ROUTE
+
+
+def _sub_sel(expr: str) -> str:
+    return (expr
+        .replace("__QAM_SCOPE__", _QAM_SCOPE)
+        .replace("__COLLAPSIBLE_HEADER__", _COLLAPSIBLE_HEADER))
 
 
 OPEN_QAM_EXPR = """
@@ -82,11 +102,11 @@ _IS_QAM_OPEN_EXPR = """
 })()
 """
 
-_DS_SCOPE_CHECK = "!!document.querySelector('.deck-shelves-qam-scope')"
+_DS_SCOPE_CHECK = "!!document.querySelector('" + _QAM_SCOPE + "')"
 
 _DECKY_TAB_CLICK = """
 (function(){
-  if (document.querySelector('.deck-shelves-qam-scope')) return 'already';
+  if (document.querySelector('__QAM_SCOPE__')) return 'already';
   var tabs = Array.from(document.querySelectorAll('[role=tab]'));
   for (var i = tabs.length - 1; i >= 0; i--) {
     var svg = tabs[i].querySelector('svg');
@@ -247,7 +267,7 @@ def navigate(sjc: Session, route: str, settle_ms: int = 2000) -> None:
 
 
 def navigate_about(sjc: Session, settle_ms: int = 2000) -> None:
-    navigate(sjc, "/deck-shelves/about", settle_ms)
+    navigate(sjc, _ABOUT_ROUTE, settle_ms)
 
 
 def click_selector(sjc: Session, selector: str, settle_ms: int = 600) -> bool:
@@ -312,7 +332,7 @@ def expand_qam_sections(host: str, port: int) -> str:
     expr = r"""
 (function(){
   // Reset scroll to top so sections appear in order.
-  var scope = document.querySelector('.deck-shelves-qam-scope');
+  var scope = document.querySelector('__QAM_SCOPE__');
   if (scope) scope.scrollTop = 0;
 
   // Pre-open all known sections in localStorage so unmounted ones default open.
@@ -327,7 +347,7 @@ def expand_qam_sections(host: str, port: int) -> str:
   // Click any currently-collapsed headers (already-mounted components).
   var headers = Array.from(document.querySelectorAll('[data-ds-section]'));
   if (!headers.length) {
-    headers = Array.from(document.querySelectorAll('.ds-collapsible-header'));
+    headers = Array.from(document.querySelectorAll('__COLLAPSIBLE_HEADER__'));
   }
   var expanded = 0;
   headers.forEach(function(h) {
@@ -339,7 +359,7 @@ def expand_qam_sections(host: str, port: int) -> str:
   return 'expanded:' + expanded + ' of ' + headers.length;
 })()
 """
-    result = _qam_eval(host, port, expr) or "no-result"
+    result = _qam_eval(host, port, _sub_sel(expr)) or "no-result"
     time.sleep(0.8)
     return result
 
@@ -404,7 +424,7 @@ def _try_navigate_ds_tab(host: str, port: int) -> bool:
     try:
         if qam.evaluate(_DS_SCOPE_CHECK) is True:
             return True
-        qam.evaluate(_DECKY_TAB_CLICK)
+        qam.evaluate(_sub_sel(_DECKY_TAB_CLICK))
         time.sleep(2.0)
         if qam.evaluate(_DS_SCOPE_CHECK) is True:
             return True

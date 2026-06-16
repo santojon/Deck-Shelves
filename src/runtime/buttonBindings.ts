@@ -15,6 +15,9 @@ export const BTN = {
 } as const;
 
 // Token → numeric id. Aliases (A/X/Y/B/VIEW/MENU) accepted on parse.
+// L4/L5/R4/R5 don't have Decky equivalents and DPad/A/B aren't relayed by
+// the home-input bus either; the raw matcher (parseRawCombo + matchEvent
+// against `{ button: rawId }`) covers anything the Decky bus doesn't see.
 const TOKEN_TO_BTN: Record<string, number> = {
   A: BTN.OK, B: BTN.CANCEL, X: BTN.SECONDARY, Y: BTN.OPTIONS,
   L1: BTN.L1, R1: BTN.R1, L2: BTN.L2, R2: BTN.R2,
@@ -23,6 +26,24 @@ const TOKEN_TO_BTN: Record<string, number> = {
   VIEW: BTN.VIEW, SELECT: BTN.VIEW,
   MENU: BTN.START, START: BTN.START,
   LSTICK: BTN.LSTICK, RSTICK: BTN.RSTICK,
+  L3: BTN.LSTICK, R3: BTN.RSTICK,
+  L4: -104, L5: -105, R4: -204, R5: -205,
+};
+
+// Raw button IDs as emitted by SteamClient.Input.RegisterForControllerInputMessages.
+// Verified live on a Steam Deck via the in-app capture diagnostic. These are
+// completely separate from the Decky home-button bus ids in BTN above.
+const TOKEN_TO_RAW: Record<string, number> = {
+  A: 0, B: 1, X: 2, Y: 3,
+  L1: 30, R1: 31,
+  L2: 28, R2: 29,
+  L3: 25, R3: 41,
+  L4: 44, R4: 45,
+  L5: 32, R5: 33,
+  DPAD_UP: 20, DPAD_DOWN: 21, DPAD_LEFT: 22, DPAD_RIGHT: 23,
+  VIEW: 35, SELECT: 35,
+  MENU: 36, START: 36,
+  LSTICK: 25, RSTICK: 41,
 };
 
 // Reserved at any position — the system fires the native action even
@@ -31,6 +52,7 @@ const RESERVED = new Set<string>(["A", "B", "MENU", "START", "STEAM", "SCREENSHO
 
 export const ALLOWED_TOKENS = [
   "X", "Y", "L1", "R1", "L2", "R2", "VIEW",
+  "L3", "R3", "L4", "L5", "R4", "R5",
   "DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
   "LSTICK", "RSTICK",
 ] as const;
@@ -42,17 +64,29 @@ export type Combo =
 
 const DOUBLE_TAP_MS = 300;
 
-export function parseCombo(raw: string | null | undefined): Combo | null {
+function parseComboWith(raw: string | null | undefined, table: Record<string, number>): Combo | null {
   if (!raw || typeof raw !== "string") return null;
   const tokens = raw.split("+").map((t) => t.trim().toUpperCase()).filter(Boolean);
   if (!tokens.length) return null;
-  for (const t of tokens) if (RESERVED.has(t) || !(t in TOKEN_TO_BTN)) return null;
-  if (tokens.length === 1) return { kind: "single", btn: TOKEN_TO_BTN[tokens[0]] };
+  for (const t of tokens) if (RESERVED.has(t) || !(t in table)) return null;
+  if (tokens.length === 1) return { kind: "single", btn: table[tokens[0]] };
   if (tokens.length === 2 && tokens[0] === tokens[1]) {
-    return { kind: "double", btn: TOKEN_TO_BTN[tokens[0]], windowMs: DOUBLE_TAP_MS };
+    return { kind: "double", btn: table[tokens[0]], windowMs: DOUBLE_TAP_MS };
   }
-  const btns = tokens.map((t) => TOKEN_TO_BTN[t]);
+  const btns = tokens.map((t) => table[t]);
   return { kind: "chord", btns };
+}
+
+export function parseCombo(raw: string | null | undefined): Combo | null {
+  return parseComboWith(raw, TOKEN_TO_BTN);
+}
+
+// Build a Combo whose `btn` values are RAW controller IDs. Use this with
+// `matchEvent({ button: rawId }, combo, state)` driven by
+// `subscribeControllerInput`, which is the only stream that surfaces the
+// back-grip buttons (L4/L5/R4/R5) and exposes a complete id space.
+export function parseRawCombo(raw: string | null | undefined): Combo | null {
+  return parseComboWith(raw, TOKEN_TO_RAW);
 }
 
 export function validateCombo(raw: string | null | undefined, opts?: { allowNull?: boolean }): {
@@ -154,13 +188,27 @@ export function formatComboForDisplay(combo: string | null | undefined): string 
   return tokens.join(" + ");
 }
 
-export function resolveBindings(b: ButtonBindings | null | undefined): Required<ButtonBindings> {
-  if (!b) return { ...DEFAULT_BINDINGS };
+export function resolveBindings(b: ButtonBindings | null | undefined, disabled?: ReadonlyArray<string>): Required<ButtonBindings> {
+  const ds = new Set(disabled ?? []);
+  const pick = <K extends keyof Required<ButtonBindings>>(key: K, raw: any, fallback: Required<ButtonBindings>[K]) => {
+    if (ds.has(key as string)) return null as any;
+    if (raw === undefined) return fallback;
+    return raw;
+  };
+  if (!b) {
+    return {
+      cardHideRemove: pick("cardHideRemove", undefined, DEFAULT_BINDINGS.cardHideRemove),
+      cardHighlightToggle: pick("cardHighlightToggle", undefined, DEFAULT_BINDINGS.cardHighlightToggle),
+      cardQuickLaunch: pick("cardQuickLaunch", undefined, DEFAULT_BINDINGS.cardQuickLaunch),
+      navSearch: pick("navSearch", undefined, DEFAULT_BINDINGS.navSearch),
+      navSideNav: pick("navSideNav", undefined, DEFAULT_BINDINGS.navSideNav),
+    };
+  }
   return {
-    cardHideRemove: b.cardHideRemove === undefined ? DEFAULT_BINDINGS.cardHideRemove : b.cardHideRemove,
-    cardHighlightToggle: b.cardHighlightToggle === undefined ? DEFAULT_BINDINGS.cardHighlightToggle : b.cardHighlightToggle,
-    cardQuickLaunch: b.cardQuickLaunch === undefined ? DEFAULT_BINDINGS.cardQuickLaunch : b.cardQuickLaunch,
-    navSearch: b.navSearch || DEFAULT_BINDINGS.navSearch,
-    navSideNav: b.navSideNav || DEFAULT_BINDINGS.navSideNav,
+    cardHideRemove: pick("cardHideRemove", b.cardHideRemove, DEFAULT_BINDINGS.cardHideRemove),
+    cardHighlightToggle: pick("cardHighlightToggle", b.cardHighlightToggle, DEFAULT_BINDINGS.cardHighlightToggle),
+    cardQuickLaunch: pick("cardQuickLaunch", b.cardQuickLaunch, DEFAULT_BINDINGS.cardQuickLaunch),
+    navSearch: pick("navSearch", b.navSearch || undefined, DEFAULT_BINDINGS.navSearch),
+    navSideNav: pick("navSideNav", b.navSideNav || undefined, DEFAULT_BINDINGS.navSideNav),
   };
 }

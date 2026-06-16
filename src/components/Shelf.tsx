@@ -202,8 +202,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         }
         const dedupeByName = (shelf as any).dedupeByExactName === true || globalDedupeByName
         const hiddenAppIds: number[] | undefined = (shelf as any).hiddenAppIds?.length ? (shelf as any).hiddenAppIds : undefined
+        const __traceStart = Date.now();
+        try { (globalThis as any).__ds_resolve_trace = (globalThis as any).__ds_resolve_trace || {}; (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "started", at: __traceStart, gen, currentGen: resolveGenRef.current, cancelled }; } catch {}
         platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined })
           .then((ids) => {
+            try { (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "then", at: Date.now(), tookMs: Date.now() - __traceStart, gen, currentGen: resolveGenRef.current, cancelled, idCount: ids?.length }; } catch {}
             if (cancelled || gen !== resolveGenRef.current) return;
             const finalIds = primaryEffectiveSort === "manual" ? applyManualOrder(ids, (shelf as any).manualOrder, hiddenAppIds) : ids;
             setAppIds(finalIds);
@@ -212,7 +215,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
             firstLoad.current = false;
             try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), ids })); } catch (e) { logInfo("HOME", "shelf cache write failed", String(e)); }
           })
-          .catch(() => {
+          .catch((err) => {
+            try { (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "catch", at: Date.now(), tookMs: Date.now() - __traceStart, gen, currentGen: resolveGenRef.current, cancelled, err: String(err).slice(0, 200) }; } catch {}
             if (cancelled || gen !== resolveGenRef.current) return;
             if (firstLoad.current) setAppIds([]);
           })
@@ -226,6 +230,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
 
     // Initial load
     resolve();
+    // Diagnostic: track per-shelf resolve activity so we can see (via CDP)
+    // whether a shelf is stuck in a cancellation loop. Keys the same shelf
+    // across re-mounts so the counter actually means something.
+    try {
+      const g = globalThis as any;
+      if (!g.__ds_resolve_gens) g.__ds_resolve_gens = {};
+      g.__ds_resolve_gens[shelf.id] = (g.__ds_resolve_gens[shelf.id] ?? 0) + 1;
+    } catch {}
 
     // Subscribe to global refresh emitter (replaces per-shelf polling
     // timer). The wrapper scopes the `manual` visual indicator: every
@@ -256,7 +268,14 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       if (settingsTimer !== null) { clearTimeout(settingsTimer); settingsTimer = null; }
       if (refreshTimerRef.current) { clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
     };
-  }, [platform, shelf.enabled, shelf.limit, shelf.sort, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? "", (shelf as any).sortReverse === true, (shelf as any).manualBaseSortReverse === true, (shelf as any).hiddenAppIds?.join(",") ?? ""]);
+  }, [platform, shelf.enabled, shelf.limit, sourceKey, (shelf as any).manualOrder?.join(",") ?? "", (shelf as any).manualBaseSort ?? "", (shelf as any).sortReverse === true, (shelf as any).manualBaseSortReverse === true, (shelf as any).hiddenAppIds?.join(",") ?? ""]);
+  // NOTE: `shelf.sort` is intentionally absent from this dep array. When
+  // `sort` is an array (multi-key, e.g. composite shelves with
+  // ["discount_high", "original_price_high"]), the parent passes a fresh
+  // array reference on every render — that re-fired this effect every
+  // render, gen-cancelling every in-flight resolve before its .then could
+  // call setAppIds. `sourceKey` (a memoised JSON.stringify of source +
+  // sort) covers the same value-change without the reference churn.
 
   useEffect(() => {
     let cancelled = false;
@@ -736,7 +755,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveDescriptionHeight: number = typeof globalDescriptionHeight === 'number' ? Math.max(1, Math.min(3, globalDescriptionHeight)) : (typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2);
   const globalDescriptionLogoGap = (getCurrentSettings() as any)?.globalDescriptionLogoGap as number | null | undefined;
   const effectiveDescriptionLogoGap: number = typeof globalDescriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, globalDescriptionLogoGap)) : (typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 8);
-  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} forceExpanded={effectiveForceExpanded} pinScrollTop={forceExpanded} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
+  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} forceExpanded={effectiveForceExpanded} pinScrollTop={forceExpanded && globalFullPageShelf !== true && (shelf as any).fullPageShelf !== true} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
   // Brief opacity dip while a user-triggered refresh is in flight so the
   // click is never ambiguous — even when the resolver returns identical
   // data, the shelf visibly fades and recovers, signalling that the

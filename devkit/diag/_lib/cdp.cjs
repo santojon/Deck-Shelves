@@ -50,9 +50,23 @@ async function resolveTargetId(maybeId) {
   throw new Error(`no target matches "${maybeId}"`);
 }
 
+// Lazy-loaded so consumers without the lib/ folder still work. The
+// substitution is a no-op when the project already uses the configured
+// selectors (default = Deck Shelves), so the indirection is safe even
+// for older diag scripts that don't expect it.
+let _applySelectors = null;
+function applySelectorsLazy(expr) {
+  if (_applySelectors === null) {
+    try { _applySelectors = require('../../lib/selectors.cjs').applySelectors; }
+    catch { _applySelectors = (s) => s; }
+  }
+  return _applySelectors(expr);
+}
+
 function runProbe(maybeId, expression, opts = {}) {
   const awaitPromise = opts.awaitPromise === true;
   const returnByValue = opts.returnByValue !== false;
+  const finalExpr = applySelectorsLazy(expression);
   return resolveTargetId(maybeId).then((id) => new Promise((resolve, reject) => {
     const c = new ws(`ws://${HOST}:${PORT}/devtools/page/${id}`);
     let msgId = 1;
@@ -69,7 +83,7 @@ function runProbe(maybeId, expression, opts = {}) {
     c.on('error', reject);
     c.on('open', async () => {
       try {
-        const r = await send('Runtime.evaluate', { expression, returnByValue, awaitPromise });
+        const r = await send('Runtime.evaluate', { expression: finalExpr, returnByValue, awaitPromise });
         resolve(r?.result?.value !== undefined ? r.result.value : r);
       } catch (e) { reject(e); }
       finally { try { c.close(); } catch {} }
@@ -109,7 +123,7 @@ async function openSession(maybeId) {
     c.send(JSON.stringify({ id: i, method, params: params || {} }));
   });
   const evaluate = (expression, opts = {}) => call('Runtime.evaluate', {
-    expression,
+    expression: applySelectorsLazy(expression),
     returnByValue: opts.returnByValue !== false,
     awaitPromise: opts.awaitPromise === true,
   }).then((r) => r?.result?.value !== undefined ? r.result.value : r);

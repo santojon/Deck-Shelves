@@ -4,7 +4,7 @@ import { getExternalSearchProviders, type SearchHit } from "../../core/pluginApi
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { GamepadButton, subscribeHomeButton } from "../../runtime/homeInputBus";
-import { createMatcherState, matchEvent, parseCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
@@ -149,6 +149,18 @@ export function SearchOverlay() {
   // any single CANCEL/L1/R1 closes (the close legend stays fixed so the
   // user always has a graceful out).
   const matcherStateRef = useRef(createMatcherState());
+  const rawMatcherStateRef = useRef(createMatcherState());
+  const openSearch = useCallback(() => {
+    if (!isHomeRoute()) return;
+    try {
+      const doc = getPreferredSteamDocument() ?? document;
+      const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
+      if (focused) priorFocusRef.current = focused;
+    } catch {}
+    setQuery(readSessionQuery());
+    setOpen(true);
+    window.setTimeout(tryOpenSteamKeyboard, 60);
+  }, []);
   useEffect(() => {
     if (!enabled) return;
     try { (globalThis as any).__ds_search_enabled = enabled; } catch {}
@@ -161,19 +173,29 @@ export function SearchOverlay() {
         ) { close(); return; }
         return;
       }
-      const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any).navSearch);
+      const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSearch);
       if (!matchEvent({ button: e.button }, combo, matcherStateRef.current)) return;
-      if (!isHomeRoute()) return;
-      try {
-        const doc = getPreferredSteamDocument() ?? document;
-        const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
-        if (focused) priorFocusRef.current = focused;
-      } catch {}
-      setQuery(readSessionQuery());
-      setOpen(true);
-      window.setTimeout(tryOpenSteamKeyboard, 60);
+      openSearch();
     });
-  }, [enabled, open, close]);
+  }, [enabled, open, close, openSearch]);
+  // Parallel raw-stream trigger for navSearch combos that include a token
+  // the Decky home-button bus doesn't forward (back-grip L4/L5/R4/R5).
+  // Skips when the Decky-side combo can already fire so a single press
+  // doesn't double-open the pill.
+  useEffect(() => {
+    if (!enabled || open) return;
+    return subscribeControllerInput((e) => {
+      if (!e.pressed) return;
+      const navSearch = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSearch;
+      if (!navSearch) return;
+      const tokens = String(navSearch).toUpperCase().split("+");
+      const rawOnly = tokens.some((t) => t === "L4" || t === "L5" || t === "R4" || t === "R5");
+      if (!rawOnly) return;
+      const combo = parseRawCombo(navSearch);
+      if (!matchEvent({ button: e.button }, combo, rawMatcherStateRef.current)) return;
+      openSearch();
+    });
+  }, [enabled, open, openSearch]);
 
   // While the pill is open, listen on the BP-polled controller bus
   // directly — it fires regardless of which element holds gpfocus, so

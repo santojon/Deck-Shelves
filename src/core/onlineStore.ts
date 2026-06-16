@@ -29,6 +29,28 @@ interface WishlistCache { ids: number[] }
 
 let wishlistInFlight: Promise<number[] | null> | null = null;
 
+// Read the cache regardless of age — used as a fallback when the backend
+// hangs or fails so shelves don't render Spinner forever waiting on a
+// dead RPC. Resolver consumers prefer a slightly stale list over no list.
+function readWishlistCacheAny(): WishlistCache | null {
+  try {
+    const raw = localStorage.getItem(WISHLIST_KEY);
+    if (!raw) return null;
+    const { data } = JSON.parse(raw);
+    return data as WishlistCache;
+  } catch { return null; }
+}
+
+function rpcWithTimeout<T>(method: string, args: unknown, ms = 6000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`rpc ${method} timeout after ${ms}ms`)), ms);
+    Promise.resolve(call(method, args)).then(
+      (v) => { clearTimeout(timer); resolve(v as T); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export async function getWishlistIds(): Promise<number[] | null> {
   const cached = readCache<WishlistCache>(WISHLIST_KEY, WISHLIST_TTL);
   if (cached) return cached.ids;
@@ -37,7 +59,10 @@ export async function getWishlistIds(): Promise<number[] | null> {
 
   wishlistInFlight = (async () => {
     try {
-      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) return null;
+      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) {
+        // In backoff: serve stale cache rather than hang the resolver.
+        return readWishlistCacheAny()?.ids ?? null;
+      }
       // No isOnline() guard — the Python backend handles its own connectivity.
 
       // Get the community profile URL from Steam's URL store.
@@ -52,23 +77,27 @@ export async function getWishlistIds(): Promise<number[] | null> {
       } catch {}
       if (!communityUrl) {
         logWarn("ONLINE", "wishlist: could not locate community URL");
-        return null;
+        return readWishlistCacheAny()?.ids ?? null;
       }
 
-      // Route through Python backend to bypass CORS.
-      const resp = await call("get_wishlist", { community_url: communityUrl }) as any;
+      // Route through Python backend to bypass CORS. Hard 6 s timeout so
+      // a hung Decky RPC can't park composite/wishlist resolves forever.
+      const resp = await rpcWithTimeout<any>("get_wishlist", { community_url: communityUrl }, 6000);
       if (!resp?.ok || !Array.isArray(resp.ids)) {
         logWarn("ONLINE", "wishlist backend error", resp?.error ?? "unknown");
-        return null;
+        return readWishlistCacheAny()?.ids ?? null;
       }
       const ids = (resp.ids as unknown[]).map(Number).filter(Number.isFinite);
-      if (!ids.length) return null;
+      if (!ids.length) return readWishlistCacheAny()?.ids ?? null;
       writeCache<WishlistCache>(WISHLIST_KEY, { ids });
       logInfo("ONLINE", "wishlist fetched via backend", { count: ids.length });
       return ids;
     } catch (e) {
       logWarn("ONLINE", "wishlist fetch failed", String(e));
-      return null;
+      // Soft-backoff for 10 min so the next resolve doesn't immediately
+      // retry the same hung RPC.
+      backoffUntil[WISHLIST_KEY] = Date.now() + 10 * 60 * 1000;
+      return readWishlistCacheAny()?.ids ?? null;
     } finally {
       wishlistInFlight = null;
     }

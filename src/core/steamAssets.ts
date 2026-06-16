@@ -1,4 +1,6 @@
 
+import { getAssetRevision } from "./assetRevision";
+
 const LOOPBACK_ORIGIN = "https://steamloopback.host";
 const STEAMSTATIC_ORIGIN = "https://shared.cloudflare.steamstatic.com";
 const AKAMAI_ORIGIN = "https://cdn.akamai.steamstatic.com";
@@ -20,6 +22,25 @@ function getOverview(appid: number): SteamAppOverview | null {
     const store = (globalThis as unknown as { appStore?: { GetAppOverviewByAppID?: (id: number) => SteamAppOverview } }).appStore;
     return store?.GetAppOverviewByAppID?.(appid) ?? null;
   } catch { return null; }
+}
+
+// Drives memo deps so URL lists re-derive when the user changes art and
+// returns to home. Steam-native URLs already carry `?c=<local_cache_version>`
+// for their own cache busting; this revision is the *only* signal that
+// flips for `/customimages/...` paths (those don't have any Steam-provided
+// cache buster). Returning the bare revision keeps the dep array cheap —
+// no per-render appStore reads — and matches the simpler URL behaviour the
+// plugin had before the per-field overview snapshot.
+export function getAppAssetCacheKey(_appid: number): string {
+  return getAssetRevision();
+}
+
+// Customimages/ URLs are user-uploaded artwork served straight off disk;
+// the file path is stable across replacements so the browser keeps showing
+// the old bitmap until the page reloads. Append the global revision (which
+// HomeInject bumps on returns to home) so the URL flips on the next render.
+function customBust(_appid: number): string {
+  return `?c=${getAssetRevision()}`;
 }
 
 function getCacheVersion(appid: number, overview?: SteamAppOverview | null): string | null {
@@ -85,9 +106,10 @@ export function getPortraitUrls(appid: number, overview?: SteamAppOverview | nul
   const ov = overview ?? getOverview(appid);
   const version = getCacheVersion(appid, ov);
   const file = ov?.library_capsule_filename || "library_600x900.jpg";
+  const bust = customBust(appid);
   const urls: string[] = [
-    `/customimages/${appid}p.png`,
-    `/customimages/${appid}p.jpg`,
+    `/customimages/${appid}p.png${bust}`,
+    `/customimages/${appid}p.jpg${bust}`,
   ];
   urls.push(buildLoopbackUrl(appid, file, version));
   if (file !== "library_600x900.jpg") urls.push(buildLoopbackUrl(appid, "library_600x900.jpg", version));
@@ -109,9 +131,10 @@ export function getPortraitUrls(appid: number, overview?: SteamAppOverview | nul
 export function getLandscapeUrls(appid: number): string[] {
   const ov = getOverview(appid);
   const version = getCacheVersion(appid, ov);
+  const bust = customBust(appid);
   const urls: string[] = [
-    `/customimages/${appid}.png`,
-    `/customimages/${appid}.jpg`,
+    `/customimages/${appid}.png${bust}`,
+    `/customimages/${appid}.jpg${bust}`,
   ];
   if (version) {
     urls.push(buildLoopbackUrl(appid, "header.jpg", version));
@@ -127,8 +150,9 @@ export function getLandscapeUrls(appid: number): string[] {
 
 export function getLogoUrls(appid: number): string[] {
   const version = getCacheVersion(appid);
+  const bust = customBust(appid);
   const urls: string[] = [
-    `/customimages/${appid}_logo.png`,
+    `/customimages/${appid}_logo.png${bust}`,
   ];
   if (version) {
     urls.push(buildLoopbackUrl(appid, "logo.png", version));
@@ -144,9 +168,10 @@ export function getIconUrls(appid: number): string[] {
   const ov = getOverview(appid);
   const iconHash = ov?.icon_hash;
   const version = getCacheVersion(appid, ov);
+  const bust = customBust(appid);
   const urls: string[] = [
-    `/customimages/${appid}_icon.png`,
-    `/customimages/${appid}_icon.jpg`,
+    `/customimages/${appid}_icon.png${bust}`,
+    `/customimages/${appid}_icon.jpg${bust}`,
   ];
   if (version) {
     urls.push(buildLoopbackUrl(appid, "icon.jpg", version));

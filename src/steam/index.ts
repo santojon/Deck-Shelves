@@ -3416,11 +3416,22 @@ function rebuildCompositeChildSources(rawChildSources: any[], compositeItems: an
 
 async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
+  // 15 s hard ceiling per child so a single hung online source (e.g. a
+  // wishlist RPC that doesn't time out cleanly) can't park the parent
+  // composite resolve forever. Returning `[]` for a misbehaving child
+  // still lets the union complete with the rest of the data.
   return Promise.all(
-    childSources.map((child) =>
-      resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1)
-        .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; }),
-    ),
+    childSources.map((child) => {
+      const inner = resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1);
+      const fallback = new Promise<number[]>((resolve) => {
+        setTimeout(() => {
+          logWarn("STEAM", "composite child resolve timed out", { type: child?.type, shelfId });
+          resolve([]);
+        }, 15000);
+      });
+      return Promise.race([inner, fallback])
+        .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; });
+    }),
   );
 }
 

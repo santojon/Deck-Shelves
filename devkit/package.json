@@ -1,5 +1,5 @@
 {
-  "name": "@deck-shelves/devkit",
+  "name": "@steamdeck-plugin/devkit",
   "private": true,
   "description": "Generic Steam Deck plugin devkit — CDP probes, screenshot pipeline, perf bench. Usable as a reference or submodule by any Decky plugin project.",
   "license": "MIT",

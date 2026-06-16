@@ -41,7 +41,7 @@ export function SettingsPage() {
       style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", color: "white" }}
     >
       <DeckQAMStyles />
-      <PageHeader title={t("settings_page_title")} onBack={goBack} />
+      <PageHeader title={t("settings_page_title")} onBack={goBack} active="settings" />
       <div style={{ flex: 1, minHeight: 0 }}>
         <Tabs
           activeTab={activeTab}

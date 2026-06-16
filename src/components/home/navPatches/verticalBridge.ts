@@ -47,17 +47,37 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
         const sibling = parentChildren.find(
           (c) => c !== mount && (c as Element).contains(before),
         ) as HTMLElement | undefined;
-        if (!sibling) return;
-        // Bug B: only bridge from siblings ABOVE our mount, not below (native tabs)
-        if (parentChildren.indexOf(sibling) > mountIdx) return;
-        // Only bridge when focus is in the lower portion of its sibling
-        // (likely the last row). Use BOTTOM, not TOP — the native recents
-        // row may sit mid-sibling when the sibling stacks a search bar +
-        // tabs + recents (card top would land in the upper half even
-        // though the card itself is the last row), so a top-based check
-        // false-bails and the user gets stuck pressing Down with no move.
-        const sibRect = sibling.getBoundingClientRect();
-        if (beforeRect.bottom < sibRect.top + sibRect.height * 0.5) return;
+        if (sibling) {
+          // DOM order ≠ visual order. Steam's home stacks several siblings
+          // around our mount — some (e.g. a hidden Friends container) are
+          // declared AFTER the mount in the parent's children list yet
+          // render at y=0 with height=0. Compare rects, not indices:
+          // when the sibling is visually below the mount (its top is below
+          // the mount's top), it's a real tabs-style sibling and we don't
+          // bridge. When it's visually above (e.g. hidden recents shell,
+          // Friends shell, search), it IS a candidate even if its DOM
+          // index is greater than ours.
+          const sibRect = sibling.getBoundingClientRect();
+          const siblingVisuallyBelow = sibRect.top > mountRect.top + 4 && sibRect.height > 0;
+          if (siblingVisuallyBelow) return;
+          // For non-zero-height siblings that DO sit above the mount, keep
+          // the "focus must be in lower half" guard — it protects against
+          // bridging from the search bar before the user has scrolled
+          // through the row. Zero-height containers (hidden recents /
+          // Friends shells) skip the half-check since there is no row to
+          // walk through inside them.
+          if (sibRect.height > 0 && beforeRect.bottom < sibRect.top + sibRect.height * 0.5) return;
+        } else if (beforeRect.bottom > mountRect.top + 4) {
+          // The focused element isn't inside any of mount's direct siblings
+          // (typical when the user navigated up to the system search bar in
+          // `#header` — that lives several ancestors above our parent). If
+          // it's NOT visually above the mount either, this isn't a case we
+          // can interpret — bail and let native nav handle it.
+          return;
+        }
+        // Above-mount focus (no in-tree sibling match OR zero-height
+        // sibling shell): redirect DOWN into our first card so the user
+        // can't get trapped above the mount.
         redirectTarget = mount.querySelector<HTMLElement>(".ds-card");
       } else if (btn === DIR_UP) {
         if (!mount.contains(before)) return;

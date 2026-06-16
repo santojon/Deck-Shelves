@@ -34,9 +34,10 @@ export function AboutPage() {
     <Focusable
       flow-children='vertical'
       onCancelButton={goBack}
+      className='deck-shelves-about'
       style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}
     >
-      <PageHeader title={t('about')} onBack={goBack} />
+      <PageHeader title={t('about')} onBack={goBack} active="about" />
       <div style={{ flex: 1, minHeight: 0 }}>
         <Tabs
           activeTab={activeTab}

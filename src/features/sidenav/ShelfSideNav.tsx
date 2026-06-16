@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Focusable } from "../../runtime/host/decky";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
@@ -6,12 +6,12 @@ import { getExternalSideMenuProviders, type SideMenuContext, type SideMenuEntry 
 import type { Settings, Shelf, SmartShelf } from "../../types";
 import { focusElement } from "../../core/focusRestore";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton } from "../../runtime/homeInputBus";
-import { createMatcherState, matchEvent, parseCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { isInVisibilityWindow } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
-import { forwardRef } from "react";
 
 type Anchor = {
   shelfId: string;
@@ -114,16 +114,29 @@ export function ShelfSideNav() {
       setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? appid : null });
     };
     const matcherState = createMatcherState();
+    const rawMatcherState = createMatcherState();
     const unsubBtn = subscribeHomeButton((e) => {
       if (!enabledRef.current) return;
       try { (globalThis as any).__ds_sidenav_last_btn = { b: e.button, t: Date.now() }; } catch {}
-      const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any).navSideNav);
+      const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSideNav);
       if (matchEvent({ button: e.button }, combo, matcherState)) {
         try { (globalThis as any).__ds_sidenav_fired = Date.now(); } catch {}
         tryOpen();
       }
     });
-    return () => { unsubBtn(); };
+    // Parallel raw stream for back-grip-only combos (L4/L5/R4/R5).
+    // Skips when the Decky path can handle the binding so single presses
+    // don't double-trigger.
+    const unsubRaw = subscribeControllerInput((e) => {
+      if (!enabledRef.current || !e.pressed) return;
+      const navSideNav = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSideNav;
+      if (!navSideNav) return;
+      const tokens = String(navSideNav).toUpperCase().split("+");
+      const rawOnly = tokens.some((t) => t === "L4" || t === "L5" || t === "R4" || t === "R5");
+      if (!rawOnly) return;
+      if (matchEvent({ button: e.button }, parseRawCombo(navSideNav), rawMatcherState)) tryOpen();
+    });
+    return () => { unsubBtn(); unsubRaw(); };
   }, [anchor, enabled]);
 
   if (!enabled || !anchor || !settings) return null;

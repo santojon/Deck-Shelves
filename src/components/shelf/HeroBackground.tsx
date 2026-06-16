@@ -49,7 +49,14 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   const [needsHeroLabel, setNeedsHeroLabel] = useState(() => {
     try { return isArtHeroActive(); } catch { return false; }
   });
-  const [labelHtml, setLabelHtml] = useState<string | null>(null);
+  const [labelNode, setLabelNode] = useState<HTMLElement | null>(null);
+  const labelMountRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const host = labelMountRef.current;
+    if (!host) return;
+    while (host.firstChild) host.removeChild(host.firstChild);
+    if (labelNode) host.appendChild(labelNode);
+  }, [labelNode]);
 
   // Re-evaluate when CSS Loader themes are added/removed at runtime — the
   // user can toggle ArtHero on/off without reloading the plugin, so the
@@ -270,7 +277,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         // overlay positions it above the row instead of below.
         if (needsHeroLabel) {
           const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-          setLabelHtml(labelEl ? labelEl.outerHTML : null);
+          setLabelNode(labelEl ? (labelEl.cloneNode(true) as HTMLElement) : null);
           // Align label with focused card's left edge. rAF defers to
           // after Steam's smooth-scroll settles so rect.left isn't stale.
           requestAnimationFrame(() => {
@@ -312,7 +319,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
   // label so a stale clone doesn't briefly render before unmount.
   useEffect(() => {
     if (!needsHeroLabel) {
-      setLabelHtml(null);
+      setLabelNode(null);
       return;
     }
     const focused = mountEl.querySelector('.ds-card.gpfocus, .ds-card:focus') as HTMLElement | null;
@@ -320,7 +327,7 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     const inPromoted = !!focused.closest('.ds-shelf[data-ds-recents-slot="true"]');
     if (!inPromoted) return;
     const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
-    setLabelHtml(labelEl ? labelEl.outerHTML : null);
+    setLabelNode(labelEl ? (labelEl.cloneNode(true) as HTMLElement) : null);
     setLabelLeftPx(Math.max(0, Math.round(focused.getBoundingClientRect().left)));
   }, [needsHeroLabel, mountEl]);
 
@@ -459,8 +466,9 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         descendant — even at z-index:2 — is trapped behind the cards.
         As a sibling, the overlay's z-index competes with the cards
         directly and can sit above them. */}
-    {needsHeroLabel && labelHtml && (
+    {needsHeroLabel && labelNode && (
       <div
+        ref={labelMountRef}
         className="ds-promoted-hero-label"
         style={{
           position: "fixed",
@@ -471,7 +479,6 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
           opacity: visible ? 1 : 0,
           transition: "opacity 0.5s cubic-bezier(0.17, 0.45, 0.14, 0.83), left 0.2s ease, bottom 0.2s ease",
         }}
-        dangerouslySetInnerHTML={{ __html: labelHtml }}
       />
     )}
     </>

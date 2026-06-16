@@ -14,15 +14,29 @@ const BUTTON_A = 0;
 const BUTTON_B = 1;
 const BUTTON_X = 2;
 const BUTTON_Y = 3;
-const L1 = 4;
-const R1 = 5;
-const VIEW = 6;
-const MENU = 7;
+// Steam Deck Big Picture raw button IDs verified live via the in-app raw-id
+// surface in the bindings capture screen (SteamClient.Input.RegisterForControllerInputMessages).
+// Numbers below are the live deck values; the older 4-9 range was wrong
+// (those slots correspond to other internal events). Back-grip buttons
+// (L4/L5/R4/R5) and stick clicks (L3/R3) also surface here so users can
+// bind any physical button.
+const L1 = 30;
+const R1 = 31;
+const L2 = 28;
+const R2 = 29;
+const L3 = 25;
+const R3 = 41;
+const L4 = 44;
+const R4 = 45;
+const L5 = 32;
+const R5 = 33;
+const VIEW = 35;
+const MENU = 36;
 
 export const Button = {
   DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT,
   A: BUTTON_A, B: BUTTON_B, X: BUTTON_X, Y: BUTTON_Y,
-  L1, R1, VIEW, MENU,
+  L1, R1, L2, R2, L3, R3, L4, R4, L5, R5, VIEW, MENU,
 } as const;
 
 export interface ControllerEvent {
@@ -93,7 +107,20 @@ function getAllInputApis(): any[] {
 }
 
 let unregisterAll: Array<() => void> = [];
+// Steam exposes the same controller stream through several Input objects
+// (self, gamepadMain, BP injection) — registering on each yields the same
+// event N times within ~1 ms. Drop duplicate (slot, button, pressed)
+// triples seen within DEDUP_WINDOW_MS so subscribers see one event per
+// physical press.
+const DEDUP_WINDOW_MS = 40;
+let lastEvKey = "";
+let lastEvAt = 0;
 function dispatch(ev: ControllerEvent): void {
+  const key = `${ev.slot}:${ev.button}:${ev.pressed ? 1 : 0}`;
+  const now = Date.now();
+  if (key === lastEvKey && (now - lastEvAt) < DEDUP_WINDOW_MS) return;
+  lastEvKey = key;
+  lastEvAt = now;
   publishToDebugBus(ev);
   for (const l of listeners) {
     try { l(ev); } catch {}

@@ -92,7 +92,7 @@ function focusShelfCard(appid: number, shelfId: string | null): void {
     }
     return t;
   };
-  let target = findTarget();
+  const target = findTarget();
   if (!target && shelfId) {
     // Card not mounted — scroll the shelf into view first, then retry a
     // few times while the DOM catches up. Steam virtualises long rows so

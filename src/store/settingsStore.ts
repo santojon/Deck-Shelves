@@ -53,6 +53,21 @@ const _init = readCache() ?? readSharedState();
 let current: Settings | null = _init ? applyQASettingsOverride(_init) : null;
 const listeners = new Set<(s: Settings) => void>();
 
+// Tracks whether the most recent saveSettings attempt actually reached the
+// backend. When the backend hangs / returns false we flip this to false;
+// while it is false, refreshSettings's background fetch stops overriding
+// `current` so the user's pending changes survive even across plugin
+// reloads. Persisted to localStorage so a remount doesn't drop the flag.
+const SAVE_OK_KEY = "deck-shelves-last-save-ok";
+let lastSaveSucceeded = (() => {
+  try { return globalThis.localStorage?.getItem(SAVE_OK_KEY) !== "0"; } catch { return true; }
+})();
+function markSaveResult(ok: boolean): void {
+  lastSaveSucceeded = ok;
+  try { globalThis.localStorage?.setItem(SAVE_OK_KEY, ok ? "1" : "0"); } catch {}
+  try { (globalThis as any).__ds_last_save_ok = ok; } catch {}
+}
+
 function isSameSettings(a: Settings | null, b: Settings): boolean {
   if (!a) return false;
   return JSON.stringify(a) === JSON.stringify(b);
@@ -112,8 +127,36 @@ export async function refreshSettings(): Promise<Settings> {
   const cached = current ?? readCache() ?? readSharedState();
   if (cached) {
     notify(cached);
+    // If the last save attempt failed (across plugin reloads — flag is
+    // persisted), retry the cached state once on boot. Without this the
+    // user's unsynced toggle would never propagate to disk.
+    if (!lastSaveSucceeded) {
+      logWarn("STORAGE", "retrying unsynced save on boot");
+      saveSettings(cached).catch(() => {});
+    }
+    // Snapshot the state we showed before kicking off the background read.
+    // If the user mutates anything while the call is in flight, `current`
+    // will diverge from this snapshot and we MUST keep the user's edits —
+    // the backend response is racing them and is necessarily stale.
+    const refreshAnchor = JSON.stringify(current);
     withTimeout(call<[], unknown>("get_settings"), 5000)
-      .then((raw) => notify(normalize(raw)))
+      .then((raw) => {
+        const fromServer = normalize(raw);
+        // 1) Save still unconfirmed → cache holds the user's pending edits.
+        if (!lastSaveSucceeded && JSON.stringify(fromServer) !== JSON.stringify(current)) {
+          logWarn("STORAGE", "background refresh suppressed (last save unconfirmed)");
+          return;
+        }
+        // 2) User mutated state mid-read → adopting the backend response
+        //    would silently revert those edits even though they're being
+        //    actively saved. Skip and let the next refresh pick them up
+        //    once the save has settled.
+        if (JSON.stringify(current) !== refreshAnchor) {
+          logWarn("STORAGE", "background refresh suppressed (state changed mid-read)");
+          return;
+        }
+        notify(fromServer);
+      })
       .catch((error) => logWarn("STORAGE", "background refresh failed", String(error)));
     return cached;
   }
@@ -130,67 +173,73 @@ export async function refreshSettings(): Promise<Settings> {
   }
 }
 
-export async function saveSettings(next: Settings): Promise<boolean> {
+// Coalesce rapid saveSettings calls: when a backend write is already in
+// flight, queue the latest payload and let the resolver of every caller
+// share the same outcome. Eliminates the queue of N RPC calls that piled
+// up behind a slow plugin worker, each hitting its own 8 s timeout.
+let pendingSave: { next: Settings; resolvers: Array<(ok: boolean) => void> } | null = null;
+let saveInFlight = false;
+
+async function flushPendingSave(): Promise<void> {
+  if (saveInFlight) return;
+  const job = pendingSave;
+  if (!job) return;
+  pendingSave = null;
+  saveInFlight = true;
+  try {
+    const ok = await runSave(job.next);
+    for (const r of job.resolvers) r(ok);
+  } finally {
+    saveInFlight = false;
+    if (pendingSave) flushPendingSave();
+  }
+}
+
+export function saveSettings(next: Settings): Promise<boolean> {
   if (__DEV__ && ((typeof __QA_ALL_SHELVES_HIDE_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_HIDE_RECENTS__) || (typeof __QA_ALL_SHELVES_SHOW_RECENTS__ !== "undefined" && __QA_ALL_SHELVES_SHOW_RECENTS__))) {
     logInfo("STORAGE", "saveSettings skipped (QA all-shelves override active)");
     notify(next);
-    return true;
+    return Promise.resolve(true);
   }
-  logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
+  // Always update local + cache + listeners immediately so the UI stays
+  // responsive even while a slow backend write is pending.
   notify(next);
-  const payload = JSON.stringify(next);
-  const sizeKb = Math.round((new Blob([payload]).size || payload.length) / 1024);
-  logInfo("STORAGE", "saveSettings payload_size_kb", { sizeKb });
+  return new Promise<boolean>((resolve) => {
+    if (pendingSave) {
+      pendingSave.next = next;
+      pendingSave.resolvers.push(resolve);
+    } else {
+      pendingSave = { next, resolvers: [resolve] };
+    }
+    flushPendingSave();
+  });
+}
 
-  const maxRetries = 3;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const ok = await withTimeout(call<[unknown], boolean>("set_settings", { settings: next }), 8000);
-      if (!ok) {
-        logWarn("STORAGE", `saveSettings backend returned false (attempt ${attempt})`);
-        try { (globalThis as any).__ds_save_last_err = { kind: "backend-false", attempt, at: Date.now() }; } catch {}
-        if (attempt < maxRetries) continue;
-        return false;
-      }
+async function runSave(next: Settings): Promise<boolean> {
+  logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
 
-      // Verify server-side state matches what we attempted to save.
-      try {
-        const serverRaw = await withTimeout(call<[], unknown>("get_settings"), 5000);
-        const serverNorm = normalize(serverRaw);
-        const sentJson = JSON.stringify(next);
-        const backJson = JSON.stringify(serverNorm);
-        if (backJson !== sentJson) {
-          // Diff which top-level keys mismatch so we can debug round-trip
-          // losses (sanitiser stripping a field, order skew, etc.)
-          const diffs: string[] = [];
-          try {
-            const a = next as any; const b = serverNorm as any;
-            const ks = new Set([...Object.keys(a), ...Object.keys(b)]);
-            for (const k of ks) {
-              if (JSON.stringify(a?.[k]) !== JSON.stringify(b?.[k])) diffs.push(k);
-            }
-          } catch {}
-          logWarn("STORAGE", `post-save verification mismatch (attempt ${attempt})`, { serverShelves: serverNorm.shelves.length, localShelves: next.shelves.length, diffKeys: diffs.slice(0, 10) });
-          try { (globalThis as any).__ds_save_last_err = { kind: "verify-mismatch", attempt, at: Date.now(), diffKeys: diffs.slice(0, 20), serverRaw: typeof serverRaw === "object" ? Object.keys(serverRaw as any) : null }; } catch {}
-          if (attempt < maxRetries) continue;
-        }
-      } catch (verErr) {
-        logWarn("STORAGE", `post-save verification failed (attempt ${attempt})`, String(verErr));
-        try { (globalThis as any).__ds_save_last_err = { kind: "verify-throw", attempt, at: Date.now(), err: String(verErr) }; } catch {}
-        // If verification fails, don't immediately treat as fatal; only retry a few times.
-        if (attempt < maxRetries) continue;
-      }
-
-      logInfo("STORAGE", "saveSettings success");
-      return true;
-    } catch (error) {
-      logError("STORAGE", `saveSettings failed (attempt ${attempt})`, String(error));
-      try { (globalThis as any).__ds_save_last_err = { kind: "call-throw", attempt, at: Date.now(), err: String(error) }; } catch {}
-      if (attempt < maxRetries) continue;
+  // Single attempt with a single RPC. Previously this was 3 retries +
+  // a post-save get_settings verification, which on a slow backend stacked
+  // up to 6 timeouts per save and kept the UI in error-state for ~45s.
+  // The cache + `lastSaveSucceeded` flag handle one-off failures gracefully
+  // — the next user-triggered save will retry the write naturally.
+  try {
+    const ok = await withTimeout(call<[unknown], boolean>("set_settings", { settings: next }), 8000);
+    if (!ok) {
+      logWarn("STORAGE", "saveSettings backend returned false");
+      try { (globalThis as any).__ds_save_last_err = { kind: "backend-false", at: Date.now() }; } catch {}
+      markSaveResult(false);
       return false;
     }
+    logInfo("STORAGE", "saveSettings success");
+    markSaveResult(true);
+    return true;
+  } catch (error) {
+    logError("STORAGE", "saveSettings failed", String(error));
+    try { (globalThis as any).__ds_save_last_err = { kind: "call-throw", at: Date.now(), err: String(error) }; } catch {}
+    markSaveResult(false);
+    return false;
   }
-  return false;
 }
 
 export async function resetSettings(): Promise<Settings> {

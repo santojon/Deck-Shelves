@@ -51,7 +51,7 @@ def _ws_handshake(host: str, port: int, path: str) -> socket.socket:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(15)
     sock.connect((_normalize_host(host), port))
-    key = base64.b64encode(b"deck-shelves-screenshot--01").decode()
+    key = base64.b64encode(b"devkit-cdp-ws-1234567890ab").decode()
     req = (
         f"GET {path} HTTP/1.1\r\n"
         f"Host: {host}:{port}\r\n"

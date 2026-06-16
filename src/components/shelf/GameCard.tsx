@@ -3,7 +3,7 @@ import { Focusable, GamepadButton } from "../../runtime/host/decky";
 import { dispatchHomeButtonDown } from "../../runtime/homeInputBus";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
-import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls } from "../../core/steamAssets";
+import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls, getAppAssetCacheKey } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
 import { logInfo } from "../../runtime/logger";
@@ -15,7 +15,8 @@ import { resolveNativeCardClass } from "./cardUtils";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
-import { BTN, createMatcherState, matchEvent, parseCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { BTN, createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { subscribeControllerInput } from "../../runtime/controllerInput";
 
 // Build a {buttonId: label} map for Decky's Focusable `actionDescriptionMap`.
 // Only single-button bindings get a legend; chords/doubles silently drop.
@@ -28,7 +29,7 @@ function buildActionDescriptionMap(args: {
   hideable: boolean;
   hiddenNow: boolean;
 }): Record<number, string> | undefined {
-  const b = resolveBindings(getCurrentSettings()?.buttonBindings as any);
+  const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
   const TOKEN_TO_BTN: Record<string, number> = {
     X: BTN.SECONDARY, Y: BTN.OPTIONS,
     L1: BTN.L1, R1: BTN.R1, L2: BTN.L2, R2: BTN.R2,
@@ -256,12 +257,13 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     catch { return false; }
   }, [appid, previewMode]);
   const matcherRef = useRef(createMatcherState());
+  const rawMatcherRef = useRef(createMatcherState());
   const buttonDownHandler = useCallback((evt: any) => {
     if (previewMode) return;
     try { dispatchHomeButtonDown(evt); } catch {}
     if (!appid) return;
     try {
-      const b = resolveBindings(getCurrentSettings()?.buttonBindings as any);
+      const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
       const state = matcherRef.current;
       if (matchEvent(evt, parseCombo(b.cardQuickLaunch), state)) { quickLaunch(); return; }
       if (matchEvent(evt, parseCombo(b.cardHideRemove), state)) {
@@ -274,6 +276,41 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         return;
       }
     } catch {}
+  }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, item.shelfId]);
+
+  // Raw stream subscription for tokens the Decky home-button bus doesn't
+  // forward (back-grip L4/L5/R4/R5). Decky-known tokens stay on the
+  // buttonDownHandler path above to avoid firing twice for the same press.
+  // Gated by `.gpfocus` so only the focused card's binding fires — same
+  // contract as Decky's onButtonDown, which only delivers to the focused
+  // Focusable.
+  useEffect(() => {
+    if (previewMode || !appid) return;
+    const usesRawOnly = (combo: string | null | undefined): boolean => {
+      if (!combo) return false;
+      const tokens = String(combo).toUpperCase().split("+");
+      return tokens.some((t) => t === "L4" || t === "L5" || t === "R4" || t === "R5");
+    };
+    return subscribeControllerInput((e) => {
+      if (!e.pressed) return;
+      const el = cardRef.current;
+      if (!el || !el.classList.contains("gpfocus")) return;
+      try {
+        const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
+        const state = rawMatcherRef.current;
+        const evtLike = { button: e.button };
+        if (usesRawOnly(b.cardQuickLaunch) && matchEvent(evtLike, parseRawCombo(b.cardQuickLaunch), state)) { quickLaunch(); return; }
+        if (usesRawOnly(b.cardHideRemove) && matchEvent(evtLike, parseRawCombo(b.cardHideRemove), state)) {
+          if (removableSet?.has(appid) && onRemoveCard) onRemoveCard(appid);
+          else if (onHideCard) onHideCard(appid);
+          return;
+        }
+        if (usesRawOnly(b.cardHighlightToggle) && matchEvent(evtLike, parseRawCombo(b.cardHighlightToggle), state)) {
+          try { toggleCardHighlight(item.shelfId, appid); } catch {}
+          return;
+        }
+      } catch {}
+    });
   }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, item.shelfId]);
 
   useEffect(() => {
@@ -370,8 +407,13 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
 
   // Enrichment: logo overlay over the art; icon prepended to the name/status;
   // description snippet rendered below the status row or below the logo.
-  const logoUrls = useMemo(() => (enableLogo && appid > 0 ? getLogoUrls(appid) : []), [enableLogo, appid]);
-  const iconUrls = useMemo(() => (enableIcon && appid > 0 ? getIconUrls(appid) : []), [enableIcon, appid]);
+  // Re-key the URL memos on the live overview asset stamp so user-replaced
+  // artwork (logo / icon / capsule / hero) propagates without a plugin
+  // reload — the dep flips when Steam bumps local_cache_version / *_filename
+  // / icon_hash, dropping the stale ?c=<old> URL and adopting the new one.
+  const assetKey = getAppAssetCacheKey(appid);
+  const logoUrls = useMemo(() => (enableLogo && appid > 0 ? getLogoUrls(appid) : []), [enableLogo, appid, assetKey]);
+  const iconUrls = useMemo(() => (enableIcon && appid > 0 ? getIconUrls(appid) : []), [enableIcon, appid, assetKey]);
   const [logoIdx, setLogoIdx] = useState(0);
   const [iconIdx, setIconIdx] = useState(0);
   // Warm the loopback / CDN URLs in the background so subsequent renders of
@@ -424,7 +466,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       }
     }
     return urls;
-  }, [item.portraitUrl, item.heroUrl, appid, featured]);
+  }, [item.portraitUrl, item.heroUrl, appid, featured, assetKey]);
 
   // Track the *original* (non-blob) URL for each fallback step. Used by
   // onImgError so we always advance through the original URL chain even

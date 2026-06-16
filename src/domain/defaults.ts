@@ -92,5 +92,6 @@ export function defaultSettings(): Settings {
       navSearch: "L1+R1",
       navSideNav: "L1+L1",
     },
+    buttonBindingsDisabled: [],
   };
 }

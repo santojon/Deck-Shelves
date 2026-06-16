@@ -237,7 +237,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       })
   )
   const collectionOptions: SingleDropdownOption[] = collections.map((item) => ({ data: item.id, label: item.name }))
-  const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName }))
+  const externalOptions: SingleDropdownOption[] = externalSources.map((src) => ({ data: src.id, label: src.displayName ?? (src as any).label ?? src.id }))
   // Placeholder injection: when the current value isn't present in the
   // option list (no items discovered yet OR orphan id), prepend a
   // "Selecione" entry so the dropdown never renders blank. The placeholder

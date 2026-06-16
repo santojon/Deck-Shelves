@@ -79,6 +79,7 @@ function SectionEyeButton({
 export function GeneralTab({ controller }: { controller: SettingsController }) {
   const { t, actions } = controller
   const settings = controller.settings
+  const lightMode = useLightMode()
   if (!settings) return null
   const hiddenToggles: string[] = (settings as any).qamHiddenToggles ?? []
   const hiddenSections: string[] = (settings as any).qamHiddenSections ?? []
@@ -89,11 +90,6 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
   const hasNonSteamBadges = isNonSteamBadgesAvailable()
   let hasCssLoader = false
   try { hasCssLoader = isCssLoaderActive() } catch {}
-  // Sprint 13 — light mode hides genuinely advanced controls so casual
-  // users don't see them on first open. The `forceCssLoaderThemes`
-  // toggle is the first one gated; per-section advanced expanders
-  // come incrementally as we touch each surface.
-  const lightMode = useLightMode()
   const mode: Mode = 'sidecar'
   const row = (tk: string, node: React.ReactNode) => (
     <HideableRow tk={tk} hidden={isHid(tk)} setHidden={(v) => setHid(tk, v)} mode={mode} t={t}>{node}</HideableRow>
@@ -137,6 +133,16 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         {row('contextSearchEnabled', (
           <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
         ))}
+        {(settings as any).contextSearchEnabled === true && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            {row('contextSearchKeyboardEnabled', (
+              <ToggleField label={t('context_search_keyboard' as any)} checked={(settings as any).contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
+            ))}
+            {row('contextSearchOnEnter', (
+              <ToggleField label={t('context_search_on_enter' as any)} checked={(settings as any).contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
+            ))}
+          </div>
+        )}
         {row('sideNavEnabled', (
           <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
         ))}
@@ -326,7 +332,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           ))}
           {/* Last item in the global visual section */}
           {row('globalFullPageShelf', (
-            <ToggleField label={t('full_page_shelf_label' as any)} checked={(settings as any).globalFullPageShelf === true} onChange={(v: boolean) => (actions as any).setGlobalFullPageShelf(v)} />
+            <ToggleField label={t('full_page_shelves_label' as any)} checked={(settings as any).globalFullPageShelf === true} onChange={(v: boolean) => (actions as any).setGlobalFullPageShelf(v)} />
           ))}
         </CollapsibleSection>
 

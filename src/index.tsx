@@ -1,8 +1,12 @@
 import { definePlugin } from "@decky/api";
+// Build sentinel — bumped each iteration so CDP probes can confirm the
+// running JS matches the latest source. Read via `window.__ds_build`.
+try { (globalThis as any).__ds_build = "2026-06-16T6"; } catch {}
 import i18next from "i18next";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { DocsIcon } from "./components/icons";
 import { createDeckyPlatform } from "./runtime/deckyPlatform";
 import { PlatformProvider, setPlatform } from "./runtime/platformContext";
 import './runtime/embeddedClassMap';
@@ -85,10 +89,7 @@ function TitleView() {
         onClick={openAboutPage}
         onOKButton={openAboutPage}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-          <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" />
-        </svg>
+        <DocsIcon size={14} />
       </DialogButton>
       <DialogButton
         style={{ height: 28, width: 40, minWidth: 0, padding: 0, marginLeft: 4, display: "flex", justifyContent: "center", alignItems: "center" }}

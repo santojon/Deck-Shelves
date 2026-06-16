@@ -267,7 +267,29 @@ export function createProfileActions(deps: ProfilesDeps) {
     async resetButtonBindings() {
       const s = liveSettings();
       if (!s) return;
-      await persist({ ...s, buttonBindings: {} } as Settings);
+      // Restore defaults for every key + clear disabled list.
+      await persist({
+        ...s,
+        buttonBindings: {
+          cardHideRemove: "X",
+          cardHighlightToggle: "Y",
+          cardQuickLaunch: "VIEW",
+          navSearch: "L1+R1",
+          navSideNav: "L1+L1",
+        } as any,
+        buttonBindingsDisabled: [],
+      } as Settings);
+    },
+    async setBindingDisabled(key: string, disabled: boolean) {
+      const s = liveSettings();
+      if (!s) return;
+      const list = ((s as any).buttonBindingsDisabled ?? []) as string[];
+      const has = list.includes(key);
+      let next: string[];
+      if (disabled && !has) next = [...list, key];
+      else if (!disabled && has) next = list.filter((k) => k !== key);
+      else return;
+      await persist({ ...s, buttonBindingsDisabled: next } as Settings);
     },
   };
 }

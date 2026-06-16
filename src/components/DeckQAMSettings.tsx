@@ -84,6 +84,15 @@ function takeNavTreeFocus(el: HTMLElement): boolean {
 }
 
 function SidecarPanel({ controller, onCollapse }: { controller: SettingsController; onCollapse: () => void }) {
+  // If the controller isn't fully ready (settings unhydrated), the inner
+  // GeneralTab `if (!settings) return null` short-circuits and the sidecar
+  // would render as an empty body — which is what users see after the
+  // Steam-menu-over-QAM cycle when Decky re-mounts the plugin tab before
+  // refreshSettings has populated state. Bail at this layer so the
+  // sidecar simply doesn't appear at all in that state; the caller's
+  // qamExpanded flag stays in sync and the user gets either "closed" or
+  // "open with content" — never the bug-state of "open with no content".
+  if (!controller?.settings) return null;
   const innerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Take focus on the first focusable INSIDE the sidecar. We avoid
@@ -496,9 +505,101 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const dsScopeRef = useRef<HTMLDivElement>(null);
   useDpadExpandBridge(dsScopeRef, setQamExpanded);
   // The store's `current` is module-level and persists across DS mount /
-  // unmount cycles. Reset to collapsed when the user leaves DS so coming
-  // back via the plugin list doesn't auto-expand.
-  useEffect(() => () => setQamExpanded(false), [setQamExpanded]);
+  // unmount cycles. Reset to collapsed on BOTH mount AND unmount so a
+  // fresh QAM open never inherits a stale expanded state — even when
+  // Steam recreates the popup window while the plugin module survives
+  // in SharedJSContext.
+  useEffect(() => {
+    setQamExpanded(false);
+    return () => setQamExpanded(false);
+  }, [setQamExpanded]);
+  // Decky keeps the plugin tab mounted across QAM open/close cycles, so
+  // without explicit hooks the sidecar stays expanded when the user opens
+  // a Steam overlay (Steam menu, friends, etc) and comes back to the QAM.
+  // None of the available signals fires reliably on every path Steam can
+  // hide the QAM through — listen to all of them.
+  useEffect(() => {
+    const scope = dsScopeRef.current;
+    const doc = scope?.ownerDocument ?? document;
+    const win = doc.defaultView ?? window;
+    const trace = (label: string) => {
+      try {
+        const g = globalThis as any;
+        if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
+        g.__ds_sidecar_signals.push({ t: Date.now(), label, hidden: doc.hidden, hasFocus: doc.hasFocus?.() });
+        if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
+      } catch {}
+    };
+    const collapse = (label: string) => () => { trace(label); setQamExpanded(false); };
+    const onVis = () => { if (doc.hidden) { trace("visibilitychange:hidden"); setQamExpanded(false); } };
+    doc.addEventListener("visibilitychange", onVis);
+    const onFocus = collapse("window.focus");
+    win.addEventListener("focus", onFocus);
+    const onPageHide = collapse("pagehide");
+    win.addEventListener("pagehide", onPageHide);
+    const onFreeze = collapse("freeze");
+    const onResume = collapse("resume");
+    doc.addEventListener("freeze", onFreeze);
+    doc.addEventListener("resume", onResume);
+    return () => {
+      doc.removeEventListener("visibilitychange", onVis);
+      win.removeEventListener("focus", onFocus);
+      win.removeEventListener("pagehide", onPageHide);
+      doc.removeEventListener("freeze", onFreeze);
+      doc.removeEventListener("resume", onResume);
+    };
+  }, [setQamExpanded]);
+
+  // Authoritative signal for "QAM is no longer the active side menu":
+  // `SteamUIStore.WindowStore.GamepadUIMainWindowInstance.m_MenuStore
+  // .m_eOpenSideMenu`. This MobX-backed enum flips between None / MainMenu
+  // / QuickAccess when Steam opens overlays on top of the QAM. Polling at
+  // 300 ms is cheap (a property read), only runs while the sidecar is
+  // expanded, and stops as soon as we collapse. Captures the value seen
+  // at mount as the "active QAM" reference value — anything different
+  // afterwards means the QAM lost focus to another overlay.
+  useEffect(() => {
+    if (!qamExpanded) return;
+    const doc = dsScopeRef.current?.ownerDocument ?? document;
+    const win = doc.defaultView ?? window;
+    const getMenuState = (): number | null => {
+      try {
+        const opener = (win as any).opener;
+        const ms = opener?.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.m_MenuStore;
+        return typeof ms?.m_eOpenSideMenu === "number" ? ms.m_eOpenSideMenu : null;
+      } catch { return null; }
+    };
+    const refValue = getMenuState();
+    let lastTick = Date.now();
+    try {
+      const g = globalThis as any;
+      if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
+      g.__ds_sidecar_signals.push({ t: lastTick, label: "poll-start", ref: refValue, focus: doc.hasFocus?.() });
+      if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
+    } catch {}
+    const id = window.setInterval(() => {
+      try {
+        const now = Date.now();
+        const gap = now - lastTick;
+        lastTick = now;
+        const menuState = getMenuState();
+        const menuChanged = refValue !== null && menuState !== null && menuState !== refValue;
+        const noFocus = !doc.hasFocus();
+        const resumedFromBackground = gap > 1500;
+        if (menuChanged || noFocus || resumedFromBackground) {
+          try {
+            const g = globalThis as any;
+            if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
+            g.__ds_sidecar_signals.push({ t: now, label: "poll-collapse", reason: menuChanged ? `menu:${refValue}->${menuState}` : noFocus ? "noFocus" : `gap:${gap}` });
+            if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
+          } catch {}
+          setQamExpanded(false);
+          window.clearInterval(id);
+        }
+      } catch {}
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [qamExpanded, setQamExpanded]);
   const hiddenToggles: string[] = (settings as any).qamHiddenToggles ?? []
   const hiddenSections: string[] = (settings as any).qamHiddenSections ?? []
   const isHid = (k: string) => isToggleHiddenWithAncestors(k, hiddenToggles)
@@ -956,7 +1057,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('globalHideRefreshCard') && <ToggleField label={t('hide_refresh_card')} checked={settings.globalHideRefreshCard === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideRefreshCard(value)} />}
         {!isHid('globalDedupeByName') && <ToggleField label={t('global_dedupe_by_name' as any)} checked={(settings as any).globalDedupeByName === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDedupeByName(value)} />}
         {!isHid('globalHeroEnabled') && <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalHeroEnabled(value)} />}
-        {!isHid('globalFullPageShelf') && <ToggleField label={t('full_page_shelf_label' as any)} checked={(settings as any).globalFullPageShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalFullPageShelf(value)} />}
+        {!isHid('globalFullPageShelf') && <ToggleField label={t('full_page_shelves_label' as any)} checked={(settings as any).globalFullPageShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalFullPageShelf(value)} />}
       </CollapsibleSection>
       )}
 

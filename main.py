@@ -1,9 +1,9 @@
+import asyncio
 import hashlib
 import json
 import os
 import sqlite3
 import ssl
-import sys
 from subprocess import run as _sp_run
 import urllib.request
 import urllib.error
@@ -103,29 +103,36 @@ class Plugin:
         return {}
 
     async def get_settings(self, *args, **kwargs) -> Dict[str, Any]:
-        return self._read_state()
+        # `_read_state` opens + parses the settings JSON synchronously; move
+        # it off the event loop so a slow read doesn't block every other
+        # plugin RPC behind it.
+        return await asyncio.to_thread(self._read_state)
+
+    def _save_pipeline(self, data: Dict[str, Any]) -> bool:
+        # Whole save pipeline runs in a single worker thread so neither the
+        # sanitizer (CPU-bound; ~600 lines of mapping for a large settings
+        # blob) nor the disk write blocks the asyncio loop. Returns True
+        # when the write either succeeded or was skipped as a no-op.
+        clean = _sanitize_settings(data)
+        try:
+            current = self._read_state()
+            if json.dumps(current, sort_keys=True) == json.dumps(clean, sort_keys=True):
+                return True
+        except Exception:
+            pass
+        self._write_state(clean)
+        return True
 
     async def set_settings(self, settings: Optional[Dict[str, Any]] = None, *args, **kwargs) -> bool:
         data = self._extract_settings(settings, *args, **kwargs)
-        try:
-            decky.logger.info(f"Deck Shelves set_settings called with: {data}")
-        except Exception:
-            pass
         if not isinstance(data, dict):
             try:
                 decky.logger.error("Deck Shelves set_settings: received non-dict data")
             except Exception:
                 pass
             return False
-        clean = _sanitize_settings(data)
         try:
-            decky.logger.info(f"Deck Shelves set_settings sanitized: {clean}")
-        except Exception:
-            pass
-        try:
-            self._write_state(clean)
-            decky.logger.info("Deck Shelves set_settings: settings written successfully")
-            return True
+            return await asyncio.to_thread(self._save_pipeline, data)
         except Exception as e:
             try:
                 decky.logger.error(f"Failed saving settings: {e}")

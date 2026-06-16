@@ -552,6 +552,7 @@ export const SettingsSchema = z.object({
     navSearch:       z.string().optional(),
     navSideNav:      z.string().optional(),
   }).nullable().optional().transform((v) => v ?? {}),
+  buttonBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
