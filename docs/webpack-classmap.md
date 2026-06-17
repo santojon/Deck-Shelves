@@ -71,17 +71,17 @@ The runtime map (`window.__DS_CLASS_MAP__` and the seed in `src/runtime/classmap
 
  ## Verify using the unified CDP CLI
 
- The CDP CLI (`scripts/devtools/deck/cdp.py`, see [cdp.md](./cdp.md)) replaces the older `cdp_probe.py`. To inspect the live classmap on a running Deck:
+ The CDP CLI (`devkit/cdp.py`, see [cdp.md](./cdp.md)) replaces the older `cdp_probe.py`. To inspect the live classmap on a running Deck:
 
  ```bash
  # List the current runtime classmap (after the plugin mounts)
- python3 scripts/devtools/deck/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP__ || null)'
+ python3 devkit/cdp.py eval bp 'JSON.stringify(window.__DS_CLASS_MAP__ || null)'
 
  # Inspect a focused element's class chain
- python3 scripts/devtools/deck/cdp.py eval bp 'document.activeElement?.className'
+ python3 devkit/cdp.py eval bp 'document.activeElement?.className'
 
  # Force a re-discovery (development helper)
- python3 scripts/devtools/deck/cdp.py eval bp 'window.__DS_CLASS_MAP__ = null; location.reload()'
+ python3 devkit/cdp.py eval bp 'window.__DS_CLASS_MAP__ = null; location.reload()'
  ```
 
  Tokens like `_3PhGYbMWIcIaZCfllWN19N` appear as values of the runtime map keys.

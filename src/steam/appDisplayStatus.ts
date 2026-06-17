@@ -54,3 +54,49 @@ export const APP_STATUS_GROUPS = {
 
 export type AppStatusGroup = keyof typeof APP_STATUS_GROUPS;
 export const APP_STATUS_GROUP_KEYS = Object.keys(APP_STATUS_GROUPS) as AppStatusGroup[];
+
+// First-item action Steam's native menu shows for the focused card. The
+// View-button quick-launch hint and the click target both mirror it.
+//   not_installed  → Install
+//   running        → Resume (raise the running window)
+//   pause          → Pause (active download / install)
+//   update         → Update (queued / paused / reconfiguring)
+//   uninstalling   → Uninstall (allow cancel)
+//   play           → Play (idle, installed)
+export type QuickLaunchAction =
+  | 'not_installed'
+  | 'running'
+  | 'pause'
+  | 'update'
+  | 'uninstalling'
+  | 'play';
+
+const UNINSTALLING_STATUSES: ReadonlyArray<number> = [6, 14, 16];
+
+export function resolveQuickLaunchAction(input: {
+  installed: boolean;
+  displayStatus: number;
+  /** `per_client_data[0].status_percentage` (0–100). 0 means the active
+   * phase hasn't begun — Steam queues a download but no bytes are
+   * flowing yet. The menu's first item there is "Update" (let it start),
+   * not "Pause" (interrupt). Once progress is non-zero we trust the
+   * status_percentage > 0 → pause path. Optional: omit when unknown,
+   * in which case the resolver falls back to the display_status set
+   * alone (legacy behaviour). */
+  statusPercentage?: number;
+}): QuickLaunchAction {
+  if (!input.installed) return 'not_installed';
+  const ds = input.displayStatus;
+  if (ds === EAppDisplayStatus.Launching || ds === EAppDisplayStatus.Running) return 'running';
+  if (UPDATE_QUEUED_STATUSES.includes(ds)) return 'update';
+  if (UNINSTALLING_STATUSES.includes(ds)) return 'uninstalling';
+  if (ds === EAppDisplayStatus.Installing || UPDATE_ACTIVE_STATUSES.includes(ds)) {
+    // Active status with zero progress means Steam queued the download
+    // but hasn't started transferring — for tools / runtimes (Proton
+    // Hotfix, Steam Linux Runtime) this is the steady state when an
+    // update is available, and the menu's first item is "Update".
+    if (typeof input.statusPercentage === 'number' && input.statusPercentage === 0) return 'update';
+    return 'pause';
+  }
+  return 'play';
+}

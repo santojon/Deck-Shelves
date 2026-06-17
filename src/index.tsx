@@ -1,7 +1,7 @@
 import { definePlugin } from "@decky/api";
 // Build sentinel — bumped each iteration so CDP probes can confirm the
 // running JS matches the latest source. Read via `window.__ds_build`.
-try { (globalThis as any).__ds_build = "2026-06-17T5"; } catch {}
+try { (globalThis as any).__ds_build = "2026-06-17T7"; } catch {}
 import i18next from "i18next";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";

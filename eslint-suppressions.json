@@ -1,7 +1,10 @@
 {
   "src/components/DeckQAMSettings.tsx": {
     "complexity": {
-      "count": 1
+      "count": 2
+    },
+    "react-hooks/rules-of-hooks": {
+      "count": 3
     }
   },
   "src/components/DeckRow.tsx": {
@@ -104,9 +107,24 @@
       "count": 2
     }
   },
+  "src/components/qam/sections/ProfilesSection.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/settings/details/ButtonBindingsDetail.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/settings/details/ShelvesDetail.tsx": {
+    "complexity": {
+      "count": 2
+    }
+  },
   "src/components/shelf/GameCard.tsx": {
     "complexity": {
-      "count": 6
+      "count": 9
     }
   },
   "src/components/shelf/HeroBackground.tsx": {
@@ -171,7 +189,7 @@
   },
   "src/core/pluginApi.ts": {
     "complexity": {
-      "count": 1
+      "count": 2
     }
   },
   "src/core/shelfActions.ts": {
@@ -201,7 +219,7 @@
   },
   "src/core/updateNotifier.ts": {
     "complexity": {
-      "count": 2
+      "count": 1
     }
   },
   "src/domain/customfilters.ts": {
@@ -214,9 +232,34 @@
       "count": 1
     }
   },
+  "src/features/search/SearchOverlay.tsx": {
+    "complexity": {
+      "count": 2
+    }
+  },
   "src/features/settings/controller.tsx": {
     "complexity": {
       "count": 2
+    }
+  },
+  "src/features/settings/controller/profiles.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/settings/controller/shelves.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/settings/controller/smartShelves.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/features/sidenav/ShelfSideNav.tsx": {
+    "complexity": {
+      "count": 3
     }
   },
   "src/i18n.ts": {
@@ -249,12 +292,27 @@
       "count": 2
     }
   },
+  "src/runtime/buttonBindings.ts": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/runtime/controllerInput.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
   "src/runtime/deckyPlatform.ts": {
     "complexity": {
       "count": 1
     }
   },
   "src/runtime/friendsState.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/runtime/navFocus.ts": {
     "complexity": {
       "count": 1
     }
@@ -290,6 +348,9 @@
     }
   },
   "src/steam/index.ts": {
+    "complexity": {
+      "count": 1
+    },
     "max-lines": {
       "count": 1
     }
@@ -297,6 +358,11 @@
   "src/steam/smartShelves.ts": {
     "complexity": {
       "count": 3
+    }
+  },
+  "src/steam/v3Extensions.ts": {
+    "complexity": {
+      "count": 1
     }
   },
   "src/store/settingsStore.ts": {

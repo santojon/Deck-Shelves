@@ -49,7 +49,7 @@ run_checks() {
   fi
 
   local global_listeners
-  global_listeners=$(grep -rn 'addEventListener.*keydown\|addEventListener.*gamepad\|addEventListener.*button' "$src" 2>/dev/null | grep -i 'window\|document\|globalThis' | grep -v 'deck-shelves' | head -3)
+  global_listeners=$(grep -rn 'addEventListener.*keydown\|addEventListener.*gamepad\|addEventListener.*button' "$src" 2>/dev/null | grep -i 'window\|document\|globalThis' | grep -v 'deck-shelves' | grep -Ev '^[^:]+:[0-9]+:\s*"' | head -3)
   if [[ -z "$global_listeners" ]]; then
     echo "  ✅ No global-level input event listeners"
     ((pass++))

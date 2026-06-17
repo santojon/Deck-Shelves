@@ -218,12 +218,12 @@ else
   # ─── 7. UI tests ────────────────────────────────────────────────────────────
   if [[ "$STRESS" == "1" ]]; then
     run_device_step "uitests" "UI tests (all suites + stress)" \
-      python3 -m devkit.uitests.run \
+      python3 -m deckprobe.uitests.run \
         --host "${DECK_HOST:-}" --port "${DECK_CDP_PORT:-8081}" \
         --out "${TMP}/uitest-screenshots" || true
   else
     run_device_step "uitests" "UI tests (all suites)" \
-      python3 -m devkit.uitests.run \
+      python3 -m deckprobe.uitests.run \
         --host "${DECK_HOST:-}" --port "${DECK_CDP_PORT:-8081}" \
         --out "${TMP}/uitest-screenshots" \
         --only "perf,home,qam_shelves,qam_smart,qam_global_toggles,crash_protection,context_menu" || true
@@ -231,7 +231,7 @@ else
 
   # ─── 8. Perf bench ──────────────────────────────────────────────────────────
   run_device_step "perf" "Performance benchmark (perf:bench)" \
-    python3 devkit/perf-bench.py || true
+    python3 deckprobe/perf-bench.py || true
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

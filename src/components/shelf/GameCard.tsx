@@ -17,6 +17,7 @@ import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
 import { BTN, createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { subscribeControllerInput } from "../../runtime/controllerInput";
+import { resolveQuickLaunchAction } from "../../steam/appDisplayStatus";
 
 // Build a {buttonId: label} map for Decky's Focusable `actionDescriptionMap`.
 // Only single-button bindings get a legend; chords/doubles silently drop.
@@ -192,23 +193,26 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         if (Array.isArray(pcd) && pcd[0] && typeof pcd[0].display_status === 'number') return pcd[0].display_status;
         return 0;
       })();
-      // EAppDisplayStatus: Launching=1, Reconfiguring=2, Installing=3,
-      // Running=4, Validating=5, UpdateQueued=7, UpdatePaused=8,
-      // Staging=12, Committing=13, Downloading=19.
-      // Uninstalling/Suspended (ds 6 / 14 / 16) — Steam's native menu surfaces
-      // "Uninstall" / "Cancel uninstall" as the first item, not Play.
-      // Actively progressing download/install (3 / 5 / 7 / 12 / 13 / 19) —
-      // the native menu's first item is "Pause" (not Update). Paused (8) /
-      // Reconfiguring (2) keep the "Update" hint.
-      const RUNNING = ds === 1 || ds === 4;
-      const PAUSE = ds === 3 || ds === 5 || ds === 7 || ds === 12 || ds === 13 || ds === 19;
-      const UPDATE = ds === 2 || ds === 8;
-      const UNINSTALLING = ds === 6 || ds === 14 || ds === 16;
-      if (RUNNING) return { label: i18n.t('menu_resume'), action: 'raise' };
-      if (PAUSE) return { label: i18n.t('menu_pause'), action: 'resume_update' };
-      if (UPDATE) return { label: i18n.t('menu_update'), action: 'resume_update' };
-      if (UNINSTALLING) return { label: i18n.t('menu_uninstall'), action: 'run' };
-      return { label: i18n.t('menu_play'), action: 'run' };
+      const statusPct = (() => {
+        const root = (overview as any).status_percentage;
+        if (typeof root === 'number') return root;
+        const pcd = overview.per_client_data ?? overview.local_per_client_data;
+        if (Array.isArray(pcd) && pcd[0] && typeof (pcd[0] as any).status_percentage === 'number') return (pcd[0] as any).status_percentage;
+        return undefined;
+      })();
+      // Mapping lives in `steam/appDisplayStatus.ts > resolveQuickLaunchAction`
+      // so the test suite can pin every transition (the previous inline
+      // resolver mis-mapped UpdateQueued / UpdatePaused / Reconfiguring to
+      // "Pause" instead of "Update", and a card with an update pending got
+      // the wrong View hint).
+      const next = resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: statusPct });
+      switch (next) {
+        case 'running': return { label: i18n.t('menu_resume'), action: 'raise' };
+        case 'pause': return { label: i18n.t('menu_pause'), action: 'resume_update' };
+        case 'update': return { label: i18n.t('menu_update'), action: 'resume_update' };
+        case 'uninstalling': return { label: i18n.t('menu_uninstall'), action: 'run' };
+        default: return { label: i18n.t('menu_play'), action: 'run' };
+      }
     } catch { return { label: undefined, action: 'run' }; }
   }, [appid, previewMode]);
   const quickLaunchLabel = cardState.label;

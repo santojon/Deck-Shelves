@@ -7,11 +7,11 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-369%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-48%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-406%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-65%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
-[![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)]((https://github.com/santojon/Deck-Shelves/releases/latest))
+[![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Steam%20OS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Plugin](https://img.shields.io/badge/plugin%20for-Decky-purple.svg)](https://decky.xyz)
@@ -318,21 +318,21 @@ To capture screenshots for documentation:
 
   - Via CLI:
     ```bash
-    python3 scripts/devtools/deck/cli.py screenshot --locale en-US
+    python3 deckprobe/cli.py screenshot --locale en-US
     ```
 
   - Directly (monolithic):
     ```bash
-    python3 scripts/devtools/deck/screenshots/screenshot.py
+    python3 deckprobe/screenshots/screenshot.py
     ```
 
   - Modular runner (preferred for new captures and future UI tests):
     ```bash
-    python3 scripts/devtools/deck/screenshots/run.py
+    python3 deckprobe/screenshots/run.py
     # or run a single scenario:
-    python3 scripts/devtools/deck/screenshots/run.py --only home,qam,about_overview
+    python3 deckprobe/screenshots/run.py --only home,qam,about_overview
     # list every registered scenario:
-    python3 scripts/devtools/deck/screenshots/run.py --list
+    python3 deckprobe/screenshots/run.py --list
     ```
 3. Screenshots are saved to `assets/screenshots/`.
 4. Validate the set (required files present, PNG magic header, >= 60 KB — catches blank popup frames):
@@ -348,7 +348,7 @@ pnpm uitests:list        # list every suite + test name
 pnpm uitests --only home,qam_shelves   # subset
 ```
 
-The suites live in `scripts/devtools/deck/uitests/suites/` and reuse the screenshot pipeline's `lib/` (CDP session, navigation, capture). Local-only — runs against a real Deck or a SteamOS VM via CDP, never on CI. Use it as the optional pre-PR check for flows the unit tests can't reach.
+The suites live in `deckprobe/uitests/suites/` and reuse the screenshot pipeline's `lib/` (CDP session, navigation, capture). Local-only — runs against a real Deck or a SteamOS VM via CDP, never on CI. Use it as the optional pre-PR check for flows the unit tests can't reach.
 
 ##### Validation flows (with HTML reports)
 
@@ -400,7 +400,7 @@ Drops `performance.mark` / `performance.measure` calls into Big Picture, navigat
 
 ##### Modular screenshot pipeline
 
-The new runner under `scripts/devtools/deck/screenshots/` is split into:
+The new runner under `deckprobe/screenshots/` is split into:
 
 - `lib/cdp.py` — minimal CDP `Session` (WebSocket + `Runtime.evaluate` + `Page.captureScreenshot`).
 - `lib/nav.py` — navigation primitives (`open_qam`, `close_qam`, `navigate_home`, `navigate_about`, `click_selector`, `await_selector`, `set_qa_override`).
@@ -438,34 +438,34 @@ The script writes one PNG per capture, organized by the flow it exercises:
 
 ### Devtools diagnostics
 
-Developer tools for inspecting the Steam/Deck runtime are available under `scripts/devtools/deck`.
+Developer tools for inspecting the Steam/Deck runtime are available under `deckprobe/`.
 
 - List available diagnostics:
 
 ```bash
-python3 scripts/devtools/deck/cli.py diag list
+python3 deckprobe/cli.py diag list
 # or via node helper
-node scripts/devtools/deck/diag/index.js list
+node deckprobe/diag/index.js list
 ```
 
 - Run a diagnostic by name (matches `diag_*` filenames):
 
 ```bash
-python3 scripts/devtools/deck/cli.py diag run trynav
+python3 deckprobe/cli.py diag run trynav
 # or
-node scripts/devtools/deck/diag/index.js run trynav
+node deckprobe/diag/index.js run trynav
 ```
 
 - Probe CDP / plugin mount:
 
 ```bash
-python3 scripts/devtools/deck/cli.py probe --mode smoke
+python3 deckprobe/cli.py probe --mode smoke
 ```
 
 - Capture screenshots and validate them:
 
 ```bash
-python3 scripts/devtools/deck/cli.py screenshot --locale en-US
+python3 deckprobe/cli.py screenshot --locale en-US
 node scripts/build/validate-screenshots.mjs
 ```
 
@@ -645,7 +645,7 @@ bash scripts/build/validate-compat.sh
 
 ## Developer Tools
 
-The project includes CDP-based diagnostics and screenshot automation for Steam Deck development. See [scripts/devtools/README.md](scripts/devtools/README.md) for details on:
+The project includes CDP-based diagnostics and screenshot automation for Steam Deck development. See [deckprobe/README.md](deckprobe/README.md) for details on:
 
 - **CDP probe** — runtime mount, row, and smoke-test checks
 - **Deck diagnostics** — SSH-based diagnostic wrapper

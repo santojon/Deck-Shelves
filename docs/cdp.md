@@ -1,6 +1,6 @@
 # CDP CLI
 
-`scripts/devtools/deck/cdp.py` is a small wrapper around Chrome DevTools Protocol that covers the day-to-day debugging loop on a Steam Deck: pick a target, run a probe, inspect the result. It replaces the ad-hoc `cdp_eval.py` / `cdp_probe.py` pair under `tools/` for the common cases.
+`devkit/cdp.py` is a small wrapper around Chrome DevTools Protocol that covers the day-to-day debugging loop on a Steam Deck: pick a target, run a probe, inspect the result. It replaces the ad-hoc `cdp_eval.py` / `cdp_probe.py` pair under `tools/` for the common cases.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ The Deck exposes several CDP surfaces. Use the alias when scripting; the raw tar
 ### `targets`
 
 ```
-python3 scripts/devtools/deck/cdp.py targets
+python3 devkit/cdp.py targets
 ```
 
 Lists every CDP target with its alias (if any) and ID. Run this first when an alias stops resolving — Steam build updates occasionally rename a surface.
@@ -34,11 +34,11 @@ Lists every CDP target with its alias (if any) and ID. Run this first when an al
 Evaluate a JS expression in a target. The return value is JSON-serialised when it is an object or array, printed as-is otherwise. Promises are awaited.
 
 ```
-python3 scripts/devtools/deck/cdp.py eval bp 'document.title'
+python3 devkit/cdp.py eval bp 'document.title'
 
 # Read expression from stdin (handy for multi-line probes):
 echo 'JSON.stringify({n: document.querySelectorAll(".ds-card").length})' \
-  | python3 scripts/devtools/deck/cdp.py eval bp -
+  | python3 devkit/cdp.py eval bp -
 ```
 
 Errors and rejected promises are written to stderr and exit with code 1, so the CLI is safe to chain in shell pipelines.
@@ -46,7 +46,7 @@ Errors and rejected promises are written to stderr and exit with code 1, so the 
 ### `screenshot`
 
 ```
-python3 scripts/devtools/deck/cdp.py screenshot bp /tmp/bp.png
+python3 devkit/cdp.py screenshot bp /tmp/bp.png
 ```
 
 Captures the target's viewport as a PNG. The output path is printed on success.
@@ -56,23 +56,23 @@ Captures the target's viewport as a PNG. The output path is printed on success.
 Stream `console.{warn,error}` and uncaught exceptions until Ctrl-C. Pass `--all` to also include `log`/`info`. Pass `--duration N` to stop automatically after N seconds (useful in scripted runs).
 
 ```
-python3 scripts/devtools/deck/cdp.py console sjc
-python3 scripts/devtools/deck/cdp.py console qam --all --duration 30
+python3 devkit/cdp.py console sjc
+python3 devkit/cdp.py console qam --all --duration 30
 ```
 
 ## Common debug recipes
 
 ```
 # How many shelves are mounted right now?
-python3 scripts/devtools/deck/cdp.py eval bp \
+python3 devkit/cdp.py eval bp \
   'document.querySelectorAll("[data-ds-shelf]").length'
 
 # What does the React store say about the active settings?
-python3 scripts/devtools/deck/cdp.py eval sjc \
+python3 devkit/cdp.py eval sjc \
   'JSON.stringify(window.__DECK_SHELVES__?.snapshot?.() ?? null)'
 
 # Capture the QAM after toggling a setting:
-python3 scripts/devtools/deck/cdp.py screenshot qam /tmp/qam-after.png
+python3 devkit/cdp.py screenshot qam /tmp/qam-after.png
 ```
 
 ## Troubleshooting

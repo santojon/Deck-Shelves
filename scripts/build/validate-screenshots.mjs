@@ -80,7 +80,7 @@ const OPTIONAL = [
 //
 // `minSize` catches truly-empty PNGs (compressed dark uniform fill,
 // well under 20 KB). Keep in sync with `QAM_CAPTURE_BLANK_THRESHOLD` in
-// `devkit/screenshots/screenshot.py`.
+// `deckprobe/screenshots/screenshot.py`.
 const SURFACES = {
   "qam-popup": {
     minSize: 20_000,
@@ -193,7 +193,7 @@ for (const entry of OPTIONAL) validate(entry, { required: false });
 if (errors > 0) {
   console.error(`\n${errors} screenshot(s) failed validation`);
   console.error("\nResolution hints:");
-  console.error("  MISSING          → capture is absent. Rerun `python3 devkit/screenshots/screenshot.py`.");
+  console.error("  MISSING          → capture is absent. Rerun `python3 deckprobe/screenshots/screenshot.py`.");
   console.error("  TOO SMALL        → QAM popup frame is blank (compositor not ready). Rerun; the capture script retries on blanks.");
   console.error("  WRONG SURFACE    → a Big Picture screenshot was saved for a file expected to be a QAM popup capture. Rerun with the current script.");
   console.error("  WRONG ASPECT     → the PNG ratio is outside the expected window for this surface. Likely the file was saved into the wrong slot.");

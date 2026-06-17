@@ -595,11 +595,11 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
     qam_hidden_toggles = [str(x)[:64] for x in qam_hidden_toggles_raw if isinstance(x, str)] if isinstance(qam_hidden_toggles_raw, list) else []
     qam_hidden_sections_raw = settings.get("qamHiddenSections")
     qam_hidden_sections = [str(x)[:64] for x in qam_hidden_sections_raw if isinstance(x, str)] if isinstance(qam_hidden_sections_raw, list) else []
-    # Sprint 12 — unified list. Order persists across mode flips.
+    # Unified list — order persists across mode flips.
     unified_list_enabled = bool(settings.get("unifiedListEnabled", False))
     all_shelves_order_raw = settings.get("allShelvesOrder")
     all_shelves_order = [str(x)[:64] for x in all_shelves_order_raw if isinstance(x, str)] if isinstance(all_shelves_order_raw, list) else []
-    # Sprint 13 — light mode, feature toggles, profiles.
+    # Light mode, feature toggles, profiles.
     light_mode_enabled = bool(settings.get("lightModeEnabled", False))
     feature_toggles_raw = settings.get("featureToggles")
     feature_toggles = {str(k)[:64]: bool(v) for k, v in feature_toggles_raw.items() if isinstance(k, str)} if isinstance(feature_toggles_raw, dict) else {}
@@ -618,15 +618,15 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                 continue
             ptrigger = p.get("trigger")
             entry = {"id": pid, "name": pname, "createdAt": pcreated, "snapshot": psnap}
-            # Sprint 18 — VisibilityRule predicate, round-tripped
-            # verbatim. The dict-check guards against bad client writes
-            # without enforcing the rule shape here (that's Sprint 18).
+            # VisibilityRule predicate, round-tripped verbatim. The
+            # dict-check guards against bad client writes without
+            # enforcing the rule shape here.
             if isinstance(ptrigger, dict):
                 entry["trigger"] = ptrigger
             sanitized_profiles.append(entry)
-    # Sprint 11 — per-integration enable map. Keys are descriptor ids
-    # registered through the public Plugin API; value `false` opts the
-    # user out of seeing that integration's contributions.
+    # Per-integration enable map. Keys are descriptor ids registered
+    # through the public Plugin API; value `false` opts the user out of
+    # seeing that integration's contributions.
     integrations_enabled_raw = settings.get("integrationsEnabled")
     integrations_enabled = {str(k)[:64]: bool(v) for k, v in integrations_enabled_raw.items() if isinstance(k, str)} if isinstance(integrations_enabled_raw, dict) else {}
     bb_disabled_raw = settings.get("buttonBindingsDisabled")

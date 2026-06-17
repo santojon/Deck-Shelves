@@ -746,9 +746,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
 
-      {/* Profiles section sits ABOVE Behavior per the
-          roadmap; the component hides itself when the user has zero
-          shelves (regular + smart combined). */}
+      {/* Profiles section sits ABOVE Behavior; the component hides itself
+          when the user has zero shelves (regular + smart combined). */}
       <ProfilesSection controller={controller} hidden={isSecHid('profiles')} />
 
       {!isSecHid('behavior') && (

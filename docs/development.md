@@ -65,7 +65,7 @@ The `plugin.json` ships without the `debug` flag (required for Decky Store). Dur
 pnpm run devtools:screenshots
 
 # Or directly with host/port
-python3 scripts/devtools/deck/screenshots/screenshot.py --host $DECK_HOST --port $DECK_CDP_PORT
+python3 devkit/screenshots/screenshot.py --host $DECK_HOST --port $DECK_CDP_PORT
 
 # Validate captured screenshots
 pnpm run screenshots:validate
@@ -77,19 +77,19 @@ The unified `cdp.py` covers the common debug loop (find target → run probe →
 
 ```bash
 # List CDP targets with aliases (bp / qam / sjc / mainmenu)
-python3 scripts/devtools/deck/cdp.py targets
+python3 devkit/cdp.py targets
 
 # Evaluate a JS expression in a target
-python3 scripts/devtools/deck/cdp.py eval bp 'document.title'
+python3 devkit/cdp.py eval bp 'document.title'
 
 # Capture a screenshot of the QAM
-python3 scripts/devtools/deck/cdp.py screenshot qam /tmp/qam.png
+python3 devkit/cdp.py screenshot qam /tmp/qam.png
 
 # Stream console warnings/errors
-python3 scripts/devtools/deck/cdp.py console sjc
+python3 devkit/cdp.py console sjc
 
 # Inject a classmap for testing
-python3 scripts/devtools/deck/tools/inject_classmap.py
+python3 devkit/tools/inject_classmap.py
 ```
 
 ## i18n

@@ -46,7 +46,7 @@ run_checks() {
     ((pass++))
   fi
 
-  if grep -q "DECKY_PLUGIN_SETTINGS_DIR" "$root/main.py" 2>/dev/null; then
+  if grep -qrI "DECKY_PLUGIN_SETTINGS_DIR" "$root"/main.py "$root"/storage.py 2>/dev/null; then
     echo "  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR"
     ((pass++))
   else
@@ -56,7 +56,7 @@ run_checks() {
 
   local unsafe_paths=0
   for pattern in '"/etc/' '"/var/' '"/usr/' '"/opt/'; do
-    if grep -q "$pattern" "$root/main.py" 2>/dev/null; then
+    if grep -qrI "$pattern" "$root"/main.py "$root"/paths.py "$root"/storage.py "$root"/sanitizer.py "$root"/launchers.py 2>/dev/null; then
       echo "  ❌ Accesses system path: $pattern"
       ((unsafe_paths++))
     fi
