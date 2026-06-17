@@ -2315,7 +2315,7 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
 };
 
 function evalDefault(item: FilterItem, app: AppOverview): boolean {
-  // Sprint 9 closeout — first-party Filter v3 evaluators live in a
+  // first-party Filter v3 evaluators live in a
   // sibling module to keep `evaluateFilterItem` lean. Lookup hits
   // before falling through to external plugin filters; v3 ids are
   // first-party so their handler must take precedence.
@@ -2642,7 +2642,7 @@ export function applySortToIds(
   const reverseBool: boolean = Array.isArray(reverse) ? !!reverse[0] : !!reverse;
   const byId = buildSortByIdMap(all);
   const baseApps = hydrateAppsForSort(ids, byId);
-  // Sprint 9 closeout — first-party Sort v3 comparators live in a
+  // first-party Sort v3 comparators live in a
   // sibling module; lookup runs before the external-or-random
   // fallback so v3 ids take precedence over registered externals.
   let v3Cmp: ((a: AppOverview, b: AppOverview) => number) | undefined;
@@ -3517,7 +3517,7 @@ export async function resolveShelfAppIds(
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);
-  // Sprint 9 closeout — first-party Shelf Source Ecosystem v3 lives
+  // first-party Shelf Source Ecosystem v3 lives
   // in a sibling module. Each resolver synchronously projects from
   // the already-loaded `all` AppOverview list. The resolver receives
   // `all` and returns the filtered AppOverview[], which we then map

@@ -470,7 +470,7 @@ export function HomeShelves() {
   }
 
   // Placement:
-  // - Sprint 12 PR2 — when `unifiedListEnabled` is on, ignore the
+  // - — when `unifiedListEnabled` is on, ignore the
   //   atBottom / hideRecents split and emit shelves in the explicit
   //   `allShelvesOrder` (ids the user reorganised in the Prateleiras
   //   detail panel). Anything not in the array falls to the end in

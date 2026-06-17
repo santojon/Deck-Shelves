@@ -728,9 +728,15 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     shelf.id,
     globalHighlightRandom || (shelf as any).highlightRandom,
   );
-  const effectiveEnableLogo = globalEnableLogo === true ? true : ((shelf as any).enableLogo === true);
-  const effectiveEnableIcon = globalEnableIcon === true ? true : ((shelf as any).enableIcon === true);
-  const effectiveEnableDescription = globalEnableDescription === true ? true : ((shelf as any).enableDescription === true);
+  // Global is the master switch — when on, every shelf shows the
+  // logo/icon/description (including ones with per-shelf=false from older
+  // saves); when off, none of them do. Per-shelf overrides are no longer
+  // honoured at render time so the QAM toggle behaves predictably across
+  // the whole home, including the first visible shelf which previously
+  // could be stuck off by a stale per-shelf=false.
+  const effectiveEnableLogo = globalEnableLogo === true;
+  const effectiveEnableIcon = globalEnableIcon === true;
+  const effectiveEnableDescription = globalEnableDescription === true;
   const effectiveDescriptionBelowLogo = globalDescriptionBelowLogo === true ? true : ((shelf as any).descriptionBelowLogo === true);
   // Global takes precedence over per-shelf for position / size / offset
   // (mirrors how the boolean global toggles already force their value

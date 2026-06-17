@@ -916,5 +916,8 @@
   "binding_delete": "삭제",
   "binding_enable": "활성화",
   "binding_unset": "(설정 안 함)",
-  "full_page_shelves_label": "전체 페이지 선반"
+  "full_page_shelves_label": "전체 페이지 선반",
+  "about_feature_grip_buttons": "L3, R3, L4, L5, R4, R5 등 후면 그립/스틱 클릭을 카드 단축키에 매핑",
+  "about_feature_composite_shelves": "여러 소스를 합집합(모두) 또는 교집합(전부에) 모드로 하나의 복합 선반에 결합",
+  "about_feature_asset_refresh": "맞춤형 아트워크(캡슐, 로고, 히어로, 아이콘)는 홈으로 돌아간 즉시 갱신 — 플러그인 재로드 불필요"
 }

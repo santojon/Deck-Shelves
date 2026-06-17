@@ -44,6 +44,15 @@ pnpm run build 2>&1 | grep -E "built in|error|warning" || true
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
 cp plugin.json package.json main.py "${STAGE_DIR}/"
+# Ship every top-level Python module main.py depends on. Auto-include
+# anything new dropped at the repo root so future extractions don't get
+# silently dropped from the deploy — that's how paths / storage /
+# sanitizer / launchers stopped reaching the deck when they were split
+# out of main.py, breaking every RPC with "Route does not exist".
+for pyf in *.py; do
+  [[ "$pyf" == "main.py" ]] && continue
+  cp "$pyf" "${STAGE_DIR}/"
+done
 # Inject debug flag for dev deploy (not present in source plugin.json for store submission)
 node -e 'const fs=require("fs"),p=JSON.parse(fs.readFileSync(process.argv[1]));if(!p.flags.includes("debug"))p.flags.push("debug");fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+"\n")' "${STAGE_DIR}/plugin.json"
 rsync -a dist/ "${STAGE_DIR}/dist/"

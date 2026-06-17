@@ -916,5 +916,8 @@
   "binding_delete": "削除",
   "binding_enable": "有効化",
   "binding_unset": "(未設定)",
-  "full_page_shelves_label": "フルページの棚"
+  "full_page_shelves_label": "フルページの棚",
+  "about_feature_grip_buttons": "L3、R3、L4、L5、R4、R5などの背面グリップ／スティッククリックをローカードショートカットに割り当て",
+  "about_feature_composite_shelves": "複数のソースを「和集合(いずれか)」または「積集合(すべてに)」モードで1つの複合シェルフに統合",
+  "about_feature_asset_refresh": "カスタムアート（カプセル、ロゴ、ヒーロー、アイコン）はホームに戻った瞬間に更新 — プラグインのリロード不要"
 }

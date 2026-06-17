@@ -46,9 +46,17 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         highlight_first = bool(s.get("highlightFirst", False))
         highlight_all = bool(s.get("highlightAll", False))
         highlight_random = bool(s.get("highlightRandom", False))
-        enable_logo = bool(s.get("enableLogo", False))
-        enable_icon = bool(s.get("enableIcon", False))
-        enable_description = bool(s.get("enableDescription", False))
+        # Tri-state per-shelf: preserve True/False explicitly; None means
+        # "follow global". Bool coerce would have collapsed False to None
+        # on output (see below), so per-shelf opt-out never round-tripped
+        # and the home logo / icon / description toggle silently snapped
+        # back to the global default.
+        enable_logo_raw = s.get("enableLogo")
+        enable_icon_raw = s.get("enableIcon")
+        enable_description_raw = s.get("enableDescription")
+        enable_logo = bool(enable_logo_raw) if enable_logo_raw is not None else None
+        enable_icon = bool(enable_icon_raw) if enable_icon_raw is not None else None
+        enable_description = bool(enable_description_raw) if enable_description_raw is not None else None
         description_below_logo = bool(s.get("descriptionBelowLogo", False))
         logo_position = s.get("logoPosition") if s.get("logoPosition") in ("left", "center", "right") else None
         description_position = s.get("descriptionPosition") if s.get("descriptionPosition") in ("left", "center", "right") else None
@@ -148,12 +156,14 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             shelf_entry["heroEnabled"] = True
         if highlight_random:
             shelf_entry["highlightRandom"] = True
-        if enable_logo:
-            shelf_entry["enableLogo"] = True
-        if enable_icon:
-            shelf_entry["enableIcon"] = True
-        if enable_description:
-            shelf_entry["enableDescription"] = True
+        # Emit when the user has an explicit preference (True OR False).
+        # `None` falls back to global so we omit the key entirely.
+        if enable_logo is not None:
+            shelf_entry["enableLogo"] = enable_logo
+        if enable_icon is not None:
+            shelf_entry["enableIcon"] = enable_icon
+        if enable_description is not None:
+            shelf_entry["enableDescription"] = enable_description
         if description_below_logo:
             shelf_entry["descriptionBelowLogo"] = True
         if logo_position:

@@ -40,7 +40,7 @@ import { SmartShelfTemplateModal } from './qam/modals/SmartShelfTemplateModal'
 import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from './ui'
 import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
-import { useQamExpanded } from './qam/qamExpandedStore'
+import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { GeneralTab } from './qam/sidecar/GeneralTab'
 import { ProfilesSection } from './qam/sections/ProfilesSection'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -504,12 +504,13 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useQamCompositorSync(qamExpanded);
   const dsScopeRef = useRef<HTMLDivElement>(null);
   useDpadExpandBridge(dsScopeRef, setQamExpanded);
-  // The store's `current` is module-level and persists across DS mount /
-  // unmount cycles. Reset to collapsed on BOTH mount AND unmount so a
-  // fresh QAM open never inherits a stale expanded state — even when
-  // Steam recreates the popup window while the plugin module survives
-  // in SharedJSContext.
+  // Hard reset on mount: wipe both the live ref and the sessionStorage
+  // flag so a freshly-mounted DS QAM tab never inherits a stale expanded
+  // state. Doing this OUTSIDE the React setter avoids racing the
+  // useQamExpanded hook's initial read; setQamExpanded(false) on unmount
+  // still fires the event for any concurrent listeners.
   useEffect(() => {
+    resetQamExpanded();
     setQamExpanded(false);
     return () => setQamExpanded(false);
   }, [setQamExpanded]);
@@ -745,7 +746,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
       {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
 
-      {/* Sprint 13 — Profiles section sits ABOVE Behavior per the
+      {/* Profiles section sits ABOVE Behavior per the
           roadmap; the component hides itself when the user has zero
           shelves (regular + smart combined). */}
       <ProfilesSection controller={controller} hidden={isSecHid('profiles')} />

@@ -83,19 +83,40 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
         if (!mount.contains(before)) return;
         // Only bridge when focus is in the first row of our shelves
         if (beforeRect.top > mountRect.top + 120) return;
-        // Aim at the last focusable in the nearest sibling above our mount
-        let sib = mount.previousElementSibling as HTMLElement | null;
-        while (sib) {
-          const cls = (sib.className || "").toString();
-          const hasHashed = cls.split(/\s+/).some((t) => t.startsWith("_") && t.length > 5);
-          if (hasHashed && sib.offsetHeight > 0) break;
-          sib = sib.previousElementSibling as HTMLElement | null;
-        }
-        if (!sib) return;
-        const candidates = Array.from(
-          sib.querySelectorAll<HTMLElement>('[role="button"], button, a, [tabindex]:not([tabindex="-1"]), .Focusable'),
-        ).filter((el) => el.offsetParent !== null);
-        redirectTarget = candidates[candidates.length - 1] ?? null;
+        // Steam's native nav routes UP through every mount-parent sibling
+        // first, even zero-height shells (hidden recents / news / Friends
+        // containers) — each one absorbs one UP press before letting focus
+        // continue, so the user has to press UP several times to actually
+        // reach the visible search bar.
+        //
+        // Shortcut: find the first VISIBLE focusable anywhere in the
+        // document whose rect sits above the mount. That's almost always
+        // the system search input in `#header`. Pick the leftmost one in
+        // the topmost row so D-pad muscle memory (left to right) matches
+        // what users expect. The Steam navigation tree is patched to
+        // accept this jump (focusElement() calls into it).
+        try {
+          const all = Array.from(
+            (doc as Document).querySelectorAll<HTMLElement>(
+              '[role="button"], button, input, a, [tabindex]:not([tabindex="-1"]), .Focusable',
+            ),
+          );
+          const above = all
+            .filter((el) => {
+              if (el === before || el.contains(before) || mount.contains(el)) return false;
+              if (!el.offsetParent) return false;
+              const r = el.getBoundingClientRect();
+              return r.width > 4 && r.height > 4 && r.bottom <= mountRect.top + 4;
+            })
+            .map((el) => {
+              const r = el.getBoundingClientRect();
+              return { el, top: r.top, left: r.left };
+            });
+          if (above.length === 0) return;
+          // Topmost row first; within that, leftmost.
+          above.sort((a, b) => (a.top - b.top) || (a.left - b.left));
+          redirectTarget = above[0].el;
+        } catch { return; }
       }
 
       if (!redirectTarget) return;

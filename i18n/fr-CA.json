@@ -916,5 +916,8 @@
   "binding_delete": "Supprimer",
   "binding_enable": "Activer",
   "binding_unset": "(non défini)",
-  "full_page_shelves_label": "Tablettes pleine page"
+  "full_page_shelves_label": "Tablettes pleine page",
+  "about_feature_grip_buttons": "Mappez les boutons de grip arrière / clic de stick (L3, R3, L4, L5, R4, R5) aux raccourcis de carte via le flux brut de la manette",
+  "about_feature_composite_shelves": "Empilez plusieurs sources dans une tablette composite avec les modes Union (toutes) ou Intersection (dans toutes)",
+  "about_feature_asset_refresh": "Les visuels personnalisés (capsule, logo, hero, icône) se rafraîchissent dès le retour à l'accueil — sans recharger le plugin"
 }

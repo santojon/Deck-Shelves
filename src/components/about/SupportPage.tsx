@@ -62,7 +62,7 @@ export function SupportPage() {
       </Field>
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_support_title')}</span>} />
       <Field focusable={true} bottomSeparator="none" description={<span style={labelStyle}>{t('about_support_description')}</span>} />
-      {/* Sprint 10 PR3 — Ko-fi card with scannable QR.
+      {/* — Ko-fi card with scannable QR.
           Layout: QR on the left (scan from phone), tagline + button
           on the right ("scan or click"). Matches the WineCellar /
           SDH-PlayTime pattern of pairing the QR with the action so

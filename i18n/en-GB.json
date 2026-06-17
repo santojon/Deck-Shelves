@@ -916,5 +916,8 @@
   "binding_delete": "Delete",
   "binding_enable": "Enable",
   "binding_unset": "(unset)",
-  "full_page_shelves_label": "Full-page shelves"
+  "full_page_shelves_label": "Full-page shelves",
+  "about_feature_grip_buttons": "Map back-grip / stick-click buttons (L3, R3, L4, L5, R4, R5) to card shortcuts via the raw controller stream",
+  "about_feature_composite_shelves": "Stack multiple sources into one composite shelf with Union (any) or Intersection (in all) modes",
+  "about_feature_asset_refresh": "Custom artwork (capsule, logo, hero, icon) refreshes the moment you return to home — no plugin reload"
 }

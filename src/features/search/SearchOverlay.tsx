@@ -117,7 +117,7 @@ export function SearchOverlay() {
     // same `getExternalSearchProviders()` list as third-party
     // providers. Ordering is by `priority` desc — the built-in's
     // priority of 100 keeps it first when ties on hit score appear.
-    // Sprint 11 PR3 — drop providers the user explicitly disabled in
+    // — drop providers the user explicitly disabled in
     // the Integrations detail panel (`integrationsEnabled[id] === false`).
     const integrationsEnabled = (getCurrentSettings() as any)?.integrationsEnabled ?? {};
     const providers = getExternalSearchProviders().filter((p) => integrationsEnabled[p.id] !== false);

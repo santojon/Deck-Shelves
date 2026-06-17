@@ -1,7 +1,7 @@
 {
-  "name": "@steamdeck-plugin/devkit",
+  "name": "deckprobe",
   "private": true,
-  "description": "Generic Steam Deck plugin devkit — CDP probes, screenshot pipeline, perf bench. Usable as a reference or submodule by any Decky plugin project.",
+  "description": "DeckProbe — Steam Deck plugin toolkit (CDP probes, screenshot pipeline, perf bench). Drop-in scaffold for any Decky plugin project.",
   "license": "MIT",
   "repository": {
     "type": "git",

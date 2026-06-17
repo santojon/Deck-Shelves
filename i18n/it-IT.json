@@ -916,5 +916,8 @@
   "binding_delete": "Elimina",
   "binding_enable": "Abilita",
   "binding_unset": "(non impostato)",
-  "full_page_shelves_label": "Scaffali a pagina intera"
+  "full_page_shelves_label": "Scaffali a pagina intera",
+  "about_feature_grip_buttons": "Mappa i pulsanti grip / clic stick (L3, R3, L4, L5, R4, R5) sulle scorciatoie delle carte tramite stream raw del controller",
+  "about_feature_composite_shelves": "Combina più fonti in uno scaffale composto con modalità Unione (qualsiasi) o Intersezione (in tutte)",
+  "about_feature_asset_refresh": "L'artwork personalizzato (capsule, logo, hero, icona) si aggiorna appena torni alla home — senza ricaricare il plugin"
 }

@@ -916,5 +916,8 @@
   "binding_delete": "Eliminar",
   "binding_enable": "Habilitar",
   "binding_unset": "(sin definir)",
-  "full_page_shelves_label": "Estantes de página completa"
+  "full_page_shelves_label": "Estantes de página completa",
+  "about_feature_grip_buttons": "Asigna botones de grip trasero / clic de stick (L3, R3, L4, L5, R4, R5) a atajos de carta vía stream raw del mando",
+  "about_feature_composite_shelves": "Combina varias fuentes en una estantería compuesta con modos Unión (cualquiera) o Intersección (en todas)",
+  "about_feature_asset_refresh": "El arte personalizado (cápsula, logo, hero, ícono) se actualiza al volver al inicio — sin recargar el plugin"
 }

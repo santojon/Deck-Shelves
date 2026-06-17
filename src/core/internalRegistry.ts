@@ -74,12 +74,12 @@ export function installInternalRegistry(): () => void {
   for (const d of INTERNAL_SMART_DESCRIPTORS) unsubs.push(registerInternalSmartShelfSource(d));
   for (const d of INTERNAL_FILTER_TYPES) unsubs.push(registerInternalFilterType(d));
   for (const d of INTERNAL_SORT_OPTIONS) unsubs.push(registerInternalSortOption(d));
-  // Sprint 9 Plugin API track — register the built-in Quick Search via
+  // Plugin API track — register the built-in Quick Search via
   // the same surface external plugins use. SearchOverlay simply iterates
   // `getExternalSearchProviders()` and gets the built-in first thanks
   // to its priority of 100.
   unsubs.push(registerInternalSearchProvider(BUILT_IN_SHELF_SEARCH));
-  // Sprint 9 closeout — register every first-party Filter v3, Sort
+  // register every first-party Filter v3, Sort
   // v3, and Shelf Source v3 entry through the same surface external
   // plugins use. Resolver / evaluator wiring lives in `steam/index.ts`
   // + `steam/v3Extensions.ts`; the registry entries here surface them

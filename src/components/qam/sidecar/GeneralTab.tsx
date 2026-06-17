@@ -204,13 +204,13 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {!lightMode && row('smartSurpriseMe', (
             <ToggleField label={t('smart_surprise_me')} checked={settings.smartSurpriseMe === true} onChange={(v: boolean) => actions.setSmartSurpriseMe(v)} />
           ))}
-          {/* Sprint 12 toggle — schema accepts and persists, render
-             path is still split until Sprint 12 PR2 wires it. */}
+          {/* toggle — schema accepts and persists, render
+             path is still split until wires it. */}
           {row('unifiedListEnabled', (
             <ToggleField label={t('unified_list_enabled' as any)} checked={(settings as any).unifiedListEnabled === true} onChange={(v: boolean) => (actions as any).setUnifiedListEnabled?.(v)} />
           ))}
-          {/* Sprint 13 toggle — schema lives, light-mode gates land
-             alongside Sprint 13 PR2's per-section visibility hooks. */}
+          {/* toggle — schema lives, light-mode gates land
+             alongside PR2's per-section visibility hooks. */}
           {row('lightModeEnabled', (
             <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
           ))}

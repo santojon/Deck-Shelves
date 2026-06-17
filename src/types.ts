@@ -511,17 +511,17 @@ export const SettingsSchema = z.object({
   // funcionalidade, só remove o controle da listagem do QAM.
   qamHiddenToggles: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
   qamHiddenSections: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
-  // Sprint 12 (Unified Shelf Management) — merges regular + smart
+  // merges regular + smart
   // shelves into a single ordered list. Off by default; the order
   // array is preserved across mode flips so toggling back doesn't
-  // wipe it. Render path stays split until Sprint 12 PR2.
+  // wipe it. Render path stays split until PR2.
   unifiedListEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   allShelvesOrder: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
-  // Sprint 13 — usage profiles. A profile is a settings snapshot the
+  // usage profiles. A profile is a settings snapshot the
   // user can save, apply, duplicate, delete. `activeProfileName`
   // tracks which one (if any) is currently applied so QAM and
   // Settings stay in sync. `lightModeEnabled` and `featureToggles`
-  // are the other Sprint 13 surface fields.
+  // are the other surface fields.
   lightModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   featureToggles: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
   activeProfileName: z.string().nullable().optional(),
@@ -530,15 +530,15 @@ export const SettingsSchema = z.object({
     name: z.string(),
     createdAt: z.string(),
     snapshot: z.record(z.string(), z.unknown()),
-    // Sprint 18 forward-compat — VisibilityRule predicate that auto-
+    // VisibilityRule predicate that auto-
     // applies the profile when its predicate becomes true (battery
     // low, plugged in, external display, performance threshold, etc.).
-    // Schema accepts the field; resolver lands with Sprint 18's
-    // Visibility Rules v2. Stored as `unknown` because the rule shape
-    // belongs to that sprint — sanitizer round-trips it verbatim.
+    // Schema accepts the field; the resolver lands with the
+    // visibility-rules v2 pass. Stored as `unknown` because the rule
+    // shape belongs to that work — sanitizer round-trips it verbatim.
     trigger: z.unknown().optional(),
   })).nullable().optional().transform((v) => v ?? []),
-  // Sprint 11 — Integrations detail panel per-row toggle. Keys are
+  // Integrations detail panel per-row toggle. Keys are
   // integration ids (descriptor `id` fields registered through the
   // public Plugin API); value `false` opts the user out of seeing
   // that integration's contributions at runtime. Default behaviour

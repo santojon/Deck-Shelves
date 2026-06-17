@@ -916,5 +916,8 @@
   "binding_delete": "Löschen",
   "binding_enable": "Aktivieren",
   "binding_unset": "(nicht gesetzt)",
-  "full_page_shelves_label": "Vollseiten-Regale"
+  "full_page_shelves_label": "Vollseiten-Regale",
+  "about_feature_grip_buttons": "Mappen Sie Grip-Tasten / Stick-Klicks (L3, R3, L4, L5, R4, R5) auf Karten-Shortcuts über den rohen Controller-Stream",
+  "about_feature_composite_shelves": "Kombinieren Sie mehrere Quellen in einem zusammengesetzten Regal mit Union- oder Schnittmenge-Modi",
+  "about_feature_asset_refresh": "Benutzerdefinierte Grafiken (Kapsel, Logo, Hero, Icon) werden beim Zurückkehren zum Home sofort aktualisiert — kein Plugin-Reload"
 }

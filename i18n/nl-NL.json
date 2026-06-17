@@ -916,5 +916,8 @@
   "binding_delete": "Verwijderen",
   "binding_enable": "Inschakelen",
   "binding_unset": "(niet ingesteld)",
-  "full_page_shelves_label": "Volledige-paginaplanken"
+  "full_page_shelves_label": "Volledige-paginaplanken",
+  "about_feature_grip_buttons": "Wijs grip-knoppen / stick-klikken (L3, R3, L4, L5, R4, R5) toe aan kaart-snelkoppelingen via de rauwe controller-stream",
+  "about_feature_composite_shelves": "Stapel meerdere bronnen tot één samengestelde plank met Union- of Intersection-modi",
+  "about_feature_asset_refresh": "Aangepaste artwork (capsule, logo, hero, icoon) ververst zodra je terugkeert naar de home — geen plugin herlaad"
 }

@@ -75,8 +75,13 @@ const SOURCE_BUILDERS: Record<string, SourceBuilder> = {
 };
 
 function buildFilterSource(state: EditableShelfState): any {
-  const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort;
-  return { type: 'filter', filter: filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'], state.filter.sortReverse) };
+  // Preserve `"manual"` in the saved filter.sort so the home recognises
+  // the shelf as a manual-order shelf. The resolver swaps in
+  // `manualBaseSort` internally at resolve time (see Shelf.tsx — when
+  // `primaryEffectiveSort === "manual"` it clones the source with
+  // `filter.sort = baseSort` before calling resolveShelfAppIds), so the
+  // backend sort pipeline never receives the literal "manual" string.
+  return { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort as ShelfFilter['sort'], state.filter.sortReverse) };
 }
 
 export function buildPrimarySource(ctx: PrimaryBuildCtx): any {

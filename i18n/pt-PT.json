@@ -916,5 +916,8 @@
   "binding_delete": "Apagar",
   "binding_enable": "Ativar",
   "binding_unset": "(não definido)",
-  "full_page_shelves_label": "Prateleiras de página inteira"
+  "full_page_shelves_label": "Prateleiras de página inteira",
+  "about_feature_grip_buttons": "Mapeie botões de grip traseiro / clique do analógico (L3, R3, L4, L5, R4, R5) em atalhos de carta via stream raw do comando",
+  "about_feature_composite_shelves": "Combine várias fontes numa prateleira composta com modos União (qualquer) ou Interseção (em todas)",
+  "about_feature_asset_refresh": "Arte personalizada (cápsula, logo, hero, ícone) é atualizada assim que regressa à home — sem recarregar o plugin"
 }

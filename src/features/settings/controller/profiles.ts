@@ -139,7 +139,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       if ((s as any).activeProfileName == null) return;
       await persist({ ...s, activeProfileName: null } as Settings);
     },
-    // Sprint 12 — unified shelf list toggle. Order array is preserved
+    // unified shelf list toggle. Order array is preserved
     // across flips (sanitizer/schema guarantee).
     async setUnifiedListEnabled(unifiedListEnabled: boolean) {
       const s = liveSettings();
@@ -154,7 +154,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (cur.length === cleaned.length && cur.every((v, i) => v === cleaned[i])) return;
       await persist({ ...s, allShelvesOrder: cleaned } as Settings);
     },
-    // Sprint 13 — light mode + per-feature toggles.
+    // light mode + per-feature toggles.
     async setLightModeEnabled(lightModeEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).lightModeEnabled === lightModeEnabled) return;
@@ -233,7 +233,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         activeProfileName: null,
       } as Settings);
     },
-    // Sprint 11 — per-integration enable. Stored only when the user
+    // per-integration enable. Stored only when the user
     // explicitly opts out; `undefined` means enabled.
     async setIntegrationEnabled(id: string, value: boolean) {
       const s = liveSettings();

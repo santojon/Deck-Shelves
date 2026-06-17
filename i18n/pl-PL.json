@@ -916,5 +916,8 @@
   "binding_delete": "Usuń",
   "binding_enable": "Włącz",
   "binding_unset": "(nie ustawiono)",
-  "full_page_shelves_label": "Półki pełnostronicowe"
+  "full_page_shelves_label": "Półki pełnostronicowe",
+  "about_feature_grip_buttons": "Przypisz tylne przyciski / kliknięcia drążków (L3, R3, L4, L5, R4, R5) do skrótów kart przez surowy strumień kontrolera",
+  "about_feature_composite_shelves": "Łącz wiele źródeł w jedną złożoną półkę z trybami Unia (dowolne) lub Przecięcie (w każdym)",
+  "about_feature_asset_refresh": "Niestandardowa grafika (kapsuła, logo, hero, ikona) odświeża się natychmiast po powrocie do strony domowej — bez przeładowywania pluginu"
 }

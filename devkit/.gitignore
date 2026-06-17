@@ -34,6 +34,10 @@ __pycache__/
 screenshots/out/
 screenshots/runs/
 reports/local/
+/output/
+/perf-output/
+*.cdp.json
+*.perf.json
 
 # Hidden folders
 /.*/

@@ -16,12 +16,24 @@ _SSL_CTX = ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = ssl.CERT_NONE
 
+import sys
+# Decky's sandboxed plugin loader doesn't put the plugin's own directory
+# on `sys.path`, so bare imports of sibling modules raise
+# ModuleNotFoundError at boot — every RPC ends up returning
+# "Route does not exist" because the plugin process never finished
+# initialising. Splice the plugin directory in front of `sys.path` here
+# so `from paths import ...` (and any future sibling extractions) keep
+# working under both the test harness and the deck.
+_PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
+if _PLUGIN_DIR not in sys.path:
+    sys.path.insert(0, _PLUGIN_DIR)
+
 import decky
 
 # Settings-shape normaliser, path discovery + validation, and
-# settings.json read helpers — extracted in 2.7.x. Re-exported by name
-# so `from main import _sanitize_settings, _normalize_path` continues to
-# work for existing pytest suites + any external callers.
+# settings.json read helpers — extracted into sibling modules. Re-exported
+# by name so `from main import _sanitize_settings, _normalize_path`
+# continues to work for existing pytest suites + any external callers.
 from paths import _steam_install_candidates, _normalize_path
 from storage import _settings_dir, _primary_file, _safe_read_json
 from sanitizer import _sanitize_settings

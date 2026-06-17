@@ -916,5 +916,8 @@
   "binding_delete": "刪除",
   "binding_enable": "啟用",
   "binding_unset": "(未設定)",
-  "full_page_shelves_label": "整頁書架"
+  "full_page_shelves_label": "整頁書架",
+  "about_feature_grip_buttons": "透過原始控制器串流將後握/搖桿點擊（L3、R3、L4、L5、R4、R5）對應到卡片快捷鍵",
+  "about_feature_composite_shelves": "透過聯集（任一）或交集（全部）模式將多個來源合併到一個複合書架",
+  "about_feature_asset_refresh": "自訂美術（膠囊、徽標、Hero、圖示）在返回主頁的瞬間刷新 — 無需重新載入外掛"
 }

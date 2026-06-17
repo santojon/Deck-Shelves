@@ -14,6 +14,8 @@ const GROUPS: { labelKey: string; keys: string[] }[] = [
       'about_feature_settings_page',
       'about_feature_profiles',
       'about_feature_button_bindings',
+      'about_feature_grip_buttons',
+      'about_feature_composite_shelves',
       'about_feature_unified_list',
       'about_feature_drag_reorder',
       'about_feature_light_mode',
@@ -23,6 +25,7 @@ const GROUPS: { labelKey: string; keys: string[] }[] = [
       'about_feature_filter_v3',
       'about_feature_sort_v3',
       'about_feature_source_v3',
+      'about_feature_asset_refresh',
     ],
   },
   {

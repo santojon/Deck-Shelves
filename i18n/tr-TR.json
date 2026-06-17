@@ -916,5 +916,8 @@
   "binding_delete": "Sil",
   "binding_enable": "Etkinleştir",
   "binding_unset": "(ayarsız)",
-  "full_page_shelves_label": "Tam sayfa raflar"
+  "full_page_shelves_label": "Tam sayfa raflar",
+  "about_feature_grip_buttons": "Arka grip / çubuk tıklama düğmelerini (L3, R3, L4, L5, R4, R5) ham kontrolcü akışı üzerinden kart kısayollarına eşleyin",
+  "about_feature_composite_shelves": "Birden çok kaynağı Birleşim (herhangi biri) veya Kesişim (hepsi) modlarıyla bir bileşik rafta birleştirin",
+  "about_feature_asset_refresh": "Özel grafikler (kapsül, logo, hero, simge) ana sayfaya döndüğünüz an yenilenir — eklenti yeniden yüklenmeden"
 }
