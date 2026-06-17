@@ -38,6 +38,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
           token: ${{ secrets.SUBMIT_TOKEN || github.token }}
 
       - uses: pnpm/action-setup@v4

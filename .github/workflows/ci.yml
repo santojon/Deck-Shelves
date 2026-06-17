@@ -33,8 +33,12 @@ jobs:
         uses: actions/checkout@v4
         # persist-credentials default (true) so the report-commit step can
         # push without re-authenticating. All other steps are read-only.
+        # submodules: recursive pulls api/ + deckprobe/ on every run — api
+        # exports the `PublicAppMeta` types `src/core/pluginApi.ts` imports
+        # via `../../api/src/types`; without it tsc fails with TS2307.
         with:
           fetch-depth: 0
+          submodules: recursive
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
