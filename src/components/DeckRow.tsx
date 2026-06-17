@@ -597,12 +597,16 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         flexDirection: (forceExpanded && !pinScrollTop) ? 'column' : undefined,
         justifyContent: (forceExpanded && !pinScrollTop) ? 'flex-end' : undefined,
         // Reserve top space for the logo + description banner.
-        // Only skipped on the genuine recents replacement shelf
-        // (forceExpanded), whose fixed hero area already hosts the logo
-        // internally. `forceLayoutAsRecents` no longer skips: themed
-        // shelves often DON'T have hero art ready and the absolute logo
-        // would overlap the card row.
-        paddingTop: (enableLogo && !forceExpanded) ? (() => {
+        // Skipped only when the hero is rendered as a true full-page box
+        // (`forceExpanded && !pinScrollTop`) — there the cards sit at the
+        // bottom (justify-content: flex-end) and the absolute logo lives
+        // in the empty top half, so no extra padding is needed.
+        // When `pinScrollTop` is on (user disabled full-page shelves) the
+        // hero shrinks back to a normal row, so the absolute logo would
+        // overlap the card row unless we still reserve space here.
+        // `forceLayoutAsRecents` (themed shelves without hero art) also
+        // needs the reservation for the same reason.
+        paddingTop: (enableLogo && !(forceExpanded && !pinScrollTop)) ? (() => {
           const logoHeight = Math.round(130 * logoSize / 100);
           const topOffsetPx = Math.max(0, Math.round(logoTopOffset * 0.32));
           const descSlot = (enableDescription && descriptionBelowLogo) ? 26 : 0;

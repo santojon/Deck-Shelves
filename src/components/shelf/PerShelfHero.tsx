@@ -1011,11 +1011,15 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           left: logoPosition === 'left' ? 24 : logoPosition === 'right' ? 'auto' : '50%',
           right: logoPosition === 'right' ? 24 : 'auto',
           transform: logoPosition === 'center' ? 'translateX(-50%)' : undefined,
-          // Logo always anchored close to the top of the shelf's container,
+          // Logo anchored close to the top of the shelf's container,
           // with the user-tunable `logoTopOffset` (0-100) scaling it:
-          //   promoted: 0..8 vh  (default 20 → 1.6 vh)
-          //   regular:  0..32 px (default 20 → 6.4 px)
-          top: treatAsFirst ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32),
+          //   full-page: 0..8 vh  (default 20 → 1.6 vh)
+          //   regular:   0..32 px (default 20 → 6.4 px)
+          // First/promoted shelves OUTSIDE full-page mode also use the px
+          // path so the logo sits at the same position as the rest of the
+          // shelves; otherwise the 34vh logo would push the description
+          // down past the shelf title and overlap the card row.
+          top: isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32),
           // No outer maxWidth: the logo image carries its own size cap and
           // the description carries its own (wider) max-width — letting the
           // container shrink to the widest child gives the description room
@@ -1038,7 +1042,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             onError={() => setLogoIdx((i) => i + 1)}
             style={{
               maxWidth: '100%',
-              maxHeight: treatAsFirst ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
+              maxHeight: isFullPage ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
               objectFit: 'contain',
               filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.75))',
             }}
@@ -1052,7 +1056,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             aria-hidden="true"
             style={{
               width: 1,
-              height: treatAsFirst ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
+              height: isFullPage ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
             }}
           />
         ))}
