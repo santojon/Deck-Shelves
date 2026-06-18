@@ -44,13 +44,15 @@ from deckprobe.uitests.lib.runner import suite
 s = suite("stress")
 
 MOUNT_WARN_MS    = 18000  # cold mount with 30 regular + 17 smart shelves
-# Stress fixture loads 19 shelves / 811 cards. Single-frame spikes during
-# first-time horizontal scroll are expected (layout computation for 50 cards).
-# 1600 ms covers the measured worst-case spike during the full-page scroll
-# test (1448 ms observed crossing hero-art boundaries — image decode + raster
-# of the next shelf's cards). The avg-frame budget (50 ms) is what guards
-# against actual regressions; the max here only catches catastrophic spikes.
-NAV_FRAME_MAX_MS = 1600
+# Stress fixture loads 30 regular + 17 smart shelves at limit=50 each —
+# up to ~2350 cards on screen. Single-frame spikes during first-time
+# horizontal scroll are expected (layout computation for 50 cards) and
+# scale with the fixture size. 2500 ms covers the measured worst-case
+# spike (1933 ms observed on the combined nav crossing hero-art
+# boundaries — image decode + raster of the next shelf's cards). The
+# avg-frame budget (50 ms) is what guards against actual regressions;
+# the max here only catches catastrophic spikes.
+NAV_FRAME_MAX_MS = 2500
 NAV_FRAME_AVG_MS = 50
 # Opening a store/wishlist card page can take several seconds (network + store UI).
 # 25 s covers the measured worst case (16 s observed) with margin.
