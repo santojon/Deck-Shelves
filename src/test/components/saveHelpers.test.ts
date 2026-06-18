@@ -6,6 +6,8 @@ import {
   buildSortPatchFields,
   shelfSortForPatch,
   sanitizeSyntheticCard,
+  primarySortKey,
+  isStateManualSort,
 } from '../../components/qam/modals/editShelf/saveHelpers';
 import type { EditableShelfState } from '../../components/qam/modals/editShelf/types';
 
@@ -252,5 +254,83 @@ describe('saveHelpers.sanitizeSyntheticCard', () => {
       link: { type: 'url', value: 'not a url at all <>' },
     });
     expect(out.link).toBeUndefined();
+  });
+});
+
+describe('saveHelpers.primarySortKey + isStateManualSort', () => {
+  it('extracts the first key of a sort array', () => {
+    expect(primarySortKey(['manual', 'recent'])).toBe('manual');
+    expect(primarySortKey(['recent', 'alphabetical'])).toBe('recent');
+  });
+
+  it('returns the string as-is when sort is not an array', () => {
+    expect(primarySortKey('manual')).toBe('manual');
+    expect(primarySortKey('alphabetical')).toBe('alphabetical');
+  });
+
+  it('returns undefined for empty / non-string values', () => {
+    expect(primarySortKey([])).toBeUndefined();
+    expect(primarySortKey(undefined)).toBeUndefined();
+    expect(primarySortKey(null)).toBeUndefined();
+    expect(primarySortKey(42)).toBeUndefined();
+  });
+
+  it('isStateManualSort detects manual primary in a multi-key filter.sort array', () => {
+    const state = baseState({
+      sourceType: 'filter',
+      filter: { sort: ['manual', 'recent'] as any, sortReverse: [false, false] as any },
+    });
+    expect(isStateManualSort(state)).toBe(true);
+  });
+
+  it('isStateManualSort detects manual primary in a multi-key state.sort array', () => {
+    const state = baseState({
+      sourceType: 'tab',
+      sort: ['manual', 'playtime'] as any,
+    });
+    expect(isStateManualSort(state)).toBe(true);
+  });
+
+  it('isStateManualSort returns false for a non-manual primary', () => {
+    const state = baseState({
+      sourceType: 'filter',
+      filter: { sort: ['recent', 'manual'] as any, sortReverse: false },
+    });
+    expect(isStateManualSort(state)).toBe(false);
+  });
+});
+
+describe('saveHelpers.shelfSortForPatch — manual normalization', () => {
+  it('collapses `[manual, …]` to the string "manual" so the persisted shape stays clean', () => {
+    expect(
+      shelfSortForPatch(baseState({ sourceType: 'tab', sort: ['manual', 'recent'] as any })),
+    ).toBe('manual');
+  });
+
+  it('preserves a real multi-key chain without manual', () => {
+    expect(
+      shelfSortForPatch(baseState({ sourceType: 'tab', sort: ['recent', 'alphabetical'] as any })),
+    ).toEqual(['recent', 'alphabetical']);
+  });
+});
+
+describe('saveHelpers.buildPrimarySource — manual normalization for filter source', () => {
+  it('collapses filter.sort `[manual, …]` to plain "manual" so reopen shows manual primary cleanly', () => {
+    const state = baseState({
+      sourceType: 'filter',
+      filter: { sort: ['manual', 'recent'] as any, sortReverse: false },
+    });
+    const out = buildPrimarySource({ state });
+    expect(out.type).toBe('filter');
+    expect(out.filter.sort).toBe('manual');
+  });
+
+  it('preserves a real multi-key filter.sort chain without manual', () => {
+    const state = baseState({
+      sourceType: 'filter',
+      filter: { sort: ['recent', 'alphabetical'] as any, sortReverse: [false, false] as any },
+    });
+    const out = buildPrimarySource({ state });
+    expect(out.filter.sort).toEqual(['recent', 'alphabetical']);
   });
 });

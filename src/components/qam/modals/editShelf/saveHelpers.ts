@@ -4,6 +4,16 @@ import type { Shelf, ShelfFilter, FilterGroup } from '../../../../types';
 import type { EditableShelfState } from './types';
 import { filterGroupToFilter } from '../../../../domain/settings';
 
+export function primarySortKey(sort: unknown): string | undefined {
+  if (Array.isArray(sort)) return typeof sort[0] === 'string' ? sort[0] : undefined;
+  return typeof sort === 'string' ? sort : undefined;
+}
+
+export function isStateManualSort(state: EditableShelfState): boolean {
+  return primarySortKey(state.sort) === 'manual'
+    || primarySortKey(state.filter?.sort) === 'manual';
+}
+
 const SYNTH_EMPTY_STRING_FIELDS = ['text', 'image', 'heroImage'] as const;
 
 function emptyStringToUndef(out: any): void {
@@ -74,14 +84,16 @@ const SOURCE_BUILDERS: Record<string, SourceBuilder> = {
   store: ({ state, childFilter }) => buildOnlineSource('store', state, childFilter),
 };
 
+// Collapses `[manual, …]` → `'manual'` — secondaries are meaningless
+// once primary is manual and would leak into the UI on reopen.
+function normalizeManualSort(sort: ShelfFilter['sort']): ShelfFilter['sort'] {
+  if (Array.isArray(sort) && sort[0] === 'manual') return 'manual' as ShelfFilter['sort'];
+  return sort;
+}
+
 function buildFilterSource(state: EditableShelfState): any {
-  // Preserve `"manual"` in the saved filter.sort so the home recognises
-  // the shelf as a manual-order shelf. The resolver swaps in
-  // `manualBaseSort` internally at resolve time (see Shelf.tsx — when
-  // `primaryEffectiveSort === "manual"` it clones the source with
-  // `filter.sort = baseSort` before calling resolveShelfAppIds), so the
-  // backend sort pipeline never receives the literal "manual" string.
-  return { type: 'filter', filter: filterGroupToFilter(state.filterGroup, state.filter.sort as ShelfFilter['sort'], state.filter.sortReverse) };
+  const sort = normalizeManualSort(state.filter.sort as ShelfFilter['sort']);
+  return { type: 'filter', filter: filterGroupToFilter(state.filterGroup, sort, state.filter.sortReverse) };
 }
 
 export function buildPrimarySource(ctx: PrimaryBuildCtx): any {
@@ -116,5 +128,6 @@ export function assembleFinalSource(primary: any, state: EditableShelfState): an
 export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['sort'] {
   if (state.sourceType === 'filter') return undefined;
   const hasUserSort = Array.isArray(state.sort) ? state.sort.length > 0 : state.sort !== 'alphabetical';
-  return hasUserSort ? state.sort : undefined;
+  if (!hasUserSort) return undefined;
+  return normalizeManualSort(state.sort as ShelfFilter['sort']) as Partial<Shelf>['sort'];
 }

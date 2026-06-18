@@ -458,8 +458,9 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       if (item.heroUrl && !urls.includes(item.heroUrl)) urls.push(item.heroUrl);
     } else {
       if (appid > 0) {
-        urls.push(`/customimages/${appid}p.png`);
-        urls.push(`/customimages/${appid}p.jpg`);
+        const bust = `?c=${assetKey}`;
+        urls.push(`/customimages/${appid}p.png${bust}`);
+        urls.push(`/customimages/${appid}p.jpg${bust}`);
       }
       if (item.portraitUrl && !urls.includes(item.portraitUrl)) urls.push(item.portraitUrl);
       if (item.heroUrl && !urls.includes(item.heroUrl)) urls.push(item.heroUrl);

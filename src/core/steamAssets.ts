@@ -51,20 +51,29 @@ function getCacheVersion(appid: number, overview?: SteamAppOverview | null): str
   return null;
 }
 
-// Generic URL builders
+// Generic URL builders. Every URL also carries `r=<assetRevision>` so
+// `bumpAssetRevision()` busts EVERY fallback (not just customimages).
+// Required because Steam's "Customize Artwork" sometimes doesn't bump
+// `local_cache_version` immediately after a write, leaving the loopback
+// URL pinned to the old bitmap.
+
+function rev(): string {
+  return getAssetRevision();
+}
 
 export function buildLoopbackUrl(appid: number, file: string, version?: string | number | null): string {
   const v = (version === undefined ? getCacheVersion(appid) : version);
-  const bust = (v !== null && v !== undefined && v !== "") ? `?c=${v}` : "";
-  return `${LOOPBACK_ORIGIN}/assets/${appid}/${file}${bust}`;
+  const versionedBust = (v !== null && v !== undefined && v !== "") ? `c=${v}` : "";
+  const parts = [versionedBust, `r=${rev()}`].filter(Boolean);
+  return `${LOOPBACK_ORIGIN}/assets/${appid}/${file}?${parts.join("&")}`;
 }
 
 export function buildSteamstaticUrl(appid: number, file: string): string {
-  return `${STEAMSTATIC_ORIGIN}/store_item_assets/steam/apps/${appid}/${file}`;
+  return `${STEAMSTATIC_ORIGIN}/store_item_assets/steam/apps/${appid}/${file}?r=${rev()}`;
 }
 
 export function buildAkamaiUrl(appid: number, file: string): string {
-  return `${AKAMAI_ORIGIN}/steam/apps/${appid}/${file}`;
+  return `${AKAMAI_ORIGIN}/steam/apps/${appid}/${file}?r=${rev()}`;
 }
 
 // Asset-type getters
@@ -72,10 +81,11 @@ export function buildAkamaiUrl(appid: number, file: string): string {
 export function getHeroUrls(appid: number): string[] {
   const ov = getOverview(appid);
   const version = getCacheVersion(appid, ov);
+  const bust = customBust(appid);
   const urls: string[] = [];
   if (version) urls.push(buildLoopbackUrl(appid, "library_hero.jpg", version));
-  urls.push(`/customimages/${appid}_hero.png`);
-  urls.push(`/customimages/${appid}_hero.jpg`);
+  urls.push(`/customimages/${appid}_hero.png${bust}`);
+  urls.push(`/customimages/${appid}_hero.jpg${bust}`);
   urls.push(buildSteamstaticUrl(appid, "library_hero.jpg"));
   urls.push(buildAkamaiUrl(appid, "library_hero.jpg"));
   return urls;

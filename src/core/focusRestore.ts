@@ -151,10 +151,15 @@ export function beginFocusRestoreLoop(): void {
   const doc = getPreferredSteamDocument();
   if (!doc?.body) return;
 
+  const FALLBACK_AFTER = Date.now() + 2500;
+  // Prefer the original shelf for as long as possible; only fall back to
+  // any-appid match after FALLBACK_AFTER. Without this, a shelf with the
+  // same appid (online wishlist, etc.) that resolves first wins focus.
   const findCard = (): HTMLElement | null => {
     if (targetShelfId) {
       const scoped = doc.querySelector(`.ds-card[data-appid="${targetAppid}"][data-shelfid="${targetShelfId}"]`) as HTMLElement | null;
       if (scoped) return scoped;
+      if (Date.now() < FALLBACK_AFTER) return null;
     }
     return doc.querySelector(`.ds-card[data-appid="${targetAppid}"]`) as HTMLElement | null;
   };
@@ -167,17 +172,19 @@ export function beginFocusRestoreLoop(): void {
   // re-take it. Bounded to one re-take so the user's own later navigation is
   // never fought. Gated on `activeAbort === abort` (NOT `abort.signal`, which
   // `succeed()` itself sets) so a newer restore loop cancels this.
+  // 5 s + up to 5 re-takes. Steam's native focus-first-card reflex can
+  // fire as late as 3 s after the home remounts.
   const scheduleConfirmation = () => {
-    let reTaken = false;
+    let reTakes = 0;
     const start = Date.now();
     const check = () => {
-      if (activeAbort !== abort || reTaken) return;
+      if (activeAbort !== abort) return;
       const card = findCard();
-      if (card && !card.classList.contains("gpfocus")) {
+      if (card && !card.classList.contains("gpfocus") && reTakes < 5) {
         const navNode = findNavNodeForElement(card);
-        if (navNode && takeNavFocus(navNode)) { reTaken = true; return; }
+        if (navNode && takeNavFocus(navNode)) reTakes++;
       }
-      if (Date.now() - start < 2000) setTimeout(check, 150);
+      if (Date.now() - start < 5000) setTimeout(check, 200);
     };
     setTimeout(check, 150);
   };
@@ -245,16 +252,15 @@ export function beginFocusRestoreLoop(): void {
   };
   setTimeout(tick, 0);
 
-  // Hard timeout: 4s — >= DEADLINE so pendingAppid stays set while the poll
-  // still runs. The observer only acts on the target card (no hijack of
-  // arbitrary focus changes) and disconnects on the first success.
+  // Hard timeout extended to 6s so scheduleConfirmation's 5s window can
+  // run fully before pending state is dropped.
   setTimeout(() => {
     if (!abort.signal.aborted) {
       observer.disconnect();
       clearPending();
       abort.abort();
     }
-  }, 4000);
+  }, 6000);
 
   // Cleanup on abort
   abort.signal.addEventListener("abort", () => observer.disconnect(), { once: true });

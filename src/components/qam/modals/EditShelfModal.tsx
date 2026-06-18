@@ -39,6 +39,8 @@ import {
   buildPrimarySource as buildPrimarySourceShared,
   assembleFinalSource,
   shelfSortForPatch,
+  primarySortKey,
+  isStateManualSort,
 } from './editShelf/saveHelpers'
 import { detectNativeTabKey, isUnsupportedTab } from './editShelf/tabUtils'
 import { usePreviewResolution } from './editShelf/usePreviewResolution'
@@ -116,7 +118,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const [alternatingMode, setAlternatingMode] = useState<'odd' | 'even' | null>(null)
   const prePatternHighlightsRef = useRef<number[] | null>(null)
   const activeSort = state.sourceType === 'filter' ? (state.filter.sort ?? 'alphabetical') : state.sort
-  const isManualSort = activeSort === 'manual'
+  const isManualSort = primarySortKey(activeSort) === 'manual'
   // Synthetic cards are encoded as negative ids when interleaved with
   // the manual-sort row so the user can drag them alongside real games.
   // Encoding: `-(syntheticIndex + 1)`. The reorder handler splits them
@@ -349,7 +351,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     closeModal?.();
     (async () => {
       const title = state.title.trim() || t('new_shelf');
-      const isManualSort = state.sort === 'manual' || state.filter.sort === 'manual'
+      const isManualSort = isStateManualSort(state)
       const childFilter = state.childFilterGroup.items.length > 0 ? state.childFilterGroup : undefined
       const { baseSort, baseReverse } = buildSortPatchFields(state, isManualSort)
       const patch: Partial<Shelf> = { title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf || undefined, highlightedAppIds: (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined, manualOrder: (isManualSort && state.manualOrder.length) ? state.manualOrder : undefined, manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled };

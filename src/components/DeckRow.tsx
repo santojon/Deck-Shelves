@@ -39,6 +39,23 @@ function writeCollapsed(shelfId: string, collapsed: boolean): void {
   }
 }
 
+// Row paddingBottom budget: scales with what renders below the card art
+// so the label / status row / per-card description never get clipped.
+export function _labelOverhangPx(args: {
+  hideStatusLine?: boolean;
+  hideGameNames?: boolean;
+  enableIcon?: boolean;
+  enableDescription?: boolean;
+  descriptionBelowLogo?: boolean;
+}): number {
+  let total = 16;
+  if (!args.hideGameNames) total += 22;
+  if (!args.hideStatusLine) total += 18;
+  if (args.enableDescription && !args.descriptionBelowLogo) total += 38;
+  total += 8;
+  return Math.max(total, 60);
+}
+
 function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 8, forceExpanded = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; forceExpanded?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
   const visuallyForced = forceExpanded || forceLayoutAsRecents;
   const highlightedSet = useMemo(() => {
@@ -587,7 +604,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       className="Panel ds-shelf"
       data-shelfid={shelfId || undefined}
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
-        style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: (heroEnabled || enableLogo) ? 'visible' : 'hidden', background: (heroEnabled || enableLogo) ? 'transparent' : 'var(--ds-shell-bg)',
+        style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: (heroEnabled || enableLogo || enableDescription) ? 'visible' : 'hidden', background: (heroEnabled || enableLogo) ? 'transparent' : 'var(--ds-shell-bg)',
         // Per-shelf fullPageShelf: shelf takes a full viewport-worth of
         // space so it looks identical to the first shelf when
         // hideRecents is on. Cards anchor at the bottom; the hero
@@ -691,15 +708,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
             // still feeling snappy enough with the matched 0.4s card
             // transition.
             scrollBehavior: "smooth",
-            /* paddingBottom 60 (was 46) — fits the card label + status line
-             * with focus scale(1.04) headroom. Smaller values clip the
-             * status row when a card is focused (scale pushes the label
-             * ~6px further down than its rest position).
-             * When the per-card description is on, the snippet sits
-             * position:absolute below the label so it can overflow the
-             * card width to ~4 cards. The row needs the extra room so
-             * the snippet isn't clipped by the row's bottom edge. */
-            padding: `16px 0 ${(enableDescription && !descriptionBelowLogo) ? 84 : 60}px 2.8vw`,
+            padding: `16px 0 ${_labelOverhangPx({ hideStatusLine, hideGameNames, enableIcon, enableDescription, descriptionBelowLogo })}px 2.8vw`,
           }}
           {...flowChildrenProps("horizontal")}
         >

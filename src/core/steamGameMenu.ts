@@ -1256,6 +1256,9 @@ function tryShowGameMenuLegacyWrapped(appid: number, shelfId?: string): boolean 
 export function showGameMenu(appid: number, shelfId?: string): void {
   if (showGameMenuActive) return;
   showGameMenuActive = true;
+  // Native menu actions (Customize Artwork, Properties, …) bypass our
+  // onActivate, so save focus here for B-back restoration.
+  try { if (appid > 0) saveFocusTarget(appid, shelfId); } catch {}
   try {
     if (isLegacyMenuFlow()) {
       if (tryShowGameMenuLegacyWrapped(appid, shelfId)) return;
