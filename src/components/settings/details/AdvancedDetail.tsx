@@ -3,6 +3,7 @@ import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { openManagedModal } from "../../qam/common/openManagedModal";
 import { ResetAllModal } from "../../qam/modals/ResetAllModal";
+import { ResetCategoriesModal } from "../../qam/modals/ResetCategoriesModal";
 import { SettingsSection } from "../../ui/SettingsSection";
 import {
   type DiagnosticEntry,
@@ -31,11 +32,12 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
   const handleResetShelves = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='shelves' />);
   const handleResetSmart   = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='smart' />);
   const handleResetAll     = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} />);
+  const handleResetCustom  = () => openManagedModal((close) => <ResetCategoriesModal closeModal={close} controller={controller} />);
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       <SettingsSection title={t("settings_advanced_reset_title")} description={t("settings_advanced_reset_desc")}>
-        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <DialogButton onClick={handleResetShelves} onOKButton={handleResetShelves} style={BTN_COMPACT_STYLE}>
             <TrashIcon size={12} /><span>{t("settings_advanced_reset_shelves")}</span>
           </DialogButton>
@@ -44,6 +46,9 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
           </DialogButton>
           <DialogButton onClick={handleResetAll} onOKButton={handleResetAll} style={BTN_COMPACT_STYLE}>
             <TrashIcon size={12} /><span>{t("settings_advanced_reset_all")}</span>
+          </DialogButton>
+          <DialogButton onClick={handleResetCustom} onOKButton={handleResetCustom} style={BTN_COMPACT_STYLE}>
+            <TrashIcon size={12} /><span>{t("settings_advanced_reset_custom")}</span>
           </DialogButton>
         </Focusable>
       </SettingsSection>

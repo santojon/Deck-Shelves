@@ -1,6 +1,10 @@
-import { ConfirmModal } from '../../../runtime/host/decky'
+import { ConfirmModal, toaster } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import { resetMountFailed } from '../../../runtime/homePatch'
+import { getCurrentSettings, saveSettings } from '../../../settingsStore'
+import { resetCategoriesInSettings } from '../../../features/settings/settingsCategories'
+import { categoryIdsForScope } from '../../../features/settings/categoryScope'
+import { defaultSettings } from '../../../domain/defaults'
 
 export type ResetScope = 'all' | 'shelves' | 'smart'
 
@@ -21,7 +25,7 @@ function okKey(scope: ResetScope): string {
 }
 
 export function ResetAllModal({ closeModal, controller, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; scope?: ResetScope }) {
-  const { t, actions } = controller
+  const { t } = controller
 
   return (
     <ConfirmModal
@@ -35,13 +39,18 @@ export function ResetAllModal({ closeModal, controller, scope = 'all' }: { close
       onOK={() => {
         closeModal?.();
         (async () => {
-          if (scope === 'shelves') {
-            await actions.resetShelves();
-          } else if (scope === 'smart') {
-            await actions.resetSmartShelves();
-          } else {
-            await actions.resetAll();
-            resetMountFailed();
+          const cur = getCurrentSettings();
+          if (!cur) return;
+          const next = resetCategoriesInSettings(cur, categoryIdsForScope(scope), defaultSettings());
+          const ok = await saveSettings(next);
+          if (ok) {
+            if (scope === 'all') {
+              try { resetMountFailed(); } catch {}
+            }
+            const toastKey = scope === 'shelves' ? 'toast_shelves_reset'
+              : scope === 'smart' ? 'toast_smart_shelves_reset'
+              : 'toast_settings_reset';
+            toaster.toast({ title: t('plugin_name'), body: t(toastKey as any) });
           }
         })();
       }}

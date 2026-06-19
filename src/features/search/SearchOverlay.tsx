@@ -8,7 +8,7 @@ import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindi
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
-import { closeAmbientOverlays } from "../../runtime/closeOverlays";
+import { closeAmbientOverlays, waitForOverlaysGone } from "../../runtime/closeOverlays";
 
 const MIN_CHARS = 3;
 const SEARCH_LIMIT = 30;
@@ -140,7 +140,16 @@ export function SearchOverlay() {
     const first = merged[0];
     if (first) {
       close({ restorePrior: false, clearSession: true });
-      window.setTimeout(() => { try { first.onActivate?.(); } catch {} }, 180);
+      // Wait for any ambient overlay (QAM, side menus, context menu,
+      // modal) to finish unmounting before activating so focus lands on
+      // the result card and not the overlay's last focusable. 180 ms
+      // covers the pill's own unmount; the overlay poll handles the
+      // rest if a modal lingers.
+      window.setTimeout(() => {
+        void waitForOverlaysGone(800).then(() => {
+          try { first.onActivate?.(); } catch {}
+        });
+      }, 180);
     } else {
       close();
     }
@@ -151,17 +160,23 @@ export function SearchOverlay() {
   // user always has a graceful out).
   const matcherStateRef = useRef(createMatcherState());
   const rawMatcherStateRef = useRef(createMatcherState());
+  const lastOpenAtRef = useRef(0);
   const openSearch = useCallback(() => {
     if (!isHomeRoute()) return;
+    const now = Date.now();
+    if (now - lastOpenAtRef.current < 350) return;
+    lastOpenAtRef.current = now;
     try {
       const doc = getPreferredSteamDocument() ?? document;
       const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
       if (focused) priorFocusRef.current = focused;
     } catch {}
-    closeAmbientOverlays();
-    setQuery(readSessionQuery());
-    setOpen(true);
-    window.setTimeout(tryOpenSteamKeyboard, 60);
+    void (async () => {
+      await closeAmbientOverlays();
+      setQuery(readSessionQuery());
+      setOpen(true);
+      window.setTimeout(tryOpenSteamKeyboard, 60);
+    })();
   }, []);
   useEffect(() => {
     if (!enabled) return;
@@ -180,19 +195,17 @@ export function SearchOverlay() {
       openSearch();
     });
   }, [enabled, open, close, openSearch]);
-  // Parallel raw-stream trigger for navSearch combos that include a token
-  // the Decky home-button bus doesn't forward (back-grip L4/L5/R4/R5).
-  // Skips when the Decky-side combo can already fire so a single press
-  // doesn't double-open the pill.
+  // Parallel raw-stream trigger so the combo fires regardless of where
+  // focus sits (QAM, Steam menu, context menu, native recents). Decky's
+  // home-button bus only fires when a DS card holds focus; the raw bus
+  // listens globally. `openSearch` debounces so the two paths can both
+  // fire without double-opening.
   useEffect(() => {
     if (!enabled || open) return;
     return subscribeControllerInput((e) => {
       if (!e.pressed) return;
       const navSearch = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSearch;
       if (!navSearch) return;
-      const tokens = String(navSearch).toUpperCase().split("+");
-      const rawOnly = tokens.some((t) => t === "L4" || t === "L5" || t === "R4" || t === "R5");
-      if (!rawOnly) return;
       const combo = parseRawCombo(navSearch);
       if (!matchEvent({ button: e.button }, combo, rawMatcherStateRef.current)) return;
       openSearch();

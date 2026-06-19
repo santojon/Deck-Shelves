@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { ConfirmModal, Focusable, DialogButton, TextField, toaster, openFilePicker } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
-import { importSettingsFromFile } from '../../../settingsStore'
+import { getCurrentSettings, readJsonFile, saveSettings } from '../../../settingsStore'
+import { mergeCategoriesIntoSettings, unwrapPayload } from '../../../features/settings/settingsCategories'
+import { categoryIdsForScope } from '../../../features/settings/categoryScope'
 import type { SettingsController } from '../../../features/settings/controller'
 import { textFromDeckyChange, tryPickerCalls } from './modalUtils'
 
@@ -21,7 +23,7 @@ function titleKeyFor(scope: ImportScope): string {
 }
 
 export function ImportModal({ closeModal, controller, initialPath, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; initialPath: string; scope?: ImportScope }) {
-  const { t, actions } = controller
+  const { t } = controller
   const [path, setPath] = useState(initialPath)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
@@ -41,12 +43,13 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
           (async () => {
             try {
               let ok = false
-              if (scope === 'shelves') ok = await actions.importShelves(path)
-              else if (scope === 'smart') ok = await actions.importSmartShelves(path)
-              else {
-                const next = await importSettingsFromFile(path);
-                ok = !!next
-                if (ok && next.shelves[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
+              const raw = await readJsonFile(path);
+              const cur = getCurrentSettings();
+              if (raw && cur) {
+                const parsed = JSON.parse(raw);
+                const next = mergeCategoriesIntoSettings(cur, unwrapPayload(parsed), categoryIdsForScope(scope));
+                ok = await saveSettings(next);
+                if (ok && next.shelves?.[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
               }
               toaster.toast({ title: t('plugin_name'), body: ok ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
             } catch (error) {

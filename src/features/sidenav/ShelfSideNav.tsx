@@ -12,7 +12,7 @@ import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { isInVisibilityWindow } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
-import { closeAmbientOverlays } from "../../runtime/closeOverlays";
+import { closeAmbientOverlays, waitForOverlaysGone } from "../../runtime/closeOverlays";
 
 type Anchor = {
   shelfId: string;
@@ -29,6 +29,7 @@ export function ShelfSideNav() {
   const enabled = (settings as any)?.sideNavEnabled === true;
 
   const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
+  const lastOpenAtRef = useRef(0);
   const priorFocusRef = useRef<HTMLElement | null>(null);
   const enabledRef = useRef<boolean>(enabled);
   useEffect(() => {
@@ -111,9 +112,14 @@ export function ShelfSideNav() {
         else if (visibleSmart.length > 0) shelfId = visibleSmart[0].id;
       }
       if (!shelfId) return;
-      closeAmbientOverlays();
-      try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: Date.now() }; } catch {}
-      setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? appid : null });
+      const now = Date.now();
+      if (now - lastOpenAtRef.current < 350) return;
+      lastOpenAtRef.current = now;
+      void (async () => {
+        await closeAmbientOverlays();
+        try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: now }; } catch {}
+        setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? appid : null });
+      })();
     };
     const matcherState = createMatcherState();
     const rawMatcherState = createMatcherState();
@@ -126,16 +132,15 @@ export function ShelfSideNav() {
         tryOpen();
       }
     });
-    // Parallel raw stream for back-grip-only combos (L4/L5/R4/R5).
-    // Skips when the Decky path can handle the binding so single presses
-    // don't double-trigger.
+    // Parallel raw stream so the combo fires regardless of where focus
+    // sits (QAM, Steam menu, context menu, native recents). Decky's
+    // home-button bus only fires when a DS card holds focus; the raw bus
+    // listens globally. `tryOpen` debounces so the two paths can both
+    // fire without double-opening.
     const unsubRaw = subscribeControllerInput((e) => {
       if (!enabledRef.current || !e.pressed) return;
       const navSideNav = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSideNav;
       if (!navSideNav) return;
-      const tokens = String(navSideNav).toUpperCase().split("+");
-      const rawOnly = tokens.some((t) => t === "L4" || t === "L5" || t === "R4" || t === "R5");
-      if (!rawOnly) return;
       if (matchEvent({ button: e.button }, parseRawCombo(navSideNav), rawMatcherState)) tryOpen();
     });
     return () => { unsubBtn(); unsubRaw(); };
@@ -164,8 +169,18 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   // what the user sees, in the order they see it. Falls back to a
   // settings-derived list if the BP DOM isn't readable yet.
   const orderedShelves: UnifiedShelf[] = useMemo(() => {
+    const doc = getPreferredSteamDocument();
     const fromDom = readVisibleShelvesFromDom();
-    if (fromDom.length > 0) return fromDom;
+    // Native recents row sits ABOVE every DS shelf when visible. Append
+    // at the top so the user can jump straight to it. Hidden when DS
+    // replaces the native row entirely (hideRecents === true and no
+    // override rendering content there).
+    const nativeEntry = settings.hideRecents !== true
+      ? readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"))
+      : null;
+    if (fromDom.length > 0) {
+      return nativeEntry ? [nativeEntry, ...fromDom] : fromDom;
+    }
     const regulars = (settings.shelves ?? []).filter((s: Shelf) => s.enabled && !s.hidden);
     const smart = settings.smartShelvesEnabled
       ? (settings.smartShelves ?? []).filter((s: SmartShelf) =>
@@ -181,7 +196,8 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     const interleave = settings.hideRecents === true && !settings.smartShelvesAtBottom;
     const firstVisible = pickFirstVisibleShelfId(combined as any, new Set<string>()) ?? combined[0]?.id ?? null;
     const ordered = interleave ? interleaveSmartShelves(combined as any, firstVisible) : combined;
-    return (ordered as any[]).map((s) => ({ id: s.id, title: s.title || "—" }));
+    const mapped = (ordered as any[]).map((s) => ({ id: s.id, title: s.title || "—" }));
+    return nativeEntry ? [nativeEntry, ...mapped] : mapped;
   }, [
     anchor.shelfId,
     settings.shelves,
@@ -211,20 +227,28 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   useEffect(() => {
     let cancelled = false;
     const targetId = anchor.shelfId;
-    const tryAt = (delay: number, attempt: number) => {
-      window.setTimeout(() => {
-        if (cancelled) return;
-        const el = rowRefs.current.get(targetId)
-          ?? (firstShelfIdRef.current ? rowRefs.current.get(firstShelfIdRef.current) : null);
-        const hit = rowRefs.current.has(targetId);
-        try { (globalThis as any).__ds_sidenav_focus = { attempt, delay, targetId, hit, keys: Array.from(rowRefs.current.keys()) }; } catch {}
-        if (!el) return;
-        try { focusElement(el); } catch {}
-      }, delay);
-    };
-    tryAt(80, 1);
-    tryAt(200, 2);
-    tryAt(400, 3);
+    // Wait for any ambient overlay (QAM, modal, context menu) to finish
+    // unmounting first — otherwise focusElement competes with Steam's
+    // NavTree reclaim and the focus ring snaps back to the source card.
+    void waitForOverlaysGone(800).then(() => {
+      if (cancelled) return;
+      const tryAt = (delay: number, attempt: number) => {
+        window.setTimeout(() => {
+          if (cancelled) return;
+          const el = rowRefs.current.get(targetId)
+            ?? (firstShelfIdRef.current ? rowRefs.current.get(firstShelfIdRef.current) : null);
+          const hit = rowRefs.current.has(targetId);
+          try { (globalThis as any).__ds_sidenav_focus = { attempt, delay, targetId, hit, keys: Array.from(rowRefs.current.keys()) }; } catch {}
+          if (!el) return;
+          try { focusElement(el); } catch {}
+        }, delay);
+      };
+      tryAt(80, 1);
+      tryAt(200, 2);
+      tryAt(400, 3);
+      tryAt(700, 4);
+      tryAt(1100, 5);
+    });
     return () => { cancelled = true; };
   }, [anchor.shelfId]);
 
@@ -244,10 +268,14 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     // be SharedJSContext's empty document. Walk the preferred Steam
     // doc to find the real card.
     const doc = getPreferredSteamDocument() ?? document;
+    onClose();
+    if (shelfId === NATIVE_RECENTS_ID) {
+      focusNativeRecentsFirstCard(doc);
+      return;
+    }
     const target = doc.querySelector<HTMLElement>(
       `[data-shelfid="${cssEscape(shelfId)}"] [data-ds-card-index="0"]`,
     );
-    onClose();
     if (target) {
       try { focusElement(target); } catch {}
     }
@@ -462,6 +490,58 @@ function cssEscape(value: string): string {
   return value.replace(/["\\]/g, "\\$&");
 }
 
+// Synthetic id used for the native Steam "Recents" row when it's visible
+// on the home. Picked here (not in settings) so it can't collide with a
+// real user-defined shelf id and so callers can recognise it.
+export const NATIVE_RECENTS_ID = "__ds_native_recents__";
+
+function getClassMap(): Record<string, string> {
+  try {
+    const g = globalThis as any;
+    if (g?.__DS_CLASS_MAP && typeof g.__DS_CLASS_MAP === "object") return g.__DS_CLASS_MAP;
+    if (globalThis.localStorage) {
+      const raw = globalThis.localStorage.getItem("ds_class_map");
+      if (raw) return JSON.parse(raw);
+    }
+  } catch {}
+  return {};
+}
+
+function findNativeRecentsEl(doc: Document): HTMLElement | null {
+  // Native recents lives outside `.deck-shelves-root`. Try the discovered
+  // hashed class first (from the runtime classmap); fall back to common
+  // structural cues if the hash isn't reachable.
+  const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
+  const map = getClassMap();
+  const candidates: HTMLElement[] = [];
+  const seen = new Set<HTMLElement>();
+  const push = (sel: string) => {
+    try {
+      doc.querySelectorAll<HTMLElement>(sel).forEach((el) => {
+        if (!seen.has(el)) { seen.add(el); candidates.push(el); }
+      });
+    } catch {}
+  };
+  if (map.nativeShelfContainer) push(`.${CSS.escape(map.nativeShelfContainer)}`);
+  if (map.shelfSection) push(`.${CSS.escape(map.shelfSection)}`);
+  // Fallbacks: any direct sibling of the DS mount that holds game cards.
+  push('[class*="LibrarySection" i]');
+  push('[class*="ShelfSection" i]');
+  push('[class*="ScrollGrid" i]');
+  let best: HTMLElement | null = null;
+  let bestTop = Infinity;
+  for (const el of candidates) {
+    if (root && root.contains(el)) continue;
+    if (!el.isConnected || el.offsetParent === null) continue;
+    const hasCards = !!el.querySelector('[data-appid], a[href*="/library/app/"]');
+    if (!hasCards) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height < 60 || r.width < 60) continue;
+    if (r.top < bestTop) { best = el; bestTop = r.top; }
+  }
+  return best;
+}
+
 function readVisibleShelvesFromDom(): UnifiedShelf[] {
   const doc = getPreferredSteamDocument();
   if (!doc) return [];
@@ -488,4 +568,46 @@ function readVisibleShelvesFromDom(): UnifiedShelf[] {
     out.push({ id, title });
   }
   return out;
+}
+
+function readNativeRecentsEntry(doc: Document | null, fallbackLabel: string): UnifiedShelf | null {
+  if (!doc) return null;
+  const el = findNativeRecentsEl(doc);
+  if (!el) return null;
+  const map = getClassMap();
+  // Try to lift the visible row title — first the discovered hashed
+  // label container, then any heading inside the row; finally the
+  // caller's localised fallback.
+  let text = "";
+  if (map.nativeLabelInner) {
+    text = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeLabelInner)}`)?.textContent?.trim() ?? "";
+  }
+  if (!text && map.nativeLabelOuter) {
+    text = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeLabelOuter)}`)?.textContent?.trim() ?? "";
+  }
+  if (!text) {
+    text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
+  }
+  return { id: NATIVE_RECENTS_ID, title: text && text.length > 0 ? text : fallbackLabel };
+}
+
+export function focusNativeRecentsFirstCard(doc: Document | null): boolean {
+  if (!doc) return false;
+  const el = findNativeRecentsEl(doc);
+  if (!el) return false;
+  const map = getClassMap();
+  let card: HTMLElement | null = null;
+  if (map.nativeCardFocusable) {
+    card = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeCardFocusable)}`);
+  }
+  if (!card && map.nativeCard) {
+    card = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeCard)}`);
+  }
+  if (!card) {
+    card = el.querySelector<HTMLElement>('[data-appid], a[href*="/library/app/"]');
+  }
+  if (!card) return false;
+  try { card.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
+  try { (card as any).focus?.({ preventScroll: false }); } catch {}
+  return true;
 }
