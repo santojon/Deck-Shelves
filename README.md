@@ -7,10 +7,12 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-406%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/vitest-421%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![pytest](https://img.shields.io/badge/pytest-65%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
+[![API](https://img.shields.io/badge/%40deck--shelves%2Fapi-v4-purple?logo=typescript&logoColor=white)](api/)
+[![License](https://img.shields.io/github/license/santojon/Deck-Shelves?color=blue)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Steam%20OS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)

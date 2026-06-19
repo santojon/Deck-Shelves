@@ -38,7 +38,7 @@ export function SettingsPage() {
     <Focusable
       flow-children="vertical"
       onCancelButton={goBack}
-      style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", color: "white" }}
+      style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column", color: "var(--ds-text, #fff)" }}
     >
       <DeckQAMStyles />
       <PageHeader title={t("settings_page_title")} onBack={goBack} active="settings" />

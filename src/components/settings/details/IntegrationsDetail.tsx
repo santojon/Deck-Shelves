@@ -8,6 +8,13 @@ import {
   getExternalSortOptions,
   getExternalImportTypes,
   getExternalSearchProviders,
+  getExternalSideMenuProviders,
+  getExternalContextProviders,
+  getExternalWidgetProviders,
+  getExternalShelfRenderers,
+  getExternalMetadataProviders,
+  getExternalStatisticsProviders,
+  getExternalRecommendationProviders,
   isInternalSearchProvider,
   isInternalShelfSource,
   isInternalSmartSource,
@@ -33,12 +40,19 @@ interface IntegrationEntry {
 export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
   const settings = controller.settings;
   const enabledMap: Record<string, boolean> = (settings as any)?.integrationsEnabled ?? {};
-  const sources       = useMemo(() => getExternalSources(),         []);
-  const smartSources  = useMemo(() => getExternalSmartSources(),    []);
-  const filterTypes   = useMemo(() => getExternalFilterTypes(),     []);
-  const sortOptions   = useMemo(() => getExternalSortOptions(),     []);
-  const importTypes   = useMemo(() => getExternalImportTypes(),     []);
-  const searches      = useMemo(() => getExternalSearchProviders(), []);
+  const sources       = useMemo(() => getExternalSources(),                []);
+  const smartSources  = useMemo(() => getExternalSmartSources(),           []);
+  const filterTypes   = useMemo(() => getExternalFilterTypes(),            []);
+  const sortOptions   = useMemo(() => getExternalSortOptions(),            []);
+  const importTypes   = useMemo(() => getExternalImportTypes(),            []);
+  const searches      = useMemo(() => getExternalSearchProviders(),        []);
+  const sideMenus     = useMemo(() => getExternalSideMenuProviders(),      []);
+  const contexts      = useMemo(() => getExternalContextProviders(),       []);
+  const widgets       = useMemo(() => getExternalWidgetProviders(),        []);
+  const renderers     = useMemo(() => getExternalShelfRenderers(),         []);
+  const metadata      = useMemo(() => getExternalMetadataProviders(),      []);
+  const statistics    = useMemo(() => getExternalStatisticsProviders(),    []);
+  const recommends    = useMemo(() => getExternalRecommendationProviders(), []);
 
   const targetLabel = (target?: string) => {
     if (target === "smart_shelves") return t("settings_integration_target_smart");
@@ -86,6 +100,57 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
       group: t("settings_integration_search"),
       builtIn: isInternalSearchProvider(d.id),
       meta: typeof d.priority === "number" ? t("settings_integration_priority").replace("{{n}}", String(d.priority)) : undefined,
+    })),
+    ...sideMenus.map((d: any) => ({
+      id: d.id,
+      name: d.displayName ?? d.label ?? d.id,
+      group: t("settings_integration_side_menus"),
+      builtIn: false,
+      version: d.version,
+    })),
+    ...contexts.map((d: any) => ({
+      id: d.id,
+      name: d.displayName ?? d.label ?? d.id,
+      group: t("settings_integration_contexts"),
+      builtIn: false,
+      version: d.version,
+    })),
+    ...widgets.map((d: any) => ({
+      id: d.id,
+      name: d.displayName ?? d.label ?? d.id,
+      group: t("settings_integration_widgets"),
+      builtIn: false,
+      version: d.version,
+    })),
+    ...renderers.map((d: any) => ({
+      id: d.id,
+      name: d.displayName ?? d.label ?? d.id,
+      group: t("settings_integration_renderers"),
+      builtIn: false,
+      version: d.version,
+    })),
+    ...metadata.map((d: any) => ({
+      id: d.id,
+      name: d.displayName ?? d.label ?? d.id,
+      group: t("settings_integration_metadata"),
+      builtIn: false,
+      version: d.version,
+    })),
+    ...statistics.map((d: any) => ({
+      id: d.id,
+      name: d.displayName ?? d.label ?? d.id,
+      group: t("settings_integration_statistics"),
+      builtIn: false,
+      version: d.version,
+      meta: d.category,
+    })),
+    ...recommends.map((d: any) => ({
+      id: d.id,
+      name: d.displayName ?? d.label ?? d.id,
+      group: t("settings_integration_recommendations"),
+      builtIn: false,
+      version: d.version,
+      meta: d.category,
     })),
   ];
 

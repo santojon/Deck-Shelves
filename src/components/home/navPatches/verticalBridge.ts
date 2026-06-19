@@ -138,7 +138,11 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
           // For DOWN: if focus didn't enter our mount, bridge
           if (btn === DIR_DOWN && !mount.contains(after)) {
             const afterRect = after.getBoundingClientRect();
-            if (afterRect.top <= beforeRect.top + 10) {
+            // No vertical movement, or focus stayed entirely above the
+            // mount (native nav hopped between above-mount siblings
+            // instead of descending). Both are traps — bridge into the
+            // mount so the user isn't stuck above.
+            if (afterRect.top <= beforeRect.top + 10 || afterRect.bottom <= mountRect.top + 4) {
               focusElement(redirectTarget!);
             }
           }

@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { DocSection } from './DocSection'
 import { DocCallout } from './DocCallout'
 
-const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
-const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
-const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: '#dcdedf' }
+const labelStyle: React.CSSProperties = { fontSize: 13, color: 'var(--ds-text-dim, #b8bcbf)', lineHeight: '19px' }
+const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--ds-text, #fff)' }
+const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: 'var(--ds-text, #dcdedf)' }
 
 const filterRows: [string, string][] = [
   ['filter_type_favorites',       'docs_filter_favorites_desc'],

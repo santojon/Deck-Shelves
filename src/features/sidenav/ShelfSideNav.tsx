@@ -12,6 +12,7 @@ import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { isInVisibilityWindow } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
+import { closeAmbientOverlays } from "../../runtime/closeOverlays";
 
 type Anchor = {
   shelfId: string;
@@ -110,6 +111,7 @@ export function ShelfSideNav() {
         else if (visibleSmart.length > 0) shelfId = visibleSmart[0].id;
       }
       if (!shelfId) return;
+      closeAmbientOverlays();
       try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: Date.now() }; } catch {}
       setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? appid : null });
     };

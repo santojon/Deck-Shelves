@@ -323,8 +323,8 @@ function ConfirmDialog({
         width: "85%",
         border: "1px solid rgba(255,255,255,0.08)",
       }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "white", marginBottom: 8 }}>{title}</div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 1.45, marginBottom: 16 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ds-text, #fff)", marginBottom: 8 }}>{title}</div>
+        <div style={{ fontSize: 13, color: "var(--ds-text-dim, rgba(255,255,255,0.85))", lineHeight: 1.45, marginBottom: 16 }}>
           {message}
         </div>
         <Focusable flow-children="row" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>

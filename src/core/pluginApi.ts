@@ -6,16 +6,29 @@
 import type { ReactNode } from "react";
 import type { Settings } from "../types";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
-import { isTabMasterInstalled } from "../integrations/registry";
+import {
+  isTabMasterInstalled,
+  isNonSteamBadgesInstalled,
+  isUnifiDeckInstalled,
+} from "../integrations/registry";
+import pkg from "../../package.json";
 import type {
   Unsubscribe as ApiUnsubscribe,
   PublicAppMeta as ApiPublicAppMeta,
   ImportTarget as ApiImportTarget,
+  PublicProfile as ApiPublicProfile,
+  IntegrationInfo as ApiIntegrationInfo,
+  PublicSettingsSnapshot as ApiPublicSettingsSnapshot,
+  EnvironmentInfo as ApiEnvironmentInfo,
 } from "../../api/src/types";
 
 export type Unsubscribe = ApiUnsubscribe;
 export type PublicAppMeta = ApiPublicAppMeta;
 export type ImportTarget = ApiImportTarget;
+export type PublicProfile = ApiPublicProfile;
+export type IntegrationInfo = ApiIntegrationInfo;
+export type PublicSettingsSnapshot = ApiPublicSettingsSnapshot;
+export type EnvironmentInfo = ApiEnvironmentInfo;
 
 // Translates Steam's raw AppOverview into the canonical PublicAppMeta shape.
 // External descriptors registered via @deck-shelves/api receive THIS — the
@@ -262,6 +275,36 @@ export interface MetadataProviderDescriptor {
   resolve: (appids: ReadonlyArray<number>, signal?: AbortSignal) => Promise<Record<number, Record<string, unknown>>>;
 }
 
+export interface StatisticsEntry {
+  id: string;
+  label: string;
+  value: string | number;
+  unit?: string;
+  category?: string;
+}
+
+export interface StatisticsProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  category?: string;
+  resolve: () => Promise<ReadonlyArray<StatisticsEntry>> | ReadonlyArray<StatisticsEntry>;
+}
+
+export interface RecommendationEntry {
+  appid: number;
+  score?: number;
+  reason?: string;
+}
+
+export interface RecommendationProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  category?: string;
+  resolve: (limit: number, signal?: AbortSignal) => Promise<ReadonlyArray<RecommendationEntry>> | ReadonlyArray<RecommendationEntry>;
+}
+
 export interface FocusedCardInfo {
   appid: number;
   shelfId: string | null;
@@ -306,6 +349,16 @@ export interface DeckShelvesPublicAPI {
 
   getAssetUrls(appid: number, type: AssetType): string[];
 
+  getProfiles(): ReadonlyArray<PublicProfile>;
+  getActiveProfile(): PublicProfile | null;
+  subscribeProfiles(cb: (profiles: ReadonlyArray<PublicProfile>) => void): Unsubscribe;
+  getIntegrations(): ReadonlyArray<IntegrationInfo>;
+  subscribeIntegrations(cb: (integrations: ReadonlyArray<IntegrationInfo>) => void): Unsubscribe;
+
+  getSettingsSnapshot(): PublicSettingsSnapshot;
+  subscribeSettingsSnapshot(cb: (snapshot: PublicSettingsSnapshot) => void): Unsubscribe;
+  getEnvironment(): EnvironmentInfo;
+
   hasTabMaster(): boolean;
 
   registerSearchProvider(d: SearchProviderDescriptor): Unsubscribe;
@@ -320,6 +373,11 @@ export interface DeckShelvesPublicAPI {
   registerMetadataProvider(d: MetadataProviderDescriptor): Unsubscribe;
   getRegisteredMetadataProviders(): ReadonlyArray<MetadataProviderDescriptor>;
   getRegisteredSideMenuProviders(): ReadonlyArray<SideMenuProviderDescriptor>;
+
+  registerStatisticsProvider(d: StatisticsProviderDescriptor): Unsubscribe;
+  getRegisteredStatisticsProviders(): ReadonlyArray<StatisticsProviderDescriptor>;
+  registerRecommendationProvider(d: RecommendationProviderDescriptor): Unsubscribe;
+  getRegisteredRecommendationProviders(): ReadonlyArray<RecommendationProviderDescriptor>;
 }
 
 const shelfSources = new Map<string, ExternalShelfSourceDescriptor>();
@@ -333,6 +391,8 @@ const contextProviders = new Map<string, ContextProviderDescriptor>();
 const widgetProviders = new Map<string, WidgetProviderDescriptor>();
 const shelfRenderers = new Map<string, ShelfRendererDescriptor>();
 const metadataProviders = new Map<string, MetadataProviderDescriptor>();
+const statisticsProviders = new Map<string, StatisticsProviderDescriptor>();
+const recommendationProviders = new Map<string, RecommendationProviderDescriptor>();
 
 export function resolveExternalSource(sourceId: string, limit: number): Promise<number[]> {
   const src = shelfSources.get(sourceId);
@@ -399,6 +459,14 @@ export function getExternalShelfRenderers(): ShelfRendererDescriptor[] {
 
 export function getExternalMetadataProviders(): MetadataProviderDescriptor[] {
   return Array.from(metadataProviders.values());
+}
+
+export function getExternalStatisticsProviders(): StatisticsProviderDescriptor[] {
+  return Array.from(statisticsProviders.values());
+}
+
+export function getExternalRecommendationProviders(): RecommendationProviderDescriptor[] {
+  return Array.from(recommendationProviders.values());
 }
 
 export function hasExternalFilterType(id: string): boolean {
@@ -571,6 +639,77 @@ function projectSavedFilters(s: Settings | null): ReadonlyArray<PublicSavedFilte
   }));
 }
 
+const KNOWN_INTEGRATIONS: ReadonlyArray<{ id: string; displayName: string; detect: () => boolean }> = [
+  { id: "tabmaster", displayName: "TabMaster", detect: isTabMasterInstalled },
+  { id: "unifideck", displayName: "UnifiDeck", detect: isUnifiDeckInstalled },
+  { id: "nonsteambadges", displayName: "Non-Steam Badges", detect: isNonSteamBadgesInstalled },
+];
+
+function projectProfiles(s: Settings | null): ReadonlyArray<PublicProfile> {
+  if (!s) return [];
+  const list = ((s as any).profiles ?? []) as Array<{ id: string; name: string; createdAt: string }>;
+  const activeName = (s as any).activeProfileName;
+  return list.map((p) => ({
+    id: String(p.id),
+    name: String(p.name),
+    createdAt: String(p.createdAt ?? ""),
+    active: typeof activeName === "string" && activeName === p.name,
+  }));
+}
+
+function projectSettingsSnapshot(s: Settings | null): PublicSettingsSnapshot {
+  const x = (s ?? {}) as any;
+  return {
+    enabled: x.enabled === true,
+    hideRecents: x.hideRecents === true,
+    recentsReplaceSource: x.recentsReplaceSource === true,
+    hideHomeTabs: x.hideHomeTabs === true,
+    shelfHeroBackground: x.shelfHeroBackground === true,
+    globalHeroEnabled: x.globalHeroEnabled === true,
+    globalFullPageShelf: x.globalFullPageShelf === true,
+    smartShelvesEnabled: x.smartShelvesEnabled === true,
+    unifiedListEnabled: x.unifiedListEnabled === true,
+    forceCssLoaderThemes: x.forceCssLoaderThemes === true,
+    lightModeEnabled: x.lightModeEnabled === true,
+    onlineFeaturesEnabled: x.onlineFeaturesEnabled === true,
+    updateNotifyEnabled: x.updateNotifyEnabled !== false,
+    integrationsEnabled: (x.integrationsEnabled ?? {}) as Record<string, boolean>,
+    featureToggles: (x.featureToggles ?? {}) as Record<string, boolean>,
+    activeProfileName: typeof x.activeProfileName === "string" ? x.activeProfileName : null,
+  };
+}
+
+function detectLocale(): string {
+  try {
+    const nav = (globalThis as any).navigator;
+    const lang = nav?.language;
+    if (typeof lang === "string" && lang.length > 0) return lang;
+  } catch {}
+  return "en-US";
+}
+
+function detectGamepadUi(): boolean {
+  try {
+    const doc = (globalThis as any).document;
+    if (!doc) return false;
+    const body = doc.body || doc.documentElement;
+    if (!body) return false;
+    return body.classList?.contains("gamepad") === true
+      || body.classList?.contains("bigpicture") === true
+      || !!doc.querySelector?.("[class*='gamepadui_GamepadUI']");
+  } catch { return false; }
+}
+
+function projectIntegrations(s: Settings | null): ReadonlyArray<IntegrationInfo> {
+  const enabledMap = (s ? ((s as any).integrationsEnabled ?? {}) : {}) as Record<string, boolean>;
+  return KNOWN_INTEGRATIONS.map((it) => {
+    let installed = false;
+    try { installed = it.detect(); } catch {}
+    const enabled = enabledMap[it.id] !== false;
+    return { id: it.id, displayName: it.displayName, installed, enabled };
+  });
+}
+
 function projectSavedSmartFilters(s: Settings | null): ReadonlyArray<PublicSavedSmartFilter> {
   if (!s) return [];
   const list = ((s as any).savedSmartFilters ?? []) as any[];
@@ -664,6 +803,16 @@ function makeApi(): DeckShelvesPublicAPI {
       return () => { metadataProviders.delete(d.id); };
     },
     getRegisteredMetadataProviders() { return getExternalMetadataProviders(); },
+    registerStatisticsProvider(d) {
+      statisticsProviders.set(d.id, d);
+      return () => { statisticsProviders.delete(d.id); };
+    },
+    getRegisteredStatisticsProviders() { return getExternalStatisticsProviders(); },
+    registerRecommendationProvider(d) {
+      recommendationProviders.set(d.id, d);
+      return () => { recommendationProviders.delete(d.id); };
+    },
+    getRegisteredRecommendationProviders() { return getExternalRecommendationProviders(); },
 
     getShelves() { return projectShelves(getCurrentSettings()); },
     getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
@@ -708,6 +857,52 @@ function makeApi(): DeckShelvesPublicAPI {
       const { subscribeFocusedCard } = requireFocusTracker();
       return subscribeFocusedCard(cb);
     },
+    getProfiles() { return projectProfiles(getCurrentSettings()); },
+    getActiveProfile() {
+      const all = projectProfiles(getCurrentSettings());
+      return all.find((p) => p.active) ?? null;
+    },
+    subscribeProfiles(cb) {
+      let last = JSON.stringify(projectProfiles(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectProfiles(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    getIntegrations() { return projectIntegrations(getCurrentSettings()); },
+    subscribeIntegrations(cb) {
+      let last = JSON.stringify(projectIntegrations(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectIntegrations(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    getSettingsSnapshot() { return projectSettingsSnapshot(getCurrentSettings()); },
+    subscribeSettingsSnapshot(cb) {
+      let last = JSON.stringify(projectSettingsSnapshot(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectSettingsSnapshot(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    getEnvironment() {
+      return {
+        pluginVersion: typeof pkg?.version === "string" ? pkg.version : "0.0.0",
+        apiVersion: 4,
+        locale: detectLocale(),
+        isGamepadUi: detectGamepadUi(),
+      };
+    },
+
     getAssetUrls(appid, type) {
       const a = requireAssets();
       switch (type) {
@@ -798,5 +993,7 @@ export function installPluginApi(): () => void {
     filterTypes.clear();
     sortOptions.clear();
     importTypes.clear();
+    statisticsProviders.clear();
+    recommendationProviders.clear();
   };
 }

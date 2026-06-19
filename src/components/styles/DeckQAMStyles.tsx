@@ -39,6 +39,7 @@ export function DeckQAMStyles() {
         --ds-danger:         rgba(255, 110, 110, 0.95);
         --ds-danger-soft:    rgba(255, 80, 80, 0.10);
         --ds-warn:           rgba(255, 200, 90, 0.9);
+        --ds-link:           #7aa9d6;
         --ds-callout-note:        #5b9bd5;
         --ds-callout-note-soft:   rgba(91, 155, 213, 0.10);
         --ds-callout-tip:         #4caf50;
@@ -204,7 +205,7 @@ export function DeckQAMStyles() {
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: #b8bcbf;
+        color: var(--ds-text-dim, #b8bcbf);
         padding: 8px 16px 6px;
       }
 
@@ -285,7 +286,7 @@ export function DeckQAMStyles() {
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: #b8bcbf;
+        color: var(--ds-text-dim, #b8bcbf);
         user-select: none;
         width: 100%;
         box-sizing: border-box;
@@ -579,7 +580,7 @@ export function DeckQAMStyles() {
         flex: 0 0 auto;
         border-radius: 6px;
         background: rgba(255, 255, 255, 0.04);
-        color: #b8bcbf;
+        color: var(--ds-text-dim, #b8bcbf);
         cursor: pointer;
         user-select: none;
       }

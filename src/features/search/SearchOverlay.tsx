@@ -8,6 +8,7 @@ import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindi
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
+import { closeAmbientOverlays } from "../../runtime/closeOverlays";
 
 const MIN_CHARS = 3;
 const SEARCH_LIMIT = 30;
@@ -157,6 +158,7 @@ export function SearchOverlay() {
       const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
       if (focused) priorFocusRef.current = focused;
     } catch {}
+    closeAmbientOverlays();
     setQuery(readSessionQuery());
     setOpen(true);
     window.setTimeout(tryOpenSteamKeyboard, 60);

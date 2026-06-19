@@ -63,7 +63,7 @@ function ButtonGlyph({ token }: { token: string }) {
     minWidth: 22, height: 18, padding: "0 5px",
     borderRadius: 4, fontSize: 10, fontWeight: 700,
     background: "var(--gpSystemLighterStill, rgba(255,255,255,0.18))",
-    color: "white",
+    color: "var(--ds-text, #fff)",
     fontFamily: "monospace", letterSpacing: 0.2,
   };
   return <span style={styleBase}>{t}</span>;

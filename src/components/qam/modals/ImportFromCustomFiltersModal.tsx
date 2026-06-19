@@ -131,7 +131,7 @@ export function ImportFromCustomFiltersModal({ closeModal, controller }: { close
           {loading ? (
             <div>{t('loading')}</div>
           ) : error && tabs.length === 0 ? (
-            <div style={{ color: '#f59e0b' }}>{error}</div>
+            <div style={{ color: 'var(--ds-warn, #f59e0b)' }}>{error}</div>
           ) : tabs.length === 0 ? (
             <div>{t('no_tabmaster_tabs')}</div>
           ) : (

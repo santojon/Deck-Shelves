@@ -25,7 +25,7 @@ export function DocAccordion({ label, children, defaultOpen = false }: {
           <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: open ? '#dcdedf' : '#8b9ab5', letterSpacing: 0.2 }}>
             {label}
           </span>
-          <span style={{ color: '#8b9ab5' }}>
+          <span style={{ color: 'var(--ds-text-dim, #8b9ab5)' }}>
             <ChevronIcon open={open} />
           </span>
         </div>

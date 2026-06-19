@@ -60,7 +60,7 @@ export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps)
           margin: 0,
           fontSize: "clamp(18px, 2.2vw, 22px)",
           fontWeight: 700,
-          color: "white",
+          color: "var(--ds-text, #fff)",
           letterSpacing: 0.2,
         }}
       >{title}</h1>

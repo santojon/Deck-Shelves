@@ -288,7 +288,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     case "achievements":
       return (
         <div>
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>
             {t(item.type === "friends" ? "filter_friends_info" : "filter_achievements_info")}
           </div>
         </div>
@@ -298,7 +298,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       // No params — just an info hint so the user knows the data source.
       return (
         <div>
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>
             {t("filter_friends_playing_now_info")}
           </div>
         </div>
@@ -317,7 +317,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
             step={1}
             onChange={(v: number) => patchParams({ days: v })}
           />
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>
             {t("filter_friends_played_recently_info")}
           </div>
         </>

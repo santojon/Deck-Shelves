@@ -31,12 +31,12 @@ export default function PublisherFilterOptions({ selected, onChange }: { selecte
     <>
       {loading && (
         <div>
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_publisher_loading")}</div>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12 }}>{t("filter_publisher_loading")}</div>
         </div>
       )}
       {!loading && allPubs.length === 0 && (
         <div>
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_publisher_empty")}</div>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12 }}>{t("filter_publisher_empty")}</div>
         </div>
       )}
       {allPubs.map((pub) => (

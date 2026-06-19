@@ -814,7 +814,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       )}
                       <Field label={t('smart_visible_days_label')} />
                       {state.visibleDaysOfWeek.length === 0 && (
-                        <div style={{ padding: '4px 8px 8px', fontSize: 12, color: '#ff9800' }}>{t('smart_visible_days_empty_warning' as any)}</div>
+                        <div style={{ padding: '4px 8px 8px', fontSize: 12, color: 'var(--ds-warn, #ff9800)' }}>{t('smart_visible_days_empty_warning' as any)}</div>
                       )}
                       <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '4px 0 8px', width: '100%', boxSizing: 'border-box' }}>
                         {[0, 1, 2, 3, 4, 5, 6].map((day) => {
@@ -859,7 +859,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           <Field label={t('smart_overrides_info_label' as any)} description={infoLines.join('  ·  ')} />
                         )}
                         {state.visibleDaysOfWeek.length === 0 && (
-                          <div style={{ padding: '4px 8px 8px', fontSize: 12, color: '#ff9800' }}>{t('smart_visible_days_empty_warning' as any)}</div>
+                          <div style={{ padding: '4px 8px 8px', fontSize: 12, color: 'var(--ds-warn, #ff9800)' }}>{t('smart_visible_days_empty_warning' as any)}</div>
                         )}
                         <div style={{ padding: '10px 0 2px', fontSize: 12, opacity: 0.7, fontWeight: 600 }}>{t('smart_schedule_day_overrides' as any)}</div>
                         <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '4px 0 8px', width: '100%', boxSizing: 'border-box' }}>
