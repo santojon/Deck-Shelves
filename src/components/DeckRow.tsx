@@ -56,8 +56,13 @@ export function _labelOverhangPx(args: {
   return Math.max(total, 60);
 }
 
-function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 8, forceExpanded = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; forceExpanded?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 8, forceExpanded = false, fullPageLayoutOnly = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; forceExpanded?: boolean; fullPageLayoutOnly?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
   const visuallyForced = forceExpanded || forceLayoutAsRecents;
+  // 100vh layout fires for BOTH real recents-replacement (`forceExpanded`)
+  // and per-shelf full-page intent (`fullPageLayoutOnly`). Only the real
+  // one drives `isFirstShelf` for the hero — full-page with native
+  // recents above must still keep its subtle fade-in.
+  const fullPageLayoutActive = (forceExpanded || fullPageLayoutOnly) && !pinScrollTop;
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
@@ -609,10 +614,10 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         // space so it looks identical to the first shelf when
         // hideRecents is on. Cards anchor at the bottom; the hero
         // composes inside the shelf's own bounds (absolute, height 100%).
-        minHeight: (forceExpanded && !pinScrollTop) ? '100vh' : undefined,
-        display: (forceExpanded && !pinScrollTop) ? 'flex' : undefined,
-        flexDirection: (forceExpanded && !pinScrollTop) ? 'column' : undefined,
-        justifyContent: (forceExpanded && !pinScrollTop) ? 'flex-end' : undefined,
+        minHeight: fullPageLayoutActive ? '100vh' : undefined,
+        display: fullPageLayoutActive ? 'flex' : undefined,
+        flexDirection: fullPageLayoutActive ? 'column' : undefined,
+        justifyContent: fullPageLayoutActive ? 'flex-end' : undefined,
         // Reserve top space for the logo + description banner.
         // Skipped only when the hero is rendered as a true full-page box
         // (`forceExpanded && !pinScrollTop`) — there the cards sit at the
@@ -623,14 +628,14 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         // overlap the card row unless we still reserve space here.
         // `forceLayoutAsRecents` (themed shelves without hero art) also
         // needs the reservation for the same reason.
-        paddingTop: (enableLogo && !(forceExpanded && !pinScrollTop)) ? (() => {
+        paddingTop: (enableLogo && !fullPageLayoutActive) ? (() => {
           const logoHeight = Math.round(130 * logoSize / 100);
           const topOffsetPx = Math.max(0, Math.round(logoTopOffset * 0.32));
           const descSlot = (enableDescription && descriptionBelowLogo) ? 26 : 0;
           return topOffsetPx + logoHeight + descSlot + 2;
         })() : undefined }}
     >
-      {(heroEnabled || heroLabelMount || enableLogo || enableDescription) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={visuallyForced} forceLayoutAsRecents={forceLayoutAsRecents} isFullPage={forceExpanded && !pinScrollTop} enableLogo={enableLogo} enableDescription={enableDescription} descriptionBelowLogo={descriptionBelowLogo} logoPosition={logoPosition} descriptionPosition={descriptionPosition} logoSize={logoSize} logoTopOffset={logoTopOffset} descriptionHeight={descriptionHeight} descriptionLogoGap={descriptionLogoGap} />}
+      {(heroEnabled || heroLabelMount || enableLogo || enableDescription) && <PerShelfHero containerRef={outerRef} showArt={heroEnabled} isFirstShelf={visuallyForced} forceLayoutAsRecents={forceLayoutAsRecents} isFullPage={fullPageLayoutActive} enableLogo={enableLogo} enableDescription={enableDescription} descriptionBelowLogo={descriptionBelowLogo} logoPosition={logoPosition} descriptionPosition={descriptionPosition} logoSize={logoSize} logoTopOffset={logoTopOffset} descriptionHeight={descriptionHeight} descriptionLogoGap={descriptionLogoGap} />}
       {title && !hideShelfTitle ? (
         collapsed ? (
           <Focusable

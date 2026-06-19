@@ -3,7 +3,10 @@ import { getPreferredSteamDocument } from "../runtime/steamHost";
 let pendingAppid: number | null = null;
 let pendingShelfId: string | null = null;
 let pendingTimestamp = 0;
-const FOCUS_RESTORE_TIMEOUT = 30000;
+// 10 min covers art-editor sessions with multiple images / properties
+// pages. Pending state is superseded as soon as the user activates any
+// other DS card, so a long TTL doesn't cause stale restores in practice.
+const FOCUS_RESTORE_TIMEOUT = 600_000;
 
 export function saveFocusTarget(appid: number, shelfId?: string): void {
   pendingAppid = appid;

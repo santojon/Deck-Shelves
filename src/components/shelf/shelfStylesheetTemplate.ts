@@ -913,22 +913,12 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        with a 6-stop top fade that lands opaque at the shelf top. Bottom
        fade is extended to 132px / 5 stops for a smoother blend into the
        next shelf. */
-    .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
-      --ds-hero-top: -150px;
-      --ds-hero-h: calc(100% + 150px);
-      --ds-hero-mask: linear-gradient(to bottom,
-        transparent 0,
-        rgba(0,0,0,0.08) 30px,
-        rgba(0,0,0,0.25) 60px,
-        rgba(0,0,0,0.5) 90px,
-        rgba(0,0,0,0.78) 120px,
-        black 150px,
-        black calc(100% - 140px),
-        rgba(0,0,0,0.78) calc(100% - 105px),
-        rgba(0,0,0,0.45) calc(100% - 70px),
-        rgba(0,0,0,0.2) calc(100% - 35px),
-        transparent calc(100% - 8px));
-    }
+    /* First-shelf hero override removed — JS's per-shelf mask (subtle
+     * fade for !isFirstShelf, opaque-top for isFirstShelf) plus the
+     * native recents' built-in bottom fade handle the composition
+     * correctly without our intervention. Adding a CSS override here
+     * was conflicting with full-page mode (caused a visible black band
+     * at the fade-in boundary). */
 
     /* Second DS shelf top bleed — tuned based on what the first is.
        Default inline -140 stays for force/other cases. */

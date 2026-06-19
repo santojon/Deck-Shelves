@@ -345,8 +345,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     if (!el) return;
     const root = el.closest('.deck-shelves-root');
     if (!root) return;
-    setTopBleed((isFirstShelf || isPromoted) ? -80 : -140);
-  }, [containerRef, isFirstShelf, isPromoted]);
+    // Full-page-without-replacement (recents above + 100vh layout)
+    // gets a SHORTER bleed than the regular -140 so the fade at the top
+    // stays compact and doesn't read as a wide grey band over the
+    // recents row.
+    const bleed = (isFirstShelf || isPromoted) ? -80 : (isFullPage ? -80 : -140);
+    setTopBleed(bleed);
+  }, [containerRef, isFirstShelf, isPromoted, isFullPage]);
 
   // Re-evaluate ArtHero state when CSS Loader themes are toggled at runtime.
   useEffect(() => {
@@ -878,8 +883,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       position: 'absolute',
       // Per-shelf full-page: hero fills the shelf's own 100vh box
       // (same composition as the first shelf under hideRecents).
-      top: isFullPage ? 0 : `var(--ds-hero-top, ${topBleed}px)`,
-      height: isFullPage ? '100%' : `var(--ds-hero-h, ${heroHeight})`,
+      // Bleed up + fade applies whenever the shelf is NOT a genuine
+      // recents replacement (`isFirstShelf` already encodes that). The
+      // 100vh full-page layout is handled on the shelf box, not here.
+      top: `var(--ds-hero-top, ${isFirstShelf ? '0px' : `${topBleed}px`})`,
+      height: `var(--ds-hero-h, ${isFirstShelf ? '100%' : heroHeight})`,
       left: 0, right: 0,
       zIndex: -1,
       pointerEvents: 'none',
