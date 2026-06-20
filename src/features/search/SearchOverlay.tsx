@@ -8,7 +8,7 @@ import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindi
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
-import { closeAmbientOverlays, waitForOverlaysGone, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
+import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 
 const MIN_CHARS = 3;
 const SEARCH_LIMIT = 30;
@@ -44,26 +44,19 @@ function tryOpenSteamKeyboard(): void {
 }
 
 function dismissSteamKeyboard(): void {
-  const fire = () => {
-    try {
-      const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
-      const Input = view?.SteamClient?.Input ?? view?.opener?.SteamClient?.Input;
-      Input?.ModalKeyboardDismissed?.();
-      Input?.StandaloneKeyboardDismissed?.();
-      // Some keyboard surfaces only listen to one of these — call both
-      // every retry to cover any subset the current build exposes.
-      (globalThis as any).SteamClient?.Input?.ModalKeyboardDismissed?.();
-      (globalThis as any).SteamClient?.Input?.StandaloneKeyboardDismissed?.();
-    } catch {}
-  };
-  // Fire immediately, then twice more across a short window — when the
-  // pill unmounts mid-stroke Steam occasionally reopens the keyboard
-  // because the focused input wasn't blurred in the same tick. Repeated
-  // dismissals catch the reopen.
-  fire();
+  // ModalKeyboardDismissed / StandaloneKeyboardDismissed live on
+  // opener.SteamClient.Input (SharedJSContext side) and on the global
+  // SteamClient — NOT on BrowserWindow.SteamClient.Input which only
+  // exposes device-change registration. Using `??` against the BP Input
+  // object fails silently because BP Input IS defined (just has no
+  // keyboard methods), so the fallback never fires.
   try {
-    (globalThis as any).setTimeout?.(fire, 60);
-    (globalThis as any).setTimeout?.(fire, 220);
+    const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
+    const openerInput = view?.opener?.SteamClient?.Input;
+    const globalInput = (globalThis as any).SteamClient?.Input;
+    const Input = openerInput ?? globalInput;
+    Input?.ModalKeyboardDismissed?.();
+    Input?.StandaloneKeyboardDismissed?.();
   } catch {}
 }
 
@@ -100,11 +93,11 @@ export function SearchOverlay() {
       lastSessionQuery = query;
       lastSessionAt = Date.now();
     }
-    // Dismiss the on-screen keyboard explicitly BEFORE the unmount —
-    // covers the match path, where the post-unmount cleanup runs but
-    // Steam's keyboard sometimes sticks around because focus jumps to
-    // the hit's card a beat later.
-    dismissSteamKeyboard();
+    // setOpen(false) first so React unmounts SearchPill. The pill's
+    // cleanup effect then blurs the captured input and calls
+    // dismissSteamKeyboard in the correct order (blur → dismiss).
+    // Calling dismiss here before setOpen causes a race: the keyboard
+    // sees the input is still focused and ignores the dismiss request.
     setOpen(false);
     setQuery("");
     if (debounceRef.current != null) {
@@ -160,21 +153,17 @@ export function SearchOverlay() {
     const first = merged[0];
     if (first) {
       close({ restorePrior: false, clearSession: true });
-      // Wait for any ambient overlay (QAM, side menus, context menu,
-      // modal) to finish unmounting before activating so focus lands on
-      // the result card and not the overlay's last focusable.
+      // 300 ms: pill unmounts → SearchPill cleanup blurs input +
+      // dismisses keyboard → then activate focuses the result card.
+      // 180 ms was too short: on some Steam builds the keyboard close
+      // animation takes ~250 ms after blur; firing BTakeFocus on the
+      // card before that finished kept the keyboard on screen.
       window.setTimeout(() => {
-        void waitForOverlaysGone(800).then(() => {
-          try { first.onActivate?.(); } catch {}
-          // The virtual keyboard sometimes survives the activate
-          // because the resulting focus jump keeps an input-like
-          // element on screen. Fire dismiss again across the next
-          // second so any post-activate reopen gets dismissed.
-          dismissSteamKeyboard();
-          window.setTimeout(dismissSteamKeyboard, 250);
-          window.setTimeout(dismissSteamKeyboard, 600);
-        });
-      }, 180);
+        try { first.onActivate?.(); } catch {}
+        // Belt-and-suspenders: dismiss again after focus lands on the
+        // card in case Steam re-opened the keyboard for any reason.
+        window.setTimeout(dismissSteamKeyboard, 120);
+      }, 300);
     } else {
       close();
     }

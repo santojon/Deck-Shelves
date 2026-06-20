@@ -184,19 +184,16 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   // us to DS shelves currently mounted on the home — so we list EXACTLY
   // what the user sees, in the order they see it. Falls back to a
   // settings-derived list if the BP DOM isn't readable yet.
-  const orderedShelves: UnifiedShelf[] = useMemo(() => {
+  const computedShelves = useMemo(() => {
     const doc = getPreferredSteamDocument();
     const fromDom = readVisibleShelvesFromDom();
-    // Native recents row sits ABOVE every DS shelf when visible. Append
-    // at the top so the user can jump straight to it. Hidden when DS
-    // replaces the native row entirely (hideRecents === true and no
-    // override rendering content there).
-    // Don't gate on settings.hideRecents — the DOM is the source of
-    // truth. With hideRecents+override, the native shell is repopulated
-    // by DS content but the container stays native and we still want it
-    // listed. Without override and with hideRecents=true, the container
-    // is empty and `findNativeRecentsEl` returns null on its own.
-    const nativeEntry = readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"));
+    // Gate on hideRecents: when the user explicitly hid the native
+    // recents row, don't show it in the sidenav regardless of what the
+    // DOM contains. The DOM-truth approach mis-fires when an empty
+    // native container is still in the tree but visually absent.
+    const nativeEntry = settings.hideRecents === true
+      ? null
+      : readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"));
     if (fromDom.length > 0) {
       return nativeEntry ? [nativeEntry, ...fromDom] : fromDom;
     }
@@ -226,6 +223,17 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     settings.hideRecents,
   ]);
 
+  // Freeze the row list at first paint so async shelf re-resolves
+  // (composite online sources that finish loading after sidenav open)
+  // don't shuffle row positions under the user's focus. Captures the
+  // first non-empty list and never updates within a single sidenav
+  // session.
+  const frozenShelvesRef = useRef<UnifiedShelf[] | null>(null);
+  if (frozenShelvesRef.current == null && computedShelves.length > 0) {
+    frozenShelvesRef.current = computedShelves;
+  }
+  const orderedShelves: UnifiedShelf[] = frozenShelvesRef.current ?? computedShelves;
+
   const ctx: SideMenuContext = { shelfId: anchor.shelfId, focusedAppid: anchor.focusedAppid };
   const [pluginEntries, setPluginEntries] = useState<SideMenuEntry[]>([]);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
@@ -239,35 +247,41 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
 
   // Push NavTree focus into the user's current shelf row (or the first
   // row as fallback) after Steam settles the new Focusable tree.
-  // Retries because the panel's `preferredFocus={true}` puts focus on
-  // the first row immediately — our override needs to land AFTER Steam
-  // indexes the rows into the NavTree, otherwise BTakeFocus no-ops and
-  // the user stays on row 0.
+  // Drive focus into the target row after the NavTree has indexed the
+  // new Focusable children. We use el.focus({ preventScroll: true })
+  // rather than focusElement (BTakeFocus) because BTakeFocus on a
+  // position:fixed panel node triggers a home-scroll since Steam
+  // translates the viewport rect back to scroll-container coords.
+  // Plain .focus() hands control to Decky's Focusable which registers
+  // with the gamepad tree without scrolling the parent doc.
   useEffect(() => {
     let cancelled = false;
     const targetId = anchor.shelfId;
-    // Wait for any ambient overlay (QAM, modal, context menu) to finish
-    // unmounting first — otherwise focusElement competes with Steam's
-    // NavTree reclaim and the focus ring snaps back to the source card.
-    void waitForOverlaysGone(800).then(() => {
-      if (cancelled) return;
-      const tryAt = (delay: number, attempt: number) => {
-        window.setTimeout(() => {
-          if (cancelled) return;
-          const el = rowRefs.current.get(targetId)
-            ?? (firstShelfIdRef.current ? rowRefs.current.get(firstShelfIdRef.current) : null);
-          const hit = rowRefs.current.has(targetId);
-          try { (globalThis as any).__ds_sidenav_focus = { attempt, delay, targetId, hit, keys: Array.from(rowRefs.current.keys()) }; } catch {}
-          if (!el) return;
-          try { focusElement(el); } catch {}
-        }, delay);
-      };
-      tryAt(80, 1);
-      tryAt(200, 2);
-      tryAt(400, 3);
-      tryAt(700, 4);
-      tryAt(1100, 5);
-    });
+    const tryAt = (delay: number) => {
+      window.setTimeout(() => {
+        if (cancelled) return;
+        const el = rowRefs.current.get(targetId)
+          ?? (firstShelfIdRef.current ? rowRefs.current.get(firstShelfIdRef.current) : null);
+        try { (globalThis as any).__ds_sidenav_focus = { delay, targetId, found: !!el }; } catch {}
+        if (!el) return;
+        // BTakeFocus registers with Steam's gamepad NavTree. It also
+        // triggers a scroll because the sidenav Focusables are indexed
+        // in the home scroll container even though the panel is
+        // position:fixed. Save + restore scroll synchronously and via
+        // rAF so the home viewport stays put.
+        const doc = el.ownerDocument;
+        const savedTop = doc?.documentElement?.scrollTop ?? 0;
+        const savedLeft = doc?.documentElement?.scrollLeft ?? 0;
+        try { focusElement(el); } catch {}
+        try { if (doc) { doc.documentElement.scrollTop = savedTop; doc.documentElement.scrollLeft = savedLeft; } } catch {}
+        requestAnimationFrame(() => {
+          try { if (doc && !cancelled) { doc.documentElement.scrollTop = savedTop; doc.documentElement.scrollLeft = savedLeft; } } catch {}
+        });
+      }, delay);
+    };
+    tryAt(80);
+    tryAt(250);
+    tryAt(500);
     return () => { cancelled = true; };
   }, [anchor.shelfId]);
 
@@ -301,37 +315,22 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   };
 
   // Auto-close after 5s of no user interaction (focus / button / scroll).
-  // Resets on every interaction; clears on unmount.
+  // Auto-close after 30s of no interaction. The 5s timer was too
+  // aggressive — it fired before focus settled (especially during the
+  // BTakeFocus + scroll-restore window, ~350ms). The drift-close
+  // (focusout listener) was even worse: el.focus() at 80ms causes a
+  // focusout on the previous element, which fired the 120ms close
+  // timer before BTakeFocus at 250ms had a chance to stabilise focus.
   const idleTimerRef = useRef<number | null>(null);
   const resetIdleTimer = () => {
     if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = window.setTimeout(() => { try { onClose(); } catch {} }, 5_000);
+    idleTimerRef.current = window.setTimeout(() => { try { onClose(); } catch {} }, 30_000);
   };
   useEffect(() => {
     resetIdleTimer();
-    // If focus drifts entirely out of the panel (no row holds focus AND
-    // the active element isn't inside our panel), close — the user
-    // didn't choose to keep navigating us, so don't strand the overlay.
-    let driftTimer: number | null = null;
-    const onFocusOut = () => {
-      if (driftTimer != null) window.clearTimeout(driftTimer);
-      driftTimer = window.setTimeout(() => {
-        const panel = panelRef.current;
-        if (!panel) return;
-        const doc = panel.ownerDocument;
-        const ae = doc?.activeElement as HTMLElement | null;
-        if (ae && panel.contains(ae)) return;
-        const gp = doc?.querySelector<HTMLElement>(".gpfocus");
-        if (gp && panel.contains(gp)) return;
-        try { onClose(); } catch {}
-      }, 120);
-    };
-    panelRef.current?.addEventListener("focusout", onFocusOut);
     return () => {
       if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
-      if (driftTimer != null) window.clearTimeout(driftTimer);
       idleTimerRef.current = null;
-      panelRef.current?.removeEventListener("focusout", onFocusOut);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -370,14 +369,25 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         }}
         onGamepadDirection={(evt: any) => {
           resetIdleTimer();
+          // Absorb the event so Steam's NavTree doesn't ALSO process it
+          // and scroll the background mount. preventDefault alone isn't
+          // enough — Steam's listener runs in capture; stopImmediate
+          // blocks the rest of the chain so the home doesn't scroll
+          // behind the sidenav.
+          const absorb = () => {
+            try { evt?.preventDefault?.(); } catch {}
+            try { evt?.stopPropagation?.(); } catch {}
+            try { evt?.stopImmediatePropagation?.(); } catch {}
+            try { evt?.detail?.event?.preventDefault?.(); } catch {}
+            try { evt?.detail?.event?.stopPropagation?.(); } catch {}
+          };
           // Right exits the panel — close so the overlay doesn't linger.
           try {
-            if (evt?.detail?.button === GamepadButton.DIR_RIGHT) { onClose(); return; }
+            if (evt?.detail?.button === GamepadButton.DIR_RIGHT) { absorb(); onClose(); return; }
           } catch {}
           // DPAD up/down at the boundaries naturally tries to escape the
-          // panel into the home tree, which strands the user (panel
-          // still visible but focus elsewhere). Block vertical escape
-          // by wrapping focus inside the panel.
+          // panel into the home tree, which strands the user. Block
+          // vertical escape by wrapping focus inside the panel.
           try {
             const dir = evt?.detail?.button;
             if (dir !== GamepadButton.DIR_DOWN && dir !== GamepadButton.DIR_UP) return;
@@ -386,7 +396,6 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
             const doc = panelRef.current?.ownerDocument;
             const focused = doc?.querySelector<HTMLElement>(".ds-sidenav-overlay .gpfocus")
               ?? doc?.activeElement as HTMLElement | null;
-            // Find which row currently owns focus.
             let curIdx = -1;
             for (let i = 0; i < keys.length; i++) {
               const el = rowRefs.current.get(keys[i]);
@@ -396,10 +405,14 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
             const isLast = curIdx === keys.length - 1;
             if (dir === GamepadButton.DIR_UP && isFirst) {
               const el = rowRefs.current.get(keys[keys.length - 1]);
-              if (el) { focusElement(el); evt?.preventDefault?.(); }
+              if (el) { focusElement(el); absorb(); }
             } else if (dir === GamepadButton.DIR_DOWN && isLast) {
               const el = rowRefs.current.get(keys[0]);
-              if (el) { focusElement(el); evt?.preventDefault?.(); }
+              if (el) { focusElement(el); absorb(); }
+            } else {
+              // Interior navigation — absorb anyway so the underlying
+              // home mount doesn't auto-scroll on each DPAD press.
+              absorb();
             }
           } catch {}
         }}
@@ -429,11 +442,13 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
                 key={s.id}
                 label={s.title}
                 active={isCurrent}
-                // Steam NavTree honours per-child preferredFocus and
-                // lands focus on it instead of the panel's first child.
-                // Fallback to the first row if the anchor isn't in the
-                // visible list.
-                preferredFocus={isCurrent}
+                // preferredFocus intentionally OFF — Steam's BTakeFocus
+                // triggered by preferredFocus scrolls the home viewport
+                // because the sidenav Focusables are indexed relative to
+                // the home scroll container even though the panel is
+                // position:fixed. We drive focus explicitly via the
+                // focus-restore effect (tryAt delays) instead.
+                preferredFocus={false}
                 focused={focusedKey === s.id}
                 onActivate={() => jumpToShelf(s.id)}
                 onFocusChange={(f) => {

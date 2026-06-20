@@ -93,6 +93,9 @@ function extractCardName(card: HTMLElement, appid: number): string {
 function collectNativeShelfApps(): ShelfHit[] {
   const doc = getPreferredSteamDocument();
   if (!doc) return [];
+  // Don't include native shelf games when the user has hidden the row.
+  const s = getCurrentSettings();
+  if ((s as any)?.hideRecents === true) return [];
   const best = findNativeShelfEl(doc);
   if (!best) return [];
   const map = getClassMap();
@@ -253,7 +256,6 @@ function focusShelfCard(appid: number, shelfId: string | null): void {
         const found = findTarget();
         if (found) {
           clearInterval(id);
-          try { found.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
           try { focusElement(found); } catch {}
         } else if (attempt > 20) {
           clearInterval(id);
@@ -263,10 +265,10 @@ function focusShelfCard(appid: number, shelfId: string | null): void {
     return;
   }
   if (!target) return;
-  try {
-    target.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior });
-  } catch {}
-  try {
-    focusElement(target);
-  } catch {}
+  // Use focusElement (BTakeFocus) only — it handles scroll internally.
+  // Calling scrollIntoView BEFORE focusElement double-scrolls: first
+  // inline:center on the shelf row resets the row's left position,
+  // then BTakeFocus scrolls again. This left cards appearing with no
+  // left-side spacing because the row ended up over-shifted.
+  try { focusElement(target); } catch {}
 }

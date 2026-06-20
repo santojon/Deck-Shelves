@@ -47,76 +47,41 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
         const sibling = parentChildren.find(
           (c) => c !== mount && (c as Element).contains(before),
         ) as HTMLElement | undefined;
-        if (sibling) {
-          // DOM order ≠ visual order. Steam's home stacks several siblings
-          // around our mount — some (e.g. a hidden Friends container) are
-          // declared AFTER the mount in the parent's children list yet
-          // render at y=0 with height=0. Compare rects, not indices:
-          // when the sibling is visually below the mount (its top is below
-          // the mount's top), it's a real tabs-style sibling and we don't
-          // bridge. When it's visually above (e.g. hidden recents shell,
-          // Friends shell, search), it IS a candidate even if its DOM
-          // index is greater than ours.
-          const sibRect = sibling.getBoundingClientRect();
-          const siblingVisuallyBelow = sibRect.top > mountRect.top + 4 && sibRect.height > 0;
-          if (siblingVisuallyBelow) return;
-          // For non-zero-height siblings that DO sit above the mount, keep
-          // the "focus must be in lower half" guard — it protects against
-          // bridging from the search bar before the user has scrolled
-          // through the row. Zero-height containers (hidden recents /
-          // Friends shells) skip the half-check since there is no row to
-          // walk through inside them.
-          if (sibRect.height > 0 && beforeRect.bottom < sibRect.top + sibRect.height * 0.5) return;
-        } else if (beforeRect.bottom > mountRect.top + 4) {
-          // The focused element isn't inside any of mount's direct siblings
-          // (typical when the user navigated up to the system search bar in
-          // `#header` — that lives several ancestors above our parent). If
-          // it's NOT visually above the mount either, this isn't a case we
-          // can interpret — bail and let native nav handle it.
-          return;
-        }
-        // Above-mount focus (no in-tree sibling match OR zero-height
-        // sibling shell): redirect DOWN into our first card so the user
-        // can't get trapped above the mount.
+        if (!sibling) return;
+        // Only bridge from siblings ABOVE our mount, not below (native tabs)
+        if (parentChildren.indexOf(sibling) > mountIdx) return;
+        // Only bridge when focus is in the lower portion of its sibling.
+        // Use bottom-of-card, not top: native recents may sit mid-sibling
+        // (e.g. search-bar + tabs + recents stack), so a top-based check
+        // false-bails and the user gets stuck pressing Down with no effect.
+        const sibRect = sibling.getBoundingClientRect();
+        if (sibRect.height > 0 && beforeRect.bottom < sibRect.top + sibRect.height * 0.5) return;
         redirectTarget = mount.querySelector<HTMLElement>(".ds-card");
+
       } else if (btn === DIR_UP) {
         if (!mount.contains(before)) return;
-        // Only bridge when focus is in the first row of our shelves
-        if (beforeRect.top > mountRect.top + 120) return;
-        // Steam's native nav routes UP through every mount-parent sibling
-        // first, even zero-height shells (hidden recents / news / Friends
-        // containers) — each one absorbs one UP press before letting focus
-        // continue, so the user has to press UP several times to actually
-        // reach the visible search bar.
-        //
-        // Shortcut: find the first VISIBLE focusable anywhere in the
-        // document whose rect sits above the mount. That's almost always
-        // the system search input in `#header`. Pick the leftmost one in
-        // the topmost row so D-pad muscle memory (left to right) matches
-        // what users expect. The Steam navigation tree is patched to
-        // accept this jump (focusElement() calls into it).
-        try {
-          const all = Array.from(
-            (doc as Document).querySelectorAll<HTMLElement>(
-              '[role="button"], button, input, a, [tabindex]:not([tabindex="-1"]), .Focusable',
-            ),
-          );
-          const above = all
-            .filter((el) => {
-              if (el === before || el.contains(before) || mount.contains(el)) return false;
-              if (!el.offsetParent) return false;
-              const r = el.getBoundingClientRect();
-              return r.width > 4 && r.height > 4 && r.bottom <= mountRect.top + 4;
-            })
-            .map((el) => {
-              const r = el.getBoundingClientRect();
-              return { el, top: r.top, left: r.left };
-            });
-          if (above.length === 0) return;
-          // Topmost row first; within that, leftmost.
-          above.sort((a, b) => (a.top - b.top) || (a.left - b.left));
-          redirectTarget = above[0].el;
-        } catch { return; }
+        // Only bridge when focus is in the first DS shelf.
+        // Using firstShelf.contains() is reliable regardless of scroll
+        // position (the old 120px rect-based guard failed when native
+        // recents pushed the first shelf 200px+ below mount top).
+        const firstShelf = mount.querySelector<HTMLElement>(".ds-shelf");
+        if (!firstShelf || !firstShelf.contains(before)) return;
+        // Aim at the last visible focusable in the nearest above sibling.
+        // When native is visible this resolves to the bottommost native card;
+        // when native is hidden the sibling has 0 height and sib stays null
+        // so the bridge returns early (Steam handles UP through zero-height shells).
+        let sib = mount.previousElementSibling as HTMLElement | null;
+        while (sib) {
+          const cls = (sib.className || "").toString();
+          const hasHashed = cls.split(/\s+/).some((t) => t.startsWith("_") && t.length > 5);
+          if (hasHashed && sib.offsetHeight > 0) break;
+          sib = sib.previousElementSibling as HTMLElement | null;
+        }
+        if (!sib) return;
+        const candidates = Array.from(
+          sib.querySelectorAll<HTMLElement>('[role="button"], [role="link"], button, a, [tabindex]:not([tabindex="-1"]), .Focusable'),
+        ).filter((el) => el.offsetParent !== null);
+        redirectTarget = candidates[candidates.length - 1] ?? null;
       }
 
       if (!redirectTarget) return;
@@ -126,37 +91,37 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
       requestAnimationFrame(() => {
         try {
           const after = doc.querySelector<HTMLElement>(".gpfocus");
-          // Native nav lost focus entirely (active element is <body>, no
-          // .gpfocus anywhere) — bridge into the redirect target so the
-          // user isn't stuck pressing d-pad with nothing happening.
           if (!after) { focusElement(redirectTarget!); return; }
-          if (after === before) {
-            // Focus didn't move — bridge
-            focusElement(redirectTarget!);
-            return;
-          }
-          // For DOWN: if focus didn't enter our mount, bridge
+          if (after === before) { focusElement(redirectTarget!); return; }
+
+          // For DOWN: redirect if focus didn't enter our mount AND either:
+          //   a) focus didn't move vertically (stuck in same area), or
+          //   b) after is invisible/zero-height (zero-height hidden shell).
+          // Don't redirect when Steam correctly moved to a visible element
+          // (e.g. native card at top=267 after DOWN from search at top=30).
           if (btn === DIR_DOWN && !mount.contains(after)) {
             const afterRect = after.getBoundingClientRect();
-            // No vertical movement, or focus stayed entirely above the
-            // mount (native nav hopped between above-mount siblings
-            // instead of descending). Both are traps — bridge into the
-            // mount so the user isn't stuck above.
-            if (afterRect.top <= beforeRect.top + 10 || afterRect.bottom <= mountRect.top + 4) {
+            const afterInvisible = !after.offsetParent || afterRect.height < 4;
+            if (afterInvisible || afterRect.top <= beforeRect.top + 10) {
               focusElement(redirectTarget!);
             }
           }
-          // For UP: if focus is still in our mount, bridge
-          if (btn === DIR_UP && mount.contains(after)) {
-            focusElement(redirectTarget!);
+
+          // For UP: redirect if focus stayed in our mount (Steam didn't move it out)
+          // OR if it landed on a zero-height/invisible hidden shell above mount.
+          if (btn === DIR_UP) {
+            if (mount.contains(after)) {
+              focusElement(redirectTarget!);
+            } else {
+              const afterRect = after.getBoundingClientRect();
+              const afterInvisible = !after.offsetParent || afterRect.height < 4;
+              if (afterInvisible) focusElement(redirectTarget!);
+            }
           }
         } catch (e) { logInfo("HOME", "vertical bridge rAF failed", String(e)); }
       });
     } catch (e) { logInfo("HOME", "vertical bridge failed", String(e)); }
   };
   doc.addEventListener("vgp_ondirection", handler, true);
-  // `mountEl` intentionally unused here — kept in signature for API parity
-  // with the rest of the nav-patches family (caller passes the same
-  // reference to every patch fn).
   void mountEl;
 }
