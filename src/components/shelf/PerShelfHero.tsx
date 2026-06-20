@@ -911,13 +911,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           // when the user d-padded onto a card and waited for the hero to
           // visibly arrive. Quarter-second matches Steam's own UI cadence
           // closely enough that it reads as instant without flicker.
-          // 0.45s ease-in-out matches Steam's native hero swap cadence
-          // — the previous 0.25s snappy curve felt more abrupt than the
-          // native fade and made consecutive d-pad presses look like
-          // hard image-replace cuts. Same value on both slots so the
-          // outgoing image fades out at the same rate the incoming
-          // image fades in (clean cross-dissolve).
-          transition: 'opacity 0.45s ease-in-out',
+          // Match Steam's native hero swap: 0.5s cubic-bezier
+          // (0.17,0.45,0.14,0.83) for opacity, plus a subtle scale
+          // dip from 1.03 → 1.0 on the incoming slot so the new image
+          // settles like the native (per `_22nzPNKReQkNRGtwIFGIy2`
+          // keyframe Steam plays on every hero swap).
+          transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83), transform 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+          transform: activeSlot === 'A' ? 'scale(1)' : 'scale(1.03)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotASrc} onError={onError('A')}
@@ -969,13 +969,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         <div className={nativeHeroInnerClass ?? undefined} style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
           opacity: activeSlot === 'B' ? 1 : 0,
-          // 0.45s ease-in-out matches Steam's native hero swap cadence
-          // — the previous 0.25s snappy curve felt more abrupt than the
-          // native fade and made consecutive d-pad presses look like
-          // hard image-replace cuts. Same value on both slots so the
-          // outgoing image fades out at the same rate the incoming
-          // image fades in (clean cross-dissolve).
-          transition: 'opacity 0.45s ease-in-out',
+          transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83), transform 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
+          transform: activeSlot === 'B' ? 'scale(1)' : 'scale(1.03)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotBSrc} onError={onError('B')}

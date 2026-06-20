@@ -300,10 +300,48 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     }
   };
 
+  // Auto-close after 5s of no user interaction (focus / button / scroll).
+  // Resets on every interaction; clears on unmount.
+  const idleTimerRef = useRef<number | null>(null);
+  const resetIdleTimer = () => {
+    if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = window.setTimeout(() => { try { onClose(); } catch {} }, 5_000);
+  };
+  useEffect(() => {
+    resetIdleTimer();
+    // If focus drifts entirely out of the panel (no row holds focus AND
+    // the active element isn't inside our panel), close — the user
+    // didn't choose to keep navigating us, so don't strand the overlay.
+    let driftTimer: number | null = null;
+    const onFocusOut = () => {
+      if (driftTimer != null) window.clearTimeout(driftTimer);
+      driftTimer = window.setTimeout(() => {
+        const panel = panelRef.current;
+        if (!panel) return;
+        const doc = panel.ownerDocument;
+        const ae = doc?.activeElement as HTMLElement | null;
+        if (ae && panel.contains(ae)) return;
+        const gp = doc?.querySelector<HTMLElement>(".gpfocus");
+        if (gp && panel.contains(gp)) return;
+        try { onClose(); } catch {}
+      }, 120);
+    };
+    panelRef.current?.addEventListener("focusout", onFocusOut);
+    return () => {
+      if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
+      if (driftTimer != null) window.clearTimeout(driftTimer);
+      idleTimerRef.current = null;
+      panelRef.current?.removeEventListener("focusout", onFocusOut);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div
       className="ds-sidenav-overlay"
       onClick={onClose}
+      onFocus={resetIdleTimer}
+      onMouseMove={resetIdleTimer}
       style={{
         position: "fixed",
         inset: 0,
@@ -324,17 +362,45 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         noFocusRing
         onCancelButton={onClose}
         onButtonDown={(evt: any) => {
+          resetIdleTimer();
           try { dispatchHomeButtonDown(evt); } catch {}
           try {
             if (evt?.detail?.button === GamepadButton.CANCEL) onClose();
           } catch {}
         }}
         onGamepadDirection={(evt: any) => {
-          // Right exits the panel — close so the overlay doesn't
-          // linger; the priorFocus restore path puts focus back on the
-          // shelf card the user came from.
+          resetIdleTimer();
+          // Right exits the panel — close so the overlay doesn't linger.
           try {
-            if (evt?.detail?.button === GamepadButton.DIR_RIGHT) onClose();
+            if (evt?.detail?.button === GamepadButton.DIR_RIGHT) { onClose(); return; }
+          } catch {}
+          // DPAD up/down at the boundaries naturally tries to escape the
+          // panel into the home tree, which strands the user (panel
+          // still visible but focus elsewhere). Block vertical escape
+          // by wrapping focus inside the panel.
+          try {
+            const dir = evt?.detail?.button;
+            if (dir !== GamepadButton.DIR_DOWN && dir !== GamepadButton.DIR_UP) return;
+            const keys = Array.from(rowRefs.current.keys());
+            if (keys.length === 0) return;
+            const doc = panelRef.current?.ownerDocument;
+            const focused = doc?.querySelector<HTMLElement>(".ds-sidenav-overlay .gpfocus")
+              ?? doc?.activeElement as HTMLElement | null;
+            // Find which row currently owns focus.
+            let curIdx = -1;
+            for (let i = 0; i < keys.length; i++) {
+              const el = rowRefs.current.get(keys[i]);
+              if (el && focused && (el === focused || el.contains(focused))) { curIdx = i; break; }
+            }
+            const isFirst = curIdx === 0;
+            const isLast = curIdx === keys.length - 1;
+            if (dir === GamepadButton.DIR_UP && isFirst) {
+              const el = rowRefs.current.get(keys[keys.length - 1]);
+              if (el) { focusElement(el); evt?.preventDefault?.(); }
+            } else if (dir === GamepadButton.DIR_DOWN && isLast) {
+              const el = rowRefs.current.get(keys[0]);
+              if (el) { focusElement(el); evt?.preventDefault?.(); }
+            }
           } catch {}
         }}
         onSecondaryActionDescription={t("close" as any) || "Close"}

@@ -162,12 +162,17 @@ export function SearchOverlay() {
       close({ restorePrior: false, clearSession: true });
       // Wait for any ambient overlay (QAM, side menus, context menu,
       // modal) to finish unmounting before activating so focus lands on
-      // the result card and not the overlay's last focusable. 180 ms
-      // covers the pill's own unmount; the overlay poll handles the
-      // rest if a modal lingers.
+      // the result card and not the overlay's last focusable.
       window.setTimeout(() => {
         void waitForOverlaysGone(800).then(() => {
           try { first.onActivate?.(); } catch {}
+          // The virtual keyboard sometimes survives the activate
+          // because the resulting focus jump keeps an input-like
+          // element on screen. Fire dismiss again across the next
+          // second so any post-activate reopen gets dismissed.
+          dismissSteamKeyboard();
+          window.setTimeout(dismissSteamKeyboard, 250);
+          window.setTimeout(dismissSteamKeyboard, 600);
         });
       }, 180);
     } else {
