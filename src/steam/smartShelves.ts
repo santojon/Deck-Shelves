@@ -623,6 +623,7 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
   // surfacing them.
   try {
     const s = getCurrentSettings();
+    if ((s as any)?.offlineModeEnabled === true) return [];
     if (s?.onlineFeaturesEnabled !== true) return [];
   } catch { return []; }
   const minDeck = getParam("friends_playing", params, "minDeckLevel");

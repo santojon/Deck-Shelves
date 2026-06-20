@@ -13,6 +13,7 @@ import { DeckQAMStyles } from './styles/DeckQAMStyles'
 import { logInfo } from '../runtime/logger'
 import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations'
 import { isCssLoaderActive } from '../core/cssLoaderDetect'
+import { useLightMode } from './ui/lightMode'
 import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
 
 import { icons } from './qam/icons'
@@ -493,6 +494,7 @@ export function SavedSmartFiltersList({ controller }: { controller: SettingsCont
 export function DeckQAMSettings({ controller }: { controller: SettingsController }) {
   const { t, settings, shelves, actions } = controller
   const platform = usePlatform();
+  const lightMode = useLightMode();
   const [disableHideRecents, setDisableHideRecents] = useState(false);
   // Experimental opt-in: ask Steam to render the QAM in the wide layout
   // so we can show a sidecar to the right of the DS plugin tab. Drives a
@@ -781,6 +783,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('updateNotifyEnabled') && (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
         )}
+        {!isHid('lightModeEnabled') && (
+          <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
+        )}
+        {!isHid('offlineModeEnabled') && (
+          <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
+        )}
         {!isHid('contextSearchEnabled') && (
           <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
         )}
@@ -854,7 +862,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             )}
           </div>
         )}
-        {hasCssLoader && !isHid('forceCssLoaderThemes') && (
+        {hasCssLoader && !lightMode && !isHid('forceCssLoaderThemes') && (
           <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
         )}
       </CollapsibleSection>
@@ -910,7 +918,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         {settings.smartShelvesEnabled && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
-            {!isHid('smartShelvesAtBottom') && (
+            {!lightMode && !isHid('smartShelvesAtBottom') && (
             <ToggleField
               label={t('smart_shelves_at_bottom')}
               checked={settings.smartShelvesAtBottom === true}
@@ -918,7 +926,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)}
             />
             )}
-            {!isHid('smartSurpriseMe') && (
+            {!lightMode && !isHid('smartSurpriseMe') && (
             <ToggleField
               label={t('smart_surprise_me')}
               checked={settings.smartSurpriseMe === true}

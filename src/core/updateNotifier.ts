@@ -1,5 +1,6 @@
 import pkg from "../../package.json";
 import { isOnline } from "./connectivity";
+import { isOfflineModeOn } from "../components/ui/offlineMode";
 import { logInfo } from "../runtime/logger";
 
 const CACHE_KEY = "ds-update-check-v1";
@@ -100,7 +101,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      const online = await isOnline();
+      const online = !isOfflineModeOn() && await isOnline();
       if (!online) {
         if (cached) return buildResult(cached.latestVersion, cached.releaseUrl, cached.ts);
         return buildResult(null, null, now);

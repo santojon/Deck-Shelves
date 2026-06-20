@@ -734,9 +734,15 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   // honoured at render time so the QAM toggle behaves predictably across
   // the whole home, including the first visible shelf which previously
   // could be stuck off by a stale per-shelf=false.
-  const effectiveEnableLogo = globalEnableLogo === true;
-  const effectiveEnableIcon = globalEnableIcon === true;
-  const effectiveEnableDescription = globalEnableDescription === true;
+  // Light mode strips per-shelf decorations (logo / icon / description /
+  // per-shelf hero) for performance + simplicity. Hero is allowed only
+  // on the first shelf and is force-on there as a single cinematic
+  // backdrop. User toggles stay untouched and come back when light
+  // mode is off.
+  const lightMode = (getCurrentSettings() as any)?.lightModeEnabled === true;
+  const effectiveEnableLogo = !lightMode && globalEnableLogo === true;
+  const effectiveEnableIcon = !lightMode && globalEnableIcon === true;
+  const effectiveEnableDescription = !lightMode && globalEnableDescription === true;
   const effectiveDescriptionBelowLogo = globalDescriptionBelowLogo === true ? true : ((shelf as any).descriptionBelowLogo === true);
   // Global takes precedence over per-shelf for position / size / offset
   // (mirrors how the boolean global toggles already force their value
@@ -766,7 +772,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveDescriptionHeight: number = typeof globalDescriptionHeight === 'number' ? Math.max(1, Math.min(3, globalDescriptionHeight)) : (typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2);
   const globalDescriptionLogoGap = (getCurrentSettings() as any)?.globalDescriptionLogoGap as number | null | undefined;
   const effectiveDescriptionLogoGap: number = typeof globalDescriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, globalDescriptionLogoGap)) : (typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 8);
-  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={forceExpanded && !fullPageLayout} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true} heroLabelMount={heroLabelMount} />;
+  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={forceExpanded && !fullPageLayout} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={lightMode ? (forceExpanded || forceLayoutAsRecents) : (heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true)} heroLabelMount={heroLabelMount} />;
   // Brief opacity dip while a user-triggered refresh is in flight so the
   // click is never ambiguous — even when the resolver returns identical
   // data, the shelf visibly fades and recovers, signalling that the

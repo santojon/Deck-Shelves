@@ -11,6 +11,7 @@ import { ButtonBindingsDetail } from "./settings/details/ButtonBindingsDetail";
 import { BackupDetail } from "./settings/details/BackupDetail";
 import { AdvancedDetail } from "./settings/details/AdvancedDetail";
 import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon } from "./icons";
+import { useLightMode } from "./ui/lightMode";
 
 function tabLabel(icon: React.ReactNode, text: string): string {
   return (
@@ -23,6 +24,7 @@ function tabLabel(icon: React.ReactNode, text: string): string {
 
 export function SettingsPage() {
   const controller = useSettingsController();
+  const lightMode = useLightMode();
   const [activeTab, setActiveTab] = useState("shelves");
   const t = useCallback(
     (key: string) => (controller.t as (k: string) => string)(key),
@@ -49,10 +51,14 @@ export function SettingsPage() {
           tabs={[
             { id: "shelves",      title: tabLabel(<BookmarkIcon />, t("settings_card_shelves_title")),      content: <ShelvesDetail        controller={controller} t={t} /> },
             { id: "profiles",     title: tabLabel(<PersonIcon />,   t("settings_card_profiles_title")),     content: <ProfilesDetail       controller={controller} t={t} /> },
-            { id: "integrations", title: tabLabel(<PuzzleIcon />,   t("settings_card_integrations_title")), content: <IntegrationsDetail   controller={controller} t={t} /> },
-            { id: "bindings",     title: tabLabel(<GamepadIcon />,  t("settings_card_bindings_title")),     content: <ButtonBindingsDetail controller={controller} t={t} /> },
+            ...(lightMode ? [] : [
+              { id: "integrations", title: tabLabel(<PuzzleIcon />,   t("settings_card_integrations_title")), content: <IntegrationsDetail   controller={controller} t={t} /> },
+              { id: "bindings",     title: tabLabel(<GamepadIcon />,  t("settings_card_bindings_title")),     content: <ButtonBindingsDetail controller={controller} t={t} /> },
+            ]),
             { id: "backup",       title: tabLabel(<SaveIcon />,     t("settings_card_backup_title")),       content: <BackupDetail         controller={controller} t={t} /> },
-            { id: "advanced",     title: tabLabel(<ToolsIcon />,    t("settings_card_advanced_title")),     content: <AdvancedDetail       controller={controller} t={t} /> },
+            ...(lightMode ? [] : [
+              { id: "advanced",     title: tabLabel(<ToolsIcon />,    t("settings_card_advanced_title")),     content: <AdvancedDetail       controller={controller} t={t} /> },
+            ]),
           ]}
         />
       </div>

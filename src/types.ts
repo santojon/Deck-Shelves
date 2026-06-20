@@ -523,6 +523,11 @@ export const SettingsSchema = z.object({
   // Settings stay in sync. `lightModeEnabled` and `featureToggles`
   // are the other surface fields.
   lightModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Offline mode: when ON, suppresses every network call regardless of
+  // other settings (update check, CDN asset fallbacks, online filters /
+  // sources / wishlist / price). User toggles remain untouched so
+  // turning offline off restores their previous online behaviour.
+  offlineModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   featureToggles: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
   activeProfileName: z.string().nullable().optional(),
   profiles: z.array(z.object({

@@ -160,6 +160,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (!s || (s as any).lightModeEnabled === lightModeEnabled) return;
       await persist({ ...s, lightModeEnabled } as Settings);
     },
+    async setOfflineModeEnabled(offlineModeEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).offlineModeEnabled === offlineModeEnabled) return;
+      await persist({ ...s, offlineModeEnabled } as Settings);
+    },
     async setFeatureToggle(key: string, value: boolean) {
       const s = liveSettings();
       if (!s) return;

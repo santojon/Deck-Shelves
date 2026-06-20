@@ -20,57 +20,94 @@ function getClassMap(): Record<string, string> {
   return {};
 }
 
-function findNativeShelfEl(doc: Document): HTMLElement | null {
-  const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
-  const map = getClassMap();
+function nativeCardSelector(map: Record<string, string>): string {
+  const cls = map.nativeCard;
+  return cls
+    ? `[class~="${cls}"]:not(.ds-card), a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)`
+    : `a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)`;
+}
+
+function collectClassCandidates(doc: Document, map: Record<string, string>): HTMLElement[] {
   const candidates: HTMLElement[] = [];
   const seen = new Set<HTMLElement>();
-  const push = (sel: string) => {
+  const push = (cls?: string) => {
+    if (!cls) return;
     try {
-      doc.querySelectorAll<HTMLElement>(sel).forEach((el) => {
+      doc.querySelectorAll<HTMLElement>(`[class~="${cls}"]`).forEach((el) => {
         if (!seen.has(el)) { seen.add(el); candidates.push(el); }
       });
     } catch {}
   };
-  if (map.nativeShelfContainer) push(`.${CSS.escape(map.nativeShelfContainer)}`);
-  if (map.shelfSection) push(`.${CSS.escape(map.shelfSection)}`);
-  push('[class*="LibrarySection" i]');
-  push('[class*="ShelfSection" i]');
+  push(map.nativeShelfContainer);
+  push(map.shelfSection);
+  return candidates;
+}
+
+function isNativeCandidate(el: HTMLElement, root: HTMLElement | null, homeRoot: HTMLElement | null, sel: string): boolean {
+  if (root && root.contains(el)) return false;
+  if (homeRoot && homeRoot.contains(el)) return false;
+  if (!el.isConnected || !el.querySelector(sel)) return false;
+  const r = el.getBoundingClientRect();
+  return r.height >= 40 && r.width >= 40;
+}
+
+function findNativeShelfEl(doc: Document): HTMLElement | null {
+  const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
+  const homeRoot = doc.getElementById("deck-shelves-home-root");
+  const map = getClassMap();
+  const sel = nativeCardSelector(map);
   let best: HTMLElement | null = null;
   let bestTop = Infinity;
-  for (const el of candidates) {
-    if (root && root.contains(el)) continue;
-    if (!el.isConnected || el.offsetParent === null) continue;
-    if (!el.querySelector('[data-appid], a[href*="/library/app/"]')) continue;
-    const r = el.getBoundingClientRect();
-    if (r.height < 60 || r.width < 60) continue;
-    if (r.top < bestTop) { best = el; bestTop = r.top; }
+  for (const el of collectClassCandidates(doc, map)) {
+    if (!isNativeCandidate(el, root, homeRoot, sel)) continue;
+    const top = el.getBoundingClientRect().top;
+    if (top < bestTop) { best = el; bestTop = top; }
   }
   return best;
+}
+
+function extractAppidFromCard(card: HTMLElement): number {
+  const appid = Number(card.getAttribute("data-appid") ?? NaN);
+  if (Number.isFinite(appid) && appid > 0) return appid;
+  const href = card.getAttribute("href") || "";
+  const hm = /\/library\/app\/(\d+)/.exec(href);
+  if (hm) return Number(hm[1]);
+  const img = card.querySelector<HTMLImageElement>("img[src]");
+  const src = img?.getAttribute("src") || "";
+  const sm = /(?:\/assets\/|\/apps\/)(\d+)\//.exec(src);
+  return sm ? Number(sm[1]) : 0;
+}
+
+function nameFromAppStore(appid: number): string {
+  try {
+    const overview = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
+    return String(overview?.display_name ?? overview?.name ?? "").trim();
+  } catch { return ""; }
+}
+
+function extractCardName(card: HTMLElement, appid: number): string {
+  return nameFromAppStore(appid)
+    || (card.querySelector<HTMLImageElement>("img[alt]")?.getAttribute("alt") ?? "").trim();
 }
 
 function collectNativeShelfApps(): ShelfHit[] {
   const doc = getPreferredSteamDocument();
   if (!doc) return [];
-  const s = getCurrentSettings();
-  if ((s as any)?.hideRecents === true) return [];
   const best = findNativeShelfEl(doc);
   if (!best) return [];
+  const map = getClassMap();
+  // Native Steam cards are `<div role="link">` with the hashed
+  // `nativeCard` class. Appids live in img src; names come from
+  // `appStore.GetAppOverviewByAppID(appid)`.
+  const sel = map.nativeCard
+    ? `[class~="${map.nativeCard}"]:not(.ds-card)`
+    : 'a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)';
+  const cards = Array.from(best.querySelectorAll<HTMLElement>(sel));
   const out: ShelfHit[] = [];
-  // Each native card carries an inner href like `/library/app/<id>` and
-  // a label container we can lift the title from. `[data-appid]` is the
-  // fallback DS-style attribute.
-  const cards = Array.from(best.querySelectorAll<HTMLElement>('a[href*="/library/app/"], [data-appid]'));
   for (const card of cards) {
-    let appid = Number(card.getAttribute('data-appid') ?? NaN);
-    if (!Number.isFinite(appid) || appid <= 0) {
-      const href = card.getAttribute('href') || '';
-      const m = /\/library\/app\/(\d+)/.exec(href);
-      appid = m ? Number(m[1]) : 0;
-    }
+    const appid = extractAppidFromCard(card);
     if (!Number.isFinite(appid) || appid <= 0) continue;
-    const nameSrc = card.querySelector<HTMLElement>('img[alt], [class*="label" i], [class*="title" i]');
-    const name = (nameSrc?.getAttribute?.('alt') || nameSrc?.textContent || '').trim();
+    const name = extractCardName(card, appid);
     if (!name) continue;
     out.push({ appid, name, shelfId: NATIVE_SHELF_ID, shelfTitle: "Recents" });
   }
@@ -165,12 +202,31 @@ function focusShelfCard(appid: number, shelfId: string | null): void {
   const isNative = shelfId === NATIVE_SHELF_ID;
   const findTarget = (): HTMLElement | null => {
     if (isNative) {
-      // Native recents lives outside `.ds-shelf` — search the whole doc
-      // for the matching card. Filter back to exclude DS hits so we land
-      // on the native instance even if the same app sits in a DS shelf.
-      const all = Array.from(doc.querySelectorAll<HTMLElement>(`[data-appid="${appid}"]`));
-      const dsRoot = doc.querySelector<HTMLElement>(".deck-shelves-root");
-      return all.find((el) => !(dsRoot && dsRoot.contains(el))) ?? all[0] ?? null;
+      const nativeShelf = findNativeShelfEl(doc);
+      if (!nativeShelf) return null;
+      const map = getClassMap();
+      // First try the cheap structural hooks (DS-side data-appid lives
+      // INSIDE deck-shelves-root, so the inside-shelf walk only matches
+      // native cards naturally).
+      let card: HTMLElement | null = nativeShelf.querySelector<HTMLElement>(
+        `[data-appid="${appid}"]:not(.ds-card)`,
+      );
+      if (!card) {
+        // Walk every native-card wrapper and identify the one whose
+        // image src encodes this appid.
+        const sel = map.nativeCard
+          ? `[class~="${map.nativeCard}"]:not(.ds-card)`
+          : '[role="link"]';
+        const wrappers = Array.from(nativeShelf.querySelectorAll<HTMLElement>(sel));
+        for (const w of wrappers) {
+          const img = w.querySelector<HTMLImageElement>("img[src]");
+          const src = img?.getAttribute("src") || "";
+          if (new RegExp(`(?:/assets/|/apps/)${appid}/`).test(src)) {
+            card = w; break;
+          }
+        }
+      }
+      return card;
     }
     let t: HTMLElement | null = null;
     if (shelfId) {

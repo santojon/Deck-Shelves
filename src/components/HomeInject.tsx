@@ -16,6 +16,7 @@ import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplac
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
+import { focusNativeRecentsFirstCard } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { bumpAssetRevision } from "../core/assetRevision";
@@ -690,7 +691,7 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
   // using the Steam FocusNavController API (element.focus() alone does not
   // update the gamepad nav tree).  Retries because shelf content loads async.
   useEffect(() => {
-    if (!hideRecentsSetting) return;
+    try { (globalThis as any).__ds_focus_effect_ran = { t: Date.now(), mountEl: !!mountEl, hideRecents: hideRecentsSetting, shelvesLen: shelves?.length ?? 0 }; } catch {}
     let cancelled = false;
     // Set once a per-card focus restore is observed pending during this mount
     // (A→game→back). The restore — and its own confirmation/fallback — owns
@@ -701,42 +702,65 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     let restorePendingSeen = false;
     const dsHasFocus = () =>
       !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
+    const anyHomeFocus = () => {
+      try {
+        const doc = mountEl.ownerDocument;
+        if (!doc) return false;
+        // Anything with .gpfocus or with native focus that's NOT the body
+        // counts as "user / Steam already owns focus".
+        if (doc.querySelector('.gpfocus')) return true;
+        const ae = doc.activeElement;
+        return !!ae && ae !== doc.body && ae !== doc.documentElement;
+      } catch { return false; }
+    };
     const tryFocus = () => {
       if (cancelled) return true;
+      let why = '';
+      const finish = (w: string, r: boolean): boolean => {
+        why = w;
+        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why, hideRecents: hideRecentsSetting, r }; } catch {}
+        return r;
+      };
       try {
-        // Already focused — done, and the guard against hijacking the user
-        // once they are navigating inside the shelves.
-        if (dsHasFocus()) return true;
-        // A per-card focus restore is in flight (A→game→back): it owns the
-        // focus and is restoring the ORIGINATING card. Do NOT focus the first
-        // card — that would fight the restore.
-        if (hasPendingFocus()) { restorePendingSeen = true; return false; }
-        // A restore ran earlier this mount — it (or its fallback) owns the
-        // focus; never fall back to the first card. Stop the retry chain.
-        if (restorePendingSeen) return true;
-        const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-        if (firstCard) focusElement(firstCard);
-        else {
-          const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-          if (firstRow) focusElement(firstRow);
+        if (dsHasFocus()) return finish('ds-already-has-focus', true);
+        if (hasPendingFocus()) { restorePendingSeen = true; return finish('pending-focus', false); }
+        if (restorePendingSeen) return finish('restore-seen', true);
+        if (!hideRecentsSetting && anyHomeFocus()) return finish('native-has-focus', true);
+        // Native row is visible: try focusing its first card first.
+        if (!hideRecentsSetting) {
+          try {
+            if (focusNativeRecentsFirstCard(mountEl.ownerDocument)) return finish('pushed-native-first', true);
+          } catch {}
         }
-      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
-      // Report success ONLY when a DS card actually holds focus — focusElement
-      // returning true does not guarantee it stuck. On a cold Steam restart
-      // the gamepad nav tree is rebuilt slowly and Steam keeps refocusing an
-      // off-screen, hidden native-recents card until ~5-7s in (which also
-      // parks the viewport scrolled away from our first shelf). Returning
-      // false keeps the retry chain alive so a late retry re-grabs focus —
-      // and the BTakeFocus inside focusElement scrolls the viewport back.
-      return dsHasFocus();
+        const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
+        if (firstCard) {
+          focusElement(firstCard);
+          if (dsHasFocus()) return finish('pushed-first-card', true);
+          // Last-resort: when NavTree isn't queryable (cold boot), nudge
+          // Steam's focus engine with a synthetic ArrowDown which it
+          // natively handles to land focus on the first row.
+          try {
+            const doc = mountEl.ownerDocument;
+            const ev = new KeyboardEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', bubbles: true, cancelable: true });
+            (doc?.body ?? doc?.documentElement)?.dispatchEvent(ev);
+          } catch {}
+          return finish('pushed-first-card-nudge', dsHasFocus());
+        }
+        const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
+        if (firstRow) { focusElement(firstRow); return finish('pushed-first-row', dsHasFocus()); }
+        return finish('no-card-no-row', false);
+      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); return finish('error', false); }
     };
-    if (!tryFocus()) {
-      // Extended schedule: the 5s/7s retries cover Steam's cold-boot focus
-      // restore, which lands well after the 3s mark.
-      const timers = [500, 1500, 3000, 5000, 7000].map((d) => setTimeout(tryFocus, d));
-      return () => { cancelled = true; for (const t of timers) clearTimeout(t); };
-    }
-    return () => { cancelled = true; };
+    // Always schedule retries (regardless of first-attempt outcome) so a
+    // late focus drift to <body> — common on cold boot when Steam's
+    // NavTree settles a beat after our mount — gets caught and recovered.
+    // Each retry re-checks the gates, so we won't fight an active user.
+    tryFocus();
+    // Longer tail covers the worst cold-boot case (Steam restart with
+    // a slow library scan): NavTree can take 10+ seconds to become
+    // queryable on the first home open after boot.
+    const timers = [500, 1500, 3000, 5000, 7000, 10000, 14000].map((d) => setTimeout(tryFocus, d));
+    return () => { cancelled = true; for (const t of timers) clearTimeout(t); };
   }, [hideRecentsSetting, mountEl, shelves?.length]);
 
   const rootRef = useRef<HTMLDivElement>(null);

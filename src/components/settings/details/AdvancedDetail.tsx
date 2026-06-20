@@ -37,18 +37,21 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       <SettingsSection title={t("settings_advanced_reset_title")} description={t("settings_advanced_reset_desc")}>
-        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <DialogButton onClick={handleResetShelves} onOKButton={handleResetShelves} style={BTN_COMPACT_STYLE}>
-            <TrashIcon size={12} /><span>{t("settings_advanced_reset_shelves")}</span>
+        <Focusable
+          flow-children="horizontal"
+          style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, alignItems: "center" }}
+        >
+          <DialogButton onClick={handleResetShelves} onOKButton={handleResetShelves} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: "100%" }}>
+            <TrashIcon size={12} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t("settings_advanced_reset_shelves")}</span>
           </DialogButton>
-          <DialogButton onClick={handleResetSmart} onOKButton={handleResetSmart} style={BTN_COMPACT_STYLE}>
-            <TrashIcon size={12} /><span>{t("settings_advanced_reset_smart")}</span>
+          <DialogButton onClick={handleResetSmart} onOKButton={handleResetSmart} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: "100%" }}>
+            <TrashIcon size={12} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t("settings_advanced_reset_smart")}</span>
           </DialogButton>
-          <DialogButton onClick={handleResetAll} onOKButton={handleResetAll} style={BTN_COMPACT_STYLE}>
-            <TrashIcon size={12} /><span>{t("settings_advanced_reset_all")}</span>
+          <DialogButton onClick={handleResetAll} onOKButton={handleResetAll} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: "100%" }}>
+            <TrashIcon size={12} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t("settings_advanced_reset_all")}</span>
           </DialogButton>
-          <DialogButton onClick={handleResetCustom} onOKButton={handleResetCustom} style={BTN_COMPACT_STYLE}>
-            <TrashIcon size={12} /><span>{t("settings_advanced_reset_custom")}</span>
+          <DialogButton onClick={handleResetCustom} onOKButton={handleResetCustom} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: "100%" }}>
+            <TrashIcon size={12} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t("settings_advanced_reset_custom")}</span>
           </DialogButton>
         </Focusable>
       </SettingsSection>

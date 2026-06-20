@@ -19,6 +19,9 @@ function isOnlineFeaturesEnabledRaw(): boolean {
     const raw = (globalThis as any).localStorage?.getItem?.("deck-shelves-settings-cache-v3");
     if (!raw) return false;
     const data = JSON.parse(raw);
+    // Offline mode overrides every online toggle while active so no
+    // resolver in this file fans out a request when it's on.
+    if (data?.offlineModeEnabled === true) return false;
     return data?.onlineFeaturesEnabled === true;
   } catch { return false; }
 }
@@ -3242,7 +3245,9 @@ async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> {
     const { getCurrentSettings } = await import("../store/settingsStore");
     const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
-    const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+    const onlineEnabled = (s as any)?.offlineModeEnabled === true
+      ? false
+      : (s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw());
     if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
     const wishlistIds = await getWishlistIds();
     if (!wishlistIds) return [];
@@ -3268,7 +3273,9 @@ async function _resolveStore(ctx: ResolverContext): Promise<number[]> {
     const { getCurrentSettings } = await import("../store/settingsStore");
     const { getStoreGameIds, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
-    const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+    const onlineEnabled = (s as any)?.offlineModeEnabled === true
+      ? false
+      : (s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw());
     if (!onlineEnabled) return [];
     let ids = await getStoreGameIds();
     if (!ids) return [];

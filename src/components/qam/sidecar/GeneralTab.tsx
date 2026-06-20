@@ -107,14 +107,16 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         {row('hideRecents', (
           <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} onChange={(v: boolean) => actions.setHideRecents(v)} />
         ))}
-        <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          {row('shelfHeroBackground', (
-            <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} onChange={(v: boolean) => actions.setShelfHeroBackground(v)} />
-          ))}
-          {row('recentsReplaceSource', (
-            <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true} onChange={(v: boolean) => actions.setRecentsReplaceSource(v)} />
-          ))}
-        </div>
+        {settings.hideRecents === true && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            {row('shelfHeroBackground', (
+              <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} onChange={(v: boolean) => actions.setShelfHeroBackground(v)} />
+            ))}
+            {row('recentsReplaceSource', (
+              <ToggleField label={t('recents_replace_source')} checked={settings.recentsReplaceSource === true} onChange={(v: boolean) => actions.setRecentsReplaceSource(v)} />
+            ))}
+          </div>
+        )}
         {row('hideHomeTabs', (
           <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(v: boolean) => actions.setHideHomeTabs(v)} />
         ))}
@@ -129,6 +131,12 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
       >
         {row('updateNotifyEnabled', (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(v: boolean) => actions.setUpdateNotifyEnabled(v)} />
+        ))}
+        {row('lightModeEnabled', (
+          <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
+        ))}
+        {row('offlineModeEnabled', (
+          <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
         ))}
         {row('contextSearchEnabled', (
           <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
@@ -161,27 +169,33 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
             }}
           />
         ))}
-        <div style={{ paddingLeft: 14, fontSize: 12 }}>
-          {row('onlineWishlistEnabled', (
-            <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(v: boolean) => void actions.setOnlineWishlistEnabled(v)} />
-          ))}
-          {row('onlinePriceSortEnabled', (
-            <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(v: boolean) => void actions.setOnlinePriceSortEnabled(v)} />
-          ))}
-          {row('onlineHideOwnedGames', (
-            <ToggleField label={t('online_hide_owned')} checked={settings.onlineHideOwnedGames !== false} onChange={(v: boolean) => { void actions.setOnlineHideOwnedGames(v); if (!v) void actions.setOnlineHideOwnedNonSteam(false) }} />
-          ))}
-          <div style={{ paddingLeft: 16 }}>
-            {row('onlineHideOwnedNonSteam', (
-              <ToggleField label={t('hide_owned_non_steam')} checked={settings.onlineHideOwnedNonSteam === true} onChange={(v: boolean) => void actions.setOnlineHideOwnedNonSteam(v)} />
+        {settings.onlineFeaturesEnabled === true && (
+          <div style={{ paddingLeft: 14, fontSize: 12 }}>
+            {row('onlineWishlistEnabled', (
+              <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(v: boolean) => void actions.setOnlineWishlistEnabled(v)} />
             ))}
-            <div style={{ paddingLeft: 16 }}>
-              {row('onlineHideOwnedNonSteamCloud', (
-                <ToggleField label={t('hide_owned_non_steam_cloud')} checked={settings.onlineHideOwnedNonSteamCloud === true} onChange={(v: boolean) => void actions.setOnlineHideOwnedNonSteamCloud(v)} />
-              ))}
-            </div>
+            {row('onlinePriceSortEnabled', (
+              <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(v: boolean) => void actions.setOnlinePriceSortEnabled(v)} />
+            ))}
+            {row('onlineHideOwnedGames', (
+              <ToggleField label={t('online_hide_owned')} checked={settings.onlineHideOwnedGames !== false} onChange={(v: boolean) => { void actions.setOnlineHideOwnedGames(v); if (!v) void actions.setOnlineHideOwnedNonSteam(false) }} />
+            ))}
+            {settings.onlineHideOwnedGames !== false && (
+              <div style={{ paddingLeft: 16 }}>
+                {row('onlineHideOwnedNonSteam', (
+                  <ToggleField label={t('hide_owned_non_steam')} checked={settings.onlineHideOwnedNonSteam === true} onChange={(v: boolean) => void actions.setOnlineHideOwnedNonSteam(v)} />
+                ))}
+                {settings.onlineHideOwnedNonSteam === true && (
+                  <div style={{ paddingLeft: 16 }}>
+                    {row('onlineHideOwnedNonSteamCloud', (
+                      <ToggleField label={t('hide_owned_non_steam_cloud')} checked={settings.onlineHideOwnedNonSteamCloud === true} onChange={(v: boolean) => void actions.setOnlineHideOwnedNonSteamCloud(v)} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </div>
+        )}
         {hasCssLoader && !lightMode && row('forceCssLoaderThemes', (
           <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(v: boolean) => void actions.setForceCssLoaderThemes(v)} />
         ))}
@@ -204,15 +218,8 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {!lightMode && row('smartSurpriseMe', (
             <ToggleField label={t('smart_surprise_me')} checked={settings.smartSurpriseMe === true} onChange={(v: boolean) => actions.setSmartSurpriseMe(v)} />
           ))}
-          {/* toggle — schema accepts and persists, render
-             path is still split until wires it. */}
           {row('unifiedListEnabled', (
             <ToggleField label={t('unified_list_enabled' as any)} checked={(settings as any).unifiedListEnabled === true} onChange={(v: boolean) => (actions as any).setUnifiedListEnabled?.(v)} />
-          ))}
-          {/* toggle — schema lives, light-mode gates land
-             alongside PR2's per-section visibility hooks. */}
-          {row('lightModeEnabled', (
-            <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
           ))}
         </div>
       </CollapsibleSection>

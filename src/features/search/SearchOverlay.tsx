@@ -8,7 +8,7 @@ import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindi
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
-import { closeAmbientOverlays, waitForOverlaysGone } from "../../runtime/closeOverlays";
+import { closeAmbientOverlays, waitForOverlaysGone, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 
 const MIN_CHARS = 3;
 const SEARCH_LIMIT = 30;
@@ -44,23 +44,43 @@ function tryOpenSteamKeyboard(): void {
 }
 
 function dismissSteamKeyboard(): void {
+  const fire = () => {
+    try {
+      const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
+      const Input = view?.SteamClient?.Input ?? view?.opener?.SteamClient?.Input;
+      Input?.ModalKeyboardDismissed?.();
+      Input?.StandaloneKeyboardDismissed?.();
+      // Some keyboard surfaces only listen to one of these — call both
+      // every retry to cover any subset the current build exposes.
+      (globalThis as any).SteamClient?.Input?.ModalKeyboardDismissed?.();
+      (globalThis as any).SteamClient?.Input?.StandaloneKeyboardDismissed?.();
+    } catch {}
+  };
+  // Fire immediately, then twice more across a short window — when the
+  // pill unmounts mid-stroke Steam occasionally reopens the keyboard
+  // because the focused input wasn't blurred in the same tick. Repeated
+  // dismissals catch the reopen.
+  fire();
   try {
-    const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
-    const Input = view?.SteamClient?.Input ?? view?.opener?.SteamClient?.Input;
-    Input?.ModalKeyboardDismissed?.();
-    Input?.StandaloneKeyboardDismissed?.();
+    (globalThis as any).setTimeout?.(fire, 60);
+    (globalThis as any).setTimeout?.(fire, 220);
   } catch {}
 }
 
 export function SearchOverlay() {
   try { (globalThis as any).__ds_search_mounted = (((globalThis as any).__ds_search_mounted ?? 0) + 1); } catch {}
-  const [enabled, setEnabled] = useState(() => (getCurrentSettings() as any)?.contextSearchEnabled === true);
+  // Light mode strips advanced features for simplicity / battery — the
+  // Quick Search pill is one of them. User toggle stays untouched.
+  const [enabled, setEnabled] = useState(() => {
+    const s = getCurrentSettings() as any;
+    return s?.contextSearchEnabled === true && s?.lightModeEnabled !== true;
+  });
   // Virtual-keyboard default is ON; opt-out via the new toggle.
   const [kbEnabled, setKbEnabled] = useState(() => (getCurrentSettings() as any)?.contextSearchKeyboardEnabled !== false);
   // Enter-only default is OFF (debounce mode).
   const [onEnter, setOnEnter] = useState(() => (getCurrentSettings() as any)?.contextSearchOnEnter === true);
   useEffect(() => subscribeSettings((s) => {
-    setEnabled((s as any)?.contextSearchEnabled === true);
+    setEnabled((s as any)?.contextSearchEnabled === true && (s as any)?.lightModeEnabled !== true);
     setKbEnabled((s as any)?.contextSearchKeyboardEnabled !== false);
     setOnEnter((s as any)?.contextSearchOnEnter === true);
   }), []);
@@ -163,9 +183,11 @@ export function SearchOverlay() {
   const lastOpenAtRef = useRef(0);
   const openSearch = useCallback(() => {
     if (!isHomeRoute()) return;
+    if (isOverlayLocked()) return;
     const now = Date.now();
     if (now - lastOpenAtRef.current < 350) return;
     lastOpenAtRef.current = now;
+    lockOverlay();
     try {
       const doc = getPreferredSteamDocument() ?? document;
       const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
@@ -315,8 +337,27 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
       if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
     };
     tryFocus(8);
+    // Steam occasionally steals focus back to the previously-focused
+    // node (native recents card) a few hundred ms after the pill mounts
+    // — especially when the pill is opened from outside DS shelves. A
+    // delegated focusout listener re-claims focus on the input so the
+    // user can keep typing. Stops when the pill unmounts.
+    const reclaim = (e: FocusEvent) => {
+      if (cancelled) return;
+      const host = hostRef.current;
+      const input = host?.querySelector<HTMLInputElement>("input");
+      if (!input) return;
+      // Only react when focus leaves OUR input and lands on body /
+      // doc / a DS card (i.e. NOT another control inside the pill).
+      const next = (e.relatedTarget as HTMLElement | null) ?? input.ownerDocument?.activeElement as HTMLElement | null;
+      if (next && host?.contains(next)) return;
+      try { input.focus({ preventScroll: true }); } catch {}
+    };
+    const inputEl = hostRef.current?.querySelector<HTMLInputElement>("input");
+    inputEl?.addEventListener("focusout", reclaim);
     return () => {
       cancelled = true;
+      inputEl?.removeEventListener("focusout", reclaim);
       try { captured?.blur(); } catch {}
       dismissSteamKeyboard();
     };

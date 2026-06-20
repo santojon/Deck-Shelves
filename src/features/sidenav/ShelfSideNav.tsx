@@ -12,7 +12,7 @@ import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { isInVisibilityWindow } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
-import { closeAmbientOverlays, waitForOverlaysGone } from "../../runtime/closeOverlays";
+import { closeAmbientOverlays, waitForOverlaysGone, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 
 type Anchor = {
   shelfId: string;
@@ -26,7 +26,10 @@ export function ShelfSideNav() {
 
   useEffect(() => subscribeSettings(setSettings), []);
 
-  const enabled = (settings as any)?.sideNavEnabled === true;
+  // Light mode strips advanced features for simplicity / battery — the
+  // side nav is one of them. User toggle stays untouched.
+  const lightMode = (settings as any)?.lightModeEnabled === true;
+  const enabled = !lightMode && (settings as any)?.sideNavEnabled === true;
 
   const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
   const lastOpenAtRef = useRef(0);
@@ -83,16 +86,27 @@ export function ShelfSideNav() {
       let appid: number | null = null;
       try {
         const doc = getPreferredSteamDocument() ?? document;
-        const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
+        // Native cards don't carry data-appid — fall back to any gpfocus
+        // so we can detect when the user opens the sidenav from the
+        // native recents row.
+        const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]")
+          ?? doc.querySelector<HTMLElement>(".gpfocus");
         if (focused) {
           const card = focused.closest<HTMLElement>(".ds-card");
           const ap = focused.getAttribute("data-appid") ?? card?.getAttribute("data-appid");
           appid = ap ? Number(ap) : null;
-          // Walk up to the SHELF container — cards also carry
-          // data-shelfid, but `.closest('.ds-shelf')` lands on the
-          // wrapper which is what `orderedShelves` keys off.
+          // DS path: walk up to the shelf wrapper.
           const shelfEl = (card ?? focused).closest<HTMLElement>(".ds-shelf[data-shelfid]");
           shelfId = shelfEl?.getAttribute("data-shelfid") ?? null;
+          // Native path: if NOT inside a DS shelf, check if the focus
+          // lives inside the native recents container — then anchor on
+          // the synthetic NATIVE_RECENTS_ID so the row pre-selects it.
+          if (!shelfId) {
+            const nativeEl = findNativeRecentsEl(doc);
+            if (nativeEl && nativeEl.contains(focused)) {
+              shelfId = NATIVE_RECENTS_ID;
+            }
+          }
         }
         if (!shelfId) {
           const firstShelf = doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]");
@@ -112,9 +126,11 @@ export function ShelfSideNav() {
         else if (visibleSmart.length > 0) shelfId = visibleSmart[0].id;
       }
       if (!shelfId) return;
+      if (isOverlayLocked()) return;
       const now = Date.now();
       if (now - lastOpenAtRef.current < 350) return;
       lastOpenAtRef.current = now;
+      lockOverlay();
       void (async () => {
         await closeAmbientOverlays();
         try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: now }; } catch {}
@@ -175,9 +191,12 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     // at the top so the user can jump straight to it. Hidden when DS
     // replaces the native row entirely (hideRecents === true and no
     // override rendering content there).
-    const nativeEntry = settings.hideRecents !== true
-      ? readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"))
-      : null;
+    // Don't gate on settings.hideRecents — the DOM is the source of
+    // truth. With hideRecents+override, the native shell is repopulated
+    // by DS content but the container stays native and we still want it
+    // listed. Without override and with hideRecents=true, the container
+    // is empty and `findNativeRecentsEl` returns null on its own.
+    const nativeEntry = readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"));
     if (fromDom.length > 0) {
       return nativeEntry ? [nativeEntry, ...fromDom] : fromDom;
     }
@@ -507,38 +526,54 @@ function getClassMap(): Record<string, string> {
   return {};
 }
 
-function findNativeRecentsEl(doc: Document): HTMLElement | null {
-  // Native recents lives outside `.deck-shelves-root`. Try the discovered
-  // hashed class first (from the runtime classmap); fall back to common
-  // structural cues if the hash isn't reachable.
-  const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
-  const map = getClassMap();
+function nativeCardSelectorSN(map: Record<string, string>): string {
+  const cls = map.nativeCard;
+  return cls
+    ? `[class~="${cls}"]:not(.ds-card), a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)`
+    : `a[href*="/library/app/"]:not(.ds-card), [data-appid]:not(.ds-card)`;
+}
+
+function collectNativeShelfCandidates(doc: Document, map: Record<string, string>): HTMLElement[] {
   const candidates: HTMLElement[] = [];
   const seen = new Set<HTMLElement>();
-  const push = (sel: string) => {
+  const push = (cls?: string) => {
+    if (!cls) return;
     try {
-      doc.querySelectorAll<HTMLElement>(sel).forEach((el) => {
+      doc.querySelectorAll<HTMLElement>(`[class~="${cls}"]`).forEach((el) => {
         if (!seen.has(el)) { seen.add(el); candidates.push(el); }
       });
     } catch {}
   };
-  if (map.nativeShelfContainer) push(`.${CSS.escape(map.nativeShelfContainer)}`);
-  if (map.shelfSection) push(`.${CSS.escape(map.shelfSection)}`);
-  // Fallbacks: any direct sibling of the DS mount that holds game cards.
-  push('[class*="LibrarySection" i]');
-  push('[class*="ShelfSection" i]');
-  push('[class*="ScrollGrid" i]');
+  push(map.nativeShelfContainer);
+  push(map.shelfSection);
+  return candidates;
+}
+
+function isNativeCandidateSN(el: HTMLElement, root: HTMLElement | null, homeRoot: HTMLElement | null, sel: string): boolean {
+  if (root && root.contains(el)) return false;
+  if (homeRoot && homeRoot.contains(el)) return false;
+  if (!el.isConnected || !el.querySelector(sel)) return false;
+  const r = el.getBoundingClientRect();
+  return r.height >= 40 && r.width >= 40;
+}
+
+function findNativeRecentsEl(doc: Document): HTMLElement | null {
+  // Native recents lives outside `.deck-shelves-root`. DS REUSES the
+  // same `nativeShelfContainer` hashed class for its own wrappers, so
+  // we filter inside-DS-root candidates out and require native cards.
+  const root = doc.querySelector<HTMLElement>(".deck-shelves-root");
+  const homeRoot = doc.getElementById("deck-shelves-home-root");
+  const map = getClassMap();
+  const sel = nativeCardSelectorSN(map);
+  const candidates = collectNativeShelfCandidates(doc, map);
   let best: HTMLElement | null = null;
   let bestTop = Infinity;
   for (const el of candidates) {
-    if (root && root.contains(el)) continue;
-    if (!el.isConnected || el.offsetParent === null) continue;
-    const hasCards = !!el.querySelector('[data-appid], a[href*="/library/app/"]');
-    if (!hasCards) continue;
-    const r = el.getBoundingClientRect();
-    if (r.height < 60 || r.width < 60) continue;
-    if (r.top < bestTop) { best = el; bestTop = r.top; }
+    if (!isNativeCandidateSN(el, root, homeRoot, sel)) continue;
+    const top = el.getBoundingClientRect().top;
+    if (top < bestTop) { best = el; bestTop = top; }
   }
+  try { (globalThis as any).__ds_native_probe = best ? { found: true, top: Math.round(best.getBoundingClientRect().top), candidates: candidates.length } : { found: false, candidates: candidates.length }; } catch {}
   return best;
 }
 
@@ -574,40 +609,37 @@ function readNativeRecentsEntry(doc: Document | null, fallbackLabel: string): Un
   if (!doc) return null;
   const el = findNativeRecentsEl(doc);
   if (!el) return null;
-  const map = getClassMap();
-  // Try to lift the visible row title — first the discovered hashed
-  // label container, then any heading inside the row; finally the
-  // caller's localised fallback.
-  let text = "";
-  if (map.nativeLabelInner) {
-    text = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeLabelInner)}`)?.textContent?.trim() ?? "";
-  }
-  if (!text && map.nativeLabelOuter) {
-    text = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeLabelOuter)}`)?.textContent?.trim() ?? "";
-  }
-  if (!text) {
-    text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
-  }
+  // The actual section title is the row-level heading element. The
+  // `nativeLabelInner` / `nativeLabelOuter` hashed classes target the
+  // PER-CARD label (focused-card info like "Blasphemous 2 - 30h") and
+  // would surface the wrong string. When the override is on, the
+  // patch in `recentsReplace.tsx` rewrites this heading to the source
+  // shelf title — reading it here keeps both cases correct.
+  const text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
   return { id: NATIVE_RECENTS_ID, title: text && text.length > 0 ? text : fallbackLabel };
+}
+
+function findFirstNativeCard(el: HTMLElement, map: Record<string, string>): HTMLElement | null {
+  const trySelectors = [
+    map.nativeCardFocusable ? `[class~="${map.nativeCardFocusable}"]:not(.ds-card)` : "",
+    map.nativeCard ? `[class~="${map.nativeCard}"]:not(.ds-card)` : "",
+    'a[href*="/library/app/"]:not(.ds-card)',
+    '[data-appid]:not(.ds-card)',
+  ].filter(Boolean);
+  for (const sel of trySelectors) {
+    const c = el.querySelector<HTMLElement>(sel);
+    if (c) return c;
+  }
+  return null;
 }
 
 export function focusNativeRecentsFirstCard(doc: Document | null): boolean {
   if (!doc) return false;
   const el = findNativeRecentsEl(doc);
   if (!el) return false;
-  const map = getClassMap();
-  let card: HTMLElement | null = null;
-  if (map.nativeCardFocusable) {
-    card = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeCardFocusable)}`);
-  }
-  if (!card && map.nativeCard) {
-    card = el.querySelector<HTMLElement>(`.${CSS.escape(map.nativeCard)}`);
-  }
-  if (!card) {
-    card = el.querySelector<HTMLElement>('[data-appid], a[href*="/library/app/"]');
-  }
+  const card = findFirstNativeCard(el, getClassMap());
   if (!card) return false;
   try { card.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); } catch {}
-  try { (card as any).focus?.({ preventScroll: false }); } catch {}
-  return true;
+  try { focusElement(card); } catch {}
+  return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
 }

@@ -911,7 +911,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           // when the user d-padded onto a card and waited for the hero to
           // visibly arrive. Quarter-second matches Steam's own UI cadence
           // closely enough that it reads as instant without flicker.
-          transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
+          // 0.45s ease-in-out matches Steam's native hero swap cadence
+          // — the previous 0.25s snappy curve felt more abrupt than the
+          // native fade and made consecutive d-pad presses look like
+          // hard image-replace cuts. Same value on both slots so the
+          // outgoing image fades out at the same rate the incoming
+          // image fades in (clean cross-dissolve).
+          transition: 'opacity 0.45s ease-in-out',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotASrc} onError={onError('A')}
@@ -963,7 +969,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         <div className={nativeHeroInnerClass ?? undefined} style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
           opacity: activeSlot === 'B' ? 1 : 0,
-          transition: 'opacity 0.25s cubic-bezier(0.17,0.45,0.14,0.83)',
+          // 0.45s ease-in-out matches Steam's native hero swap cadence
+          // — the previous 0.25s snappy curve felt more abrupt than the
+          // native fade and made consecutive d-pad presses look like
+          // hard image-replace cuts. Same value on both slots so the
+          // outgoing image fades out at the same rate the incoming
+          // image fades in (clean cross-dissolve).
+          transition: 'opacity 0.45s ease-in-out',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotBSrc} onError={onError('B')}
