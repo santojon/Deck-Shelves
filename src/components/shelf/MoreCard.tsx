@@ -54,11 +54,11 @@ export function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive
     cursor: interactive ? "pointer" : "default",
     overflow: "visible",
   };
-  // Wrap art in an unclassed first-child div so theme rules that
-  // target `nativeCardWrapper > div:first-child` (TiltedHome's
-  // perspective + rotateY etc) land on the transform-target div,
-  // mirroring native card structure. See GameCard for the same
-  // pattern + rationale.
+  /* Wrap art in an unclassed first-child div so theme rules that
+     target `nativeCardWrapper > div:first-child` (TiltedHome's
+     perspective + rotateY etc) land on the transform-target div,
+     mirroring native card structure. See GameCard for the same
+     pattern + rationale. */
   const innerArt = (
     <div style={{ position: 'absolute', inset: 0 }}>
       <div
@@ -83,10 +83,10 @@ export function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive
     </div>
   );
 
-  // Non-interactive variant — used in the modal preview where the card is
-  // purely illustrative. Plain div skips Focusable entirely so gamepad nav
-  // doesn't land on it (matches what the user expects when there's no
-  // navigable target behind the card).
+  /* Non-interactive variant — used in the modal preview where the card is
+     purely illustrative. Plain div skips Focusable entirely so gamepad nav
+     doesn't land on it (matches what the user expects when there's no
+     navigable target behind the card). */
   if (!interactive) {
     return (
       <div ref={cardRef as any} className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`} style={containerStyle}>

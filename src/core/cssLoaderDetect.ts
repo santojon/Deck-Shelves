@@ -6,11 +6,11 @@ import { getRuntimeClassMap } from "./webpackCompat";
 const FALLBACK_HERO_INNER = "_30D-80Lg-Luy-KxOumBlaY";
 
 function getCssLoaderStyleNodes(): HTMLStyleElement[] {
-  // SteamOS 3.9: CSS Loader theme styles live in the BigPicture document's
-  // <head>, but `preferredSteamWindow` may currently point at the
-  // SharedJSContext (whose document has no theme styles). Sweep every known
-  // Steam doc — preferred first for 3.7 parity — so ArtHero / theme
-  // detection doesn't silently flip to false when preferred drifts.
+  /* SteamOS 3.9: CSS Loader theme styles live in the BigPicture document's
+     <head>, but `preferredSteamWindow` may currently point at the
+     SharedJSContext (whose document has no theme styles). Sweep every known
+     Steam doc — preferred first for 3.7 parity — so ArtHero / theme
+     detection doesn't silently flip to false when preferred drifts. */
   const out: HTMLStyleElement[] = [];
   const seen = new Set<Document>();
   const pushFrom = (d: Document | null | undefined) => {

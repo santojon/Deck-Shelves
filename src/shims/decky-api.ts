@@ -20,11 +20,11 @@ type ConnectedApi = {
 // module executes very early in the plugin bootstrap — earlier than
 // Decky finishes attaching `DFL` / `__DECKY_SECRET_INTERNALS_…` to
 // `window`. Capturing them at module load left the toaster (and any
-// other DFL-backed primitive) wired to `undefined` for the entire
-// plugin session, silently dropping every `toaster.toast()` call from
-// boot-time code paths (the update notifier toast was the visible
-// casualty). Lazy lookup re-checks `globalThis` on every access, so the
-// first call after Decky exposes the API succeeds.
+/* other DFL-backed primitive) wired to `undefined` for the entire
+   plugin session, silently dropping every `toaster.toast()` call from
+   boot-time code paths (the update notifier toast was the visible
+   casualty). Lazy lookup re-checks `globalThis` on every access, so the
+   first call after Decky exposes the API succeeds. */
 function getDeckyGlobal(): any {
   const w: any = (globalThis as any).window ?? globalThis;
   return (globalThis as any).DFL
@@ -90,10 +90,10 @@ export function callable<TArgs extends unknown[], TResult>(method: string) {
   return (...args: TArgs) => call<TArgs, TResult>(method, ...args);
 }
 
-// Late-resolved via Proxy: enum lookups happen at access time so
-// `FileSelectionType.FILE` works even when this module loaded before
-// DFL was attached. Falls back to the documented numeric values when
-// DFL truly never provides the enum.
+/* Late-resolved via Proxy: enum lookups happen at access time so
+   `FileSelectionType.FILE` works even when this module loaded before
+   DFL was attached. Falls back to the documented numeric values when
+   DFL truly never provides the enum. */
 const FILE_SELECTION_FALLBACK = { FILE: 0, FOLDER: 1 };
 export const FileSelectionType: { FILE: number; FOLDER: number } = new Proxy({} as any, {
   get(_t, prop) {
@@ -113,16 +113,16 @@ export async function openFilePicker(...args: unknown[]) {
   return await picker(...args);
 }
 
-// Getter-style accessor so callers reading at boot still pick up the
-// hook after DFL initialises. Existing call sites that captured this
-// at import time (rare) get whatever was available then; new code
-// should call `getRouterHook()` directly.
+/* Getter-style accessor so callers reading at boot still pick up the
+   hook after DFL initialises. Existing call sites that captured this
+   at import time (rare) get whatever was available then; new code
+   should call `getRouterHook()` directly. */
 export const routerHook = (() => {
-  // Defer to first access via a thenable-like getter on the export
-  // would break ES module semantics — instead expose a function for
-  // late callers AND keep the original symbol for back-compat with any
-  // existing immediate reader. Most readers happen post-bootstrap, so
-  // the immediate value is usually correct anyway.
+  /* Defer to first access via a thenable-like getter on the export
+     would break ES module semantics — instead expose a function for
+     late callers AND keep the original symbol for back-compat with any
+     existing immediate reader. Most readers happen post-bootstrap, so
+     the immediate value is usually correct anyway. */
   return getDeckyGlobal()?.routerHook;
 })();
 export function getRouterHook(): any { return getDeckyGlobal()?.routerHook; }

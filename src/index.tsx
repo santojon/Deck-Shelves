@@ -37,10 +37,10 @@ import { ShelfManageRoute } from "./components/ShelfManageRoute";
 import type { HostApi } from "./runtime/host/contract";
 initI18n();
 
-// HostApi singleton — instantiated once at boot. Every `@decky/*`
-// dependency eventually routes through this contract as the migration
-// progresses; today only the pilot surfaces (EditShelfModal etc.) consume
-// it directly.
+/* HostApi singleton — instantiated once at boot. Every `@decky/*`
+   dependency eventually routes through this contract as the migration
+   progresses; today only the pilot surfaces (EditShelfModal etc.) consume
+   it directly. */
 let _hostApi: HostApi | null = null;
 export function getHostApi(): HostApi { if (!_hostApi) throw new Error("HostApi not booted"); return _hostApi; }
 export function __setHostApiForTest(h: HostApi | null) { _hostApi = h; }
@@ -110,11 +110,11 @@ export default definePlugin((serverAPI?: any) => {
   const platform = createDeckyPlatform();
   setPlatform(platform);
   // Image cache pre-hydration + pruning, both deferred to idle so they
-  // don't compete with bootstrap. Hydration moves persistent blob URLs
-  // back into the in-memory hot map so the FIRST focus of every card
-  // is a hot hit instead of walking the local 404 chain — without this,
-  // every Steam restart felt like a full re-download to the user even
-  // though the persistent cache already had every blob.
+  /* don't compete with bootstrap. Hydration moves persistent blob URLs
+     back into the in-memory hot map so the FIRST focus of every card
+     is a hot hit instead of walking the local 404 chain — without this,
+     every Steam restart felt like a full re-download to the user even
+     though the persistent cache already had every blob. */
   try {
     const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
     schedule(() => {
@@ -143,10 +143,10 @@ export default definePlugin((serverAPI?: any) => {
     <AboutPage />
   )); } catch (e) { logInfo("RUNTIME", "addRoute failed", String(e)); }
 
-  // Full-page Settings route — registered eagerly so navigation works.
-  // The QAM gear-icon button that triggers it stays gated behind the
-  // `settingsPageEnabled` flag (off by default) until the page itself
-  // is built out beyond its current placeholder.
+  /* Full-page Settings route — registered eagerly so navigation works.
+     The QAM gear-icon button that triggers it stays gated behind the
+     `settingsPageEnabled` flag (off by default) until the page itself
+     is built out beyond its current placeholder. */
   try { routerHook?.addRoute?.(SETTINGS_ROUTE, () => (
     <SettingsPage />
   )); } catch (e) { logInfo("RUNTIME", "settings route addRoute failed", String(e)); }
@@ -169,16 +169,16 @@ export default definePlugin((serverAPI?: any) => {
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
 
-  // Random-sort cache is keyed by shelfId + idHash with a 24h TTL.
-  // Wipe all entries at boot so each Steam session gets a fresh shuffle
-  // — without this, shelves with `sort: random` stay in the same order
-  // across Steam restarts as long as their app set doesn't change.
+  /* Random-sort cache is keyed by shelfId + idHash with a 24h TTL.
+     Wipe all entries at boot so each Steam session gets a fresh shuffle
+     — without this, shelves with `sort: random` stay in the same order
+     across Steam restarts as long as their app set doesn't change. */
   try { invalidateRandomSortCache(); } catch {}
 
-  // Prefetch SteamOS version asynchronously so synchronous version-gated
-  // paths (e.g. `useLegacyMenuFlow()` in `steamGameMenu.ts`) hit the cache
-  // by the time the user interacts. On 3.7.x the only source is the async
-  // `SteamClient.System.GetSystemInfo()` — sync sources return null there.
+  /* Prefetch SteamOS version asynchronously so synchronous version-gated
+     paths (e.g. `useLegacyMenuFlow()` in `steamGameMenu.ts`) hit the cache
+     by the time the user interacts. On 3.7.x the only source is the async
+     `SteamClient.System.GetSystemInfo()` — sync sources return null there. */
   void prefetchSteamOSVersion().then((v) => {
     logDiagnostic("info", "SteamOS version", v ?? "unknown");
   }).catch(() => {});
@@ -224,10 +224,10 @@ export default definePlugin((serverAPI?: any) => {
     }
   };
 
-  // Boot retry: poll for network with backoff until a probe actually
-  // runs (online + checked) or we hit the 10-min cap. Steam restart and
-  // system reboot both land here; the loop self-terminates on first
-  // successful probe so steady-state work is zero.
+  /* Boot retry: poll for network with backoff until a probe actually
+     runs (online + checked) or we hit the 10-min cap. Steam restart and
+     system reboot both land here; the loop self-terminates on first
+     successful probe so steady-state work is zero. */
   const UPDATE_BACKOFFS_MS = [3000, 10000, 20000, 40000, 60000, 60000, 60000, 60000, 60000, 60000, 60000, 60000];
   let updateBootTimer: ReturnType<typeof setTimeout> | null = null;
   let updateBootStep = 0;

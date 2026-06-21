@@ -26,6 +26,15 @@ declare -a STEP_STATUS=()
 declare -a STEP_LOG=()
 declare -a STEP_DURATION_MS=()
 _now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
+# Elapsed ms from two _now_ms reads. If either is empty (a transient
+# python3 spawn failure left a var blank), `$((end-start))` would yield
+# the raw end timestamp (~1.7e12) and corrupt the duration charts —
+# return 0 instead of garbage.
+_elapsed_ms() {
+  local s="$1" e="$2"
+  [[ "$s" =~ ^[0-9]+$ && "$e" =~ ^[0-9]+$ && "$e" -ge "$s" ]] || { echo 0; return; }
+  echo "$((e - s))"
+}
 
 # Always generate the report — fires via EXIT trap regardless of what happened.
 _report_generated=0
@@ -87,16 +96,16 @@ run_step() {
   STEP_NAMES+=("$label")
   STEP_LOG+=("$log")
   echo -e "${BOLD}▶ ${label}${RESET}"
-  local _start _end
+  local _start _end _dur
   _start=$(_now_ms)
   if "$@" >"$log" 2>&1; then
-    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
-    echo -e "  ${GREEN}✓ PASS${RESET} ($(( (_end - _start) / 1000 ))s)"
+    _end=$(_now_ms); _dur=$(_elapsed_ms "$_start" "$_end"); STEP_DURATION_MS+=("$_dur")
+    echo -e "  ${GREEN}✓ PASS${RESET} ($((_dur / 1000))s)"
     STEP_STATUS+=("pass")
     return 0
   else
-    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
-    echo -e "  ${RED}✗ FAIL${RESET} ($(( (_end - _start) / 1000 ))s)"
+    _end=$(_now_ms); _dur=$(_elapsed_ms "$_start" "$_end"); STEP_DURATION_MS+=("$_dur")
+    echo -e "  ${RED}✗ FAIL${RESET} ($((_dur / 1000))s)"
     tail -20 "$log" | sed 's/^/    /'
     STEP_STATUS+=("fail")
     return 1
@@ -111,20 +120,20 @@ run_device_step() {
   STEP_NAMES+=("$label")
   STEP_LOG+=("$log")
   echo -e "${BOLD}▶ ${label}${RESET}"
-  local _start _end
+  local _start _end _dur
   _start=$(_now_ms)
   if "$@" >"$log" 2>&1; then
-    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
-    echo -e "  ${GREEN}✓ PASS${RESET} ($(( (_end - _start) / 1000 ))s)"
+    _end=$(_now_ms); _dur=$(_elapsed_ms "$_start" "$_end"); STEP_DURATION_MS+=("$_dur")
+    echo -e "  ${GREEN}✓ PASS${RESET} ($((_dur / 1000))s)"
     STEP_STATUS+=("pass")
     return 0
   else
-    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
+    _end=$(_now_ms); _dur=$(_elapsed_ms "$_start" "$_end"); STEP_DURATION_MS+=("$_dur")
     if grep -qE "${_NO_DEVICE_PATTERNS}" "$log" 2>/dev/null; then
-      echo -e "  ${YELLOW}– SKIP (device unreachable)${RESET} ($(( (_end - _start) / 1000 ))s)"
+      echo -e "  ${YELLOW}– SKIP (device unreachable)${RESET} ($((_dur / 1000))s)"
       STEP_STATUS+=("skip")
     else
-      echo -e "  ${RED}✗ FAIL${RESET} ($(( (_end - _start) / 1000 ))s)"
+      echo -e "  ${RED}✗ FAIL${RESET} ($((_dur / 1000))s)"
       tail -20 "$log" | sed 's/^/    /'
       STEP_STATUS+=("fail")
     fi

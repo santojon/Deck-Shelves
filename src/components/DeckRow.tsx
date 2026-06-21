@@ -58,20 +58,20 @@ export function _labelOverhangPx(args: {
 
 function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 8, forceExpanded = false, fullPageLayoutOnly = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; forceExpanded?: boolean; fullPageLayoutOnly?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean }) {
   const visuallyForced = forceExpanded || forceLayoutAsRecents;
-  // 100vh layout fires for BOTH real recents-replacement (`forceExpanded`)
-  // and per-shelf full-page intent (`fullPageLayoutOnly`). Only the real
-  // one drives `isFirstShelf` for the hero — full-page with native
-  // recents above must still keep its subtle fade-in.
+  /* 100vh layout fires for BOTH real recents-replacement (`forceExpanded`)
+     and per-shelf full-page intent (`fullPageLayoutOnly`). Only the real
+     one drives `isFirstShelf` for the hero — full-page with native
+     recents above must still keep its subtle fade-in. */
   const fullPageLayoutActive = (forceExpanded || fullPageLayoutOnly) && !pinScrollTop;
   const highlightedSet = useMemo(() => {
     if (!highlightedAppIds?.length) return null;
     return new Set(highlightedAppIds);
   }, [highlightedAppIds]);
-  // X-button binding. `removableSet` is fed in by Shelf.tsx (which has
-  // access to the pre-applyManualOrder resolved source ids — DeckRow
-  // only sees the post-merge `items`, so it can't compute the set
-  // itself). `hiddenSet` is read from settings each render for the
-  // Hide/Show label toggle; both callbacks below persist directly.
+  /* X-button binding. `removableSet` is fed in by Shelf.tsx (which has
+     access to the pre-applyManualOrder resolved source ids — DeckRow
+     only sees the post-merge `items`, so it can't compute the set
+     itself). `hiddenSet` is read from settings each render for the
+     Hide/Show label toggle; both callbacks below persist directly. */
   const hiddenSet = useMemo(() => {
     if (!shelfId) return undefined;
     const s = getCurrentSettings();
@@ -120,20 +120,20 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     return () => window.removeEventListener('ds-shelf-collapsed', onCollapsed as EventListener);
   }, [shelfId]);
   // When our shelf takes the native-recents slot (`forceExpanded=true`),
-  // render it expanded but preserve the user's original collapsed status
-  // untouched — if it later loses the slot (becomes second/third/etc.),
-  // it should return to whatever state the user had chosen. We intentionally
-  // do NOT overwrite `collapsedState` or the persisted `ds-collapsed-{id}`
-  // key while `forceExpanded` is active.
+  /* render it expanded but preserve the user's original collapsed status
+     untouched — if it later loses the slot (becomes second/third/etc.),
+     it should return to whatever state the user had chosen. We intentionally
+     do NOT overwrite `collapsedState` or the persisted `ds-collapsed-{id}`
+     key while `forceExpanded` is active. */
   const collapsed = visuallyForced ? false : collapsedState;
   const [nativeRowClass, setNativeRowClass] = useState('');
 
   // Effective dimensions, computed once at mount from whatever native dims are
-  // already cached. These feed the cards only as the *fallback* of their
-  // --ds-eff-* CSS variables — the live value comes from those vars (set on
-  // the shelf div, resolved from the root --ds-native-* vars that ensureStyles
-  // keeps current). So a dims discovery after mount reflows the cards through
-  // CSS alone, with no React re-render of the 800+ GameCards on the home.
+  /* already cached. These feed the cards only as the *fallback* of their
+     --ds-eff-* CSS variables — the live value comes from those vars (set on
+     the shelf div, resolved from the root --ds-native-* vars that ensureStyles
+     keeps current). So a dims discovery after mount reflows the cards through
+     CSS alone, with no React re-render of the 800+ GameCards on the home. */
   const dims = useMemo(() => {
     const nd = getCachedNativeDims();
     const w = matchNativeSize && nd ? nd.width : CARD_W;
@@ -156,11 +156,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
   }, [matchNativeSize]);
   const { w: effectiveW, h: effectiveH, gap: effectiveGap, featW: effectiveFeaturedW, featH: effectiveFeaturedH, artH: effectiveArtH, featArtH: effectiveFeaturedArtH } = dims;
 
-  // Per-shelf effective-dimension vars. When matchNativeSize is on, the cards
-  // size off the live native dims (root --ds-native-* vars); when off, the
-  // vars are absent and cards fall back to their CARD_W/CARD_ART_H props —
-  // exactly the prior behaviour. Memoized on matchNativeSize alone so a dims
-  // change never recomputes (and thus never re-renders) this object.
+  /* Per-shelf effective-dimension vars. When matchNativeSize is on, the cards
+     size off the live native dims (root --ds-native-* vars); when off, the
+     vars are absent and cards fall back to their CARD_W/CARD_ART_H props —
+     exactly the prior behaviour. Memoized on matchNativeSize alone so a dims
+     change never recomputes (and thus never re-renders) this object. */
   const effShelfVars = useMemo<React.CSSProperties>(() => {
     if (!matchNativeSize) return {};
     return {
@@ -168,11 +168,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       ["--ds-eff-card-h" as string]: `var(--ds-native-card-h, ${CARD_ART_H}px)`,
       ["--ds-eff-card-art-h" as string]: `var(--ds-native-card-art-h, ${CARD_ART_H}px)`,
       ["--ds-eff-feat-w" as string]: `var(--ds-native-feat-w, ${Math.round(CARD_W * 3.21)}px)`,
-      // A featured card must be the SAME height as the regular cards in its
-      // row — only its WIDTH differs. So feat height/art-height intentionally
-      // reuse the regular card's native vars (not the separately-measured
-      // --ds-native-feat-* ones, which track Steam's landscape native card
-      // and would make the featured card taller/shorter than its neighbours).
+      /* A featured card must be the SAME height as the regular cards in its
+         row — only its WIDTH differs. So feat height/art-height intentionally
+         reuse the regular card's native vars (not the separately-measured
+         --ds-native-feat-* ones, which track Steam's landscape native card
+         and would make the featured card taller/shorter than its neighbours). */
       ["--ds-eff-feat-h" as string]: `var(--ds-native-card-h, ${CARD_ART_H}px)`,
       ["--ds-eff-feat-art-h" as string]: `var(--ds-native-card-art-h, ${CARD_ART_H}px)`,
       ["--ds-eff-card-gap" as string]: `max(var(--ds-native-card-gap, ${CARD_GAP}px), 8px)`,
@@ -190,11 +190,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     try { requestAnimationFrame(() => { try { measure?.(`deckRow.render:${shelfId ?? 'unknown'}`, `deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "measure failed", String(e)); } }); } catch (e) { logInfo("HOME", "rAF measure failed", String(e)); }
     const unsub = onNativeDimsChange(() => {
       // The cards resize through CSS (--ds-eff-* vars) with no re-render.
-      // After that reflow the focused card's offsetLeft shifts because
-      // preceding cards resized — the row's scrollLeft (set for the old
-      // layout) leaves the focused card off-center, making the focus look
-      // misplaced. Re-center on the next frame, only if a card in THIS row
-      // currently holds the tracker.
+      /* After that reflow the focused card's offsetLeft shifts because
+         preceding cards resized — the row's scrollLeft (set for the old
+         layout) leaves the focused card off-center, making the focus look
+         misplaced. Re-center on the next frame, only if a card in THIS row
+         currently holds the tracker. */
       try {
         const focused = (globalThis as any).__ds_last_focused_card as HTMLElement | null;
         const row = rowRef.current;
@@ -249,16 +249,16 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       addMapClasses(outerRef.current, 'nativeRecentsSection', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeader', map);
       addMapClasses(titleRef.current, 'nativeRecentsHeaderLabel', map);
-      // Native shelf-container ancestor — required for descendant-selector
-      // theme rules (TiltedHome targets
-      // `_39tNvaLedsTrVh0fFsP4Jm ... _1HIFNGSxh4-jOhPiDynR4C > div:first-child`
-      // and would otherwise never reach DS cards because our shelf root
-      // lacks that ancestor class).
+      /* Native shelf-container ancestor — required for descendant-selector
+         theme rules (TiltedHome targets
+         `_39tNvaLedsTrVh0fFsP4Jm ... _1HIFNGSxh4-jOhPiDynR4C > div:first-child`
+         and would otherwise never reach DS cards because our shelf root
+         lacks that ancestor class). */
       addMapClasses(outerRef.current, 'nativeShelfContainer', map);
-      // Experimental: when `forceCssLoaderThemes` is on, apply the full set
-      // of DFL semantic tokens so themes targeting Title/Section/Collection/
-      // GameRow/Library variants also reach DS shelves. Focus/hover state
-      // classes stay excluded to avoid conflicts with DS focus handling.
+      /* Experimental: when `forceCssLoaderThemes` is on, apply the full set
+         of DFL semantic tokens so themes targeting Title/Section/Collection/
+         GameRow/Library variants also reach DS shelves. Focus/hover state
+         classes stay excluded to avoid conflicts with DS focus handling. */
       if (readForceThemes()) {
         const outerExtras = [
           'nativeSemanticGameRow', 'nativeSection', 'nativeSectionContainer',
@@ -290,10 +290,10 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
 
   
 
-  // Scroll-pin-to-top only fires when this shelf is genuinely replacing
-  // the native recents slot (`pinScrollTop`) — NOT when the user opts
-  // into `fullPageShelf` for visual reasons. Otherwise the shelf traps
-  // the viewport at top 0 and the user can't scroll to siblings.
+  /* Scroll-pin-to-top only fires when this shelf is genuinely replacing
+     the native recents slot (`pinScrollTop`) — NOT when the user opts
+     into `fullPageShelf` for visual reasons. Otherwise the shelf traps
+     the viewport at top 0 and the user can't scroll to siblings. */
   const pinScrollTopRef = useRef(pinScrollTop);
   useEffect(() => { pinScrollTopRef.current = pinScrollTop; }, [pinScrollTop]);
 
@@ -322,11 +322,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     // competing smooth-scrolls that cause visible stutter.
     //
     // Exception: when this shelf is promoted to the native-recents slot
-    // (`forceExpanded=true`), pin the scrollable to the very top — otherwise
-    // the shelf's natural position near scroll content top leaves its header
-    // clipped by prior content (hero, hidden recents spacer). scrollTop=0
-    // is the only position that guarantees the promoted shelf renders in
-    // full below whatever sits above it.
+    /* (`forceExpanded=true`), pin the scrollable to the very top — otherwise
+       the shelf's natural position near scroll content top leaves its header
+       clipped by prior content (hero, hidden recents spacer). scrollTop=0
+       is the only position that guarantees the promoted shelf renders in
+       full below whatever sits above it. */
     const maybeCenter = () => {
       try {
         const scr = findScrollableAncestor(el);
@@ -361,10 +361,10 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
           maybeCenter();
         });
       }
-      // Verification pass after 300ms: covers the recently-expanded-shelf
-      // case where the first scroll reads mid-animation layout or Steam's
-      // native scroll competes with ours. Self-skips via the tolerance
-      // check inside maybeCenter when the shelf is already centered.
+      /* Verification pass after 300ms: covers the recently-expanded-shelf
+         case where the first scroll reads mid-animation layout or Steam's
+         native scroll competes with ours. Self-skips via the tolerance
+         check inside maybeCenter when the shelf is already centered. */
       if (verifyTimer) clearTimeout(verifyTimer);
       verifyTimer = window.setTimeout(() => {
         verifyTimer = null;
@@ -531,11 +531,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       const c = detected;
       // GLOBAL sync cleanup — remove gpfocus from all DS cards in all known
       // Steam documents EXCEPT the one we just observed gaining it. Each
-      // DeckRow's MutationObserver only watches its own row, so without this
-      // cross-row pass, gpfocus from a card in a previously-visited shelf
-      // persists and `findFocusedDsCard` (queries .ds-card.gpfocus across
-      // documents) returns the wrong card in DOM order. Synchronous so the
-      // OPTIONS-button intercept sees a single focused card immediately.
+      /* DeckRow's MutationObserver only watches its own row, so without this
+         cross-row pass, gpfocus from a card in a previously-visited shelf
+         persists and `findFocusedDsCard` (queries .ds-card.gpfocus across
+         documents) returns the wrong card in DOM order. Synchronous so the
+         OPTIONS-button intercept sees a single focused card immediately. */
       try {
         for (const doc of getAllSteamDocuments()) {
           const all = doc.querySelectorAll<HTMLElement>('.ds-card.gpfocus');
@@ -545,11 +545,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       if (rafPending !== null) return;
       rafPending = requestAnimationFrame(() => {
         rafPending = null;
-        // Skip the scroll-to-center when the gpfocus was transient. On a Steam
-        // restart the nav tree is rebuilt and gpfocus flickers across cards
-        // (including late-resolving online shelves) before settling — without
-        // this guard a brief gpfocus on an online card scrolls the viewport to
-        // center that shelf even though real focus ends up elsewhere.
+        /* Skip the scroll-to-center when the gpfocus was transient. On a Steam
+           restart the nav tree is rebuilt and gpfocus flickers across cards
+           (including late-resolving online shelves) before settling — without
+           this guard a brief gpfocus on an online card scrolls the viewport to
+           center that shelf even though real focus ends up elsewhere. */
         if (!c.classList.contains('gpfocus') && c !== c.ownerDocument?.activeElement) return;
         handleFocusedCard(c);
       });
@@ -610,10 +610,10 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       data-shelfid={shelfId || undefined}
       data-ds-hero-enabled={heroEnabled ? 'true' : undefined}
         style={{ position: 'relative', ...effShelfVars, marginBottom: hideStatusLine ? -6 : 12, scrollMarginTop: 60, scrollMarginBottom: 52, overflow: (heroEnabled || enableLogo || enableDescription) ? 'visible' : 'hidden', background: (heroEnabled || enableLogo) ? 'transparent' : 'var(--ds-shell-bg)',
-        // Per-shelf fullPageShelf: shelf takes a full viewport-worth of
-        // space so it looks identical to the first shelf when
-        // hideRecents is on. Cards anchor at the bottom; the hero
-        // composes inside the shelf's own bounds (absolute, height 100%).
+        /* Per-shelf fullPageShelf: shelf takes a full viewport-worth of
+           space so it looks identical to the first shelf when
+           hideRecents is on. Cards anchor at the bottom; the hero
+           composes inside the shelf's own bounds (absolute, height 100%). */
         minHeight: fullPageLayoutActive ? '100vh' : undefined,
         display: fullPageLayoutActive ? 'flex' : undefined,
         flexDirection: fullPageLayoutActive ? 'column' : undefined,
@@ -623,11 +623,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         // (`forceExpanded && !pinScrollTop`) — there the cards sit at the
         // bottom (justify-content: flex-end) and the absolute logo lives
         // in the empty top half, so no extra padding is needed.
-        // When `pinScrollTop` is on (user disabled full-page shelves) the
-        // hero shrinks back to a normal row, so the absolute logo would
-        // overlap the card row unless we still reserve space here.
-        // `forceLayoutAsRecents` (themed shelves without hero art) also
-        // needs the reservation for the same reason.
+        /* When `pinScrollTop` is on (user disabled full-page shelves) the
+           hero shrinks back to a normal row, so the absolute logo would
+           overlap the card row unless we still reserve space here.
+           `forceLayoutAsRecents` (themed shelves without hero art) also
+           needs the reservation for the same reason. */
         paddingTop: (enableLogo && !fullPageLayoutActive) ? (() => {
           const logoHeight = Math.round(130 * logoSize / 100);
           const topOffsetPx = Math.max(0, Math.round(logoTopOffset * 0.32));
@@ -707,11 +707,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
             overflowY: "visible",
             scrollbarWidth: "none",
             // Smooth scroll: instant (auto) tested at 74ms avg latency but
-            // half the presses got swallowed — Steam's nav controller
-            // seems to need the brief scroll animation window to register
-            // subsequent presses. Smooth keeps the press throughput while
-            // still feeling snappy enough with the matched 0.4s card
-            // transition.
+            /* half the presses got swallowed — Steam's nav controller
+               seems to need the brief scroll animation window to register
+               subsequent presses. Smooth keeps the press throughput while
+               still feeling snappy enough with the matched 0.4s card
+               transition. */
             scrollBehavior: "smooth",
             padding: `16px 0 ${_labelOverhangPx({ hideStatusLine, hideGameNames, enableIcon, enableDescription, descriptionBelowLogo })}px 2.8vw`,
           }}
@@ -756,8 +756,8 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
   );
 }
 
-// Shallow-prop memo: `items` is already memoized in ShelfView via useMemo,
-// so re-renders triggered by unrelated parent state (e.g. settings panel
-// updates) don't force a full shelf re-render when only non-visual props
-// have been recomputed identically.
+/* Shallow-prop memo: `items` is already memoized in ShelfView via useMemo,
+   so re-renders triggered by unrelated parent state (e.g. settings panel
+   updates) don't force a full shelf re-render when only non-visual props
+   have been recomputed identically. */
 export const DeckRow = memo(DeckRowImpl);

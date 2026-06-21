@@ -22,10 +22,10 @@ function isRandomOrSmart(shelf: Shelf): boolean {
 function refreshShelfCache(shelf: Shelf): void {
   if (isOnlineSource(shelf.source)) clearOnlineShelfCache()
   if ((shelf.source as any)?.type === 'smart') invalidateSmartShelfCache(shelf.id)
-  // Always clear random-sort cache for THIS shelf so refresh genuinely
-  // re-shuffles; the previous code only ran this branch on offline,
-  // non-smart shelves, so a wishlist/store/smart shelf using random sort
-  // stayed in the same order until the 24h TTL expired.
+  /* Always clear random-sort cache for THIS shelf so refresh genuinely
+     re-shuffles; the previous code only ran this branch on offline,
+     non-smart shelves, so a wishlist/store/smart shelf using random sort
+     stayed in the same order until the 24h TTL expired. */
   invalidateRandomSortCache(shelf.id)
   try { triggerShelfRefresh({ manual: true, shelfId: shelf.id }) } catch {}
 }

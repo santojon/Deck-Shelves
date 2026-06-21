@@ -57,11 +57,11 @@ export type EditableShelfState = {
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean
   hideOwnedNonSteamCloud: boolean
-  // Extra sources stacked on top of the primary. When non-empty, the
-  // shelf saves as `{ type: 'composite', combine, sources: [primary, ...additionalSources] }`.
-  // Empty means the shelf is single-source (saves as the primary type
-  // directly — back-compat with older clients). Forced empty when the
-  // primary is `filter` (filter is exclusive — use filter merge instead).
+  /* Extra sources stacked on top of the primary. When non-empty, the
+     shelf saves as `{ type: 'composite', combine, sources: [primary, ...additionalSources] }`.
+     Empty means the shelf is single-source (saves as the primary type
+     directly — back-compat with older clients). Forced empty when the
+     primary is `filter` (filter is exclusive — use filter merge instead). */
   compositeCombine: 'union' | 'intersection'
   additionalSources: ShelfSource[]
   // Synthetic cards. Stored separately from `additionalSources`

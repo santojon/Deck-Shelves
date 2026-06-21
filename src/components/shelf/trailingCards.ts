@@ -3,10 +3,10 @@ import { isOnlineSource } from "../../domain/sourceUtils";
 
 export type TrailingCardInput = {
   source: any;
-  // sort accepts the single-key string form (back-compat) or the
-  // multi-key array form. For trailing-card decisions we only care about
-  // whether the PRIMARY key is `random`, so the first element of the
-  // array is consulted when an array is passed.
+  /* sort accepts the single-key string form (back-compat) or the
+     multi-key array form. For trailing-card decisions we only care about
+     whether the PRIMARY key is `random`, so the first element of the
+     array is consulted when an array is passed. */
   sort?: string | string[];
   hideSeeMore?: boolean;
   hideRefreshCard?: boolean;

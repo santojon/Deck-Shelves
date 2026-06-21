@@ -10,7 +10,8 @@ import { IntegrationsDetail } from "./settings/details/IntegrationsDetail";
 import { ButtonBindingsDetail } from "./settings/details/ButtonBindingsDetail";
 import { BackupDetail } from "./settings/details/BackupDetail";
 import { AdvancedDetail } from "./settings/details/AdvancedDetail";
-import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon } from "./icons";
+import { StatisticsDetail } from "./settings/details/StatisticsDetail";
+import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon, SlidersIcon } from "./icons";
 import { useLightMode } from "./ui/lightMode";
 
 function tabLabel(icon: React.ReactNode, text: string): string {
@@ -56,6 +57,7 @@ export function SettingsPage() {
               { id: "bindings",     title: tabLabel(<GamepadIcon />,  t("settings_card_bindings_title")),     content: <ButtonBindingsDetail controller={controller} t={t} /> },
             ]),
             { id: "backup",       title: tabLabel(<SaveIcon />,     t("settings_card_backup_title")),       content: <BackupDetail         controller={controller} t={t} /> },
+            { id: "statistics",   title: tabLabel(<SlidersIcon />,  t("settings_card_statistics_title")),   content: <StatisticsDetail     controller={controller} t={t} /> },
             ...(lightMode ? [] : [
               { id: "advanced",     title: tabLabel(<ToolsIcon />,    t("settings_card_advanced_title")),     content: <AdvancedDetail       controller={controller} t={t} /> },
             ]),

@@ -2326,10 +2326,10 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
 };
 
 function evalDefault(item: FilterItem, app: AppOverview): boolean {
-  // first-party Filter v3 evaluators live in a
-  // sibling module to keep `evaluateFilterItem` lean. Lookup hits
-  // before falling through to external plugin filters; v3 ids are
-  // first-party so their handler must take precedence.
+  /* first-party Filter v3 evaluators live in a
+     sibling module to keep `evaluateFilterItem` lean. Lookup hits
+     before falling through to external plugin filters; v3 ids are
+     first-party so their handler must take precedence. */
   try {
     const { FILTER_V3_EVALUATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
     const v3 = FILTER_V3_EVALUATORS[item.type as string];
@@ -3427,10 +3427,10 @@ function rebuildCompositeChildSources(rawChildSources: any[], compositeItems: an
 
 async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
-  // 15 s hard ceiling per child so a single hung online source (e.g. a
-  // wishlist RPC that doesn't time out cleanly) can't park the parent
-  // composite resolve forever. Returning `[]` for a misbehaving child
-  // still lets the union complete with the rest of the data.
+  /* 15 s hard ceiling per child so a single hung online source (e.g. a
+     wishlist RPC that doesn't time out cleanly) can't park the parent
+     composite resolve forever. Returning `[]` for a misbehaving child
+     still lets the union complete with the rest of the data. */
   return Promise.all(
     childSources.map((child) => {
       const inner = resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1);
@@ -3528,11 +3528,11 @@ export async function resolveShelfAppIds(
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);
-  // first-party Shelf Source Ecosystem v3 lives
-  // in a sibling module. Each resolver synchronously projects from
-  // the already-loaded `all` AppOverview list. The resolver receives
-  // `all` and returns the filtered AppOverview[], which we then map
-  // to ids + apply sort + finish overshoot trimming.
+  /* first-party Shelf Source Ecosystem v3 lives
+     in a sibling module. Each resolver synchronously projects from
+     the already-loaded `all` AppOverview list. The resolver receives
+     `all` and returns the filtered AppOverview[], which we then map
+     to ids + apply sort + finish overshoot trimming. */
   try {
     const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
     const v3 = SOURCE_V3_RESOLVERS[source.type];
@@ -3702,11 +3702,11 @@ type EnrichmentExtras = {
 
 function readAppDetailsEnrichment(appid: number): EnrichmentExtras {
   // Reads from our in-memory description cache only — never touches
-  // `appDetailsStore.GetDescriptions/GetAppDetails` here. Those getters
-  // can trigger Steam to internally fetch data lazily, and calling them
-  // for every appid in every shelf at mount time froze the boot.
-  // Consumers that need fresh descriptions should call
-  // `preloadAppDescriptions(appid)` on-demand (focus, tooltip, etc.).
+  /* `appDetailsStore.GetDescriptions/GetAppDetails` here. Those getters
+     can trigger Steam to internally fetch data lazily, and calling them
+     for every appid in every shelf at mount time froze the boot.
+     Consumers that need fresh descriptions should call
+     `preloadAppDescriptions(appid)` on-demand (focus, tooltip, etc.). */
   const cached = _getAppDescriptions(appid);
   if (!cached) return {};
   return {

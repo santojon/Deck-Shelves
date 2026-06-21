@@ -130,11 +130,11 @@ export function applyHideRecents(hidden: boolean): void {
 }
 
 // --- Home tabs (the native home area: recents + friends + novidades, etc.) ---
-// Scope: hide every sibling of our mount inside the same parent. Steam's home
-// viewport places all native "tabs" as siblings of our mount; removing all of
-// them leaves our shelves as the only visible area, which is the contract.
-// Each candidate must carry at least one webpack-hashed token so decorative
-// spacers/stray nodes aren't touched — no hardcoded classes.
+/* Scope: hide every sibling of our mount inside the same parent. Steam's home
+   viewport places all native "tabs" as siblings of our mount; removing all of
+   them leaves our shelves as the only visible area, which is the contract.
+   Each candidate must carry at least one webpack-hashed token so decorative
+   spacers/stray nodes aren't touched — no hardcoded classes. */
 function hideSiblingDisplay(el: HTMLElement): void {
   if (el.dataset.dsHtHidden !== "1") {
     el.dataset.dsHtPrevDisplay = el.style.getPropertyValue("display") || "";
@@ -174,10 +174,10 @@ function setSiblingHidden(el: HTMLElement, hidden: boolean) {
 
 const hiddenHomeTabs = new Set<HTMLElement>();
 
-// Identify the "home tabs" siblings (Novidades/Amigos/Recomendados). These are
-// distinguished by containing a [role=tablist] descendant — a semantic marker
-// that survives Steam bundle renames and doesn't overlap with recents (which
-// has no tablist).
+/* Identify the "home tabs" siblings (Novidades/Amigos/Recomendados). These are
+   distinguished by containing a [role=tablist] descendant — a semantic marker
+   that survives Steam bundle renames and doesn't overlap with recents (which
+   has no tablist). */
 function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
   const parent = mountEl.parentElement;
   if (!parent) return [];
@@ -321,10 +321,10 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
   return out;
 }
 
-// Hardcoded fallback for the native shelf-section token. Used only when the
-// runtime classmap hasn't been populated yet (very early boot, before
-// `discoverClassMap` runs). Anywhere else, prefer the live token via
-// `shelfSectionSelector(doc)`.
+/* Hardcoded fallback for the native shelf-section token. Used only when the
+   runtime classmap hasn't been populated yet (very early boot, before
+   `discoverClassMap` runs). Anywhere else, prefer the live token via
+   `shelfSectionSelector(doc)`. */
 const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
 function shelfSectionSelector(doc: Document): string {
@@ -860,10 +860,10 @@ export function installHomePatch(_routerHook?: any) {
 
   const { win: hostWin, doc: hostDoc } = getHostContext();
   observer?.disconnect();
-  // rAF-throttle: a body+subtree observer fires hundreds of times per
-  // second at boot while Steam's UI hydrates. Coalescing to one call per
-  // frame keeps the early-mount path responsive without losing coverage
-  // of structural DOM changes the mount detection needs to react to.
+  /* rAF-throttle: a body+subtree observer fires hundreds of times per
+     second at boot while Steam's UI hydrates. Coalescing to one call per
+     frame keeps the early-mount path responsive without losing coverage
+     of structural DOM changes the mount detection needs to react to. */
   let fallbackPending: number | null = null;
   const scheduleFallback = () => {
     if (fallbackPending != null) return;

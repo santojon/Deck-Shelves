@@ -35,11 +35,11 @@ function getFocusNavController(): any {
   return (globalThis as any).FocusNavController;
 }
 
-// On cold boot / after a plugin reload, `m_ActiveContext` can exist but
-// carry EMPTY trees while `m_LastActiveContext` holds the home tree. The
-// old `m_ActiveContext || m_LastActiveContext` picked the empty active
-// context and never fell through. Gather trees from BOTH so node lookup
-// works whenever the home is rendered, active or not.
+/* On cold boot / after a plugin reload, `m_ActiveContext` can exist but
+   carry EMPTY trees while `m_LastActiveContext` holds the home tree. The
+   old `m_ActiveContext || m_LastActiveContext` picked the empty active
+   context and never fell through. Gather trees from BOTH so node lookup
+   works whenever the home is rendered, active or not. */
 function getNavTrees(): any[] {
   const ctrl = getFocusNavController();
   if (!ctrl) return [];
@@ -179,11 +179,11 @@ export function beginFocusRestoreLoop(): void {
   // Steam's native "focus first card on home mount" (issue #38) fires once,
   // ~0.8-1.8s after the home remounts — well AFTER our initial restore lands.
   // Poll for 2s and, the first time focus has drifted off the target card,
-  // re-take it. Bounded to one re-take so the user's own later navigation is
-  // never fought. Gated on `activeAbort === abort` (NOT `abort.signal`, which
-  // `succeed()` itself sets) so a newer restore loop cancels this.
-  // 5 s + up to 5 re-takes. Steam's native focus-first-card reflex can
-  // fire as late as 3 s after the home remounts.
+  /* re-take it. Bounded to one re-take so the user's own later navigation is
+     never fought. Gated on `activeAbort === abort` (NOT `abort.signal`, which
+     `succeed()` itself sets) so a newer restore loop cancels this.
+     5 s + up to 5 re-takes. Steam's native focus-first-card reflex can
+     fire as late as 3 s after the home remounts. */
   const scheduleConfirmation = () => {
     let reTakes = 0;
     const start = Date.now();
@@ -248,11 +248,11 @@ export function beginFocusRestoreLoop(): void {
   observer.observe(observeRoot, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
 
   // setTimeout-based poll — NOT requestAnimationFrame. The plugin runs in the
-  // headless SharedJSContext, which has no render loop, so rAF callbacks never
-  // fire there; an rAF-driven retry would silently never run. Polling every
-  // ~120ms keeps re-issuing BTakeFocus until the rebuilt nav tree settles and
-  // the focus actually sticks. 3.5s window covers a shelf below the fold that
-  // renders ~2-3s after the home remounts.
+  /* headless SharedJSContext, which has no render loop, so rAF callbacks never
+     fire there; an rAF-driven retry would silently never run. Polling every
+     ~120ms keeps re-issuing BTakeFocus until the rebuilt nav tree settles and
+     the focus actually sticks. 3.5s window covers a shelf below the fold that
+     renders ~2-3s after the home remounts. */
   const DEADLINE = Date.now() + 3500;
   const tick = () => {
     if (isDone()) return;

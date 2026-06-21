@@ -1,7 +1,7 @@
-// Menu-item builders extracted from steamGameMenu.ts to keep the
-// orchestration file under the 1k-line cap. Pure construction — no
-// module-global reads. `activeAppId` / `activeCardIndex` flow in from
-// the caller so the builder stays a function of its inputs.
+/* Menu-item builders extracted from steamGameMenu.ts to keep the
+   orchestration file under the 1k-line cap. Pure construction — no
+   module-global reads. `activeAppId` / `activeCardIndex` flow in from
+   the caller so the builder stays a function of its inputs. */
 import { MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";

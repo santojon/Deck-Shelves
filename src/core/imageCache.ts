@@ -19,11 +19,11 @@ function touchHot(url: string, entry: HotEntry): void {
     if (oldestKey === undefined) break;
     const oldest = hot.get(oldestKey);
     if (oldest) {
-      // Defer revoke by 30 s — gives any card still rendering with
-      // this blob URL time to detect via onError (or re-render with a
-      // fresh resolution) before the URL becomes invalid. Immediate
-      // revocation was visible as a broken-image flash on cards whose
-      // resolved src happened to be the entry that just evicted.
+      /* Defer revoke by 30 s — gives any card still rendering with
+         this blob URL time to detect via onError (or re-render with a
+         fresh resolution) before the URL becomes invalid. Immediate
+         revocation was visible as a broken-image flash on cards whose
+         resolved src happened to be the entry that just evicted. */
       const dead = oldest.blobUrl;
       setTimeout(() => { try { URL.revokeObjectURL(dead); } catch {} }, 30_000);
     }

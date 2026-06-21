@@ -1,7 +1,7 @@
-// Maps the legacy "shelves" / "smart" / "all" scope used by the per-area
-// Export / Import / Reset modals to the shared SETTINGS_CATEGORIES set
-// the unified modal exposes. Centralises the mapping so every entry
-// point goes through the same picker / merge / reset code path.
+/* Maps the legacy "shelves" / "smart" / "all" scope used by the per-area
+   Export / Import / Reset modals to the shared SETTINGS_CATEGORIES set
+   the unified modal exposes. Centralises the mapping so every entry
+   point goes through the same picker / merge / reset code path. */
 
 import { ALL_CATEGORY_IDS } from "./settingsCategories";
 

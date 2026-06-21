@@ -1,7 +1,7 @@
-// Composite-source exhaustion + "+ Add source" picker helpers for
-// EditShelfModal. Each single-instance type (filter/wishlist/store) is
-// capped at one across primary + additional rows; tab/collection are
-// capped at the total catalog size.
+/* Composite-source exhaustion + "+ Add source" picker helpers for
+   EditShelfModal. Each single-instance type (filter/wishlist/store) is
+   capped at one across primary + additional rows; tab/collection are
+   capped at the total catalog size. */
 import type { SingleDropdownOption } from '../../../../runtime/host/decky';
 import type { EditableShelfState } from './types';
 

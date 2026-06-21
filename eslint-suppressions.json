@@ -64,7 +64,7 @@
   },
   "src/components/qam/modals/EditShelfModal.tsx": {
     "complexity": {
-      "count": 6
+      "count": 4
     }
   },
   "src/components/qam/modals/EditSmartShelfModal.tsx": {
@@ -94,7 +94,7 @@
   },
   "src/components/qam/modals/editShelf/ShelfPreview.tsx": {
     "complexity": {
-      "count": 6
+      "count": 4
     }
   },
   "src/components/qam/modals/editShelf/SortField.tsx": {
@@ -164,7 +164,7 @@
   },
   "src/components/shelf/shelfStyles.ts": {
     "complexity": {
-      "count": 9
+      "count": 4
     }
   },
   "src/components/styles/DeckModalStyles.tsx": {
@@ -314,7 +314,7 @@
   },
   "src/runtime/recentsReplace.tsx": {
     "complexity": {
-      "count": 7
+      "count": 4
     }
   },
   "src/runtime/steamHost.ts": {

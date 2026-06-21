@@ -152,10 +152,10 @@ export async function getStoreGameIds(): Promise<number[] | null> {
 
   storeInFlight = (async () => {
     try {
-      // Fetch specials (on-sale), free games, and popular/featured in parallel.
-      // Promise.allSettled handles individual request failures so a single
-      // timeout or error doesn't block the other two fetches.
-      // Including maxprice=free ensures "free now" shelves find free games.
+      /* Fetch specials (on-sale), free games, and popular/featured in parallel.
+         Promise.allSettled handles individual request failures so a single
+         timeout or error doesn't block the other two fetches.
+         Including maxprice=free ensures "free now" shelves find free games. */
       const withTimeout = (url: string, ms = 6000) => {
         const ac = new AbortController();
         const tid = setTimeout(() => ac.abort(), ms);
@@ -192,11 +192,11 @@ export async function getStoreGameIds(): Promise<number[] | null> {
         if (!ct.includes("json")) continue;
         const json = await resp.json();
         // Each item carries `final_price` / `original_price` (cents) /
-        // `discounted` (bool) in addition to `name` + `logo`. Capturing
-        // these lets us pre-populate the price cache so a "100% off" /
-        // "Free now" discount filter has real data without waiting on a
-        // secondary api/appdetails fetch (which often returns success:false
-        // for free-weekend titles → cached unpriced → filter excludes them).
+        /* `discounted` (bool) in addition to `name` + `logo`. Capturing
+           these lets us pre-populate the price cache so a "100% off" /
+           "Free now" discount filter has real data without waiting on a
+           secondary api/appdetails fetch (which often returns success:false
+           for free-weekend titles → cached unpriced → filter excludes them). */
         const items: Array<{ name?: string; logo?: string; final_price?: number; original_price?: number; discounted?: boolean }> = json?.items ?? [];
         for (const item of items) {
           const m = item?.logo?.match(/\/apps\/(\d+)\//);
@@ -302,11 +302,11 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
   try {
     if (Date.now() < (backoffUntil[PRICE_KEY] ?? 0)) return result;
 
-    // Fetch budget is bounded by `deadline` below — the per-call cap was
-    // raised from 200 to 800 so store-source resolves with a discount
-    // filter (e.g. "100% off" / "Free now") actually cover the full
-    // specials list. Past 200, otherwise-promoted-free games slipped
-    // through uncached and the discount filter rejected them.
+    /* Fetch budget is bounded by `deadline` below — the per-call cap was
+       raised from 200 to 800 so store-source resolves with a discount
+       filter (e.g. "100% off" / "Free now") actually cover the full
+       specials list. Past 200, otherwise-promoted-free games slipped
+       through uncached and the discount filter rejected them. */
     const limited = toFetch.slice(0, 800);
 
     const BATCH = 50;

@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 
 // The QAM-expanded state is per QAM session: it never survives across
 // QAM open/close cycles, even when the plugin tab itself stays mounted
-// in SharedJSContext. Persisting at the module level produced stale-open
-// reports — every fresh QAM open inherited the previous session's state.
-// Backed by sessionStorage so the EXTERNAL setter (dpad bridge, CDP
-// probes) can write before the React hook subscribes, and the popup's
-// own browser context clears the store when Steam tears it down.
+/* in SharedJSContext. Persisting at the module level produced stale-open
+   reports — every fresh QAM open inherited the previous session's state.
+   Backed by sessionStorage so the EXTERNAL setter (dpad bridge, CDP
+   probes) can write before the React hook subscribes, and the popup's
+   own browser context clears the store when Steam tears it down. */
 const STORAGE_KEY = '__ds_qam_expanded__';
 const emitter = new EventTarget();
 const EVENT = 'ds-qam-expanded-changed';
@@ -65,10 +65,10 @@ export function toggleQamExpanded(): void {
   setQamExpanded((v) => !v);
 }
 
-// Debug hook used by the screenshot scripts and CDP probes to drive the
-// sidecar open/closed without having to simulate a real gamepad input
-// (SteamClient.Input doesn't fire for dispatched keyboard events). Safe
-// to leave always-on — it's the same setter the React tree calls.
+/* Debug hook used by the screenshot scripts and CDP probes to drive the
+   sidecar open/closed without having to simulate a real gamepad input
+   (SteamClient.Input doesn't fire for dispatched keyboard events). Safe
+   to leave always-on — it's the same setter the React tree calls. */
 try {
   const g = globalThis as unknown as { __ds_qam_expanded__?: unknown };
   g.__ds_qam_expanded__ = { set: setQamExpanded, get: getQamExpanded, toggle: toggleQamExpanded };

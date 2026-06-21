@@ -47,11 +47,11 @@ export function FieldContainer({
   const base: CSSProperties = {
     // Bottom padding (when scrollable) extends the scrollable area so
     // `scrollIntoView({ block: 'nearest' })` honoring `scrollMarginBottom`
-    // on focused cards can actually scroll the FC enough to reveal the 2px
-    // selected-card outline / focus glow that renders below the card's
-    // bounding box. Without this padding the FC could be at scrollMax with
-    // the focused card flush against the visible bottom edge — the outline
-    // (2px) and any external glow get clipped by the overflow:auto cut-off.
+    /* on focused cards can actually scroll the FC enough to reveal the 2px
+       selected-card outline / focus glow that renders below the card's
+       bounding box. Without this padding the FC could be at scrollMax with
+       the focused card flush against the visible bottom edge — the outline
+       (2px) and any external glow get clipped by the overflow:auto cut-off. */
     padding: scrollable ? '0 42px 36px' : '0 42px',
     boxSizing: 'border-box',
     ...(scrollable ? { maxHeight: 'min(calc(100vh - 190px), 500px)', overflowY: 'auto', overflowX: 'hidden' } : {}),

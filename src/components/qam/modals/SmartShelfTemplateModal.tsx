@@ -39,10 +39,10 @@ export const SMART_TEMPLATES: SmartTemplate[] = [
   { mode: "weekly_rotation",        titleKey: "smart_template_weekly_rotation",        category: "other" },
   { mode: "monthly_spotlight",      titleKey: "smart_template_monthly_spotlight",      category: "other" },
   { mode: "seasonal_rotation",      titleKey: "smart_template_seasonal_rotation",      category: "other" },
-  // Runtime-aware templates: depend on battery state (low_battery_mode) or
-  // SteamClient.Apps appDetails (almost_finished / couch_gaming / coop_ready
-  // / party_games). Best-effort — render empty when the runtime signal isn't
-  // accessible (older SteamOS, non-Deck environments).
+  /* Runtime-aware templates: depend on battery state (low_battery_mode) or
+     SteamClient.Apps appDetails (almost_finished / couch_gaming / coop_ready
+     / party_games). Best-effort — render empty when the runtime signal isn't
+     accessible (older SteamOS, non-Deck environments). */
   { mode: "low_battery_mode",       titleKey: "smart_template_low_battery_mode",       category: "status" },
   { mode: "almost_finished",        titleKey: "smart_template_almost_finished",        category: "status" },
   { mode: "couch_gaming",           titleKey: "smart_template_couch_gaming",           category: "status" },
@@ -97,10 +97,10 @@ export function SmartShelfTemplateModal({ closeModal, controller }: { closeModal
     const draft = actions.createDraftSmartShelf("custom" as SmartShelfMode, t('smart_template_custom' as any))
     openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={draft} mode='create' />)
   }
-  // Hide online-gated templates from the picker when onlineFeaturesEnabled
-  // is off (mirrors the requiresOnline pattern for sort options). The
-  // resolver also returns empty when offline; this just keeps the picker
-  // focused on what will actually produce a useful shelf.
+  /* Hide online-gated templates from the picker when onlineFeaturesEnabled
+     is off (mirrors the requiresOnline pattern for sort options). The
+     resolver also returns empty when offline; this just keeps the picker
+     focused on what will actually produce a useful shelf. */
   const onlineEnabled = controller.settings?.onlineFeaturesEnabled === true
   const ONLINE_GATED_MODES: ReadonlySet<string> = new Set(['friends_playing'])
   const visibleTemplates = onlineEnabled

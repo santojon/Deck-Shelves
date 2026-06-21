@@ -1,11 +1,11 @@
 // heuristic primitives shared across the v2 smart templates.
 //
 // Five pure helpers. Each takes the candidate AppOverview pool + a
-// caller-provided signal extractor + a config object; returns a
-// ranked / filtered slice. No I/O, no state outside the locally-scoped
-// cooldown LRU below (which is bounded to ~64 shelves and cleared on
-// resolver reload). Safe to call inside a `resolveSmart*` function
-// without re-entrancy concerns.
+/* caller-provided signal extractor + a config object; returns a
+   ranked / filtered slice. No I/O, no state outside the locally-scoped
+   cooldown LRU below (which is bounded to ~64 shelves and cleared on
+   resolver reload). Safe to call inside a `resolveSmart*` function
+   without re-entrancy concerns. */
 import type { AppOverview } from "./index";
 
 const appIdOf = (a: AppOverview) => (a as any).appid as number;
@@ -57,10 +57,10 @@ export function timeDecayScore(
   return Math.pow(0.5, ageDays / halfLifeDays);
 }
 
-// Cooldown — a bounded per-shelf set of recently-surfaced appids. The
-// set survives between resolver calls in the same session but is
-// cleared on plugin reload. Backed by an LRU so unused shelves drop
-// off rather than growing unbounded.
+/* Cooldown — a bounded per-shelf set of recently-surfaced appids. The
+   set survives between resolver calls in the same session but is
+   cleared on plugin reload. Backed by an LRU so unused shelves drop
+   off rather than growing unbounded. */
 const COOLDOWN_LRU = new Map<string, Map<number, number>>();
 const COOLDOWN_LRU_CAP = 64;
 function getCooldownMap(shelfKey: string): Map<number, number> {

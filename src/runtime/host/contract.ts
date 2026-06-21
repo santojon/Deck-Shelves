@@ -2,11 +2,11 @@
 //
 // Capability interfaces consumed by the Deck Shelves bundle. Adapters
 // fulfil this shape so the bundle's call sites don't depend on
-// `@decky/*` imports directly:
-//   - `DeckyHostApi` (Decky Loader runtime; only place new `@decky/*`
-//     imports may be added).
-//
-// Scope: capability interfaces + re-export shapes only. No behavior.
+/* `@decky/*` imports directly:
+     - `DeckyHostApi` (Decky Loader runtime; only place new `@decky/*`
+       imports may be added).
+
+   Scope: capability interfaces + re-export shapes only. No behavior. */
 import type { PlatformApi } from "../platform";
 
 export const HOST_API_VERSION = "1.0.0" as const;

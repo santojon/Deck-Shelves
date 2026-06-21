@@ -21,10 +21,10 @@ export function useSettingsController() {
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
-  // Initialise tabs from the localStorage cache so the shelf editor shows the
-  // correct tab list instantly on every QAM open (the QAM remounts each time,
-  // so useState([]) would show an empty dropdown for the 200–500ms while the
-  // async listLibraryTabs() IPC round-trip completes).
+  /* Initialise tabs from the localStorage cache so the shelf editor shows the
+     correct tab list instantly on every QAM open (the QAM remounts each time,
+     so useState([]) would show an empty dropdown for the 200–500ms while the
+     async listLibraryTabs() IPC round-trip completes). */
   const [tabs, setTabs] = useState<PlatformTab[]>(() => {
     try {
       const raw = localStorage.getItem('ds-tabs-cache-v1');
@@ -35,11 +35,11 @@ export function useSettingsController() {
 
   useEffect(() => {
     // The 5 native library tabs Steam exposes by default. Used whenever the
-    // discovery chain in `listLibraryTabs` returns nothing — covers both
-    // promise rejection (unhandled throw inside one of the integrations)
-    // AND the legit-resolved-but-empty case (no TabMaster, no fiber ctx,
-    // no DOM tabs). Without this the EditShelfModal's tab dropdown ends up
-    // empty whenever the host-window-walk hits a Proxy that throws.
+    /* discovery chain in `listLibraryTabs` returns nothing — covers both
+       promise rejection (unhandled throw inside one of the integrations)
+       AND the legit-resolved-but-empty case (no TabMaster, no fiber ctx,
+       no DOM tabs). Without this the EditShelfModal's tab dropdown ends up
+       empty whenever the host-window-walk hits a Proxy that throws. */
     const NATIVE_DEFAULT_TABS: PlatformTab[] = [
       { id: "all",       name: "All Games" },
       { id: "favorites", name: "Favorites" },
@@ -87,11 +87,11 @@ export function useSettingsController() {
     refreshSettings().catch((error) => logDiagnostic("error", "Failed to load settings", String(error)));
     // Collection refresh — same shape as tabs. Steam's collectionStore is
     // a MobX store that races plugin boot: a single call at mount time
-    // sometimes returned [] (computed not ready), leaving the Edit Shelf
-    // modal's collection picker permanently empty. The periodic refresh
-    // fills the picker as soon as Steam exposes the data, and survives
-    // QAM hot-reloads / settings round-trips. The setter no-ops when the
-    // new list matches the current one so React doesn't churn.
+    /* sometimes returned [] (computed not ready), leaving the Edit Shelf
+       modal's collection picker permanently empty. The periodic refresh
+       fills the picker as soon as Steam exposes the data, and survives
+       QAM hot-reloads / settings round-trips. The setter no-ops when the
+       new list matches the current one so React doesn't churn. */
     const refreshCollections = () => {
       platform.listCollections().then((next) => {
         setCollections((current) => {
@@ -166,11 +166,11 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || (s.updateNotifyEnabled ?? true) === updateNotifyEnabled) return;
       // Re-enabling the toggle clears the "dismissed version" pin so the
-      // banner / toast can surface again — otherwise a user who dismissed
-      // a release (or accidentally hit dismiss) had no way to make the
-      // notification reappear short of editing localStorage. The OFF → ON
-      // edge is the closest natural signal we have to "I want to see
-      // update notifications again".
+      /* banner / toast can surface again — otherwise a user who dismissed
+         a release (or accidentally hit dismiss) had no way to make the
+         notification reappear short of editing localStorage. The OFF → ON
+         edge is the closest natural signal we have to "I want to see
+         update notifications again". */
       const next = updateNotifyEnabled
         ? { ...s, updateNotifyEnabled, updateNotifyDismissedVersion: undefined }
         : { ...s, updateNotifyEnabled };
@@ -185,11 +185,11 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.hideRecents === hideRecents) return;
       // Only the hard "no shelves at all" case blocks — without this the
-      // user would lock themselves out of the home with nothing on screen.
-      // We deliberately do NOT resolve every shelf's appIds here anymore:
-      // online sources (wishlist / store) and composite sources can return
-      // `[]` while their price/store caches warm, and that transient state
-      // was making the toggle bounce back to OFF when the user enabled it.
+      /* user would lock themselves out of the home with nothing on screen.
+         We deliberately do NOT resolve every shelf's appIds here anymore:
+         online sources (wishlist / store) and composite sources can return
+         `[]` while their price/store caches warm, and that transient state
+         was making the toggle bounce back to OFF when the user enabled it. */
       if (hideRecents) {
         const visible = (s.shelves ?? []).filter((sh) => sh.enabled && !sh.hidden);
         if (!visible.length) {

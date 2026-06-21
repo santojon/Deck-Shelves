@@ -52,10 +52,10 @@ const ROWS: BindingRow[] = [
   { key: "navSideNav",          labelKey: "binding_nav_sidenav",      nullable: false },
 ];
 
-// Quick gamepad-button glyph. Renders a small bordered chip with the
-// token name. Steam doesn't expose a per-controller button icon API we
-// can call from inside the plugin, so we use the literal token name
-// (VIEW / MENU / X / Y / L1 / R1 / …) as a stable label.
+/* Quick gamepad-button glyph. Renders a small bordered chip with the
+   token name. Steam doesn't expose a per-controller button icon API we
+   can call from inside the plugin, so we use the literal token name
+   (VIEW / MENU / X / Y / L1 / R1 / …) as a stable label. */
 function ButtonGlyph({ token }: { token: string }) {
   const t = token.toUpperCase();
   const styleBase: React.CSSProperties = {

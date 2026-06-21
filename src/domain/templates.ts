@@ -22,11 +22,11 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     id: "recent",
     titleKey: "template_recent",
     category: "time",
-    // listLibraryTabs() exposes [all, favorites, installed, hidden, nonsteam]
-    // — no "recent" tab. A tab-source shelf with tab="recent" can't be
-    // matched in the edit modal's dropdown and visibly falls back to the
-    // first option. Filter source with sort="recent" reproduces "recently
-    // played" semantically and round-trips cleanly through the modal.
+    /* listLibraryTabs() exposes [all, favorites, installed, hidden, nonsteam]
+       — no "recent" tab. A tab-source shelf with tab="recent" can't be
+       matched in the edit modal's dropdown and visibly falls back to the
+       first option. Filter source with sort="recent" reproduces "recently
+       played" semantically and round-trips cleanly through the modal. */
     source: { type: "filter", filter: { sort: "recent" } },
   },
   {
@@ -34,11 +34,11 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     titleKey: "template_installed",
     category: "status",
     // Use the legacy `installed: true` filter directly — Steam's tab
-    // store reliably populates LATE (or sometimes not at all on certain
-    // theme combinations), and chasing it through the tab→fallback path
-    // produced empty shelves for some users. The filter reads off the
-    // same `installed` field every shelf already consults, so the result
-    // is identical to what Steam's "Installed" tab would return.
+    /* store reliably populates LATE (or sometimes not at all on certain
+       theme combinations), and chasing it through the tab→fallback path
+       produced empty shelves for some users. The filter reads off the
+       same `installed` field every shelf already consults, so the result
+       is identical to what Steam's "Installed" tab would return. */
     source: { type: "filter", filter: { installed: true, sort: "alphabetical" } },
   },
   {
@@ -75,10 +75,10 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     id: "steam_cloud",
     titleKey: "template_steam_cloud",
     category: "platform",
-    // cloudAvailable / controllerSupport / deckCompatibility aren't on the
-    // flat ShelfFilter schema — wrap them in a filterGroup so the resolver
-    // routes through evaluateFilterGroup. Same pattern works in the Edit
-    // modal Filters tab without any schema migration.
+    /* cloudAvailable / controllerSupport / deckCompatibility aren't on the
+       flat ShelfFilter schema — wrap them in a filterGroup so the resolver
+       routes through evaluateFilterGroup. Same pattern works in the Edit
+       modal Filters tab without any schema migration. */
     source: {
       type: "filter",
       filter: {
@@ -104,6 +104,27 @@ export const SHELF_TEMPLATES: ShelfTemplate[] = [
     titleKey: "template_top_reviewed",
     category: "status",
     source: { type: "filter", filter: { sort: "review_score" } },
+  },
+  {
+    id: "never_played",
+    titleKey: "template_never_played",
+    category: "status",
+    // Backlog: maps to the `never_played_games` statistic. maxPlaytimeMinutes:0
+    // means playtime_forever <= 0 — games you own but never launched.
+    source: { type: "filter", filter: { maxPlaytimeMinutes: 0, sort: "alphabetical" } },
+  },
+  {
+    id: "deck_playable",
+    titleKey: "template_deck_playable",
+    category: "platform",
+    // Pairs with deck_verified; maps to the `deck_playable` statistic.
+    source: {
+      type: "filter",
+      filter: {
+        filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["playable"] } }] },
+        sort: "alphabetical",
+      },
+    },
   },
 ];
 

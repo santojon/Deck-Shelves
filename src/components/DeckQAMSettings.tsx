@@ -88,18 +88,18 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
   // If the controller isn't fully ready (settings unhydrated), the inner
   // GeneralTab `if (!settings) return null` short-circuits and the sidecar
   // would render as an empty body — which is what users see after the
-  // Steam-menu-over-QAM cycle when Decky re-mounts the plugin tab before
-  // refreshSettings has populated state. Bail at this layer so the
-  // sidecar simply doesn't appear at all in that state; the caller's
-  // qamExpanded flag stays in sync and the user gets either "closed" or
-  // "open with content" — never the bug-state of "open with no content".
+  /* Steam-menu-over-QAM cycle when Decky re-mounts the plugin tab before
+     refreshSettings has populated state. Bail at this layer so the
+     sidecar simply doesn't appear at all in that state; the caller's
+     qamExpanded flag stays in sync and the user gets either "closed" or
+     "open with content" — never the bug-state of "open with no content". */
   if (!controller?.settings) return null;
   const innerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // Take focus on the first focusable INSIDE the sidecar. We avoid
-    // giving the wrapper itself an `onActivate` so the wrapper is a
-    // pure container (layout-only) and Steam's nav can move between
-    // inner focusables instead of stopping at the wrapper.
+    /* Take focus on the first focusable INSIDE the sidecar. We avoid
+       giving the wrapper itself an `onActivate` so the wrapper is a
+       pure container (layout-only) and Steam's nav can move between
+       inner focusables instead of stopping at the wrapper. */
     const id = window.setTimeout(() => {
       const el = innerRef.current;
       if (!el) return;
@@ -108,10 +108,10 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
     }, 90);
     return () => window.clearTimeout(id);
   }, []);
-  // Size the sidecar from the live QAM panel + plugin tab dimensions so the
-  // panel fits whatever screen size Steam is rendering at (handheld,
-  // docked TV, Big Picture on 4K, custom window sizes). Fallbacks keep the
-  // legacy 503×440 values whenever measurements aren't available yet.
+  /* Size the sidecar from the live QAM panel + plugin tab dimensions so the
+     panel fits whatever screen size Steam is rendering at (handheld,
+     docked TV, Big Picture on 4K, custom window sizes). Fallbacks keep the
+     legacy 503×440 values whenever measurements aren't available yet. */
   useEffect(() => {
     const innerEl = innerRef.current;
     if (!innerEl) return;
@@ -294,19 +294,19 @@ function useDpadExpandBridge(
       if (f && f.closest('.deck-shelves-qam-sidecar')) {
         lastFocusWasInSidecar = true;
       }
-      // Eye-column vertical nav: when Steam moves focus from an eye
-      // button to a non-eye element on a different visual row (i.e. the
-      // user pressed dpad-up / dpad-down while on the eye), redirect to
-      // the adjacent eye instead.
+      /* Eye-column vertical nav: when Steam moves focus from an eye
+         button to a non-eye element on a different visual row (i.e. the
+         user pressed dpad-up / dpad-down while on the eye), redirect to
+         the adjacent eye instead. */
       if (prev && f && prev !== f) {
         const prevIsEye = prev.classList.contains('ds-eye-btn');
         const fIsEye = f.classList.contains('ds-eye-btn');
         const inSidecar = !!f.closest('.deck-shelves-qam-sidecar');
         if (inSidecar && prevIsEye && !fIsEye) {
-          // Only redirect when the focus moved to a DIFFERENT row
-          // (vertical nav). Horizontal nav stays in the same row so
-          // dpad-left from the eye should reach the toggle / header to
-          // its left untouched.
+          /* Only redirect when the focus moved to a DIFFERENT row
+             (vertical nav). Horizontal nav stays in the same row so
+             dpad-left from the eye should reach the toggle / header to
+             its left untouched. */
           const prevRow = prev.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
           const curRow = f.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
           const movedRow = !!prevRow && !!curRow && prevRow !== curRow;
@@ -363,11 +363,11 @@ export function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<s
   return parent ? isToggleHiddenWithAncestors(parent, hidden) : false;
 }
 
-// Tracks whether the previous focus we saw from this handler was inside the
-// sidecar. Needed because Steam processes dpad-left and moves the gamepad
-// focus from sidecar back to main *before* our SteamClient.Input listener
-// runs — by the time we look at `.gpfocus`, the user has already "left"
-// the sidecar visually.
+/* Tracks whether the previous focus we saw from this handler was inside the
+   sidecar. Needed because Steam processes dpad-left and moves the gamepad
+   focus from sidecar back to main *before* our SteamClient.Input listener
+   runs — by the time we look at `.gpfocus`, the user has already "left"
+   the sidecar visually. */
 let lastFocusWasInSidecar = false;
 let lastRightTarget: HTMLElement | null = null;
 
@@ -386,11 +386,11 @@ function handleDpadInput(
   const focused = doc.querySelector('.gpfocus') as HTMLElement | null;
   if (!focused) return;
   const insideSidecar = !!focused.closest('.deck-shelves-qam-sidecar');
-  // Eye-column vertical nav is handled in the MutationObserver in
-  // `useDpadExpandBridge` — once Steam moves focus off the eye, the
-  // observer redirects to the adjacent eye. That's more reliable than
-  // racing here because Steam's nav has already updated `.gpfocus` by
-  // the time this callback fires.
+  /* Eye-column vertical nav is handled in the MutationObserver in
+     `useDpadExpandBridge` — once Steam moves focus off the eye, the
+     observer redirects to the adjacent eye. That's more reliable than
+     racing here because Steam's nav has already updated `.gpfocus` by
+     the time this callback fires. */
   if (button === DPAD_UP || button === DPAD_DOWN) return;
   const main = scope.querySelector('.deck-shelves-qam-main');
   const insideMain = !!(main && main.contains(focused));
@@ -415,15 +415,15 @@ function handleDpadInput(
     return;
   }
   if (button === DPAD_RIGHT && insideMain && main) {
-    // Sliders consume horizontal dpad to change their value (the focus
-    // stays on the slider track) — without this bail, holding right on
-    // a slider would trip the "focus didn't move" check and pop the
-    // sidecar open mid-adjustment.
+    /* Sliders consume horizontal dpad to change their value (the focus
+       stays on the slider track) — without this bail, holding right on
+       a slider would trip the "focus didn't move" check and pop the
+       sidecar open mid-adjustment. */
     if (focused.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]')) return;
-    // Only expand when the focused element is already at (or very near)
-    // the right edge of the main panel. Otherwise a dpad-right from a
-    // mid-row button (where Steam can't move horizontally) would falsely
-    // trigger the expand.
+    /* Only expand when the focused element is already at (or very near)
+       the right edge of the main panel. Otherwise a dpad-right from a
+       mid-row button (where Steam can't move horizontally) would falsely
+       trigger the expand. */
     const fRect = focused.getBoundingClientRect();
     const mRect = main.getBoundingClientRect();
     if (mRect.right - fRect.right > 40) return;
@@ -497,30 +497,30 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const lightMode = useLightMode();
   const [disableHideRecents, setDisableHideRecents] = useState(false);
   // Experimental opt-in: ask Steam to render the QAM in the wide layout
-  // so we can show a sidecar to the right of the DS plugin tab. Drives a
-  // postMessage to the SharedJSContext (window.opener of the QAM) using
-  // the native Friends & Chat protocol. Dpad-right on the rightmost
-  // focusable triggers the expand; dpad-left from inside the sidecar
-  // collapses back.
+  /* so we can show a sidecar to the right of the DS plugin tab. Drives a
+     postMessage to the SharedJSContext (window.opener of the QAM) using
+     the native Friends & Chat protocol. Dpad-right on the rightmost
+     focusable triggers the expand; dpad-left from inside the sidecar
+     collapses back. */
   const [qamExpanded, setQamExpanded] = useQamExpanded();
   useQamCompositorSync(qamExpanded);
   const dsScopeRef = useRef<HTMLDivElement>(null);
   useDpadExpandBridge(dsScopeRef, setQamExpanded);
-  // Hard reset on mount: wipe both the live ref and the sessionStorage
-  // flag so a freshly-mounted DS QAM tab never inherits a stale expanded
-  // state. Doing this OUTSIDE the React setter avoids racing the
-  // useQamExpanded hook's initial read; setQamExpanded(false) on unmount
-  // still fires the event for any concurrent listeners.
+  /* Hard reset on mount: wipe both the live ref and the sessionStorage
+     flag so a freshly-mounted DS QAM tab never inherits a stale expanded
+     state. Doing this OUTSIDE the React setter avoids racing the
+     useQamExpanded hook's initial read; setQamExpanded(false) on unmount
+     still fires the event for any concurrent listeners. */
   useEffect(() => {
     resetQamExpanded();
     setQamExpanded(false);
     return () => setQamExpanded(false);
   }, [setQamExpanded]);
-  // Decky keeps the plugin tab mounted across QAM open/close cycles, so
-  // without explicit hooks the sidecar stays expanded when the user opens
-  // a Steam overlay (Steam menu, friends, etc) and comes back to the QAM.
-  // None of the available signals fires reliably on every path Steam can
-  // hide the QAM through — listen to all of them.
+  /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
+     without explicit hooks the sidecar stays expanded when the user opens
+     a Steam overlay (Steam menu, friends, etc) and comes back to the QAM.
+     None of the available signals fires reliably on every path Steam can
+     hide the QAM through — listen to all of them. */
   useEffect(() => {
     const scope = dsScopeRef.current;
     const doc = scope?.ownerDocument ?? document;
@@ -556,11 +556,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   // Authoritative signal for "QAM is no longer the active side menu":
   // `SteamUIStore.WindowStore.GamepadUIMainWindowInstance.m_MenuStore
   // .m_eOpenSideMenu`. This MobX-backed enum flips between None / MainMenu
-  // / QuickAccess when Steam opens overlays on top of the QAM. Polling at
-  // 300 ms is cheap (a property read), only runs while the sidecar is
-  // expanded, and stops as soon as we collapse. Captures the value seen
-  // at mount as the "active QAM" reference value — anything different
-  // afterwards means the QAM lost focus to another overlay.
+  /* / QuickAccess when Steam opens overlays on top of the QAM. Polling at
+     300 ms is cheap (a property read), only runs while the sidecar is
+     expanded, and stops as soon as we collapse. Captures the value seen
+     at mount as the "active QAM" reference value — anything different
+     afterwards means the QAM lost focus to another overlay. */
   useEffect(() => {
     if (!qamExpanded) return;
     const doc = dsScopeRef.current?.ownerDocument ?? document;
@@ -671,11 +671,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     return unsub
   }, [hasTabMaster, t, controller])
 
-  // Compute whether the "hide recents" and "hero background" toggles should be
-  // inactive.  They become disabled when there are no visible shelves or none of
-  // the visible shelves resolve to results.  This runs regardless of the current
-  // toggle value so that the UI accurately reflects the shelf state.
-  // IMPORTANT: we never force-change the toggle values — only disable interaction.
+  /* Compute whether the "hide recents" and "hero background" toggles should be
+     inactive.  They become disabled when there are no visible shelves or none of
+     the visible shelves resolve to results.  This runs regardless of the current
+     toggle value so that the UI accurately reflects the shelf state.
+     IMPORTANT: we never force-change the toggle values — only disable interaction. */
   useEffect(() => {
     let alive = true;
     const compute = async () => {

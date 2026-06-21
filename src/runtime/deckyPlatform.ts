@@ -16,11 +16,11 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
   // Original navigation behavior — proven over many releases:
   //   - collection → /library/collection/<id> (specific collection page)
   //   - tab        → /library  (Steam BP opens the library on the user's
-  //                  last-active library tab; nothing extra to do here)
-  //   - filter     → /library
-  //   - default    → /library
-  // Bare /library is the canonical "open the library" route. Steam's BP
-  // resolves it to whichever library view the user was last on.
+  /*                  last-active library tab; nothing extra to do here)
+       - filter     → /library
+       - default    → /library
+     Bare /library is the canonical "open the library" route. Steam's BP
+     resolves it to whichever library view the user was last on. */
   const steamClient = (globalThis as any).SteamClient ?? (globalThis as any).window?.SteamClient;
   const nav = steamClient?.Navigation ?? Navigation;
   const safeNavigate = (path: string) => {

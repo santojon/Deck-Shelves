@@ -24,10 +24,10 @@ export function clearOnlineShelfCache(): void {
   try {
     for (const k of keys) (globalThis as any).localStorage?.removeItem?.(k);
   } catch {}
-  // No `triggerShelfRefresh()` here: callers know which shelf the user
-  // clicked, so they fire the trigger with a `shelfId` scope so only that
-  // shelf shows the visual indicator. Triggering from inside this helper
-  // would force every online shelf to flash on a single-shelf click.
+  /* No `triggerShelfRefresh()` here: callers know which shelf the user
+     clicked, so they fire the trigger with a `shelfId` scope so only that
+     shelf shows the visual indicator. Triggering from inside this helper
+     would force every online shelf to flash on a single-shelf click. */
 }
 
 export async function patchShelfById(id: string, patch: Partial<Shelf>): Promise<void> {
@@ -139,10 +139,10 @@ export function consumePendingShelfModalTab(): string | null {
 
 export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?: { initialTab?: string }): void {
   if (opts?.initialTab) _pendingShelfModalTab = String(opts.initialTab);
-  // Primary path: navigate to a dedicated route that mounts a standalone
-  // SettingsController and opens the modal via DFL.showModal — no QAM
-  // dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The
-  // route handlers are registered in src/index.tsx at boot.
+  /* Primary path: navigate to a dedicated route that mounts a standalone
+     SettingsController and opens the modal via DFL.showModal — no QAM
+     dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The
+     route handlers are registered in src/index.tsx at boot. */
   try {
     const nav: any = (globalThis as any).DFL?.Navigation
       ?? (globalThis as any).Navigation

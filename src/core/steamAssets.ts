@@ -26,19 +26,19 @@ function getOverview(appid: number): SteamAppOverview | null {
 
 // Drives memo deps so URL lists re-derive when the user changes art and
 // returns to home. Steam-native URLs already carry `?c=<local_cache_version>`
-// for their own cache busting; this revision is the *only* signal that
-// flips for `/customimages/...` paths (those don't have any Steam-provided
-// cache buster). Returning the bare revision keeps the dep array cheap —
-// no per-render appStore reads — and matches the simpler URL behaviour the
-// plugin had before the per-field overview snapshot.
+/* for their own cache busting; this revision is the *only* signal that
+   flips for `/customimages/...` paths (those don't have any Steam-provided
+   cache buster). Returning the bare revision keeps the dep array cheap —
+   no per-render appStore reads — and matches the simpler URL behaviour the
+   plugin had before the per-field overview snapshot. */
 export function getAppAssetCacheKey(_appid: number): string {
   return getAssetRevision();
 }
 
-// Customimages/ URLs are user-uploaded artwork served straight off disk;
-// the file path is stable across replacements so the browser keeps showing
-// the old bitmap until the page reloads. Append the global revision (which
-// HomeInject bumps on returns to home) so the URL flips on the next render.
+/* Customimages/ URLs are user-uploaded artwork served straight off disk;
+   the file path is stable across replacements so the browser keeps showing
+   the old bitmap until the page reloads. Append the global revision (which
+   HomeInject bumps on returns to home) so the URL flips on the next render. */
 function customBust(_appid: number): string {
   return `?c=${getAssetRevision()}`;
 }
@@ -51,11 +51,11 @@ function getCacheVersion(appid: number, overview?: SteamAppOverview | null): str
   return null;
 }
 
-// Generic URL builders. Every URL also carries `r=<assetRevision>` so
-// `bumpAssetRevision()` busts EVERY fallback (not just customimages).
-// Required because Steam's "Customize Artwork" sometimes doesn't bump
-// `local_cache_version` immediately after a write, leaving the loopback
-// URL pinned to the old bitmap.
+/* Generic URL builders. Every URL also carries `r=<assetRevision>` so
+   `bumpAssetRevision()` busts EVERY fallback (not just customimages).
+   Required because Steam's "Customize Artwork" sometimes doesn't bump
+   `local_cache_version` immediately after a write, leaving the loopback
+   URL pinned to the old bitmap. */
 
 function rev(): string {
   return getAssetRevision();

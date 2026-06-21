@@ -83,10 +83,10 @@ async function fetchLatest(): Promise<{ version: string | null; url: string | nu
 
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
   const now = Date.now();
-  // QA harness: when `qa:update-available` is on, skip the cache + network
-  // entirely and surface a fake "newer release" so the QAM banner renders.
-  // Lazy-required so prod builds don't ship the harness module (dead-code
-  // elimination removes this block when __DEV__ compiles to false).
+  /* QA harness: when `qa:update-available` is on, skip the cache + network
+     entirely and surface a fake "newer release" so the QAM banner renders.
+     Lazy-required so prod builds don't ship the harness module (dead-code
+     elimination removes this block when __DEV__ compiles to false). */
   if (__DEV__) {
     try {
       const { qaForcedUpdateResult } = require("../qa/harness");

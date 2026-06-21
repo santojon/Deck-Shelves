@@ -14,11 +14,11 @@ type Ctx = {
   externalSources: ReadonlyArray<{ id: string }>;
 };
 
-// Composite shelves load by promoting `sources[0]` into the primary
-// fields; remaining children populate `additionalSources`. Older saves
-// carried a single composite-level childFilter slot — when present,
-// propagate it onto each online child so the per-child editor matches
-// what the resolver actually applies.
+/* Composite shelves load by promoting `sources[0]` into the primary
+   fields; remaining children populate `additionalSources`. Older saves
+   carried a single composite-level childFilter slot — when present,
+   propagate it onto each online child so the per-child editor matches
+   what the resolver actually applies. */
 function hydrateCompositeChildren(shelf: Shelf): any[] {
   if (shelf.source.type !== 'composite') return [];
   const compositeChildren: any[] = Array.isArray((shelf.source as any).sources)

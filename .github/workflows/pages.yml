@@ -1,0 +1,59 @@
+name: Publish reports to Pages
+
+# Publishes the committed CI/release reports + the aggregated dashboard to
+# GitHub Pages (free for public repos). The per-run HTML/JSON already live
+# under reports/**; this job only regenerates the derived top-level
+# index.html + dashboard.html (gitignored) and deploys the folder.
+#
+# One-time setup: repo Settings → Pages → Build and deployment →
+# Source: "GitHub Actions". No secrets, no cost on public repos.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'reports/**'
+      - 'scripts/ci/report.py'
+      - 'scripts/ci/report_dashboard.py'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two Pages deploys at once; let an in-flight run finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebuild report aggregates (index + dashboard)
+        run: python3 scripts/ci/report.py --rebuild --root .
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload reports as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: reports
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

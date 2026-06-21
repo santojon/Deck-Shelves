@@ -101,11 +101,11 @@ export function ShelfSideNav() {
         tryOpen();
       }
     });
-    // Parallel raw stream so the combo fires regardless of where focus
-    // sits (QAM, Steam menu, context menu, native recents). Decky's
-    // home-button bus only fires when a DS card holds focus; the raw bus
-    // listens globally. `tryOpen` debounces so the two paths can both
-    // fire without double-opening.
+    /* Parallel raw stream so the combo fires regardless of where focus
+       sits (QAM, Steam menu, context menu, native recents). Decky's
+       home-button bus only fires when a DS card holds focus; the raw bus
+       listens globally. `tryOpen` debounces so the two paths can both
+       fire without double-opening. */
     const unsubRaw = subscribeControllerInput((e) => {
       if (!enabledRef.current || !e.pressed) return;
       const navSideNav = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSideNav;
@@ -129,10 +129,10 @@ export function ShelfSideNav() {
 
 interface UnifiedShelf { id: string; title: string }
 
-// Resolve which shelf the sidenav should anchor to, based on the
-// currently-focused element. DS card → its shelf; native recents card →
-// NATIVE_RECENTS_ID; nothing focused → first visible shelf (DOM, then
-// settings fallback).
+/* Resolve which shelf the sidenav should anchor to, based on the
+   currently-focused element. DS card → its shelf; native recents card →
+   NATIVE_RECENTS_ID; nothing focused → first visible shelf (DOM, then
+   settings fallback). */
 function shelfIdForFocused(doc: Document, focused: HTMLElement): string | null {
   const card = focused.closest<HTMLElement>(".ds-card");
   const shelfEl = (card ?? focused).closest<HTMLElement>(".ds-shelf[data-shelfid]");
@@ -178,11 +178,11 @@ function firstVisibleShelfFromSettings(): string | null {
 }
 
 // Settings-derived shelf list, used when the BP DOM isn't readable yet.
-// Mirrors the home's interleave / normal-first ordering.
-// BTakeFocus registers with Steam's NavTree but scrolls the home (the
-// sidenav Focusables are indexed in the home scroll container even though
-// the panel is position:fixed). Save + restore scroll (sync + rAF) so the
-// home viewport stays put.
+/* Mirrors the home's interleave / normal-first ordering.
+   BTakeFocus registers with Steam's NavTree but scrolls the home (the
+   sidenav Focusables are indexed in the home scroll container even though
+   the panel is position:fixed). Save + restore scroll (sync + rAF) so the
+   home viewport stays put. */
 function focusRowPreservingScroll(el: HTMLElement, isCancelled: () => boolean): void {
   const doc = el.ownerDocument;
   const savedTop = doc?.documentElement?.scrollTop ?? 0;
@@ -216,11 +216,11 @@ function shelvesFromSettings(settings: Settings): UnifiedShelf[] {
 function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings: Settings; onClose: () => void }) {
   const { t } = useTranslation();
 
-  // Source of truth: the actual rendered DOM. Sorting by visual `top`
-  // honours CSS `order` (interleave), and the data-shelfid filter limits
-  // us to DS shelves currently mounted on the home — so we list EXACTLY
-  // what the user sees, in the order they see it. Falls back to a
-  // settings-derived list if the BP DOM isn't readable yet.
+  /* Source of truth: the actual rendered DOM. Sorting by visual `top`
+     honours CSS `order` (interleave), and the data-shelfid filter limits
+     us to DS shelves currently mounted on the home — so we list EXACTLY
+     what the user sees, in the order they see it. Falls back to a
+     settings-derived list if the BP DOM isn't readable yet. */
   const computedShelves = useMemo(() => {
     const doc = getPreferredSteamDocument();
     // Gate on hideRecents: when the user explicitly hid the native
@@ -240,11 +240,11 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
     settings.hideRecents,
   ]);
 
-  // Freeze the row list at first paint so async shelf re-resolves
-  // (composite online sources that finish loading after sidenav open)
-  // don't shuffle row positions under the user's focus. Captures the
-  // first non-empty list and never updates within a single sidenav
-  // session.
+  /* Freeze the row list at first paint so async shelf re-resolves
+     (composite online sources that finish loading after sidenav open)
+     don't shuffle row positions under the user's focus. Captures the
+     first non-empty list and never updates within a single sidenav
+     session. */
   const frozenShelvesRef = useRef<UnifiedShelf[] | null>(null);
   if (frozenShelvesRef.current == null && computedShelves.length > 0) {
     frozenShelvesRef.current = computedShelves;
@@ -255,10 +255,10 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   const [pluginEntries, setPluginEntries] = useState<SideMenuEntry[]>([]);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  // Map of shelfId → row element. A callback ref attached to every row
-  // populates this; the focus effect looks up by anchor.shelfId. Robust
-  // when the current shelf IS the first (the previous conditional ref
-  // double-attribution left firstBtnRef empty in that case).
+  /* Map of shelfId → row element. A callback ref attached to every row
+     populates this; the focus effect looks up by anchor.shelfId. Robust
+     when the current shelf IS the first (the previous conditional ref
+     double-attribution left firstBtnRef empty in that case). */
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const firstShelfIdRef = useRef<string | null>(null);
 
@@ -266,11 +266,11 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   // row as fallback) after Steam settles the new Focusable tree.
   // Drive focus into the target row after the NavTree has indexed the
   // new Focusable children. We use el.focus({ preventScroll: true })
-  // rather than focusElement (BTakeFocus) because BTakeFocus on a
-  // position:fixed panel node triggers a home-scroll since Steam
-  // translates the viewport rect back to scroll-container coords.
-  // Plain .focus() hands control to Decky's Focusable which registers
-  // with the gamepad tree without scrolling the parent doc.
+  /* rather than focusElement (BTakeFocus) because BTakeFocus on a
+     position:fixed panel node triggers a home-scroll since Steam
+     translates the viewport rect back to scroll-container coords.
+     Plain .focus() hands control to Decky's Focusable which registers
+     with the gamepad tree without scrolling the parent doc. */
   useEffect(() => {
     let cancelled = false;
     const targetId = anchor.shelfId;
@@ -320,11 +320,11 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
 
   // Auto-close after 5s of no user interaction (focus / button / scroll).
   // Auto-close after 30s of no interaction. The 5s timer was too
-  // aggressive — it fired before focus settled (especially during the
-  // BTakeFocus + scroll-restore window, ~350ms). The drift-close
-  // (focusout listener) was even worse: el.focus() at 80ms causes a
-  // focusout on the previous element, which fired the 120ms close
-  // timer before BTakeFocus at 250ms had a chance to stabilise focus.
+  /* aggressive — it fired before focus settled (especially during the
+     BTakeFocus + scroll-restore window, ~350ms). The drift-close
+     (focusout listener) was even worse: el.focus() at 80ms causes a
+     focusout on the previous element, which fired the 120ms close
+     timer before BTakeFocus at 250ms had a chance to stabilise focus. */
   const idleTimerRef = useRef<number | null>(null);
   const resetIdleTimer = () => {
     if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
@@ -373,11 +373,11 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         }}
         onGamepadDirection={(evt: any) => {
           resetIdleTimer();
-          // Absorb the event so Steam's NavTree doesn't ALSO process it
-          // and scroll the background mount. preventDefault alone isn't
-          // enough — Steam's listener runs in capture; stopImmediate
-          // blocks the rest of the chain so the home doesn't scroll
-          // behind the sidenav.
+          /* Absorb the event so Steam's NavTree doesn't ALSO process it
+             and scroll the background mount. preventDefault alone isn't
+             enough — Steam's listener runs in capture; stopImmediate
+             blocks the rest of the chain so the home doesn't scroll
+             behind the sidenav. */
           const absorb = () => {
             try { evt?.preventDefault?.(); } catch {}
             try { evt?.stopPropagation?.(); } catch {}
@@ -447,11 +447,11 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
                 label={s.title}
                 active={isCurrent}
                 // preferredFocus intentionally OFF — Steam's BTakeFocus
-                // triggered by preferredFocus scrolls the home viewport
-                // because the sidenav Focusables are indexed relative to
-                // the home scroll container even though the panel is
-                // position:fixed. We drive focus explicitly via the
-                // focus-restore effect (tryAt delays) instead.
+                /* triggered by preferredFocus scrolls the home viewport
+                   because the sidenav Focusables are indexed relative to
+                   the home scroll container even though the panel is
+                   position:fixed. We drive focus explicitly via the
+                   focus-restore effect (tryAt delays) instead. */
                 preferredFocus={false}
                 focused={focusedKey === s.id}
                 onActivate={() => jumpToShelf(s.id)}
@@ -695,11 +695,11 @@ function readNativeRecentsEntry(doc: Document | null, fallbackLabel: string): Un
   const el = findNativeRecentsEl(doc);
   if (!el) return null;
   // The actual section title is the row-level heading element. The
-  // `nativeLabelInner` / `nativeLabelOuter` hashed classes target the
-  // PER-CARD label (focused-card info like "Blasphemous 2 - 30h") and
-  // would surface the wrong string. When the override is on, the
-  // patch in `recentsReplace.tsx` rewrites this heading to the source
-  // shelf title — reading it here keeps both cases correct.
+  /* `nativeLabelInner` / `nativeLabelOuter` hashed classes target the
+     PER-CARD label (focused-card info like "Blasphemous 2 - 30h") and
+     would surface the wrong string. When the override is on, the
+     patch in `recentsReplace.tsx` rewrites this heading to the source
+     shelf title — reading it here keeps both cases correct. */
   const text = el.querySelector<HTMLElement>('h1, h2, h3')?.textContent?.trim() ?? "";
   return { id: NATIVE_RECENTS_ID, title: text && text.length > 0 ? text : fallbackLabel };
 }

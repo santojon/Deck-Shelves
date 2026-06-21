@@ -51,6 +51,25 @@ describe('SHELF_TEMPLATES', () => {
     }
   })
 
+  it('never_played template targets the backlog via maxPlaytimeMinutes:0', () => {
+    const np = SHELF_TEMPLATES.find((t) => t.id === 'never_played')
+    expect(np).toBeDefined()
+    if (np!.source.type === 'filter') {
+      expect(np!.source.filter.maxPlaytimeMinutes).toBe(0)
+      expect(np!.source.filter.sort).toBe('alphabetical')
+    }
+  })
+
+  it('deck_playable template targets the "playable" compatibility level', () => {
+    const dp = SHELF_TEMPLATES.find((t) => t.id === 'deck_playable')
+    expect(dp).toBeDefined()
+    if (dp!.source.type === 'filter') {
+      const group = dp!.source.filter.filterGroup
+      expect(group!.items[0].type).toBe('deckCompatibility')
+      expect(group!.items[0].params?.levels).toEqual(['playable'])
+    }
+  })
+
   it('top_reviewed template sorts by review_score across all library games', () => {
     const top = SHELF_TEMPLATES.find((t) => t.id === 'top_reviewed')
     expect(top).toBeDefined()

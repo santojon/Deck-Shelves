@@ -39,11 +39,11 @@ export function _discoverViaDFL(doc: Document): Record<string, string> {
     if (!DFL || !Array.isArray(DFL.classMap)) return {};
     const flat = flattenDflClassMap(DFL.classMap);
 
-    // Map DFL semantic names → DS-internal class-map keys. Curated set
-    // covering every surface a third-party theme commonly targets for shelf /
-    // card / focus / status / footer styling. Names below mirror Steam's
-    // internal webpack module keys (562 surveyed via CDP; ~150 selected as
-    // shelf-relevant).
+    /* Map DFL semantic names → DS-internal class-map keys. Curated set
+       covering every surface a third-party theme commonly targets for shelf /
+       card / focus / status / footer styling. Names below mirror Steam's
+       internal webpack module keys (562 surveyed via CDP; ~150 selected as
+       shelf-relevant). */
     const KEY_MAP: Record<string, string> = {
       // ─ Recents shelf ───────────────────────────────────────────────────
       RecentGames: 'nativeRecentGames',

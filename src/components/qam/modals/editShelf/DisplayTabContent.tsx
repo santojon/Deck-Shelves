@@ -22,10 +22,10 @@ export function DisplayTabContent({
   hiddenPickerOpen: boolean;
   setHiddenPickerOpen: (v: boolean) => void;
 }) {
-  // Single-column layout: each toggle is its own row, full-width. Steam's
-  // default DOM-order navigation walks vertically through siblings, so DOWN
-  // is row-by-row with no zigzag. The last toggle's DOWN exits the grid
-  // naturally to whatever is below the tab area.
+  /* Single-column layout: each toggle is its own row, full-width. Steam's
+     default DOM-order navigation walks vertically through siblings, so DOWN
+     is row-by-row with no zigzag. The last toggle's DOWN exits the grid
+     naturally to whatever is below the tab area. */
   return (
     <FieldContainer scrollable>
       <ToggleField label={t('hide_shelf_title')} checked={display.hideShelfTitle} onChange={(v: boolean) => setDisplay({ hideShelfTitle: v })} />

@@ -4,11 +4,11 @@ import { getPreferredSteamDocument, getAllSteamDocuments } from '../../runtime/s
 import i18n from '../../i18n';
 
 function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
-  // Plugin runs in SharedJSContext; the home root lives in the BP doc.
-  // getPreferredSteamDocument() returns the right one once homePatch has
-  // run setPreferredSteamWindow, but the effect below mounts before the
-  // patch finishes — so we walk every known Steam document and pick the
-  // one that actually contains the home root.
+  /* Plugin runs in SharedJSContext; the home root lives in the BP doc.
+     getPreferredSteamDocument() returns the right one once homePatch has
+     run setPreferredSteamWindow, but the effect below mounts before the
+     patch finishes — so we walk every known Steam document and pick the
+     one that actually contains the home root. */
   for (const d of [getPreferredSteamDocument(), ...getAllSteamDocuments()]) {
     try {
       const root = d?.getElementById?.('deck-shelves-home-root');
@@ -18,10 +18,10 @@ function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
   return null;
 }
 
-// Single global badge overlay. One delegated focusin listener at the
-// home root tracks the focused card and renders one fixed-position
-// badge above the focus ring. Replaces per-card portals (N observers,
-// N listeners, N React renders per focus change).
+/* Single global badge overlay. One delegated focusin listener at the
+   home root tracks the focused card and renders one fixed-position
+   badge above the focus ring. Replaces per-card portals (N observers,
+   N listeners, N React renders per focus change). */
 
 type OverlayState = {
   left: number;
@@ -41,10 +41,10 @@ function readBadgeData(card: HTMLElement): { isNew: boolean; discount: number } 
 
 export function BadgeFocusOverlay() {
   const [state, setState] = useState<OverlayState | null>(null);
-  // Re-runs every render so a late-arriving preferred window doesn't strand
-  // the listeners on the wrong document. The cleanup tears down the prior
-  // listeners before the new ones attach, so duplicate handlers can't
-  // accumulate.
+  /* Re-runs every render so a late-arriving preferred window doesn't strand
+     the listeners on the wrong document. The cleanup tears down the prior
+     listeners before the new ones attach, so duplicate handlers can't
+     accumulate. */
   const [hostKey, setHostKey] = useState(0);
   useEffect(() => {
     const located = findHomeRootDoc();
@@ -74,11 +74,11 @@ export function BadgeFocusOverlay() {
     };
     // Re-sync when the focused card's badge attrs land late — happens with
     // async name resolution / store metadata where `data-isnew` /
-    // `data-discount` flip after the focus event already fired. Also
-    // watch `class` so Y-button highlight toggles (which add/remove
-    // `ds-card--featured` and change the card's width) re-measure the
-    // band, otherwise the badge keeps the pre-resize width and floats
-    // offset from the new card edge.
+    /* `data-discount` flip after the focus event already fired. Also
+       watch `class` so Y-button highlight toggles (which add/remove
+       `ds-card--featured` and change the card's width) re-measure the
+       band, otherwise the badge keeps the pre-resize width and floats
+       offset from the new card edge. */
     const attrObserver = new MutationObserver(schedule);
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
     const attachAttrObserver = (card: HTMLElement | null) => {
@@ -95,11 +95,11 @@ export function BadgeFocusOverlay() {
       if (card) {
         current = card;
         attachAttrObserver(card);
-        // The card gains a `transform: translateY(-2px)` on focus via a
-        // 160ms CSS transition; reading the rect immediately captures a
-        // mid-transition position, leaving the overlay 1-2 px above the
-        // settled card. Re-sync after the transition window so the
-        // overlay matches the card's final rect.
+        /* The card gains a `transform: translateY(-2px)` on focus via a
+           160ms CSS transition; reading the rect immediately captures a
+           mid-transition position, leaving the overlay 1-2 px above the
+           settled card. Re-sync after the transition window so the
+           overlay matches the card's final rect. */
         setTimeout(schedule, READ_TARGET_DELAY_MS);
         setTimeout(schedule, 200);
       }
@@ -133,11 +133,11 @@ export function BadgeFocusOverlay() {
         position: 'fixed',
         left: state.left,
         // 8 px above the focused card's (post-transform) top — 2 px
-        // higher than the unfocused inline badge (which sits at -6 from
-        // the card edge) so the on-focus lift visibly raises the badge
-        // a touch more than the unfocused state. The delayed re-sync on
-        // focusIn captures the rect after the 160ms lift transition
-        // settles so the overlay never strands mid-animation.
+        /* higher than the unfocused inline badge (which sits at -6 from
+           the card edge) so the on-focus lift visibly raises the badge
+           a touch more than the unfocused state. The delayed re-sync on
+           focusIn captures the rect after the 160ms lift transition
+           settles so the overlay never strands mid-animation. */
         top: state.top - 8,
         width: state.width,
         height: 24,

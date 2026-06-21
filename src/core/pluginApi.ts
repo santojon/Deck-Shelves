@@ -1,7 +1,7 @@
-// Plugin API surface — see docs/plugin-api.md. Exposed at window.deckShelves.
-// Canonical types live in api/src/types.ts (the @deck-shelves/api npm package);
-// this file imports them via relative path so a single shape governs both the
-// runtime registry and the published consumer contract.
+/* Plugin API surface — see docs/plugin-api.md. Exposed at window.deckShelves.
+   Canonical types live in api/src/types.ts (the @deck-shelves/api npm package);
+   this file imports them via relative path so a single shape governs both the
+   runtime registry and the published consumer contract. */
 
 import type { ReactNode } from "react";
 import type { Settings } from "../types";
@@ -557,6 +557,18 @@ export function registerInternalSearchProvider(d: SearchProviderDescriptor): () 
 
 export function isInternalSearchProvider(id: string): boolean {
   return internalSearchProviderIds.has(id);
+}
+
+const internalStatisticsProviderIds = new Set<string>();
+
+export function registerInternalStatisticsProvider(d: StatisticsProviderDescriptor): () => void {
+  internalStatisticsProviderIds.add(d.id);
+  statisticsProviders.set(d.id, d);
+  return () => { internalStatisticsProviderIds.delete(d.id); statisticsProviders.delete(d.id); };
+}
+
+export function isInternalStatisticsProvider(id: string): boolean {
+  return internalStatisticsProviderIds.has(id);
 }
 
 export function isInternalSmartSource(id: string): boolean {

@@ -3,11 +3,11 @@ import type { CSSProperties } from "react";
 // Pre-baked inline styles to pair with the .ds-btn classes declared in
 // DeckQAMStyles. Inline styles are still needed because Decky's
 // DialogButton doesn't forward className → we have to coexist with its
-// internal style attribute by including layout properties here.
-//
-// All values mirror the .ds-btn* CSS rules verbatim so the look stays
-// consistent whether the consumer applies the class (preferred) or only
-// passes the style object (fallback for surfaces where CSS isn't loaded).
+/* internal style attribute by including layout properties here.
+
+   All values mirror the .ds-btn* CSS rules verbatim so the look stays
+   consistent whether the consumer applies the class (preferred) or only
+   passes the style object (fallback for surfaces where CSS isn't loaded). */
 
 export const BTN_STYLE: CSSProperties = {
   display: "inline-flex",

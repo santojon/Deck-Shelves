@@ -1,8 +1,8 @@
-// Shared bridge for Steam Deck controller buttons. The host page (BP)
-// does NOT receive DOM keydown for D-pad / face buttons — Steam routes
-// those through `SteamClient.Input.RegisterForControllerInputMessages`.
-// This helper exposes a single subscribe-based stream so multiple
-// features can listen without each one re-registering with Steam.
+/* Shared bridge for Steam Deck controller buttons. The host page (BP)
+   does NOT receive DOM keydown for D-pad / face buttons — Steam routes
+   those through `SteamClient.Input.RegisterForControllerInputMessages`.
+   This helper exposes a single subscribe-based stream so multiple
+   features can listen without each one re-registering with Steam. */
 
 import { dispatchHomeKey } from "./homeInputBus";
 
@@ -15,11 +15,11 @@ const BUTTON_B = 1;
 const BUTTON_X = 2;
 const BUTTON_Y = 3;
 // Steam Deck Big Picture raw button IDs verified live via the in-app raw-id
-// surface in the bindings capture screen (SteamClient.Input.RegisterForControllerInputMessages).
-// Numbers below are the live deck values; the older 4-9 range was wrong
-// (those slots correspond to other internal events). Back-grip buttons
-// (L4/L5/R4/R5) and stick clicks (L3/R3) also surface here so users can
-// bind any physical button.
+/* surface in the bindings capture screen (SteamClient.Input.RegisterForControllerInputMessages).
+   Numbers below are the live deck values; the older 4-9 range was wrong
+   (those slots correspond to other internal events). Back-grip buttons
+   (L4/L5/R4/R5) and stick clicks (L3/R3) also surface here so users can
+   bind any physical button. */
 const L1 = 30;
 const R1 = 31;
 const L2 = 28;
@@ -107,11 +107,11 @@ function getAllInputApis(): any[] {
 }
 
 let unregisterAll: Array<() => void> = [];
-// Steam exposes the same controller stream through several Input objects
-// (self, gamepadMain, BP injection) — registering on each yields the same
-// event N times within ~1 ms. Drop duplicate (slot, button, pressed)
-// triples seen within DEDUP_WINDOW_MS so subscribers see one event per
-// physical press.
+/* Steam exposes the same controller stream through several Input objects
+   (self, gamepadMain, BP injection) — registering on each yields the same
+   event N times within ~1 ms. Drop duplicate (slot, button, pressed)
+   triples seen within DEDUP_WINDOW_MS so subscribers see one event per
+   physical press. */
 const DEDUP_WINDOW_MS = 40;
 let lastEvKey = "";
 let lastEvAt = 0;
@@ -130,11 +130,11 @@ function dispatch(ev: ControllerEvent): void {
 let pollTimer: number | null = null;
 
 // Injects a tiny registration script into the host (BP) document so
-// `RegisterForControllerInputMessages` runs IN BP's JS context — that's
-// where Steam actually dispatches controller events. SharedJSContext
-// callbacks are silently dropped. The BP script writes events to
-// `view.__ds_bp_input_log`; we poll it and forward into the listeners
-// here.
+/* `RegisterForControllerInputMessages` runs IN BP's JS context — that's
+   where Steam actually dispatches controller events. SharedJSContext
+   callbacks are silently dropped. The BP script writes events to
+   `view.__ds_bp_input_log`; we poll it and forward into the listeners
+   here. */
 function installBPInjection(): boolean {
   const g = globalThis as any;
   const candidates: any[] = [];
@@ -155,10 +155,10 @@ function installBPInjection(): boolean {
     };
   } catch {}
   if (!view) return false;
-  // Also install a global keydown listener IN BP context to capture
-  // keyboard typing on the home (matches Big Picture's native
-  // "type to filter" UX). BP captures these even when no input has
-  // focus, but the events only fire in BP's JS context.
+  /* Also install a global keydown listener IN BP context to capture
+     keyboard typing on the home (matches Big Picture's native
+     "type to filter" UX). BP captures these even when no input has
+     focus, but the events only fire in BP's JS context. */
   try {
     const kbBody = [
       "if (this.__ds_bp_keydown_installed) return;",

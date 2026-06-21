@@ -58,11 +58,11 @@ function buildActionDescriptionMap(args: {
   return Object.keys(out).length ? out : undefined;
 }
 
-// Y-button quick-action: toggle a per-card highlight (entry in
-// `highlightedAppIds`). When the card was being highlighted via the
-// shelf-level highlightAll / highlightFirst flags, this clears the
-// shelf-level source instead so the user gets a predictable visual
-// "off". Mirrors the context-menu "Highlight this game" path.
+/* Y-button quick-action: toggle a per-card highlight (entry in
+   `highlightedAppIds`). When the card was being highlighted via the
+   shelf-level highlightAll / highlightFirst flags, this clears the
+   shelf-level source instead so the user gets a predictable visual
+   "off". Mirrors the context-menu "Highlight this game" path. */
 export function toggleCardHighlight(shelfId: string | undefined, appid: number): void {
   if (!shelfId || !appid) return;
   const s = getCurrentSettings();
@@ -85,10 +85,10 @@ export function toggleCardHighlight(shelfId: string | undefined, appid: number):
   } else {
     patch.highlightedAppIds = [...ids, appid];
   }
-  // saveSettings triggers a Shelf re-render that may unmount/remount the
-  // card and lose focus. Mirror the context-menu "Highlight" path: save
-  // the focus target + start the restore loop so the card stays focused
-  // across the settings → React reconcile cycle.
+  /* saveSettings triggers a Shelf re-render that may unmount/remount the
+     card and lose focus. Mirror the context-menu "Highlight" path: save
+     the focus target + start the restore loop so the card stays focused
+     across the settings → React reconcile cycle. */
   try { saveFocusTarget(appid, shelfId); beginFocusRestoreLoop(); } catch {}
   if (isSmart) {
     const updated = smart.map((sh: any) => sh.id === shelfId ? { ...sh, ...patch } : sh);
@@ -149,11 +149,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const appid = typeof item.id === "number" ? item.id : Number(item.appid ?? 0);
   const featuredW = cardW;
   const artH = artHProp ?? cardH;
-  // Size off the per-shelf --ds-eff-* vars (set by DeckRow when matchNativeSize
-  // is on) so a native-dims change reflows the card through CSS with no
-  // re-render. The prop is the fallback: when the var is absent — non-native
-  // shelves, or the brief window before ensureStyles sets the root vars — the
-  // card keeps its prior prop-driven size.
+  /* Size off the per-shelf --ds-eff-* vars (set by DeckRow when matchNativeSize
+     is on) so a native-dims change reflows the card through CSS with no
+     re-render. The prop is the fallback: when the var is absent — non-native
+     shelves, or the brief window before ensureStyles sets the root vars — the
+     card keeps its prior prop-driven size. */
   const cssW = `var(${featured ? "--ds-eff-feat-w" : "--ds-eff-card-w"}, ${cardW}px)`;
   const cssH = `var(${featured ? "--ds-eff-feat-h" : "--ds-eff-card-h"}, ${cardH}px)`;
   const cssArtH = `var(${featured ? "--ds-eff-feat-art-h" : "--ds-eff-card-art-h"}, ${artH}px)`;
@@ -166,10 +166,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // vgp_onok (listened below), so a single A-press can invoke item.onActivate
   // up to 3× — pushing multiple history entries and requiring 2× B to exit.
   const lastActivateRef = useRef(0);
-  // When the editor sets `item.onToggleSelection`, the click target
-  // switches from "open game" to "toggle selection" — keeps the preview
-  // unified across highlight / hidden picker tabs (same real-card
-  // render, just a different click handler + an overlay marker below).
+  /* When the editor sets `item.onToggleSelection`, the click target
+     switches from "open game" to "toggle selection" — keeps the preview
+     unified across highlight / hidden picker tabs (same real-card
+     render, just a different click handler + an overlay marker below). */
   const onActivateRef = useRef(item.onToggleSelection ?? item.onActivate);
   onActivateRef.current = item.onToggleSelection ?? item.onActivate;
   const activate = useCallback(() => {
@@ -200,11 +200,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         if (Array.isArray(pcd) && pcd[0] && typeof (pcd[0] as any).status_percentage === 'number') return (pcd[0] as any).status_percentage;
         return undefined;
       })();
-      // Mapping lives in `steam/appDisplayStatus.ts > resolveQuickLaunchAction`
-      // so the test suite can pin every transition (the previous inline
-      // resolver mis-mapped UpdateQueued / UpdatePaused / Reconfiguring to
-      // "Pause" instead of "Update", and a card with an update pending got
-      // the wrong View hint).
+      /* Mapping lives in `steam/appDisplayStatus.ts > resolveQuickLaunchAction`
+         so the test suite can pin every transition (the previous inline
+         resolver mis-mapped UpdateQueued / UpdatePaused / Reconfiguring to
+         "Pause" instead of "Update", and a card with an update pending got
+         the wrong View hint). */
       const next = resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: statusPct });
       switch (next) {
         case 'running': return { label: i18n.t('menu_resume'), action: 'raise' };
@@ -216,11 +216,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     } catch { return { label: undefined, action: 'run' }; }
   }, [appid, previewMode]);
   const quickLaunchLabel = cardState.label;
-  // Replicate the native menu's first item by opening the menu and
-  // dispatching click on its first .contextMenuItem. This guarantees the
-  // exact same action as the user manually opening the menu and picking
-  // the first item — without us having to reverse-engineer Steam's
-  // internal Ie() resolver for Resume / Update / Play / Install.
+  /* Replicate the native menu's first item by opening the menu and
+     dispatching click on its first .contextMenuItem. This guarantees the
+     exact same action as the user manually opening the menu and picking
+     the first item — without us having to reverse-engineer Steam's
+     internal Ie() resolver for Resume / Update / Play / Install. */
   const quickLaunch = useCallback(() => {
     if (previewMode || !appid) return;
     if (typeof item.onMenuButton !== 'function') return;
@@ -229,10 +229,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       // uses). Steam renders it as a portal in the bp document.
       item.onMenuButton({} as any);
       const doc = cardRef.current?.ownerDocument ?? document;
-      // Poll for the first menuitem to appear — Steam renders in a
-      // microtask but the exact tick varies. Bounded retries with rAF
-      // so we don't block. The first .contextMenuItem in document order
-      // is the menu's primary action (Resume / Update / Play / Install).
+      /* Poll for the first menuitem to appear — Steam renders in a
+         microtask but the exact tick varies. Bounded retries with rAF
+         so we don't block. The first .contextMenuItem in document order
+         is the menu's primary action (Resume / Update / Play / Install). */
       let attempts = 0;
       const tryClick = () => {
         const first = doc.querySelector('.contextMenuItem') as HTMLElement | null;
@@ -250,11 +250,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   // non-Steam shortcut). False for:
   //   - decorations (synthetic cards have no appid)
   //   - online items (wishlist / store cards the user doesn't own — Steam
-  //     never adds them to the local appStore)
-  //   - friends-playing non-owned (same: not in user library)
-  //
-  // Gates Options button, View/quick-launch, and install indicator —
-  // none of those have meaningful behaviour on non-library appids.
+  /*     never adds them to the local appStore)
+       - friends-playing non-owned (same: not in user library)
+
+     Gates Options button, View/quick-launch, and install indicator —
+     none of those have meaningful behaviour on non-library appids. */
   const isLibraryGame = useMemo(() => {
     if (previewMode || !appid) return false;
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
@@ -283,11 +283,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   }, [appid, previewMode, quickLaunch, removableSet, onRemoveCard, onHideCard, item.shelfId]);
 
   // Raw stream subscription for tokens the Decky home-button bus doesn't
-  // forward (back-grip L4/L5/R4/R5). Decky-known tokens stay on the
-  // buttonDownHandler path above to avoid firing twice for the same press.
-  // Gated by `.gpfocus` so only the focused card's binding fires — same
-  // contract as Decky's onButtonDown, which only delivers to the focused
-  // Focusable.
+  /* forward (back-grip L4/L5/R4/R5). Decky-known tokens stay on the
+     buttonDownHandler path above to avoid firing twice for the same press.
+     Gated by `.gpfocus` so only the focused card's binding fires — same
+     contract as Decky's onButtonDown, which only delivers to the focused
+     Focusable. */
   useEffect(() => {
     if (previewMode || !appid) return;
     const usesRawOnly = (combo: string | null | undefined): boolean => {
@@ -410,20 +410,20 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   }, [item.onMenuButton, activate]);
 
   // Enrichment: logo overlay over the art; icon prepended to the name/status;
-  // description snippet rendered below the status row or below the logo.
-  // Re-key the URL memos on the live overview asset stamp so user-replaced
-  // artwork (logo / icon / capsule / hero) propagates without a plugin
-  // reload — the dep flips when Steam bumps local_cache_version / *_filename
-  // / icon_hash, dropping the stale ?c=<old> URL and adopting the new one.
+  /* description snippet rendered below the status row or below the logo.
+     Re-key the URL memos on the live overview asset stamp so user-replaced
+     artwork (logo / icon / capsule / hero) propagates without a plugin
+     reload — the dep flips when Steam bumps local_cache_version / *_filename
+     / icon_hash, dropping the stale ?c=<old> URL and adopting the new one. */
   const assetKey = getAppAssetCacheKey(appid);
   const logoUrls = useMemo(() => (enableLogo && appid > 0 ? getLogoUrls(appid) : []), [enableLogo, appid, assetKey]);
   const iconUrls = useMemo(() => (enableIcon && appid > 0 ? getIconUrls(appid) : []), [enableIcon, appid, assetKey]);
   const [logoIdx, setLogoIdx] = useState(0);
   const [iconIdx, setIconIdx] = useState(0);
-  // Warm the loopback / CDN URLs in the background so subsequent renders of
-  // the same appid hit the in-memory blob cache (3-9 ms) instead of going
-  // back to the network. `getHotCachedImageSrc` returns a blob URL ready to
-  // feed directly into `<img src>`.
+  /* Warm the loopback / CDN URLs in the background so subsequent renders of
+     the same appid hit the in-memory blob cache (3-9 ms) instead of going
+     back to the network. `getHotCachedImageSrc` returns a blob URL ready to
+     feed directly into `<img src>`. */
   useEffect(() => {
     for (const u of iconUrls) if (!getHotCachedImageSrc(u)) warmCacheBackground(u);
   }, [iconUrls]);
@@ -432,10 +432,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   }, [logoUrls]);
   const logoSrc = (logoUrls[logoIdx] ? (getHotCachedImageSrc(logoUrls[logoIdx]) || logoUrls[logoIdx]) : null);
   const iconSrc = (iconUrls[iconIdx] ? (getHotCachedImageSrc(iconUrls[iconIdx]) || iconUrls[iconIdx]) : null);
-  // Description lands in the cache asynchronously after `preloadAppDescriptions`
-  // kicks off `RequestDescriptionsData`. A useMemo over the cache would never
-  // re-evaluate, so we poll the cache for a few seconds and stop once we have
-  // the snippet (or the cache's own retry budget runs out).
+  /* Description lands in the cache asynchronously after `preloadAppDescriptions`
+     kicks off `RequestDescriptionsData`. A useMemo over the cache would never
+     re-evaluate, so we poll the cache for a few seconds and stop once we have
+     the snippet (or the cache's own retry budget runs out). */
   const [description, setDescription] = useState<string | null>(null);
   useEffect(() => {
     if (!enableDescription || appid <= 0 || previewMode) { setDescription(null); return; }
@@ -496,11 +496,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     setImgFailed(false);
     setImgLoaded(false);
     currentOriginalUrl.current = initialOriginal;
-    // Cache miss path — warm the FIRST CACHEABLE URL (typically the
-    // CDN one). Warming `initialOriginal` was usually a no-op because
-    // it's the local /customimages/ entry that cacheable() rejects,
-    // so the persistent cache never populated and every reboot
-    // re-downloaded every cover from the CDN.
+    /* Cache miss path — warm the FIRST CACHEABLE URL (typically the
+       CDN one). Warming `initialOriginal` was usually a no-op because
+       it's the local /customimages/ entry that cacheable() rejects,
+       so the persistent cache never populated and every reboot
+       re-downloaded every cover from the CDN. */
     if (initialSrc === initialOriginal) {
       const warmTarget = firstCacheableUrl(allUrls);
       if (warmTarget) {
@@ -580,11 +580,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       onActivate={activate}
       onOKButton={activate}
       // Menu / Options button stays bound for EVERY real card (anything with
-      // an onMenuButton supplied by the parent) — `recently added` /
-      // wishlist / store shelves rely on it to surface Properties /
-      // View store / DS submenu actions. Only View (below) is gated on
-      // library presence since RunGame has no meaningful target for
-      // non-library cards.
+      /* an onMenuButton supplied by the parent) — `recently added` /
+         wishlist / store shelves rely on it to surface Properties /
+         View store / DS submenu actions. Only View (below) is gated on
+         library presence since RunGame has no meaningful target for
+         non-library cards. */
       onMenuButton={item.onMenuButton}
       onMenuActionDescription={!previewMode && item.onMenuButton ? i18n.t('card_options') : undefined}
       onContextMenu={item.onMenuButton}
@@ -613,11 +613,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         cursor: "pointer",
         overflow: "visible",
         ["--ds-card-art-h" as string]: cssArtH,
-        // Per-card height/width ratio used by the TiltedHome compat CSS to
-        // compute the exact zoom scale that covers the skewed parallelogram
-        // — featured (landscape) and portrait cards need different scale
-        // factors. Reflects the live rendered dimensions, so any screen-size
-        // or theme-driven dim change automatically reaches the calc().
+        /* Per-card height/width ratio used by the TiltedHome compat CSS to
+           compute the exact zoom scale that covers the skewed parallelogram
+           — featured (landscape) and portrait cards need different scale
+           factors. Reflects the live rendered dimensions, so any screen-size
+           or theme-driven dim change automatically reaches the calc(). */
         ["--ds-card-h-w-ratio" as string]: featuredW > 0 ? (cardH / featuredW).toFixed(4) : "1.5",
       }}
     >
@@ -672,11 +672,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
               // Eager-load detection: if the browser already has the
               // image decoded (hot blob URL, HTTP-cache hit), the
               // refCallback fires AFTER React has assigned `src` and
-              // `el.complete + el.naturalWidth > 0` is true the same
-              // tick. Mark loaded synchronously so cached images skip
-              // the opacity-gate flash and never need a `onLoad` round
-              // trip. Cold loads stay gated (no broken-icon flash) and
-              // flip via the onLoad handler below.
+              /* `el.complete + el.naturalWidth > 0` is true the same
+                 tick. Mark loaded synchronously so cached images skip
+                 the opacity-gate flash and never need a `onLoad` round
+                 trip. Cold loads stay gated (no broken-icon flash) and
+                 flip via the onLoad handler below. */
               if (el && el.complete && (el.naturalWidth || 0) > 0 && !imgLoaded) {
                 setImgLoaded(true);
               }
@@ -688,11 +688,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             decoding="async"
             // opacity-gated again — `onError` swaps src through the
             // fallback chain (/customimages/* → CDN), and each failing
-            // URL would otherwise briefly render the browser's broken-
-            // image glyph before the next fallback kicks in. The gate
-            // hides it; the ref callback above eliminates the visible
-            // wait for cached images so this is "instant for cached,
-            // glyph-free for cold".
+            /* URL would otherwise briefly render the browser's broken-
+               image glyph before the next fallback kicks in. The gate
+               hides it; the ref callback above eliminates the visible
+               wait for cached images so this is "instant for cached,
+               glyph-free for cold". */
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imgLoaded ? 1 : 0 }}
             loading="eager"
             fetchPriority="high"
@@ -833,11 +833,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             top: 0, left: 0, right: 0, height: cssArtH,
             pointerEvents: 'none',
             borderRadius: 'var(--ds-card-radius, 0)',
-            // Outset ring at the SAME offset Steam's focus ring uses
-            // — 2px outside the card edge. The colored ring lives on
-            // this container's box-shadow so themes (Round / Outrun)
-            // keep the corner curve and the line never crosses into
-            // the art interior.
+            /* Outset ring at the SAME offset Steam's focus ring uses
+               — 2px outside the card edge. The colored ring lives on
+               this container's box-shadow so themes (Round / Outrun)
+               keep the corner curve and the line never crosses into
+               the art interior. */
             boxShadow:
               item.selectionMark === 'grabbed'
                 ? '0 0 0 2px #ffd54f, 0 0 0 5px rgba(255, 213, 79, 0.35)'

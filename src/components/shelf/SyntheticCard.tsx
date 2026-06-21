@@ -14,11 +14,11 @@ import { patchShelfInSettings } from "../../domain/settings";
 // Synthetic card — decoration / placeholder / gap slot.
 //
 // Content/focus rules (also enforced by ShelfSchema.syntheticCards):
-//   - `text` xor `image` (never both)
-//   - `link` only when `text` or `image` is set; otherwise no focusable
-//     surface and the slot becomes a non-focusable visual gap
-//   - `placeholder=true` paints the default card background; false (or
-//     unset) leaves the slot transparent
+/*   - `text` xor `image` (never both)
+     - `link` only when `text` or `image` is set; otherwise no focusable
+       surface and the slot becomes a non-focusable visual gap
+     - `placeholder=true` paints the default card background; false (or
+       unset) leaves the slot transparent */
 export function SyntheticCard({
   item,
   cardW = CARD_W,
@@ -99,16 +99,16 @@ export function SyntheticCard({
       }}
     >
       {synth.image ? (() => {
-        // Local paths go through the backend → base64 data URL cache.
-        // The first render returns `null` (RPC in flight); the cache
-        // subscription above triggers a re-render once the data lands.
-        // Remote URLs (http/https/data:) pass through unchanged.
+        /* Local paths go through the backend → base64 data URL cache.
+           The first render returns `null` (RPC in flight); the cache
+           subscription above triggers a re-render once the data lands.
+           Remote URLs (http/https/data:) pass through unchanged. */
         const resolved = resolveLocalImage(synth.image);
         if (!resolved) return null;
-        // `contain` when placeholder=false so transparent PNGs / icons
-        // are framed whole (no crop, transparent surround stays visible);
-        // `cover` when placeholder=true so the image fills the grey card
-        // panel edge-to-edge (the bg blends with cropped overflow).
+        /* `contain` when placeholder=false so transparent PNGs / icons
+           are framed whole (no crop, transparent surround stays visible);
+           `cover` when placeholder=true so the image fills the grey card
+           panel edge-to-edge (the bg blends with cropped overflow). */
         const fit = synth.placeholder ? "cover" : "contain";
         return (
           <img
@@ -137,11 +137,11 @@ export function SyntheticCard({
 
   // Shadow mode rules:
   //   - non-focusable gap   → never has shadow (no user signal anyway)
-  //   - focusable, default  → "never" (matches the prior `noshadow`)
-  //   - "always"            → keep shadow in idle + focus
-  //   - "onFocus"           → shadow only when focused (suppress at idle)
-  // Picks the class name in one place so both the focusable + non-focusable
-  // branches stay consistent.
+  /*   - focusable, default  → "never" (matches the prior `noshadow`)
+       - "always"            → keep shadow in idle + focus
+       - "onFocus"           → shadow only when focused (suppress at idle)
+     Picks the class name in one place so both the focusable + non-focusable
+     branches stay consistent. */
   const resolveShadowClass = (): string => {
     if (!focusable) return " ds-card--synthetic-noshadow";
     const mode = synth.shadowMode ?? "never";
@@ -150,10 +150,10 @@ export function SyntheticCard({
     return " ds-card--synthetic-noshadow";
   };
 
-  // Hero URL exposed via attribute so `PerShelfHero` can pick it up on
-  // focus and treat this decoration as a hero source — same render path
-  // game cards already feed via `data-appid`. Empty / undefined → no
-  // hero behavior, matches the prior decoration look.
+  /* Hero URL exposed via attribute so `PerShelfHero` can pick it up on
+     focus and treat this decoration as a hero source — same render path
+     game cards already feed via `data-appid`. Empty / undefined → no
+     hero behavior, matches the prior decoration look. */
   const heroAttr = synth.heroImage && synth.heroImage.length > 0
     ? resolveLocalImage(synth.heroImage)
     : null;
@@ -181,17 +181,17 @@ export function SyntheticCard({
       if (link.type === "url") {
         const raw = String(link.value ?? "").trim();
         if (!raw) return;
-        // Coerce bare hosts ("example.com") into https URLs and reject
-        // anything that still doesn't look like one — invalid URLs sent
-        // to `Navigation.NavigateToExternalWeb` could leave the Big
-        // Picture router in a state that broke the home re-mount.
+        /* Coerce bare hosts ("example.com") into https URLs and reject
+           anything that still doesn't look like one — invalid URLs sent
+           to `Navigation.NavigateToExternalWeb` could leave the Big
+           Picture router in a state that broke the home re-mount. */
         const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
         try { new URL(url); } catch { return; }
-        // Prefer SteamClient.System.OpenInSystemBrowser (used by the
-        // rest of the plugin for external links — see Shelf.tsx) so the
-        // URL opens in the system browser without touching Steam's
-        // internal router. NavigateToExternalWeb is a last-resort
-        // fallback for builds where the SteamClient bridge is absent.
+        /* Prefer SteamClient.System.OpenInSystemBrowser (used by the
+           rest of the plugin for external links — see Shelf.tsx) so the
+           URL opens in the system browser without touching Steam's
+           internal router. NavigateToExternalWeb is a last-resort
+           fallback for builds where the SteamClient bridge is absent. */
         const sc: any = (globalThis as any).SteamClient;
         if (typeof sc?.System?.OpenInSystemBrowser === "function") {
           sc.System.OpenInSystemBrowser(url);
@@ -205,10 +205,10 @@ export function SyntheticCard({
     } catch {}
   };
 
-  // Synthetic cards never go through the native AppContextMenu (they
-  // aren't apps). When focusable, bind onMenuButton to our fallback
-  // menu so the user gets hide / highlight / add-to-shelf / edit
-  // decoration. Non-focusable gaps never receive focus, so no menu.
+  /* Synthetic cards never go through the native AppContextMenu (they
+     aren't apps). When focusable, bind onMenuButton to our fallback
+     menu so the user gets hide / highlight / add-to-shelf / edit
+     decoration. Non-focusable gaps never receive focus, so no menu. */
   const handleMenu = () => {
     try {
       const shelfId = String(item.shelfId ?? "");
@@ -216,10 +216,10 @@ export function SyntheticCard({
       showSyntheticCardMenu(shelfId, cardRef.current, synth?.text);
     } catch {}
   };
-  // X (remove) and Y (toggle size) bindings target the synthetic
-  // entry by its persisted index — only present on the home shelf
-  // (Shelf.tsx forwards `synthetic.index`). Preview / drag mode omits
-  // the index and these bindings stay inert.
+  /* X (remove) and Y (toggle size) bindings target the synthetic
+     entry by its persisted index — only present on the home shelf
+     (Shelf.tsx forwards `synthetic.index`). Preview / drag mode omits
+     the index and these bindings stay inert. */
   const shelfId = String(item.shelfId ?? "");
   const synthIndex = typeof synth.index === "number" ? synth.index : -1;
   const handleRemove = () => {

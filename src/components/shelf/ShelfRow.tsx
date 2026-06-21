@@ -10,11 +10,11 @@ import type { DeckRowItem } from "./types";
 // — no state, no effects. Sizing, featured rules, and hide-flags come in
 // as props; the caller owns the surrounding wrapper (focus delegate,
 // scroll padding, theme overrides).
-//
-// Trailing cards (Refresh, More) follow the same `isRefresh` / `isMoreLink`
-// item-flag convention DeckRow already uses. Home shelves render them
-// interactive by default; preview sets `refreshInteractive`/`moreInteractive`
-// to opt out where the modal wants flat / read-only cards.
+/*
+   Trailing cards (Refresh, More) follow the same `isRefresh` / `isMoreLink`
+   item-flag convention DeckRow already uses. Home shelves render them
+   interactive by default; preview sets `refreshInteractive`/`moreInteractive`
+   to opt out where the modal wants flat / read-only cards. */
 export interface ShelfRowProps {
   items: DeckRowItem[];
   cardW: number;
@@ -53,11 +53,11 @@ export interface ShelfRowProps {
   previewMode?: boolean;
   // Per-card X-button binding. `removableSet` = appids that get the
   // "Remove from shelf" action — the manualOrder entries NOT present in
-  // the resolved source (typically games appended via the library menu
-  // "Add to shelf"). Drag-ordered cards stay OUT of this set so X
-  // doesn't pretend to remove them (it'd just re-pop them from source).
-  // For cards NOT in `removableSet`, X falls back to "Hide from shelf"
-  // when `onHideCard` is provided.
+  /* the resolved source (typically games appended via the library menu
+     "Add to shelf"). Drag-ordered cards stay OUT of this set so X
+     doesn't pretend to remove them (it'd just re-pop them from source).
+     For cards NOT in `removableSet`, X falls back to "Hide from shelf"
+     when `onHideCard` is provided. */
   removableSet?: Set<number>;
   onRemoveCard?: (appid: number) => void;
   hiddenSet?: Set<number>;

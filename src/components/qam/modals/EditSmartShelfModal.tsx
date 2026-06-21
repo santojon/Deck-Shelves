@@ -43,11 +43,11 @@ import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_
 // pre-fill the edit field so users see the actual current cadence.
 const DEFAULT_REFRESH_MINUTES = 60
 
-// Ordered list of every internal smart-shelf mode, used by the Source-tab
-// mode dropdown + the composite-mixing picker. Order mirrors the catalogue
-// in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
-// is excluded — it's a special-purpose mode for filter-only shelves and
-// switching INTO it would silently strip the user's smart-mode tuning.
+/* Ordered list of every internal smart-shelf mode, used by the Source-tab
+   mode dropdown + the composite-mixing picker. Order mirrors the catalogue
+   in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
+   is excluded — it's a special-purpose mode for filter-only shelves and
+   switching INTO it would silently strip the user's smart-mode tuning. */
 const SMART_MODE_OPTIONS: SmartShelfMode[] = [
   'daily_pick', 'deck_picks', 'on_deck', 'recently_played',
   'long_session', 'long_session_night', 'random_pick', 'not_started',
@@ -203,10 +203,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     visibleDaysOfWeek: (() => {
       const v = (shelf as any).visibleDaysOfWeek
       if (Array.isArray(v)) return v.slice()
-      // Undefined = no day restriction in the persisted model. Surface this
-      // in the UI as "all 7 marked" so the user starts from the everyday case
-      // and unchecks specific days. The save handler converts a fully-checked
-      // selection back into `undefined` so storage stays minimal.
+      /* Undefined = no day restriction in the persisted model. Surface this
+         in the UI as "all 7 marked" so the user starts from the everyday case
+         and unchecks specific days. The save handler converts a fully-checked
+         selection back into `undefined` so storage stays minimal. */
       return [0, 1, 2, 3, 4, 5, 6]
     })(),
     allowDayOverrides: (() => {
@@ -222,10 +222,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
 
   const paramKeys = useMemo(() => paramKeysForMode(state.mode), [state.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
-  // Switching mode resets smartParams + drafts to the new mode's defaults.
-  // The mode field on a smart shelf is the "data source" — picking another
-  // mode means picking a different candidate-set heuristic, so the previous
-  // mode's tuning knobs no longer apply.
+  /* Switching mode resets smartParams + drafts to the new mode's defaults.
+     The mode field on a smart shelf is the "data source" — picking another
+     mode means picking a different candidate-set heuristic, so the previous
+     mode's tuning knobs no longer apply. */
   const handleModeChange = (nextMode: SmartShelfMode) => {
     if (nextMode === state.mode) return
     const nextDefaults = SMART_PARAM_DEFAULTS[nextMode] ?? {}
@@ -371,10 +371,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
 
-  // Meta for menu-added games (state.manualOrder entries NOT in
-  // resolvedIds — see EditShelfModal for the rationale). Without this
-  // the preview's `meta.get(tailId)` returns undefined and menu-added
-  // cards never render in non-source tabs.
+  /* Meta for menu-added games (state.manualOrder entries NOT in
+     resolvedIds — see EditShelfModal for the rationale). Without this
+     the preview's `meta.get(tailId)` returns undefined and menu-added
+     cards never render in non-source tabs. */
   useEffect(() => {
     const resolvedSet = new Set(resolvedIds)
     const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)

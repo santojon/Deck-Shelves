@@ -1,16 +1,16 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-// `en-US` is the static fallback — always bundled into the main chunk so
-// the first paint has working labels before the user's locale finishes
-// loading. Every other locale ships as its own dynamic-import chunk;
-// only the chunk matching the detected language is fetched at boot.
+/* `en-US` is the static fallback — always bundled into the main chunk so
+   the first paint has working labels before the user's locale finishes
+   loading. Every other locale ships as its own dynamic-import chunk;
+   only the chunk matching the detected language is fetched at boot. */
 import enUS from "../i18n/en-US.json";
 
-// Dynamic loaders. Each `() => import(...)` becomes its own chunk in the
-// output. Rollup co-locates the JSON inside the chunk so a locale switch
-// is one extra HTTP request instead of inflating the main bundle by
-// every translation (~50 KB × 18 ≈ 900 KB savings).
+/* Dynamic loaders. Each `() => import(...)` becomes its own chunk in the
+   output. Rollup co-locates the JSON inside the chunk so a locale switch
+   is one extra HTTP request instead of inflating the main bundle by
+   every translation (~50 KB × 18 ≈ 900 KB savings). */
 const LOCALE_LOADERS: Record<string, () => Promise<any>> = {
   "pt-BR": () => import("../i18n/pt-BR.json").then((m) => m.default),
   "pt-PT": () => import("../i18n/pt-PT.json").then((m) => m.default),

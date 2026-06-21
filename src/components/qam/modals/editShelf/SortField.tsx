@@ -98,10 +98,10 @@ export function SortField({
   // Primary key can't be added-to with secondary if it's manual/random.
   const canAddSecondary = allowMultiKey && primary !== 'manual' && primary !== 'random'
 
-  // When the user has 2+ sort keys, the chain shows a one-time description
-  // above explaining that earlier rows dominate (mirrors the smart-shelf
-  // composite picker's "combine modes" Field-with-description treatment).
-  // Single-key shelves skip the description to avoid noise.
+  /* When the user has 2+ sort keys, the chain shows a one-time description
+     above explaining that earlier rows dominate (mirrors the smart-shelf
+     composite picker's "combine modes" Field-with-description treatment).
+     Single-key shelves skip the description to avoid noise. */
   return (
     <>
       {isMulti && (

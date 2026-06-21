@@ -25,10 +25,10 @@ import {
 
 export { buildShelfContextMenu, buildLibraryAddToShelfItems };
 
-// Thin wrapper around the extracted builder — injects the module-global
-// focused-card context (`_activeAppIdForMenu` / `_activeCardIndexForMenu`)
-// so existing call sites don't have to forward those values. Signature
-// matches the pre-extraction local function.
+/* Thin wrapper around the extracted builder — injects the module-global
+   focused-card context (`_activeAppIdForMenu` / `_activeCardIndexForMenu`)
+   so existing call sites don't have to forward those values. Signature
+   matches the pre-extraction local function. */
 function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: number): any[] {
   return buildDeckShelvesMenuItemsBase(shelfId, dfl, R, appid, _activeAppIdForMenu, _activeCardIndexForMenu);
 }
@@ -45,11 +45,11 @@ let passiveHookInstalled = false;
 let showContextMenuHookInstalled = false;
 let showGameMenuActive = false;
 
-// Independent legacy (≤ 3.7) cache — never shared with the modern path.
-// Sharing the cache would let a partially-corrupted modern extraction
-// poison the legacy fallback (and vice-versa). Two distinct sets of state
-// also let us run the v1.2.0 recursive retry without disturbing modern
-// runs interleaved on the same session.
+/* Independent legacy (≤ 3.7) cache — never shared with the modern path.
+   Sharing the cache would let a partially-corrupted modern extraction
+   poison the legacy fallback (and vice-versa). Two distinct sets of state
+   also let us run the v1.2.0 recursive retry without disturbing modern
+   runs interleaved on the same session. */
 let legacyCachedComponent: any = null;
 let legacyCachedTemplateProps: Record<string, any> = {};
 let legacyLastAttempt = 0;
@@ -204,10 +204,10 @@ function isGameContextMenuItems(items: any[], dfl: any): boolean {
 const DS_ROOT_KEYS = new Set([
   "ds-deck-shelves", "ds-shelf-root",
   "ds-card-highlight", "ds-card-hide",
-  // Add/Remove-shelf groups (both the in-shelf and library-card paths).
-  // Missing these from the dedup set caused the "Add to shelf" submenu
-  // to inject twice on shelves where both the boot-patch render and the
-  // shouldComponentUpdate hook fired against the same menu instance.
+  /* Add/Remove-shelf groups (both the in-shelf and library-card paths).
+     Missing these from the dedup set caused the "Add to shelf" submenu
+     to inject twice on shelves where both the boot-patch render and the
+     shouldComponentUpdate hook fired against the same menu instance. */
   "ds-card-add-shelf", "ds-card-remove-shelf",
   "ds-lib-add-shelf", "ds-lib-remove-shelf",
   // Synthetic-card top-level decoration shortcut (when the user opens
@@ -220,10 +220,10 @@ function dedupDsMenuItems(items: any[]): void {
   for (let i = items.length - 1; i >= 0; i--) {
     const k = items[i]?.key;
     if (typeof k !== "string") continue;
-    // Exact match on group-level keys + prefix match on the per-shelf
-    // flat items the library-card path emits (one MenuItem per shelf,
-    // key like `ds-lib-add-s_7b1a8487`). Without the prefix check, the
-    // flat items accumulated across re-renders.
+    /* Exact match on group-level keys + prefix match on the per-shelf
+       flat items the library-card path emits (one MenuItem per shelf,
+       key like `ds-lib-add-s_7b1a8487`). Without the prefix check, the
+       flat items accumulated across re-renders. */
     if (DS_ROOT_KEYS.has(k) || k.startsWith("ds-lib-add-") || k.startsWith("ds-lib-rm-") || k.startsWith("ds-card-add-") || k.startsWith("ds-card-rm-")) {
       items.splice(i, 1);
     }
@@ -250,11 +250,11 @@ function spliceDsItems(items: any[], dsItems: any[], dfl: any, R: any): void {
   }
 }
 
-// Tracks inner-type prototypes that already have render + shouldComponentUpdate
-// patched. Steam uses a different inner class for installed Steam games vs
-// uninstalled games vs non-Steam shortcuts — patching only the first one
-// encountered leaves the others uninjected. WeakSet lets the patches persist
-// across renders without leaking when types are GC'd.
+/* Tracks inner-type prototypes that already have render + shouldComponentUpdate
+   patched. Steam uses a different inner class for installed Steam games vs
+   uninstalled games vs non-Steam shortcuts — patching only the first one
+   encountered leaves the others uninjected. WeakSet lets the patches persist
+   across renders without leaking when types are GC'd. */
 const _patchedInnerTypes = new WeakSet<any>();
 
 function findMenuItemsArray(ret2: any): any[] | null {
@@ -735,11 +735,11 @@ function installCaptureHooks(): {
   const captureFromArgs = (type: any, props: any) => {
     if (captured) return;
     // Accept any component type — modern Steam wraps `AppContextMenu` in
-    // `React.memo` (an object with `$$typeof === Symbol.for('react.memo')`)
-    // or `React.forwardRef`, so the previous `typeof type !== "function"`
-    // gate silently rejected the real captures and forced every shelf-card
-    // menu into the DFL fallback. The `overview + client` props signature is
-    // unique to `AppContextMenu`, so it's a sufficient filter on its own.
+    /* `React.memo` (an object with `$$typeof === Symbol.for('react.memo')`)
+       or `React.forwardRef`, so the previous `typeof type !== "function"`
+       gate silently rejected the real captures and forced every shelf-card
+       menu into the DFL fallback. The `overview + client` props signature is
+       unique to `AppContextMenu`, so it's a sufficient filter on its own. */
     if (!type) return;
     if (!props || !("overview" in props) || !("client" in props)) return;
     const tProps = { ...props };
@@ -792,11 +792,11 @@ function findCardAnchor(appid: number): { doc: Document; el: HTMLElement } | nul
 
 export function prewarmMenuExtraction(): () => void {
   if (cachedMenuComponent) return () => {};
-  // Skip on legacy (≤ 3.7): the flow extracts lazily on the first
-  // MENU press; firing 5 staggered extractions on cold boot hit a race in
-  // 3.7's overlay timing where the panels iteration finds the right fiber
-  // but the synthetic `onMenuButton` call mutates `lastExtractionAttempt`
-  // before the user ever interacts.
+  /* Skip on legacy (≤ 3.7): the flow extracts lazily on the first
+     MENU press; firing 5 staggered extractions on cold boot hit a race in
+     3.7's overlay timing where the panels iteration finds the right fiber
+     but the synthetic `onMenuButton` call mutates `lastExtractionAttempt`
+     before the user ever interacts. */
   if (isLegacyMenuFlow()) return () => {};
   // Early 150ms tick runs before `recentsReplace` overwrites the native
   // card content on most devices, so we can capture the native
@@ -876,11 +876,11 @@ export function installPassiveMenuHook(): void {
 
 export function installPassiveShowContextMenuHook(): void {
   if (showContextMenuHookInstalled) return;
-  // Legacy (≤ 3.7): rely on the React.createElement hook only. The DFL
-  // showContextMenu wrapper was added for 3.8/3.9-only paths where Steam
-  // sometimes constructs the menu element via a module-bound reference
-  // before the createElement hook installs; pre-3.8 the createElement
-  // capture is sufficient on its own.
+  /* Legacy (≤ 3.7): rely on the React.createElement hook only. The DFL
+     showContextMenu wrapper was added for 3.8/3.9-only paths where Steam
+     sometimes constructs the menu element via a module-bound reference
+     before the createElement hook installs; pre-3.8 the createElement
+     capture is sufficient on its own. */
   if (isLegacyMenuFlow()) return;
   const dfl = getDFL();
   if (!dfl || typeof dfl.showContextMenu !== "function") return;

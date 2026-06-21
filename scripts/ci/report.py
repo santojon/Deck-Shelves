@@ -173,7 +173,8 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .step{background:var(--card);border:1px solid var(--border);border-radius:9px;
   margin-bottom:10px}
 .step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;
-  cursor:pointer;user-select:none;border-radius:9px}
+  cursor:pointer;user-select:none;border-radius:9px;list-style:none}
+.step-hdr::-webkit-details-marker{display:none}
 .step-hdr:hover{background:#273548}
 .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .dot.pass{background:var(--pass)}.dot.fail{background:var(--fail);box-shadow:0 0 5px var(--fail)}
@@ -183,9 +184,9 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .slabel.pass{background:#14532d44;color:var(--pass)}
 .slabel.fail{background:#7f1d1d44;color:var(--fail)}
 .slabel.skip{background:#1e293b;color:var(--skip)}
-.chevron{font-size:11px;color:var(--muted)}
-.step-body{display:none;border-top:1px solid var(--border);border-radius:0 0 9px 9px}
-.step-body.open{display:block}
+.chevron{font-size:11px;color:var(--muted);display:inline-block;transition:transform .15s}
+.step[open] .chevron{transform:rotate(90deg)}
+.step-body{border-top:1px solid var(--border);border-radius:0 0 9px 9px}
 .test-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;
   background:#0d1b2a;border-bottom:1px solid var(--border);font-size:12px}
 .test-bar .tp{color:var(--pass)}.test-bar .tf{color:var(--fail)}
@@ -312,23 +313,22 @@ def _step_html(name: str, status: str, log_path: str, root: str, idx: int, durat
         f'<span class="sdur" title="{duration_ms} ms">{_fmt_duration_ms(duration_ms)}</span>'
         if duration_ms and duration_ms > 0 else ""
     )
-    # Failed steps start expanded so the error is readable without a
-    # click (and can't be accidentally collapsed by a stray re-render).
-    is_open = status == "fail"
-    body_cls = "step-body open" if is_open else "step-body"
-    chevron = "▼" if is_open else "▶"
+    # Native <details>: failed steps start expanded so the error is
+    # readable without a click. <details> toggles on a single activation
+    # so it can't double-fire (touch + click) and collapse itself.
+    open_attr = " open" if status == "fail" else ""
     return (
-        f'<div class="step" id="s{idx}">'
-        f'<div class="step-hdr" onclick="toggle({idx})">'
+        f'<details class="step" id="s{idx}"{open_attr}>'
+        f'<summary class="step-hdr">'
         f'<div class="dot {status}"></div>'
         f'<span class="sname">{_html.escape(name)}</span>'
         f'{dur_html}'
         f'<span class="slabel {status}">{status.upper()}</span>'
-        f'<span class="chevron" id="c{idx}">{chevron}</span>'
-        f'</div>'
-        f'<div class="{body_cls}" id="b{idx}">{test_bar}{issues_html}'
+        f'<span class="chevron">▶</span>'
+        f'</summary>'
+        f'<div class="step-body" id="b{idx}">{test_bar}{issues_html}'
         f'<pre class="log">{colorized}</pre></div>'
-        f'</div>\n'
+        f'</details>\n'
     )
 
 
@@ -801,6 +801,10 @@ def _suite_coverage_bars(runs: List[dict]) -> str:
     # Known suites in display order
     SUITES = [
         ("home",             "Home"),
+        ("settings",         "Settings"),
+        ("search",           "Search"),
+        ("sidenav",          "Side Nav"),
+        ("sidecar",          "Sidecar"),
         ("qam_shelves",      "QAM Shelves"),
         ("qam_smart",        "QAM Smart"),
         ("qam_global_toggles","QAM Global"),
@@ -810,6 +814,14 @@ def _suite_coverage_bars(runs: List[dict]) -> str:
         ("crash_protection", "Crash Protection"),
         ("stress",           "Stress"),
     ]
+    # Append any suite present in the data but not in the ordered list above
+    # so a newly-added suite never silently drops out of coverage.
+    _known = {k for k, _ in SUITES}
+    for m in runs:
+        for suite_name in (m.get("per_suite") or {}):
+            if suite_name not in _known:
+                _known.add(suite_name)
+                SUITES.append((suite_name, suite_name.replace("_", " ").title()))
     # Aggregate across all runs
     totals: dict = {}
     runs_with_suites = [m for m in runs if m.get("per_suite")]
@@ -932,7 +944,12 @@ def generate(
         durations_ms = [0] * len(names)
     while len(durations_ms) < len(names):
         durations_ms.append(0)
-    total_duration_ms = sum(d for d in durations_ms if isinstance(d, int) and d > 0)
+    # Drop implausible step times (>24h) — a blank _now_ms start makes a
+    # step record the raw wall-clock timestamp (~1.7e12), which would
+    # corrupt the total and the dashboard duration charts.
+    _MAX_STEP_MS = 86_400_000
+    durations_ms = [d if isinstance(d, int) and 0 < d < _MAX_STEP_MS else 0 for d in durations_ms]
+    total_duration_ms = sum(durations_ms)
 
     try:
         dt_str = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%B %d, %Y at %H:%M:%S")
@@ -977,14 +994,6 @@ def generate(
 {steps_html}
 </main>
 <footer>Deck Shelves CI &middot; {_html.escape(ts)}</footer>
-<script>
-function toggle(i){{
-  var b=document.getElementById('b'+i);
-  var c=document.getElementById('c'+i);
-  var open=b.classList.toggle('open');
-  c.textContent=open?'▼':'▶';
-}}
-</script>
 </body>
 </html>
 """

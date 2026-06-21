@@ -4,11 +4,11 @@ import { defaultSettings } from "../domain/defaults";
 import { logError, logInfo, logWarn } from "../runtime/logger";
 import { applyQASettingsOverride } from "../qa/harness";
 
-// Bumping the cache key invalidates persisted localStorage entries from
-// previous plugin versions in one shot. v3 forces a backend refetch on
-// first load after upgrade — required because the backend sanitizer
-// migrates legacy "Recently Played" shelves whose stale source the cache
-// would otherwise keep alive across plugin reloads.
+/* Bumping the cache key invalidates persisted localStorage entries from
+   previous plugin versions in one shot. v3 forces a backend refetch on
+   first load after upgrade — required because the backend sanitizer
+   migrates legacy "Recently Played" shelves whose stale source the cache
+   would otherwise keep alive across plugin reloads. */
 const CACHE_KEY = 'deck-shelves-settings-cache-v3';
 const SHARED_STATE_KEY = '__DECK_SHELVES_SHARED_SETTINGS__';
 
@@ -53,11 +53,11 @@ const _init = readCache() ?? readSharedState();
 let current: Settings | null = _init ? applyQASettingsOverride(_init) : null;
 const listeners = new Set<(s: Settings) => void>();
 
-// Tracks whether the most recent saveSettings attempt actually reached the
-// backend. When the backend hangs / returns false we flip this to false;
-// while it is false, refreshSettings's background fetch stops overriding
-// `current` so the user's pending changes survive even across plugin
-// reloads. Persisted to localStorage so a remount doesn't drop the flag.
+/* Tracks whether the most recent saveSettings attempt actually reached the
+   backend. When the backend hangs / returns false we flip this to false;
+   while it is false, refreshSettings's background fetch stops overriding
+   `current` so the user's pending changes survive even across plugin
+   reloads. Persisted to localStorage so a remount doesn't drop the flag. */
 const SAVE_OK_KEY = "deck-shelves-last-save-ok";
 let lastSaveSucceeded = (() => {
   try { return globalThis.localStorage?.getItem(SAVE_OK_KEY) !== "0"; } catch { return true; }
@@ -95,18 +95,18 @@ function notify(raw: Settings) {
   } catch {}
 }
 
-// One-time migrations applied to every settings load — runs against both
-// the cached snapshot and freshly-fetched backend payloads, so users carry
-// the fix forward regardless of where the stale data sits. Each migration
-// MUST be idempotent.
+/* One-time migrations applied to every settings load — runs against both
+   the cached snapshot and freshly-fetched backend payloads, so users carry
+   the fix forward regardless of where the stale data sits. Each migration
+   MUST be idempotent. */
 function migrate(s: Settings): Settings {
   let mutated = false;
   const shelves = s.shelves.map((sh) => {
-    // "Recently Played" template used to emit { type: "tab", tab: "recent" },
-    // but listLibraryTabs() never had a "recent" tab id — so the edit modal's
-    // dropdown couldn't match and the source field looked unset. Filter
-    // source with sort=recent reproduces the same behavior on the home and
-    // round-trips cleanly through the modal.
+    /* "Recently Played" template used to emit { type: "tab", tab: "recent" },
+       but listLibraryTabs() never had a "recent" tab id — so the edit modal's
+       dropdown couldn't match and the source field looked unset. Filter
+       source with sort=recent reproduces the same behavior on the home and
+       round-trips cleanly through the modal. */
     const src = sh.source as any;
     if (src && src.type === "tab" && src.tab === "recent") {
       mutated = true;
@@ -134,10 +134,10 @@ export async function refreshSettings(): Promise<Settings> {
       logWarn("STORAGE", "retrying unsynced save on boot");
       saveSettings(cached).catch(() => {});
     }
-    // Snapshot the state we showed before kicking off the background read.
-    // If the user mutates anything while the call is in flight, `current`
-    // will diverge from this snapshot and we MUST keep the user's edits —
-    // the backend response is racing them and is necessarily stale.
+    /* Snapshot the state we showed before kicking off the background read.
+       If the user mutates anything while the call is in flight, `current`
+       will diverge from this snapshot and we MUST keep the user's edits —
+       the backend response is racing them and is necessarily stale. */
     const refreshAnchor = JSON.stringify(current);
     withTimeout(call<[], unknown>("get_settings"), 5000)
       .then((raw) => {
@@ -147,10 +147,10 @@ export async function refreshSettings(): Promise<Settings> {
           logWarn("STORAGE", "background refresh suppressed (last save unconfirmed)");
           return;
         }
-        // 2) User mutated state mid-read → adopting the backend response
-        //    would silently revert those edits even though they're being
-        //    actively saved. Skip and let the next refresh pick them up
-        //    once the save has settled.
+        /* 2) User mutated state mid-read → adopting the backend response
+              would silently revert those edits even though they're being
+              actively saved. Skip and let the next refresh pick them up
+              once the save has settled. */
         if (JSON.stringify(current) !== refreshAnchor) {
           logWarn("STORAGE", "background refresh suppressed (state changed mid-read)");
           return;
@@ -173,10 +173,10 @@ export async function refreshSettings(): Promise<Settings> {
   }
 }
 
-// Coalesce rapid saveSettings calls: when a backend write is already in
-// flight, queue the latest payload and let the resolver of every caller
-// share the same outcome. Eliminates the queue of N RPC calls that piled
-// up behind a slow plugin worker, each hitting its own 8 s timeout.
+/* Coalesce rapid saveSettings calls: when a backend write is already in
+   flight, queue the latest payload and let the resolver of every caller
+   share the same outcome. Eliminates the queue of N RPC calls that piled
+   up behind a slow plugin worker, each hitting its own 8 s timeout. */
 let pendingSave: { next: Settings; resolvers: Array<(ok: boolean) => void> } | null = null;
 let saveInFlight = false;
 
@@ -218,11 +218,11 @@ export function saveSettings(next: Settings): Promise<boolean> {
 async function runSave(next: Settings): Promise<boolean> {
   logInfo("STORAGE", "saveSettings start", { enabled: next.enabled, shelfCount: next.shelves.length });
 
-  // Single attempt with a single RPC. Previously this was 3 retries +
-  // a post-save get_settings verification, which on a slow backend stacked
-  // up to 6 timeouts per save and kept the UI in error-state for ~45s.
-  // The cache + `lastSaveSucceeded` flag handle one-off failures gracefully
-  // — the next user-triggered save will retry the write naturally.
+  /* Single attempt with a single RPC. Previously this was 3 retries +
+     a post-save get_settings verification, which on a slow backend stacked
+     up to 6 timeouts per save and kept the UI in error-state for ~45s.
+     The cache + `lastSaveSucceeded` flag handle one-off failures gracefully
+     — the next user-triggered save will retry the write naturally. */
   try {
     const ok = await withTimeout(call<[unknown], boolean>("set_settings", { settings: next }), 8000);
     if (!ok) {

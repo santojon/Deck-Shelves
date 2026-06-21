@@ -53,11 +53,11 @@ export function patchMenuButton(): void {
   const handleMenu = (evt: Event) => {
     try {
       // vgp_onmenubutton / contextmenu fire on the focused element — read the
-      // target directly before falling back to the focus-based queries. This
-      // handles cases where __ds_last_focused_card is briefly stale (e.g.
-      // DispatchVirtualButtonClick intercepted for the wrong card) because the
-      // document-level capture listener fires once the event IS dispatched on
-      // the correct element.
+      /* target directly before falling back to the focus-based queries. This
+         handles cases where __ds_last_focused_card is briefly stale (e.g.
+         DispatchVirtualButtonClick intercepted for the wrong card) because the
+         document-level capture listener fires once the event IS dispatched on
+         the correct element. */
       const fromTarget = (evt.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
       const focused = fromTarget ?? findFocusedDsCard();
       if (focused) {

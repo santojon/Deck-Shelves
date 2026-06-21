@@ -12,11 +12,11 @@ import { resolveLocalImage, subscribeLocalImage } from '../../../../core/localIm
 //     focusable in the row and creates a new card.
 //   - ↓ from any card block → shelf preview (lives below this tab).
 //   - A on a card block → "select" the card: the block expands inline,
-//     focus moves to the first field inside, ↑/↓ now walks through the
-//     card's fields. B collapses the block back to the summary view.
-//
-// Per-row rules: text XOR image; link/heroImage/shadowMode only with
-// base content; position is managed by the manual-order grid.
+/*     focus moves to the first field inside, ↑/↓ now walks through the
+       card's fields. B collapses the block back to the summary view.
+
+   Per-row rules: text XOR image; link/heroImage/shadowMode only with
+   base content; position is managed by the manual-order grid. */
 type SyntheticCardInput = {
   position: number
   image?: string
@@ -58,10 +58,10 @@ function shadowOptions(t: (k: any) => string) {
   ]
 }
 
-// Inline preview thumb — uses the same backend image resolver as the
-// home card so local file:// paths render via the base64 cache.
-// Subscribes to the cache so the thumbnail appears as soon as the RPC
-// returns (first render is null while the read is in flight).
+/* Inline preview thumb — uses the same backend image resolver as the
+   home card so local file:// paths render via the base64 cache.
+   Subscribes to the cache so the thumbnail appears as soon as the RPC
+   returns (first render is null while the read is in flight). */
 function ImagePreview({ src, label, size = 64 }: { src: string | undefined; label: string; size?: number }) {
   const [, setTick] = useState(0)
   useEffect(() => subscribeLocalImage(() => setTick((n) => n + 1)), [])
@@ -89,10 +89,10 @@ function ImagePreview({ src, label, size = 64 }: { src: string | undefined; labe
   )
 }
 
-// Collapsed summary card — single Focusable, no nested fields. Shows
-// a compact preview (image thumb / text / "empty"), the card number,
-// and a couple of status badges so the user can tell decorations
-// apart at a glance. Activate enters edit mode.
+/* Collapsed summary card — single Focusable, no nested fields. Shows
+   a compact preview (image thumb / text / "empty"), the card number,
+   and a couple of status badges so the user can tell decorations
+   apart at a glance. Activate enters edit mode. */
 function CardSummary({
   t,
   card,
@@ -186,10 +186,10 @@ function CardSummary({
 export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCardAdded }: DecorationTabProps) {
   const [pickingImageIdx, setPickingImageIdx] = useState<number | null>(null)
   const [pickingHeroIdx, setPickingHeroIdx] = useState<number | null>(null)
-  // Master/detail state — `null` keeps every card collapsed (summary view,
-  // single focusable, L/R nav between them + [+]). Setting it expands
-  // the targeted card so its fields become focusable in vertical order;
-  // B (cancel) on the expanded card collapses back to summary view.
+  /* Master/detail state — `null` keeps every card collapsed (summary view,
+     single focusable, L/R nav between them + [+]). Setting it expands
+     the targeted card so its fields become focusable in vertical order;
+     B (cancel) on the expanded card collapses back to summary view. */
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const updateCard = (idx: number, patch: Partial<SyntheticCardInput>) => {
     const next = cards.slice()

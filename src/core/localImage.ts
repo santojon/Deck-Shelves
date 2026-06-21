@@ -3,11 +3,11 @@
 // shelf's `<img>` can actually load. CEF blocks bare absolute paths
 // and `file://` URLs from the Big Picture context for security, so we
 // route the read through the Python backend which returns base64.
-//
-// Cache is module-scoped + bounded: keeps the last ~24 entries (more
-// than any reasonable shelf row can carry). Decoration card images
-// rarely change between resolves, so this avoids re-issuing the RPC
-// every render.
+/*
+   Cache is module-scoped + bounded: keeps the last ~24 entries (more
+   than any reasonable shelf row can carry). Decoration card images
+   rarely change between resolves, so this avoids re-issuing the RPC
+   every render. */
 import { call } from "../runtime/host/decky";
 
 interface ReadImageResult { ok: boolean; dataUrl?: string; }

@@ -90,11 +90,11 @@ export const SMART_PARAM_DEFAULTS: Record<SmartShelfMode, SmartParams> = {
   couch_gaming:           { minDeckLevel: 0 },
   coop_ready:             { minDeckLevel: 0 },
   party_games:            { minDeckLevel: 0 },
-  // includeRecentlyPlayed: 0 = only currently in-game RIGHT NOW; 1 = also
-  // include apps any friend was seen playing in the last ~14 days. Default
-  // 1 because "no friends in-game right this second" is the common case
-  // even with a healthy friends list; the recently-played fallback keeps
-  // the shelf populated.
+  /* includeRecentlyPlayed: 0 = only currently in-game RIGHT NOW; 1 = also
+     include apps any friend was seen playing in the last ~14 days. Default
+     1 because "no friends in-game right this second" is the common case
+     even with a healthy friends list; the recently-played fallback keeps
+     the shelf populated. */
   friends_playing:        { minDeckLevel: 0, includeRecentlyPlayed: 1 },
   custom:                 {},
 };

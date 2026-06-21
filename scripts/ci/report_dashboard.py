@@ -81,6 +81,13 @@ _DASH_JS = r"""
     return h+'h '+(m-h*60)+'m';
   }
 
+  /* Guard against corrupt timings: a step that captured a wall-clock
+     timestamp (empty _now_ms start) instead of elapsed ms surfaces as
+     ~1.7e12 and would dwarf every real run. Anything over 24h is
+     impossible for a validation run, so treat it as missing. */
+  const MAX_RUN_MS=86400000;
+  function plausibleDur(d){d=+d;return d>0&&d<MAX_RUN_MS?d:0;}
+
   function kpis(rs){
     const total=rs.length;
     const p=rs.reduce((a,r)=>a+(r.passed||0),0);
@@ -93,7 +100,7 @@ _DASH_JS = r"""
     const last=rs.length?rs[rs.length-1]:null;
     const lr=last?(last.overall||'?'):'—';
     const lc=lr==='PASS'?'var(--pass)':(lr==='FAIL'?'var(--fail)':'var(--muted)');
-    const durs=rs.map(r=>r.total_duration_ms||0).filter(d=>d>0);
+    const durs=rs.map(r=>plausibleDur(r.total_duration_ms)).filter(d=>d>0);
     const avgDur=durs.length?Math.round(durs.reduce((a,d)=>a+d,0)/durs.length):0;
     return `<div class="kpis">
       <div class="kpi"><div class="v">${total}</div><div class="l">Total Runs</div></div>
@@ -101,7 +108,7 @@ _DASH_JS = r"""
       <div class="kpi"><div class="v">${tt}</div><div class="l">Tests Executed</div></div>
       <div class="kpi"><div class="v" style="color:var(--accent)">${pct}%</div><div class="l">Test Pass Rate</div></div>
       <div class="kpi"><div class="v" style="color:${lc}">${esc(lr)}</div><div class="l">Last Run</div></div>
-      <div class="kpi"><div class="v">${fmtDur(avgDur)}</div><div class="l">Avg Duration</div></div></div>`;
+      <div class="kpi"><div class="v">${fmtDur(avgDur)}</div><div class="l">Avg Duration${durs.length?` · ${durs.length}/${total} timed`:''}</div></div></div>`;
   }
 
   function benchBars(rs){
@@ -110,7 +117,7 @@ _DASH_JS = r"""
     for(const r of rs){
       const names=r.step_names||[],durs=r.step_durations_ms||[];
       for(let i=0;i<names.length;i++){
-        const n=names[i],d=durs[i]||0;
+        const n=names[i],d=plausibleDur(durs[i]);
         if(!n||d<=0)continue;
         const t=totals[n]=totals[n]||{sum:0,n:0};
         t.sum+=d;t.n+=1;
@@ -143,6 +150,36 @@ _DASH_JS = r"""
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
     const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${(p.m.failed||0)===0?PASS:FAIL}"><title>${esc(p.m.ts||'?')} [${esc(scopeOf(p.m)||'?')}] ${Math.round(p.rate)}% (${p.m.passed||0}/${p.m.total||0})</title></circle>`).join('');
     return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}<path d="${area}" fill="#7c3aed22"/><path d="${line}" fill="none" stroke="#a78bfa" stroke-width="2"/>${dots}</svg>`;
+  }
+
+  // Total run duration over time — shows whether validation is trending
+  // faster or slower. A rising trend across runs flags a perf regression
+  // (more cards / heavier mount / slower nav) before it reaches users.
+  function svgDuration(rs){
+    const withDur=rs.filter(m=>plausibleDur(m.total_duration_ms)>0);
+    if(!withDur.length)return '<p style="color:#475569;font-size:12px">No timed runs yet.</p>';
+    const w=480,h=200,pl=46,pb=24,pt=12,pr=12,cw=w-pl-pr,ch=h-pt-pb;
+    const maxMs=Math.max(...withDur.map(m=>plausibleDur(m.total_duration_ms)))||1;
+    const pts=withDur.map((m,i)=>{
+      const d=plausibleDur(m.total_duration_ms);
+      const x=pl+(cw*i/Math.max(1,withDur.length-1)),y=pt+ch-(ch*d/maxMs);
+      return {x,y,d,m};
+    });
+    let grid='';
+    for(const frac of [0,0.5,1]){const gy=pt+ch-(ch*frac);
+      grid+=`<line x1="${pl}" y1="${gy.toFixed(1)}" x2="${w-pr}" y2="${gy.toFixed(1)}" stroke="#334155" stroke-width="1"/>`+
+            `<text x="${pl-6}" y="${(gy+3).toFixed(1)}" fill="#64748b" font-size="9" text-anchor="end">${fmtDur(Math.round(maxMs*frac))}</text>`;}
+    const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
+    const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
+    // Trend arrow: compare last vs first timed run.
+    const first=pts[0].d,last=pts[pts.length-1].d;
+    const delta=last-first,pct=first?Math.round(100*delta/first):0;
+    const trend=pts.length<2?'':(delta>0?`▲ +${pct}% slower`:(delta<0?`▼ ${pct}% faster`:'• flat'));
+    const trendColor=delta>0?FAIL:(delta<0?PASS:'#94a3b8');
+    const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#38bdf8"><title>${esc(p.m.ts||'?')} [${esc(scopeOf(p.m)||'?')}] ${fmtDur(p.d)}</title></circle>`).join('');
+    const trendLabel=trend?`<text x="${w-pr}" y="${pt+8}" fill="${trendColor}" font-size="11" font-weight="700" text-anchor="end">${trend}</text>`:'';
+    const countLabel=withDur.length<rs.length?`<text x="${pl}" y="${pt+8}" fill="#64748b" font-size="9">${withDur.length}/${rs.length} runs timed</text>`:'';
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}<path d="${area}" fill="#38bdf822"/><path d="${line}" fill="none" stroke="#38bdf8" stroke-width="2"/>${dots}${trendLabel}${countLabel}</svg>`;
   }
 
   function svgDonut(p,f,k,size=180){
@@ -182,7 +219,9 @@ _DASH_JS = r"""
   }
 
   function suiteBars(rs){
-    const SUITES=[['home','Home'],['qam_shelves','QAM Shelves'],['qam_smart','QAM Smart'],
+    const SUITES=[['home','Home'],['settings','Settings'],['search','Search'],
+                  ['sidenav','Side Nav'],['sidecar','Sidecar'],
+                  ['qam_shelves','QAM Shelves'],['qam_smart','QAM Smart'],
                   ['qam_global_toggles','QAM Global'],['about','About'],['context_menu','Context Menu'],
                   ['perf','Performance'],['crash_protection','Crash Protection'],['stress','Stress']];
     const totals={};
@@ -194,6 +233,10 @@ _DASH_JS = r"""
       }
     }
     if(!Object.keys(totals).length)return '<p style="color:#475569;font-size:12px">No UI test data yet. Run <code>pnpm validate:full</code> with a Deck connected.</p>';
+    // Append any suite in the data but not in the ordered list so a new
+    // suite never silently drops out of the coverage panel.
+    const known=new Set(SUITES.map(x=>x[0]));
+    for(const k of Object.keys(totals))if(!known.has(k)){known.add(k);SUITES.push([k,k.replace(/_/g,' ').replace(/\b\w/g,m=>m.toUpperCase())]);}
     return SUITES.map(([key,label])=>{
       const s=totals[key];if(!s)return '';
       const tt=s.passed+s.failed+s.skipped;if(!tt)return '';
@@ -217,6 +260,8 @@ _DASH_JS = r"""
       ? `<div class="empty-scope">No <strong>${esc(sel)}</strong> runs yet. Run <code>pnpm validate:full</code> (local) or push to a tracked branch (CI) to see data here.</div>`
       : kpis(view);
     $('line').innerHTML=svgLine(view);
+    const durHost=$('duration');
+    if(durHost)durHost.innerHTML=svgDuration(view);
     $('suites').innerHTML=suiteBars(view);
     const p=view.reduce((a,r)=>a+(r.passed||0),0);
     const f=view.reduce((a,r)=>a+(r.failed||0),0);
@@ -234,7 +279,11 @@ _DASH_JS = r"""
     if(currentScope!=='all')parts.push('scope='+currentScope);
     if(currentDeck!=='all')parts.push('deck='+currentDeck);
     if(currentStress!=='all')parts.push('stress='+currentStress);
-    try{history.replaceState(null,'',parts.length?('#'+parts.join('&')):'#')}catch(_){}
+    // When no filters are active, clear the hash to the bare path (NOT
+    // '#'): writing a lone '#' makes the browser jump to the top of the
+    // document. replaceState with pathname leaves scroll untouched.
+    const url=parts.length?('#'+parts.join('&')):(location.pathname+location.search);
+    try{history.replaceState(null,'',url)}catch(_){}
   }
   function setScope(s){
     if(!['all','local','ci','release'].includes(s))return;
@@ -291,7 +340,12 @@ _DASH_JS = r"""
     if(!fetched.length)return;
     const merged=sortRuns(dedupe(runs.concat(fetched)));
     if(merged.length===runs.length)return;
+    // Preserve scroll: this async re-render can fire after the user has
+    // scrolled down, and rebuilding panel innerHTML would otherwise let
+    // the viewport snap back to the top.
+    const y=window.scrollY;
     runs=merged;render();
+    window.scrollTo(0,y);
   });
 })();
 """.strip()
@@ -338,6 +392,15 @@ def _rebuild_dashboard(reports_root: Path) -> None:
     <div class="legend">
       <span><i style="background:#4ade80"></i> run passed</span>
       <span><i style="background:#f87171"></i> run had failures</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Total run duration over time &mdash; faster / slower trend</h2>
+    <div id="duration"></div>
+    <div class="legend">
+      <span><i style="background:#38bdf8"></i> total validation time per run</span>
+      <span style="color:#64748b;font-size:10px">(rising = slower; trend badge compares newest vs oldest timed run)</span>
     </div>
   </div>
 

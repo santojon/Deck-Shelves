@@ -197,11 +197,11 @@ function resolveNonSteam(apps: AppOverview[], limit: number): number[] {
     .map((a) => a.appid);
 }
 
-// Media / non-game template resolvers — each filters the local pool to
-// a specific Steam EAppType bit-flag so users can carve a shelf for
-// soundtracks, videos, demos etc. that the game-focused templates above
-// would otherwise hide. See `shortcutType` filter for the full app_type
-// table.
+/* Media / non-game template resolvers — each filters the local pool to
+   a specific Steam EAppType bit-flag so users can carve a shelf for
+   soundtracks, videos, demos etc. that the game-focused templates above
+   would otherwise hide. See `shortcutType` filter for the full app_type
+   table. */
 
 function resolveSoundtracks(apps: AppOverview[], limit: number): number[] {
   return apps
@@ -231,11 +231,11 @@ function resolveDemos(apps: AppOverview[], limit: number): number[] {
 function resolveCloudGames(apps: AppOverview[], limit: number): number[] {
   // Non-Steam shortcuts that Unifideck (or any future provider) tagged
   // as cloud-play. Re-uses the same detection the resolver already
-  // applies for the "hideOwnedNonSteamCloud" toggle: the appid lives in
-  // a `[Unifideck] microsoft`-style collection. Returns an empty shelf
-  // when no cloud collection is detected — the template is purposely
-  // about cloud-play entries only, so falling back to "any non-Steam"
-  // would mis-label the row on devices without Unifideck.
+  /* applies for the "hideOwnedNonSteamCloud" toggle: the appid lives in
+     a `[Unifideck] microsoft`-style collection. Returns an empty shelf
+     when no cloud collection is detected — the template is purposely
+     about cloud-play entries only, so falling back to "any non-Steam"
+     would mis-label the row on devices without Unifideck. */
   try {
     // Lazy require to avoid a circular import — smartShelves.ts is
     // imported by steam/index.ts at module load.
@@ -518,10 +518,10 @@ function resolveSeasonalRotation(apps: AppOverview[], limit: number, params?: Sm
   return rotateWindow(pool, `seasonal_rotation:${shelfId ?? "_"}`, rotateDays, limit).map((a) => (a as any).appid);
 }
 
-// Runtime-aware templates: consult battery state / appDetails cache. Each
-// falls back to a deterministic empty / heuristic result when the runtime
-// data isn't available, so the shelf never crashes — it just renders empty
-// (consistent with other empty-source semantics across the plugin).
+/* Runtime-aware templates: consult battery state / appDetails cache. Each
+   falls back to a deterministic empty / heuristic result when the runtime
+   data isn't available, so the shelf never crashes — it just renders empty
+   (consistent with other empty-source semantics across the plugin). */
 
 function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
   const threshold = getParam("low_battery_mode", params, "batteryThresholdPct") / 100;
@@ -531,10 +531,10 @@ function resolveLowBatteryMode(apps: AppOverview[], limit: number, params?: Smar
   const maxBytes = maxSizeMb * 1024 * 1024;
   const battery = getBatteryState();
   const isOnBatteryLow = battery?.hasBattery === true && battery.state === "discharging" && battery.level > 0 && battery.level <= threshold;
-  // Same selection rules as short_battery (installed + small + Deck-friendly
-  // + short playtime). The differentiation is the visibility-on-low-battery
-  // semantic: when battery is OK, the shelf still renders but with the same
-  // candidates as short_battery — users get a useful set in any device state.
+  /* Same selection rules as short_battery (installed + small + Deck-friendly
+     + short playtime). The differentiation is the visibility-on-low-battery
+     semantic: when battery is OK, the shelf still renders but with the same
+     candidates as short_battery — users get a useful set in any device state. */
   const pool = apps.filter((a) =>
     !a.is_non_steam &&
     (a.app_type === undefined || a.app_type === 1) &&
@@ -579,10 +579,10 @@ function resolveAlmostFinished(apps: AppOverview[], limit: number, params?: Smar
     .map((x) => x.app.appid);
 }
 
-// store_categories-aware templates. Substring-match (case-insensitive)
-// against Steam's category names — built-in keywords cover the canonical
-// English names; localized installs may not match, in which case the shelf
-// is empty. Fix is to extend the keyword list per locale (i18n).
+/* store_categories-aware templates. Substring-match (case-insensitive)
+   against Steam's category names — built-in keywords cover the canonical
+   English names; localized installs may not match, in which case the shelf
+   is empty. Fix is to extend the keyword list per locale (i18n). */
 
 const COUCH_GAMING_KEYWORDS = ["shared/split screen", "shared screen", "split screen", "couch"];
 const COOP_KEYWORDS = ["co-op", "coop", "online co-op", "online coop"];
@@ -616,11 +616,11 @@ function resolvePartyGames(apps: AppOverview[], limit: number, params?: SmartPar
 }
 
 function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: SmartParams): number[] {
-  // Online gate: reuse the same master toggle as wishlist / store. When the
-  // user has online features off, friends data is treated as off too —
-  // consistent with the rest of the online-gated UX. Local friend cache
-  // may still have stale entries; gating here prevents the resolver from
-  // surfacing them.
+  /* Online gate: reuse the same master toggle as wishlist / store. When the
+     user has online features off, friends data is treated as off too —
+     consistent with the rest of the online-gated UX. Local friend cache
+     may still have stale entries; gating here prevents the resolver from
+     surfacing them. */
   try {
     const s = getCurrentSettings();
     if ((s as any)?.offlineModeEnabled === true) return [];
@@ -657,11 +657,11 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
   // the store detail page when the user doesn't own the app. Live
   // currently-playing friends rank ahead of recently-played-only ones.
   //
-  // Library-owned set MUST be derived from the full `apps` pool (not just
-  // the post-filter `ownedMatches`), otherwise apps the user owns but
-  // that got filtered out (non-Steam shortcut, Deck level too low, etc.)
-  // would leak back as "non-owned" — wrong semantically and visible to
-  // the user as duplicate / unowned-looking cards.
+  /* Library-owned set MUST be derived from the full `apps` pool (not just
+     the post-filter `ownedMatches`), otherwise apps the user owns but
+     that got filtered out (non-Steam shortcut, Deck level too low, etc.)
+     would leak back as "non-owned" — wrong semantically and visible to
+     the user as duplicate / unowned-looking cards. */
   const libraryAppIds = new Set(apps.map((a) => a.appid));
   const nonOwnedIds: number[] = [];
   // Walk live set first so currently-playing non-owned items lead.
@@ -688,10 +688,10 @@ export function resolveSmartShelf(
 ): number[] {
   const ttl = typeof ttlMs === "number" && ttlMs > 0 ? ttlMs : DEFAULT_SMART_TTL_MS;
   const paramsKey = params ? JSON.stringify(params) : "";
-  // Per-shelf namespacing: when `shelfId` is given, two shelves with the
-  // same `mode + limit + params + ttl` keep independent cache entries — so
-  // refreshing one (`invalidateSmartShelfCache(shelfId)`) doesn't disturb
-  // the other. Falls back to a global key when omitted (legacy callers).
+  /* Per-shelf namespacing: when `shelfId` is given, two shelves with the
+     same `mode + limit + params + ttl` keep independent cache entries — so
+     refreshing one (`invalidateSmartShelfCache(shelfId)`) doesn't disturb
+     the other. Falls back to a global key when omitted (legacy callers). */
   const cacheKey = shelfId
     ? `${shelfId}:${mode}:${limit}:${paramsKey}:${ttl}`
     : `${mode}:${limit}:${paramsKey}:${ttl}`;
@@ -797,11 +797,11 @@ export function nextVisibilityBoundary(
   const ranges = normalizeWindow(window);
   // No window AND no day restriction → never flips.
   if (ranges.length === 0 && (!daysOfWeek || daysOfWeek.length === 0)) return null;
-  // The next boundary is the start of the next hour boundary that matches
-  // either the start or end of the window, OR the start of the next allowed
-  // day if `daysOfWeek` excludes today. Cheapest correct implementation:
-  // step the clock forward one hour at a time and return the first hour
-  // where `isInVisibilityWindow` flips.
+  /* The next boundary is the start of the next hour boundary that matches
+     either the start or end of the window, OR the start of the next allowed
+     day if `daysOfWeek` excludes today. Cheapest correct implementation:
+     step the clock forward one hour at a time and return the first hour
+     where `isInVisibilityWindow` flips. */
   const cur = isInVisibilityWindow(window, daysOfWeek, now);
   const probe = new Date(now.getTime());
   probe.setMinutes(0, 0, 0);

@@ -209,11 +209,11 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       // Dropdown sourced from the same `controller.collections` the source
       // picker uses — id-based matching so name lookups (which are unreliable
       // across SteamOS / Bazzite collectionStore shapes) are bypassed entirely.
-      // Inversion still flows through `item.inverted` in the evaluator, and
-      // the prefetch pass keys on `params.collectionId` — both untouched here.
-      // Uses DropdownItem's own `label` slot (same pattern as the `hidden`
-      // filter above) instead of wrapping in a Field — Field adds extra
-      // gutter between the label and the control.
+      /* Inversion still flows through `item.inverted` in the evaluator, and
+         the prefetch pass keys on `params.collectionId` — both untouched here.
+         Uses DropdownItem's own `label` slot (same pattern as the `hidden`
+         filter above) instead of wrapping in a Field — Field adds extra
+         gutter between the label and the control. */
       const collections = controller?.collections ?? [];
       const currentId = String(p.collectionId ?? "");
       const collectionOptions = collections.map((c) => ({ data: String(c.id), label: c.name }));

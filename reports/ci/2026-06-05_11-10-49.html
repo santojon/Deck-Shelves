@@ -26,8 +26,9 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .n.p{color:var(--pass)}.n.f{color:var(--fail)}.n.s{color:var(--skip)}.n.t{color:var(--muted)}
 .step{background:var(--card);border:1px solid var(--border);border-radius:9px;
   margin-bottom:10px}
-.step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;
+.step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;list-style:none;
   cursor:pointer;user-select:none;border-radius:9px}
+.step-hdr::-webkit-details-marker{display:none}
 .step-hdr:hover{background:#273548}
 .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .dot.pass{background:var(--pass)}.dot.fail{background:var(--fail);box-shadow:0 0 5px var(--fail)}
@@ -37,9 +38,10 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .slabel.pass{background:#14532d44;color:var(--pass)}
 .slabel.fail{background:#7f1d1d44;color:var(--fail)}
 .slabel.skip{background:#1e293b;color:var(--skip)}
-.chevron{font-size:11px;color:var(--muted)}
-.step-body{display:none;border-top:1px solid var(--border);border-radius:0 0 9px 9px}
-.step-body.open{display:block}
+.chevron{font-size:11px;color:var(--muted);display:inline-block;transition:transform .15s}
+.step[open] .chevron{transform:rotate(90deg)}
+.step-body{border-top:1px solid var(--border);border-radius:0 0 9px 9px}
+
 .test-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;
   background:#0d1b2a;border-bottom:1px solid var(--border);font-size:12px}
 .test-bar .tp{color:var(--pass)}.test-bar .tf{color:var(--fail)}
@@ -84,12 +86,12 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
     <div class="sc"><div class="n t">10.2s</div><div class="l">Duration</div></div>
   </div>
   <div class="panel"><h2>Step durations</h2><div class="bm"><div class="bm-row"><span class="bm-name">TypeScript typecheck</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:42.1%;background:#4ade80"></div></div><span class="bm-dur">2.2s</span></div><div class="bm-row"><span class="bm-name">Build (production)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:11.2%;background:#4ade80"></div></div><span class="bm-dur">577 ms</span></div><div class="bm-row"><span class="bm-name">Unit tests (vitest)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:23.9%;background:#4ade80"></div></div><span class="bm-dur">1.2s</span></div><div class="bm-row"><span class="bm-name">Package (.zip)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:18.1%;background:#4ade80"></div></div><span class="bm-dur">931 ms</span></div><div class="bm-row"><span class="bm-name">Verify package</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:2.9%;background:#f87171"></div></div><span class="bm-dur">148 ms</span></div><div class="bm-row"><span class="bm-name">Compat validation</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:100.0%;background:#4ade80"></div></div><span class="bm-dur">5.1s</span></div></div></div>
-<div class="step" id="s0"><div class="step-hdr" onclick="toggle(0)"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="sdur" title="2163 ms">2.2s</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></div><div class="step-body" id="b0"><pre class="log">
+<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="sdur" title="2163 ms">2.2s</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></summary><div class="step-body" id="b0"><pre class="log">
 &gt; deck-shelves@2.4.0 typecheck /Users/santojon/Projects/Deck-Shelves
 &gt; tsc --noEmit
 
-</pre></div></div>
-<div class="step" id="s1"><div class="step-hdr" onclick="toggle(1)"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="sdur" title="577 ms">577 ms</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></div><div class="step-body" id="b1"><pre class="log">
+</pre></div></details>
+<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="sdur" title="577 ms">577 ms</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></summary><div class="step-body" id="b1"><pre class="log">
 &gt; deck-shelves@2.4.0 build:release /Users/santojon/Projects/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
@@ -126,8 +128,8 @@ dist<a class="fl" href="vscode://file//chunks/settingsStore-D85apjLo.js">/chunks
 dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             864.20 kB │ gzip: 197.81 kB
 
 <span class="g">✓ built in 172ms</span>
-</pre></div></div>
-<div class="step" id="s2"><div class="step-hdr" onclick="toggle(2)"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="sdur" title="1229 ms">1.2s</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></div><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 23 passed</span></div><pre class="log">
+</pre></div></details>
+<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="sdur" title="1229 ms">1.2s</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 23 passed</span></div><pre class="log">
 &gt; deck-shelves@2.4.0 test /Users/santojon/Projects/Deck-Shelves
 &gt; vitest run
 
@@ -158,8 +160,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
    Start at  11:10:52
    Duration  836ms (transform 1.36s, setup 0ms, import 2.48s, tests 225ms, environment 531ms)
 
-</pre></div></div>
-<div class="step" id="s3"><div class="step-hdr" onclick="toggle(3)"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="sdur" title="931 ms">931 ms</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></div><div class="step-body" id="b3"><pre class="log">
+</pre></div></details>
+<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="sdur" title="931 ms">931 ms</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></summary><div class="step-body" id="b3"><pre class="log">
 &gt; deck-shelves@2.4.0 build:release /Users/santojon/Projects/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
@@ -206,8 +208,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">[verify] plugin.json flags OK (no debug)</span>
 [verify] package.json matches repo
 [verify] Package OK: /Users/santojon/Projects/Deck-Shelves/deck-shelves-v2.4.0.zip
-</pre></div></div>
-<div class="step" id="s4"><div class="step-hdr" onclick="toggle(4)"><div class="dot fail"></div><span class="sname">Verify package</span><span class="sdur" title="148 ms">148 ms</span><span class="slabel fail">FAIL</span><span class="chevron" id="c4">▶</span></div><div class="step-body" id="b4"><div class="issues"><h4>⚠ Files with issues</h4><div class="issue"><a class="fl" href="vscode://file//index.js">index.js</a> &mdash; /index.js</div><div class="issue"><a class="fl" href="vscode://file//en-US.js">en-US.js</a> &mdash; /en-US.json</div><div class="issue"><a class="fl" href="vscode://file//var/folders/h3/lcv_r50n5vn5m7c9wrmfglr00000gn/T/tmp.S4CtVmXV3c/deck-shelves/package.js">package.js</a> &mdash; /var/folders/h3/lcv_r50n5vn5m7c9wrmfglr00000gn/T/tmp.S4CtVmXV3c/deck-shelves/package.json	2026-05-29 17:12:27</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/ci/report.py">report.py</a> &mdash; scripts/ci/report.py --rebuild --root .&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/build-decky.mjs">build-decky.mjs</a> &mdash; scripts/build/build-decky.mjs --mode development&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/deck/perf-test.sh">perf-test.sh</a> &mdash; scripts/deck/perf-test.sh&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/deck/logs-decky.sh">logs-decky.sh</a> &mdash; scripts/deck/logs-decky.sh&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate.mjs">validate.mjs</a> &mdash; scripts/build/validate.mjs&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate-compat.mjs">validate-compat.mjs</a> &mdash; scripts/build/validate-compat.mjs&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate-compat.sh">validate-compat.sh</a> &mdash; scripts/build/validate-compat.sh&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/devtools/deck/cli.py">cli.py</a> &mdash; scripts/devtools/deck/cli.py screenshot&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate-screenshots.mjs">validate-screenshots.mjs</a> &mdash; scripts/build/validate-screenshots.mjs&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/devtools/update.sh">update.sh</a> &mdash; scripts/devtools/update.sh all&quot;,</div></div><pre class="log">[verify] Found: plugin.json
+</pre></div></details>
+<details class="step" id="s4"><summary class="step-hdr"><div class="dot fail"></div><span class="sname">Verify package</span><span class="sdur" title="148 ms">148 ms</span><span class="slabel fail">FAIL</span><span class="chevron" id="c4">▶</span></summary><div class="step-body" id="b4"><div class="issues"><h4>⚠ Files with issues</h4><div class="issue"><a class="fl" href="vscode://file//index.js">index.js</a> &mdash; /index.js</div><div class="issue"><a class="fl" href="vscode://file//en-US.js">en-US.js</a> &mdash; /en-US.json</div><div class="issue"><a class="fl" href="vscode://file//var/folders/h3/lcv_r50n5vn5m7c9wrmfglr00000gn/T/tmp.S4CtVmXV3c/deck-shelves/package.js">package.js</a> &mdash; /var/folders/h3/lcv_r50n5vn5m7c9wrmfglr00000gn/T/tmp.S4CtVmXV3c/deck-shelves/package.json	2026-05-29 17:12:27</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/ci/report.py">report.py</a> &mdash; scripts/ci/report.py --rebuild --root .&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/build-decky.mjs">build-decky.mjs</a> &mdash; scripts/build/build-decky.mjs --mode development&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/deck/perf-test.sh">perf-test.sh</a> &mdash; scripts/deck/perf-test.sh&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/deck/logs-decky.sh">logs-decky.sh</a> &mdash; scripts/deck/logs-decky.sh&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate.mjs">validate.mjs</a> &mdash; scripts/build/validate.mjs&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate-compat.mjs">validate-compat.mjs</a> &mdash; scripts/build/validate-compat.mjs&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate-compat.sh">validate-compat.sh</a> &mdash; scripts/build/validate-compat.sh&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/devtools/deck/cli.py">cli.py</a> &mdash; scripts/devtools/deck/cli.py screenshot&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate-screenshots.mjs">validate-screenshots.mjs</a> &mdash; scripts/build/validate-screenshots.mjs&quot;,</div><div class="issue"><a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/devtools/update.sh">update.sh</a> &mdash; scripts/devtools/update.sh all&quot;,</div></div><pre class="log">[verify] Found: plugin.json
 [verify] Found: package.json
 [verify] Found: main.py
 [verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
@@ -269,8 +271,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
      &quot;typescript&quot;: &quot;^6.0.3&quot;,
      &quot;vite&quot;: &quot;^8.0.14&quot;,
 <span class="e">[verify] Package verification failed</span>
-</pre></div></div>
-<div class="step" id="s5"><div class="step-hdr" onclick="toggle(5)"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="sdur" title="5132 ms">5.1s</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></div><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
+</pre></div></details>
+<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="sdur" title="5132 ms">5.1s</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
 &gt; deck-shelves@2.4.0 validate:compat /Users/santojon/Projects/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//Users/santojon/Projects/Deck-Shelves/scripts/build/validate-compat.mjs">scripts/build/validate-compat.mjs</a>
 
@@ -712,17 +714,9 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ SteamOS GamepadUI (3.5–3.9)</span>
 
 <span class="g">  🎉 All 39 compatibility checks passed!</span>
-</pre></div></div>
+</pre></div></details>
 
 </main>
 <footer>Deck Shelves CI &middot; 2026-06-05_11-10-49</footer>
-<script>
-function toggle(i){
-  var b=document.getElementById('b'+i);
-  var c=document.getElementById('c'+i);
-  var open=b.classList.toggle('open');
-  c.textContent=open?'▼':'▶';
-}
-</script>
 </body>
 </html>

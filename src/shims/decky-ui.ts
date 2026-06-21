@@ -18,11 +18,11 @@ const noop = () => {};
 
 // Decky resolves `Field` via `findModuleExport` against a Steam-internal
 // string ("shift-children-below"). When Steam refactors that source, the
-// match breaks and `decky.Field` becomes undefined. The previous fallback
-// (`passthroughComponent`) silently dropped `label` and `description`,
-// hiding shelf-list titles and the EditShelfModal title input. This
-// fallback renders both visibly with the standard Decky row layout so
-// the plugin remains usable while Decky catches up.
+/* match breaks and `decky.Field` becomes undefined. The previous fallback
+   (`passthroughComponent`) silently dropped `label` and `description`,
+   hiding shelf-list titles and the EditShelfModal title input. This
+   fallback renders both visibly with the standard Decky row layout so
+   the plugin remains usable while Decky catches up. */
 import { createElement } from 'react';
 const fieldFallback = (props: any) => {
   const { label, description, children, icon, bottomSeparator, indentLevel, childrenLayout } = props ?? {};
@@ -57,11 +57,11 @@ const fieldFallback = (props: any) => {
         labelEl,
         children != null
           ? createElement('div', {
-              // When there's no label the children container should
-              // expand to fill the row — otherwise an inner Focusable
-              // with `width: 100%` collapses to the children's natural
-              // width and right-aligned items (justify-content:
-              // space-between) end up flush against the left buttons.
+              /* When there's no label the children container should
+                 expand to fill the row — otherwise an inner Focusable
+                 with `width: 100%` collapses to the children's natural
+                 width and right-aligned items (justify-content:
+                 space-between) end up flush against the left buttons. */
               style: {
                 display: 'flex', alignItems: 'center',
                 flexGrow: label != null ? 0 : 1,
@@ -75,10 +75,10 @@ const fieldFallback = (props: any) => {
   return createElement(
     'div',
     {
-      // Horizontal padding matches Decky's native Field (~16 px each
-      // side) so labels and right-aligned children don't touch the QAM
-      // scope edges. Without it the shelf-list rows sat flush with the
-      // Quick Access panel borders.
+      /* Horizontal padding matches Decky's native Field (~16 px each
+         side) so labels and right-aligned children don't touch the QAM
+         scope edges. Without it the shelf-list rows sat flush with the
+         Quick Access panel borders. */
       style: {
         display: 'flex', flexDirection: 'column', gap: 4,
         padding: '8px 16px', marginLeft: indentPx, borderBottom: border,
@@ -102,10 +102,10 @@ export const Dropdown = decky.Dropdown ?? passthroughComponent;
 export const DropdownItem = decky.DropdownItem ?? decky.Dropdown ?? passthroughComponent;
 export const Field = decky.Field ?? fieldFallback;
 export const Focusable = decky.Focusable ?? passthroughComponent;
-// Runtime enum that Decky exposes via FooterLegend. Required for
-// gamepad-button comparison in the local ReorderableList. Fallback keeps
-// the numeric values stable (see @decky/ui FooterLegend.d.ts) so any
-// destructuring still works when Decky's global hasn't initialised yet.
+/* Runtime enum that Decky exposes via FooterLegend. Required for
+   gamepad-button comparison in the local ReorderableList. Fallback keeps
+   the numeric values stable (see @decky/ui FooterLegend.d.ts) so any
+   destructuring still works when Decky's global hasn't initialised yet. */
 export const GamepadButton = decky.GamepadButton ?? {
   INVALID: 0, OK: 1, CANCEL: 2, SECONDARY: 3, OPTIONS: 4,
   BUMPER_LEFT: 5, BUMPER_RIGHT: 6, TRIGGER_LEFT: 7, TRIGGER_RIGHT: 8,

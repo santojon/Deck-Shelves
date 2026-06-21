@@ -41,11 +41,11 @@ function findNativeAssetProto(): any {
   return null;
 }
 
-// Allowlist of URL schemes safe to pass to `<img src>`. Anything outside
-// this set (most notably `javascript:` and `data:text/html`) returns
-// `null` so the synth-hero pipeline treats the attribute as missing.
-// Doubles as the sanitizer node CodeQL's `js/xss-through-dom` query
-// expects on the DOM-attribute → `<img src>` data flow.
+/* Allowlist of URL schemes safe to pass to `<img src>`. Anything outside
+   this set (most notably `javascript:` and `data:text/html`) returns
+   `null` so the synth-hero pipeline treats the attribute as missing.
+   Doubles as the sanitizer node CodeQL's `js/xss-through-dom` query
+   expects on the DOM-attribute → `<img src>` data flow. */
 function sanitizeHeroUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const s = String(raw).trim();
@@ -61,11 +61,11 @@ function sanitizeHeroUrl(raw: string | null | undefined): string | null {
   return null;
 }
 
-// Stable 32-bit FNV-1a hash of a string — used as a synthetic-card hero
-// key in PerShelfHero so re-focusing the same synth doesn't re-swap, and
-// moving between synth heroes correctly triggers a fresh load. Returned
-// value is positive; the caller negates it so it can't collide with a
-// real Steam appid in `currentAppid`.
+/* Stable 32-bit FNV-1a hash of a string — used as a synthetic-card hero
+   key in PerShelfHero so re-focusing the same synth doesn't re-swap, and
+   moving between synth heroes correctly triggers a fresh load. Returned
+   value is positive; the caller negates it so it can't collide with a
+   real Steam appid in `currentAppid`. */
 function hashStringFastForHero(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
@@ -144,11 +144,11 @@ const HERO_HEIGHT = '70vh';
 // class chain. Before: each PerShelfHero instance owned its own MO on
 // the head + ran an `img` scan + getComputedStyle walk on EVERY head
 // mutation. With N hero shelves, every CSS Loader tick triggered N
-// expensive scans — the source of the user-reported "shelves take too
-// long to load / reload too often" regression once per-shelf hero
-// went beyond the first shelf. Now: ONE MO + ONE scan, results pushed
-// to all subscribers. Each shelf decides whether to apply (it depends
-// on its own `isPromoted` state, which stays per-instance).
+/* expensive scans — the source of the user-reported "shelves take too
+   long to load / reload too often" regression once per-shelf hero
+   went beyond the first shelf. Now: ONE MO + ONE scan, results pushed
+   to all subscribers. Each shelf decides whether to apply (it depends
+   on its own `isPromoted` state, which stays per-instance). */
 type NativeHeroClasses = {
   imgClass: string | null;
   zoomClass: string | null;
@@ -210,10 +210,10 @@ function discoverNativeHeroClasses(): NativeHeroClasses {
 }
 
 function scheduleNativeHeroDiscovery(): void {
-  // Coalesce bursts of head mutations into ONE rAF-deferred scan; the
-  // scan itself is expensive (getComputedStyle on N ancestors of every
-  // image in every Steam document) so we want it at most once per
-  // frame even when the theme is rewriting head styles aggressively.
+  /* Coalesce bursts of head mutations into ONE rAF-deferred scan; the
+     scan itself is expensive (getComputedStyle on N ancestors of every
+     image in every Steam document) so we want it at most once per
+     frame even when the theme is rewriting head styles aggressively. */
   if (nativeHeroDiscoverPending != null) return;
   nativeHeroDiscoverPending = requestAnimationFrame(() => {
     nativeHeroDiscoverPending = null;
@@ -273,20 +273,20 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Focused card's appid drives the logo + description overlay so the
   // banner mirrors whatever the user has highlighted in this shelf.
   const [focusedAppid, setFocusedAppid] = useState<number>(0);
-  // The slot we want to switch TO but haven't yet because its image is
-  // still loading. Keeping `activeSlot` on the previously-loaded slot
-  // until the new one is ready avoids the 200-500 ms "both invisible"
-  // gap where the old hero has already faded out and the new image
-  // hasn't decoded yet.
+  /* The slot we want to switch TO but haven't yet because its image is
+     still loading. Keeping `activeSlot` on the previously-loaded slot
+     until the new one is ready avoids the 200-500 ms "both invisible"
+     gap where the old hero has already faded out and the new image
+     hasn't decoded yet. */
   const [pendingSlot, setPendingSlot] = useState<'A' | 'B' | null>(null);
   const [visible, setVisible] = useState(true);  // true: always render, opacity driven by image loading
   // Smaller bleed above for non-first hero shelves so their art doesn't
   // overlap the shelf above. Determined by DOM order on mount.
   const [topBleed, setTopBleed] = useState(-90);
-  // Game-info overlay: a clone of the focused card's `.ds-card-label`,
-  // shown above the row exactly like the native recents hero label.
-  // Rendered inside THIS shelf (position:absolute relative to it) so it
-  // always follows the shelf — no global/fixed anchoring.
+  /* Game-info overlay: a clone of the focused card's `.ds-card-label`,
+     shown above the row exactly like the native recents hero label.
+     Rendered inside THIS shelf (position:absolute relative to it) so it
+     always follows the shelf — no global/fixed anchoring. */
   const [labelNode, setLabelNode] = useState<HTMLElement | null>(null);
   const labelMountRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -305,11 +305,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const [isShelfSelected, setIsShelfSelected] = useState(false);
   // Native hero classes — pulled from the module-level shared cache so
   // we don't pay the discover-per-shelf cost (see useNativeHeroClasses).
-  // The `applyGate` decides whether THIS shelf adopts the theme classes
-  // (matches the promotion CSS: only promoted shelves OR force-themes
-  // get the theme's hashed hero classes; otherwise the built-in look).
-  // `readForceThemes` is cached per render via getCurrentSettings's
-  // localStorage cache so it's cheap.
+  /* The `applyGate` decides whether THIS shelf adopts the theme classes
+     (matches the promotion CSS: only promoted shelves OR force-themes
+     get the theme's hashed hero classes; otherwise the built-in look).
+     `readForceThemes` is cached per render via getCurrentSettings's
+     localStorage cache so it's cheap. */
   const readForceThemes = (): boolean => {
     try {
       const raw = (globalThis as any).localStorage?.getItem('deck-shelves-settings-cache-v3');
@@ -330,10 +330,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Debounce timer that gates the slot swap during rapid focus
   // navigation — see `update()` for the rationale. Cleared on unmount.
   const heroSwapTimerRef = useRef<any>(null);
-  // Track whether `update()` has fired its FIRST slot swap. Initial
-  // mount (e.g. user comes back to home after going to another
-  // screen) skips the debounce so the hero appears instantly —
-  // there's no rapid-navigation thrash to coalesce on a fresh mount.
+  /* Track whether `update()` has fired its FIRST slot swap. Initial
+     mount (e.g. user comes back to home after going to another
+     screen) skips the debounce so the hero appears instantly —
+     there's no rapid-navigation thrash to coalesce on a fresh mount. */
   const isFirstSlotSwapRef = useRef(true);
   useEffect(() => { activeSlotRef.current = activeSlot; }, [activeSlot]);
 
@@ -345,10 +345,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     if (!el) return;
     const root = el.closest('.deck-shelves-root');
     if (!root) return;
-    // Full-page-without-replacement (recents above + 100vh layout)
-    // gets a SHORTER bleed than the regular -140 so the fade at the top
-    // stays compact and doesn't read as a wide grey band over the
-    // recents row.
+    /* Full-page-without-replacement (recents above + 100vh layout)
+       gets a SHORTER bleed than the regular -140 so the fade at the top
+       stays compact and doesn't read as a wide grey band over the
+       recents row. */
     const bleed = (isFirstShelf || isPromoted) ? -80 : (isFullPage ? -80 : -140);
     setTopBleed(bleed);
   }, [containerRef, isFirstShelf, isPromoted, isFullPage]);
@@ -379,11 +379,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     // Also observe the row itself. In ArtHero mode the shelf is pinned to
-    // `100vh` (fixed) so the shelf RO never fires when the row grows —
-    // e.g. when matchNativeSize discovers larger card dims a moment after
-    // mount. Without observing the row, `rowH` stays stale and the
-    // overlay label ends up positioned over the card art instead of
-    // above the row. Re-attach if the row appears later via MutationObserver.
+    /* `100vh` (fixed) so the shelf RO never fires when the row grows —
+       e.g. when matchNativeSize discovers larger card dims a moment after
+       mount. Without observing the row, `rowH` stays stale and the
+       overlay label ends up positioned over the card art instead of
+       above the row. Re-attach if the row appears later via MutationObserver. */
     let rowEl: HTMLElement | null = el.querySelector('.ds-row-scroll');
     if (rowEl) ro.observe(rowEl);
     const mo = new MutationObserver(() => {
@@ -400,11 +400,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     return () => { ro.disconnect(); mo.disconnect(); };
   }, [containerRef]);
 
-  // Track whether this shelf is in full-page ArtHero mode (data-ds-recents-slot).
-  // The overlay label only belongs there: in that mode the in-card labels and
-  // shelf title are hidden by CSS, so the overlay replaces them. On a normal
-  // (non-promoted) shelf the title + in-card labels show as usual — rendering
-  // the overlay too would stack duplicate texts.
+  /* Track whether this shelf is in full-page ArtHero mode (data-ds-recents-slot).
+     The overlay label only belongs there: in that mode the in-card labels and
+     shelf title are hidden by CSS, so the overlay replaces them. On a normal
+     (non-promoted) shelf the title + in-card labels show as usual — rendering
+     the overlay too would stack duplicate texts. */
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -415,15 +415,15 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     return () => obs.disconnect();
   }, [containerRef]);
 
-  // Native hero class discovery — moved to a module-level singleton
-  // (see `useNativeHeroClasses` and `startNativeHeroDiscovery` above).
-  // One observer + one scan serves every hero shelf instead of N per
-  // shelf, which is what was making 2nd+ hero shelves slow to load.
+  /* Native hero class discovery — moved to a module-level singleton
+     (see `useNativeHeroClasses` and `startNativeHeroDiscovery` above).
+     One observer + one scan serves every hero shelf instead of N per
+     shelf, which is what was making 2nd+ hero shelves slow to load. */
 
-  // Assign decreasing z-index to the shelf divs so each shelf's stacking
-  // context sits above the shelf below it. Without this, DOM order (later =
-  // on top) makes shelf N's downward hero bleed appear behind shelf N+1 instead
-  // of in front of it. Runs after a short delay so all hero shelves have mounted.
+  /* Assign decreasing z-index to the shelf divs so each shelf's stacking
+     context sits above the shelf below it. Without this, DOM order (later =
+     on top) makes shelf N's downward hero bleed appear behind shelf N+1 instead
+     of in front of it. Runs after a short delay so all hero shelves have mounted. */
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -456,20 +456,20 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   // Per-slot loaded state: gates the <img> opacity AND the shimmer overlay
   // so a broken / still-loading image never paints (placeholder is fully
   // transparent of the exact hero art dimensions, with a subtle shimmer
-  // sweep on top — same visual cue the game cards use during their own
-  // image loads).
-  //
-  // Track by URL not boolean — a boolean flip happens 1 frame after
-  // the src change, briefly painting the prior image as if current.
+  /* sweep on top — same visual cue the game cards use during their own
+     image loads).
+
+     Track by URL not boolean — a boolean flip happens 1 frame after
+     the src change, briefly painting the prior image as if current. */
   const [loadedSrcA, setLoadedSrcA] = useState<string | null>(null);
   const [loadedSrcB, setLoadedSrcB] = useState<string | null>(null);
   const slotALoaded = !!slotA && loadedSrcA === slotA;
   const slotBLoaded = !!slotB && loadedSrcB === slotB;
 
-  // Promote `pendingSlot` to `activeSlot` only after the pending slot's
-  // image has actually loaded. The previously-loaded slot keeps painting
-  // until the new one is ready — so the user no longer sees a fade-to-
-  // black gap while the new hero downloads.
+  /* Promote `pendingSlot` to `activeSlot` only after the pending slot's
+     image has actually loaded. The previously-loaded slot keeps painting
+     until the new one is ready — so the user no longer sees a fade-to-
+     black gap while the new hero downloads. */
   useEffect(() => {
     if (!pendingSlot) return;
     const ready = pendingSlot === 'A' ? slotALoaded : slotBLoaded;
@@ -482,11 +482,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    // Reset the tracked appid whenever this effect (re-)runs — notably when
-    // `showArt` flips on (global hero toggle). Otherwise `currentAppid` was
-    // already set by an earlier label-only update() pass, so the appid-change
-    // guard skips loading the hero art and it never appears until the user
-    // navigates to a different card.
+    /* Reset the tracked appid whenever this effect (re-)runs — notably when
+       `showArt` flips on (global hero toggle). Otherwise `currentAppid` was
+       already set by an earlier label-only update() pass, so the appid-change
+       guard skips loading the hero art and it never appears until the user
+       navigates to a different card. */
     currentAppid.current = 0;
     const update = (e?: Event) => {
       // Selection state runs first so it updates on EVERY tick — including
@@ -498,16 +498,16 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       if (e && e.target instanceof HTMLElement)
         focused = e.target.closest('.ds-card[data-appid], .ds-card[data-ds-hero-url]') as HTMLElement | null;
       if (!focused) focused = focusedAnyCard;
-      // A genuinely focused card — via gamepad (`gpfocus` class) OR real DOM
-      // focus — means the user has navigated into this shelf. Steam's gamepad
-      // nav only toggles `gpfocus` and does not always fire `focusin`, so this
-      // must be checked here, not only on the focusin event.
+      /* A genuinely focused card — via gamepad (`gpfocus` class) OR real DOM
+         focus — means the user has navigated into this shelf. Steam's gamepad
+         nav only toggles `gpfocus` and does not always fire `focusin`, so this
+         must be checked here, not only on the focusin event. */
       if (focused) userHasFocusedRef.current = true;
-      // First-visible-card fallback: when no card is focused, show the first
-      // VISIBLE card so hidden/filtered cards (owned games on online shelves,
-      // cards in collapsed rows, etc.) are skipped. Only BEFORE the user has
-      // focused a card — afterwards, focus leaving the shelf must keep the
-      // last-selected hero/label, not revert to the first card.
+      /* First-visible-card fallback: when no card is focused, show the first
+         VISIBLE card so hidden/filtered cards (owned games on online shelves,
+         cards in collapsed rows, etc.) are skipped. Only BEFORE the user has
+         focused a card — afterwards, focus leaving the shelf must keep the
+         last-selected hero/label, not revert to the first card. */
       if (!focused) {
         if (userHasFocusedRef.current) return;
         const allCards = el.querySelectorAll<HTMLElement>('.ds-card[data-appid]');
@@ -556,11 +556,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         return;
       }
       // Non-game card (RefreshCard / MoreCard / PlaceholderCard) — they
-      // have no `data-appid` and no `.ds-card-label`. Clear the overlay
-      // label so it doesn't keep showing the previously-focused game's
-      // name above the refresh/more card. Hero art is left as-is for
-      // visual continuity (avoids a fade flash when stepping into the
-      // tail card and immediately back).
+      /* have no `data-appid` and no `.ds-card-label`. Clear the overlay
+         label so it doesn't keep showing the previously-focused game's
+         name above the refresh/more card. Hero art is left as-is for
+         visual continuity (avoids a fade flash when stepping into the
+         tail card and immediately back). */
       if (appid <= 0) {
         setLabelNode(null);
         return;
@@ -576,10 +576,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           setLabelLeft(Math.max(0, Math.round(cr.left - sr.left)));
         } catch {}
       });
-      // Always re-clone the card's label DOM so the overlay mirrors it
-      // byte-for-byte. Online shelves resolve game names asynchronously — if
-      // the first clone happened during the brief "#appid" window, re-cloning
-      // picks up the resolved name once it lands.
+      /* Always re-clone the card's label DOM so the overlay mirrors it
+         byte-for-byte. Online shelves resolve game names asynchronously — if
+         the first clone happened during the brief "#appid" window, re-cloning
+         picks up the resolved name once it lands. */
       const labelEl = focused.querySelector('.ds-card-label') as HTMLElement | null;
       setLabelNode(labelEl ? (labelEl.cloneNode(true) as HTMLElement) : null);
       // Hero ART loads only when enabled for this shelf AND the game changed.
@@ -600,17 +600,17 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             heroSwapTimerRef.current = null;
             // Bail if focus moved on in the meantime.
             if (currentAppid.current !== swapAppid) return;
-            // Trigger Steam's own hero-data load first. Without this
-            // the hashed CDN URL is unavailable until the user happens
-            // to focus the game in a native shelf (observed for
-            // Candellum).
+            /* Trigger Steam's own hero-data load first. Without this
+               the hashed CDN URL is unavailable until the user happens
+               to focus the game in a native shelf (observed for
+               Candellum). */
             prefetchNativeAppData(swapAppid);
             // Was Steam's native (hashed, high-quality) URL already
-            // available at this call? If yes, we don't need the 700 ms
-            // refine pass — we already loaded the optimal URL the first
-            // time, so the visible "reload" from fallback → hashed is
-            // skipped entirely. Cuts hero-load cycles per card in half
-            // for any game whose overview Steam has already populated.
+            /* available at this call? If yes, we don't need the 700 ms
+               refine pass — we already loaded the optimal URL the first
+               time, so the visible "reload" from fallback → hashed is
+               skipped entirely. Cuts hero-load cycles per card in half
+               for any game whose overview Steam has already populated. */
             const native = getNativeHeroUrls(swapAppid);
             const urls = (native && native.length) ? native : getHeroUrls(swapAppid);
             const usedNative = !!(native && native.length);
@@ -621,17 +621,17 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             // Single-card cache lookup — same pattern GameCard uses
             // for portraits (proven safe). Hot-cache hit → blob URL
             // (no network, no decode round-trip). Cache miss → use
-            // the original URL AND queue a background fetch so the
-            // next visit (this session OR after a restart, since the
-            // Cache Storage layer is persistent) is a hot hit. NO
-            // fan-out, NO parallel calls — exactly one cache lookup
-            // and at most one warmCacheBackground per slot swap.
+            /* the original URL AND queue a background fetch so the
+               next visit (this session OR after a restart, since the
+               Cache Storage layer is persistent) is a hot hit. NO
+               fan-out, NO parallel calls — exactly one cache lookup
+               and at most one warmCacheBackground per slot swap. */
             const resolvedUrl = resolveHeroSrcFromCache(url0, urls);
             if (next === 'A') setSlotA(resolvedUrl); else setSlotB(resolvedUrl);
-            // Mark next as pending; activeSlot flips when the image loads
-            // (see the pendingSlot → activeSlot effect below). This keeps
-            // the previously-loaded slot visible during the new image's
-            // load window instead of fading to black.
+            /* Mark next as pending; activeSlot flips when the image loads
+               (see the pendingSlot → activeSlot effect below). This keeps
+               the previously-loaded slot visible during the new image's
+               load window instead of fading to black. */
             setPendingSlot(next);
             if (usedNative) return;
             // Fallback path: wait briefly for Steam's hero data to
@@ -664,11 +664,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     // rAF-throttle subtree mutations — without this every label text /
     // class change in the row triggers a full update() (DOM query +
     // getBoundingClientRect + multiple setStates + possible hero swap),
-    // and with N hero shelves mounted every focus tick fires update()
-    // for every shelf. Coalescing to one rAF per shelf brings load /
-    // re-render frequency back to roughly what the single-hero layout
-    // had pre-regression. focusin still calls update synchronously so
-    // the hero swap visually tracks the focus change with no lag.
+    /* and with N hero shelves mounted every focus tick fires update()
+       for every shelf. Coalescing to one rAF per shelf brings load /
+       re-render frequency back to roughly what the single-hero layout
+       had pre-regression. focusin still calls update synchronously so
+       the hero swap visually tracks the focus change with no lag. */
     let updatePending: number | null = null;
     const scheduleUpdate = () => {
       if (updatePending != null) return;
@@ -763,11 +763,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       clearTimeout(start);
       cancelScheduled();
     };
-    // Runs once per mount + when hero toggles on; cards added/removed
-    // later don't re-trigger pre-warm, but they'll be cached on the
-    // user's first focus of them (single-card lookup in the slot swap
-    // above), so the worst case is one network fetch per genuinely-
-    // new card rather than the full row.
+    /* Runs once per mount + when hero toggles on; cards added/removed
+       later don't re-trigger pre-warm, but they'll be cached on the
+       user's first focus of them (single-card lookup in the slot swap
+       above), so the worst case is one network fetch per genuinely-
+       new card rather than the full row. */
   }, [containerRef, showArt]);
 
   // Bind slot URLs through useMemo so the value passed to <img src> stays
@@ -776,17 +776,17 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const slotASrc = useMemo(() => slotA ?? undefined, [slotA]);
   const slotBSrc = useMemo(() => slotB ?? undefined, [slotB]);
   // Focused-card logo + description overlay (Netflix-style banner).
-  // Tracks the focused appid above and walks the standard URL chain
-  // with onError fallback (loopback → customimages → CDN). The logo URL
-  // list runs through the shared blob cache so warm cache hits (~3 ms)
-  // skip the network when the user re-focuses a card they've already
-  // seen this session.
+  /* Tracks the focused appid above and walks the standard URL chain
+     with onError fallback (loopback → customimages → CDN). The logo URL
+     list runs through the shared blob cache so warm cache hits (~3 ms)
+     skip the network when the user re-focuses a card they've already
+     seen this session. */
   const logoAssetKey = getAppAssetCacheKey(focusedAppid);
   const logoUrls = useMemo(() => (enableLogo && focusedAppid > 0 ? getLogoUrls(focusedAppid) : []), [enableLogo, focusedAppid, logoAssetKey]);
-  // When the user replaces hero artwork for the focused game, Steam bumps
-  // `local_cache_version` / `header_filename` etc. The asset key flips, but
-  // `currentAppid.current === focusedAppid` so the hero-swap path is gated
-  // out. Force the next update() pass to refetch by zeroing the guard.
+  /* When the user replaces hero artwork for the focused game, Steam bumps
+     `local_cache_version` / `header_filename` etc. The asset key flips, but
+     `currentAppid.current === focusedAppid` so the hero-swap path is gated
+     out. Force the next update() pass to refetch by zeroing the guard. */
   useEffect(() => {
     if (focusedAppid > 0) currentAppid.current = 0;
     const el = containerRef.current;
@@ -823,27 +823,27 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const showLabel = needsLabel && isPromoted && !!labelNode;
   if (!hasArt && !showLabel && !showOverlayContainer) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
-  // "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
-  // Applies to the genuine first shelf (forceExpanded) AND, under
-  // forceCssLoaderThemes, to EVERY shelf (each carries data-ds-recents-slot →
-  // isPromoted) — there the user wants all heroes identical to the first.
-  // force OFF + non-first shelves fall through to the overlap treatment.
+  /* "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
+     Applies to the genuine first shelf (forceExpanded) AND, under
+     forceCssLoaderThemes, to EVERY shelf (each carries data-ds-recents-slot →
+     isPromoted) — there the user wants all heroes identical to the first.
+     force OFF + non-first shelves fall through to the overlap treatment. */
   const treatAsFirst = isFirstShelf || isPromoted;
   // Non-first non-promoted: grow by bPx below so the symmetric top/bottom
   // fades create a seamless cross-fade with the next shelf.
   const heroHeight = treatAsFirst ? HERO_HEIGHT : `calc(100% + ${Math.abs(topBleed)}px)`;
-  // Every hero bleeds `topBleed`px up over the shelf above — this is the
-  // pre-change behaviour that keeps the art visually anchored to the top.
-  // The genuine first shelf simply suppresses its top FADE (via `topStops`);
-  // the upward bleed itself stays for every shelf.
+  /* Every hero bleeds `topBleed`px up over the shelf above — this is the
+     pre-change behaviour that keeps the art visually anchored to the top.
+     The genuine first shelf simply suppresses its top FADE (via `topStops`);
+     the upward bleed itself stays for every shelf. */
   const bPx = Math.abs(topBleed);
 
   // Top fade: smooth ease-in curve with 5 stops over the full 80px bleed.
-  // Keeps the hero near-invisible while overlapping the shelf above (~0.03 at
-  // mid-bleed) and accelerates to opaque only in the final third.  This gives
-  // the rounded, gradual transition the user sees between hero arts.
-  // Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
-  // matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme.
+  /* Keeps the hero near-invisible while overlapping the shelf above (~0.03 at
+     mid-bleed) and accelerates to opaque only in the final third.  This gives
+     the rounded, gradual transition the user sees between hero arts.
+     Bottom fade: mirrors ArtHero — opaque → 0.67 at -24px → transparent,
+     matching "rgba(0,0,0,0.67) 95%, transparent 100%" from the theme. */
   const p = (f: number) => `${(bPx * f).toFixed(0)}px`;
   // Top fade: forceLayoutAsRecents shelves are opaque when selected and
   // fade when not. isFirstShelf is always opaque. Otherwise subtle fade.
@@ -881,11 +881,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     <>
     {hasArt && <div className={nativeHeroRootClass ?? undefined} data-ds-per-shelf-hero="true" data-ds-hero-full-page={isFullPage ? 'true' : undefined} style={{
       position: 'absolute',
-      // Per-shelf full-page: hero fills the shelf's own 100vh box
-      // (same composition as the first shelf under hideRecents).
-      // Bleed up + fade applies whenever the shelf is NOT a genuine
-      // recents replacement (`isFirstShelf` already encodes that). The
-      // 100vh full-page layout is handled on the shelf box, not here.
+      /* Per-shelf full-page: hero fills the shelf's own 100vh box
+         (same composition as the first shelf under hideRecents).
+         Bleed up + fade applies whenever the shelf is NOT a genuine
+         recents replacement (`isFirstShelf` already encodes that). The
+         100vh full-page layout is handled on the shelf box, not here. */
       top: `var(--ds-hero-top, ${isFirstShelf ? '0px' : `${topBleed}px`})`,
       height: `var(--ds-hero-h, ${isFirstShelf ? '100%' : heroHeight})`,
       left: 0, right: 0,
@@ -894,11 +894,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
       overflow: 'hidden',
       opacity: visible && (slotALoaded || slotBLoaded) ? 1 : 0,
       transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
-      // OUR linear mask stays on the root — it carries the inter-shelf
-      // overlap+fade (each hero bleeds `topBleed`px up over the shelf above
-      // and eases in). The theme's own gradient (ArtHero's radial mask) is
-      // applied separately, by the discovered `heroInner` class on the
-      // layers below — so both compose instead of one replacing the other.
+      /* OUR linear mask stays on the root — it carries the inter-shelf
+         overlap+fade (each hero bleeds `topBleed`px up over the shelf above
+         and eases in). The theme's own gradient (ArtHero's radial mask) is
+         applied separately, by the discovered `heroInner` class on the
+         layers below — so both compose instead of one replacing the other. */
       maskImage: `var(--ds-hero-mask, ${maskVal})`,
       WebkitMaskImage: `var(--ds-hero-mask, ${maskVal})`,
     }}>
@@ -911,39 +911,39 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           // when the user d-padded onto a card and waited for the hero to
           // visibly arrive. Quarter-second matches Steam's own UI cadence
           // closely enough that it reads as instant without flicker.
-          // Match Steam's native hero swap: 0.5s cubic-bezier
-          // (0.17,0.45,0.14,0.83) for opacity, plus a subtle scale
-          // dip from 1.03 → 1.0 on the incoming slot so the new image
-          // settles like the native (per `_22nzPNKReQkNRGtwIFGIy2`
-          // keyframe Steam plays on every hero swap).
+          /* Match Steam's native hero swap: 0.5s cubic-bezier
+             (0.17,0.45,0.14,0.83) for opacity, plus a subtle scale
+             dip from 1.03 → 1.0 on the incoming slot so the new image
+             settles like the native (per `_22nzPNKReQkNRGtwIFGIy2`
+             keyframe Steam plays on every hero swap). */
           transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83), transform 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
           transform: activeSlot === 'A' ? 'scale(1)' : 'scale(1.03)',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotASrc} onError={onError('A')}
-              // Off-main-thread decode — large hero JPEGs (~1920×620)
-              // decode on the main thread when they finish downloading,
-              // blocking the renderer for 20-100 ms each time and
-              // showing up as a navigation stutter. `decoding="async"`
-              // hands the decode to the image pipeline thread.
+              /* Off-main-thread decode — large hero JPEGs (~1920×620)
+                 decode on the main thread when they finish downloading,
+                 blocking the renderer for 20-100 ms each time and
+                 showing up as a navigation stutter. `decoding="async"`
+                 hands the decode to the image pipeline thread. */
               decoding="async"
               ref={(el) => {
                 // Eager is-loaded: if the browser already has this
-                // src cached + decoded (hot blob URL / HTTP-cache
-                // hit on a repeat visit), `el.complete + naturalWidth`
-                // is true the same tick React assigns `src`. Flip
-                // loadedSrc synchronously so the cached case skips
-                // the onLoad round trip AND the opacity-gate flash.
+                /* src cached + decoded (hot blob URL / HTTP-cache
+                   hit on a repeat visit), `el.complete + naturalWidth`
+                   is true the same tick React assigns `src`. Flip
+                   loadedSrc synchronously so the cached case skips
+                   the onLoad round trip AND the opacity-gate flash. */
                 if (el && el.complete && (el.naturalWidth || 0) > 0 && slotA && loadedSrcA !== slotA) {
                   setLoadedSrcA(slotA);
                 }
               }}
               onLoad={(e) => {
-                // Only mark as loaded if the image actually decoded with a
-                // non-zero natural size — Steam CDN occasionally returns
-                // 200 OK with a placeholder/corrupt body which still fires
-                // `onLoad` but paints as a broken image. Treating that as a
-                // load failure routes it through the fallback chain.
+                /* Only mark as loaded if the image actually decoded with a
+                   non-zero natural size — Steam CDN occasionally returns
+                   200 OK with a placeholder/corrupt body which still fires
+                   `onLoad` but paints as a broken image. Treating that as a
+                   load failure routes it through the fallback chain. */
                 const img = e.currentTarget;
                 if ((img.naturalWidth || 0) > 0 && (img.naturalHeight || 0) > 0) {
                   setLoadedSrcA(slotA);
@@ -1029,17 +1029,17 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           // Logo anchored close to the top of the shelf's container,
           // with the user-tunable `logoTopOffset` (0-100) scaling it:
           //   full-page: 0..8 vh  (default 20 → 1.6 vh)
-          //   regular:   0..32 px (default 20 → 6.4 px)
-          // First/promoted shelves OUTSIDE full-page mode also use the px
-          // path so the logo sits at the same position as the rest of the
-          // shelves; otherwise the 34vh logo would push the description
-          // down past the shelf title and overlap the card row.
+          /*   regular:   0..32 px (default 20 → 6.4 px)
+             First/promoted shelves OUTSIDE full-page mode also use the px
+             path so the logo sits at the same position as the rest of the
+             shelves; otherwise the 34vh logo would push the description
+             down past the shelf title and overlap the card row. */
           top: isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32),
-          // No outer maxWidth: the logo image carries its own size cap and
-          // the description carries its own (wider) max-width — letting the
-          // container shrink to the widest child gives the description room
-          // to actually use its full 4-card-wide budget instead of being
-          // clipped by a tight outer box.
+          /* No outer maxWidth: the logo image carries its own size cap and
+             the description carries its own (wider) max-width — letting the
+             container shrink to the widest child gives the description room
+             to actually use its full 4-card-wide budget instead of being
+             clipped by a tight outer box. */
           zIndex: 21,
           pointerEvents: 'none',
           opacity: visible ? 1 : 0,
@@ -1063,10 +1063,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             }}
           />
         ) : (
-          // Transparent placeholder preserves the slot when the user
-          // opted in to the logo but no image is available for the
-          // focused app — the description below stays in the same
-          // vertical position regardless of the logo state.
+          /* Transparent placeholder preserves the slot when the user
+             opted in to the logo but no image is available for the
+             focused app — the description below stays in the same
+             vertical position regardless of the logo state. */
           <div
             aria-hidden="true"
             style={{

@@ -182,11 +182,11 @@ export function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// Icons moved to the shared `src/components/icons.tsx` module so other
-// surfaces (QAM section headers, edit modal tabs, About) consume the same
-// stroke-style set. Re-exported here to keep existing call sites working
-// without churn — they import `CheckIcon` / `XIcon` / `ChevronIcon` /
-// `TrashIcon` from this filter-utils module.
+/* Icons moved to the shared `src/components/icons.tsx` module so other
+   surfaces (QAM section headers, edit modal tabs, About) consume the same
+   stroke-style set. Re-exported here to keep existing call sites working
+   without churn — they import `CheckIcon` / `XIcon` / `ChevronIcon` /
+   `TrashIcon` from this filter-utils module. */
 export { CheckIcon, XIcon, ChevronIcon, TrashIcon } from '../icons';
 
 export default {};

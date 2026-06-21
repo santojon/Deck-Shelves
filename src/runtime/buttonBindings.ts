@@ -1,7 +1,7 @@
-// Button-binding parser + matcher used by every gamepad-driven trigger
-// (card hide/highlight/quick-launch, side-nav open, quick-search toggle).
-// Tokens are uppercase strings; combos are `+`-joined, e.g. "L1+R1".
-// Repeated single tokens model double-taps, e.g. "L1+L1".
+/* Button-binding parser + matcher used by every gamepad-driven trigger
+   (card hide/highlight/quick-launch, side-nav open, quick-search toggle).
+   Tokens are uppercase strings; combos are `+`-joined, e.g. "L1+R1".
+   Repeated single tokens model double-taps, e.g. "L1+L1". */
 
 import type { ButtonBindings } from "../types";
 
@@ -14,10 +14,10 @@ export const BTN = {
   VIEW: 13, START: 14, LSTICK: 15, RSTICK: 16,
 } as const;
 
-// Token → numeric id. Aliases (A/X/Y/B/VIEW/MENU) accepted on parse.
-// L4/L5/R4/R5 don't have Decky equivalents and DPad/A/B aren't relayed by
-// the home-input bus either; the raw matcher (parseRawCombo + matchEvent
-// against `{ button: rawId }`) covers anything the Decky bus doesn't see.
+/* Token → numeric id. Aliases (A/X/Y/B/VIEW/MENU) accepted on parse.
+   L4/L5/R4/R5 don't have Decky equivalents and DPad/A/B aren't relayed by
+   the home-input bus either; the raw matcher (parseRawCombo + matchEvent
+   against `{ button: rawId }`) covers anything the Decky bus doesn't see. */
 const TOKEN_TO_BTN: Record<string, number> = {
   A: BTN.OK, B: BTN.CANCEL, X: BTN.SECONDARY, Y: BTN.OPTIONS,
   L1: BTN.L1, R1: BTN.R1, L2: BTN.L2, R2: BTN.R2,
@@ -81,10 +81,10 @@ export function parseCombo(raw: string | null | undefined): Combo | null {
   return parseComboWith(raw, TOKEN_TO_BTN);
 }
 
-// Build a Combo whose `btn` values are RAW controller IDs. Use this with
-// `matchEvent({ button: rawId }, combo, state)` driven by
-// `subscribeControllerInput`, which is the only stream that surfaces the
-// back-grip buttons (L4/L5/R4/R5) and exposes a complete id space.
+/* Build a Combo whose `btn` values are RAW controller IDs. Use this with
+   `matchEvent({ button: rawId }, combo, state)` driven by
+   `subscribeControllerInput`, which is the only stream that surfaces the
+   back-grip buttons (L4/L5/R4/R5) and exposes a complete id space. */
 export function parseRawCombo(raw: string | null | undefined): Combo | null {
   return parseComboWith(raw, TOKEN_TO_RAW);
 }

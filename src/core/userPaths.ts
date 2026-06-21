@@ -1,11 +1,11 @@
 // Backend-resolved user paths via `get_user_desktop` in `main.py`
 // (picks ~/Desktop → ~/Downloads → ~). Portable across distros and
 // account names — avoids the old `/home/deck/Downloads` hardcode.
-//
-// The pre-warm is fired once at plugin boot so the cached value is ready
-// by the time the user clicks Import / Export. Until the first response
-// lands, callers fall back to `~/Downloads` (which the backend's
-// `_normalize_path` expands via `os.path.expanduser`).
+/*
+   The pre-warm is fired once at plugin boot so the cached value is ready
+   by the time the user clicks Import / Export. Until the first response
+   lands, callers fall back to `~/Downloads` (which the backend's
+   `_normalize_path` expands via `os.path.expanduser`). */
 
 import { call } from "../shims/decky-api";
 

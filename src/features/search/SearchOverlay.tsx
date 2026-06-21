@@ -45,11 +45,11 @@ function tryOpenSteamKeyboard(): void {
 
 function dismissSteamKeyboard(): void {
   // ModalKeyboardDismissed / StandaloneKeyboardDismissed live on
-  // opener.SteamClient.Input (SharedJSContext side) and on the global
-  // SteamClient — NOT on BrowserWindow.SteamClient.Input which only
-  // exposes device-change registration. Using `??` against the BP Input
-  // object fails silently because BP Input IS defined (just has no
-  // keyboard methods), so the fallback never fires.
+  /* opener.SteamClient.Input (SharedJSContext side) and on the global
+     SteamClient — NOT on BrowserWindow.SteamClient.Input which only
+     exposes device-change registration. Using `??` against the BP Input
+     object fails silently because BP Input IS defined (just has no
+     keyboard methods), so the fallback never fires. */
   try {
     const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
     const openerInput = view?.opener?.SteamClient?.Input;
@@ -127,11 +127,11 @@ export function SearchOverlay() {
     const myToken = ++searchAbort.current;
     // The built-in Quick Search provider is registered through the
     // public Plugin API (`internalRegistry.ts`) so it lives in the
-    // same `getExternalSearchProviders()` list as third-party
-    // providers. Ordering is by `priority` desc — the built-in's
-    // priority of 100 keeps it first when ties on hit score appear.
-    // — drop providers the user explicitly disabled in
-    // the Integrations detail panel (`integrationsEnabled[id] === false`).
+    /* same `getExternalSearchProviders()` list as third-party
+       providers. Ordering is by `priority` desc — the built-in's
+       priority of 100 keeps it first when ties on hit score appear.
+       — drop providers the user explicitly disabled in
+       the Integrations detail panel (`integrationsEnabled[id] === false`). */
     const integrationsEnabled = (getCurrentSettings() as any)?.integrationsEnabled ?? {};
     const providers = getExternalSearchProviders().filter((p) => integrationsEnabled[p.id] !== false);
     const settled = await Promise.allSettled(
@@ -152,11 +152,11 @@ export function SearchOverlay() {
     const first = merged[0];
     if (first) {
       // Close FIRST so React unmounts SearchPill and cleanup runs
-      // (sets cancelled=true, removes the reclaim focusout listener).
-      // Without this, onActivate() → BTakeFocus on card → input loses
-      // focus → reclaim() fires → re-focuses input → card never gets
-      // focus. After close() + one rAF (enough for React unmount), the
-      // reclaim listener is gone and BTakeFocus lands cleanly.
+      /* (sets cancelled=true, removes the reclaim focusout listener).
+         Without this, onActivate() → BTakeFocus on card → input loses
+         focus → reclaim() fires → re-focuses input → card never gets
+         focus. After close() + one rAF (enough for React unmount), the
+         reclaim listener is gone and BTakeFocus lands cleanly. */
       close({ restorePrior: false, clearSession: true });
       requestAnimationFrame(() => {
         try { first.onActivate?.(); } catch {}
@@ -208,11 +208,11 @@ export function SearchOverlay() {
       openSearch();
     });
   }, [enabled, open, close, openSearch]);
-  // Parallel raw-stream trigger so the combo fires regardless of where
-  // focus sits (QAM, Steam menu, context menu, native recents). Decky's
-  // home-button bus only fires when a DS card holds focus; the raw bus
-  // listens globally. `openSearch` debounces so the two paths can both
-  // fire without double-opening.
+  /* Parallel raw-stream trigger so the combo fires regardless of where
+     focus sits (QAM, Steam menu, context menu, native recents). Decky's
+     home-button bus only fires when a DS card holds focus; the raw bus
+     listens globally. `openSearch` debounces so the two paths can both
+     fire without double-opening. */
   useEffect(() => {
     if (!enabled || open) return;
     return subscribeControllerInput((e) => {
@@ -276,11 +276,11 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
   const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e?.target?.value ?? "");
   };
-  // Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
-  // keyboard looks for. Synthetic pointer sequence ONLY when the
-  // virtual-keyboard toggle is on — that's the trigger that pops the
-  // Deck's keyboard. Cleanup blurs + fires Steam's dismissed
-  // notifications so the keyboard exits with the overlay.
+  /* Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
+     keyboard looks for. Synthetic pointer sequence ONLY when the
+     virtual-keyboard toggle is on — that's the trigger that pops the
+     Deck's keyboard. Cleanup blurs + fires Steam's dismissed
+     notifications so the keyboard exits with the overlay. */
   useEffect(() => {
     let cancelled = false;
     let captured: HTMLInputElement | null = null;
@@ -328,11 +328,11 @@ function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
       if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
     };
     tryFocus(8);
-    // Steam occasionally steals focus back to the previously-focused
-    // node (native recents card) a few hundred ms after the pill mounts
-    // — especially when the pill is opened from outside DS shelves. A
-    // delegated focusout listener re-claims focus on the input so the
-    // user can keep typing. Stops when the pill unmounts.
+    /* Steam occasionally steals focus back to the previously-focused
+       node (native recents card) a few hundred ms after the pill mounts
+       — especially when the pill is opened from outside DS shelves. A
+       delegated focusout listener re-claims focus on the input so the
+       user can keep typing. Stops when the pill unmounts. */
     const reclaim = (e: FocusEvent) => {
       if (cancelled) return;
       const host = hostRef.current;

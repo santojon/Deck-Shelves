@@ -40,6 +40,10 @@ def _steam_install_candidates() -> List[str]:
             os.path.expanduser("~/.var/app/com.valvesoftware.Steam/data/Steam"),
         ]
     elif sys.platform == "win32":
+        # Most authoritative: Steam records its install dir in the registry,
+        # so a non-default drive (e.g. D:\Games\Steam) still resolves where
+        # the ProgramFiles guesses below would miss it.
+        candidates += _windows_registry_steam_roots()
         for env in ("ProgramFiles(x86)", "ProgramFiles", "ProgramW6432"):
             base = os.environ.get(env)
             if base:
@@ -51,10 +55,38 @@ def _steam_install_candidates() -> List[str]:
         candidates.append(os.path.expanduser("~/Library/Application Support/Steam"))
     # Always include the home-relative POSIX fallback as a final attempt
     # so unconventional layouts still resolve when present.
-    fallback = os.path.expanduser("~/.local/share/Steam")
-    if fallback not in candidates:
-        candidates.append(fallback)
-    return candidates
+    candidates.append(os.path.expanduser("~/.local/share/Steam"))
+    # Order-preserving de-dupe so registry/env paths keep their priority.
+    seen: set = set()
+    out: List[str] = []
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def _windows_registry_steam_roots() -> List[str]:
+    """Steam install roots from the Windows registry (empty on other OSes)."""
+    if sys.platform != "win32":
+        return []
+    roots: List[str] = []
+    try:
+        import winreg  # Windows-only stdlib
+        for hive, sub, val in (
+            (winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam", "SteamPath"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+        ):
+            try:
+                with winreg.OpenKey(hive, sub) as k:
+                    p = winreg.QueryValueEx(k, val)[0]
+                    if p:
+                        roots.append(os.path.normpath(p))
+            except OSError:
+                pass
+    except Exception:
+        pass
+    return roots
 
 
 def _normalize_path(path: Any) -> str:

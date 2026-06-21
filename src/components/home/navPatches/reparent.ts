@@ -48,11 +48,11 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
     return null;
   }
 
-  // Preferred target: the nav node whose Element === mountEl.parentElement.
-  // That's the home Panel that in DOM already contains [recents, mount, tabs]
-  // — placing our nav node inside it gets D-pad traversal
-  // recents → shelves → tabs (matching DOM order) instead of forcing users
-  // to walk past the tabs before reaching shelves.
+  /* Preferred target: the nav node whose Element === mountEl.parentElement.
+     That's the home Panel that in DOM already contains [recents, mount, tabs]
+     — placing our nav node inside it gets D-pad traversal
+     recents → shelves → tabs (matching DOM order) instead of forcing users
+     to walk past the tabs before reaching shelves. */
   function findNodeByElement(start: any, targetEl: HTMLElement): any | null {
     let found: any = null;
     (function walk(n: any) {

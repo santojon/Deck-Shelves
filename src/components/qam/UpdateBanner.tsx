@@ -14,11 +14,11 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
 
   // Track previous toggle value to detect a within-session OFF → ON flip.
   // On that edge (and only that edge), invalidate the 24h cache before the
-  // network probe — matches the boot-time behaviour in `index.tsx` so the
-  // user's explicit re-enable always reflects the latest release rather
-  // than a stale cached answer. Initial mount + plain re-renders go
-  // through the cached path as before (the banner does NOT spam the
-  // network on every QAM open).
+  /* network probe — matches the boot-time behaviour in `index.tsx` so the
+     user's explicit re-enable always reflects the latest release rather
+     than a stale cached answer. Initial mount + plain re-renders go
+     through the cached path as before (the banner does NOT spam the
+     network on every QAM open). */
   const prevEnabledRef = useRef<boolean>(enabled);
   useEffect(() => {
     if (!enabled) { prevEnabledRef.current = false; return; }

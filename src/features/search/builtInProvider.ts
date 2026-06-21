@@ -120,10 +120,10 @@ function collectNativeShelfApps(): ShelfHit[] {
 function collectShelfApps(): ShelfHit[] {
   const out: ShelfHit[] = [];
   const seen = new Set<number>();
-  // Native shelf gets first dibs so a card that's also in a DS shelf
-  // surfaces from the visible row the user expects to land on. If the
-  // native row is hidden (or `hideRecents === true`), the dedupe below
-  // simply preserves DS-shelf ordering.
+  /* Native shelf gets first dibs so a card that's also in a DS shelf
+     surfaces from the visible row the user expects to land on. If the
+     native row is hidden (or `hideRecents === true`), the dedupe below
+     simply preserves DS-shelf ordering. */
   for (const nat of collectNativeShelfApps()) {
     if (seen.has(nat.appid) || !nat.name) continue;
     seen.add(nat.appid);
@@ -250,10 +250,10 @@ function focusShelfCard(appid: number, shelfId: string | null): void {
     return;
   }
   if (!target) return;
-  // Use focusElement (BTakeFocus) only — it handles scroll internally.
-  // Calling scrollIntoView BEFORE focusElement double-scrolls: first
-  // inline:center on the shelf row resets the row's left position,
-  // then BTakeFocus scrolls again. This left cards appearing with no
-  // left-side spacing because the row ended up over-shifted.
+  /* Use focusElement (BTakeFocus) only — it handles scroll internally.
+     Calling scrollIntoView BEFORE focusElement double-scrolls: first
+     inline:center on the shelf row resets the row's left position,
+     then BTakeFocus scrolls again. This left cards appearing with no
+     left-side spacing because the row ended up over-shifted. */
   try { focusElement(target); } catch {}
 }

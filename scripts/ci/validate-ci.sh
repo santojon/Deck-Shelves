@@ -24,6 +24,14 @@ GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; RESET='\033[0m'; BOLD
 
 declare -a STEP_NAMES=() STEP_STATUS=() STEP_LOG=() STEP_DURATION_MS=()
 _now_ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
+# Elapsed ms guarded against an empty _now_ms read (a transient python3
+# spawn failure) — otherwise `$((end-start))` returns the raw end
+# timestamp (~1.7e12) and corrupts the duration charts. See validate.sh.
+_elapsed_ms() {
+  local s="$1" e="$2"
+  [[ "$s" =~ ^[0-9]+$ && "$e" =~ ^[0-9]+$ && "$e" -ge "$s" ]] || { echo 0; return; }
+  echo "$((e - s))"
+}
 
 _report_generated=0
 _generate_report() {
@@ -72,14 +80,14 @@ run_step() {
   local log="${TMP}/${key}.log"
   STEP_NAMES+=("$label"); STEP_LOG+=("$log")
   echo -e "${BOLD}▶ ${label}${RESET}"
-  local _start _end
+  local _start _end _dur
   _start=$(_now_ms)
   if "$@" >"$log" 2>&1; then
-    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
-    echo -e "  ${GREEN}✓ PASS${RESET} ($(( (_end - _start) / 1000 ))s)"; STEP_STATUS+=("pass"); return 0
+    _end=$(_now_ms); _dur=$(_elapsed_ms "$_start" "$_end"); STEP_DURATION_MS+=("$_dur")
+    echo -e "  ${GREEN}✓ PASS${RESET} ($((_dur / 1000))s)"; STEP_STATUS+=("pass"); return 0
   else
-    _end=$(_now_ms); STEP_DURATION_MS+=("$((_end - _start))")
-    echo -e "  ${RED}✗ FAIL${RESET} ($(( (_end - _start) / 1000 ))s)"; tail -20 "$log" | sed 's/^/    /'
+    _end=$(_now_ms); _dur=$(_elapsed_ms "$_start" "$_end"); STEP_DURATION_MS+=("$_dur")
+    echo -e "  ${RED}✗ FAIL${RESET} ($((_dur / 1000))s)"; tail -20 "$log" | sed 's/^/    /'
     STEP_STATUS+=("fail"); return 1
   fi
 }
