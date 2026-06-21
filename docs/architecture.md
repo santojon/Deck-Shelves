@@ -247,7 +247,7 @@ When enabled, hides the native Novidades/Amigos/Recomendados tab bar. Detection 
 > **Note:** the hero does **not** use linear gradients or pseudo-elements for the bottom vignette. The fade is achieved entirely via `mask-image: radial-gradient(...)` on two nested wrapper divs — matching the native structure discovered via CDP. Replacing it with a CSS gradient would break CSS Loader theme compatibility.
 
 ### Plugin API (`pluginApi.ts`)
-External plugins can register custom shelf sources, filter types, sort options, smart-shelf modes, import formats, and pre-baked saved filters at runtime. The full API is documented in [`plugin-api.md`](./plugin-api.md). Quick example:
+External plugins can register custom shelf sources, filter types, sort options, smart-shelf modes, import formats, statistics/recommendation providers, runtime translations, and pre-baked saved filters at runtime. `pluginApi.ts` is the authoritative runtime that exposes `window.deckShelves`; the canonical types live in the `@deck-shelves/api` package (`api/src/types.ts`), which it imports for leaf types and re-declares the interface against — keep both in sync. Everything first-party (the built-in statistics providers, v3 filters/sorts/sources, …) registers through the **same** registries third-party plugins use. The full API is documented in [`plugin-api.md`](./plugin-api.md). Quick example:
 ```ts
 const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
  id: "my-plugin-source",
@@ -255,6 +255,12 @@ const cleanup = window.__DECK_SHELVES_API__.registerShelfSource({
  resolve: async (limit) => [appid1, appid2,...],
 });
 ```
+
+### Statistics (`domain/statistics.ts` + `steam/statistics.ts`)
+Pure aggregation in `domain/statistics.ts` (`computeLibraryStatistics`, `computeShelfStatistics`, `summarizeHistory`, `deriveSuggestions`) — no Steam APIs, no side-effects. The adapter in `steam/statistics.ts` gathers real data (`getAllAppOverviews`, settings) and exposes two built-in `StatisticsProviderDescriptor`s registered through the plugin API. The Settings → Statistics tab consumes the registry, rendering one area per provider; "over time" averages come from a per-day localStorage snapshot (no timer/polling).
+
+### i18n (`i18n.ts`)
+Locales are sliced into `i18n/<locale>/<area>.json` (home / qam / about / settings / integrations / common). The loader merges every area file per locale via `import.meta.glob` — `en-US` eager, others lazy. External integrations add strings at runtime through `api.registerTranslations(locale, dict)`. `validate.mjs` enforces per-locale key-set parity + no cross-area collisions.
 
 ### CSS Loader / ArtHero / TiltedHome compat (`core/cssLoaderDetect.ts`)
 - `isCssLoaderActive()` / `isArtHeroActive()` read `<style class="css-loader-style">` tags in the active document.

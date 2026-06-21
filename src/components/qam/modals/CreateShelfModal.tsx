@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConfirmModal, DialogButton, Focusable, Tabs } from "../../../runtime/host/decky";
 import { ModalShell } from "../../ui";
 import type { SettingsController } from "../../../features/settings/controller";
-import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, type ShelfTemplateCategory } from "../../../domain/templates";
+import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, coveredTemplateIds, type ShelfTemplateCategory } from "../../../domain/templates";
+import { resolveStatSuggestions } from "../../../core/statSuggestions";
 import { SMART_TEMPLATES } from "./SmartShelfTemplateModal";
 import { EditShelfModal } from "./EditShelfModal";
 import { EditSmartShelfModal } from "./EditSmartShelfModal";
-import { SHELF_TPL_ICON } from "./templateIcons";
+import { SHELF_TPL_ICON, SMART_TPL_ICON } from "./templateIcons";
+import { SparkleIcon } from "../../icons";
 import { openManagedModal } from "../common/openManagedModal";
 import type { SmartShelfMode } from "../../../types";
 
@@ -96,6 +98,20 @@ function StandardPanel({ controller, closeModal }: { controller: SettingsControl
   const grouped = TPL_CATEGORY_ORDER
     .map((cat) => ({ cat, items: allTemplates.filter((x) => x.category === cat) }))
     .filter((g) => g.items.length > 0);
+  // Stats-derived suggestions at the top — only when the user opted in
+  // (Statistics tab toggle), contextual, never duplicating an existing shelf.
+  const [suggestedIds, setSuggestedIds] = useState<string[]>([]);
+  useEffect(() => {
+    if ((settings as any)?.templateSuggestionsEnabled !== true) { setSuggestedIds([]); return; }
+    let cancelled = false;
+    const seed = Math.floor(Date.now() / 86_400_000);
+    const exclude = coveredTemplateIds((settings as any)?.shelves ?? [], ((settings as any)?.smartShelves ?? []).map((s: any) => s.mode));
+    resolveStatSuggestions({ seed, max: 5, exclude })
+      .then((sgs) => { if (!cancelled) setSuggestedIds(sgs.map((s) => s.templateId).filter(Boolean) as string[]); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [settings]);
+  const suggested = suggestedIds.map((id) => allTemplates.find((x) => x.id === id)).filter((x): x is typeof SHELF_TEMPLATES[0] => !!x);
   const handleTemplate = (tpl: typeof SHELF_TEMPLATES[0]) => {
     closeModal?.();
     const draft = {
@@ -120,9 +136,29 @@ function StandardPanel({ controller, closeModal }: { controller: SettingsControl
           onOKButton={handleBlank}
           onOKActionDescription={t("template_blank")}
         >
-          <span style={btnInner}><span>{t("template_blank")}</span></span>
+          <span style={btnInner}>{SHELF_TPL_ICON.blank}<span>{t("template_blank")}</span></span>
         </DialogButton>
       </div>
+      {suggested.length > 0 && (
+        <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px 6px", fontSize: 12, opacity: 0.8 }}>
+            <SparkleIcon size={12} />{t("settings_statistics_suggestions")}
+          </div>
+          <Focusable style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {suggested.map((tpl) => (
+              <DialogButton
+                key={`sg-${tpl.id}`}
+                style={btnStyle}
+                onClick={() => handleTemplate(tpl)}
+                onOKButton={() => handleTemplate(tpl)}
+                onOKActionDescription={t(tpl.titleKey as any)}
+              >
+                <span style={btnInner}>{SHELF_TPL_ICON[tpl.id]}<span>{t(tpl.titleKey as any)}</span></span>
+              </DialogButton>
+            ))}
+          </Focusable>
+        </div>
+      )}
       {grouped.map(({ cat, items }) => (
         <div key={cat} style={{ marginBottom: 6 }}>
           <Focusable
@@ -165,6 +201,22 @@ function SmartPanel({ controller, closeModal }: { controller: SettingsController
   const grouped = SMART_CATEGORY_ORDER
     .map((cat) => ({ cat, items: visibleTemplates.filter((x: any) => x.category === cat) }))
     .filter((g) => g.items.length > 0);
+  // Stats-derived smart-shelf suggestions at the top — same opt-in as the
+  // Standard tab, but restricted to smart modes the user doesn't have yet.
+  const [suggestedModes, setSuggestedModes] = useState<string[]>([]);
+  useEffect(() => {
+    if ((settings as any)?.templateSuggestionsEnabled !== true) { setSuggestedModes([]); return; }
+    let cancelled = false;
+    const seed = Math.floor(Date.now() / 86_400_000);
+    const exclude = coveredTemplateIds((settings as any)?.shelves ?? [], ((settings as any)?.smartShelves ?? []).map((s: any) => s.mode));
+    resolveStatSuggestions({ seed, max: 5, smartEnabled: true, exclude })
+      .then((sgs) => { if (!cancelled) setSuggestedModes(sgs.map((s) => s.smartMode).filter(Boolean) as string[]); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [settings]);
+  const suggested = suggestedModes
+    .map((mode) => visibleTemplates.find((x: any) => x.mode === mode))
+    .filter(Boolean) as any[];
   const handleSmartTemplate = (tpl: any) => {
     closeModal?.();
     const draft = actions.createDraftSmartShelf(tpl.mode, t(tpl.titleKey as any));
@@ -184,9 +236,29 @@ function SmartPanel({ controller, closeModal }: { controller: SettingsController
           onOKButton={handleCustom}
           onOKActionDescription={t("smart_template_custom" as any)}
         >
-          <span style={btnInner}><span>{t("smart_template_custom" as any)}</span></span>
+          <span style={btnInner}>{SHELF_TPL_ICON.blank}<span>{t("smart_template_custom" as any)}</span></span>
         </DialogButton>
       </div>
+      {suggested.length > 0 && (
+        <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px 6px", fontSize: 12, opacity: 0.8 }}>
+            <SparkleIcon size={12} />{t("settings_statistics_suggestions")}
+          </div>
+          <Focusable style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {suggested.map((tpl: any) => (
+              <DialogButton
+                key={`sg-${tpl.mode}`}
+                style={btnStyle}
+                onClick={() => handleSmartTemplate(tpl)}
+                onOKButton={() => handleSmartTemplate(tpl)}
+                onOKActionDescription={t(tpl.titleKey as any)}
+              >
+                <span style={btnInner}>{SMART_TPL_ICON[tpl.mode]}<span>{t(tpl.titleKey as any)}</span></span>
+              </DialogButton>
+            ))}
+          </Focusable>
+        </div>
+      )}
       {grouped.map(({ cat, items }) => (
         <div key={cat} style={{ marginBottom: 6 }}>
           <Focusable
@@ -200,13 +272,13 @@ function SmartPanel({ controller, closeModal }: { controller: SettingsController
             <Focusable style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: "4px 0" }}>
               {items.map((tpl: any) => (
                 <DialogButton
-                  key={tpl.id}
+                  key={tpl.mode}
                   style={btnStyle}
                   onClick={() => handleSmartTemplate(tpl)}
                   onOKButton={() => handleSmartTemplate(tpl)}
                   onOKActionDescription={t(tpl.titleKey as any)}
                 >
-                  <span style={btnInner}><span>{t(tpl.titleKey as any)}</span></span>
+                  <span style={btnInner}>{SMART_TPL_ICON[tpl.mode]}<span>{t(tpl.titleKey as any)}</span></span>
                 </DialogButton>
               ))}
             </Focusable>

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { Focusable, ToggleField } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
 import {
@@ -21,11 +21,42 @@ import {
   isInternalFilterType,
   isInternalSortOption,
 } from "../../../core/pluginApi";
-import { SettingsSection } from "../../ui/SettingsSection";
+import { CollapsibleSection } from "../../ui/CollapsibleSection";
 
 export interface IntegrationsDetailProps {
   controller: ReturnType<typeof useSettingsController>;
   t: (key: string) => string;
+}
+
+const BUILTIN_CHIP: React.CSSProperties = {
+  fontSize: 9, fontWeight: 700, color: "rgba(180, 240, 180, 0.95)",
+  background: "rgba(120, 220, 120, 0.18)", padding: "2px 6px",
+  borderRadius: 999, textTransform: "uppercase", letterSpacing: 0.5,
+};
+
+function IntegrationRow(
+  { entry, enabled, onChange, builtInLabel }:
+  { entry: any; enabled: boolean; onChange: (v: boolean) => void; builtInLabel: string },
+) {
+  return (
+    <div style={{ padding: "6px 8px" }}>
+      <ToggleField
+        label={
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontWeight: 500 }}>{entry.name}</span>
+              {entry.builtIn ? <span style={BUILTIN_CHIP}>{builtInLabel}</span> : null}
+            </div>
+            <div style={{ opacity: 0.55, fontSize: 11 }}>
+              {entry.id}{entry.version ? ` · v${entry.version}` : ""}{entry.meta ? ` · ${entry.meta}` : ""}
+            </div>
+          </div>
+        }
+        checked={enabled}
+        onChange={onChange}
+      />
+    </div>
+  );
 }
 
 interface IntegrationEntry {
@@ -197,48 +228,33 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
     (controller.actions as any).setIntegrationEnabled?.(id, value);
   };
 
+  const builtInLabel = t("settings_integration_builtin");
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
-      {Array.from(grouped.entries()).map(([group, items]) => (
-        <SettingsSection key={group} title={group}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {items.map((entry) => {
-              const enabled = enabledMap[entry.id] !== false;
-              return (
-                <div key={entry.id} style={{ padding: "4px 0" }}>
-                  <ToggleField
-                    label={
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontWeight: 500 }}>{entry.name}</span>
-                          {entry.builtIn ? (
-                            <span style={{
-                              fontSize: 9,
-                              fontWeight: 700,
-                              color: "rgba(180, 240, 180, 0.95)",
-                              background: "rgba(120, 220, 120, 0.18)",
-                              padding: "2px 6px",
-                              borderRadius: 999,
-                              textTransform: "uppercase",
-                              letterSpacing: 0.5,
-                            }}>{t("settings_integration_builtin")}</span>
-                          ) : null}
-                        </div>
-                        <div style={{ opacity: 0.55, fontSize: 11 }}>
-                          {entry.id}
-                          {entry.version ? ` · v${entry.version}` : ""}
-                          {entry.meta ? ` · ${entry.meta}` : ""}
-                        </div>
-                      </div>
-                    }
-                    checked={enabled}
-                    onChange={handleToggle(entry.id)}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </SettingsSection>
+    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {Array.from(grouped.entries()).map(([group, items], i) => (
+        <div
+          key={group}
+          style={{
+            border: "1px solid var(--ds-border, rgba(255, 255, 255, 0.10))",
+            borderRadius: 10,
+            background: "var(--ds-surface, rgba(255, 255, 255, 0.04))",
+            padding: "2px 10px 8px",
+          }}
+        >
+          <CollapsibleSection id={`integ-${group}`} title={group} count={items.length} initialOpen={i === 0}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {items.map((entry) => (
+                <IntegrationRow
+                  key={entry.id}
+                  entry={entry}
+                  enabled={enabledMap[entry.id] !== false}
+                  onChange={handleToggle(entry.id)}
+                  builtInLabel={builtInLabel}
+                />
+              ))}
+            </div>
+          </CollapsibleSection>
+        </div>
       ))}
     </Focusable>
   );

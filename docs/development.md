@@ -47,7 +47,7 @@ pnpm run typecheck     # TypeScript type checking
 ## Compatibility Checks
 
 ```bash
-bash scripts/build/validate-compat.sh
+pnpm run validate:compat
 ```
 
 Validates against 23 compatibility targets: Decky Loader versions, SteamOS versions, CSS Loader themes, and coexisting plugins.
@@ -60,12 +60,12 @@ The `plugin.json` ships without the `debug` flag (required for Decky Store). Dur
 
 ## Screenshots
 
+The CDP tooling lives in the `deckprobe/` package (host/port come from
+`.env`: `DECK_HOST`, `DECK_CDP_PORT`).
+
 ```bash
 # Capture all screenshots via CDP automation
 pnpm run devtools:screenshots
-
-# Or directly with host/port
-python3 devkit/screenshots/screenshot.py --host $DECK_HOST --port $DECK_CDP_PORT
 
 # Validate captured screenshots
 pnpm run screenshots:validate
@@ -73,32 +73,46 @@ pnpm run screenshots:validate
 
 ## CDP Diagnostics
 
-The unified `cdp.py` covers the common debug loop (find target → run probe → check result). See [`cdp.md`](./cdp.md) for the full reference.
+`deckprobe/cdp.py` covers the common debug loop (find target → run probe →
+check result). See [`cdp.md`](./cdp.md) for the full reference.
 
 ```bash
 # List CDP targets with aliases (bp / qam / sjc / mainmenu)
-python3 devkit/cdp.py targets
+python3 deckprobe/cdp.py targets
 
 # Evaluate a JS expression in a target
-python3 devkit/cdp.py eval bp 'document.title'
+python3 deckprobe/cdp.py eval bp 'document.title'
 
 # Capture a screenshot of the QAM
-python3 devkit/cdp.py screenshot qam /tmp/qam.png
+python3 deckprobe/cdp.py screenshot qam /tmp/qam.png
 
 # Stream console warnings/errors
-python3 devkit/cdp.py console sjc
+python3 deckprobe/cdp.py console sjc
 
 # Inject a classmap for testing
-python3 devkit/tools/inject_classmap.py
+python3 deckprobe/tools/inject_classmap.py
 ```
 
 ## i18n
 
-> **Caution:** every new i18n key must be added to all locale files simultaneously — `validate-compat.sh` will fail CI if any file is missing a key. Use the English string as the value in non-English locales when a translation is not yet available; do not leave the key undefined or the runtime will fall back silently and log a warning.
+Locales are sliced into per-area files: `i18n/<locale>/<area>.json`, where
+`<area>` is one of `home`, `qam`, `about`, `settings`, `integrations`,
+`common`. The loader (`src/i18n.ts`) merges every area file per locale into a
+single bundle via `import.meta.glob` — `en-US` ships eagerly (first-paint
+labels), every other locale loads its area chunks lazily for the detected
+language. Adding a locale or a new sub-area is just a new JSON file; no loader
+edit. First-party integrations add `i18n/<locale>/integration-<name>.json`.
 
-- Base locale: `i18n/en-US.json`
-- New keys must be added to ALL locale files
-- `validate-compat.sh` checks key consistency
+> **Caution:** every new key must exist in all locales with no cross-area
+> collisions — `node scripts/build/validate.mjs` fails if any locale's merged
+> key set differs from `en-US` or a key appears in two area files. Use the
+> English string as the value when a translation isn't ready; never leave a
+> key undefined (the runtime falls back silently and logs a warning).
+
+- Base locale: `i18n/en-US/` (area files)
+- A key must exist in every locale and live in exactly one area file
+- External plugins register their own strings at runtime via
+  `window.deckShelves.api.registerTranslations(locale, dict)` instead of a PR
 
 ## Project Conventions
 

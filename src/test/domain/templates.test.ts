@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { SHELF_TEMPLATES, DEFAULT_SHELF_TEMPLATES } from '../../domain/templates'
+import { SHELF_TEMPLATES, DEFAULT_SHELF_TEMPLATES, shelfSourceSignature, coveredTemplateIds } from '../../domain/templates'
+
+describe('template exclusion', () => {
+  it('signature ignores sort so a re-sorted shelf still matches its template', () => {
+    const a = shelfSourceSignature({ type: 'filter', filter: { maxPlaytimeMinutes: 0, sort: 'alphabetical' } })
+    const b = shelfSourceSignature({ type: 'filter', filter: { maxPlaytimeMinutes: 0, sort: 'playtime' } })
+    expect(a).toBe(b)
+  })
+
+  it('covers a template id when a matching shelf exists', () => {
+    const neverPlayed = SHELF_TEMPLATES.find((t) => t.id === 'never_played')!
+    const covered = coveredTemplateIds([{ source: { ...neverPlayed.source, sort: 'recent' } }], [])
+    expect(covered).toContain('never_played')
+    expect(covered).not.toContain('deck_verified')
+  })
+
+  it('covers existing smart modes', () => {
+    expect(coveredTemplateIds([], ['best_unplayed'])).toContain('best_unplayed')
+  })
+})
 
 describe('SHELF_TEMPLATES', () => {
   it('has unique template ids', () => {

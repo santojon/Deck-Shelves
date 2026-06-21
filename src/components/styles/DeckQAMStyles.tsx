@@ -25,7 +25,7 @@ export function DeckQAMStyles() {
          Single source of truth for colour / radius / spacing across QAM,
          sidecar, About page, Settings page and modals. Themes can
          override at the :root level via CSS Loader. */
-      :where(.deck-shelves-qam-scope, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-about, .deck-shelves-modal-scope) {
+      :where(:root, .deck-shelves-qam-scope, .deck-shelves-settings-page, .deck-shelves-root, .deck-shelves-about, .deck-shelves-modal-scope) {
         --ds-surface:        rgba(255, 255, 255, 0.04);
         --ds-surface-hi:     rgba(255, 255, 255, 0.08);
         --ds-surface-row:    rgba(255, 255, 255, 0.03);
@@ -276,7 +276,8 @@ export function DeckQAMStyles() {
         font-size: 14px;
       }
 
-      .deck-shelves-qam-scope .ds-collapsible-header {
+      .deck-shelves-qam-scope .ds-collapsible-header,
+      .deck-shelves-settings-page .ds-collapsible-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -296,11 +297,16 @@ export function DeckQAMStyles() {
       .deck-shelves-qam-scope .ds-collapsible-header:focus,
       .deck-shelves-qam-scope .ds-collapsible-header.gpfocus,
       .deck-shelves-qam-scope .ds-collapsible-header [data-cs-gpfocused="true"],
-      .deck-shelves-qam-scope .ds-collapsible-header:focus-within {
+      .deck-shelves-qam-scope .ds-collapsible-header:focus-within,
+      .deck-shelves-settings-page .ds-collapsible-header:focus,
+      .deck-shelves-settings-page .ds-collapsible-header.gpfocus,
+      .deck-shelves-settings-page .ds-collapsible-header [data-cs-gpfocused="true"],
+      .deck-shelves-settings-page .ds-collapsible-header:focus-within {
         background: rgba(255, 255, 255, 0.1);
         outline: none;
       }
-      .deck-shelves-qam-scope .ds-collapsible-badge {
+      .deck-shelves-qam-scope .ds-collapsible-badge,
+      .deck-shelves-settings-page .ds-collapsible-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;

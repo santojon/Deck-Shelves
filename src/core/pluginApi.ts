@@ -5,6 +5,7 @@
 
 import type { ReactNode } from "react";
 import type { Settings } from "../types";
+import { registerTranslations } from "../i18n";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
 import {
   isTabMasterInstalled,
@@ -378,6 +379,8 @@ export interface DeckShelvesPublicAPI {
   getRegisteredStatisticsProviders(): ReadonlyArray<StatisticsProviderDescriptor>;
   registerRecommendationProvider(d: RecommendationProviderDescriptor): Unsubscribe;
   getRegisteredRecommendationProviders(): ReadonlyArray<RecommendationProviderDescriptor>;
+
+  registerTranslations(locale: string, dict: Record<string, string>): void;
 }
 
 const shelfSources = new Map<string, ExternalShelfSourceDescriptor>();
@@ -569,6 +572,31 @@ export function registerInternalStatisticsProvider(d: StatisticsProviderDescript
 
 export function isInternalStatisticsProvider(id: string): boolean {
   return internalStatisticsProviderIds.has(id);
+}
+
+function hasExternalOnlyEntries(): boolean {
+  return !!(sideMenuProviders.size || contextProviders.size || widgetProviders.size
+    || shelfRenderers.size || metadataProviders.size || recommendationProviders.size
+    || importTypes.size);
+}
+
+// True when a third-party plugin has registered any provider. External-only
+// registries count any entry; mixed registries count entries not flagged
+// internal. Drives whether the Settings → Integrations tab appears.
+export function hasExternalIntegrations(): boolean {
+  if (hasExternalOnlyEntries()) return true;
+  const mixed: Array<[Map<string, unknown>, Set<string>]> = [
+    [shelfSources, internalShelfSourceIds],
+    [smartSources, internalSmartSourceIds],
+    [filterTypes, internalFilterTypeIds],
+    [sortOptions, internalSortOptionIds],
+    [searchProviders, internalSearchProviderIds],
+    [statisticsProviders, internalStatisticsProviderIds],
+  ];
+  for (const [reg, internal] of mixed) {
+    for (const id of reg.keys()) if (!internal.has(id)) return true;
+  }
+  return false;
 }
 
 export function isInternalSmartSource(id: string): boolean {
@@ -825,6 +853,8 @@ function makeApi(): DeckShelvesPublicAPI {
       return () => { recommendationProviders.delete(d.id); };
     },
     getRegisteredRecommendationProviders() { return getExternalRecommendationProviders(); },
+
+    registerTranslations(locale, dict) { registerTranslations(locale, dict); },
 
     getShelves() { return projectShelves(getCurrentSettings()); },
     getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },

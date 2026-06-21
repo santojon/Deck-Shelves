@@ -5,7 +5,7 @@ import {
 } from '../../domain/statistics'
 
 function shelf(over: Partial<ShelfStatInput>): ShelfStatInput {
-  return { kind: 'regular', sourceType: 'filter', enabled: true, hidden: false, limit: 20, featured: false, fullPage: false, decorative: false, ...over }
+  return { kind: 'regular', sourceType: 'filter', enabled: true, hidden: false, limit: 20, featured: false, fullPage: false, decorativeCards: 0, gapCards: 0, linkedCards: 0, ...over }
 }
 
 function valById(stats: LibraryStat[], id: string): string | number | undefined {
@@ -139,19 +139,33 @@ describe('computeShelfStatistics', () => {
     expect(valById(s, 'shelf_slots_avg')).toBe(20)
   })
 
-  it('buckets by shelf type and card type', () => {
+  it('keeps wishlist and store shelf types distinct', () => {
     const s = computeShelfStatistics([
       shelf({ sourceType: 'tab' }),
-      shelf({ sourceType: 'wishlist', featured: true }),
-      shelf({ sourceType: 'store', fullPage: true }),
-      shelf({ kind: 'smart', decorative: true }),
+      shelf({ sourceType: 'wishlist' }),
+      shelf({ sourceType: 'store' }),
+      shelf({ kind: 'smart' }),
     ])
     expect(valById(s, 'shelf_type_tab')).toBe(1)
-    expect(valById(s, 'shelf_type_online')).toBe(2) // wishlist + store
+    expect(valById(s, 'shelf_type_wishlist')).toBe(1)
+    expect(valById(s, 'shelf_type_store')).toBe(1)
     expect(valById(s, 'shelf_type_smart')).toBe(1)
-    expect(valById(s, 'cards_featured')).toBe(1)
-    expect(valById(s, 'cards_full_page')).toBe(1)
-    expect(valById(s, 'cards_decorative')).toBe(1)
+    expect(valById(s, 'shelf_type_online')).toBeUndefined() // no longer merged
+  })
+
+  it('counts featured/full-page as shelves and decorative/gap/linked as cards', () => {
+    const s = computeShelfStatistics([
+      shelf({ featured: true, fullPage: true, decorativeCards: 3, gapCards: 1, linkedCards: 2 }),
+      shelf({ decorativeCards: 2, gapCards: 2 }),
+    ])
+    expect(valById(s, 'shelves_featured')).toBe(1)
+    expect(valById(s, 'shelves_full_page')).toBe(1)
+    expect(valById(s, 'decorative_cards')).toBe(5) // 3 + 2
+    expect(valById(s, 'gap_cards')).toBe(3)        // 1 + 2
+    expect(valById(s, 'linked_cards')).toBe(2)
+    // these now live in the right categories
+    expect(s.find((x) => x.id === 'shelves_featured')?.category).toBe('shelves')
+    expect(s.find((x) => x.id === 'decorative_cards')?.category).toBe('card_types')
   })
 })
 
@@ -208,5 +222,41 @@ describe('deriveSuggestions', () => {
     const sg = deriveSuggestions(lib, computeShelfStatistics([]))
     expect(sg.length).toBeLessThanOrEqual(5)
     expect(sg.length).toBeGreaterThan(0)
+  })
+
+  it('rotates the visible subset by seed (variety over time)', () => {
+    // 8 eligible regular candidates, capped at 3 → different seeds differ.
+    const lib = computeLibraryStatistics(
+      Array.from({ length: 30 }, (_, i) =>
+        game({ appid: i + 1, playtimeMinutes: i < 20 ? 0 : 60, deckCompat: i % 2 ? 3 : 2, updatePending: i < 12, isNonSteam: i < 8, isFavorite: i < 5, lastPlayed: NOW_SEC - 2 * DAY })),
+      NOW_MS,
+    )
+    const shelfStats = computeShelfStatistics([shelf({})])
+    const day0 = deriveSuggestions(lib, shelfStats, { seed: 0, max: 3 }).map((s) => s.id)
+    const day3 = deriveSuggestions(lib, shelfStats, { seed: 3, max: 3 }).map((s) => s.id)
+    expect(day0).not.toEqual(day3)
+    // stable for a given seed
+    expect(deriveSuggestions(lib, shelfStats, { seed: 3, max: 3 }).map((s) => s.id)).toEqual(day3)
+  })
+
+  it('adds smart-shelf suggestions only when smart shelves are enabled', () => {
+    const lib = computeLibraryStatistics(
+      Array.from({ length: 15 }, (_, i) => game({ appid: i + 1, playtimeMinutes: 0, deckCompat: 3 })),
+      NOW_MS,
+    )
+    const shelfStats = computeShelfStatistics([shelf({})])
+    const off = deriveSuggestions(lib, shelfStats, { smartEnabled: false, max: 10 })
+    const on = deriveSuggestions(lib, shelfStats, { smartEnabled: true, max: 10 })
+    expect(off.some((s) => s.smartMode)).toBe(false)
+    expect(on.some((s) => s.smartMode === 'best_unplayed')).toBe(true)
+  })
+
+  it('excludes templates already present', () => {
+    const lib = computeLibraryStatistics(
+      Array.from({ length: 15 }, (_, i) => game({ appid: i + 1, playtimeMinutes: 0 })),
+      NOW_MS,
+    )
+    const sg = deriveSuggestions(lib, computeShelfStatistics([shelf({})]), { exclude: ['never_played'], max: 10 })
+    expect(sg.some((s) => s.templateId === 'never_played')).toBe(false)
   })
 })

@@ -81,7 +81,7 @@ export function defaultSettings(): Settings {
     qamHiddenSections: [],
     unifiedListEnabled: false,
     allShelvesOrder: [],
-    lightModeEnabled: false, offlineModeEnabled: false,
+    lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false,
     featureToggles: {},
     profiles: [],
     integrationsEnabled: {},

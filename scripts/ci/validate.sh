@@ -168,9 +168,9 @@ run_step "tests" "Unit tests (vitest)" \
 
 # ─── 4. Package + verify ─────────────────────────────────────────────────────
 run_step "package" "Package (.zip)" \
-  bash "${ROOT}/scripts/build/package.sh" || true
+  python3 "${ROOT}/scripts/build/package.py" || true
 run_step "verify_pkg" "Verify package" \
-  bash "${ROOT}/scripts/build/verify-package.sh" || true
+  python3 "${ROOT}/scripts/build/verify-package.py" || true
 
 # ─── 5. Compat validation ────────────────────────────────────────────────────
 run_step "compat" "Compat validation" \

@@ -97,8 +97,8 @@ BUILD_OK=1
 run_step "typecheck" "TypeScript typecheck"   pnpm --dir "${ROOT}" typecheck        || true
 run_step "build"     "Build (production)"     pnpm --dir "${ROOT}" build:release   || BUILD_OK=0
 run_step "tests"     "Unit tests (vitest)"    pnpm --dir "${ROOT}" test             || true
-run_step "package"   "Package (.zip)"         bash "${ROOT}/scripts/build/package.sh"        || true
-run_step "verify"    "Verify package"         bash "${ROOT}/scripts/build/verify-package.sh" || true
+run_step "package"   "Package (.zip)"         python3 "${ROOT}/scripts/build/package.py"        || true
+run_step "verify"    "Verify package"         python3 "${ROOT}/scripts/build/verify-package.py" || true
 run_step "compat"    "Compat validation"      pnpm --dir "${ROOT}" validate:compat  || true
 
 PASSED=$(printf '%s\n' "${STEP_STATUS[@]}" | grep -c "^pass$" || true)

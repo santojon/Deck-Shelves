@@ -7,6 +7,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
+- **New Statistics tab in Settings.** See your library at a glance — total/Steam/non-Steam/installed/favorite games, playtime totals and averages, Steam Deck compatibility breakdown — plus shelf metrics: how many shelves you have by type (filter, tab, collection, wishlist, store, composite, smart), how many cards are decorative, and averages tracked over time. The page is fully gamepad-navigable and translated into all 19 languages. Up to five contextual suggestions (e.g. "you have N never-played games") appear as cards you can select to add a matching shelf in one press. Other plugins can add their own statistics areas to this page.
+- **Two new shelf templates: "Never Played" and "Deck Playable".** Quickly build a backlog shelf of games you own but never launched, or a shelf of everything rated Deck Playable.
+
 - **Integrations page shows every provider type.** The Settings → Integrations card now lists side-menu providers, context providers, widgets, shelf renderers, metadata providers, statistics providers and recommendation providers in addition to the existing shelf sources / smart sources / filters / sorts / importers / search providers — each with its own group heading. Translations land in all 19 locales.
 - **About → How to: closing paragraph.** Added a focusable closing step after the existing tip and note so the page ends on plain text instead of two stacked callouts.
 - **Quick Search / Side Nav close ambient menus before opening.** When you trigger either combo on the home, Deck Shelves now closes the QAM, the Steam main menu and any open context menu first, then opens the overlay. You no longer have to manually dismiss those before triggering the combo.

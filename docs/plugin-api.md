@@ -1,293 +1,57 @@
-# Plugin API — Contract Freeze (v4)
+# Plugin API — Deck Shelves runtime notes
 
-This document is the **frozen** surface that third-party Decky / Standalone
-plugins target when integrating with Deck Shelves. Additive changes are
-allowed after the freeze; removing or changing the shape of any descriptor
-already listed here is a breaking change.
+The **public API contract** — every `register*` method, descriptor shape, the
+capability matrix, install + quick-start, and the version policy — lives in the
+separate **`@deck-shelves/api`** package and its repository:
 
-`DeckShelvesPublicAPI.version` is `5` as of this freeze. The runtime
-`HOST_API_VERSION` string (`"1.0.0"`) is a separate contract that the
-[shelves-loader](https://github.com/santojon/shelves-loader) standalone host
-also targets — that one governs `window.__SHELVES_HOST__` injection.
+- npm: **`@deck-shelves/api`**
+- Full docs / source: **<https://github.com/santojon/Deck-Shelves-API>**
 
----
+That package is the single source of truth for the contract; the runtime in
+[`src/core/pluginApi.ts`](../src/core/pluginApi.ts) imports its canonical types
+and re-declares the interface against them. **This page only documents what is
+specific to the Deck Shelves runtime** — the globals it exposes, the providers
+it ships built-in, how the UI surfaces registrations, and the first-party ids
+third-party plugins may collide with.
 
-## Registries
+## Runtime globals
 
-Every registration returns an `Unsubscribe` (`() => void`). Calling it
-removes the descriptor from the registry. Descriptors share a stable `id`
-that must be a non-empty string; collisions clobber the existing entry
-deterministically (last-write-wins). Pick a `my-plugin.` prefix to avoid
-stomping built-ins.
+Deck Shelves exposes the API at `window.deckShelves` (`{ version, api,
+register }`) and mirrors the registry on `window.__DECK_SHELVES_API__`. Plugins
+register through `window.deckShelves.register({ name, onMount(api) })`; the
+`@deck-shelves/api` package handles the load-order timing (plugin before /
+after / simultaneously with the host).
 
-### Regular shelf sources
+## Built-in providers (shipped by Deck Shelves)
 
-```ts
-api.registerShelfSource(d: ExternalShelfSourceDescriptor): Unsubscribe
-api.getRegisteredSources(): ReadonlyArray<ExternalShelfSourceDescriptor>
-```
+Every first-party feature registers through the **same** registries third-party
+plugins use, so they list uniformly in the UI:
 
-```ts
-interface ExternalShelfSourceDescriptor {
- id: string;
- displayName: string;
- version?: string | number;
- resolve(limit: number): Promise<number[]> | number[];
-}
-```
+- **Statistics** — two providers, `deck-shelves.library` and
+  `deck-shelves.shelf-stats` ([`src/steam/statistics.ts`](../src/steam/statistics.ts)).
+  The Settings → Statistics tab renders **one area per registered statistics
+  provider**, so a third-party provider appears alongside these with its own
+  `displayName`; entries group by `category`.
+- **Search** — `deck-shelves.shelves` (Quick Search over shelf contents).
+- **Filters / Sorts / Sources (v3)** — the first-party ids listed below.
 
-### Smart shelf sources
+The Settings → Integrations card lists every registered provider type (sources,
+smart sources, filters, sorts, importers, search, side-menu, context, widget,
+shelf-renderer, metadata, statistics, recommendation) with a BUILT-IN chip on
+first-party entries.
 
-```ts
-api.registerSmartShelfSource(d: SmartShelfSourceDescriptor): Unsubscribe
-api.getRegisteredSmartSources(): ReadonlyArray<SmartShelfSourceDescriptor>
-```
+## Runtime translations
 
-```ts
-interface SmartShelfSourceDescriptor {
- id: string;
- displayName: string;
- category?: string; // grouping in the picker
- defaultParams?: Record<string, number>;
- resolve(limit: number, params: Record<string, number>): Promise<number[]> | number[];
-}
-```
-
-### Filter types
-
-```ts
-api.registerFilterType(d: ExternalFilterTypeDescriptor): Unsubscribe
-api.getRegisteredFilterTypes(): ReadonlyArray<ExternalFilterTypeDescriptor>
-```
-
-```ts
-interface ExternalFilterTypeDescriptor {
- id: string;
- displayName: string;
- invertible?: boolean; // default true — supports !filter
- evaluate(app: PublicAppMeta, params: Record<string, unknown>): boolean;
-}
-```
-
-### Sort options
-
-```ts
-api.registerSortOption(d: ExternalSortOptionDescriptor): Unsubscribe
-api.getRegisteredSortOptions(): ReadonlyArray<ExternalSortOptionDescriptor>
-```
-
-```ts
-interface ExternalSortOptionDescriptor {
- id: string;
- displayName: string;
- sort(appIds: ReadonlyArray<number>, meta: ReadonlyMap<number, PublicAppMeta>): number[];
- requiresOnline?: boolean;
-}
-```
-
-### Import types + saved filters
-
-```ts
-api.registerImportType(d: ExternalImportTypeDescriptor): Unsubscribe
-api.registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe
-api.getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>
-api.getRegisteredImportTypesForTarget(target: "shelves" | "smart_shelves"): ReadonlyArray<ExternalImportTypeDescriptor>
-api.getSavedFilters(): ReadonlyArray<PublicSavedFilter>
-api.getSavedSmartFilters(): ReadonlyArray<PublicSavedSmartFilter>
-api.subscribeSavedFilters(cb: (filters: ReadonlyArray<PublicSavedFilter>) => void): Unsubscribe
-```
-
-### Search providers (v4)
-
-```ts
-api.registerSearchProvider(d: SearchProviderDescriptor): Unsubscribe
-api.getRegisteredSearchProviders(): ReadonlyArray<SearchProviderDescriptor>
-```
-
-```ts
-interface SearchProviderDescriptor {
- id: string;
- displayName: string;
- priority?: number; // default 0; higher first
- search(query: string, limit: number): Promise<SearchHit[]> | SearchHit[];
-}
-interface SearchHit {
- id: string;
- appid?: number;
- title?: string;
- subtitle?: string;
- score?: number;
- onActivate?(): void;
-}
-```
-
-The built-in shelf search (`deck-shelves.shelves`, priority `100`) is
-registered through the same surface.
-
-### Side-menu providers (v4)
-
-```ts
-api.registerSideMenuProvider(d: SideMenuProviderDescriptor): Unsubscribe
-api.getRegisteredSideMenuProviders(): ReadonlyArray<SideMenuProviderDescriptor>
-```
-
-```ts
-interface SideMenuProviderDescriptor {
- id: string;
- displayName: string;
- resolve(context: SideMenuContext): Promise<SideMenuEntry[]> | SideMenuEntry[];
-}
-interface SideMenuContext {
- shelfId: string | null;
- focusedAppid: number | null;
-}
-interface SideMenuEntry {
- id: string;
- label: string;
- category?: string;
- icon?: unknown; // ReactNode at runtime
- disabled?: boolean;
- onActivate(): void | Promise<void>;
-}
-```
-
-### Context providers (v4)
-
-```ts
-api.registerContextProvider(d: ContextProviderDescriptor): Unsubscribe
-api.getRegisteredContextProviders(): ReadonlyArray<ContextProviderDescriptor>
-```
-
-```ts
-interface ContextProviderDescriptor {
- id: string;
- displayName: string;
- version?: string | number;
- snapshot(): unknown; // sync snapshot of current value
- subscribe(cb: (value: unknown) => void): () => void;
-}
-```
-
-a planned Visibility Rules v2 + a planned profile auto-switch resolve
-predicates against the snapshot/subscribe pair.
-
-### Widget providers (v4)
-
-```ts
-api.registerWidgetProvider(d: WidgetProviderDescriptor): Unsubscribe
-api.getRegisteredWidgetProviders(): ReadonlyArray<WidgetProviderDescriptor>
-```
-
-```ts
-interface WidgetProviderDescriptor {
- id: string;
- displayName: string;
- version?: string | number;
- render(size: { width: number; height: number }): unknown; // ReactNode at runtime
- refreshPolicy?: number | "focus" | null; // ms, "on focus", or none
- skeleton?(): unknown;
-}
-```
-
-### Shelf renderers (v4)
-
-```ts
-api.registerShelfRenderer(d: ShelfRendererDescriptor): Unsubscribe
-api.getRegisteredShelfRenderers(): ReadonlyArray<ShelfRendererDescriptor>
-```
-
-```ts
-interface ShelfRendererDescriptor {
- id: string;
- displayName: string;
- version?: string | number;
- layout(params: {
- items: ReadonlyArray<{ appid: number; name?: string }>;
- focusedAppid: number | null;
- cardWidth: number;
- cardHeight: number;
- featured: boolean;
- }): unknown; // ReactNode at runtime
- cardMode?: "normal" | "featured" | "compact";
- virtualiseAfter?: number;
-}
-```
-
-### Metadata providers (v4)
-
-```ts
-api.registerMetadataProvider(d: MetadataProviderDescriptor): Unsubscribe
-api.getRegisteredMetadataProviders(): ReadonlyArray<MetadataProviderDescriptor>
-```
-
-```ts
-interface MetadataProviderDescriptor {
- id: string;
- displayName: string;
- version?: string | number;
- fields: ReadonlyArray<string>;
- resolve(appids: ReadonlyArray<number>, signal?: AbortSignal): Promise<Record<number, Record<string, unknown>>>;
-}
-```
-
-Filter v3 + Sort v3 query the registry by `fields[]` so only matching
-providers run for each consumer call.
-
----
-
-## Snapshots + subscriptions
-
-```ts
-api.getShelves(): ReadonlyArray<PublicShelf>
-api.getSmartShelves(): ReadonlyArray<PublicSmartShelf>
-api.subscribeShelves(cb: (s: ReadonlyArray<PublicShelf>) => void): Unsubscribe
-api.subscribeSmartShelves(cb: (s: ReadonlyArray<PublicSmartShelf>) => void): Unsubscribe
-api.subscribeSavedFilters(cb:...): Unsubscribe
-```
-
-## Focus tracking
-
-```ts
-api.getFocusedCard(): { appid: number; shelfId: string | null } | null
-api.subscribeFocusedCard(cb:...): Unsubscribe
-```
-
-## Asset URLs
-
-```ts
-api.getAssetUrls(appid: number, type: AssetType): string[]
-```
-
-`AssetType` is `"hero" | "heroBlur" | "portrait" | "landscape" | "logo" | "icon" | "storeBackground"`. The result list is ordered loopback → customimages → CDN; consumers attempt each in order and fall through on 404.
-
-## Environment probes
-
-```ts
-api.hasTabMaster(): boolean
-```
-
----
-
-## Lifecycle
-
-External plugins register through `window.deckShelves.register`:
-
-```ts
-window.deckShelves.register({
- name: "my-plugin",
- version: "1.0.0",
- onMount(api: DeckShelvesPublicAPI) { /* register descriptors here */ },
- onUnmount?() { /* cleanup */ },
-}): Unsubscribe
-```
-
-The `@deck-shelves/api` package handles three timing cases automatically — plugin loads before / after / simultaneously with the host — and routes each path to the same `onMount` callback.
-
----
+`api.registerTranslations(locale, dict)` deep-merges your strings into the
+locale bundle at runtime and never overwrites built-in keys — namespace yours
+(`my-plugin.*`). Built-in strings live in `i18n/<locale>/<area>.json` (see
+[`development.md`](./development.md#i18n)).
 
 ## First-party Filter / Sort / Source IDs (v3)
 
-These ids are registered through the SAME public registries above. Third-party plugins targeting the same predicate ids will overwrite the built-in implementation (last-write-wins); pick a `my-plugin.` prefix to avoid collision.
+These ids are registered through the same public registries. A third-party
+plugin targeting the same id overwrites the built-in implementation
+(last-write-wins); pick a `my-plugin.` prefix to avoid collisions.
 
 ### Filter v3
 
@@ -322,8 +86,5 @@ These ids are registered through the SAME public registries above. Third-party p
 
 ---
 
-## Version policy
-
-`DeckShelvesPublicAPI.version` bumps on every breaking change. Additions (new descriptor types, new methods, new ids) DO NOT bump the version — consumers gate on `api.version >= N` only when calling methods introduced in version N or later.
-
-The contract above is frozen as of v4. Future additions (e.g. `renderMode` UI, `trigger` resolver, Widget consumer surface) land without bumping the version.
+For method signatures, descriptor interfaces, the capability matrix and the
+version policy, see the **`@deck-shelves/api`** docs linked at the top.

@@ -1,36 +1,28 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-/* `en-US` is the static fallback — always bundled into the main chunk so
-   the first paint has working labels before the user's locale finishes
-   loading. Every other locale ships as its own dynamic-import chunk;
-   only the chunk matching the detected language is fetched at boot. */
-import enUS from "../i18n/en-US.json";
+// Locales are sliced into i18n/<locale>/<area>.json; the loader merges
+// every area file per locale. en-US ships eagerly (first-paint labels);
+// other locales stay lazy chunks, fetched + merged for the detected lang.
+const EN_MODULES = import.meta.glob("../i18n/en-US/*.json", { eager: true, import: "default" });
+const enUS: Record<string, string> = Object.assign({}, ...Object.values(EN_MODULES));
 
-/* Dynamic loaders. Each `() => import(...)` becomes its own chunk in the
-   output. Rollup co-locates the JSON inside the chunk so a locale switch
-   is one extra HTTP request instead of inflating the main bundle by
-   every translation (~50 KB × 18 ≈ 900 KB savings). */
-const LOCALE_LOADERS: Record<string, () => Promise<any>> = {
-  "pt-BR": () => import("../i18n/pt-BR.json").then((m) => m.default),
-  "pt-PT": () => import("../i18n/pt-PT.json").then((m) => m.default),
-  "es-ES": () => import("../i18n/es-ES.json").then((m) => m.default),
-  "es-419": () => import("../i18n/es-419.json").then((m) => m.default),
-  "it-IT": () => import("../i18n/it-IT.json").then((m) => m.default),
-  "fr-FR": () => import("../i18n/fr-FR.json").then((m) => m.default),
-  "fr-CA": () => import("../i18n/fr-CA.json").then((m) => m.default),
-  "de-DE": () => import("../i18n/de-DE.json").then((m) => m.default),
-  "ru-RU": () => import("../i18n/ru-RU.json").then((m) => m.default),
-  "pl-PL": () => import("../i18n/pl-PL.json").then((m) => m.default),
-  "nl-NL": () => import("../i18n/nl-NL.json").then((m) => m.default),
-  "tr-TR": () => import("../i18n/tr-TR.json").then((m) => m.default),
-  "uk-UA": () => import("../i18n/uk-UA.json").then((m) => m.default),
-  "ja-JP": () => import("../i18n/ja-JP.json").then((m) => m.default),
-  "ko-KR": () => import("../i18n/ko-KR.json").then((m) => m.default),
-  "zh-CN": () => import("../i18n/zh-CN.json").then((m) => m.default),
-  "zh-TW": () => import("../i18n/zh-TW.json").then((m) => m.default),
-  "en-GB": () => import("../i18n/en-GB.json").then((m) => m.default),
-};
+const AREA_LOADERS = import.meta.glob<Record<string, string>>(
+  ["../i18n/*/*.json", "!../i18n/en-US/*.json"],
+  { import: "default" },
+);
+const LOCALE_AREA_LOADERS: Record<string, Array<() => Promise<Record<string, string>>>> = {};
+for (const [path, loader] of Object.entries(AREA_LOADERS)) {
+  const m = /\/i18n\/([^/]+)\/[^/]+\.json$/.exec(path);
+  if (!m) continue;
+  (LOCALE_AREA_LOADERS[m[1]] ??= []).push(loader);
+}
+
+async function loadLocaleDict(locale: string): Promise<Record<string, string>> {
+  const loaders = LOCALE_AREA_LOADERS[locale] ?? [];
+  const dicts = await Promise.all(loaders.map((l) => l().catch(() => ({}))));
+  return Object.assign({}, ...dicts);
+}
 
 function pickLocale(l: string): string {
   if (l.startsWith("pt-pt")) return "pt-PT";
@@ -69,20 +61,25 @@ export function initI18n() {
   });
 
   // Asynchronously load + switch to the detected locale. Boot keeps
-  // happening; the language flips when the chunk arrives (i18next's
+  // happening; the language flips when the chunks arrive (i18next's
   // changeLanguage triggers a re-render of <Trans> / hook consumers).
   if (target !== "en-US") {
-    const loader = LOCALE_LOADERS[target];
-    if (loader) {
-      loader().then((dict) => {
-        if (!dict) return;
-        i18n.addResourceBundle(target, "translation", dict, true, true);
-        i18n.changeLanguage(target);
-      }).catch(() => {});
-    }
+    loadLocaleDict(target).then((dict) => {
+      if (!dict || Object.keys(dict).length === 0) return;
+      i18n.addResourceBundle(target, "translation", dict, true, true);
+      i18n.changeLanguage(target);
+    }).catch(() => {});
   }
 
   return i18n;
+}
+
+// Runtime i18n for external integrations — they register strings in
+// onMount(api), no PR needed. overwrite:false protects built-in keys;
+// authors should namespace theirs (`acme.*`) to avoid plugin collisions.
+export function registerTranslations(locale: string, dict: Record<string, string>): void {
+  if (!locale || !dict) return;
+  try { i18n.addResourceBundle(locale, "translation", dict, true, false); } catch {}
 }
 
 export default i18n;

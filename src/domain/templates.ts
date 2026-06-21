@@ -179,3 +179,41 @@ export const DEFAULT_SHELF_TEMPLATES: ShelfTemplate[] = [
   SHELF_TEMPLATES[1],
   SHELF_TEMPLATES[4],
 ];
+
+function levelsSuffix(it: any): string {
+  return it?.params?.levels ? `=${[...it.params.levels].sort().join(",")}` : "";
+}
+
+function filterSignatureParts(f: any): string[] {
+  const parts: string[] = [];
+  if (f.installed) parts.push("installed");
+  if (f.nonSteam) parts.push("nonSteam");
+  if (f.updatePending) parts.push("updatePending");
+  if (typeof f.maxPlaytimeMinutes === "number") parts.push(`max=${f.maxPlaytimeMinutes}`);
+  if (typeof f.minPlaytimeMinutes === "number") parts.push(`min=${f.minPlaytimeMinutes}`);
+  for (const it of f.filterGroup?.items ?? []) parts.push(`${it?.type}${levelsSuffix(it)}`);
+  return parts;
+}
+
+// Stable signature for a shelf source (sort excluded, so a re-sorted shelf
+// still matches its template). Used to detect "already have this template".
+export function shelfSourceSignature(source: any): string {
+  if (!source || typeof source !== "object") return "";
+  if (source.type === "tab") return `tab:${source.tab}`;
+  if (source.type === "filter") return `filter:${filterSignatureParts(source.filter ?? {}).sort().join("|")}`;
+  return String(source.type ?? "");
+}
+
+// Template ids whose signature matches an existing shelf + the smart modes
+// already present, so suggestions can skip duplicates.
+export function coveredTemplateIds(
+  shelves: ReadonlyArray<{ source?: any }>,
+  smartModes: ReadonlyArray<string>,
+): string[] {
+  const existing = new Set(shelves.map((s) => shelfSourceSignature(s.source)));
+  const covered = new Set<string>(smartModes);
+  for (const tpl of [...SHELF_TEMPLATES, ...ONLINE_SHELF_TEMPLATES]) {
+    if (existing.has(shelfSourceSignature(tpl.source))) covered.add(tpl.id);
+  }
+  return [...covered];
+}

@@ -1,7 +1,5 @@
-/* Library statistics — pure aggregation over a normalized game list.
-   No Steam APIs, no side-effects (see .claude/rules/domain.md). The
-   Steam-facing adapter in src/steam/statistics.ts feeds it real data and
-   maps the result onto the public StatisticsEntry shape. */
+// Pure statistics aggregation — no Steam APIs, no side-effects. The
+// adapter in src/steam/statistics.ts feeds it real data.
 
 export interface LibraryStatGame {
   appid: number;
@@ -121,14 +119,19 @@ export interface ShelfStatInput {
   limit: number;
   featured: boolean;
   fullPage: boolean;
-  decorative: boolean;
+  decorativeCards: number;
+  gapCards: number;
+  linkedCards: number;
 }
 
-// Maps a concrete source type onto the coarse bucket shown in "by type".
+// Maps a concrete source type onto the bucket shown in "by shelf type".
+// wishlist + store stay distinct so online shelves surface individually.
 const SHELF_TYPE_BUCKET: Record<string, string> = {
   filter: "filter", tab: "tab", collection: "collection",
-  wishlist: "online", store: "online", composite: "composite", external: "external",
+  wishlist: "wishlist", store: "store", composite: "composite", external: "external",
 };
+
+const SHELF_TYPE_ORDER = ["filter", "tab", "collection", "wishlist", "store", "composite", "external", "smart", "other"];
 
 function shelfTypeBucket(s: ShelfStatInput): string {
   if (s.kind === "smart") return "smart";
@@ -137,7 +140,8 @@ function shelfTypeBucket(s: ShelfStatInput): string {
 
 interface ShelfAcc {
   regular: number; smart: number; enabled: number; hidden: number;
-  featured: number; fullPage: number; decorative: number; slotsTotal: number;
+  featured: number; fullPage: number; slotsTotal: number;
+  decorativeCards: number; gapCards: number; linkedCards: number;
   byType: Record<string, number>;
 }
 
@@ -147,16 +151,18 @@ function addShelf(acc: ShelfAcc, s: ShelfStatInput): void {
   if (s.hidden) acc.hidden++;
   if (s.featured) acc.featured++;
   if (s.fullPage) acc.fullPage++;
-  if (s.decorative) acc.decorative++;
   if (s.enabled && !s.hidden) acc.slotsTotal += s.limit;
+  acc.decorativeCards += s.decorativeCards;
+  acc.gapCards += s.gapCards;
+  acc.linkedCards += s.linkedCards;
   const b = shelfTypeBucket(s);
   acc.byType[b] = (acc.byType[b] ?? 0) + 1;
 }
 
 export function computeShelfStatistics(shelves: ShelfStatInput[]): LibraryStat[] {
-  const acc: ShelfAcc = { regular: 0, smart: 0, enabled: 0, hidden: 0, featured: 0, fullPage: 0, decorative: 0, slotsTotal: 0, byType: {} };
+  const acc: ShelfAcc = { regular: 0, smart: 0, enabled: 0, hidden: 0, featured: 0, fullPage: 0, slotsTotal: 0, decorativeCards: 0, gapCards: 0, linkedCards: 0, byType: {} };
   for (const s of shelves) addShelf(acc, s);
-  const { regular, smart, enabled, hidden, featured, fullPage, decorative, slotsTotal, byType } = acc;
+  const { regular, smart, enabled, hidden, featured, fullPage, slotsTotal, decorativeCards, gapCards, linkedCards, byType } = acc;
   const total = shelves.length;
   const visible = shelves.filter((s) => s.enabled && !s.hidden).length;
   const slotsAvg = visible > 0 ? Math.round(slotsTotal / visible) : 0;
@@ -167,13 +173,16 @@ export function computeShelfStatistics(shelves: ShelfStatInput[]): LibraryStat[]
     { id: "shelves_smart",     label: "Smart shelves",      value: smart,      category: "shelves" },
     { id: "shelves_enabled",   label: "Enabled",            value: enabled,    category: "shelves" },
     { id: "shelves_hidden",    label: "Hidden",             value: hidden,     category: "shelves" },
+    { id: "shelves_featured",  label: "Featured shelves",   value: featured,   category: "shelves" },
+    { id: "shelves_full_page", label: "Full-page shelves",  value: fullPage,   category: "shelves" },
     { id: "shelf_slots_total", label: "Total card slots",   value: slotsTotal, category: "shelves" },
     { id: "shelf_slots_avg",   label: "Avg slots / shelf",  value: slotsAvg,   category: "shelves" },
-    { id: "cards_featured",    label: "Featured shelves",   value: featured,   category: "card_types" },
-    { id: "cards_full_page",   label: "Full-page shelves",  value: fullPage,   category: "card_types" },
-    { id: "cards_decorative",  label: "Decorative shelves", value: decorative, category: "card_types" },
   ];
-  for (const b of ["filter", "tab", "collection", "online", "composite", "external", "smart", "other"]) {
+  // "By card type" counts actual cards, not shelves.
+  for (const [id, value] of [["decorative_cards", decorativeCards], ["gap_cards", gapCards], ["linked_cards", linkedCards]] as const) {
+    if (value) out.push({ id, label: id, value, category: "card_types" });
+  }
+  for (const b of SHELF_TYPE_ORDER) {
     if (byType[b]) out.push({ id: `shelf_type_${b}`, label: `${b} shelves`, value: byType[b], category: "shelf_types" });
   }
   return out;
@@ -207,7 +216,16 @@ export interface StatSuggestion {
   id: string;
   messageKey: string;
   params: Record<string, string | number>;
-  templateId?: string;
+  templateId?: string; // regular SHELF_TEMPLATES id
+  smartMode?: string;  // smart-shelf mode
+}
+
+// seed = rotation seed (day index); exclude = template ids/modes already present.
+export interface SuggestionContext {
+  seed?: number;
+  smartEnabled?: boolean;
+  exclude?: ReadonlyArray<string>;
+  max?: number;
 }
 
 function statValue(stats: LibraryStat[], id: string): number {
@@ -215,26 +233,55 @@ function statValue(stats: LibraryStat[], id: string): number {
   return typeof e?.value === "number" ? e.value : 0;
 }
 
-// Turn the raw numbers into at most a few actionable hints. Pure: the UI
-// localizes `messageKey` with `params` and wires `templateId` to a shelf.
-export function deriveSuggestions(lib: LibraryStat[], shelf: LibraryStat[]): StatSuggestion[] {
-  const out: StatSuggestion[] = [];
-  const neverPlayed = statValue(lib, "never_played_games");
-  const updates = statValue(lib, "updates_pending");
-  const verified = statValue(lib, "deck_verified");
-  const totalShelves = statValue(shelf, "shelves_total");
+// Rotate a window of `n` items starting at `seed` so the visible subset
+// varies between seeds but is stable for a given one.
+function rotateWindow<T>(arr: T[], seed: number, n: number): T[] {
+  if (arr.length <= n) return arr.slice();
+  const start = ((seed % arr.length) + arr.length) % arr.length;
+  const out: T[] = [];
+  for (let i = 0; i < n; i++) out.push(arr[(start + i) % arr.length]);
+  return out;
+}
 
-  if (totalShelves === 0) {
-    out.push({ id: "first_shelf", messageKey: "stat_suggestion_first_shelf", params: {}, templateId: "favorites" });
-  }
-  if (neverPlayed >= 10) {
-    out.push({ id: "backlog", messageKey: "stat_suggestion_backlog", params: { count: neverPlayed }, templateId: "never_played" });
-  }
-  if (verified >= 10) {
-    out.push({ id: "deck_verified", messageKey: "stat_suggestion_deck_verified", params: { count: verified }, templateId: "deck_verified" });
-  }
-  if (updates > 0) {
-    out.push({ id: "updates", messageKey: "stat_suggestion_updates", params: { count: updates }, templateId: "awaiting_update" });
-  }
-  return out.slice(0, 5);
+function regularCandidates(lib: LibraryStat[], shelf: LibraryStat[]): StatSuggestion[] {
+  const out: StatSuggestion[] = [];
+  const add = (cond: boolean, id: string, reason: string, count: number, templateId: string) => {
+    if (cond) out.push({ id, messageKey: reason, params: count ? { count } : {}, templateId });
+  };
+  add(statValue(shelf, "shelves_total") === 0, "first_shelf", "stat_suggestion_first_shelf", 0, "favorites");
+  add(statValue(lib, "never_played_games") >= 10, "backlog", "stat_suggestion_backlog", statValue(lib, "never_played_games"), "never_played");
+  add(statValue(lib, "deck_verified") >= 10, "deck_verified", "stat_suggestion_deck_verified", statValue(lib, "deck_verified"), "deck_verified");
+  add(statValue(lib, "deck_playable") >= 10, "deck_playable", "stat_suggestion_deck_playable", statValue(lib, "deck_playable"), "deck_playable");
+  add(statValue(lib, "updates_pending") > 0, "updates", "stat_suggestion_updates", statValue(lib, "updates_pending"), "awaiting_update");
+  add(statValue(lib, "non_steam_games") >= 5, "non_steam", "stat_suggestion_non_steam", statValue(lib, "non_steam_games"), "non_steam");
+  add(statValue(lib, "favorite_games") >= 3, "favorites", "stat_suggestion_favorites", statValue(lib, "favorite_games"), "favorites");
+  add(statValue(lib, "recently_played_7d") >= 3, "recent", "stat_suggestion_recent", statValue(lib, "recently_played_7d"), "recent");
+  add(statValue(lib, "played_games") >= 5, "most_played", "stat_suggestion_most_played", statValue(lib, "played_games"), "most_played");
+  return out;
+}
+
+function smartCandidates(lib: LibraryStat[]): StatSuggestion[] {
+  const out: StatSuggestion[] = [];
+  const add = (cond: boolean, id: string, reason: string, count: number, smartMode: string) => {
+    if (cond) out.push({ id, messageKey: reason, params: count ? { count } : {}, smartMode });
+  };
+  const deck = statValue(lib, "deck_verified") + statValue(lib, "deck_playable");
+  add(statValue(lib, "never_played_games") >= 10, "smart_backlog", "stat_suggestion_backlog", statValue(lib, "never_played_games"), "best_unplayed");
+  add(deck >= 10, "smart_deck", "stat_suggestion_deck_verified", deck, "deck_picks");
+  add(statValue(lib, "recently_played_30d") >= 5, "smart_recent", "stat_suggestion_recent", statValue(lib, "recently_played_30d"), "recently_played");
+  add(statValue(lib, "played_games") >= 10, "smart_quick", "stat_suggestion_most_played", statValue(lib, "played_games"), "quick_play");
+  return out;
+}
+
+// Contextual + rotative suggestions: heuristic-gated (can be empty),
+// rotating by `seed` so different valid templates surface over time. Pure;
+// the UI localizes `messageKey` and applies `templateId` / `smartMode`.
+export function deriveSuggestions(lib: LibraryStat[], shelf: LibraryStat[], ctx: SuggestionContext = {}): StatSuggestion[] {
+  const { seed = 0, smartEnabled = false, exclude = [], max = 5 } = ctx;
+  let pool = regularCandidates(lib, shelf);
+  if (smartEnabled) pool = pool.concat(smartCandidates(lib));
+  pool = pool.filter((c) => !exclude.includes(c.templateId ?? c.smartMode ?? c.id));
+  const pinned = pool.filter((c) => c.id === "first_shelf");
+  const rest = pool.filter((c) => c.id !== "first_shelf");
+  return pinned.concat(rotateWindow(rest, seed, Math.max(0, max - pinned.length)));
 }

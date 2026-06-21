@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 
-export function useLightMode(): boolean {
-  const [enabled, setEnabled] = useState<boolean>(() => (getCurrentSettings() as any)?.lightModeEnabled === true);
-  useEffect(() => {
-    return subscribeSettings((s) => {
-      setEnabled((s as any)?.lightModeEnabled === true);
-    });
-  }, []);
+function useSettingsBool(key: string): boolean {
+  const [enabled, setEnabled] = useState<boolean>(() => (getCurrentSettings() as any)?.[key] === true);
+  useEffect(() => subscribeSettings((s) => setEnabled((s as any)?.[key] === true)), [key]);
   return enabled;
+}
+
+export function useLightMode(): boolean {
+  return useSettingsBool("lightModeEnabled");
+}
+
+export function useAdvancedMode(): boolean {
+  return useSettingsBool("advancedModeEnabled");
 }

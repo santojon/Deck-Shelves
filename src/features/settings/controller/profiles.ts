@@ -154,11 +154,26 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (cur.length === cleaned.length && cur.every((v, i) => v === cleaned[i])) return;
       await persist({ ...s, allShelvesOrder: cleaned } as Settings);
     },
-    // light mode + per-feature toggles.
+    // light mode + per-feature toggles. Light and advanced are mutually
+    // exclusive — enabling one disables the other.
     async setLightModeEnabled(lightModeEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).lightModeEnabled === lightModeEnabled) return;
-      await persist({ ...s, lightModeEnabled } as Settings);
+      const next: any = { ...s, lightModeEnabled };
+      if (lightModeEnabled) next.advancedModeEnabled = false;
+      await persist(next as Settings);
+    },
+    async setAdvancedModeEnabled(advancedModeEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).advancedModeEnabled === advancedModeEnabled) return;
+      const next: any = { ...s, advancedModeEnabled };
+      if (advancedModeEnabled) next.lightModeEnabled = false;
+      await persist(next as Settings);
+    },
+    async setTemplateSuggestionsEnabled(templateSuggestionsEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).templateSuggestionsEnabled === templateSuggestionsEnabled) return;
+      await persist({ ...s, templateSuggestionsEnabled } as Settings);
     },
     async setOfflineModeEnabled(offlineModeEnabled: boolean) {
       const s = liveSettings();

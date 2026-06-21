@@ -91,7 +91,7 @@ function BackupGroup({
       title={title}
       description={description}
       trailing={
-        <>
+        <Focusable flow-children="horizontal" style={{ display: "flex", gap: 8 }}>
           <DialogButton onClick={onExport} onOKButton={onExport} style={BTN_COMPACT_STYLE}>
             <UploadIcon size={12} />
             <span>{exportLabel}</span>
@@ -100,7 +100,7 @@ function BackupGroup({
             <DownloadIcon size={12} />
             <span>{importLabel}</span>
           </DialogButton>
-        </>
+        </Focusable>
       }
     >
       {null}

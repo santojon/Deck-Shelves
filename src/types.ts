@@ -523,6 +523,11 @@ export const SettingsSchema = z.object({
      Settings stay in sync. `lightModeEnabled` and `featureToggles`
      are the other surface fields. */
   lightModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Advanced mode: mutually exclusive with light. Shows Integrations +
+  // Advanced tools tabs always; light hides those + shortcuts + statistics.
+  advancedModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Opt-in: surface stats-derived suggestions in the create-shelf template modal.
+  templateSuggestionsEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   /* Offline mode: when ON, suppresses every network call regardless of
      other settings (update check, CDN asset fallbacks, online filters /
      sources / wishlist / price). User toggles remain untouched so

@@ -135,6 +135,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         {row('lightModeEnabled', (
           <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
         ))}
+        {row('advancedModeEnabled', (
+          <ToggleField label={t('advanced_mode_enabled' as any)} checked={(settings as any).advancedModeEnabled === true} onChange={(v: boolean) => (actions as any).setAdvancedModeEnabled?.(v)} />
+        ))}
         {row('offlineModeEnabled', (
           <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
         ))}
