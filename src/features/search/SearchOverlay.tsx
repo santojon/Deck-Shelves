@@ -93,11 +93,10 @@ export function SearchOverlay() {
       lastSessionQuery = query;
       lastSessionAt = Date.now();
     }
-    // setOpen(false) first so React unmounts SearchPill. The pill's
-    // cleanup effect then blurs the captured input and calls
-    // dismissSteamKeyboard in the correct order (blur → dismiss).
-    // Calling dismiss here before setOpen causes a race: the keyboard
-    // sees the input is still focused and ignores the dismiss request.
+    // Dismiss keyboard WHILE input is still mounted. ModalKeyboardDismissed
+    // needs the keyboard to be "active" to work; calling it after unmount
+    // has no target to dismiss.
+    dismissSteamKeyboard();
     setOpen(false);
     setQuery("");
     if (debounceRef.current != null) {
@@ -152,18 +151,16 @@ export function SearchOverlay() {
     merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const first = merged[0];
     if (first) {
+      // Close FIRST so React unmounts SearchPill and cleanup runs
+      // (sets cancelled=true, removes the reclaim focusout listener).
+      // Without this, onActivate() → BTakeFocus on card → input loses
+      // focus → reclaim() fires → re-focuses input → card never gets
+      // focus. After close() + one rAF (enough for React unmount), the
+      // reclaim listener is gone and BTakeFocus lands cleanly.
       close({ restorePrior: false, clearSession: true });
-      // 300 ms: pill unmounts → SearchPill cleanup blurs input +
-      // dismisses keyboard → then activate focuses the result card.
-      // 180 ms was too short: on some Steam builds the keyboard close
-      // animation takes ~250 ms after blur; firing BTakeFocus on the
-      // card before that finished kept the keyboard on screen.
-      window.setTimeout(() => {
+      requestAnimationFrame(() => {
         try { first.onActivate?.(); } catch {}
-        // Belt-and-suspenders: dismiss again after focus lands on the
-        // card in case Steam re-opened the keyboard for any reason.
-        window.setTimeout(dismissSteamKeyboard, 120);
-      }, 300);
+      });
     } else {
       close();
     }

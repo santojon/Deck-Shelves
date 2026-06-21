@@ -709,31 +709,22 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         return !ae || ae === doc.body || ae === doc.documentElement;
       } catch { return false; }
     };
+    const anyHomeFocus = () =>
+      !!(mountEl.ownerDocument?.querySelector?.('.gpfocus'));
+
     const tryFocus = () => {
       if (cancelled) return true;
       try {
         if (dsHasFocus()) return true;
         if (hasPendingFocus()) { restorePendingSeen = true; return false; }
         if (restorePendingSeen) return true;
-        // When native recents is visible, let Steam handle focus normally.
-        // Only intervene on cold-boot (body has focus = Steam landed
-        // nowhere). On cold-boot with native visible, focus the first
-        // native card WITHOUT BTakeFocus (preventScroll=true) so the
-        // viewport doesn't jump past the native row to DS.
-        // When native recents is visible, we cannot reliably set
-        // gamepad focus on BP-native elements from SJC (different
-        // NavController contexts). Let Steam handle the first
-        // interaction naturally. The bridge handles subsequent
-        // navigation (UP from first DS shelf → native, DOWN from
-        // native → DS, etc.).
-        if (!hideRecentsSetting) return true;
+        // Don't steal focus if anything else (native row, header) has it.
+        if (anyHomeFocus()) return true;
+        // Only intervene when truly nothing is focused (cold boot).
+        if (!bodyHasFocus()) return true;
         const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-        if (firstCard) { focusElement(firstCard); }
-        else {
-          const firstRow = mountEl.querySelector('.ds-shelf .ds-row-scroll') as HTMLElement | null;
-          if (firstRow) focusElement(firstRow);
-        }
-        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why: 'ds-cold-boot', hideRecents: hideRecentsSetting }; } catch {}
+        if (firstCard) focusElement(firstCard);
+        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why: 'cold-boot', hideRecents: hideRecentsSetting }; } catch {}
       } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
       return dsHasFocus();
     };
