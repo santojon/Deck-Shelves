@@ -312,6 +312,11 @@ def _step_html(name: str, status: str, log_path: str, root: str, idx: int, durat
         f'<span class="sdur" title="{duration_ms} ms">{_fmt_duration_ms(duration_ms)}</span>'
         if duration_ms and duration_ms > 0 else ""
     )
+    # Failed steps start expanded so the error is readable without a
+    # click (and can't be accidentally collapsed by a stray re-render).
+    is_open = status == "fail"
+    body_cls = "step-body open" if is_open else "step-body"
+    chevron = "▼" if is_open else "▶"
     return (
         f'<div class="step" id="s{idx}">'
         f'<div class="step-hdr" onclick="toggle({idx})">'
@@ -319,9 +324,9 @@ def _step_html(name: str, status: str, log_path: str, root: str, idx: int, durat
         f'<span class="sname">{_html.escape(name)}</span>'
         f'{dur_html}'
         f'<span class="slabel {status}">{status.upper()}</span>'
-        f'<span class="chevron" id="c{idx}">▶</span>'
+        f'<span class="chevron" id="c{idx}">{chevron}</span>'
         f'</div>'
-        f'<div class="step-body" id="b{idx}">{test_bar}{issues_html}'
+        f'<div class="{body_cls}" id="b{idx}">{test_bar}{issues_html}'
         f'<pre class="log">{colorized}</pre></div>'
         f'</div>\n'
     )

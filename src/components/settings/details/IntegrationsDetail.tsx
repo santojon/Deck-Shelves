@@ -37,6 +37,33 @@ interface IntegrationEntry {
   meta?: string;
 }
 
+// Per-group legacy key prefixes — existing translations for smart
+// templates / filter types / sort options ship under these across 19
+// locales, so falling through avoids duplicate keys.
+const LEGACY_PREFIX: Record<string, string> = {
+  smart: "smart_template_",
+  filters: "filter_type_",
+  sorts: "sort_",
+};
+
+function descriptorFallbackName(d: any, id: string): string {
+  return d?.displayName || d?.label || id;
+}
+
+// Single lookup convention (`integration_<id>`) → legacy prefix → the
+// descriptor's own displayName (how third-party plugins localise).
+function resolveIntegrationName(t: (k: string) => string, d: any, group?: string): string {
+  const id = String(d?.id || "");
+  const candidates = [`integration_${id}`];
+  const legacy = group ? LEGACY_PREFIX[group] : "";
+  if (legacy) candidates.push(`${legacy}${id}`);
+  for (const key of candidates) {
+    const translated = t(key);
+    if (translated && translated !== key) return translated;
+  }
+  return descriptorFallbackName(d, id);
+}
+
 export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
   const settings = controller.settings;
   const enabledMap: Record<string, boolean> = (settings as any)?.integrationsEnabled ?? {};
@@ -58,24 +85,7 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
     if (target === "smart_shelves") return t("settings_integration_target_smart");
     return t("settings_integration_target_shelves");
   };
-  // Single lookup convention (`integration_<id>`) with fallback to the
-  // established legacy key patterns. The legacy patterns ship existing
-  // translations for smart-shelf templates / filter types / sort options
-  // across 19 locales — falling through to them avoids duplicate keys.
-  // Third-party plugins are localised via their own descriptor
-  // `displayName`. Missing localizations land on the descriptor value.
-  const localizedName = (d: any, group?: string): string => {
-    const id: string = String(d?.id ?? "");
-    const candidates: string[] = [`integration_${id}`];
-    if (group === "smart") candidates.push(`smart_template_${id}`);
-    else if (group === "filters") candidates.push(`filter_type_${id}`);
-    else if (group === "sorts") candidates.push(`sort_${id}`);
-    for (const key of candidates) {
-      const translated = t(key as any);
-      if (translated && translated !== key) return translated;
-    }
-    return d?.displayName ?? d?.label ?? id;
-  };
+  const localizedName = (d: any, group?: string): string => resolveIntegrationName(t, d, group);
 
   const entries: IntegrationEntry[] = [
     ...sources.map((d: any) => ({

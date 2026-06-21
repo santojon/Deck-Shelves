@@ -26,6 +26,14 @@ function isOnlineFeaturesEnabledRaw(): boolean {
   } catch { return false; }
 }
 
+// Online resolvers (wishlist / store) gate on this. Offline mode wins
+// over every other toggle; otherwise honour the live setting, then the
+// localStorage-cached raw value as a fallback.
+function isOnlineEnabledForSettings(s: any): boolean {
+  if (s?.offlineModeEnabled === true) return false;
+  return s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+}
+
 const COLLECTION_CACHE_TTL = 60_000;
 const collectionRawCache = new Map<string, { data: any; ts: number }>();
 
@@ -3245,9 +3253,7 @@ async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> {
     const { getCurrentSettings } = await import("../store/settingsStore");
     const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
-    const onlineEnabled = (s as any)?.offlineModeEnabled === true
-      ? false
-      : (s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw());
+    const onlineEnabled = isOnlineEnabledForSettings(s);
     if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
     const wishlistIds = await getWishlistIds();
     if (!wishlistIds) return [];
@@ -3273,9 +3279,7 @@ async function _resolveStore(ctx: ResolverContext): Promise<number[]> {
     const { getCurrentSettings } = await import("../store/settingsStore");
     const { getStoreGameIds, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
-    const onlineEnabled = (s as any)?.offlineModeEnabled === true
-      ? false
-      : (s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw());
+    const onlineEnabled = isOnlineEnabledForSettings(s);
     if (!onlineEnabled) return [];
     let ids = await getStoreGameIds();
     if (!ids) return [];

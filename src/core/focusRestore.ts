@@ -35,20 +35,27 @@ function getFocusNavController(): any {
   return (globalThis as any).FocusNavController;
 }
 
-function getMainNavTree(): any {
+// On cold boot / after a plugin reload, `m_ActiveContext` can exist but
+// carry EMPTY trees while `m_LastActiveContext` holds the home tree. The
+// old `m_ActiveContext || m_LastActiveContext` picked the empty active
+// context and never fell through. Gather trees from BOTH so node lookup
+// works whenever the home is rendered, active or not.
+function getNavTrees(): any[] {
   const ctrl = getFocusNavController();
-  if (!ctrl) return null;
-  const ctx = ctrl.m_ActiveContext || ctrl.m_LastActiveContext;
-  const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
-  return trees.find((t: any) => t.m_ID === "GamepadUI_Full_Root") ?? null;
+  if (!ctrl) return [];
+  const out: any[] = [];
+  for (const ctx of [ctrl.m_ActiveContext, ctrl.m_LastActiveContext]) {
+    const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
+    for (const t of trees) if (!out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+function getMainNavTree(): any {
+  return getNavTrees().find((t: any) => t.m_ID === "GamepadUI_Full_Root") ?? null;
 }
 
 function findNavNodeForElement(el: HTMLElement): any {
-  const ctrl = getFocusNavController();
-  if (!ctrl) return null;
-  const ctx = ctrl.m_ActiveContext || ctrl.m_LastActiveContext;
-  const trees: any[] = ctx?.m_rgGamepadNavigationTrees ?? [];
-
   const walk = (node: any, target: HTMLElement): any => {
     // Cover property name variations across SteamOS versions
     const nodeEl = node.m_element ?? node.Element ?? node.m_pElement ?? node.element;
@@ -61,7 +68,7 @@ function findNavNodeForElement(el: HTMLElement): any {
     return null;
   };
 
-  for (const tree of trees) {
+  for (const tree of getNavTrees()) {
     const root = tree.m_Root ?? tree.Root ?? tree.m_root;
     if (!root) continue;
     const found = walk(root, el);

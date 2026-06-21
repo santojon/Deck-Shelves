@@ -16,6 +16,7 @@ import { getRecentsReplaceFailed, subscribeRecentsReplaceFailed, isRecentsReplac
 import { Focusable } from "../runtime/host/decky";
 import { installPassiveMenuHook, installPassiveShowContextMenuHook, installLibraryContextMenuPatch, installCreateContextMenuPatch } from "../core/steamGameMenu";
 import { tryRestoreFocus, hasPendingFocus, beginFocusRestoreLoop, focusElement } from "../core/focusRestore";
+import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/sidenav/ShelfSideNav";
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { bumpAssetRevision } from "../core/assetRevision";
@@ -686,53 +687,70 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
     return () => { alive = false; };
   }, [shelves, hideRecentsSetting, mountEl]);
 
-  // When recents are hidden, move gamepad focus to the first shelf card
-  // using the Steam FocusNavController API (element.focus() alone does not
-  // update the gamepad nav tree).  Retries because shelf content loads async.
-  // When native recents is visible (`hideRecents !== true`), Steam handles
-  // the initial focus for the native row — we only push to first DS card
-  // when the body holds focus (cold-boot pathology) AND no other gpfocus
-  // exists. This mirrors the original guard (`if (!hideRecentsSetting) return`)
-  // but adds a body-focus fallback for cold-boot.
+  // Land gamepad focus on the first card of the first VISIBLE shelf —
+  // native recents when shown, otherwise the first DS shelf. Steam's
+  // shared FocusNavController (reachable from SharedJSContext) handles
+  // BTakeFocus for both card types. Runs on mount, on shelf toggle
+  // (shelves.length), and on hideRecents change. Retries because the
+  // NavTree builds async on cold boot.
   useEffect(() => {
     try { (globalThis as any).__ds_focus_effect_ran = { t: Date.now(), mountEl: !!mountEl, hideRecents: hideRecentsSetting, shelvesLen: shelves?.length ?? 0 }; } catch {}
     let cancelled = false;
     let restorePendingSeen = false;
-    const dsHasFocus = () =>
-      !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
-    const bodyHasFocus = () => {
-      try {
-        const doc = mountEl.ownerDocument;
-        if (!doc) return false;
-        if (doc.querySelector('.gpfocus')) return false; // something has focus
-        const ae = doc.activeElement;
-        return !ae || ae === doc.body || ae === doc.documentElement;
-      } catch { return false; }
-    };
-    const anyHomeFocus = () =>
-      !!(mountEl.ownerDocument?.querySelector?.('.gpfocus'));
 
-    const tryFocus = () => {
+    // A real home card (DS or native) already owns focus → the user is
+    // navigating, don't interfere. A stale gpfocus on a non-card element
+    // (header, removed node) does NOT count — we still want to land on
+    // the first shelf in that case.
+    const aRealCardHasFocus = (): boolean => {
+      const doc = mountEl.ownerDocument;
+      if (!doc) return false;
+      const gp = doc.querySelector<HTMLElement>('.gpfocus');
+      if (!gp) return false;
+      if (gp.closest('.ds-card')) return true;
+      const native = findNativeRecentsEl(doc);
+      return !!(native && native.contains(gp));
+    };
+
+    const focusFirstVisibleShelf = (): boolean => {
+      const doc = mountEl.ownerDocument;
+      // Native row visible → focus its first card.
+      if (!hideRecentsSetting && doc && focusNativeRecentsFirstCard(doc)) {
+        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why: 'native-first' }; } catch {}
+        return true;
+      }
+      const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
+      if (firstCard) {
+        focusElement(firstCard);
+        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why: 'ds-first' }; } catch {}
+      }
+      return !!mountEl.querySelector('.ds-shelf .gpfocus, .deck-shelves-root .gpfocus');
+    };
+
+    const tryFocus = (): boolean => {
       if (cancelled) return true;
       try {
-        if (dsHasFocus()) return true;
+        if (aRealCardHasFocus()) return true;
+        // A per-card restore (A → game → back) owns the focus outcome.
         if (hasPendingFocus()) { restorePendingSeen = true; return false; }
         if (restorePendingSeen) return true;
-        // Don't steal focus if anything else (native row, header) has it.
-        if (anyHomeFocus()) return true;
-        // Only intervene when truly nothing is focused (cold boot).
-        if (!bodyHasFocus()) return true;
-        const firstCard = mountEl.querySelector('.ds-shelf .ds-card') as HTMLElement | null;
-        if (firstCard) focusElement(firstCard);
-        try { (globalThis as any).__ds_focus_first = { t: Date.now(), why: 'cold-boot', hideRecents: hideRecentsSetting }; } catch {}
-      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); }
-      return dsHasFocus();
+        return focusFirstVisibleShelf();
+      } catch (e) { logInfo("HOME", "focus first shelf failed", String(e)); return false; }
     };
-    if (!tryFocus()) {
-      const timers = [500, 1500, 3000, 5000, 7000].map((d) => setTimeout(tryFocus, d));
-      return () => { cancelled = true; for (const t of timers) clearTimeout(t); };
-    }
-    return () => { cancelled = true; };
+
+    if (tryFocus()) return () => { cancelled = true; };
+    // Poll on a bounded interval rather than fixed delays — the home can
+    // become the active gamepad context well after mount (slow cold boot,
+    // or the QAM staying open after a shelf toggle), and BTakeFocus only
+    // paints once the home tree is active. Stops as soon as focus lands
+    // or after the cap, so it's battery-safe.
+    const started = Date.now();
+    const poll = window.setInterval(() => {
+      if (cancelled || tryFocus() || Date.now() - started > 25_000) {
+        window.clearInterval(poll);
+      }
+    }, 600);
+    return () => { cancelled = true; window.clearInterval(poll); };
   }, [hideRecentsSetting, mountEl, shelves?.length]);
 
   const rootRef = useRef<HTMLDivElement>(null);

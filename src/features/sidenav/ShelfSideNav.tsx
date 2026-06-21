@@ -77,56 +77,9 @@ export function ShelfSideNav() {
     try { (globalThis as any).__ds_sidenav_enabled = enabled; } catch {}
     if (!enabled) return;
     const tryOpen = () => {
-      if (anchor) return;
-      if (!isHomeRoute()) return;
-      // Read CURRENT shelf from the DOM at open time (most reliable).
-      // The previous `lastFirstCardRef` path was stale when focus moved
-      // without our MutationObserver catching the class flip.
-      let shelfId: string | null = null;
-      let appid: number | null = null;
-      try {
-        const doc = getPreferredSteamDocument() ?? document;
-        // Native cards don't carry data-appid — fall back to any gpfocus
-        // so we can detect when the user opens the sidenav from the
-        // native recents row.
-        const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]")
-          ?? doc.querySelector<HTMLElement>(".gpfocus");
-        if (focused) {
-          const card = focused.closest<HTMLElement>(".ds-card");
-          const ap = focused.getAttribute("data-appid") ?? card?.getAttribute("data-appid");
-          appid = ap ? Number(ap) : null;
-          // DS path: walk up to the shelf wrapper.
-          const shelfEl = (card ?? focused).closest<HTMLElement>(".ds-shelf[data-shelfid]");
-          shelfId = shelfEl?.getAttribute("data-shelfid") ?? null;
-          // Native path: if NOT inside a DS shelf, check if the focus
-          // lives inside the native recents container — then anchor on
-          // the synthetic NATIVE_RECENTS_ID so the row pre-selects it.
-          if (!shelfId) {
-            const nativeEl = findNativeRecentsEl(doc);
-            if (nativeEl && nativeEl.contains(focused)) {
-              shelfId = NATIVE_RECENTS_ID;
-            }
-          }
-        }
-        if (!shelfId) {
-          const firstShelf = doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]");
-          shelfId = firstShelf?.getAttribute("data-shelfid") ?? null;
-        }
-      } catch {}
-      if (!shelfId) {
-        // Settings fallback as last resort.
-        const s = getCurrentSettings();
-        const visibleRegular = (s?.shelves ?? []).filter((x: any) => x.enabled && !x.hidden);
-        const visibleSmart = s?.smartShelvesEnabled
-          ? (s?.smartShelves ?? []).filter((x: any) =>
-              x.enabled !== false && !x.hidden && isInVisibilityWindow(x.visibleHours, x.visibleDaysOfWeek),
-            )
-          : [];
-        if (visibleRegular.length > 0) shelfId = visibleRegular[0].id;
-        else if (visibleSmart.length > 0) shelfId = visibleSmart[0].id;
-      }
-      if (!shelfId) return;
-      if (isOverlayLocked()) return;
+      if (anchor || !isHomeRoute()) return;
+      const { shelfId, appid } = resolveAnchorFromFocus();
+      if (!shelfId || isOverlayLocked()) return;
       const now = Date.now();
       if (now - lastOpenAtRef.current < 350) return;
       lastOpenAtRef.current = now;
@@ -134,7 +87,7 @@ export function ShelfSideNav() {
       void (async () => {
         await closeAmbientOverlays();
         try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: now }; } catch {}
-        setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? appid : null });
+        setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? (appid as number) : null });
       })();
     };
     const matcherState = createMatcherState();
@@ -176,6 +129,90 @@ export function ShelfSideNav() {
 
 interface UnifiedShelf { id: string; title: string }
 
+// Resolve which shelf the sidenav should anchor to, based on the
+// currently-focused element. DS card → its shelf; native recents card →
+// NATIVE_RECENTS_ID; nothing focused → first visible shelf (DOM, then
+// settings fallback).
+function shelfIdForFocused(doc: Document, focused: HTMLElement): string | null {
+  const card = focused.closest<HTMLElement>(".ds-card");
+  const shelfEl = (card ?? focused).closest<HTMLElement>(".ds-shelf[data-shelfid]");
+  const dsShelf = shelfEl?.getAttribute("data-shelfid") ?? null;
+  if (dsShelf) return dsShelf;
+  const nativeEl = findNativeRecentsEl(doc);
+  return nativeEl && nativeEl.contains(focused) ? NATIVE_RECENTS_ID : null;
+}
+
+function resolveAnchorFromFocus(): { shelfId: string | null; appid: number | null } {
+  let shelfId: string | null = null;
+  let appid: number | null = null;
+  try {
+    const doc = getPreferredSteamDocument() ?? document;
+    const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]")
+      ?? doc.querySelector<HTMLElement>(".gpfocus");
+    if (focused) {
+      appid = appidForFocused(focused);
+      shelfId = shelfIdForFocused(doc, focused);
+    }
+    shelfId = shelfId
+      ?? doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]")?.getAttribute("data-shelfid")
+      ?? null;
+  } catch {}
+  return { shelfId: shelfId ?? firstVisibleShelfFromSettings(), appid };
+}
+
+function appidForFocused(focused: HTMLElement): number | null {
+  const card = focused.closest<HTMLElement>(".ds-card");
+  const ap = focused.getAttribute("data-appid") ?? card?.getAttribute("data-appid");
+  return ap ? Number(ap) : null;
+}
+
+function firstVisibleShelfFromSettings(): string | null {
+  const s = getCurrentSettings();
+  const visibleRegular = (s?.shelves ?? []).filter((x: any) => x.enabled && !x.hidden);
+  if (visibleRegular.length > 0) return visibleRegular[0].id;
+  const visibleSmart = s?.smartShelvesEnabled
+    ? (s?.smartShelves ?? []).filter((x: any) =>
+        x.enabled !== false && !x.hidden && isInVisibilityWindow(x.visibleHours, x.visibleDaysOfWeek))
+    : [];
+  return visibleSmart.length > 0 ? visibleSmart[0].id : null;
+}
+
+// Settings-derived shelf list, used when the BP DOM isn't readable yet.
+// Mirrors the home's interleave / normal-first ordering.
+// BTakeFocus registers with Steam's NavTree but scrolls the home (the
+// sidenav Focusables are indexed in the home scroll container even though
+// the panel is position:fixed). Save + restore scroll (sync + rAF) so the
+// home viewport stays put.
+function focusRowPreservingScroll(el: HTMLElement, isCancelled: () => boolean): void {
+  const doc = el.ownerDocument;
+  const savedTop = doc?.documentElement?.scrollTop ?? 0;
+  const savedLeft = doc?.documentElement?.scrollLeft ?? 0;
+  const restore = () => {
+    try { if (doc && !isCancelled()) { doc.documentElement.scrollTop = savedTop; doc.documentElement.scrollLeft = savedLeft; } } catch {}
+  };
+  try { focusElement(el); } catch {}
+  restore();
+  requestAnimationFrame(restore);
+}
+
+function visibleSmartShelves(settings: Settings): SmartShelf[] {
+  if (!settings.smartShelvesEnabled) return [];
+  return (settings.smartShelves ?? []).filter((s: SmartShelf) =>
+    (s as any).enabled !== false && !(s as any).hidden
+    && isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek));
+}
+
+function shelvesFromSettings(settings: Settings): UnifiedShelf[] {
+  const regulars = (settings.shelves ?? []).filter((s: Shelf) => s.enabled && !s.hidden);
+  const smart = visibleSmartShelves(settings);
+  const normalFirst = settings.smartShelvesAtBottom || settings.hideRecents === true;
+  const combined: any[] = normalFirst ? [...regulars, ...smart] : [...smart, ...regulars];
+  const interleave = settings.hideRecents === true && !settings.smartShelvesAtBottom;
+  const firstVisible = pickFirstVisibleShelfId(combined as any, new Set<string>()) ?? combined[0]?.id ?? null;
+  const ordered = interleave ? interleaveSmartShelves(combined as any, firstVisible) : combined;
+  return (ordered as any[]).map((s) => ({ id: s.id, title: s.title || "—" }));
+}
+
 function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings: Settings; onClose: () => void }) {
   const { t } = useTranslation();
 
@@ -186,34 +223,14 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   // settings-derived list if the BP DOM isn't readable yet.
   const computedShelves = useMemo(() => {
     const doc = getPreferredSteamDocument();
-    const fromDom = readVisibleShelvesFromDom();
     // Gate on hideRecents: when the user explicitly hid the native
-    // recents row, don't show it in the sidenav regardless of what the
-    // DOM contains. The DOM-truth approach mis-fires when an empty
-    // native container is still in the tree but visually absent.
+    // recents row, don't show it regardless of what the DOM contains.
     const nativeEntry = settings.hideRecents === true
       ? null
       : readNativeRecentsEntry(doc, t("sidenav_recents_fallback_label"));
-    if (fromDom.length > 0) {
-      return nativeEntry ? [nativeEntry, ...fromDom] : fromDom;
-    }
-    const regulars = (settings.shelves ?? []).filter((s: Shelf) => s.enabled && !s.hidden);
-    const smart = settings.smartShelvesEnabled
-      ? (settings.smartShelves ?? []).filter((s: SmartShelf) =>
-          (s as any).enabled !== false && !(s as any).hidden
-          && isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek),
-        )
-      : [];
-    const normalFirst = settings.smartShelvesAtBottom
-      || settings.hideRecents === true;
-    const combined: any[] = normalFirst
-      ? [...regulars, ...smart]
-      : [...smart, ...regulars];
-    const interleave = settings.hideRecents === true && !settings.smartShelvesAtBottom;
-    const firstVisible = pickFirstVisibleShelfId(combined as any, new Set<string>()) ?? combined[0]?.id ?? null;
-    const ordered = interleave ? interleaveSmartShelves(combined as any, firstVisible) : combined;
-    const mapped = (ordered as any[]).map((s) => ({ id: s.id, title: s.title || "—" }));
-    return nativeEntry ? [nativeEntry, ...mapped] : mapped;
+    const fromDom = readVisibleShelvesFromDom();
+    const base = fromDom.length > 0 ? fromDom : shelvesFromSettings(settings);
+    return nativeEntry ? [nativeEntry, ...base] : base;
   }, [
     anchor.shelfId,
     settings.shelves,
@@ -263,20 +280,7 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
         const el = rowRefs.current.get(targetId)
           ?? (firstShelfIdRef.current ? rowRefs.current.get(firstShelfIdRef.current) : null);
         try { (globalThis as any).__ds_sidenav_focus = { delay, targetId, found: !!el }; } catch {}
-        if (!el) return;
-        // BTakeFocus registers with Steam's gamepad NavTree. It also
-        // triggers a scroll because the sidenav Focusables are indexed
-        // in the home scroll container even though the panel is
-        // position:fixed. Save + restore scroll synchronously and via
-        // rAF so the home viewport stays put.
-        const doc = el.ownerDocument;
-        const savedTop = doc?.documentElement?.scrollTop ?? 0;
-        const savedLeft = doc?.documentElement?.scrollLeft ?? 0;
-        try { focusElement(el); } catch {}
-        try { if (doc) { doc.documentElement.scrollTop = savedTop; doc.documentElement.scrollLeft = savedLeft; } } catch {}
-        requestAnimationFrame(() => {
-          try { if (doc && !cancelled) { doc.documentElement.scrollTop = savedTop; doc.documentElement.scrollLeft = savedLeft; } } catch {}
-        });
+        if (el) focusRowPreservingScroll(el, () => cancelled);
       }, delay);
     };
     tryAt(80);
@@ -638,7 +642,7 @@ function isNativeCandidateSN(el: HTMLElement, root: HTMLElement | null, homeRoot
   return r.height >= 40 && r.width >= 40;
 }
 
-function findNativeRecentsEl(doc: Document): HTMLElement | null {
+export function findNativeRecentsEl(doc: Document): HTMLElement | null {
   // Native recents lives outside `.deck-shelves-root`. DS REUSES the
   // same `nativeShelfContainer` hashed class for its own wrappers, so
   // we filter inside-DS-root candidates out and require native cards.

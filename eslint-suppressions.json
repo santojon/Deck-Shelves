@@ -237,11 +237,6 @@
       "count": 2
     }
   },
-  "src/features/settings/controller.tsx": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/features/settings/controller/profiles.ts": {
     "complexity": {
       "count": 1
@@ -361,11 +356,6 @@
     }
   },
   "src/steam/v3Extensions.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/store/settingsStore.ts": {
     "complexity": {
       "count": 1
     }
