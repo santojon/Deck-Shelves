@@ -1,7 +1,7 @@
 import { definePlugin } from "@decky/api";
 // Build sentinel — bumped each iteration so CDP probes can confirm the
 // running JS matches the latest source. Read via `window.__ds_build`.
-try { (globalThis as any).__ds_build = "2026-06-18T9"; } catch {}
+try { (globalThis as any).__ds_build = "2026-06-20A"; } catch {}
 import i18next from "i18next";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";
@@ -68,12 +68,12 @@ function DeckShelvesIcon() {
 }
 
 function openAboutPage() {
-  try { (Navigation as any).CloseSideMenus?.(); } catch (e) { console.info("CloseSideMenus failed", e); }
+  try { (Navigation as any).CloseSideMenus?.(); } catch (e) { logInfo("RUNTIME", "CloseSideMenus failed", String(e)); }
   Navigation.Navigate(ABOUT_ROUTE);
 }
 
 export function openSettingsPage() {
-  try { (Navigation as any).CloseSideMenus?.(); } catch (e) { console.info("CloseSideMenus failed", e); }
+  try { (Navigation as any).CloseSideMenus?.(); } catch (e) { logInfo("RUNTIME", "CloseSideMenus failed", String(e)); }
   Navigation.Navigate(SETTINGS_ROUTE);
 }
 
@@ -141,7 +141,7 @@ export default definePlugin((serverAPI?: any) => {
 
   try { routerHook?.addRoute?.(ABOUT_ROUTE, () => (
     <AboutPage />
-  )); } catch (e) { console.warn("addRoute failed", e); }
+  )); } catch (e) { logInfo("RUNTIME", "addRoute failed", String(e)); }
 
   // Full-page Settings route — registered eagerly so navigation works.
   // The QAM gear-icon button that triggers it stays gated behind the
@@ -149,7 +149,7 @@ export default definePlugin((serverAPI?: any) => {
   // is built out beyond its current placeholder.
   try { routerHook?.addRoute?.(SETTINGS_ROUTE, () => (
     <SettingsPage />
-  )); } catch (e) { console.warn("settings route addRoute failed", e); }
+  )); } catch (e) { logInfo("RUNTIME", "settings route addRoute failed", String(e)); }
 
   // Edit / Delete routes — opened from the card context menu; mount a
   // standalone controller and show the modal via showModal in a portal.
@@ -165,7 +165,7 @@ export default definePlugin((serverAPI?: any) => {
     routerHook?.addRoute?.(MANAGE_ROUTE, () => (
       <ShelfManageRoute shelfId="" />
     ), { exact: true });
-  } catch (e) { console.warn("shelf modal route addRoute failed", e); }
+  } catch (e) { logInfo("RUNTIME", "shelf modal route addRoute failed", String(e)); }
 
   logDiagnostic("info", enableHomePatch ? (patch ? "Home patch installed" : "Home patch unavailable") : "Home patch disabled in this build");
 

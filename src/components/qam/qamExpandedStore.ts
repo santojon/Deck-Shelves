@@ -24,31 +24,17 @@ function writeSession(value: boolean): void {
 let current = readSession();
 
 // Drive the native QAM compositor expansion using the same protocol the
-// Friends & Chat module uses. window.opener of the QAM is the
-// SharedJSContext, which hosts the FriendsUI singleton that listens for
-// these messages, toggles its observable state, and (via Steam internals)
-// makes the compositor render the wide QAM layout.
+// Friends & Chat module uses. window.opener of the QAM.
 function notifyCompositor(expanded: boolean): void {
-  // eslint-disable-next-line no-console
-  console.log('[DS-NOTIFY]', 'start', expanded, 'opener=', !!(globalThis as { opener?: unknown }).opener);
   const g = (globalThis as unknown as { opener?: Window | null });
   const opener = g.opener ?? null;
-  if (!opener) {
-    // eslint-disable-next-line no-console
-    console.log('[DS-NOTIFY]', 'no opener');
-    return;
-  }
+  if (!opener) return;
   try {
     opener.postMessage(
       { message: expanded ? 'QamFriendsExpanded' : 'QamFriendsHidden' },
       'https://steamloopback.host',
     );
-    // eslint-disable-next-line no-console
-    console.log('[DS-NOTIFY]', 'sent', expanded);
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.log('[DS-NOTIFY]', 'err', String(e));
-  }
+  } catch {}
 }
 
 export function getQamExpanded(): boolean {

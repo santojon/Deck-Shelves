@@ -78,12 +78,24 @@ export function buildAkamaiUrl(appid: number, file: string): string {
 
 // Asset-type getters
 
+function getLibraryAssets(appid: number): Record<string, string | null> | null {
+  try {
+    const ads = (globalThis as any).appDetailsStore;
+    return ads?.GetAppDetails?.(appid)?.libraryAssets ?? null;
+  } catch { return null; }
+}
+
 export function getHeroUrls(appid: number): string[] {
   const ov = getOverview(appid);
   const version = getCacheVersion(appid, ov);
   const bust = customBust(appid);
+  const la = getLibraryAssets(appid);
+  // libraryAssets.strHeroImage may carry a hash-dir prefix (e.g.
+  // "abc123def.../library_hero.jpg") for community-sourced art.
+  const heroFile = la?.strHeroImage ?? (version ? "library_hero.jpg" : null);
   const urls: string[] = [];
-  if (version) urls.push(buildLoopbackUrl(appid, "library_hero.jpg", version));
+  if (heroFile && version) urls.push(buildLoopbackUrl(appid, heroFile, version));
+  else if (version) urls.push(buildLoopbackUrl(appid, "library_hero.jpg", version));
   urls.push(`/customimages/${appid}_hero.png${bust}`);
   urls.push(`/customimages/${appid}_hero.jpg${bust}`);
   urls.push(buildSteamstaticUrl(appid, "library_hero.jpg"));
@@ -94,8 +106,13 @@ export function getHeroUrls(appid: number): string[] {
 export function getHeroBlurUrls(appid: number): string[] {
   const ov = getOverview(appid);
   const version = getCacheVersion(appid, ov);
+  const la = getLibraryAssets(appid);
+  const blurFile = la?.strHeroBlurImage ?? "library_hero_blur.jpg";
   const urls: string[] = [];
-  if (version) urls.push(buildLoopbackUrl(appid, "library_hero_blur.jpg", version));
+  if (version) urls.push(buildLoopbackUrl(appid, blurFile, version));
+  if (blurFile !== "library_hero_blur.jpg" && version) {
+    urls.push(buildLoopbackUrl(appid, "library_hero_blur.jpg", version));
+  }
   urls.push(buildSteamstaticUrl(appid, "library_hero_blur.jpg"));
   urls.push(buildAkamaiUrl(appid, "library_hero_blur.jpg"));
   return urls;
@@ -142,14 +159,20 @@ export function getLandscapeUrls(appid: number): string[] {
   const ov = getOverview(appid);
   const version = getCacheVersion(appid, ov);
   const bust = customBust(appid);
+  const la = getLibraryAssets(appid);
   const urls: string[] = [
     `/customimages/${appid}.png${bust}`,
     `/customimages/${appid}.jpg${bust}`,
   ];
   if (version) {
+    const headerFile = la?.strHeaderImage ?? "library_header.jpg";
+    urls.push(buildLoopbackUrl(appid, headerFile, version));
+    if (headerFile !== "library_header.jpg") {
+      urls.push(buildLoopbackUrl(appid, "library_header.jpg", version));
+    }
     urls.push(buildLoopbackUrl(appid, "header.jpg", version));
-    urls.push(buildLoopbackUrl(appid, "library_header.jpg", version));
-    urls.push(buildLoopbackUrl(appid, "library_hero.jpg", version));
+    const heroFile = la?.strHeroImage ?? "library_hero.jpg";
+    urls.push(buildLoopbackUrl(appid, heroFile, version));
   }
   urls.push(buildSteamstaticUrl(appid, "header.jpg"));
   urls.push(buildSteamstaticUrl(appid, "library_header.jpg"));
@@ -161,16 +184,16 @@ export function getLandscapeUrls(appid: number): string[] {
 export function getLogoUrls(appid: number): string[] {
   const version = getCacheVersion(appid);
   const bust = customBust(appid);
+  const la = getLibraryAssets(appid);
+  const logoFile = la?.strLogoImage ?? "logo.png";
   const urls: string[] = [
     `/customimages/${appid}_logo.png${bust}`,
   ];
   if (version) {
-    urls.push(buildLoopbackUrl(appid, "logo.png", version));
-    urls.push(buildLoopbackUrl(appid, "library_logo.png", version));
+    urls.push(buildLoopbackUrl(appid, logoFile, version));
+    if (logoFile !== "logo.png") urls.push(buildLoopbackUrl(appid, "logo.png", version));
   }
   urls.push(buildSteamstaticUrl(appid, "logo.png"));
-  urls.push(buildSteamstaticUrl(appid, "library_logo.png"));
-  urls.push(buildAkamaiUrl(appid, "library_logo.png"));
   return urls;
 }
 

@@ -1,3 +1,5 @@
+import { logInfo } from '../runtime/logger';
+
 const marks = new Map<string, number>();
 
 export function mark(name: string): void {
@@ -13,9 +15,7 @@ export function measure(name: string, startName?: string): number | null {
     const start = startName ? marks.get(startName) : undefined;
     const val = start ? Math.max(0, now - start) : null;
     if (val !== null) {
-      // Keep output minimal but useful for profiling during development
-      // eslint-disable-next-line no-console
-      console.debug(`[ds-perf] ${name}: ${val.toFixed(1)}ms`);
+      logInfo('RUNTIME', `[perf] ${name}: ${val.toFixed(1)}ms`);
     }
     return val;
   } catch {

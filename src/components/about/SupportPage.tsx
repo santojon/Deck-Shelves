@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import pkg from '../../../package.json'
 import { DocSection } from './DocSection'
 import { flowChildrenProps } from '../../core/steamOSVersion'
+import { logInfo } from '../../runtime/logger'
 
 const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
 const GITHUB_URL = 'https://github.com/santojon/Deck-Shelves'
@@ -21,7 +22,7 @@ const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, co
 
 const openInBrowser = (url: string) => {
   try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(url) }
-  catch (e) { console.warn('OpenInSystemBrowser failed', e) }
+  catch (e) { logInfo('RUNTIME', 'OpenInSystemBrowser failed', String(e)) }
 }
 
 export function SupportPage() {
