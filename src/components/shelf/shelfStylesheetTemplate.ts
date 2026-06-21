@@ -953,8 +953,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
     /* First DS shelf pulled UP 56px only when recents are hidden (no
        native content above) — covers the transparent header band without
-       overlapping native when it stays visible. */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
+       overlapping native when it stays visible. Applies under a CSS Loader
+       fullscreen-hero theme OR DS's own fullscreen hero background. */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child,
+    .deck-shelves-root[data-ds-hero-background="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
     }
     /* FORCE: clean page-per-shelf (no margin, no hero fade). */

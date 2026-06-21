@@ -909,6 +909,10 @@ function ShelvesContainer({ mountEl, shelves, globalMatchNativeSize = false, glo
         // Recents-hidden flag — gates the fullscreen-theme margin-top: -56
         // rule (only pull the first shelf up when nothing native is above).
         setFlag('data-ds-recents-hidden', hideRecentsSetting);
+        // Hero-background flag — DS's own fullscreen hero (shelfHeroBackground)
+        // also needs the -56 pull-up to cover the header band, even without a
+        // CSS Loader fullscreen-hero theme.
+        setFlag('data-ds-hero-background', shelfHeroBackground);
         const nowActive = isCssLoaderActive();
         if (nowActive && !lastActive) setCssLoaderTick((v) => v + 1);
         lastActive = nowActive;
