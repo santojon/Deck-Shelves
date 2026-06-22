@@ -152,10 +152,11 @@ All checks should pass. The individual check scripts live in the `checks/` subfo
 
 ## Internationalization
 
-- Base locale: `i18n/en-US.json`
-- All locales must have the same set of keys as `en-US.json`
-- When adding a new i18n key, add it to **all** locale files
-- The `pnpm run validate:compat` check i18n key consistency automatically
+- Locales are **area-sliced**: `i18n/<locale>/{home,qam,about,settings,integrations,common}.json`. The loader (`src/i18n.ts`) merges the areas at runtime.
+- Base locale: the `i18n/en-US/` directory
+- Every locale must have the same merged key set as `en-US` (no cross-area key collisions)
+- When adding a new i18n key, add it to the matching area file in **all** locale directories
+- `pnpm run validate:compat` (and `pnpm run validate` for the build-time check) verifies per-locale key consistency automatically
 
 ## Tests
 

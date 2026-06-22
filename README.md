@@ -7,15 +7,14 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-440%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![Tests](https://img.shields.io/badge/vitest-446%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
 [![pytest](https://img.shields.io/badge/pytest-65%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
-[![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.sh)
+[![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![API](https://img.shields.io/badge/%40deck--shelves%2Fapi-v4-purple?logo=typescript&logoColor=white)](api/)
-[![License](https://img.shields.io/github/license/santojon/Deck-Shelves?color=blue)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-Steam%20OS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
+[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows%20%C2%B7%20macOS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Plugin](https://img.shields.io/badge/plugin%20for-Decky-purple.svg)](https://decky.xyz)
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon)
 [![Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/santojon)
@@ -610,11 +609,24 @@ hideRecentsSetting = true ?  ── no ──► no promotion, no overlay
 
 ## Compatibility
 
-All checks can be run with:
+All checks can be run cross-platform (Linux / macOS / Windows) via the Node wrapper, which locates `bash` automatically (Git Bash / WSL on Windows):
 
 ```bash
+pnpm run validate:compat        # node wrapper — works everywhere
+# or directly on Unix shells:
 bash scripts/build/validate-compat.sh
 ```
+
+### Operating systems
+
+The plugin runs wherever Decky Loader runs. Path discovery ([`paths.py`](paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
+
+| OS | Steam discovery | Status |
+|---|---|---|
+| SteamOS / Steam Deck | `~/.local/share/Steam` | ✅ primary target |
+| Linux (native / Flatpak — Bazzite, ChimeraOS, …) | native + `~/.var/app/...Steam` | ✅ |
+| Windows | registry (`winreg`) → `Program Files` → `%LOCALAPPDATA%` | ✅ (Decky unofficial) |
+| macOS | `~/Library/Application Support/Steam` | ✅ (Decky unofficial) |
 
 ### Build
 

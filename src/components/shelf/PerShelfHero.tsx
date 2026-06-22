@@ -989,7 +989,14 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
                 }
               }}
               className={`ds-per-shelf-hero-img${slotBLoaded ? ' is-loaded' : ''}${nativeHeroImgClass ? ' ' + nativeHeroImgClass : ''}`}
-              style={{ width: '100%', height: '100%', display: 'block' }} />
+              style={{
+                width: '100%', height: '100%', display: 'block',
+                // Match slot A's framing — without this the slot defaults to
+                // the native img class's 50% centre, so alternating A/B slots
+                // make the hero bob up/down as the user navigates card-to-card.
+                objectPosition: '50% 18%',
+                animation: nativeHeroZoomClass ? 'none' : undefined,
+              }} />
           </div>
         </div>
       )}
