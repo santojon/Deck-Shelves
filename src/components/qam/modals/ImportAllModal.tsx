@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { DialogButton, TextField, toaster, openFilePicker } from "../../../runtime/host/decky";
 import type { SettingsController } from "../../../features/settings/controller";
 import { textFromDeckyChange, tryPickerCalls } from "./modalUtils";

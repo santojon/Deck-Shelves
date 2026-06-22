@@ -51,14 +51,11 @@ let cachedRecentsEl: HTMLElement | null = null;
 let pendingHideRecents: boolean = false;
 let pendingHideHomeTabs: boolean = false;
 
-/** Override the DS mount margin-top when the replace-recents experimental
- *  toggle is actively injecting. Without this, the default CSS rule pulls
- *  the DS area up by 32px to overlap the recents bottom — fine when recents
- *  is collapsed, but with replace active the recents row stays visible
- *  (showing our injected content) and the 32px overlap pushes the next
- *  DS shelf's title into the recents area (especially under CSS Loader
- *  themes like SLH that extend the recents visually).
- */
+/** Override the DS mount margin-top while the replace-recents toggle is
+ *  injecting. The default CSS pulls the DS area up 32px to overlap the recents
+ *  bottom (fine when recents is collapsed); with replace active the recents row
+ *  stays visible, so that overlap would push the next DS shelf's title into it
+ *  (esp. under CSS Loader themes like SLH that extend recents visually). */
 export function applyReplaceActiveMargin(active: boolean): void {
   try {
     const { doc } = getHostContext();

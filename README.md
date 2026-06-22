@@ -14,8 +14,10 @@
 [![API](https://img.shields.io/badge/%40deck--shelves%2Fapi-v4-purple?logo=typescript&logoColor=white)](api/)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows%20%C2%B7%20macOS-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
+[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Plugin](https://img.shields.io/badge/plugin%20for-Decky-purple.svg)](https://decky.xyz)
+[![Discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg?logo=discord&logoColor=white)](https://discord.gg/EChuVEDakk)
+[![Reddit](https://img.shields.io/badge/community-r%2FDeckShelves-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/DeckShelves/)
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon)
 [![Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/santojon)
 
@@ -619,14 +621,16 @@ bash scripts/build/validate-compat.sh
 
 ### Operating systems
 
-The plugin runs wherever Decky Loader runs. Path discovery ([`paths.py`](paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
+The plugin runs **wherever Decky Loader runs**. Decky installs as a **systemd service** that injects into Steam's CEF, so it is Linux-only at the OS level. Path discovery ([`paths.py`](paths.py)) and packaging ([`scripts/build/package.py`](scripts/build/package.py)) are OS-agnostic (stdlib only, no bash/`zip` CLI).
 
-| OS | Steam discovery | Status |
+| OS | Steam discovery | Runs the plugin? |
 |---|---|---|
-| SteamOS / Steam Deck | `~/.local/share/Steam` | ✅ primary target |
-| Linux (native / Flatpak — Bazzite, ChimeraOS, …) | native + `~/.var/app/...Steam` | ✅ |
-| Windows | registry (`winreg`) → `Program Files` → `%LOCALAPPDATA%` | ✅ (Decky unofficial) |
-| macOS | `~/Library/Application Support/Steam` | ✅ (Decky unofficial) |
+| SteamOS / Steam Deck | `~/.local/share/Steam` | ✅ official (primary target) |
+| Linux — SteamOS-like (Bazzite, ChimeraOS, HoloISO, Nobara) + desktop (native / Flatpak) | native + `~/.var/app/...Steam` | ✅ unofficial — Decky's systemd install works |
+| Windows | registry (`winreg`) → `Program Files` → `%LOCALAPPDATA%` | ⚠️ unofficial — via a community Windows installer; unstable |
+| macOS | `~/Library/Application Support/Steam` | ❌ via Decky (no systemd / no port). Path support is reserved for the future standalone host ([`shelves-loader`](https://github.com/santojon/shelves-loader)) |
+
+> Decky Loader officially supports **SteamOS / Steam Deck only**; Linux-desktop and Windows are community-driven and may break. macOS is not possible through Decky today. (See sources in the PR notes.)
 
 ### Build
 

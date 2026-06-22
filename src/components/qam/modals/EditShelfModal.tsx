@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   ConfirmModal,
   DialogButton,
@@ -454,14 +454,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                         {t('source_store_hint')}
                       </div>
                     )}
-                    {/* Multi-source stacking: stack additional sources on top of
-                        any primary (including filter — multi-filter is the
-                        only thing forbidden, and the exhaustion logic in
-                        buildChildTypeOptions takes filter out of the dropdown
-                        as soon as one is in play). Saving collapses 2+
-                        sources into a composite; single-source shelves keep
-                        the flat shape. Combine operator only renders once
-                        at least one extra is present. */}
+                    {/* Multi-source stacking: stack extra sources on any primary
+                        (filter is the only forbidden combo — buildChildTypeOptions
+                        drops it from the dropdown once one is in play). Saving
+                        collapses 2+ sources into a composite; single-source shelves
+                        keep the flat shape. Combine renders only once an extra exists. */}
                     {(state.additionalSources.length > 0 || canAddSource) && (
                       <>
                         {/* Combine dropdown placed BEFORE the source rows so

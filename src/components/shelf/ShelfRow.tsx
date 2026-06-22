@@ -5,11 +5,11 @@ import { RefreshCard } from "./RefreshCard";
 import { SyntheticCard } from "./SyntheticCard";
 import type { DeckRowItem } from "./types";
 
-// Shared `items.map → GameCard/RefreshCard/MoreCard` loop used by both the
-// home shelf (DeckRow) and the EditShelfModal preview. Pure presentational
-// — no state, no effects. Sizing, featured rules, and hide-flags come in
-// as props; the caller owns the surrounding wrapper (focus delegate,
-// scroll padding, theme overrides).
+/* Shared `items.map → GameCard/RefreshCard/MoreCard` loop used by both the
+   home shelf (DeckRow) and the EditShelfModal preview. Pure presentational
+   — no state, no effects. Sizing, featured rules, and hide-flags come in
+   as props; the caller owns the surrounding wrapper (focus delegate,
+   scroll padding, theme overrides). */
 /*
    Trailing cards (Refresh, More) follow the same `isRefresh` / `isMoreLink`
    item-flag convention DeckRow already uses. Home shelves render them

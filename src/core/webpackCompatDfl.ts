@@ -1,14 +1,11 @@
 // Native classmap discovery via the host plugin runtime global (DFL).
 // Extracted from webpackCompat.ts to keep that file under 1000 lines.
 
-/** DFL exposes `classMap` (array of webpack modules, each `{semanticKey: obfuscatedClass}`)
- *  on its global. Semantic names are stable across Steam builds; the
- *  obfuscated values rebuild every release. When DFL is available, prefer
- *  this lookup over heuristic DOM probing — it's the canonical source.
- *
- *  Returns a flat map of relevant semantic name → current obfuscated class.
- *  Empty object when DFL isn't reachable or the requested keys don't exist.
- */
+/** DFL exposes `classMap` (webpack modules, each `{semanticKey: obfuscatedClass}`)
+ *  on its global. Semantic names are stable across Steam builds; obfuscated
+ *  values rebuild each release. Prefer this over heuristic DOM probing when DFL
+ *  is available. Returns a flat semantic-name → obfuscated-class map (empty when
+ *  DFL is unreachable or the keys don't exist). */
 function isObfuscatedClassValue(v: any): v is string {
   return typeof v === 'string'
     && v.length >= 6 && v.length <= 60

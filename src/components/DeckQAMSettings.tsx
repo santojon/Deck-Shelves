@@ -876,12 +876,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       )}
 
       <CollapsibleSection id='shelves' icon={<StackIcon />} title={t('shelves_section')} count={shelves.filter(s => s.enabled && !s.hidden).length} initialOpen>
-        {/* `childrenLayout="below"` + `childrenContainerWidth="max"` make
-            Decky's Field hand the entire row width to children — without
-            them the empty-label slot grabs ~half the row and the
-            `justify-content: space-between` Focusable overflows to the
-            right (CDP probe: Focusable rendered at width=150 inside a
-            300 wide scope, pushing the rightmost button to right=457). */}
+        {/* `childrenLayout="below"` + `childrenContainerWidth="max"` give Decky's
+            Field the full row width — without them the empty-label slot grabs
+            ~half the row and the `space-between` Focusable overflows right (CDP:
+            width 150 in a 300-wide scope, pushing the rightmost button to 457). */}
         <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
           <Focusable style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', padding: '0 16px' }}>
             <div style={{ display: 'flex' }}>

@@ -1,8 +1,8 @@
-// Local-image cache: maps a local filesystem path (e.g. `/home/deck/
-// Pictures/foo.jpg`) to a `data:image/...;base64,...` URL the home
-// shelf's `<img>` can actually load. CEF blocks bare absolute paths
-// and `file://` URLs from the Big Picture context for security, so we
-// route the read through the Python backend which returns base64.
+/* Local-image cache: maps a local filesystem path (e.g. `/home/deck/
+   Pictures/foo.jpg`) to a `data:image/...;base64,...` URL the home
+   shelf's `<img>` can actually load. CEF blocks bare absolute paths
+   and `file://` URLs from the Big Picture context for security, so we
+   route the read through the Python backend which returns base64. */
 /*
    Cache is module-scoped + bounded: keeps the last ~24 entries (more
    than any reasonable shelf row can carry). Decoration card images

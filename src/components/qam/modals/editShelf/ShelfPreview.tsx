@@ -256,15 +256,11 @@ export function ShelfPreview({
   const showRefresh = shelfSource ? shouldShowRefreshCard(trailingInput) : !hideRefreshCard
   const showMore = shelfSource ? shouldShowMoreCard(trailingInput) : !hideSeeMore
 
-  // Build the items list (game cards + trailing refresh/more) so the
-  // shared <ShelfRow> can drive the entire row. Featured sizing comes
-  // from the per-game-card branch (preview uses 3.21× cardW for
-  // highlighted items, art height stays constant).
-  //
-  // `discountPercent` is pulled from the same localStorage price cache
-  // the home shelf consults — without it the preview's cards would
-  // never have discount data, so the green discount badge wouldn't
-  // render even when `inlineBadges` is on.
+  /* Build the items list (game cards + trailing refresh/more) for the shared
+     <ShelfRow>. Featured sizing comes from the per-card branch (preview uses
+     3.21× cardW for highlighted items). `discountPercent` is pulled from the
+     same localStorage price cache the home consults, so the green discount
+     badge can render when `inlineBadges` is on. */
   /* Discount badges only make sense on online (wishlist/store) shelves
      — they advertise "this game is on sale, buy it". On non-online
      shelves (collection / tab / filter / installed) the user already
@@ -279,10 +275,10 @@ export function ShelfPreview({
     }
     return false
   })()
-  // Mirror Shelf.tsx render-time owned-hide: when an online source has
-  // the "exclude owned" toggle on (per-shelf or global), drop ids that
-  // match the local library by appid OR by normalized name. For composite
-  // shelves the toggle lives on the first online child (editor propagates
+  /* Mirror Shelf.tsx render-time owned-hide: when an online source has
+     the "exclude owned" toggle on (per-shelf or global), drop ids that
+     match the local library by appid OR by normalized name. For composite
+     shelves the toggle lives on the first online child (editor propagates */
   /* it uniformly), so read from there. For direct online shelves read
      from the source itself. Owned-locally cards (overview present in
      appStore) only get dropped when they came from an online child —
@@ -317,10 +313,10 @@ export function ShelfPreview({
     const { effectiveNonSteam, effectiveCloud } = ownedHideState
     const ownedSet = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
     setOwnedAppIds(ownedSet)
-    // Build ownedNames via PER-ID raw `appStore.GetAppOverviewByAppID`
-    // lookup across every Steam window — `getAllAppOverviews()` falls
-    // through `normalizeAppOverview` for many users which strips entries
-    // whose display_name ends up as the "App {id}" fallback, so the
+    /* Build ownedNames via PER-ID raw `appStore.GetAppOverviewByAppID`
+       lookup across every Steam window — `getAllAppOverviews()` falls
+       through `normalizeAppOverview` for many users which strips entries
+       whose display_name ends up as the "App {id}" fallback, so the */
     /* resulting `apps` array doesn't include every non-Steam shortcut
        (Epic / Amazon / GOG titles the user owns there). Without those,
        the wishlist row's name-dedup misses items like "Kingdom Come:
@@ -445,12 +441,10 @@ export function ShelfPreview({
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
     if (showMore) out.push({ id: '__more', name: t('view_more'), isMoreLink: true })
-    // Splice synthetic decoration cards at their persisted `position`
-    // slots. Sorted asc so earlier slots splice before later ones (later
-    // splice positions stay valid as the array grows). Same logic as
-    // Shelf.tsx's home rowItems builder — keeps the preview 1:1 with
-    // what the user will see on the home shelf.
-    //
+    /* Splice synthetic decoration cards at their persisted `position` slots,
+       sorted asc so earlier slots splice before later ones (later positions stay
+       valid as the array grows). Same logic as Shelf.tsx's home rowItems builder
+       — keeps the preview 1:1 with the home shelf. */
     /* Synth `id` is the sentinel `-(origIdx + 1)` so the manual-sort
        drag flow can reorder them as first-class citizens (same encoding
        the modal's `reorderManual` already understands). Even in

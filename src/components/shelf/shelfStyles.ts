@@ -63,12 +63,14 @@ function ensureFocusRingSuppress() {
 
 const STYLE_ID = "deck-shelves-row-style";
 
-// Tuning for native-dim discovery cycle
-const DIMS_TOL_PX = 4;            // ignore jitter smaller than this
-const DIMS_STABLE_POLLS = 2;      // consecutive matches required before accepting
-const DIMS_DEBOUNCE_MS = 500;     // notify listeners after the churn settles
-const STYLES_POLL_MS = 3000;      // fast cadence while dims aren't stable
-const STYLES_POLL_MS_IDLE = 30000;// slower cadence once featured dims are cached
+/* Native-dim discovery tuning: TOL_PX ignores sub-pixel jitter; STABLE_POLLS
+   consecutive matches required before accepting; DEBOUNCE_MS settle delay;
+   POLL_MS fast cadence while unstable, POLL_MS_IDLE slow once dims are cached. */
+const DIMS_TOL_PX = 4;
+const DIMS_STABLE_POLLS = 2;
+const DIMS_DEBOUNCE_MS = 500;
+const STYLES_POLL_MS = 3000;
+const STYLES_POLL_MS_IDLE = 30000;
 
 /* Persisted cache (cold-start reflow avoidance).
    v3 stores ONE entry per viewport fingerprint so switching displays
@@ -122,10 +124,10 @@ function viewportFingerprint(): { vw: number; vh: number; dpr: number } {
   };
 }
 
-// Read the full persisted entries map (one entry per viewport fingerprint).
-// Migrates v2 (single entry) into v3 (entries array) on first read so users
-// don't lose their previously-tuned dims.
-// v2 migration: convert the single { dims, vw, vh, dpr } into a v3 entry.
+/* Read the full persisted entries map (one entry per viewport fingerprint).
+   Migrates v2 (single entry) into v3 (entries array) on first read so users
+   don't lose their previously-tuned dims.
+   v2 migration: convert the single { dims, vw, vh, dpr } into a v3 entry. */
 function migrateV2Entry(parsed: any): PersistedDimsV3 | null {
   if (parsed?.v === 2 && parsed.dims && typeof parsed.vw === 'number') {
     const v2 = parsed as PersistedDimsV2;

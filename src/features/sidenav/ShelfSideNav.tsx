@@ -12,7 +12,7 @@ import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { isInVisibilityWindow } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
-import { closeAmbientOverlays, waitForOverlaysGone, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
+import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 
 type Anchor = {
   shelfId: string;
@@ -262,10 +262,10 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const firstShelfIdRef = useRef<string | null>(null);
 
-  // Push NavTree focus into the user's current shelf row (or the first
-  // row as fallback) after Steam settles the new Focusable tree.
-  // Drive focus into the target row after the NavTree has indexed the
-  // new Focusable children. We use el.focus({ preventScroll: true })
+  /* Push NavTree focus into the user's current shelf row (or the first
+     row as fallback) after Steam settles the new Focusable tree.
+     Drive focus into the target row after the NavTree has indexed the
+     new Focusable children. We use el.focus({ preventScroll: true }) */
   /* rather than focusElement (BTakeFocus) because BTakeFocus on a
      position:fixed panel node triggers a home-scroll since Steam
      translates the viewport rect back to scroll-container coords.

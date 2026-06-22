@@ -1,4 +1,4 @@
-import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as dflAfterPatch, findInTree as dflFindInTree, MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "../runtime/host/decky";
+import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderComponent, afterPatch as dflAfterPatch, findInTree as dflFindInTree } from "../runtime/host/decky";
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
@@ -11,12 +11,7 @@ import {
   dispatchShelfModal,
   clearOnlineShelfCache,
 } from "./shelfActions";
-import { patchShelfInSettings } from "../domain/settings";
-import { saveFocusTarget, beginFocusRestoreLoop } from "./focusRestore";
-import { invalidateRandomSortCache } from "../steam";
-import { invalidateSmartShelfCache } from "../steam/smartShelves";
-import { triggerShelfRefresh } from "./shelfRefresh";
-import { isOnlineSource } from "../domain/sourceUtils";
+import { saveFocusTarget } from "./focusRestore";
 import {
   buildDeckShelvesMenuItems as buildDeckShelvesMenuItemsBase,
   buildShelfContextMenu,

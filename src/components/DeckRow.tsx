@@ -316,17 +316,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       }
       return null;
     };
-    // Center `el` inside its scrollable ancestor. One smooth scroll per focus
-    // event, issued only when needed — if Steam's native scroll already put
-    // the shelf near center (within tolerance), skip entirely to avoid
-    // competing smooth-scrolls that cause visible stutter.
-    //
-    // Exception: when this shelf is promoted to the native-recents slot
-    /* (`forceExpanded=true`), pin the scrollable to the very top — otherwise
-       the shelf's natural position near scroll content top leaves its header
-       clipped by prior content (hero, hidden recents spacer). scrollTop=0
-       is the only position that guarantees the promoted shelf renders in
-       full below whatever sits above it. */
+    /* Center `el` in its scrollable ancestor — one smooth scroll per focus, only
+       when needed (skip if Steam's native scroll already centered it, to avoid
+       competing scrolls that stutter). Exception: when promoted to the recents
+       slot (`forceExpanded`), pin scrollTop=0 so the header isn't clipped by
+       prior content (hero / hidden-recents spacer). */
     const maybeCenter = () => {
       try {
         const scr = findScrollableAncestor(el);
@@ -618,11 +612,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         display: fullPageLayoutActive ? 'flex' : undefined,
         flexDirection: fullPageLayoutActive ? 'column' : undefined,
         justifyContent: fullPageLayoutActive ? 'flex-end' : undefined,
-        // Reserve top space for the logo + description banner.
-        // Skipped only when the hero is rendered as a true full-page box
-        // (`forceExpanded && !pinScrollTop`) — there the cards sit at the
-        // bottom (justify-content: flex-end) and the absolute logo lives
-        // in the empty top half, so no extra padding is needed.
+        /* Reserve top space for the logo + description banner.
+           Skipped only when the hero is rendered as a true full-page box
+           (`forceExpanded && !pinScrollTop`) — there the cards sit at the
+           bottom (justify-content: flex-end) and the absolute logo lives
+           in the empty top half, so no extra padding is needed. */
         /* When `pinScrollTop` is on (user disabled full-page shelves) the
            hero shrinks back to a normal row, so the absolute logo would
            overlap the card row unless we still reserve space here.

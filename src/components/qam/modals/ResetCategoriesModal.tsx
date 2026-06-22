@@ -1,4 +1,3 @@
-import React from "react";
 import { toaster } from "../../../runtime/host/decky";
 import type { SettingsController } from "../../../features/settings/controller";
 import { SelectItemsModal } from "./SelectItemsModal";

@@ -26,9 +26,9 @@ describe('resolveQuickLaunchAction', () => {
     expect(resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Reconfiguring })).toBe('update');
   });
 
-  it('actively progressing statuses map to "pause"', () => {
+  it('actively progressing statuses (status_percentage > 0) map to "pause"', () => {
     for (const ds of UPDATE_ACTIVE_STATUSES) {
-      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds })).toBe('pause');
+      expect(resolveQuickLaunchAction({ installed: true, displayStatus: ds, statusPercentage: 50 })).toBe('pause');
     }
   });
 
@@ -76,10 +76,13 @@ describe('resolveQuickLaunchAction', () => {
     ).toBe('pause');
   });
 
-  it('Downloading (ds=19) without status_percentage falls back to "pause" (legacy/unknown progress)', () => {
+  it('Downloading (ds=19) without status_percentage maps to "update" (unknown progress = not actively transferring; Proton/runtime case)', () => {
+    // Regression: Proton Experimental sits at display_status=19 with NO
+    // status_percentage when its update is queued but not transferring. The
+    // View hint must read "Update", not "Pause".
     expect(
       resolveQuickLaunchAction({ installed: true, displayStatus: EAppDisplayStatus.Downloading }),
-    ).toBe('pause');
+    ).toBe('update');
   });
 
   it('Validating / Staging / Committing also flip to "update" when status_percentage=0', () => {

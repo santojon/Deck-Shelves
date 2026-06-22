@@ -648,15 +648,11 @@ function resolveFriendsPlaying(apps: AppOverview[], limit: number, params?: Smar
       return lastPlayedSec(b) - lastPlayedSec(a);
     })
     .map((a) => a.appid);
-  // Non-owned games (friends playing something the user doesn't have): emit
-  // raw appids appended after the owned matches. Shelf rendering picks
-  // these up via the source's `includesNonOwned: true` flag, which routes
-  // metadata fetching through the Steam Store API name lookup (same path
-  // wishlist + store shelves already use for non-owned items). Click on
-  // such a card lands on `/library/app/<appid>`; Steam BP redirects to
-  // the store detail page when the user doesn't own the app. Live
-  // currently-playing friends rank ahead of recently-played-only ones.
-  //
+  /* Non-owned games (friends playing something the user lacks): raw appids
+     appended after the owned matches. Shelf rendering picks them up via the
+     source's `includesNonOwned: true`, routing metadata through the Store API
+     name lookup (same path wishlist/store use). Clicks land on /library/app/<id>
+     (BP redirects to the store page); live players rank ahead of recent-only. */
   /* Library-owned set MUST be derived from the full `apps` pool (not just
      the post-filter `ownedMatches`), otherwise apps the user owns but
      that got filtered out (non-Steam shortcut, Deck level too low, etc.)

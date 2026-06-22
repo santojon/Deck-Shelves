@@ -76,13 +76,10 @@ const UNINSTALLING_STATUSES: ReadonlyArray<number> = [6, 14, 16];
 export function resolveQuickLaunchAction(input: {
   installed: boolean;
   displayStatus: number;
-  /** `per_client_data[0].status_percentage` (0–100). 0 means the active
-   * phase hasn't begun — Steam queues a download but no bytes are
-   * flowing yet. The menu's first item there is "Update" (let it start),
-   * not "Pause" (interrupt). Once progress is non-zero we trust the
-   * status_percentage > 0 → pause path. Optional: omit when unknown,
-   * in which case the resolver falls back to the display_status set
-   * alone (legacy behaviour). */
+  /** `per_client_data[0].status_percentage` (0–100). 0 / undefined means the
+   * active phase hasn't begun (queued, no bytes flowing) → "Update", not
+   * "Pause". Only `> 0` (actively transferring) maps to "Pause"; omit when
+   * unknown — treated the same as 0. */
   statusPercentage?: number;
 }): QuickLaunchAction {
   if (!input.installed) return 'not_installed';
@@ -90,13 +87,17 @@ export function resolveQuickLaunchAction(input: {
   if (ds === EAppDisplayStatus.Launching || ds === EAppDisplayStatus.Running) return 'running';
   if (UPDATE_QUEUED_STATUSES.includes(ds)) return 'update';
   if (UNINSTALLING_STATUSES.includes(ds)) return 'uninstalling';
-  if (ds === EAppDisplayStatus.Installing || UPDATE_ACTIVE_STATUSES.includes(ds)) {
-    /* Active status with zero progress means Steam queued the download
-       but hasn't started transferring — for tools / runtimes (Proton
-       Hotfix, Steam Linux Runtime) this is the steady state when an
-       update is available, and the menu's first item is "Update". */
-    if (typeof input.statusPercentage === 'number' && input.statusPercentage === 0) return 'update';
-    return 'pause';
-  }
+  /* "Pause" only when bytes are actually flowing (status_percentage > 0).
+     Queued / staged / unknown progress — the steady state for Proton & Steam
+     runtime tool updates sitting pending (display_status 19 with no
+     status_percentage) — shows "Update", not "Pause". */
+  if (UPDATE_ACTIVE_STATUSES.includes(ds)) return progressing(input.statusPercentage) ? 'pause' : 'update';
+  // Fresh install in flight: "Pause" unless it hasn't started yet (pct 0).
+  if (ds === EAppDisplayStatus.Installing) return input.statusPercentage === 0 ? 'update' : 'pause';
   return 'play';
+}
+
+// True only when a transfer is actively moving bytes (status_percentage > 0).
+function progressing(statusPercentage?: number): boolean {
+  return typeof statusPercentage === 'number' && statusPercentage > 0;
 }

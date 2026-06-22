@@ -2185,9 +2185,9 @@ function evalNameRegex(item: FilterItem, app: AppOverview): boolean {
 function evalCollection(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const colId = String(item.params?.collectionId ?? "").trim();
   if (!colId) return true; // half-configured: don't restrict
-  // Missing entry = lookup failed or returned 0 apps. Exclude (issue #55:
-  // pass-through here previously leaked the entire library when
-  // Bazzite-shaped collectionStore returned empty).
+  /* Missing entry = lookup failed or returned 0 apps. Exclude (issue #55:
+     pass-through here previously leaked the entire library when Bazzite-shaped
+     collectionStore returned empty). */
   const appSet = ctx?.collectionAppIds.get(colId);
   return appSet ? appSet.has(app.appid) : false;
 }

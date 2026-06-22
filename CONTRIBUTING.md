@@ -24,7 +24,8 @@ The dev / build / validation flows run on **Linux, macOS, and Windows**.
 | `pnpm run dev:check` (typecheck + lint + test) |  ✅  |  ✅   |   ✅    |
 | `pnpm run package` / `verify:package`          |  ✅  |  ✅   |   ✅    |
 | `pnpm run validate:compat`                     |  ✅  |  ✅   |   ⚠️    |
-| `pnpm run deploy:deck*`                        |  ✅  |  ✅   |   ❌    |
+| `pnpm run deploy:deck*` (bash)                  |  ✅  |  ✅   |   ⚠️    |
+| `pnpm run deploy:deck:win*` (PowerShell)        |  —   |  —    |   ✅    |
 | `pnpm run devtools:*` (CDP)                    |  ✅  |  ✅   |   ✅    |
 
 Everything a contributor needs to validate a change — build, typecheck,
@@ -37,8 +38,13 @@ packaging uses Python's `zipfile`).
   finds `bash` on PATH and routes through it, so on Windows it needs
   **Git for Windows** (Git Bash) or **WSL**. The OS-independent subset is
   covered by `pnpm run dev:check`.
-- ❌ Deck-operator scripts (SSH, rsync, sudo deploy) need a POSIX shell +
-  ssh client; run them under WSL on Windows.
+- ⚠️ The bash deploy scripts (`deploy:deck` / `:hard`, SSH + rsync + sudo)
+  need a POSIX shell; on Windows use **`pnpm run deploy:deck:win`** /
+  **`deploy:deck:win:hard`** — a PowerShell variant
+  ([`scripts/deploy/deploy-deck.ps1`](scripts/deploy/deploy-deck.ps1)) that
+  uses the OpenSSH `ssh`/`scp` bundled with Windows 10+ (no rsync/bash).
+  The other deck-operator scripts (watch, logs, perf-stress) remain
+  bash — run them under WSL / Git Bash.
 
 ### Windows quickstart
 

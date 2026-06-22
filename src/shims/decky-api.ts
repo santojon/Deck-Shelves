@@ -16,10 +16,10 @@ type ConnectedApi = {
   routerHook?: any;
 };
 
-// Both globals are looked up LAZILY (via getters) because the shim
-// module executes very early in the plugin bootstrap — earlier than
-// Decky finishes attaching `DFL` / `__DECKY_SECRET_INTERNALS_…` to
-// `window`. Capturing them at module load left the toaster (and any
+/* Both globals are looked up LAZILY (via getters) because the shim
+   module executes very early in the plugin bootstrap — earlier than
+   Decky finishes attaching `DFL` / `__DECKY_SECRET_INTERNALS_…` to
+   `window`. Capturing them at module load left the toaster (and any */
 /* other DFL-backed primitive) wired to `undefined` for the entire
    plugin session, silently dropping every `toaster.toast()` call from
    boot-time code paths (the update notifier toast was the visible

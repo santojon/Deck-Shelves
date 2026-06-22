@@ -728,12 +728,11 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
     shelf.id,
     globalHighlightRandom || (shelf as any).highlightRandom,
   );
-  // Global is the master switch — when on, every shelf shows the
-  // logo/icon/description (including ones with per-shelf=false from older
-  // saves); when off, none of them do. Per-shelf overrides are no longer
-  // honoured at render time so the QAM toggle behaves predictably across
-  // the whole home, including the first visible shelf which previously
-  // could be stuck off by a stale per-shelf=false.
+  /* Global is the master switch — when on, every shelf shows the logo/icon/
+     description (including older saves with per-shelf=false); when off, none do.
+     Per-shelf overrides are no longer honoured at render time so the QAM toggle
+     behaves predictably across the home (incl. the first shelf, which could
+     previously stick off via a stale per-shelf=false). */
   /* Light mode strips per-shelf decorations (logo / icon / description /
      per-shelf hero) for performance + simplicity. Hero is allowed only
      on the first shelf and is force-on there as a single cinematic

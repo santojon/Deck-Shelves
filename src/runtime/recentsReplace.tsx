@@ -197,10 +197,10 @@ function scheduleResolve(shelf: any) {
   lastResolveKey = key;
   const platform = getPlatform();
   if (!platform) return;
-  // Forward the shelf's full sort context — without this, the resolver
-  // falls back to its default ordering (effectively alphabetical for many
-  // sources), which makes the "shelf as recents" promotion ignore the
-  // user's chosen sort. shelfKey() above already namespaces the cache
+  /* Forward the shelf's full sort context — without this, the resolver
+     falls back to its default ordering (effectively alphabetical for many
+     sources), which makes the "shelf as recents" promotion ignore the
+     user's chosen sort. shelfKey() above already namespaces the cache */
   /* entry by source so two shelves with the same source but different
      sorts don't collide.
 

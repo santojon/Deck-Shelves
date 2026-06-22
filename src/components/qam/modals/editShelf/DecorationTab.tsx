@@ -3,20 +3,11 @@ import { DialogButton, Focusable, TextField, ToggleField, DropdownItem } from '.
 import { pickImageFile } from '../../../../core/imagePicker'
 import { resolveLocalImage, subscribeLocalImage } from '../../../../core/localImage'
 
-// Synthetic-card editor — horizontal carousel of card configs with a
-// master/detail interaction model.
-//
-// Navigation:
-//   - Tabs row (above) ↓ → first card config block focused.
-//   - L/R between card blocks; the trailing `[+]` block is the last
-//     focusable in the row and creates a new card.
-//   - ↓ from any card block → shelf preview (lives below this tab).
-//   - A on a card block → "select" the card: the block expands inline,
-/*     focus moves to the first field inside, ↑/↓ now walks through the
-       card's fields. B collapses the block back to the summary view.
-
-   Per-row rules: text XOR image; link/heroImage/shadowMode only with
-   base content; position is managed by the manual-order grid. */
+/* Synthetic-card editor — horizontal carousel of card configs (master/detail).
+   Nav: Tabs ↓ → first block; L/R between blocks; trailing `[+]` creates a card;
+   ↓ from a block → preview below; A selects a block (expands, focus → first
+   field, ↑/↓ walks fields); B collapses. Per-row: text XOR image; link/
+   heroImage/shadowMode only with base content; position via the manual grid. */
 type SyntheticCardInput = {
   position: number
   image?: string
@@ -223,12 +214,10 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
 
   return (
     <div style={{ padding: '4px 0 12px' }}>
-      {/* Focus visual + horizontal-flow hint scoped to this tab. The
-          .gpfocus glow makes selection obvious on dark cards (Steam's
-          default ring is suppressed on our DS cards across the rest of
-          the modal). Per-row horizontal flow comes from the explicit
-          Focusable wrapper below, but inline CSS reinforces it so
-          mouse/touch hover also signals reachability. */}
+      {/* Focus visual + horizontal-flow hint scoped to this tab. The .gpfocus
+          glow makes selection obvious on dark cards (Steam's default ring is
+          suppressed on DS cards elsewhere in the modal). Per-row flow comes from
+          the Focusable wrapper below; inline CSS reinforces it for mouse/touch. */}
       <style>{`
         .ds-deco-tab-row > .Focusable.gpfocus,
         .ds-deco-tab-row > .Focusable:focus,

@@ -73,6 +73,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **The View-button hint said "Pause" on games with a queued update.** When a game (or a tool like Proton Experimental) had an update waiting but not actively downloading, the hint read "Pause" instead of "Update". It now reads "Update" until the download is genuinely in progress.
+- **Hero art jittered up and down as you moved between cards.** With per-shelf hero art on, the background image alternated between two slightly different vertical framings card-to-card. Both cross-fade layers now use the same framing, so the hero stays steady while you browse.
 - **Focus could get stuck in the native recents row when trying to come back down to Deck Shelves.** After pressing UP into the system search bar / native recents, pressing DOWN three times would occasionally hop between hidden shells above the shelves instead of landing on a Deck Shelves card. The focus bridge now detects this case and routes you straight into the first DS card.
 - **Quick Search wasn't navigating to the game it found.** The overlay was restoring focus to the card you opened the search from right after the activator moved focus to the hit — so the visible result was "search closed, nothing happened". Reordered so the overlay closes first, then the activator runs after a short pause.
 - **R1+L1 stopped closing the search overlay once you'd typed something.** While the input held the navigation focus the home button bus didn't fire, so the chord was silently ignored. The pill now also subscribes directly to the controller bus so R1, L1, or B always close it.

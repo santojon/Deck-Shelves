@@ -5,12 +5,11 @@ import { isArtHeroActive } from "../../core/cssLoaderDetect";
 
 import { getHeroUrls } from "../../core/steamAssets";
 
-// Native hero structure (CDP on SteamOS 3.8):
-//   IMG  — filter: grayscale(1) contrast(1), 0.3s fade-in, object-fit: cover
-//   DIV  — 25s ease alternate zoom animation
-//   DIV  — mask-image: radial-gradient(75% 83% at 50% 18%, black 0%, rgba(0,0,0,0.6) 76%, transparent 100%)
-//   DIV  — same mask-image (double masking)
-//   DIV  — padding-top: 54px, Panel Focusable
+/* Native hero structure (CDP on SteamOS 3.8):
+     IMG  — filter: grayscale(1) contrast(1), 0.3s fade-in, object-fit: cover
+     DIV  — 25s ease alternate zoom; DIV×2 — mask-image: radial-gradient(75% 83%
+            at 50% 18%, black 0%, rgba(0,0,0,.6) 76%, transparent 100%) (doubled)
+     DIV  — padding-top: 54px, Panel Focusable */
 /*
    The fade is via radial-gradient mask-image. The bottom fade comes from
    the hero sitting inside a container with black background (rgb(0,0,0)).
@@ -58,10 +57,10 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
     if (labelNode) host.appendChild(labelNode);
   }, [labelNode]);
 
-  // Re-evaluate when CSS Loader themes are added/removed at runtime — the
-  // user can toggle ArtHero on/off without reloading the plugin, so the
-  // initial mount value is just a starting point. CSS Loader appends and
-  // removes <style class="css-loader-style"> tags directly in the Big
+  /* Re-evaluate when CSS Loader themes are added/removed at runtime — the
+     user can toggle ArtHero on/off without reloading the plugin, so the
+     initial mount value is just a starting point. CSS Loader appends and
+     removes <style class="css-loader-style"> tags directly in the Big */
   /* Picture document's <head> (verified via CDP). The Big Picture doc is
      a different document than SharedJSContext where this React tree
      lives, so we MUST observe via getPreferredSteamDocument() — using
@@ -451,21 +450,11 @@ export function HeroBackground({ mountEl }: { mountEl: HTMLElement }) {
         zIndex: 1,
       }} />
     </div>
-    {/* Game info overlay — clones the focused card's `.ds-card-label`
-        DOM (all classes preserved) so the hero label is identical to
-        the regular card label, only positioned above the row instead
-        of below. The wrapper div carries `ds-promoted-hero-label`
-        which the stylesheet uses to override the cloned label's own
-        absolute positioning back to static. The in-card label is
-        hidden via CSS on the promoted shelf so we don't render two
-        copies of the same label. pointerEvents:none so it never
-        intercepts focus.
-
-        Kept a SIBLING of `.ds-hero-background` (not a child): that
-        element is z-index:-1 and forms a stacking context, so any
-        descendant — even at z-index:2 — is trapped behind the cards.
-        As a sibling, the overlay's z-index competes with the cards
-        directly and can sit above them. */}
+    {/* Game-info overlay — clones the focused card's `.ds-card-label` DOM
+        (classes preserved) so the hero label matches the in-card one, positioned
+        above the row. `ds-promoted-hero-label` resets the clone's absolute
+        positioning to static; the in-card label is CSS-hidden on the promoted
+        shelf. Kept a SIBLING of z-index:-1 `.ds-hero-background` so it isn't trapped behind cards. */}
     {needsHeroLabel && labelNode && (
       <div
         ref={labelMountRef}

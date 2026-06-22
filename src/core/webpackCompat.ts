@@ -136,16 +136,11 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
   return null;
 }
 
-/** Diff a focused card and an unfocused card to extract:
- *   - `nativeCardCommon`: classes present on every card regardless of state
- *   - `nativeCardStateFocus`: classes added only when the card is focused
- *   - `nativeCardStateDefault`: classes added only when the card is not focused
- *  Used by themes that want to mirror Steam's focus visuals on DS cards.
- *
- *  Captures BOTH `_xxx` (webpack-hashed) and non-underscore obfuscated tokens
- *  (Steam ships both in the same className list). Tokens are space-joined
- *  inside each role bucket so they survive being treated as a selector chunk.
- */
+/** Diff a focused vs unfocused card into class buckets: `nativeCardCommon`
+ *  (always present), `nativeCardStateFocus` (focus-only), `nativeCardStateDefault`
+ *  (unfocused-only). Captures both `_xxx` webpack-hashed and non-underscore
+ *  obfuscated tokens (space-joined per bucket) so themes can mirror Steam's
+ *  focus visuals on DS cards. */
 const KNOWN_NATIVE_CLASSES = new Set(['Panel', 'Focusable', 'gpfocus', 'gpfocuswithin', 'gpfocus-within', 'Action', 'ButtonBase']);
 
 function isObfuscatedToken(c: string): boolean {
@@ -227,12 +222,10 @@ function _discoverNativeShelfRowLayers(doc: Document): Record<string, string> {
   } catch { return {}; }
 }
 
-/** Walk the ancestor chain from the scrollGrid up to documentElement and
- *  label each named layer. Steam stacks 6-10 wrappers above the grid
- *  (section → page → app shell → root) that themes commonly target for
- *  positioning, background, and scroll behaviour. Skip layers already named
- *  by other helpers (scrollGrid, shelfSection, viewport).
- */
+/** Walk the ancestor chain from the scrollGrid to documentElement, labelling
+ *  each layer. Steam stacks 6-10 wrappers above the grid (section → page → app
+ *  shell → root) that themes target for positioning / background / scroll.
+ *  Skips layers already named elsewhere (scrollGrid, shelfSection, viewport). */
 function _discoverNativeContainerChain(doc: Document, alreadyNamed: Set<string>): Record<string, string> {
   const out: Record<string, string> = {};
   try {
@@ -311,13 +304,11 @@ function _discoverNativeHomeSectionTokens(doc: Document): Record<string, string>
   return out;
 }
 
-/** Traverse shelf-level elements to discover nativeShelf, nativeShelfTitle, nativeShelfRow tokens.
- *  Primary anchor: the ReactVirtualized inner scroll container — its direct
- *  children are the rendered shelf rows. Modern Steam shelves are
- *  virtualized vertically, so individual rows don't use overflow-x.
- *  Falls back to the old horizontal-scroll heuristic if the grid isn't
- *  found (older builds / non-home routes).
- */
+/** Traverse shelf elements to discover nativeShelf / nativeShelfTitle /
+ *  nativeShelfRow tokens. Primary anchor: the ReactVirtualized inner scroll
+ *  container, whose direct children are the rendered (vertically-virtualized)
+ *  rows. Falls back to the old horizontal-scroll heuristic when the grid isn't
+ *  found (older builds / non-home routes). */
 function findHeadingTokenIn(root: Element): string | undefined {
   for (const el of Array.from(root.querySelectorAll<HTMLElement>('*'))) {
     try {
@@ -398,12 +389,10 @@ export type NativeCardDims = {
   featuredImgHeight?: number;
 };
 
-/** Measure native Recent Games card dimensions by finding portrait card images
- *  and measuring the focusable card root element.
- *  Also detects the wider "featured" first card if present (e.g. when a
- *  theme shows a landscape highlight card before the portrait row).
- *  Returns { width, height, gap, featuredWidth?, featuredHeight? } or null.
- */
+/** Measure native Recent Games card dimensions from portrait card images + the
+ *  focusable card root. Also detects the wider "featured" first card when a
+ *  theme shows a landscape highlight before the portrait row. Returns
+ *  { width, height, gap, featuredWidth?, featuredHeight? } or null. */
 function buildMeasurementHost(doc: Document, rowToken: string): HTMLElement {
   const host = doc.createElement('div');
   if (rowToken) {

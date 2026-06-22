@@ -23,7 +23,6 @@ import { bumpAssetRevision } from "../core/assetRevision";
 import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
 import { isInVisibilityWindow, nextVisibilityBoundary, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { flowChildrenProps } from "../core/steamOSVersion";
-import { getRuntimeClassMap } from "../core/webpackCompat";
 import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
 
@@ -263,11 +262,11 @@ export function HomeShelves() {
     prevEnabledRef.current = settings.enabled;
   }, [settings?.enabled]);
 
-  // Apply hideRecents — only actually hide when the plugin is enabled and has
-  // visible shelves.  Otherwise force recents visible regardless of the toggle
-  // (we never change the stored setting, only the DOM state).
-  //
-  // When `recentsReplaceSource` is on, the native recents area remains
+  /* Apply hideRecents — only actually hide when the plugin is enabled and has
+     visible shelves.  Otherwise force recents visible regardless of the toggle
+     (we never change the stored setting, only the DOM state).
+
+     When `recentsReplaceSource` is on, the native recents area remains */
   /* visible on purpose — our router patch is driving its games array — so
      the visual hide is skipped. First visible shelf is forced-expanded only
      when we're truly hiding (preserves the current behaviour).
@@ -470,18 +469,11 @@ export function HomeShelves() {
     }
   }
 
-  // Placement:
-  // - — when `unifiedListEnabled` is on, ignore the
-  //   atBottom / hideRecents split and emit shelves in the explicit
-  //   `allShelvesOrder` (ids the user reorganised in the Prateleiras
-  //   detail panel). Anything not in the array falls to the end in
-  //   its original sub-list order so newly-added shelves still
-  //   appear. The interleave / order-css path skips entirely in
-  /*   unified mode — the user picked the order, we honour it.
-     - atBottom: normal then smart
-     - hideRecents + !replace-injecting: normal then smart in DOM, CSS
-       `order` restores visual interleave
-     - else: smart then normal */
+  /* Placement:
+     - unifiedListEnabled: emit shelves in explicit `allShelvesOrder` (user's
+       reorder; unlisted fall to the end), skipping the interleave/order-css path.
+     - atBottom: normal then smart. hideRecents + !replace: normal then smart in
+       DOM with CSS `order` restoring interleave. else: smart then normal. */
   const unifiedOn = (settings as any).unifiedListEnabled === true;
   const allShelvesOrder: string[] = ((settings as any).allShelvesOrder ?? []) as string[];
   const normalFirst = settings.smartShelvesAtBottom

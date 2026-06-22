@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { Focusable, GamepadButton } from "../../runtime/host/decky";
+import { Focusable } from "../../runtime/host/decky";
 import { dispatchHomeButtonDown } from "../../runtime/homeInputBus";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
@@ -245,11 +245,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
       requestAnimationFrame(tryClick);
     } catch {}
   }, [appid, previewMode, item.onMenuButton]);
-  // `isLibraryGame` = appid resolves to an AppOverview in the local Steam
-  // store. True for any game the user owns (installed or not, Steam or
-  // non-Steam shortcut). False for:
-  //   - decorations (synthetic cards have no appid)
-  //   - online items (wishlist / store cards the user doesn't own — Steam
+  /* `isLibraryGame` = appid resolves to an AppOverview in the local Steam
+     store. True for any game the user owns (installed or not, Steam or
+     non-Steam shortcut). False for:
+       - decorations (synthetic cards have no appid)
+       - online items (wishlist / store cards the user doesn't own — Steam */
   /*     never adds them to the local appStore)
        - friends-playing non-owned (same: not in user library)
 
@@ -649,15 +649,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           )}
         </div>
       )}
-      {/* Transform-target div — mirrors native card structure where
-          theme CSS targets `_1HIFNGSxh4-jOhPiDynR4C > div:first-child`
-          (TiltedHome's perspective + rotateY, ArtHero modules, etc).
-          The Focusable wrapper above wears the nativeCardWrapper class
-          via resolveNativeCardClass, so themes that walk
-          "wrapper > div" land HERE without us replicating their CSS.
-          Inline `height: cssArtH` matches native's inline-styled
-          first-child div (native: `style="height: 201px;"`) so the
-          tilt pivot + perspective frame match the native fan exactly. */}
+      {/* Transform-target div — mirrors native card structure where theme CSS
+          targets `_1HIFNGSxh4-jOhPiDynR4C > div:first-child` (TiltedHome
+          perspective+rotateY, ArtHero, etc). The Focusable above wears
+          nativeCardWrapper (via resolveNativeCardClass) so "wrapper > div" themes
+          land here; inline `height: cssArtH` matches native so the tilt frame lines up. */}
       <div style={{ height: cssArtH, position: 'relative' }}>
         <div
           className="ds-card-art"
@@ -745,12 +741,10 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             {item.name}
           </div>
         )}
-        {/* Non-library items (wishlist / store / friends-playing non-owned)
-            have no meaningful install state — Steam doesn't track them, so
-            "Not installed" / install glyph would be misleading. Hidden per
-            card so the rule fires only on the actually-non-owned ones in a
-            mixed composite shelf; owned cards in the same row keep their
-            indicator + status text. */}
+        {/* Non-library items (wishlist / store / non-owned friends-playing) have
+            no meaningful install state, so "Not installed" / the install glyph
+            would mislead. Hidden per card so the rule fires only on the actually-
+            non-owned ones in a mixed composite shelf; owned cards keep theirs. */}
         {!hideStatusLine && isLibraryGame && (() => {
           const hasUpdate = item.updatePending === true;
           const isInstalled = item.isInstalled === true;
@@ -815,13 +809,11 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
           shelf in `PerShelfHero` — tied to the currently focused card —
           not per card. See `PerShelfHero.tsx` for the focused-card logo
           + description render path. */}
-      {/* Editor picker markers — siblings of the art / label, anchored
-          to the Focusable's positioned wrapper. The colored ring uses
-          the SAME box-shadow shape as the native focus ring (see
-          shelfStyles.ts: `box-shadow: 0 0 0 2px ...`) so it sits at
-          the OUTSIDE edge of the card — matches the focus position
-          exactly across every preview tab. Dim layer + corner icon
-          stay inside the art for hidden-state readability. */}
+      {/* Editor picker markers — siblings of the art / label, anchored to the
+          Focusable's positioned wrapper. The colored ring reuses the native
+          focus ring's box-shadow (shelfStyles.ts: `box-shadow: 0 0 0 2px ...`)
+          so it sits at the card's OUTSIDE edge across every preview tab. Dim
+          layer + corner icon stay inside the art for hidden-state readability. */}
       {item.selectionMark && (
         <div
           aria-hidden='true'

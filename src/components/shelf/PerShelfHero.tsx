@@ -140,10 +140,10 @@ function resolveHeroSrcFromCache(url0: string | null, urls: ReadonlyArray<string
 // shelf under forceCssLoaderThemes.
 const HERO_HEIGHT = '70vh';
 
-// Module-level shared discovery of the active CSS Loader theme's hero
-// class chain. Before: each PerShelfHero instance owned its own MO on
-// the head + ran an `img` scan + getComputedStyle walk on EVERY head
-// mutation. With N hero shelves, every CSS Loader tick triggered N
+/* Module-level shared discovery of the active CSS Loader theme's hero
+   class chain. Before: each PerShelfHero instance owned its own MO on
+   the head + ran an `img` scan + getComputedStyle walk on EVERY head
+   mutation. With N hero shelves, every CSS Loader tick triggered N */
 /* expensive scans — the source of the user-reported "shelves take too
    long to load / reload too often" regression once per-shelf hero
    went beyond the first shelf. Now: ONE MO + ONE scan, results pushed
@@ -907,10 +907,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         <div className={nativeHeroInnerClass ?? undefined} style={{
           position: 'absolute', inset: 0, overflow: 'hidden',
           opacity: activeSlot === 'A' ? 1 : 0,
-          // 250ms cross-fade (was 500ms) — the long version felt sluggish
-          // when the user d-padded onto a card and waited for the hero to
-          // visibly arrive. Quarter-second matches Steam's own UI cadence
-          // closely enough that it reads as instant without flicker.
+          /* 250ms cross-fade (was 500ms) — the long version felt sluggish
+             when the user d-padded onto a card and waited for the hero to
+             visibly arrive. Quarter-second matches Steam's own UI cadence
+             closely enough that it reads as instant without flicker. */
           /* Match Steam's native hero swap: 0.5s cubic-bezier
              (0.17,0.45,0.14,0.83) for opacity, plus a subtle scale
              dip from 1.03 → 1.0 on the incoming slot so the new image
@@ -1001,13 +1001,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
         </div>
       )}
     </div>}
-    {/* Game-info overlay — sibling of the hero art (NOT a child: the art
-        div is z-index:-1 and forms a stacking context that would trap the
-        label behind the cards). Positioned absolute inside the shelf,
-        just above the card row, so it follows this shelf naturally.
-        Only on promoted (full-page ArtHero) shelves — there the in-card
-        labels + title are hidden by CSS, so the overlay replaces them;
-        on normal shelves it would stack on top of the visible texts. */}
+    {/* Game-info overlay — sibling of the hero art (NOT a child: the z-index:-1
+        art div forms a stacking context that would trap the label behind cards).
+        Positioned absolute just above the card row so it follows this shelf. Only
+        on promoted (full-page ArtHero) shelves — the in-card labels/title are
+        CSS-hidden there so this replaces them; on normal shelves it'd stack. */}
     {showLabel && (
       <div
         ref={labelMountRef}

@@ -1,4 +1,3 @@
-import React from "react";
 import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { openManagedModal } from "../../qam/common/openManagedModal";

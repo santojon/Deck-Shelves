@@ -54,6 +54,8 @@
     "verify:package": "python3 scripts/build/verify-package.py",
     "deploy:deck": "bash scripts/deploy/deploy-deck.sh",
     "deploy:deck:hard": "bash scripts/deploy/deploy-deck.sh --hard",
+    "deploy:deck:win": "powershell -ExecutionPolicy Bypass -File scripts/deploy/deploy-deck.ps1",
+    "deploy:deck:win:hard": "powershell -ExecutionPolicy Bypass -File scripts/deploy/deploy-deck.ps1 -Hard",
     "upload:deckzip": "bash scripts/deploy/upload-deck-zip.sh",
     "watch:deck": "node scripts/deck/watch-deck.mjs",
     "watch:deck:hard": "node scripts/deck/watch-deck.mjs --hard",
@@ -81,7 +83,10 @@
     "update:pnpm": "bash scripts/devtools/update.sh pnpm",
     "update:safe": "bash scripts/devtools/update.sh safe",
     "update:major": "bash scripts/devtools/update.sh major",
-    "update:verify": "bash scripts/devtools/update.sh verify"
+    "update:verify": "bash scripts/devtools/update.sh verify",
+    "update:api": "pnpm --filter @deck-shelves/api run update",
+    "update:deckprobe": "pnpm --filter deckprobe run update",
+    "update:packages": "pnpm run update:api && pnpm run update:deckprobe"
   },
   "repository": {
     "type": "git",

@@ -53,11 +53,11 @@ function clickOverlayDismissButtons(doc: Document): void {
   });
 }
 
-// Best-effort close of QAM, Steam main menu, side menus, context menus
-// and most modal portals. Returns a Promise that resolves after the
-// overlays have finished unmounting (polls up to timeoutMs).
-//
-// Important: do NOT synthesise an Escape key here — Steam's gamepad
+/* Best-effort close of QAM, Steam main menu, side menus, context menus
+   and most modal portals. Returns a Promise that resolves after the
+   overlays have finished unmounting (polls up to timeoutMs).
+
+   Important: do NOT synthesise an Escape key here — Steam's gamepad */
 /* layer interprets a bare Escape in BP as "open main menu", which is
    the opposite of what we want when opening Quick Search / Side Nav.
    Dismissing via Navigation.CloseSideMenus + clicking visible close

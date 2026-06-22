@@ -1,7 +1,7 @@
-// HostApi contract (v1.0.0) — additive-only after this point.
-//
-// Capability interfaces consumed by the Deck Shelves bundle. Adapters
-// fulfil this shape so the bundle's call sites don't depend on
+/* HostApi contract (v1.0.0) — additive-only after this point.
+
+   Capability interfaces consumed by the Deck Shelves bundle. Adapters
+   fulfil this shape so the bundle's call sites don't depend on */
 /* `@decky/*` imports directly:
      - `DeckyHostApi` (Decky Loader runtime; only place new `@decky/*`
        imports may be added).
