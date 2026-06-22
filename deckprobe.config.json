@@ -21,7 +21,7 @@
     "scripts/deckprobe-ext/diag"
   ],
   "uitests_suites_dir": "scripts/deckprobe-ext/uitests/suites",
-  "screenshots_script": "scripts/deckprobe-ext/screenshots/screenshot.py",
+  "screenshots_scenarios_dir": "scripts/deckprobe-ext/screenshots/scenarios",
   "screenshots_dir":    "assets/screenshots",
   "perf_bench_config":  "scripts/deckprobe-ext/perf-bench.config.json"
 }

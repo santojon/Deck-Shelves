@@ -295,3 +295,109 @@ Concurrent `saveSettings` calls coalesce: a save in flight latches the next payl
 ### Sidecar lifecycle (`components/qam/qamExpandedStore.ts` + `DeckQAMSettings.tsx`)
 
 QAM-expanded state is per-session: backed by `sessionStorage` in the QAM popup so it never survives a Steam-menu-over-QAM cycle that destroys the popup, and the `DeckQAMSettings` mount effect calls `resetQamExpanded()` to wipe even the persisted flag every time the plugin tab mounts. While the sidecar is expanded, a 300 ms poll watches three orthogonal signals — `document.hasFocus()`, a set-interval gap heuristic (catches Chromium-throttled inactive popups), and `m_MenuStore.m_eOpenSideMenu` change relative to the value captured at expand — and collapses on any of them. Multiple browser-lifecycle listeners (`visibilitychange`, `focus`, `pagehide`, `freeze`, `resume`) add belt-and-suspenders coverage. `SidecarPanel` itself bails (`return null`) when `controller.settings` is unhydrated so a freshly-remounted tab never renders the "open but empty body" bug-state.
+
+## Home internals
+
+| File | Role |
+|---|---|
+| `runtime/homePatch.tsx` | Mounts `#deck-shelves-home-root` next to native recents; `HomeBoundary` ErrorBoundary; hide helpers for recents/tabs |
+| `runtime/recentsReplace.tsx` | Optional overlay that swaps native recents for a DS shelf (L1→L2→L3 `afterPatch` chain); WeakSet dedup, crash threshold, kill-switch |
+| `components/HomeInject.tsx` | React side of the mount; `ShelvesContainer`; first-shelf promotion to recents slot |
+| `components/Shelf.tsx` | Per-shelf appId resolve (memoized + generation-id cancel) |
+| `components/DeckRow.tsx` | Horizontal row: title + collapse + scroll center on focus |
+| `components/shelf/GameCard.tsx` | Game tile (image fallback chain, label, badges, compat) |
+| `components/shelf/MoreCard.tsx` | "View more in library" trailing tile (non-smart shelves) |
+| `components/shelf/RefreshCard.tsx` | "Refresh" trailing tile for refreshable smart shelves |
+| `components/shelf/HeroBackground.tsx` | Two-layer cross-fade hero art; ArtHero label overlay when promoted |
+| `components/home/navPatches/reparent.ts` | `reparentNavTreeNodes` — moves DS focus nodes between recents and tabs |
+| `components/home/navPatches/menuButton.ts` | MENU button interception → game context menu |
+| `components/home/navPatches/edgeNavigation.ts` | L/R throttle + DOWN tilt guard (when home tabs hidden) |
+| `components/home/navPatches/verticalBridge.ts` | DOWN/UP bridge between mount and native neighbors |
+
+### Recents replacement pipeline (`recentsReplaceSource = true`)
+
+```
+routerHook.addPatch("/library/home", patchFn)
+        │
+        ▼
+   [L1]  afterPatch(props.children, "type")        permanent — wraps the route's child Type
+        │  on each render, re-applies L2/L3 (transient per-render Types):
+        ▼
+   [L2]  afterPatch(ret.type, "type")              home panel — guarded by patchedTypes WeakSet
+        │  walks tree → finds recents component:
+        ▼
+   [L3]  afterPatch(recents.type, "type")          recents component — also WeakSet-guarded
+        │
+        ▼
+   mutateRecentsElement(ret3, shelf, appIds)
+        │  • holder.props.apps ← appIds
+        │  • holder.props.showFeaturedItem ← from shelf highlight toggles
+        ▼
+   render()                                        native cross-fade preserved (no callback re-entry)
+
+   ─── safety nets ─────────────────────────────────────────────────────────
+   patchedTypes: WeakSet<object>                   dedup against memo/forwardRef sharing (3.9+)
+   crashCount, CRASH_THRESHOLD = 5 / 10 s          fingerprinted errors → markReplaceFailed()
+   markReplaceFailed(reason) → pub/sub             QAM disables toggle + shows banner
+   resetRecentsReplaceFailed()                     QAM "reset crash state" — clears WeakSet too
+```
+
+### Focus nav tree reparent (`reparentNavTreeNodes`)
+
+```
+SteamUIStore.GamepadNavTree
+        │
+        ▼
+   FocusNavController.m_ActiveContext.m_rgGamepadNavigationTrees
+        │
+        ▼
+   tree id = "GamepadUI_Full_Root"
+        │
+        ▼
+   walk(root.m_rgChildren) → find node where Element.className contains "deck-shelves-root"
+        │
+        ├── found, already under target ─────► return 0    (steady state — no churn)
+        ├── found, wrong parent ─────────────► splice into target.m_rgChildren
+        │                                       between recents and tabs
+        ▼
+   guarded by:
+     • mount-attached MutationObserver
+     • parent MutationObserver
+     • 3 s poll fallback (was 750 ms — throttled in 1.6.x)
+     • focusin listener
+   cleanup on unmount restores original parent ordering
+```
+
+### First-shelf promotion
+
+```
+hideRecentsSetting = true ?  ── no ──► no promotion, no overlay
+        │ yes
+        ▼
+   firstVisibleId scan:
+     iterate shelves[] in CONFIG order (not DOM order)
+     skip type === "smart"
+     pick first with data-shelfid currently in DOM   (skips empty/0-app shelves)
+        │
+        ▼
+   target shelf gets forceExpanded = true  (collapse pin while in slot)
+        │
+        ▼
+   isCssLoaderActive() ?  ── no ──► layout-only promotion (no class injection)
+        │ yes
+        ▼
+   target.setAttribute("data-ds-recents-slot", "true")
+   target.classList.add(getNativeRecentsClassName(mountEl))   ← read live from previousElementSibling
+                                                                ADDITIVE — never strips ds-* classes
+        │
+        ▼
+   isArtHeroActive() ?  ── no ──► HeroBackground only (cross-fade two-layer)
+        │ yes
+        ▼
+   HeroBackground returns null when ArtHero paints its own hero
+   AND
+   HeroBackground renders the focused-card label clone as position:fixed overlay
+     • cloned from .ds-card-label of the focused tile
+     • follows focused card horizontally on row scroll
+     • reactive to runtime CSS Loader theme toggles via MutationObserver on Big Picture <head>
+```
