@@ -319,6 +319,24 @@ export function DeckQAMStyles() {
         color: #fff;
       }
 
+      /* The native Decky ToggleField wrapper paints an opaque slate
+         (rgb(35,38,46)) that ignores the theme. Re-skin every config toggle
+         to the themed "row" surface + border (like the Shortcuts rows), and
+         drop the native bottom separator so the card edge reads cleanly. */
+      .deck-shelves-settings-page .${gamepadDialogClasses.Field}:has([role="checkbox"]) {
+        background: var(--ds-surface, rgba(255, 255, 255, 0.04)) !important;
+        border: 1px solid var(--ds-border, rgba(255, 255, 255, 0.06));
+        border-radius: var(--ds-radius-md, 6px);
+      }
+      .deck-shelves-settings-page .${gamepadDialogClasses.Field}:has([role="checkbox"]).${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
+        display: none;
+      }
+      /* About pages are pure documentation — strip the native Field slate so
+         text items are transparent and follow the theme surface behind them. */
+      .deck-shelves-about .${gamepadDialogClasses.Field} {
+        background: transparent !important;
+      }
+
       /* ───── Shared "card" surface used by Settings details + About
          page + modals. Uses --ds-* tokens so themes can override. */
       .ds-settings-section,

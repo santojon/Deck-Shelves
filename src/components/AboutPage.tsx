@@ -12,6 +12,7 @@ import { OnlinePage } from './about/OnlinePage'
 import { SupportPage } from './about/SupportPage'
 import { FunnelIcon, SortIcon, SparkleIcon, InfoCircleIcon, OnlineIcon } from './icons'
 import { PageHeader } from './ui/PageHeader'
+import { DeckQAMStyles } from './styles/DeckQAMStyles'
 
 // `Tab.title` is typed as `string` but renders any ReactNode at
 // runtime; the cast inlines a leading icon next to the label.
@@ -37,6 +38,7 @@ export function AboutPage() {
       className='deck-shelves-about'
       style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}
     >
+      <DeckQAMStyles />
       <PageHeader title={t('about')} onBack={goBack} active="about" />
       <div style={{ flex: 1, minHeight: 0 }}>
         <Tabs

@@ -45,6 +45,17 @@ export function DeckModalStyles() {
         right: 0;
       }
 
+      /* Toggle rows: re-skin the native Decky slate to the themed row surface
+         (matches the config/Shortcuts rows) and drop the native separator. */
+      .deck-shelves-modal-scope .${gamepadDialogClasses.Field}:has([role="checkbox"]) {
+        background: var(--ds-surface, rgba(255, 255, 255, 0.04)) !important;
+        border: 1px solid var(--ds-border, rgba(255, 255, 255, 0.06));
+        border-radius: var(--ds-radius-md, 6px);
+      }
+      .deck-shelves-modal-scope .${gamepadDialogClasses.Field}:has([role="checkbox"]).${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
+        display: none;
+      }
+
       .deck-shelves-modal-scope .field-item-container .${gamepadDialogClasses.Field} {
         padding-left: 0;
         padding-right: 0;
