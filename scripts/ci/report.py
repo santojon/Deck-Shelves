@@ -459,42 +459,43 @@ def _rebuild_top_index(reports_root: Path) -> None:
                 break
             except Exception:
                 pass
-        if last:
-            ts      = last.get("ts", "?")
-            overall = last.get("overall", "?").lower()
-            passed  = last.get("passed", 0)
-            last.get("failed", 0)
-            total   = last.get("total",  0)
-            try:
-                dt = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                dt = ts
-            latest_rows.append(
-                f'<tr>'
-                f'<td>{_html.escape(labels[sd])}</td>'
-                f'<td>{_html.escape(dt)}</td>'
-                f'<td><span class="b {overall}">{overall.upper()}</span></td>'
-                f'<td class="num">{passed}/{total}</td>'
-                f'<td><a href="{sd}/index.html">history &rarr;</a></td>'
-                f'</tr>'
-            )
-        else:
-            latest_rows.append(
-                f'<tr><td>{_html.escape(labels[sd])}</td>'
-                f'<td colspan="4" style="color:var(--muted)">No runs yet &nbsp;'
-                f'&mdash;&nbsp; <a href="{sd}/index.html">open &rarr;</a></td></tr>'
-            )
-
+        if not last:
+            # Scope has no runs — omit its card + row entirely.
+            continue
+        ts      = last.get("ts", "?")
+        overall = last.get("overall", "?").lower()
+        passed  = last.get("passed", 0)
+        total   = last.get("total",  0)
+        try:
+            dt = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            dt = ts
+        latest_rows.append(
+            f'<tr>'
+            f'<td>{_html.escape(labels[sd])}</td>'
+            f'<td>{_html.escape(dt)}</td>'
+            f'<td><span class="b {overall}">{overall.upper()}</span></td>'
+            f'<td class="num">{passed}/{total}</td>'
+            f'<td><a href="{sd}/index.html">history &rarr;</a></td>'
+            f'</tr>'
+        )
         section_cards.append(
-            f'<div class="scard">'
+            f'<div class="scard" data-scope="{sd}">'
             f'<h2>{_html.escape(labels[sd])}</h2>'
             f'<p>{_html.escape(descs[sd])}</p>'
             f'<a class="btn" href="{sd}/index.html">Open reports &rarr;</a>'
             f'</div>'
         )
 
-    latest_body = "\n".join(latest_rows)
-    cards_html  = "\n".join(section_cards)
+    # When no scope has any data, show a single placeholder instead of empty
+    # blocks; individual empty scopes are simply omitted above.
+    empty_msg = "No reports yet — run a validation (e.g. `pnpm validate:ci`) to populate this page."
+    cards_html  = "\n".join(section_cards) if section_cards else (
+        f'<p class="empty-note" style="grid-column:1/-1;color:var(--muted);margin:0">{_html.escape(empty_msg)}</p>'
+    )
+    latest_body = "\n".join(latest_rows) if latest_rows else (
+        f'<tr><td colspan="5" style="color:var(--muted)">{_html.escape(empty_msg)}</td></tr>'
+    )
 
     # Mirror the dashboard's client-side augmentation: server-rendered table
     # is the fallback (file:// in Chromium blocks fetch), JS replaces each
@@ -504,6 +505,8 @@ def _rebuild_top_index(reports_root: Path) -> None:
     top_js = r"""
 (function(){
   const SCOPES=[['local','Local'],['ci','CI / Automated'],['release','Release']];
+  const DESCS={local:'Full validation with Steam Deck (deploy + UI tests + perf bench).',ci:'Automated checks without device (typecheck, tests, build, compat).',release:'Release gate: CI checks + packaging + security audit.'};
+  const EMPTY='No reports yet — run a validation (e.g. `pnpm validate:ci`) to populate this page.';
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
   function fmt(ts){
     const m=/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/.exec(ts||'');
@@ -512,22 +515,32 @@ def _rebuild_top_index(reports_root: Path) -> None:
   Promise.all(SCOPES.map(([sd])=>fetch(sd+'/runs-manifest.json',{cache:'no-cache'})
     .then(r=>r.ok?r.json():[]).catch(()=>[])))
   .then(lists=>{
+    // Keep only scopes that actually have runs; omit empty ones, and when
+    // nothing has run at all, show a single placeholder message.
+    const have=SCOPES.map(([sd,label],i)=>({
+      sd,label,runs:(lists[i]||[]).slice().sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')))
+    })).filter(s=>s.runs.length);
+
+    const grid=document.querySelector('.grid');
+    if(grid){
+      grid.innerHTML = have.length
+        ? have.map(s=>`<div class="scard" data-scope="${s.sd}"><h2>${esc(s.label)}</h2><p>${esc(DESCS[s.sd])}</p><a class="btn" href="${s.sd}/index.html">Open reports &rarr;</a></div>`).join('')
+        : `<p class="empty-note" style="grid-column:1/-1;color:var(--muted);margin:0">${esc(EMPTY)}</p>`;
+    }
+
     const tbody=document.querySelector('.latest tbody');
-    if(!tbody)return;
-    const rows=SCOPES.map(([sd,label],i)=>{
-      const runs=lists[i]||[];
-      if(!runs.length){
-        return `<tr><td>${esc(label)}</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="${sd}/index.html">open &rarr;</a></td></tr>`;
-      }
-      runs.sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
-      const last=runs[0];
-      const overall=String(last.overall||'?').toLowerCase();
-      return `<tr><td>${esc(label)}</td><td>${esc(fmt(last.ts))}</td>`+
-             `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
-             `<td class="num">${last.passed||0}/${last.total||0}</td>`+
-             `<td><a href="${sd}/index.html">history &rarr;</a></td></tr>`;
-    });
-    tbody.innerHTML=rows.join('');
+    if(tbody){
+      tbody.innerHTML = have.length
+        ? have.map(s=>{
+            const last=s.runs[0];
+            const overall=String(last.overall||'?').toLowerCase();
+            return `<tr><td>${esc(s.label)}</td><td>${esc(fmt(last.ts))}</td>`+
+                   `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
+                   `<td class="num">${last.passed||0}/${last.total||0}</td>`+
+                   `<td><a href="${s.sd}/index.html">history &rarr;</a></td></tr>`;
+          }).join('')
+        : `<tr><td colspan="5" style="color:var(--muted)">${esc(EMPTY)}</td></tr>`;
+    }
   });
 })();
 """.strip()

@@ -46,9 +46,9 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
               font-weight:700;background:#7c3aed;color:#fff">📊 Open Dashboard &rarr;</a>
   </div>
   <div class="grid">
-<div class="scard"><h2>Local</h2><p>Full validation with Steam Deck (deploy + UI tests + perf bench).</p><a class="btn" href="local/index.html">Open reports &rarr;</a></div>
-<div class="scard"><h2>CI / Automated</h2><p>Automated checks without device (typecheck, tests, build, compat).</p><a class="btn" href="ci/index.html">Open reports &rarr;</a></div>
-<div class="scard"><h2>Release</h2><p>Release gate: CI checks + packaging + security audit.</p><a class="btn" href="release/index.html">Open reports &rarr;</a></div>
+<div class="scard" data-scope="local"><h2>Local</h2><p>Full validation with Steam Deck (deploy + UI tests + perf bench).</p><a class="btn" href="local/index.html">Open reports &rarr;</a></div>
+<div class="scard" data-scope="ci"><h2>CI / Automated</h2><p>Automated checks without device (typecheck, tests, build, compat).</p><a class="btn" href="ci/index.html">Open reports &rarr;</a></div>
+<div class="scard" data-scope="release"><h2>Release</h2><p>Release gate: CI checks + packaging + security audit.</p><a class="btn" href="release/index.html">Open reports &rarr;</a></div>
   </div>
   <div class="latest">
     <h2>Latest run per scope</h2>
@@ -56,7 +56,7 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
       <thead><tr>
         <th>Scope</th><th>Date / Time</th><th>Result</th><th>Pass / Total</th><th></th>
       </tr></thead>
-      <tbody><tr><td>Local</td><td>2026-06-21 10:22:22</td><td><span class="b pass">PASS</span></td><td class="num">10/10</td><td><a href="local/index.html">history &rarr;</a></td></tr>
+      <tbody><tr><td>Local</td><td>2026-06-21 17:39:05</td><td><span class="b fail">FAIL</span></td><td class="num">9/10</td><td><a href="local/index.html">history &rarr;</a></td></tr>
 <tr><td>CI / Automated</td><td>2026-06-08 11:49:12</td><td><span class="b pass">PASS</span></td><td class="num">6/6</td><td><a href="ci/index.html">history &rarr;</a></td></tr>
 <tr><td>Release</td><td>2026-06-12 18:01:01</td><td><span class="b pass">PASS</span></td><td class="num">6/6</td><td><a href="release/index.html">history &rarr;</a></td></tr></tbody>
     </table>
@@ -65,6 +65,8 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
 <footer>Deck Shelves CI &middot; local-only</footer>
 <script>(function(){
   const SCOPES=[['local','Local'],['ci','CI / Automated'],['release','Release']];
+  const DESCS={local:'Full validation with Steam Deck (deploy + UI tests + perf bench).',ci:'Automated checks without device (typecheck, tests, build, compat).',release:'Release gate: CI checks + packaging + security audit.'};
+  const EMPTY='No reports yet — run a validation (e.g. `pnpm validate:ci`) to populate this page.';
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
   function fmt(ts){
     const m=/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/.exec(ts||'');
@@ -73,22 +75,32 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
   Promise.all(SCOPES.map(([sd])=>fetch(sd+'/runs-manifest.json',{cache:'no-cache'})
     .then(r=>r.ok?r.json():[]).catch(()=>[])))
   .then(lists=>{
+    // Keep only scopes that actually have runs; omit empty ones, and when
+    // nothing has run at all, show a single placeholder message.
+    const have=SCOPES.map(([sd,label],i)=>({
+      sd,label,runs:(lists[i]||[]).slice().sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')))
+    })).filter(s=>s.runs.length);
+
+    const grid=document.querySelector('.grid');
+    if(grid){
+      grid.innerHTML = have.length
+        ? have.map(s=>`<div class="scard" data-scope="${s.sd}"><h2>${esc(s.label)}</h2><p>${esc(DESCS[s.sd])}</p><a class="btn" href="${s.sd}/index.html">Open reports &rarr;</a></div>`).join('')
+        : `<p class="empty-note" style="grid-column:1/-1;color:var(--muted);margin:0">${esc(EMPTY)}</p>`;
+    }
+
     const tbody=document.querySelector('.latest tbody');
-    if(!tbody)return;
-    const rows=SCOPES.map(([sd,label],i)=>{
-      const runs=lists[i]||[];
-      if(!runs.length){
-        return `<tr><td>${esc(label)}</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="${sd}/index.html">open &rarr;</a></td></tr>`;
-      }
-      runs.sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
-      const last=runs[0];
-      const overall=String(last.overall||'?').toLowerCase();
-      return `<tr><td>${esc(label)}</td><td>${esc(fmt(last.ts))}</td>`+
-             `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
-             `<td class="num">${last.passed||0}/${last.total||0}</td>`+
-             `<td><a href="${sd}/index.html">history &rarr;</a></td></tr>`;
-    });
-    tbody.innerHTML=rows.join('');
+    if(tbody){
+      tbody.innerHTML = have.length
+        ? have.map(s=>{
+            const last=s.runs[0];
+            const overall=String(last.overall||'?').toLowerCase();
+            return `<tr><td>${esc(s.label)}</td><td>${esc(fmt(last.ts))}</td>`+
+                   `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
+                   `<td class="num">${last.passed||0}/${last.total||0}</td>`+
+                   `<td><a href="${s.sd}/index.html">history &rarr;</a></td></tr>`;
+          }).join('')
+        : `<tr><td colspan="5" style="color:var(--muted)">${esc(EMPTY)}</td></tr>`;
+    }
   });
 })();</script>
 </body>
