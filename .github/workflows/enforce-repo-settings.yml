@@ -79,6 +79,11 @@ jobs:
               { name: "area::ci",           color: "000000", description: ".github/ — workflows / CI" },
               { name: "area::docs",         color: "0075CA", description: "docs/ — documentation" },
               { name: "area::backend",      color: "FFA500", description: "main.py — Python backend" },
+              // Lifecycle / triage labels (used by the stale-digest workflow)
+              { name: "stale",          color: "795548", description: "No recent activity — pending triage or auto-close" },
+              { name: "needs-info",     color: "FBCA04", description: "Waiting on the reporter for more information" },
+              { name: "needs-decision", color: "5319E7", description: "Open question — needs a maintainer decision" },
+              { name: "keep-open",      color: "0E8A16", description: "Exempt from stale automation — never auto-close" },
             ];
 
             // The `documentation` default GitHub label is replaced by area::docs.
