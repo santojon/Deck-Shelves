@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Focusable, ToggleField, DialogButton } from "../../../runtime/host/decky";
 import { getUsageSummary, getUsage, clearUsage, flushUsage } from "../../../steam/usageTracking";
 import { dailyTotals } from "../../../domain/usageStats";
-import { ComboBarsTrend, DayAxis, StackedBars, AreaTrend, TopBarChart, DonutChart, ChartLegend, SERIES_COLORS } from "./UsageCharts";
+import { ComboBarsTrend, DayAxis, StackedBars, AreaTrend, TopBarChart, DonutChart, ChartLegend, TrendKpi, SERIES_COLORS } from "./UsageCharts";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { getExternalStatisticsProviders, type StatisticsEntry } from "../../../core/pluginApi";
 import { SettingsSection } from "../../ui/SettingsSection";
@@ -41,7 +41,10 @@ const SUGGESTION_STYLE = `
 .ds-stat-sg[aria-disabled="true"]{opacity:.55}
 .ds-stat-block{background:var(--ds-surface,rgba(255,255,255,0.05));border:1px solid var(--ds-border,rgba(255,255,255,0.12));border-radius:10px;padding:10px 12px;flex:1 1 0;min-width:140px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px}
 .ds-stat-block-title{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
-.ds-chart-block{background:var(--ds-surface,rgba(255,255,255,0.05));border:1px solid var(--ds-border,rgba(255,255,255,0.12));border-radius:10px;padding:10px 12px;flex:1 1 calc(50% - 10px);min-width:220px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px}
+.ds-chart-block{background:var(--ds-surface,rgba(255,255,255,0.05));border:1px solid var(--ds-border,rgba(255,255,255,0.12));border-radius:10px;padding:10px 12px;flex:1 1 calc(50% - 10px);min-width:200px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px}
+.ds-chart-block.span-third{flex-basis:calc(33.333% - 10px)}
+.ds-chart-block.span-full{flex-basis:100%}
+.ds-chart-block.span-kpi{flex-basis:calc(25% - 10px);min-width:132px}
 .ds-chart-block-title{font-size:12px;font-weight:600;opacity:.85;margin-bottom:4px}
 `;
 
@@ -324,6 +327,10 @@ const CARD_TYPE_KEY: Record<string, string> = {
   nonsteam: "settings_statistics_cardtype_nonsteam",
   store: "settings_statistics_cardtype_store",
   wishlist: "settings_statistics_cardtype_wishlist",
+  featured: "settings_statistics_cardtype_featured",
+  decorative: "settings_statistics_cardtype_decorative",
+  hidden: "settings_statistics_cardtype_hidden",
+  normal: "settings_statistics_cardtype_normal",
 };
 const FEATURE_KEY: Record<string, string> = {
   search: "settings_statistics_feature_search",
@@ -332,11 +339,38 @@ const FEATURE_KEY: Record<string, string> = {
   refresh: "settings_statistics_feature_refresh",
   see_more: "settings_statistics_feature_see_more",
   profile: "settings_statistics_feature_profile",
+  highlight: "settings_statistics_feature_highlight",
+  hide: "settings_statistics_feature_hide",
+  shelf_create: "settings_statistics_feature_shelf_create",
+  shelf_delete: "settings_statistics_feature_shelf_delete",
+  import: "settings_statistics_feature_import",
+  export: "settings_statistics_feature_export",
 };
 
-function ChartBlock({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+/* Card-composition snapshot from the current settings (not launches) — counts
+   the special-state cards the user configures: featured (per-card highlights +
+   highlight-first), decorative (synthetic cards) and hidden. Read once from
+   the already-loaded settings, so no extra tracking on hot paths. */
+// eslint-disable-next-line complexity
+function cardComposition(settings: any): Array<{ label: string; key: string; value: number }> {
+  const shelves = [...(settings?.shelves ?? []), ...(settings?.smartShelves ?? [])];
+  let featured = 0, decorative = 0, hidden = 0;
+  for (const sh of shelves) {
+    featured += (sh?.highlightedAppIds?.length ?? 0) + (sh?.highlightFirst ? 1 : 0);
+    decorative += sh?.syntheticCards?.length ?? 0;
+    hidden += sh?.hiddenAppIds?.length ?? 0;
+  }
+  return [
+    { key: "featured", label: "featured", value: featured },
+    { key: "decorative", label: "decorative", value: decorative },
+    { key: "hidden", label: "hidden", value: hidden },
+  ].filter((r) => r.value > 0);
+}
+
+function ChartBlock({ title, subtitle, span, children }: { title: string; subtitle?: string; span?: "half" | "third" | "full"; children: React.ReactNode }) {
+  const cls = span === "third" ? "ds-chart-block span-third" : span === "full" ? "ds-chart-block span-full" : "ds-chart-block";
   return (
-    <Focusable className="ds-chart-block" focusWithinClassName="gpfocuswithin" onActivate={() => {}} noFocusRing={false} style={{ outline: "none" }}>
+    <Focusable className={cls} focusWithinClassName="gpfocuswithin" onActivate={() => {}} noFocusRing={false} style={{ outline: "none" }}>
       <div className="ds-chart-block-title">{title}</div>
       {children}
       {subtitle ? <div style={{ fontSize: 10, opacity: 0.5, marginTop: 3 }}>{subtitle}</div> : null}
@@ -344,7 +378,21 @@ function ChartBlock({ title, subtitle, children }: { title: string; subtitle?: s
   );
 }
 
+// Trend-only block: a big current-period number with the previous period as
+// reference and a direction arrow (UsageCharts.TrendKpi). 4-up on a row.
+function KpiCard({ title, subtitle, value, refValue }: { title: string; subtitle: string; value: number; refValue: number }) {
+  return (
+    <Focusable className="ds-chart-block span-kpi" focusWithinClassName="gpfocuswithin" onActivate={() => {}} noFocusRing={false} style={{ outline: "none" }}>
+      <div className="ds-chart-block-title">{title}</div>
+      <TrendKpi value={value} refValue={refValue} />
+      <div style={{ fontSize: 10, opacity: 0.5, marginTop: 3 }}>{subtitle}</div>
+    </Focusable>
+  );
+}
+
+// eslint-disable-next-line complexity
 function TrendsSection({ t, controller }: { t: (k: string) => string; controller: StatisticsDetailProps["controller"] }) {
+  const [pctMode, setPctMode] = useState(false);
   const { series, summary } = useMemo(() => {
     flushUsage();
     return { series: dailyTotals(getUsage(), Date.now(), 14), summary: getUsageSummary() };
@@ -363,6 +411,7 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
     .filter((r): r is [string, number] => r[0] != null);
   const topFeatures = top(summary.featureUse).map(([k, v]) => [FEATURE_KEY[k] ? t(FEATURE_KEY[k]) : k, v] as [string, number]);
   const cardTypes = top(summary.cardLaunches).map(([k, v], i) => ({ label: CARD_TYPE_KEY[k] ? t(CARD_TYPE_KEY[k]) : k, value: v, color: PIE_COLORS[i % PIE_COLORS.length] }));
+  const composition = cardComposition(controller.settings).map((r, i) => ({ label: CARD_TYPE_KEY[r.key] ? t(CARD_TYPE_KEY[r.key]) : r.label, value: r.value, color: PIE_COLORS[(i + 2) % PIE_COLORS.length] }));
 
   let run = 0;
   const cumulative = series.map((p) => (run += p.launches + p.views + p.features));
@@ -373,42 +422,71 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
     { label: t("settings_statistics_usage_features"), color: SERIES_COLORS.features },
   ];
 
+  // Recent half vs the half before it → the KPI cards' direction/percentage.
+  const half = Math.floor(series.length / 2) || 1;
+  const sumOf = (pts: typeof series, k: "launches" | "views" | "features") => pts.reduce((a, p) => a + p[k], 0);
+  const totalOf = (pts: typeof series) => pts.reduce((a, p) => a + p.launches + p.views + p.features, 0);
+  const recent = series.slice(half), prev = series.slice(0, half);
+  const kpiSub = t("settings_statistics_trends_kpi_window");
+  const mode = pctMode ? "pct" : "raw";
+  const pctToggle = (
+    <DialogButton
+      onClick={() => setPctMode((v) => !v)}
+      onOKButton={() => setPctMode((v) => !v)}
+      style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: 34, padding: 0, justifyContent: "center", fontWeight: 800 }}
+    >
+      {pctMode ? "%" : "#"}
+    </DialogButton>
+  );
+
   return (
-    <CollapsibleArea title={t("settings_statistics_trends")}>
+    <CollapsibleArea title={t("settings_statistics_trends")} actions={hasData ? pctToggle : undefined}>
       {!hasData ? (
         <div style={{ fontSize: 12, opacity: 0.6 }}>{t("settings_statistics_usage_empty")}</div>
       ) : (
         <Focusable flow-children="horizontal" style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          <ChartBlock title={t("settings_statistics_chart_activity")} subtitle={periodLabel}>
+          <KpiCard title={t("settings_statistics_usage_launches")} subtitle={kpiSub} value={sumOf(recent, "launches")} refValue={sumOf(prev, "launches")} />
+          <KpiCard title={t("settings_statistics_trends_views")} subtitle={kpiSub} value={sumOf(recent, "views")} refValue={sumOf(prev, "views")} />
+          <KpiCard title={t("settings_statistics_usage_features")} subtitle={kpiSub} value={sumOf(recent, "features")} refValue={sumOf(prev, "features")} />
+          <KpiCard title={t("settings_statistics_trends_total")} subtitle={kpiSub} value={totalOf(recent)} refValue={totalOf(prev)} />
+          <ChartBlock title={t("settings_statistics_chart_activity")} subtitle={periodLabel} span="half">
             <ComboBarsTrend points={series} />
             <DayAxis points={series} />
             <ChartLegend items={lineLegend} />
           </ChartBlock>
-          <ChartBlock title={t("settings_statistics_chart_breakdown")} subtitle={periodLabel}>
+          <ChartBlock title={t("settings_statistics_chart_breakdown")} subtitle={periodLabel} span="half">
             <StackedBars points={series} keys={["launches", "views", "features"]} />
             <DayAxis points={series} />
             <ChartLegend items={lineLegend} />
           </ChartBlock>
-          <ChartBlock title={t("settings_statistics_chart_cumulative")} subtitle={periodLabel}>
+          <ChartBlock title={t("settings_statistics_chart_cumulative")} subtitle={periodLabel} span="third">
             <AreaTrend values={cumulative} color={SERIES_COLORS.launches} />
             <DayAxis points={series} />
           </ChartBlock>
           {cardTypes.length > 0 && (
-            <ChartBlock title={t("settings_statistics_usage_card_types")}>
+            <ChartBlock title={t("settings_statistics_usage_card_types")} span="third">
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <DonutChart data={cardTypes} />
                 <ChartLegend items={cardTypes.map((d) => ({ label: d.label, color: d.color }))} />
               </div>
             </ChartBlock>
           )}
+          {composition.length > 0 && (
+            <ChartBlock title={t("settings_statistics_card_composition")} span="third">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <DonutChart data={composition} />
+                <ChartLegend items={composition.map((d) => ({ label: d.label, color: d.color }))} />
+              </div>
+            </ChartBlock>
+          )}
           {topShelves.length > 0 && (
-            <ChartBlock title={t("settings_statistics_usage_top_shelves")}>
-              <TopBarChart rows={topShelves} color={SERIES_COLORS.views} />
+            <ChartBlock title={t("settings_statistics_usage_top_shelves")} span="third">
+              <TopBarChart rows={topShelves} color={SERIES_COLORS.views} mode={mode} />
             </ChartBlock>
           )}
           {topFeatures.length > 0 && (
-            <ChartBlock title={t("settings_statistics_usage_features")}>
-              <TopBarChart rows={topFeatures} color={SERIES_COLORS.features} />
+            <ChartBlock title={t("settings_statistics_usage_features")} span="half">
+              <TopBarChart rows={topFeatures} color={SERIES_COLORS.features} mode={mode} />
             </ChartBlock>
           )}
         </Focusable>

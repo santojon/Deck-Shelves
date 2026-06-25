@@ -36,6 +36,9 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ fontSize: 11, opacity: 0.55, padding: "0 4px 8px" }}>
+        {t("settings_backup_path_hint").replace("{{path}}", getUserDownloadsDir())}
+      </div>
       <BackupGroup
         title={t("settings_backup_shelves_title")}
         description={t("settings_backup_shelves_desc")}
@@ -68,9 +71,6 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
         onExport={exportCustom}
         onImport={importCustom}
       />
-      <div style={{ fontSize: 11, opacity: 0.55, padding: "4px 4px 0" }}>
-        {t("settings_backup_path_hint").replace("{{path}}", getUserDownloadsDir())}
-      </div>
     </Focusable>
   );
 }

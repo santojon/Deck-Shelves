@@ -21,7 +21,9 @@ import { ActionButton } from './qam/common/ActionButton'
 import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButton'
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
-import { formatComboForDisplay, resolveBindings } from '../runtime/buttonBindings'
+import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState } from '../runtime/buttonBindings'
+import { subscribeControllerInput } from '../runtime/controllerInput'
+import { getCurrentSettings } from '../store/settingsStore'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
@@ -531,6 +533,23 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     g.__ds_dev_open_sidecar = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
     g.__ds_dev_close_sidecar = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
     return () => { try { delete g.__ds_dev_open_sidecar; delete g.__ds_dev_close_sidecar; } catch {} };
+  }, [setQamExpanded]);
+  /* Remappable "open sidecar" shortcut (default R1+R1). While the QAM is open
+     the combo toggles the sidecar panel — mirrors the search / side-nav combo
+     listeners. Raw stream so it fires regardless of where gpfocus sits. The
+     ref lets the single subscription read the latest expanded state without
+     re-subscribing on every toggle. */
+  const sidecarMatcherRef = useRef(createMatcherState());
+  const qamExpandedRef = useRef(qamExpanded);
+  qamExpandedRef.current = qamExpanded;
+  useEffect(() => {
+    return subscribeControllerInput((e) => {
+      if (!e.pressed) return;
+      const combo = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSidecar;
+      if (!combo) return;
+      if (!matchEvent({ button: e.button }, parseRawCombo(combo), sidecarMatcherRef.current)) return;
+      fireQamExpand(getQamWindow(), !qamExpandedRef.current, setQamExpanded);
+    });
   }, [setQamExpanded]);
   /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
      without explicit hooks the sidecar stays expanded when the user opens

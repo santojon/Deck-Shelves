@@ -23,6 +23,7 @@ import {
   onNativeDimsChange,
 } from "./shelf/shelfStyles";
 import { getCurrentSettings, saveSettings } from "../store/settingsStore";
+import { trackFeature } from "../steam/usageTracking";
 import { patchShelfInSettings } from "../domain/settings";
 import { PerShelfHero } from "./shelf/PerShelfHero";
 
@@ -99,6 +100,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     if (!sh) return;
     const h: number[] = sh.hiddenAppIds ?? [];
     const next = h.includes(appid) ? h.filter((id) => id !== appid) : [...h, appid];
+    try { trackFeature("hide"); } catch {}
     void saveSettings(patchShelfInSettings(s, shelfId, { hiddenAppIds: next }));
   }, [shelfId]);
   try { mark?.(`deckRow.render:${shelfId ?? 'unknown'}:start`); } catch (e) { logInfo("HOME", "mark failed", String(e)); }

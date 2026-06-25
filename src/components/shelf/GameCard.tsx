@@ -6,7 +6,7 @@ import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCo
 import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls, getAppAssetCacheKey } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
-import { trackCardLaunch, trackShelfView } from "../../steam/usageTracking";
+import { trackCardLaunch, trackShelfView, trackFeature } from "../../steam/usageTracking";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -68,6 +68,7 @@ export function toggleCardHighlight(shelfId: string | undefined, appid: number):
   if (!shelfId || !appid) return;
   const s = getCurrentSettings();
   if (!s) return;
+  try { trackFeature("highlight"); } catch {}
   // Smart shelves carry their own settings array — fall back to it when
   // the id doesn't match a regular shelf so Y-button toggle works on
   // friends_playing / spare_time / etc cards too.

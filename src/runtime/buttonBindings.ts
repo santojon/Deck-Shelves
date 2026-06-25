@@ -154,7 +154,7 @@ export function matchEvent(
 export function findCollisions(b: ButtonBindings): string[][] {
   const seen = new Map<string, string[]>();
   const fields: Array<keyof ButtonBindings> = [
-    "cardHideRemove", "cardHighlightToggle", "cardQuickLaunch", "navSearch", "navSideNav",
+    "cardHideRemove", "cardHighlightToggle", "cardQuickLaunch", "navSearch", "navSideNav", "navSidecar",
   ];
   for (const f of fields) {
     const v = b[f];
@@ -175,6 +175,7 @@ export const DEFAULT_BINDINGS: Required<ButtonBindings> = {
   cardQuickLaunch: "VIEW",
   navSearch: "L1+R1",
   navSideNav: "L1+L1",
+  navSidecar: "R1+R1",
 };
 
 // Render a stored combo string for display in user-facing hints.
@@ -202,6 +203,7 @@ export function resolveBindings(b: ButtonBindings | null | undefined, disabled?:
       cardQuickLaunch: pick("cardQuickLaunch", undefined, DEFAULT_BINDINGS.cardQuickLaunch),
       navSearch: pick("navSearch", undefined, DEFAULT_BINDINGS.navSearch),
       navSideNav: pick("navSideNav", undefined, DEFAULT_BINDINGS.navSideNav),
+      navSidecar: pick("navSidecar", undefined, DEFAULT_BINDINGS.navSidecar),
     };
   }
   return {
@@ -210,5 +212,6 @@ export function resolveBindings(b: ButtonBindings | null | undefined, disabled?:
     cardQuickLaunch: pick("cardQuickLaunch", b.cardQuickLaunch, DEFAULT_BINDINGS.cardQuickLaunch),
     navSearch: pick("navSearch", b.navSearch || undefined, DEFAULT_BINDINGS.navSearch),
     navSideNav: pick("navSideNav", b.navSideNav || undefined, DEFAULT_BINDINGS.navSideNav),
+    navSidecar: pick("navSidecar", b.navSidecar || undefined, DEFAULT_BINDINGS.navSidecar),
   };
 }

@@ -230,7 +230,7 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
 
   const builtInLabel = t("settings_integration_builtin");
   return (
-    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       {Array.from(grouped.entries()).map(([group, items], i) => (
         <CollapsibleSection key={group} id={`integ-${group}`} title={group} count={items.length} initialOpen={i === 0}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

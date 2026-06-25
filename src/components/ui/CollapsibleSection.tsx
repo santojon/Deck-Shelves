@@ -39,23 +39,17 @@ export function CollapsibleSection({
     return next
   })
   const chevron = <span style={{ fontSize: 9, color: 'var(--ds-text-dim, #b8bcbf)' }}>{open ? '▲' : '▼'}</span>
+  // The box (border/rounded background) + content padding only apply in the
+  // settings page; the QAM keeps the flat look. Both are CSS-scoped (see
+  // DeckQAMStyles) so the class here is the only difference.
   return (
-    <div
-      className='ds-collapsible-box'
-      style={{
-        marginTop: 8,
-        background: 'var(--ds-surface, rgba(255,255,255,0.04))',
-        border: '1px solid var(--ds-border, rgba(255,255,255,0.08))',
-        borderRadius: 10,
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        {/* The title bar is ONE focus stop that toggles the section (as before).
-            Buttons + chevron sit to its right; when there are buttons the chevron
-            moves beside them (left of it). The chevron is a plain clickable span,
-            not a separate gamepad focus stop, so the title stays the focus. */}
-        <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} style={{ flex: 1, minWidth: 0 }}>
+    <div className='ds-collapsible-box'>
+      {/* The whole row highlights as one focus unit (CSS `.gpfocuswithin`),
+          whether the title toggle or the inline action button is focused. A on
+          the title toggles; vertical flow makes dpad-down move title → button →
+          next section. */}
+      <Focusable className='ds-collapsible-row' flow-children='vertical' noFocusRing focusWithinClassName='gpfocuswithin' style={{ display: 'flex', alignItems: 'center' }}>
+        <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} noFocusRing style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {icon}
             {title}
@@ -66,14 +60,14 @@ export function CollapsibleSection({
           </span>
         </Focusable>
         {headerExtra ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px 0 8px' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px' }}>
             {headerExtra}
             <span onClick={toggle} style={{ cursor: 'pointer', display: 'flex' }}>{chevron}</span>
           </div>
         ) : null}
-      </div>
+      </Focusable>
       {open ? <div className='deck-shelves-separator' /> : null}
-      {open ? <div style={{ padding: '2px 14px 10px' }}>{children}</div> : null}
+      {open ? <div className='ds-collapsible-content'>{children}</div> : null}
     </div>
   )
 }

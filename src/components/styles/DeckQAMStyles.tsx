@@ -276,12 +276,29 @@ export function DeckQAMStyles() {
         font-size: 14px;
       }
 
+      .deck-shelves-qam-scope .ds-collapsible-row,
+      .deck-shelves-settings-page .ds-collapsible-row {
+        display: flex;
+        align-items: center;
+        min-height: 40px;
+        box-sizing: border-box;
+        transition: background 0.1s;
+      }
+      /* Whole-row highlight: fires whether the title toggle or the inline
+         action button holds focus, so the bar reads as one focus unit. */
+      .deck-shelves-qam-scope .ds-collapsible-row.gpfocuswithin,
+      .deck-shelves-qam-scope .ds-collapsible-row:focus-within,
+      .deck-shelves-settings-page .ds-collapsible-row.gpfocuswithin,
+      .deck-shelves-settings-page .ds-collapsible-row:focus-within {
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+      }
       .deck-shelves-qam-scope .ds-collapsible-header,
       .deck-shelves-settings-page .ds-collapsible-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 8px 16px 6px;
+        padding: 8px 16px;
         cursor: pointer;
         font-weight: 600;
         font-size: 12px;
@@ -292,18 +309,6 @@ export function DeckQAMStyles() {
         width: 100%;
         box-sizing: border-box;
         border-radius: 0;
-        transition: background 0.1s;
-      }
-      .deck-shelves-qam-scope .ds-collapsible-header:focus,
-      .deck-shelves-qam-scope .ds-collapsible-header.gpfocus,
-      .deck-shelves-qam-scope .ds-collapsible-header [data-cs-gpfocused="true"],
-      .deck-shelves-qam-scope .ds-collapsible-header:focus-within,
-      .deck-shelves-settings-page .ds-collapsible-header:focus,
-      .deck-shelves-settings-page .ds-collapsible-header.gpfocus,
-      .deck-shelves-settings-page .ds-collapsible-header [data-cs-gpfocused="true"],
-      .deck-shelves-settings-page .ds-collapsible-header:focus-within {
-        background: rgba(255, 255, 255, 0.1);
-        outline: none;
       }
       .deck-shelves-qam-scope .ds-collapsible-badge,
       .deck-shelves-settings-page .ds-collapsible-badge {
@@ -317,6 +322,34 @@ export function DeckQAMStyles() {
         font-weight: 700;
         margin-right: 4px;
         color: #fff;
+      }
+      /* The box border/background only exist in the settings page; the QAM
+         keeps the flat look (header + content, no surrounding box). Inter-box
+         spacing: top-margin in the QAM, bottom-margin in settings (so the last
+         box also keeps space before the next, non-box section). */
+      .deck-shelves-qam-scope .ds-collapsible-box {
+        margin-top: 8px;
+      }
+      .deck-shelves-settings-page .ds-collapsible-box {
+        background: var(--ds-surface, rgba(255,255,255,0.04));
+        border: 1px solid var(--ds-border, rgba(255,255,255,0.08));
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      .deck-shelves-qam-scope .ds-collapsible-content {
+        padding: 2px 14px 10px;
+      }
+      /* More breathing room below the header in the settings page (the QAM
+         stays compact). */
+      .deck-shelves-settings-page .ds-collapsible-content {
+        padding: 10px 14px 12px;
+      }
+      .deck-shelves-settings-page .deck-shelves-separator {
+        width: 100%;
+        height: 1px;
+        background: var(--ds-border, rgba(255,255,255,0.08));
+        margin: 0;
       }
 
       /* The native Decky ToggleField wrapper paints an opaque slate

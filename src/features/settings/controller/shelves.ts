@@ -5,6 +5,7 @@ import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../..
 import { DEFAULT_SHELF_TEMPLATES } from "../../../domain/templates";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
 import { toaster } from "../../../shims/decky-api";
+import { trackFeature } from "../../../steam/usageTracking";
 
 export interface ShelvesDeps {
   liveSettings: () => Settings | null;
@@ -37,6 +38,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("new_shelf")), title: t("new_shelf") };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+      try { trackFeature("shelf_create"); } catch {}
       return shelf;
     },
     createDraftShelf(): Shelf {
@@ -47,11 +49,13 @@ export function createShelfActions(deps: ShelvesDeps) {
       if (!s) return;
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+      try { trackFeature("shelf_create"); } catch {}
       return shelf;
     },
     async exportShelves(destPath: string): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;
+      try { trackFeature("export"); } catch {}
       return writeJsonFile(destPath, JSON.stringify({ state: { shelves: s.shelves } }, null, 2));
     },
     async importShelves(srcPath: string): Promise<boolean> {
@@ -65,6 +69,7 @@ export function createShelfActions(deps: ShelvesDeps) {
         if (!Array.isArray(imported)) return false;
         await persist({ ...s, shelves: imported });
         if (imported[0]?.id) setSelectedId(imported[0].id);
+        try { trackFeature("import"); } catch {}
         return true;
       } catch { return false; }
     },
@@ -92,6 +97,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       const shelf: Shelf = { ...createDefaultShelf(), title, source };
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
+      try { trackFeature("shelf_create"); } catch {}
       return shelf;
     },
     patchShelf: patchShelfFn,
@@ -105,12 +111,14 @@ export function createShelfActions(deps: ShelvesDeps) {
       duplicate.title = `${sourceShelf.title} ${t("copy_suffix")}`.trim();
       await persist(addShelfToSettings(s, duplicate, id));
       setSelectedId(duplicate.id);
+      try { trackFeature("shelf_create"); } catch {}
     },
     async removeShelf(id: string) {
       const s = liveSettings();
       if (!s) return;
       const next = deleteShelfFromSettings(s, id);
       await persist(next);
+      try { trackFeature("shelf_delete"); } catch {}
       // selectedId is captured per-render so the caller passes the
       // current value through `deps`. Snapshot semantics preserved.
       if (deps.selectedId === id) setSelectedId(next.shelves[0]?.id ?? null);

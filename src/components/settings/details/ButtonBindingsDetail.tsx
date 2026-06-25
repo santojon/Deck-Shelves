@@ -37,7 +37,7 @@ export interface ButtonBindingsDetailProps {
   t: (key: string) => string;
 }
 
-type BindingKey = "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav";
+type BindingKey = "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav" | "navSidecar";
 
 interface BindingRow {
   key: BindingKey;
@@ -45,12 +45,16 @@ interface BindingRow {
   nullable: boolean;
 }
 
-const ROWS: BindingRow[] = [
-  { key: "cardHideRemove",      labelKey: "binding_card_hide_remove", nullable: true },
-  { key: "cardHighlightToggle", labelKey: "binding_card_highlight",   nullable: true },
+// Two parts: per-card shortcuts and home-navigation shortcuts.
+const CARD_ROWS: BindingRow[] = [
+  { key: "cardHideRemove",      labelKey: "binding_card_hide_remove",  nullable: true },
+  { key: "cardHighlightToggle", labelKey: "binding_card_highlight",    nullable: true },
   { key: "cardQuickLaunch",     labelKey: "binding_card_quick_launch", nullable: true },
-  { key: "navSearch",           labelKey: "binding_nav_search",       nullable: false },
-  { key: "navSideNav",          labelKey: "binding_nav_sidenav",      nullable: false },
+];
+const NAV_ROWS: BindingRow[] = [
+  { key: "navSearch",           labelKey: "binding_nav_search",        nullable: false },
+  { key: "navSideNav",          labelKey: "binding_nav_sidenav",       nullable: false },
+  { key: "navSidecar",          labelKey: "binding_nav_sidecar",       nullable: false },
 ];
 
 /* Quick gamepad-button glyph. Renders a small bordered chip with the
@@ -105,12 +109,28 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
     onConfirm: () => void (controller.actions as any).resetButtonBindings?.(),
   });
 
+  const renderRows = (rows: BindingRow[]) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {rows.map((row) => (
+        <BindingRowView
+          key={row.key}
+          row={row}
+          rawValue={(rawBindings as any)[row.key] ?? null}
+          disabled={disabledList.includes(row.key)}
+          colliding={collisionTokens.has(row.key)}
+          controller={controller}
+          t={t}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       <CollapsibleSection
-        id="bindings-list"
-        title={t("settings_card_bindings_title")}
-        count={ROWS.length}
+        id="bindings-card"
+        title={t("settings_card_bindings_group")}
+        count={CARD_ROWS.length}
         initialOpen
         headerExtra={
           <DialogButton onClick={resetAll} onOKButton={resetAll} style={BTN_ICON_STYLE}>
@@ -118,18 +138,16 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
           </DialogButton>
         }
       >
-        <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("binding_help")}</div>
-        {ROWS.map((row) => (
-          <BindingRowView
-            key={row.key}
-            row={row}
-            rawValue={(rawBindings as any)[row.key] ?? null}
-            disabled={disabledList.includes(row.key)}
-            colliding={collisionTokens.has(row.key)}
-            controller={controller}
-            t={t}
-          />
-        ))}
+        <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 10px" }}>{t("binding_help")}</div>
+        {renderRows(CARD_ROWS)}
+      </CollapsibleSection>
+      <CollapsibleSection
+        id="bindings-nav"
+        title={t("settings_nav_bindings_title")}
+        count={NAV_ROWS.length}
+        initialOpen
+      >
+        {renderRows(NAV_ROWS)}
       </CollapsibleSection>
     </Focusable>
   );
