@@ -7,7 +7,7 @@ import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
 import { __resetUpdateCheckCache } from "../../core/updateNotifier";
-import { toaster } from "../../shims/decky-api";
+import { notify } from "../../components/notify";
 import { createSavedFilterActions } from "./controller/savedFilters";
 import { createSmartShelfActions } from "./controller/smartShelves";
 import { createOnlineActions } from "./controller/online";
@@ -288,7 +288,7 @@ export function useSettingsController() {
         }
       } catch {}
       await persist(empty);
-      toaster.toast({ title: t("plugin_name"), body: t("toast_settings_reset") });
+      notify("reset", { body: t("toast_settings_reset") });
       setSelectedId(null);
     },
   };

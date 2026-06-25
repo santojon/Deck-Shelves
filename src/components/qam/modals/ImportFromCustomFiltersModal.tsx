@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ConfirmModal, DialogButton, Focusable, toaster } from '../../../runtime/host/decky'
+import { ConfirmModal, DialogButton, Focusable } from '../../../runtime/host/decky'
+import { notify } from "../../notify";
 import { ModalShell } from '../../ui'
 import type { SettingsController } from '../../../features/settings/controller'
 import { getTabMasterTabsFromSettingsFile, extractTabMasterTabsForImport, tabContainerToShelfSource } from '../../../integrations'
@@ -80,10 +81,10 @@ export function ImportFromCustomFiltersModal({ closeModal, controller }: { close
       const src = entry.source ?? { type: 'tab', tab: entry.id }
       const shelfSource = (src.type === 'tab' || src.type === 'collection' || src.type === 'filter') ? src : tabContainerToShelfSource(src)
       await actions.addShelfWith(entry.title, shelfSource)
-      toaster.toast({ title: t('plugin_name'), body: `${t('toast_imported')}: ${entry.title}` })
+      notify("import", { body: `${t('toast_imported')}: ${entry.title}` })
       closeModal?.()
     } catch (e) {
-      toaster.toast({ title: t('plugin_name'), body: String(e) })
+      notify("error", { body: String(e) })
     }
   }
 

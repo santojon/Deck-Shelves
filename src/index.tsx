@@ -28,8 +28,10 @@ import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
 import { getCurrentSettings, subscribeSettings } from "./store/settingsStore";
+import { setPendingSettingsTab } from "./runtime/settingsNav";
+import { pickNewSuggestions } from "./runtime/suggestionNotifier";
+import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
-import { toaster } from "./shims/decky-api";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses, createDeckyHostApi } from "./runtime/host/decky";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
@@ -73,7 +75,8 @@ function openAboutPage() {
   Navigation.Navigate(ABOUT_ROUTE);
 }
 
-export function openSettingsPage() {
+export function openSettingsPage(tab?: string) {
+  if (tab) setPendingSettingsTab(tab);
   try { (Navigation as any).CloseSideMenus?.(); } catch (e) { logInfo("RUNTIME", "CloseSideMenus failed", String(e)); }
   Navigation.Navigate(SETTINGS_ROUTE);
 }
@@ -94,8 +97,8 @@ function TitleView() {
       </DialogButton>
       <DialogButton
         style={{ height: 28, width: 40, minWidth: 0, padding: 0, marginLeft: 4, display: "flex", justifyContent: "center", alignItems: "center" }}
-        onClick={openSettingsPage}
-        onOKButton={openSettingsPage}
+        onClick={() => openSettingsPage()}
+        onOKButton={() => openSettingsPage()}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
           <circle cx="12" cy="12" r="3" />
@@ -217,13 +220,10 @@ export default definePlugin((serverAPI?: any) => {
       const fresh = r.hasUpdate && r.latestVersion && r.latestVersion !== s?.updateNotifyDismissedVersion;
       if (fresh) {
         probe({ step: 'firing-toast' });
-        toaster.toast({
-          title: i18next.t("plugin_name"),
+        notify("update", {
           body: i18next.t("update_available", { version: r.latestVersion }),
-          // Same flow as the banner button + settings/about update icon.
-          // `onClick` works at runtime; the local toaster type shim omits it.
           onClick: () => openReleaseUrl(r.releaseUrl),
-        } as any);
+        });
         probe({ step: 'toast-fired' });
       } else {
         probe({ step: 'no-update-or-dismissed' });
@@ -252,6 +252,20 @@ export default definePlugin((serverAPI?: any) => {
     }, delay);
   };
   scheduleBootProbe();
+
+  /* One-shot, ~18 s after boot (library + stats settled): if the user opted
+     into suggestions and there's a suggestion they haven't been told about,
+     fire a single branded, clickable toast that opens the Suggestions tab.
+     Self-gated + deduped in `pickNewSuggestions`; no polling. */
+  const suggestTimer = setTimeout(() => {
+    void pickNewSuggestions().then((fresh) => {
+      if (!fresh.length) return;
+      notify("suggestion", {
+        body: i18next.t("suggestion_toast_body"),
+        onClick: () => openSettingsPage("suggestions"),
+      });
+    }).catch(() => {});
+  }, 18000);
 
   // Re-probe on the upward edge of the notify toggle (OFF → ON).
   let lastToggle = getCurrentSettings()?.updateNotifyEnabled !== false;
@@ -304,6 +318,7 @@ export default definePlugin((serverAPI?: any) => {
         uninstallLauncherCache();
         unsubUpdateNotify();
         if (updateBootTimer !== null) { clearTimeout(updateBootTimer); updateBootTimer = null; }
+        clearTimeout(suggestTimer);
       } catch (error) {
         logError("RUNTIME", "failed to remove patch", String(error));
       }

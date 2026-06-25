@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Full validation flow: typecheck → build → tests → package → compat → deploy → uitests → perf.
+# Full QA harness: typecheck → lint → i18n → build → vitest → pytest → package →
+# compat → deploy → uitests (all suites + stress) → perf.
 # Device steps (deploy onward) skipped when build fails; every other step runs and is recorded.
-# Usage: `pnpm validate:full` or `pnpm validate:full:stress`.
+# Usage: `pnpm qa` / `pnpm validate:full` (or `:stress`).
 
 set -uo pipefail   # no -e: we handle exit codes ourselves
 
@@ -158,6 +159,14 @@ BUILD_OK=1   # 1 = ok, 0 = build failed → device steps skipped
 run_step "typecheck" "TypeScript typecheck" \
   pnpm --dir "${ROOT}" typecheck || true
 
+# ─── 1b. Lint (eslint + ruff) ────────────────────────────────────────────────
+run_step "lint" "Lint (eslint + ruff)" \
+  pnpm --dir "${ROOT}" lint || true
+
+# ─── 1c. i18n key validation ─────────────────────────────────────────────────
+run_step "i18n" "i18n key validation" \
+  node "${ROOT}/scripts/build/validate.mjs" || true
+
 # ─── 2. Build (production) ───────────────────────────────────────────────────
 run_step "build" "Build (production)" \
   pnpm --dir "${ROOT}" build:release || BUILD_OK=0
@@ -165,6 +174,10 @@ run_step "build" "Build (production)" \
 # ─── 3. Unit tests ────────────────────────────────────────────────────────────
 run_step "tests" "Unit tests (vitest)" \
   pnpm --dir "${ROOT}" test || true
+
+# ─── 3b. Backend tests (pytest) ──────────────────────────────────────────────
+run_step "pytest" "Backend tests (pytest)" \
+  python3 -m pytest "${ROOT}/src/test/test_main.py" -q || true
 
 # ─── 4. Package + verify ─────────────────────────────────────────────────────
 run_step "package" "Package (.zip)" \

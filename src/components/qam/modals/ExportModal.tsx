@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton, TextField, toaster, openFilePicker } from '../../../runtime/host/decky'
+import { ConfirmModal, Focusable, DialogButton, TextField, openFilePicker } from '../../../runtime/host/decky'
+import { notify } from "../../notify";
 import { ModalShell } from '../../ui'
 import { getCurrentSettings, writeJsonFile } from '../../../settingsStore'
 import { pickCategoriesFromSettings } from '../../../features/settings/settingsCategories'
@@ -55,13 +56,13 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all' 
                 ok = await writeJsonFile(target, JSON.stringify({ state: payload }, null, 2));
               }
               if (!ok) {
-                toaster.toast({ title: t('plugin_name'), body: t('toast_failed_export') });
+                notify("error", { body: t('toast_failed_export') });
                 return;
               }
-              toaster.toast({ title: t('plugin_name'), body: t('toast_exported_file') });
+              notify("export", { body: t('toast_exported_file') });
               closeModal?.();
             } catch (error) {
-              toaster.toast({ title: t('plugin_name'), body: String(error) });
+              notify("error", { body: String(error) });
             } finally {
               setSaveBusy(false);
             }
@@ -80,7 +81,7 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all' 
                     const picked = await pickFolder(folder)
                     if (picked) setFolder(picked)
                   } catch (error) {
-                    toaster.toast({ title: t('plugin_name'), body: String(error) })
+                    notify("error", { body: String(error) })
                   } finally {
                     setBrowseBusy(false)
                   }

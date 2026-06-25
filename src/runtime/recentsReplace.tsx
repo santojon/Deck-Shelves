@@ -6,7 +6,7 @@ import { applyManualOrder } from "../steam";
 import { isOnlineSource } from "../domain/sourceUtils";
 import { getPlatform } from "./platformContext";
 import { logError, logInfo, logWarn } from "./logger";
-import { toaster } from "../shims/decky-api";
+import { notify } from "../components/notify";
 import i18next from "i18next";
 
 type PatchHandle = { uninstall?: () => void } | null;
@@ -70,7 +70,7 @@ function markReplaceFailed(reason: string) {
   replaceFailed = true;
   replaceError = reason;
   if (__DEV__) logError("RUNTIME", "recents replace disabled due to error", reason);
-  toaster.toast({ title: i18next.t("recents_replace_error_title"), body: i18next.t("recents_replace_error_desc") });
+  notify("error", { title: i18next.t("recents_replace_error_title"), body: i18next.t("recents_replace_error_desc") });
   notifyFailedChange();
   notifyInjectingChange();
 }

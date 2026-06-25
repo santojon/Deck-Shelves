@@ -4,7 +4,7 @@ import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter
 import { createDefaultShelf, createDefaultSource, randomShelfId } from "../../../domain/defaults";
 import { DEFAULT_SHELF_TEMPLATES } from "../../../domain/templates";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
-import { toaster } from "../../../shims/decky-api";
+import { notify } from "../../../components/notify";
 import { trackFeature } from "../../../steam/usageTracking";
 
 export interface ShelvesDeps {
@@ -78,7 +78,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       if (!s) return;
       await persist({ ...s, shelves: [] });
       setSelectedId(null);
-      toaster.toast({ title: t("plugin_name"), body: t("toast_shelves_reset") });
+      notify("reset", { body: t("toast_shelves_reset") });
     },
     async createDefaultShelves() {
       const s = liveSettings();

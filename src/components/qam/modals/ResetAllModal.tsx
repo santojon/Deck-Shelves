@@ -1,4 +1,5 @@
-import { ConfirmModal, toaster } from '../../../runtime/host/decky'
+import { ConfirmModal } from '../../../runtime/host/decky'
+import { notify } from "../../notify";
 import type { SettingsController } from '../../../features/settings/controller'
 import { resetMountFailed } from '../../../runtime/homePatch'
 import { getCurrentSettings, saveSettings } from '../../../settingsStore'
@@ -50,7 +51,7 @@ export function ResetAllModal({ closeModal, controller, scope = 'all' }: { close
             const toastKey = scope === 'shelves' ? 'toast_shelves_reset'
               : scope === 'smart' ? 'toast_smart_shelves_reset'
               : 'toast_settings_reset';
-            toaster.toast({ title: t('plugin_name'), body: t(toastKey as any) });
+            notify("reset", { body: t(toastKey as any) });
           }
         })();
       }}

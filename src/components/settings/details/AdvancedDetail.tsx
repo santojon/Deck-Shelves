@@ -11,8 +11,35 @@ import {
   clearDiagnostics,
   subscribeDiagnostics,
 } from "../../../runtime/diagnostics";
-import { TrashIcon } from "../../icons";
+import { SCOPE_COLOR, LEVEL_BG } from "../../../runtime/logger";
+import { CopyIcon, TrashIcon } from "../../icons";
 import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
+import { notify } from "../../notify";
+
+/* Copy text to the clipboard. The async Clipboard API is the primary path — we
+   AWAIT it so a rejection (no focus / permission) actually falls through
+   instead of silently dropping the copy. The hidden-textarea + (deprecated)
+   execCommand path is only a last resort for contexts without the API. */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if ((navigator as any)?.clipboard?.writeText) {
+      await (navigator as any).clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fall through to the legacy path */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch { return false; }
+}
 
 
 export interface AdvancedDetailProps {
@@ -20,15 +47,23 @@ export interface AdvancedDetailProps {
   t: (key: string) => string;
 }
 
-const LEVEL_COLOR: Record<DiagnosticEntry["level"], string> = {
-  info:  "var(--gpSystemLighterStill, rgba(120, 180, 255, 0.85))",
-  warn:  "rgba(255, 200, 90, 0.9)",
-  error: "rgba(255, 110, 110, 0.95)",
-};
-
 export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
   const [diags, setDiags] = useState<DiagnosticEntry[]>([]);
   useEffect(() => subscribeDiagnostics(setDiags), []);
+  const copyLogs = () => {
+    if (diags.length === 0) return;
+    // Oldest-first so the copied text reads top-to-bottom in chronological order
+    // (the list renders newest-first); every buffered entry is included.
+    const text = [...diags].reverse().map((e) => {
+      const ts = new Date(e.time).toLocaleTimeString(undefined, { hour12: false });
+      const scope = e.scope ? ` [${e.scope}]` : "";
+      const ctx = e.context ? ` | ${e.context}` : "";
+      return `${ts} ${e.level.toUpperCase()}${scope} ${e.message}${ctx}`;
+    }).join("\n");
+    void copyToClipboard(text).then((ok) => {
+      if (ok) notify("copy", { body: t("settings_advanced_logs_copied") });
+    });
+  };
 
   const handleResetShelves = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='shelves' />);
   const handleResetSmart   = () => openManagedModal((close) => <ResetAllModal closeModal={close} controller={controller} scope='smart' />);
@@ -61,14 +96,26 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
         title={t("settings_advanced_logs_title")}
         count={diags.length}
         headerExtra={
-          <DialogButton
-            onClick={clearDiagnostics}
-            onOKButton={clearDiagnostics}
-            disabled={diags.length === 0}
-            style={BTN_ICON_STYLE}
-          >
-            <TrashIcon size={12} />
-          </DialogButton>
+          <Focusable flow-children="horizontal" style={{ display: "flex", gap: 6 }}>
+            <DialogButton
+              onClick={copyLogs}
+              onOKButton={copyLogs}
+              disabled={diags.length === 0}
+              style={BTN_ICON_STYLE}
+              aria-label={t("settings_advanced_logs_copy")}
+            >
+              <CopyIcon size={12} />
+            </DialogButton>
+            <DialogButton
+              onClick={clearDiagnostics}
+              onOKButton={clearDiagnostics}
+              disabled={diags.length === 0}
+              style={BTN_ICON_STYLE}
+              aria-label={t("settings_advanced_logs_clear")}
+            >
+              <TrashIcon size={12} />
+            </DialogButton>
+          </Focusable>
         }
       >
         <div style={{ marginBottom: 12 }}>
@@ -105,19 +152,28 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
                     background: "var(--ds-surface-row, rgba(255,255,255,0.03))",
                   }}
                 >
-                  <div style={{ width: 64, opacity: 0.55, fontSize: 11, fontFamily: "monospace" }}>
+                  <div style={{ width: 64, opacity: 0.55, fontSize: 11, fontFamily: "monospace", flexShrink: 0 }}>
                     {new Date(entry.time).toLocaleTimeString(undefined, { hour12: false })}
                   </div>
-                  <div style={{
-                    width: 52, fontSize: 11, fontWeight: 600,
-                    color: LEVEL_COLOR[entry.level],
-                    textTransform: "uppercase",
-                    letterSpacing: 0.4,
-                  }}>{t(`settings_advanced_logs_level_${entry.level}`)}</div>
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--ds-text, rgba(255,255,255,0.85))" }}>
-                    <div>{entry.message}</div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0, marginTop: 1, alignItems: "flex-start" }}>
+                    <span style={{
+                      background: LEVEL_BG[entry.level.toUpperCase()] ?? "#0ea5e9",
+                      color: "var(--ds-text, #fff)",
+                      padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800,
+                      textTransform: "uppercase", letterSpacing: 0.4, lineHeight: 1.4, alignSelf: "flex-start",
+                    }}>{t(`settings_advanced_logs_level_${entry.level}`)}</span>
+                    {entry.scope ? (
+                      <span style={{
+                        background: SCOPE_COLOR[entry.scope] ?? "rgba(255,255,255,0.18)",
+                        color: "var(--ds-text, #fff)",
+                        padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800, letterSpacing: 0.3, lineHeight: 1.4, alignSelf: "flex-start",
+                      }}>{entry.scope}</span>
+                    ) : null}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
+                    <div style={{ color: "#93c5fd", fontWeight: 600 }}>{entry.message}</div>
                     {entry.context ? (
-                      <div style={{ opacity: 0.55, fontSize: 11, marginTop: 2, wordBreak: "break-word" }}>
+                      <div style={{ opacity: 0.55, fontSize: 11, marginTop: 2, wordBreak: "break-word", color: "var(--ds-text, rgba(255,255,255,0.85))" }}>
                         {entry.context}
                       </div>
                     ) : null}

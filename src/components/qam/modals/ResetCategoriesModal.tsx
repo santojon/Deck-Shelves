@@ -1,4 +1,5 @@
 import { toaster } from "../../../runtime/host/decky";
+import { notify } from "../../notify";
 import type { SettingsController } from "../../../features/settings/controller";
 import { SelectItemsModal } from "./SelectItemsModal";
 import {
@@ -34,7 +35,7 @@ export function ResetCategoriesModal({ closeModal, controller }: { closeModal?: 
         const ok = await saveSettings(next);
         if (ok) {
           try { resetMountFailed(); } catch {}
-          toaster.toast({ title: t("plugin_name"), body: t("toast_settings_reset") });
+          notify("reset", { body: t("toast_settings_reset") });
           closeModal?.();
         }
       }}

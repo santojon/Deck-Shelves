@@ -217,11 +217,6 @@
       "count": 1
     }
   },
-  "src/core/updateNotifier.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/domain/customfilters.ts": {
     "complexity": {
       "count": 2
@@ -264,7 +259,7 @@
   },
   "src/index.tsx": {
     "complexity": {
-      "count": 3
+      "count": 2
     }
   },
   "src/integrations/domtabs.ts": {

@@ -51,6 +51,10 @@ function writeSharedState(s: Settings) {
 
 const _init = readCache() ?? readSharedState();
 let current: Settings | null = _init ? applyQASettingsOverride(_init) : null;
+// Sync verbose-logging from the cached settings at module load — `current` is
+// seeded here without going through `notify()`, so without this the logger
+// flag stays false after a Steam restart until a setting actually changes.
+setVerboseLogging((current as any)?.verboseLoggingEnabled === true);
 const listeners = new Set<(s: Settings) => void>();
 
 /* Tracks whether the most recent saveSettings attempt actually reached the
@@ -82,11 +86,14 @@ function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
 
 function notify(raw: Settings) {
   const s = applyQASettingsOverride(raw);
+  // Re-sync the logger flag on every notify, BEFORE the same-settings
+  // short-circuit, so the boot path's notify(cached) applies it even when the
+  // payload matches the seeded `current` (verbose state would otherwise stick).
+  setVerboseLogging((s as any).verboseLoggingEnabled === true);
   if (isSameSettings(current, s)) {
     return;
   }
   current = s;
-  setVerboseLogging((s as any).verboseLoggingEnabled === true);
   writeCache(s);
   writeSharedState(s);
   logInfo("STORAGE", "notify settings", { enabled: s.enabled, shelfCount: s.shelves.length });

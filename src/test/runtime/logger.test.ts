@@ -33,9 +33,12 @@ describe("logger — verbose routing into the diagnostics buffer", () => {
     const entries = currentEntries();
     expect(entries).toHaveLength(3);
     const byLevel = Object.fromEntries(entries.map((e) => [e.level, e]));
-    expect(byLevel.info.message).toBe("[HOME] info msg");
-    expect(byLevel.warn.message).toBe("[STEAM] warn msg");
-    expect(byLevel.error.message).toBe("[RUNTIME] err msg");
+    expect(byLevel.info.message).toBe("info msg");
+    expect(byLevel.info.scope).toBe("HOME");
+    expect(byLevel.warn.message).toBe("warn msg");
+    expect(byLevel.warn.scope).toBe("STEAM");
+    expect(byLevel.error.message).toBe("err msg");
+    expect(byLevel.error.scope).toBe("RUNTIME");
     expect(byLevel.error.context).toBe(JSON.stringify({ code: 7 }));
   });
 

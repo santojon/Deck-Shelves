@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { DialogButton, TextField, toaster, openFilePicker } from "../../../runtime/host/decky";
+import { DialogButton, TextField, openFilePicker } from "../../../runtime/host/decky";
+import { notify } from "../../notify";
 import type { SettingsController } from "../../../features/settings/controller";
 import { textFromDeckyChange, tryPickerCalls } from "./modalUtils";
 import { SelectItemsModal } from "./SelectItemsModal";
@@ -73,7 +74,7 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
               const picked = await pickJsonFile(path);
               if (picked) setPath(picked);
             } catch (e) {
-              toaster.toast({ title: t("plugin_name"), body: String(e) });
+              notify("error", { body: String(e) });
             } finally { setBrowseBusy(false); }
           }}
         >{browseBusy ? t("loading") : t("browse")}</DialogButton>
@@ -92,12 +93,12 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
       onConfirm={async (selectedIds) => {
         const cur = getCurrentSettings();
         if (!cur || !payload) {
-          toaster.toast({ title: t("plugin_name"), body: t("toast_failed_save") });
+          notify("error", { body: t("toast_failed_save") });
           return;
         }
         const next = mergeCategoriesIntoSettings(cur, unwrapPayload(payload), selectedIds);
         const ok = await saveSettings(next);
-        toaster.toast({ title: t("plugin_name"), body: ok ? `${t("toast_imported")}: ${path}` : t("toast_failed_save") });
+        notify(ok ? "import" : "error", { body: ok ? `${t("toast_imported")}: ${path}` : t("toast_failed_save") });
         if (ok) closeModal?.();
       }}
     />

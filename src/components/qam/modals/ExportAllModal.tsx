@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { DialogButton, TextField, toaster, openFilePicker } from "../../../runtime/host/decky";
+import { DialogButton, TextField, openFilePicker } from "../../../runtime/host/decky";
+import { notify } from "../../notify";
 import type { SettingsController } from "../../../features/settings/controller";
 import { textFromDeckyChange, filenameWithJson, tryPickerCalls } from "./modalUtils";
 import { SelectItemsModal } from "./SelectItemsModal";
@@ -43,7 +44,7 @@ export function ExportAllModal({ closeModal, controller, folderPath }: { closeMo
               const picked = await pickFolder(folder);
               if (picked) setFolder(picked);
             } catch (e) {
-              toaster.toast({ title: t("plugin_name"), body: String(e) });
+              notify("error", { body: String(e) });
             } finally { setBrowseBusy(false); }
           }}
         >{browseBusy ? t("loading") : t("browse")}</DialogButton>
@@ -66,7 +67,7 @@ export function ExportAllModal({ closeModal, controller, folderPath }: { closeMo
         const payload = pickCategoriesFromSettings(s, selectedIds);
         const target = `${folder}/${filenameWithJson(name)}`;
         const ok = await writeJsonFile(target, JSON.stringify({ state: payload }, null, 2));
-        toaster.toast({ title: t("plugin_name"), body: ok ? t("toast_exported_file") : t("toast_failed_export") });
+        notify(ok ? "export" : "error", { body: ok ? t("toast_exported_file") : t("toast_failed_export") });
         if (ok) closeModal?.();
       }}
     />

@@ -22,10 +22,12 @@ const DIAG_LEVEL: Record<DeckLogLevel, DiagnosticLevel> = { INFO: "info", WARN: 
 
 function mirrorToDiagnostics(scope: DeckLogScope, level: DeckLogLevel, message: string, context?: unknown): void {
   if (!verbose) return;
-  try { logDiagnostic(DIAG_LEVEL[level], `[${scope}] ${message}`, ctxString(context)); } catch {}
+  try { logDiagnostic(DIAG_LEVEL[level], message, ctxString(context), scope); } catch {}
 }
 
-const SCOPE_COLOR: Record<DeckLogScope, string> = {
+// Shared palette — the console styling AND the on-device diagnostics list
+// (Advanced → Logs) both read these so the two surfaces match.
+export const SCOPE_COLOR: Record<string, string> = {
   HOME: "#22c55e",
   STORAGE: "#3b82f6",
   SETTINGS: "#a78bfa",
@@ -35,7 +37,7 @@ const SCOPE_COLOR: Record<DeckLogScope, string> = {
   ONLINE: "#0ea5e9",
 };
 
-const LEVEL_BG: Record<DeckLogLevel, string> = {
+export const LEVEL_BG: Record<string, string> = {
   INFO: "#0ea5e9",
   WARN: "#f59e0b",
   ERROR: "#ef4444",

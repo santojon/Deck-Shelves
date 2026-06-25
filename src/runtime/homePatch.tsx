@@ -10,7 +10,7 @@ import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow } from "./steamHost";
 import { getRuntimeClassMap } from "../core/webpackCompat";
-import { toaster } from "../shims/decky-api";
+import { notify } from "../components/notify";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -596,7 +596,7 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
         const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
         if (mount) { mount.innerHTML = ""; mount.style.display = "none"; }
       } catch {}
-      toaster.toast({ title: i18next.t("mount_crash_title"), body: i18next.t("mount_crash_warning") });
+      notify("error", { title: i18next.t("mount_crash_title"), body: i18next.t("mount_crash_warning") });
       notifyMountFailedChange();
     } else {
       setTimeout(() => { if (!mountFailed) this.setState({ crashed: false }); }, 500);

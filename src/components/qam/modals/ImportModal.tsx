@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton, TextField, toaster, openFilePicker } from '../../../runtime/host/decky'
+import { ConfirmModal, Focusable, DialogButton, TextField, openFilePicker } from '../../../runtime/host/decky'
+import { notify } from "../../notify";
 import { ModalShell } from '../../ui'
 import { getCurrentSettings, readJsonFile, saveSettings } from '../../../settingsStore'
 import { mergeCategoriesIntoSettings, unwrapPayload } from '../../../features/settings/settingsCategories'
@@ -51,9 +52,9 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
                 ok = await saveSettings(next);
                 if (ok && next.shelves?.[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
               }
-              toaster.toast({ title: t('plugin_name'), body: ok ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
+              notify(ok ? "import" : "error", { body: ok ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
             } catch (error) {
-              toaster.toast({ title: t('plugin_name'), body: String(error) });
+              notify("error", { body: String(error) });
             } finally {
               setImportBusy(false);
             }
@@ -72,7 +73,7 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
                     const picked = await pickJsonFile(initialPath)
                     if (picked) setPath(picked)
                   } catch (error) {
-                    toaster.toast({ title: t('plugin_name'), body: String(error) })
+                    notify("error", { body: String(error) })
                   } finally {
                     setBrowseBusy(false)
                   }

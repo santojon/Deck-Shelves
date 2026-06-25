@@ -1,7 +1,7 @@
 import type { Settings, SmartShelf, SmartShelfMode } from "../../../types";
 import { createDefaultSmartShelf } from "../../../domain/defaults";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
-import { toaster } from "../../../shims/decky-api";
+import { notify } from "../../../components/notify";
 
 export interface SmartShelfDeps {
   liveSettings: () => Settings | null;
@@ -93,7 +93,7 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       const s = liveSettings();
       if (!s) return;
       await persist({ ...s, smartShelves: [], smartShelvesEnabled: false, smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
-      toaster.toast({ title: t("plugin_name"), body: t("toast_smart_shelves_reset") });
+      notify("reset", { body: t("toast_smart_shelves_reset") });
     },
     async exportSmartShelves(destPath: string): Promise<boolean> {
       const s = liveSettings();

@@ -15,6 +15,7 @@ import { SuggestionsDetail } from "./settings/details/SuggestionsDetail";
 import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon, SlidersIcon, SparkleIcon } from "./icons";
 import { useLightMode, useAdvancedMode } from "./ui/lightMode";
 import { hasExternalIntegrations } from "../core/pluginApi";
+import { consumePendingSettingsTab } from "../runtime/settingsNav";
 
 function tabLabel(icon: React.ReactNode, text: string): string {
   return (
@@ -33,7 +34,13 @@ export function SettingsPage() {
   // third-party plugin is present (and never in light mode). Shortcuts +
   // Statistics hide in light mode; Advanced tools show only in advanced.
   const showIntegrations = advancedMode || (hasExternalIntegrations() && !lightMode);
-  const [activeTab, setActiveTab] = useState("shelves");
+  // Deep-link target (e.g. the "new suggestions" toast → Suggestions tab). The
+  // suggestions tab is hidden in light mode; fall back to the default there.
+  const [activeTab, setActiveTab] = useState(() => {
+    const pending = consumePendingSettingsTab();
+    if (pending === "suggestions" && lightMode) return "shelves";
+    return pending ?? "shelves";
+  });
   const t = useCallback(
     (key: string) => (controller.t as (k: string) => string)(key),
     [controller.t],
