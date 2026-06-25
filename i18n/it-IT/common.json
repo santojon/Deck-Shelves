@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "Percorso file",
-  "select_items_all": "Seleziona tutto"
+  "select_items_all": "Seleziona tutto",
+  "global_game_info_above": "Mostra le info del gioco sopra",
+  "game_info_above_label": "Mostra le info del gioco sopra",
+  "confirm_continue": "Continua",
+  "couple_info_above_title": "Nascondere il titolo dello scaffale?",
+  "couple_info_above_body": "Mostrare le info del gioco sopra usa il layout a pagina intera in cui il titolo è nascosto, quindi anche il titolo dello scaffale verrà nascosto. Puoi mostrarlo di nuovo in qualsiasi momento.",
+  "couple_show_title_title": "Disattivare le info sopra?",
+  "couple_show_title_body": "Mostrare di nuovo il titolo dello scaffale disattiva «mostra le info del gioco sopra» per questo scaffale; carte e testi tornano al layout normale.",
+  "mode_switch_title": "Cambiare modalità?",
+  "mode_switch_light_body": "Le modalità Light e Avanzata non possono essere attive contemporaneamente. Attivare la modalità Light disattiverà quella Avanzata.",
+  "mode_switch_advanced_body": "Le modalità Light e Avanzata non possono essere attive contemporaneamente. Attivare la modalità Avanzata disattiverà quella Light.",
+  "beta_channel_label": "Canale beta",
+  "settings_confirm_irreversible": "Non può essere annullato."
 }

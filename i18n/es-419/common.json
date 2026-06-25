@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "Ruta del archivo",
-  "select_items_all": "Seleccionar todo"
+  "select_items_all": "Seleccionar todo",
+  "global_game_info_above": "Mostrar información del juego arriba",
+  "game_info_above_label": "Mostrar información del juego arriba",
+  "confirm_continue": "Continuar",
+  "couple_info_above_title": "¿Ocultar el título de la estantería?",
+  "couple_info_above_body": "Mostrar la información del juego arriba usa el diseño de página completa, donde el título queda oculto, así que el título de la estantería también se ocultará. Puedes mostrarlo de nuevo en cualquier momento.",
+  "couple_show_title_title": "¿Desactivar información arriba?",
+  "couple_show_title_body": "Mostrar de nuevo el título de la estantería desactiva «mostrar información del juego arriba» en esta estantería, y las tarjetas y textos vuelven al diseño normal.",
+  "mode_switch_title": "¿Cambiar de modo?",
+  "mode_switch_light_body": "Los modos Ligero y Avanzado no pueden estar activos a la vez. Activar el modo Ligero desactivará el modo Avanzado.",
+  "mode_switch_advanced_body": "Los modos Ligero y Avanzado no pueden estar activos a la vez. Activar el modo Avanzado desactivará el modo Ligero.",
+  "beta_channel_label": "Canal beta",
+  "settings_confirm_irreversible": "Esto no se puede deshacer."
 }

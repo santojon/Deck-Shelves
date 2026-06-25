@@ -1,7 +1,8 @@
 import { definePlugin } from "@decky/api";
 // Build sentinel — bumped each iteration so CDP probes can confirm the
 // running JS matches the latest source. Read via `window.__ds_build`.
-try { (globalThis as any).__ds_build = "2026-06-20A"; } catch {}
+// Dev-only; stripped from release via `if (__DEV__)`.
+if (__DEV__) { try { (globalThis as any).__ds_build = "2026-06-20A"; } catch {} }
 import i18next from "i18next";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";
@@ -22,7 +23,7 @@ import "./core/internalRegistry";
 import { logDiagnostic } from "./runtime/diagnostics";
 import { prefetchSteamOSVersion } from "./core/steamOSVersion";
 import { prewarmUserPaths } from "./core/userPaths";
-import { checkForUpdate, __resetUpdateCheckCache } from "./core/updateNotifier";
+import { checkForUpdate, __resetUpdateCheckCache, openReleaseUrl } from "./core/updateNotifier";
 import { invalidateRandomSortCache } from "./steam";
 import { pruneCache as pruneImageCache, hydrateHotCacheFromStorage } from "./core/imageCache";
 import { isOnline } from "./core/connectivity";
@@ -186,40 +187,50 @@ export default definePlugin((serverAPI?: any) => {
   // Update notifier: probe always runs once the network is reachable.
   // Toggle (default ON) gates whether to run at all; cache + dismiss
   // gate whether to fire the toast.
+  /* Dev-only update-probe trace. The `probe` helper no-ops in release
+     (`if (!__DEV__) return;` is dead-code-eliminated) so `__dsUpdateProbe`
+     never lands on the global in distribution builds. */
+  const probe = (patch: Record<string, unknown>, reset = false): void => {
+    if (!__DEV__) return;
+    const g = globalThis as any;
+    g.__dsUpdateProbe = reset ? { ...patch } : Object.assign(g.__dsUpdateProbe || {}, patch);
+  };
   const runUpdateProbe = async (reason: string): Promise<boolean> => {
     try {
-      (globalThis as any).__dsUpdateProbe = { reason, at: Date.now(), step: 'start' };
+      probe({ reason, at: Date.now(), step: 'start' }, true);
       const s = getCurrentSettings();
-      (globalThis as any).__dsUpdateProbe.notifyEnabled = s?.updateNotifyEnabled;
+      probe({ notifyEnabled: s?.updateNotifyEnabled });
       if (s?.updateNotifyEnabled === false) {
-        (globalThis as any).__dsUpdateProbe.step = 'skipped-toggle-off';
+        probe({ step: 'skipped-toggle-off' });
         return false;
       }
       const online = await isOnline().catch(() => false);
-      (globalThis as any).__dsUpdateProbe.online = online;
+      probe({ online });
       if (!online) {
-        (globalThis as any).__dsUpdateProbe.step = 'skipped-offline';
+        probe({ step: 'skipped-offline' });
         return false;
       }
       __resetUpdateCheckCache();
-      (globalThis as any).__dsUpdateProbe.step = 'checking';
+      probe({ step: 'checking' });
       const r = await checkForUpdate();
-      (globalThis as any).__dsUpdateProbe.result = { hasUpdate: r.hasUpdate, latest: r.latestVersion, current: r.currentVersion };
+      probe({ result: { hasUpdate: r.hasUpdate, latest: r.latestVersion, current: r.currentVersion } });
       const fresh = r.hasUpdate && r.latestVersion && r.latestVersion !== s?.updateNotifyDismissedVersion;
       if (fresh) {
-        (globalThis as any).__dsUpdateProbe.step = 'firing-toast';
+        probe({ step: 'firing-toast' });
         toaster.toast({
           title: i18next.t("plugin_name"),
           body: i18next.t("update_available", { version: r.latestVersion }),
-        });
-        (globalThis as any).__dsUpdateProbe.step = 'toast-fired';
+          // Same flow as the banner button + settings/about update icon.
+          // `onClick` works at runtime; the local toaster type shim omits it.
+          onClick: () => openReleaseUrl(r.releaseUrl),
+        } as any);
+        probe({ step: 'toast-fired' });
       } else {
-        (globalThis as any).__dsUpdateProbe.step = 'no-update-or-dismissed';
+        probe({ step: 'no-update-or-dismissed' });
       }
       return true;
     } catch (e) {
-      (globalThis as any).__dsUpdateProbe = (globalThis as any).__dsUpdateProbe || {};
-      (globalThis as any).__dsUpdateProbe.err = String(e);
+      probe({ err: String(e) });
       return false;
     }
   };

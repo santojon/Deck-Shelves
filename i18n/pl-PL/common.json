@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "Sciezka pliku",
-  "select_items_all": "Zaznacz wszystko"
+  "select_items_all": "Zaznacz wszystko",
+  "global_game_info_above": "Pokaż informacje o grze nad kartami",
+  "game_info_above_label": "Pokaż informacje o grze nad kartami",
+  "confirm_continue": "Kontynuuj",
+  "couple_info_above_title": "Ukryć tytuł półki?",
+  "couple_info_above_body": "Pokazywanie informacji o grze na górze korzysta z układu pełnoekranowego, w którym tytuł jest ukryty — więc tytuł półki również zostanie ukryty. Możesz go ponownie pokazać w dowolnej chwili.",
+  "couple_show_title_title": "Wyłączyć informacje na górze?",
+  "couple_show_title_body": "Ponowne pokazanie tytułu półki wyłącza „pokaż informacje o grze nad kartami” dla tej półki; karty i teksty wracają do normalnego układu.",
+  "mode_switch_title": "Zmienić tryb?",
+  "mode_switch_light_body": "Tryb Light i Zaawansowany nie mogą być włączone jednocześnie. Włączenie trybu Light wyłączy tryb Zaawansowany.",
+  "mode_switch_advanced_body": "Tryb Light i Zaawansowany nie mogą być włączone jednocześnie. Włączenie trybu Zaawansowanego wyłączy tryb Light.",
+  "beta_channel_label": "Kanał beta",
+  "settings_confirm_irreversible": "Tego nie można cofnąć."
 }

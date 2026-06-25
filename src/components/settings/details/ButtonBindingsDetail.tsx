@@ -4,9 +4,10 @@ import type { useSettingsController } from "../../../features/settings/controlle
 import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/controllerInput";
 import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
 import type { ButtonBindings } from "../../../types";
-import { SettingsSection } from "../../ui/SettingsSection";
+import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon } from "../../icons";
 import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
+import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 
 // Maps the raw controller event button id (from `controllerInput`) to
 // the token name used by the bindings parser. Required because this
@@ -96,18 +97,28 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   const bindings: Required<ButtonBindings> = resolveBindings(rawBindings, disabledList);
   const collisions = findCollisions(bindings);
   const collisionTokens = new Set(collisions.flat());
-  const resetAll = () => void (controller.actions as any).resetButtonBindings?.();
+  const resetAll = () => confirmAction({
+    title: t("binding_reset_all"),
+    body: t("settings_confirm_irreversible"),
+    okText: t("binding_reset_all"),
+    cancelText: t("cancel"),
+    onConfirm: () => void (controller.actions as any).resetButtonBindings?.(),
+  });
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
-      <SettingsSection
-        description={t("binding_help")}
-        trailing={
-          <DialogButton onClick={resetAll} onOKButton={resetAll} style={BTN_COMPACT_STYLE}>
-            <RefreshIcon size={12} /><span>{t("binding_reset_all")}</span>
+      <CollapsibleSection
+        id="bindings-list"
+        title={t("settings_card_bindings_title")}
+        count={ROWS.length}
+        initialOpen
+        headerExtra={
+          <DialogButton onClick={resetAll} onOKButton={resetAll} style={BTN_ICON_STYLE}>
+            <RefreshIcon size={12} />
           </DialogButton>
         }
       >
+        <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("binding_help")}</div>
         {ROWS.map((row) => (
           <BindingRowView
             key={row.key}
@@ -119,7 +130,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
             t={t}
           />
         ))}
-      </SettingsSection>
+      </CollapsibleSection>
     </Focusable>
   );
 }

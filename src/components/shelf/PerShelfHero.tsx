@@ -266,7 +266,7 @@ function useNativeHeroClasses(applyGate: boolean): NativeHeroClasses {
   return state;
 }
 
-function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecents, isFullPage = false, enableLogo = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, descriptionHeight = 2, descriptionLogoGap = 8 }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean; forceLayoutAsRecents: boolean; isFullPage?: boolean; enableLogo?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; descriptionHeight?: number; descriptionLogoGap?: number }) {
+function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecents, isFullPage = false, enableLogo = false, enableDescription = false, descriptionBelowLogo = false, logoBelowShelf = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, descriptionHeight = 2, descriptionLogoGap = 8, infoAbove = false }: { containerRef: React.RefObject<HTMLDivElement | null>; showArt: boolean; isFirstShelf: boolean; forceLayoutAsRecents: boolean; isFullPage?: boolean; enableLogo?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoBelowShelf?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; descriptionHeight?: number; descriptionLogoGap?: number; infoAbove?: boolean }) {
   const [slotA, setSlotA] = useState<string | null>(null);
   const [slotB, setSlotB] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
@@ -295,7 +295,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     while (host.firstChild) host.removeChild(host.firstChild);
     if (labelNode) host.appendChild(labelNode);
   }, [labelNode]);
-  const [needsLabel, setNeedsLabel] = useState(() => { try { return isArtHeroActive(); } catch { return false; } });
+  // The "game info above the cards" label is now driven by the user's
+  // gameInfoAbove setting (threaded in as `infoAbove`), fully decoupled from
+  // theme detection — it shows with or without an ArtHero theme.
+  const needsLabel = infoAbove;
   const [rowH, setRowH] = useState(310);
   const [labelLeft, setLabelLeft] = useState(40);
   const [isPromoted, setIsPromoted] = useState(false);
@@ -352,17 +355,6 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
     const bleed = (isFirstShelf || isPromoted) ? -80 : (isFullPage ? -80 : -140);
     setTopBleed(bleed);
   }, [containerRef, isFirstShelf, isPromoted, isFullPage]);
-
-  // Re-evaluate ArtHero state when CSS Loader themes are toggled at runtime.
-  useEffect(() => {
-    const recheck = () => { try { setNeedsLabel(isArtHeroActive()); } catch {} };
-    const doc = getPreferredSteamDocument();
-    const head = doc?.head ?? doc?.documentElement;
-    if (!head) return;
-    const obs = new MutationObserver(recheck);
-    obs.observe(head, { childList: true });
-    return () => obs.disconnect();
-  }, []);
 
   // Measure the distance from the shelf's bottom edge up to the card row's
   // top edge. The overlay label's `bottom` is set to this so it sits at
@@ -820,7 +812,10 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
   const wantsDescriptionBelowLogo = enableDescription && !!overlayDescription && descriptionBelowLogo && hasFocusedApp;
   const showOverlayContainer = wantsLogo || wantsDescriptionBelowLogo;
   const hasArt = showArt && !!(slotA || slotB);
-  const showLabel = needsLabel && isPromoted && !!labelNode;
+  // `needsLabel` is the gameInfoAbove setting — show the focused game's info
+  // above the cards on ANY shelf that opted in (global applies to all shelves),
+  // not only the promoted first one.
+  const showLabel = needsLabel && !!labelNode;
   if (!hasArt && !showLabel && !showOverlayContainer) return null;
   const themeBg = 'var(--obsidian-main-color,var(--ds-page-bg,rgb(0,0,0)))';
   /* "First-shelf" hero treatment — 70vh, opaque top, NO inter-shelf overlap.
@@ -1039,7 +1034,11 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
              path so the logo sits at the same position as the rest of the
              shelves; otherwise the 34vh logo would push the description
              down past the shelf title and overlap the card row. */
-          top: isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32),
+          /* logoBelowShelf anchors the banner to the BOTTOM of the shelf
+             (it sits in DeckRow's paddingBottom, under the cards) instead of
+             the top. Same offset, mirrored to `bottom`. */
+          top: logoBelowShelf ? 'auto' : (isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32)),
+          bottom: logoBelowShelf ? (isFullPage ? `${(logoTopOffset * 0.08).toFixed(2)}vh` : Math.round(logoTopOffset * 0.32)) : undefined,
           /* No outer maxWidth: the logo image carries its own size cap and
              the description carries its own (wider) max-width — letting the
              container shrink to the widest child gives the description room
@@ -1062,7 +1061,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             onError={() => setLogoIdx((i) => i + 1)}
             style={{
               maxWidth: '100%',
-              maxHeight: isFullPage ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
+              maxHeight: isFullPage ? `${(28 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
               objectFit: 'contain',
               filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.75))',
             }}
@@ -1076,7 +1075,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             aria-hidden="true"
             style={{
               width: 1,
-              height: isFullPage ? `${(34 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
+              height: isFullPage ? `${(28 * logoSize / 100).toFixed(2)}vh` : `${Math.round(130 * logoSize / 100)}px`,
             }}
           />
         ))}

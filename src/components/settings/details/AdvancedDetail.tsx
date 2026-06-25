@@ -5,13 +5,14 @@ import { openManagedModal } from "../../qam/common/openManagedModal";
 import { ResetAllModal } from "../../qam/modals/ResetAllModal";
 import { ResetCategoriesModal } from "../../qam/modals/ResetCategoriesModal";
 import { SettingsSection } from "../../ui/SettingsSection";
+import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import {
   type DiagnosticEntry,
   clearDiagnostics,
   subscribeDiagnostics,
 } from "../../../runtime/diagnostics";
 import { TrashIcon } from "../../icons";
-import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
+import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
 
 
 export interface AdvancedDetailProps {
@@ -55,20 +56,22 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
           </DialogButton>
         </Focusable>
       </SettingsSection>
-      <SettingsSection
+      <CollapsibleSection
+        id="adv-logs"
         title={t("settings_advanced_logs_title")}
-        description={t("settings_advanced_logs_desc")}
-        trailing={
+        count={diags.length}
+        headerExtra={
           <DialogButton
             onClick={clearDiagnostics}
             onOKButton={clearDiagnostics}
             disabled={diags.length === 0}
-            style={BTN_COMPACT_STYLE}
+            style={BTN_ICON_STYLE}
           >
-            <TrashIcon size={12} /><span>{t("settings_advanced_logs_clear")}</span>
+            <TrashIcon size={12} />
           </DialogButton>
         }
       >
+        <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("settings_advanced_logs_desc")}</div>
         {diags.length === 0 ? (
           <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>
             {t("settings_advanced_logs_empty")}
@@ -116,7 +119,7 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
             </Focusable>
           </div>
         )}
-      </SettingsSection>
+      </CollapsibleSection>
     </Focusable>
   );
 }

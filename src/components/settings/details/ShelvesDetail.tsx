@@ -33,18 +33,16 @@ export function ShelvesDetail({ controller, t }: ShelvesDetailProps) {
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <Focusable flow-children="row" style={{ display: "flex", gap: 8, marginBottom: 4, alignItems: "center" }}>
-        <DialogButton onClick={handleAdd} onOKButton={handleAdd} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", height: 32 }}>
+      <Focusable flow-children="row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 4, alignItems: "center" }}>
+        <DialogButton onClick={handleAdd} onOKButton={handleAdd} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, height: 32, width: "100%" }}>
           <PlusCircleIcon size={14} />
           <span>{t("add_shelf")}</span>
         </DialogButton>
-        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <ToggleField
-            label={t("unified_list_enabled")}
-            checked={unifiedOn}
-            onChange={(v: boolean) => void (controller.actions as any).setUnifiedListEnabled?.(v)}
-          />
-        </div>
+        <ToggleField
+          label={t("unified_list_enabled")}
+          checked={unifiedOn}
+          onChange={(v: boolean) => void (controller.actions as any).setUnifiedListEnabled?.(v)}
+        />
       </Focusable>
       {unifiedOn ? (
         <UnifiedColumn

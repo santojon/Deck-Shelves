@@ -2,6 +2,10 @@
 
 Shelf templates are preset configurations available in the template picker when creating a new shelf. Each template has a predefined source (library tab or filter) and a suggested title. The user can rename and edit any shelf after creation — templates are just starting points.
 
+<p align="center">
+  <img src="../assets/screenshots/shelf-create.png" alt="Create shelf — template picker (Standard tab)" width="640">
+</p>
+
 ## Default shelves
 
 When the user clicks **Create default shelves** on the first-run banner, three shelves are created automatically:

@@ -4,6 +4,7 @@ import type { useSettingsController } from "../../../features/settings/controlle
 import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../../../features/settings/controller/profiles";
 import { joinDownloads } from "../../../core/userPaths";
 import { SettingsSection } from "../../ui/SettingsSection";
+import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon } from "../../icons";
 import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../ui/buttonStyles";
 
@@ -79,41 +80,8 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
 
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
-      <SettingsSection title={t("settings_profiles_io_title")} description={t("settings_profiles_io_desc")}>
-        <Focusable flow-children="row" style={{ display: "flex", gap: 8 }}>
-          <DialogButton onClick={exportAll} onOKButton={exportAll} style={BTN_STYLE}>
-            <DownloadIcon size={14} />
-            <span>{t("settings_profiles_export_all")}</span>
-          </DialogButton>
-          <DialogButton onClick={importMerge} onOKButton={importMerge} style={BTN_STYLE}>
-            <UploadIcon size={14} />
-            <span>{t("settings_profiles_import")}</span>
-          </DialogButton>
-        </Focusable>
-      </SettingsSection>
-
-      <SettingsSection title={t("settings_profiles_save_title")} description={t("settings_profiles_save_desc")}>
-        <Focusable flow-children="row" style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <TextField
-              value={newName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e?.target?.value ?? "")}
-              style={{ width: "100%" } as any}
-            />
-          </div>
-          <DialogButton
-            onClick={handleSave}
-            onOKButton={handleSave}
-            disabled={!newName.trim()}
-            style={{ ...BTN_ICON_COMPACT_STYLE, flexShrink: 0 }}
-            aria-label={t("settings_profiles_save_action")}
-          >
-            <SaveIcon size={14} />
-          </DialogButton>
-        </Focusable>
-      </SettingsSection>
-
-      <SettingsSection title={t("settings_profiles_list_title")} description={t("settings_profiles_list_desc")}>
+      <CollapsibleSection id="profiles-list" title={t("settings_profiles_list_title")} count={savedProfiles.length} initialOpen>
+        <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("settings_profiles_list_desc")}</div>
         {profiles.length === 0 ? (
           <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>
             {t("settings_profiles_empty")}
@@ -251,6 +219,40 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
             })}
           </div>
         )}
+      </CollapsibleSection>
+
+      <SettingsSection title={t("settings_profiles_io_title")} description={t("settings_profiles_io_desc")}>
+        <Focusable flow-children="row" style={{ display: "flex", gap: 8 }}>
+          <DialogButton onClick={exportAll} onOKButton={exportAll} style={BTN_STYLE}>
+            <DownloadIcon size={14} />
+            <span>{t("settings_profiles_export_all")}</span>
+          </DialogButton>
+          <DialogButton onClick={importMerge} onOKButton={importMerge} style={BTN_STYLE}>
+            <UploadIcon size={14} />
+            <span>{t("settings_profiles_import")}</span>
+          </DialogButton>
+        </Focusable>
+      </SettingsSection>
+
+      <SettingsSection title={t("settings_profiles_save_title")} description={t("settings_profiles_save_desc")}>
+        <Focusable flow-children="row" style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <TextField
+              value={newName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e?.target?.value ?? "")}
+              style={{ width: "100%" } as any}
+            />
+          </div>
+          <DialogButton
+            onClick={handleSave}
+            onOKButton={handleSave}
+            disabled={!newName.trim()}
+            style={{ ...BTN_ICON_COMPACT_STYLE, flexShrink: 0 }}
+            aria-label={t("settings_profiles_save_action")}
+          >
+            <SaveIcon size={14} />
+          </DialogButton>
+        </Focusable>
       </SettingsSection>
 
       {activeName ? (

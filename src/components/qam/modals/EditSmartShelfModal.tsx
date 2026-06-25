@@ -105,6 +105,7 @@ type EditState = {
   hideSeeMore: boolean
   hideRefreshCard: boolean
   heroEnabled: boolean
+  gameInfoAbove: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   refreshIntervalMinutes: number
@@ -164,6 +165,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     hideSeeMore: (shelf as any).hideSeeMore ?? false,
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
     heroEnabled: (shelf as any).heroEnabled ?? false,
+    gameInfoAbove: (shelf as any).gameInfoAbove ?? false,
     dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
@@ -439,6 +441,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).hideSeeMore = state.hideSeeMore
       ;(patch as any).hideRefreshCard = state.hideRefreshCard
       ;(patch as any).heroEnabled = state.heroEnabled || undefined
+      ;(patch as any).gameInfoAbove = state.gameInfoAbove || undefined
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       // Only persist when the user diverged from the default cadence; otherwise
@@ -924,8 +927,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled }}
-                      setFlags={(patch) => setState((prev) => ({ ...prev, ...patch }))}
+                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove }}
+                      setFlags={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.gameInfoAbove === true) next.hideShelfTitle = true; return next; })}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
                       highlightPickerOpen={highlightPickerOpen}
@@ -944,7 +947,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                     <DisplayTabContent
                       t={t}
                       display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
-                      setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
+                      setDisplay={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.hideShelfTitle === false && (prev as any).gameInfoAbove) next.gameInfoAbove = false; return next; })}
                       hasNonSteamBadges={hasNonSteamBadges}
                       dedupeByExactName={state.dedupeByExactName}
                       setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}

@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "ファイルパス",
-  "select_items_all": "すべて選択"
+  "select_items_all": "すべて選択",
+  "global_game_info_above": "カードの上にゲーム情報を表示",
+  "game_info_above_label": "カードの上にゲーム情報を表示",
+  "confirm_continue": "続行",
+  "couple_info_above_title": "棚のタイトルを非表示にしますか？",
+  "couple_info_above_body": "ゲーム情報を上に表示すると、タイトルが非表示になる全画面レイアウトを使用するため、棚のタイトルも非表示になります。いつでも再表示できます。",
+  "couple_show_title_title": "上部の情報を無効にしますか？",
+  "couple_show_title_body": "棚のタイトルを再表示すると、この棚の「カードの上にゲーム情報を表示」が無効になり、カードとテキストは通常のレイアウトに戻ります。",
+  "mode_switch_title": "モードを切り替えますか？",
+  "mode_switch_light_body": "ライトモードと詳細モードは同時に有効にできません。ライトモードを有効にすると詳細モードがオフになります。",
+  "mode_switch_advanced_body": "ライトモードと詳細モードは同時に有効にできません。詳細モードを有効にするとライトモードがオフになります。",
+  "beta_channel_label": "ベータ版",
+  "settings_confirm_irreversible": "この操作は取り消せません。"
 }

@@ -127,6 +127,12 @@ def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
     """QAM scrolled to Saved Filters (when at least one filter exists)."""
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
+    # The Saved Filters section only exists when the user has saved a filter.
+    # Skip (don't capture the wrong section) when it's absent.
+    has = _qam_eval(host, port, "!!document.querySelector('[data-ds-section=\"saved_filters\"]')")
+    if has is not True:
+        close_qam(sjc)
+        return {}
     _scroll_qam_to_section(host, port, "saved_filters")
     time.sleep(0.8)
     out = out_dir / "saved-filters-qam.png"
@@ -137,41 +143,42 @@ def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 
 @register("sidecar")
 def sidecar(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM with the expandable "Configurações" sidecar open. Drives the
-    open/close state via the `__ds_qam_expanded__` debug hook so we don't
-    have to simulate a real gamepad dpad-right (SteamClient.Input doesn't
-    fire for CDP-dispatched keypresses)."""
+    """QAM with the expandable "Configurações" sidecar open.
+
+    The `__ds_qam_expanded__` store lives in SharedJSContext but the QAM
+    component reads a separate module instance, so toggling it via CDP sets
+    the store without expanding the panel; a real gamepad dpad-right also
+    doesn't dispatch through SteamClient.Input. We attempt the SJC hook and
+    only emit the capture if the sidecar actually rendered — otherwise we
+    skip so a non-expanded QAM isn't mislabelled as the sidecar."""
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
-    _qam_eval(host, port, """
-(function(){
-  try {
-    var h = window.__ds_qam_expanded__;
-    if (h && typeof h.set === 'function') { h.set(true); return 'expanded'; }
-  } catch (e) { return 'err:' + String(e); }
-  return 'no-hook';
-})()
-""")
+    time.sleep(1.5)
+    try:
+        sjc.evaluate("try{window.__ds_qam_expanded__&&window.__ds_qam_expanded__.set(true);}catch(e){}")
+    except Exception:
+        pass
     time.sleep(1.2)
+    expanded = _qam_eval(host, port, "!!document.querySelector('.deck-shelves-qam-sidecar .ds-eye-btn')")
+    if expanded is not True:
+        close_qam(sjc)
+        return {}
     out = out_dir / "sidecar.png"
     p = capture_qam(host, port, out)
-    # Collapse before closing the QAM so other scenarios start clean.
-    _qam_eval(host, port, """
-(function(){
-  try { var h = window.__ds_qam_expanded__; if (h) h.set(false); } catch (e) {}
-  return 'collapsed';
-})()
-""")
+    try:
+        sjc.evaluate("try{window.__ds_qam_expanded__&&window.__ds_qam_expanded__.set(false);}catch(e){}")
+    except Exception:
+        pass
     close_qam(sjc)
     return {"sidecar.png": p} if p else {}
 
 
 @register("import_overflow")
 def import_overflow(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM with the import overflow menu open."""
+    """QAM with the import overflow menu open (needs 2+ import descriptors)."""
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
-    _qam_eval(host, port, """
+    res = _qam_eval(host, port, """
 (function(){
   const btns = document.querySelectorAll('.deck-shelves-action-btn button, button[aria-label]');
   for (const b of btns) {
@@ -186,7 +193,13 @@ def import_overflow(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[s
   return 'not found';
 })()
 """)
-    time.sleep(1.2)
+    time.sleep(1.0)
+    # Only capture when an overflow/context menu actually opened — otherwise
+    # skip rather than capture the underlying QAM section.
+    opened = _qam_eval(host, port, "!!document.querySelector('[role=menu], [class*=contextmenu i], [class*=ContextMenu]')")
+    if not (isinstance(res, str) and res.startswith("clicked")) or opened is not True:
+        close_qam(sjc)
+        return {}
     out = out_dir / "import-overflow.png"
     p = capture_qam(host, port, out)
     close_qam(sjc)

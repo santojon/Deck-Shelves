@@ -60,6 +60,7 @@ const OPTIONAL = [
   { file: "about-smart.png" },
   { file: "about-support.png" },
   { file: "settings-page.png", minSize: 50_000 },
+  { file: "settings-profiles.png", minSize: 50_000 },
   { file: "settings-statistics.png", minSize: 50_000 },
   { file: "settings-integrations.png", minSize: 50_000 },
   { file: "settings-advanced.png", minSize: 50_000 },

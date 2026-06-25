@@ -49,15 +49,18 @@ jobs:
             NAME=$(echo "$REL_JSON" | jq -r '.name // empty')
             BODY=$(echo "$REL_JSON" | jq -r '.body // empty')
             URL=$(echo "$REL_JSON" | jq -r '.html_url // empty')
+            PRERELEASE=$(echo "$REL_JSON" | jq -r '.prerelease // false')
             TAG="$TAG_NAME"
           else
             TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
             NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
             BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
             URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+            PRERELEASE=$(jq -r '.release.prerelease // false' "$GITHUB_EVENT_PATH")
           fi
           RAW_URL="https://raw.githubusercontent.com/$REPO/${TAG:-main}/assets/screenshots/home.png"
           TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
+          if [ "$PRERELEASE" = "true" ]; then TITLE="🧪 Pre-release · $TITLE"; fi
           DESC=$(printf "%s" "$BODY" | tr -d '\r' | head -c 3800)
           DESC="$DESC\n\nReleases: https://github.com/$REPO/releases"
 
@@ -79,6 +82,8 @@ jobs:
 
   reddit-link:
     name: Reddit submit link
+    # Stable releases only — no Reddit post for alpha/beta/rc.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease != true }}
     runs-on: ubuntu-latest
     steps:
       - name: Build ready-to-post Reddit link

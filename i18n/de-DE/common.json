@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "Dateipfad",
-  "select_items_all": "Alle auswaehlen"
+  "select_items_all": "Alle auswaehlen",
+  "global_game_info_above": "Spielinfos oben anzeigen",
+  "game_info_above_label": "Spielinfos oben anzeigen",
+  "confirm_continue": "Weiter",
+  "couple_info_above_title": "Regaltitel ausblenden?",
+  "couple_info_above_body": "Spielinfos oben nutzt das Vollbild-Layout, in dem der Titel ausgeblendet ist – der Regaltitel wird daher ebenfalls ausgeblendet. Du kannst ihn jederzeit wieder einblenden.",
+  "couple_show_title_title": "Infos oben deaktivieren?",
+  "couple_show_title_body": "Den Regaltitel wieder einzublenden deaktiviert „Spielinfos oben anzeigen“ für dieses Regal; Karten und Texte kehren zum normalen Layout zurück.",
+  "mode_switch_title": "Modus wechseln?",
+  "mode_switch_light_body": "Der Light- und der Erweitert-Modus können nicht gleichzeitig aktiv sein. Den Light-Modus zu aktivieren schaltet den Erweitert-Modus aus.",
+  "mode_switch_advanced_body": "Der Light- und der Erweitert-Modus können nicht gleichzeitig aktiv sein. Den Erweitert-Modus zu aktivieren schaltet den Light-Modus aus.",
+  "beta_channel_label": "Beta-Kanal",
+  "settings_confirm_irreversible": "Das kann nicht rückgängig gemacht werden."
 }

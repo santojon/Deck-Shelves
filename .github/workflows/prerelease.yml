@@ -1,0 +1,143 @@
+name: Pre-release
+
+# Cut an alpha/beta/rc pre-release from the current branch HEAD with a single
+# manual run — no tags to create by hand, no version committed to the repo.
+#
+# Flow: pick a `bump` (what the eventual STABLE release will be) + a `channel`.
+# We compute the would-be version (the "fake bump", e.g. major of 2.4.3 = 3.0.0),
+# append `-<channel>.<N>` (N = next sequential for that base+channel), inject it
+# into package.json + plugin.json **in the runner only**, build:release, and
+# publish a GitHub *pre-release*. The repo's package.json stays untouched.
+#
+# Beta testers opt in via Deck Shelves → "Check for updates" → "Canal beta",
+# which makes the in-plugin update check surface pre-releases.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Bump the eventual stable release will use (drives the fake-bumped base)'
+        type: choice
+        required: true
+        default: patch
+        options: [patch, minor, major]
+      channel:
+        description: 'Pre-release channel'
+        type: choice
+        required: true
+        default: beta
+        options: [alpha, beta, rc]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Compute pre-release version (fake bump + sequential suffix)
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CURRENT=$(node -p "require('./package.json').version")
+          BUMP="${{ inputs.bump }}"
+          CHANNEL="${{ inputs.channel }}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          BASE="${MAJOR}.${MINOR}.${PATCH}"
+          # N = next sequential pre-release for this exact base+channel.
+          EXISTING=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq "[.[] | select(.tag_name | startswith(\"v${BASE}-${CHANNEL}.\"))] | length")
+          N=$((EXISTING + 1))
+          VERSION="${BASE}-${CHANNEL}.${N}"
+          TAG="v${VERSION}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Pre-release: $CURRENT → $VERSION  (fake $BUMP bump, never committed)"
+
+      - name: Inject version into package.json + plugin.json (runner only)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const v = '${{ steps.version.outputs.version }}';
+            for (const f of ['package.json', 'plugin.json']) {
+              const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+              j.version = v;
+              fs.writeFileSync(f, JSON.stringify(j, null, 2) + '\n');
+            }
+            console.log('Injected version', v, '(not committed)');
+          "
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build plugin (release mode)
+        run: pnpm run build:release
+
+      - name: Package zip
+        run: pnpm run dist
+
+      - name: Extract [Unreleased] notes
+        id: notes
+        run: |
+          NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          {
+            echo "body<<BODY_EOF"
+            printf '%s\n' "$NOTES"
+            echo "BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.SUBMIT_TOKEN || github.token }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Deck Shelves ${{ steps.version.outputs.tag }}
+          body: ${{ steps.notes.outputs.body }}
+          prerelease: true
+          generate_release_notes: ${{ steps.notes.outputs.body == '' }}
+          files: |
+            deck-shelves-v*.zip
+
+      - name: Comment on [Unreleased]-linked issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          REL_URL="https://github.com/${REPO}/releases/tag/${TAG}"
+          SECTION=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md)
+          ISSUES=$(echo "$SECTION" | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
+          if [ -z "${ISSUES}" ]; then echo "No issue references in [Unreleased] — nothing to comment."; exit 0; fi
+          for n in $ISSUES; do
+            echo "Commenting on #$n"
+            gh issue comment "$n" --repo "$REPO" \
+              --body "🧪 Something referenced here just shipped in pre-release [\`${TAG}\`](${REL_URL}) for testing. Turn on the **beta channel** in Deck Shelves → *Check for updates* → *Canal beta* to grab it, and please report back if it looks good. 🙏" \
+              || echo "Skipped #$n (PR, locked, or not commentable)"
+          done

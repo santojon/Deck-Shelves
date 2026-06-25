@@ -23,7 +23,7 @@ from typing import Dict
 
 from deckprobe.screenshots.lib.cdp import Session
 from deckprobe.screenshots.lib.nav import (
-    navigate_to_ds_qam, close_qam, _qam_eval,
+    navigate_to_ds_qam, close_qam, _qam_eval, _bp_eval,
     expand_qam_sections, dismiss_bp_modals,
     click_context_menu_edit, click_context_menu_delete,
 )
@@ -153,8 +153,7 @@ def shelf_create(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_action(host, port, "addshelf")
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
     out = out_dir / "shelf-create.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -166,8 +165,7 @@ def shelf_import(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_action(host, port, "import_shelves")
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
     out = out_dir / "shelf-import.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -179,8 +177,7 @@ def shelf_export(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_action(host, port, "export_shelves")
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
     out = out_dir / "shelf-export.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -195,8 +192,7 @@ def shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, P
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
     click_context_menu_edit(host, port)
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
     out = out_dir / "shelf-edit.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -210,19 +206,19 @@ def shelf_edit_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dic
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
     click_context_menu_edit(host, port)
-    time.sleep(2.0)
+    time.sleep(3.5)
     from deckprobe.screenshots.lib.nav import _bp_eval
     _bp_eval(host, port, """
 (function(){
   var tabs = Array.from(document.querySelectorAll('[role="tab"], [class*="tab-bar-entry"], [class*="TabBar"] .Focusable'));
   for (var t of tabs) {
-    if ((t.textContent||'').toLowerCase().indexOf('filter') !== -1) { t.click(); return 'ok'; }
+    // 'filtr' matches the tab label across locales (EN filters / PT filtros / ES filtros / FR filtres / IT filtri).
+    if ((t.textContent||'').toLowerCase().indexOf('filtr') !== -1) { t.click(); return 'ok'; }
   }
   return 'not found';
 })()
 """)
-    time.sleep(1.5)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(2.0)
     out = out_dir / "shelf-edit-filters.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -236,7 +232,7 @@ def shelf_edit_visual(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
     click_context_menu_edit(host, port)
-    time.sleep(2.0)
+    time.sleep(3.5)
     from deckprobe.screenshots.lib.nav import _bp_eval
     _bp_eval(host, port, """
 (function(){
@@ -247,8 +243,7 @@ def shelf_edit_visual(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
   return 'not found';
 })()
 """)
-    time.sleep(1.5)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(2.0)
     out = out_dir / "shelf-edit-visual.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -269,8 +264,35 @@ def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 """)
     time.sleep(0.5)
     _click_action(host, port, "smart_add_shelf")
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
+    # The add modal opens on the standard tab; switch to the smart segment
+    # (PT "Inteligentes" / EN "Smart") to show the smart-template picker.
+    _bp_eval(host, port, """
+(function(){
+  function fire(el){
+    ['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(type){
+      el.dispatchEvent(new MouseEvent(type, {bubbles:true, cancelable:true, view:window}));
+    });
+  }
+  var all = Array.from(document.querySelectorAll('[role="tab"], button, .Focusable, span, div'));
+  for (var t of all) {
+    var txt = (t.textContent || '').trim().toLowerCase();
+    if (txt === 'inteligentes' || txt === 'smart' || txt === 'intelligentes') {
+      // Fire on the element and its nearest focusable/button ancestor.
+      fire(t);
+      var p = t;
+      for (var i = 0; i < 4 && p; i++) {
+        if (p.getAttribute && (p.getAttribute('role') === 'tab' || p.tagName === 'BUTTON' ||
+            (p.classList && p.classList.contains('Focusable')))) { fire(p); break; }
+        p = p.parentElement;
+      }
+      return 'ok';
+    }
+  }
+  return 'not found';
+})()
+""")
+    time.sleep(1.2)
     out = out_dir / "smart-shelf-modal.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -303,8 +325,7 @@ def smart_shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[
     _click_first_smart_actions(host, port)
     time.sleep(1.0)
     click_context_menu_edit(host, port)
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
     out = out_dir / "smart-shelf-edit.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -338,8 +359,7 @@ def reset_all(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
   return 'clicked';
 })()
 """)
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
     out = out_dir / "reset-all.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)
@@ -388,8 +408,7 @@ def shelf_delete(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
     click_context_menu_delete(host, port)
-    time.sleep(2.0)
-    close_qam(sjc, settle_ms=600)
+    time.sleep(3.5)
     out = out_dir / "shelf-delete.png"
     p = capture_bigpicture(host, port, out)
     dismiss_bp_modals(host, port)

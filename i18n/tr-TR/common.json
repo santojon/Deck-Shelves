@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "Dosya yolu",
-  "select_items_all": "Tumunu sec"
+  "select_items_all": "Tumunu sec",
+  "global_game_info_above": "Oyun bilgisini kartların üstünde göster",
+  "game_info_above_label": "Oyun bilgisini kartların üstünde göster",
+  "confirm_continue": "Devam et",
+  "couple_info_above_title": "Raf başlığı gizlensin mi?",
+  "couple_info_above_body": "Oyun bilgisini üstte göstermek, başlığın gizlendiği tam sayfa düzenini kullanır — bu yüzden raf başlığı da gizlenir. İstediğiniz zaman tekrar gösterebilirsiniz.",
+  "couple_show_title_title": "Üstteki bilgi kapatılsın mı?",
+  "couple_show_title_body": "Raf başlığını tekrar göstermek bu raf için 'oyun bilgisini kartların üstünde göster' seçeneğini kapatır; kartlar ve metinler normal düzene döner.",
+  "mode_switch_title": "Mod değiştirilsin mi?",
+  "mode_switch_light_body": "Light ve Gelişmiş modu aynı anda açık olamaz. Light modunu açmak Gelişmiş modu kapatır.",
+  "mode_switch_advanced_body": "Light ve Gelişmiş modu aynı anda açık olamaz. Gelişmiş modu açmak Light modunu kapatır.",
+  "beta_channel_label": "Beta kanalı",
+  "settings_confirm_irreversible": "Bu geri alınamaz."
 }

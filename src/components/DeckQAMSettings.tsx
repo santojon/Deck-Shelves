@@ -42,7 +42,10 @@ import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPositi
 import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
+import { trackFeature } from '../steam/usageTracking'
 import { GeneralTab } from './qam/sidecar/GeneralTab'
+import { applyGameInfoAboveToggle, applyHideTitleToggle } from './qam/common/gameInfoCoupling'
+import { confirmAction } from './qam/modals/ConfirmActionModal'
 import { ProfilesSection } from './qam/sections/ProfilesSection'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -193,6 +196,7 @@ function fireQamExpand(win: Window | null, value: boolean, setQamExpanded: (v: b
     );
   } catch {}
   setQamExpanded(value);
+  if (value) trackFeature('sidecar');
 }
 
 function useQamCompositorSync(qamExpanded: boolean): void {
@@ -516,6 +520,18 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     setQamExpanded(false);
     return () => setQamExpanded(false);
   }, [setQamExpanded]);
+  /* Dev-only screenshot hook: opens/closes the sidecar the same way a
+     dpad-right chord does (`fireQamExpand` widens the QAM compositor window
+     via the opener postMessage AND flips the store) — the store flag alone
+     doesn't widen the window, so the panel would render off-screen. Gamepad
+     input can't be driven over CDP. Stripped from release via `if (!__DEV__)`. */
+  useEffect(() => {
+    if (!__DEV__) return;
+    const g = globalThis as any;
+    g.__ds_dev_open_sidecar = () => { fireQamExpand(getQamWindow(), true, setQamExpanded); return true; };
+    g.__ds_dev_close_sidecar = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
+    return () => { try { delete g.__ds_dev_open_sidecar; delete g.__ds_dev_close_sidecar; } catch {} };
+  }, [setQamExpanded]);
   /* Decky keeps the plugin tab mounted across QAM open/close cycles, so
      without explicit hooks the sidecar stays expanded when the user opens
      a Steam overlay (Steam menu, friends, etc) and comes back to the QAM.
@@ -783,11 +799,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('updateNotifyEnabled') && (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
         )}
+        {!isHid('updateNotifyEnabled') && settings.updateNotifyEnabled !== false && (
+          <div style={{ paddingLeft: 16 }}>
+            <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setBetaChannelEnabled(value)} />
+          </div>
+        )}
         {!isHid('lightModeEnabled') && (
-          <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
+          <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => { if (v && (settings as any).advancedModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_light_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setLightModeEnabled?.(true) }) } else { (actions as any).setLightModeEnabled?.(v) } }} />
         )}
         {!isHid('advancedModeEnabled') && (
-          <ToggleField label={t('advanced_mode_enabled' as any)} checked={(settings as any).advancedModeEnabled === true} onChange={(v: boolean) => (actions as any).setAdvancedModeEnabled?.(v)} />
+          <ToggleField label={t('advanced_mode_enabled' as any)} checked={(settings as any).advancedModeEnabled === true} onChange={(v: boolean) => { if (v && (settings as any).lightModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_advanced_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setAdvancedModeEnabled?.(true) }) } else { (actions as any).setAdvancedModeEnabled?.(v) } }} />
         )}
         {!isHid('offlineModeEnabled') && (
           <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
@@ -994,7 +1015,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         id='visual_global'
         icon={<WandIcon />}
         title={t('section_visual_global')}
-        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
+        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
       >
         {!isHid('globalMatchNativeSize') && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
         {!isHid('globalHighlightFirst') && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />}
@@ -1036,6 +1057,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {(settings as any).globalEnableLogo === true && (settings as any).globalEnableDescription === true && !isHid('globalDescriptionBelowLogo') && (
           <ToggleField label={t('description_below_logo' as any)} checked={(settings as any).globalDescriptionBelowLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDescriptionBelowLogo(value)} />
         )}
+        {(settings as any).globalEnableLogo === true && !isHid('globalLogoBelowShelf') && (
+          <ToggleField label={t('logo_below_shelf_label' as any)} checked={(settings as any).globalLogoBelowShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalLogoBelowShelf(value)} />
+        )}
         {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionHeight') && (
           <DSSliderField label={t('description_height_label' as any)} value={(settings as any).globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
         )}
@@ -1052,7 +1076,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('globalPlaytimePosition') && (
           <PositionField labelKey='playtime_position_label' value={(settings as any).globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
         )}
-        {!isHid('globalHideShelfTitle') && <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideShelfTitle(value)} />}
+        {!isHid('globalHideShelfTitle') && <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} disabled={mountCrashed} onChange={(value: boolean) => applyHideTitleToggle({ next: value, infoAbove: (settings as any).globalGameInfoAbove === true, t, setHideTitle: (v) => actions.setGlobalHideShelfTitle(v), setGameInfoAbove: (v) => void (actions as any).setGlobalGameInfoAbove(v) })} />}
         {!isHid('globalHideGameNames') && <ToggleField label={t('hide_game_names')} checked={settings.globalHideGameNames === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideGameNames(value)} />}
         {!isHid('globalHideStatusLine') && <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />}
         {!isHid('globalHideInstallIndicator') && <ToggleField label={t('hide_install_indicators')} checked={settings.globalHideInstallIndicator === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideInstallIndicator(value)} />}
@@ -1066,6 +1090,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('globalHideRefreshCard') && <ToggleField label={t('hide_refresh_card')} checked={settings.globalHideRefreshCard === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideRefreshCard(value)} />}
         {!isHid('globalDedupeByName') && <ToggleField label={t('global_dedupe_by_name' as any)} checked={(settings as any).globalDedupeByName === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDedupeByName(value)} />}
         {!isHid('globalHeroEnabled') && <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalHeroEnabled(value)} />}
+        {!isHid('globalGameInfoAbove') && <ToggleField label={t('global_game_info_above' as any)} checked={(settings as any).globalGameInfoAbove === true} disabled={mountCrashed} onChange={(value: boolean) => applyGameInfoAboveToggle({ next: value, hideTitle: settings.globalHideShelfTitle === true, t, setGameInfoAbove: (v) => void (actions as any).setGlobalGameInfoAbove(v), setHideTitle: (v) => actions.setGlobalHideShelfTitle(v) })} />}
         {!isHid('globalFullPageShelf') && <ToggleField label={t('full_page_shelves_label' as any)} checked={(settings as any).globalFullPageShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalFullPageShelf(value)} />}
       </CollapsibleSection>
       )}

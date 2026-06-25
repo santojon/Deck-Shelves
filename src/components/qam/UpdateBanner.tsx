@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DialogButton, Focusable } from "../../runtime/host/decky";
 import type { SettingsController } from "../../features/settings/controller";
-import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from "../../core/updateNotifier";
+import { checkForUpdate, __resetUpdateCheckCache, openReleaseUrl, type UpdateCheckResult } from "../../core/updateNotifier";
 import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
 
@@ -41,14 +41,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   if (!result?.hasUpdate || !result.latestVersion) return null;
   if (dismissed && dismissed === result.latestVersion) return null;
 
-  const open = () => {
-    if (!result.releaseUrl) return;
-    try {
-      const sc: any = (globalThis as any).SteamClient;
-      if (typeof sc?.System?.OpenInSystemBrowser === "function") sc.System.OpenInSystemBrowser(result.releaseUrl);
-      else (globalThis as any).window?.open?.(result.releaseUrl, "_blank");
-    } catch (e) { logInfo("UPDATE", "open release failed", String(e)); }
-  };
+  const open = () => openReleaseUrl(result.releaseUrl);
   const dismiss = () => { if (result.latestVersion) actions.dismissUpdateNotice(result.latestVersion); };
 
   return (

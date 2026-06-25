@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "Chemin du fichier",
-  "select_items_all": "Tout selectionner"
+  "select_items_all": "Tout selectionner",
+  "global_game_info_above": "Afficher les infos du jeu au-dessus",
+  "game_info_above_label": "Afficher les infos du jeu au-dessus",
+  "confirm_continue": "Continuer",
+  "couple_info_above_title": "Masquer le titre de l'étagère ?",
+  "couple_info_above_body": "Afficher les infos du jeu au-dessus utilise la mise en page pleine page où le titre est masqué — le titre de l'étagère sera donc aussi masqué. Vous pouvez le réafficher à tout moment.",
+  "couple_show_title_title": "Désactiver les infos au-dessus ?",
+  "couple_show_title_body": "Réafficher le titre de l'étagère désactive « afficher les infos du jeu au-dessus » pour cette étagère ; les cartes et les textes reviennent à la mise en page normale.",
+  "mode_switch_title": "Changer de mode ?",
+  "mode_switch_light_body": "Les modes Léger et Avancé ne peuvent pas être actifs en même temps. Activer le mode Léger désactivera le mode Avancé.",
+  "mode_switch_advanced_body": "Les modes Léger et Avancé ne peuvent pas être actifs en même temps. Activer le mode Avancé désactivera le mode Léger.",
+  "beta_channel_label": "Canal bêta",
+  "settings_confirm_irreversible": "Cette action est irréversible."
 }

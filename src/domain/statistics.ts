@@ -218,6 +218,7 @@ export interface StatSuggestion {
   params: Record<string, string | number>;
   templateId?: string; // regular SHELF_TEMPLATES id
   smartMode?: string;  // smart-shelf mode
+  removeShelfId?: string; // usage-derived "remove this unused shelf" suggestion
 }
 
 // seed = rotation seed (day index); exclude = template ids/modes already present.
@@ -271,6 +272,34 @@ function smartCandidates(lib: LibraryStat[]): StatSuggestion[] {
   add(statValue(lib, "recently_played_30d") >= 5, "smart_recent", "stat_suggestion_recent", statValue(lib, "recently_played_30d"), "recently_played");
   add(statValue(lib, "played_games") >= 10, "smart_quick", "stat_suggestion_most_played", statValue(lib, "played_games"), "quick_play");
   return out;
+}
+
+/* Usage-derived "consider removing this shelf" suggestions: a shelf with 0
+   recorded views while OTHER shelves DO have views and tracking has run long
+   enough — i.e. "you're active but never open this one", not "no data yet".
+   Pure: caller supplies the per-shelf view counts + how many days were
+   tracked. */
+export function deriveRemovalSuggestions(
+  shelves: ReadonlyArray<{ id: string; title?: string }>,
+  shelfViews: Record<string, number>,
+  opts: { trackedDays: number; minTrackedDays?: number; max?: number } = { trackedDays: 0 },
+): StatSuggestion[] {
+  const minTrackedDays = opts.minTrackedDays ?? 5;
+  if (opts.trackedDays < minTrackedDays) return [];
+  const someShelfUsed = Object.values(shelfViews).some((v) => v > 0);
+  if (!someShelfUsed) return [];
+  const out: StatSuggestion[] = [];
+  for (const sh of shelves) {
+    if ((shelfViews[sh.id] ?? 0) === 0) {
+      out.push({
+        id: `remove_${sh.id}`,
+        messageKey: "stat_suggestion_remove_unused",
+        params: { name: sh.title || sh.id },
+        removeShelfId: sh.id,
+      });
+    }
+  }
+  return out.slice(0, opts.max ?? 4);
 }
 
 // Contextual + rotative suggestions: heuristic-gated (can be empty),

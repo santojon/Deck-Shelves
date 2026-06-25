@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "파일 경로",
-  "select_items_all": "모두 선택"
+  "select_items_all": "모두 선택",
+  "global_game_info_above": "카드 위에 게임 정보 표시",
+  "game_info_above_label": "카드 위에 게임 정보 표시",
+  "confirm_continue": "계속",
+  "couple_info_above_title": "선반 제목을 숨길까요?",
+  "couple_info_above_body": "게임 정보를 위에 표시하면 제목이 숨겨지는 전체 페이지 레이아웃을 사용하므로 선반 제목도 숨겨집니다. 언제든지 다시 표시할 수 있습니다.",
+  "couple_show_title_title": "위쪽 정보를 끌까요?",
+  "couple_show_title_body": "선반 제목을 다시 표시하면 이 선반의 '카드 위에 게임 정보 표시'가 꺼지고 카드와 텍스트가 일반 레이아웃으로 돌아갑니다.",
+  "mode_switch_title": "모드를 전환할까요?",
+  "mode_switch_light_body": "라이트 모드와 고급 모드는 동시에 켤 수 없습니다. 라이트 모드를 켜면 고급 모드가 꺼집니다.",
+  "mode_switch_advanced_body": "라이트 모드와 고급 모드는 동시에 켤 수 없습니다. 고급 모드를 켜면 라이트 모드가 꺼집니다.",
+  "beta_channel_label": "베타 채널",
+  "settings_confirm_irreversible": "되돌릴 수 없습니다."
 }

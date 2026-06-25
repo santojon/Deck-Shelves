@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Adicionar prateleira",
   "file_path": "Caminho do arquivo",
-  "select_items_all": "Selecionar tudo"
+  "select_items_all": "Selecionar tudo",
+  "global_game_info_above": "Exibir informações do jogo em cima",
+  "game_info_above_label": "Exibir informações do jogo em cima",
+  "confirm_continue": "Continuar",
+  "couple_info_above_title": "Ocultar o título da prateleira?",
+  "couple_info_above_body": "Exibir informações do jogo emcima usa o layout de página inteira, no qual o título fica oculto — então o título da prateleira também será ocultado. Você pode exibi-lo novamente a qualquer momento pelo botão de ocultar título.",
+  "couple_show_title_title": "Desativar informações em cima?",
+  "couple_show_title_body": "Exibir o título da prateleira novamente desativa “exibir informações do jogo acima” nesta prateleira, então os cards e textos voltam ao layout normal.",
+  "mode_switch_title": "Trocar de modo?",
+  "mode_switch_light_body": "Os modos Light e Avançado não podem estar ativos ao mesmo tempo. Ativar o modo Light desativará o modo Avançado.",
+  "mode_switch_advanced_body": "Os modos Light e Avançado não podem estar ativos ao mesmo tempo. Ativar o modo Avançado desativará o modo Light.",
+  "beta_channel_label": "Canal beta",
+  "settings_confirm_irreversible": "Isto não pode ser anulado."
 }

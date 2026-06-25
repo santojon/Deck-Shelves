@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "Bestandspad",
-  "select_items_all": "Alles selecteren"
+  "select_items_all": "Alles selecteren",
+  "global_game_info_above": "Spelinfo boven de kaarten tonen",
+  "game_info_above_label": "Spelinfo boven de kaarten tonen",
+  "confirm_continue": "Doorgaan",
+  "couple_info_above_title": "Planktitel verbergen?",
+  "couple_info_above_body": "Spelinfo boven tonen gebruikt de volledige paginaweergave waarin de titel verborgen is — de planktitel wordt dus ook verborgen. Je kunt hem altijd weer tonen.",
+  "couple_show_title_title": "Info boven uitschakelen?",
+  "couple_show_title_body": "De planktitel weer tonen schakelt 'spelinfo boven de kaarten tonen' voor deze plank uit; kaarten en teksten keren terug naar de normale weergave.",
+  "mode_switch_title": "Modus wisselen?",
+  "mode_switch_light_body": "Light- en Geavanceerde modus kunnen niet tegelijk aan staan. Light-modus inschakelen schakelt de Geavanceerde modus uit.",
+  "mode_switch_advanced_body": "Light- en Geavanceerde modus kunnen niet tegelijk aan staan. Geavanceerde modus inschakelen schakelt de Light-modus uit.",
+  "beta_channel_label": "Bètakanaal",
+  "settings_confirm_irreversible": "Dit kan niet ongedaan worden gemaakt."
 }

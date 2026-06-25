@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "文件路径",
-  "select_items_all": "全选"
+  "select_items_all": "全选",
+  "global_game_info_above": "在卡片上方显示游戏信息",
+  "game_info_above_label": "在卡片上方显示游戏信息",
+  "confirm_continue": "继续",
+  "couple_info_above_title": "隐藏货架标题？",
+  "couple_info_above_body": "在上方显示游戏信息会使用隐藏标题的整页布局，因此货架标题也会被隐藏。你可以随时重新显示它。",
+  "couple_show_title_title": "关闭上方信息？",
+  "couple_show_title_body": "重新显示货架标题会关闭该货架的“在卡片上方显示游戏信息”，卡片和文字将恢复为正常布局。",
+  "mode_switch_title": "切换模式？",
+  "mode_switch_light_body": "轻量模式和高级模式不能同时开启。开启轻量模式将关闭高级模式。",
+  "mode_switch_advanced_body": "轻量模式和高级模式不能同时开启。开启高级模式将关闭轻量模式。",
+  "beta_channel_label": "Beta 通道",
+  "settings_confirm_irreversible": "此操作无法撤销。"
 }

@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "檔案路徑",
-  "select_items_all": "全選"
+  "select_items_all": "全選",
+  "global_game_info_above": "在卡片上方顯示遊戲資訊",
+  "game_info_above_label": "在卡片上方顯示遊戲資訊",
+  "confirm_continue": "繼續",
+  "couple_info_above_title": "隱藏層架標題？",
+  "couple_info_above_body": "在上方顯示遊戲資訊會使用隱藏標題的整頁版面，因此層架標題也會被隱藏。你可以隨時重新顯示。",
+  "couple_show_title_title": "關閉上方資訊？",
+  "couple_show_title_body": "重新顯示層架標題會關閉此層架的「在卡片上方顯示遊戲資訊」，卡片與文字將恢復為一般版面。",
+  "mode_switch_title": "切換模式？",
+  "mode_switch_light_body": "輕量模式與進階模式無法同時開啟。開啟輕量模式將關閉進階模式。",
+  "mode_switch_advanced_body": "輕量模式與進階模式無法同時開啟。開啟進階模式將關閉輕量模式。",
+  "beta_channel_label": "Beta 頻道",
+  "settings_confirm_irreversible": "此操作無法復原。"
 }

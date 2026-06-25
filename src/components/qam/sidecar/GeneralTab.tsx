@@ -1,8 +1,12 @@
+import { useRef } from 'react'
 import { Dropdown, Field, Focusable, ToggleField } from '../../../runtime/host/decky'
+import { takeNavTreeFocus } from '../../../runtime/navFocus'
 import type { SettingsController } from '../../../features/settings/controller'
 import { CollapsibleSection, DSSliderField, PositionField, useLightMode, type HorizontalPosition } from '../../ui'
 import { SlidersIcon, SparkleIcon, WandIcon, PlusCircleIcon, EyeIcon, EyeOffIcon, BookmarkIcon } from '../../icons'
 import { openManagedModal } from '../common/openManagedModal'
+import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling'
+import { confirmAction } from '../modals/ConfirmActionModal'
 import { OnlinePrivacyModal } from '../../DeckQAMSettings'
 import { isCssLoaderActive } from '../../../core/cssLoaderDetect'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
@@ -24,16 +28,24 @@ function HideableRow({
   t: (k: string) => string;
   children: React.ReactNode;
 }) {
+  /* Toggling shows/hides the row in the QAM main panel, which makes Steam
+     re-resolve the nav tree and yank focus out of the sidecar — re-assert
+     focus on the eye after the re-render so the sidecar stays usable. */
+  const eyeRef = useRef<HTMLDivElement>(null)
+  const toggle = () => {
+    setHidden(!hidden)
+    const el = eyeRef.current
+    if (el) requestAnimationFrame(() => { try { takeNavTreeFocus(el) } catch {} })
+  }
   if (mode === 'qam' && hidden) return null
   if (mode === 'qam') return <>{children}</>
   // sidecar: row with toggle on the left and an eye button on the right.
-  // Use Focusable with flow-children='row' so Steam's nav allows dpad-right
-  // from the ToggleField into the eye button.
-  const toggle = () => setHidden(!hidden)
+  // flow-children='row' lets Steam's nav dpad-right into the eye button.
   return (
     <Focusable className='ds-hide-row' flow-children='row' noFocusRing>
       {children}
       <Focusable
+        ref={eyeRef as any}
         className='ds-eye-btn'
         onClick={toggle}
         onOKButton={toggle}
@@ -59,9 +71,15 @@ function SectionEyeButton({
   setHidden: (next: boolean) => void;
   t: (k: string) => string;
 }) {
-  const toggle = () => setHidden(!hidden)
+  const eyeRef = useRef<HTMLDivElement>(null)
+  const toggle = () => {
+    setHidden(!hidden)
+    const el = eyeRef.current
+    if (el) requestAnimationFrame(() => { try { takeNavTreeFocus(el) } catch {} })
+  }
   return (
     <Focusable
+      ref={eyeRef as any}
       className='ds-eye-btn ds-eye-btn-section'
       onClick={toggle}
       onOKButton={toggle}
@@ -132,11 +150,16 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         {row('updateNotifyEnabled', (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(v: boolean) => actions.setUpdateNotifyEnabled(v)} />
         ))}
+        {settings.updateNotifyEnabled !== false && (
+          <div style={{ paddingLeft: 16 }}>
+            <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} onChange={(v: boolean) => (actions as any).setBetaChannelEnabled(v)} />
+          </div>
+        )}
         {row('lightModeEnabled', (
-          <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => (actions as any).setLightModeEnabled?.(v)} />
+          <ToggleField label={t('light_mode_enabled' as any)} checked={(settings as any).lightModeEnabled === true} onChange={(v: boolean) => { if (v && (settings as any).advancedModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_light_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setLightModeEnabled?.(true) }) } else { (actions as any).setLightModeEnabled?.(v) } }} />
         ))}
         {row('advancedModeEnabled', (
-          <ToggleField label={t('advanced_mode_enabled' as any)} checked={(settings as any).advancedModeEnabled === true} onChange={(v: boolean) => (actions as any).setAdvancedModeEnabled?.(v)} />
+          <ToggleField label={t('advanced_mode_enabled' as any)} checked={(settings as any).advancedModeEnabled === true} onChange={(v: boolean) => { if (v && (settings as any).lightModeEnabled === true) { confirmAction({ title: t('mode_switch_title' as any), body: t('mode_switch_advanced_body' as any), okText: t('confirm_continue' as any), cancelText: t('cancel'), onConfirm: () => (actions as any).setAdvancedModeEnabled?.(true) }) } else { (actions as any).setAdvancedModeEnabled?.(v) } }} />
         ))}
         {row('offlineModeEnabled', (
           <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
@@ -231,7 +254,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           id='visual_global'
           icon={<WandIcon />}
           title={t('section_visual_global')}
-          count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
+          count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
           headerExtra={<SectionEyeButton id='visual_global' hidden={isSecHid('visual_global')} setHidden={(v) => setSecHid('visual_global', v)} t={t} />}
         >
           {row('globalMatchNativeSize', (
@@ -247,7 +270,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
             <ToggleField label={t('highlight_random')} checked={(settings as any).globalHighlightRandom === true} onChange={(v: boolean) => (actions as any).setGlobalHighlightRandom(v)} />
           ))}
           {row('globalHideShelfTitle', (
-            <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} onChange={(v: boolean) => actions.setGlobalHideShelfTitle(v)} />
+            <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} onChange={(v: boolean) => applyHideTitleToggle({ next: v, infoAbove: (settings as any).globalGameInfoAbove === true, t, setHideTitle: (x) => actions.setGlobalHideShelfTitle(x), setGameInfoAbove: (x) => void (actions as any).setGlobalGameInfoAbove(x) })} />
           ))}
           {row('globalHideGameNames', (
             <ToggleField label={t('hide_game_names')} checked={settings.globalHideGameNames === true} onChange={(v: boolean) => actions.setGlobalHideGameNames(v)} />
@@ -281,6 +304,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           ))}
           {row('globalHeroEnabled', (
             <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} onChange={(v: boolean) => void (actions as any).setGlobalHeroEnabled(v)} />
+          ))}
+          {row('globalGameInfoAbove', (
+            <ToggleField label={t('global_game_info_above' as any)} checked={(settings as any).globalGameInfoAbove === true} onChange={(v: boolean) => applyGameInfoAboveToggle({ next: v, hideTitle: settings.globalHideShelfTitle === true, t, setGameInfoAbove: (x) => void (actions as any).setGlobalGameInfoAbove(x), setHideTitle: (x) => actions.setGlobalHideShelfTitle(x) })} />
           ))}
           {/* Group: Logo + dependent options */}
           {row('globalEnableLogo', (

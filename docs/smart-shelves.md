@@ -2,6 +2,10 @@
 
 Smart shelves are a shelf type whose content is generated automatically by library heuristics. They differ from normal shelves in a fundamental way: **they appear on the home screen only when the heuristic returns results**. When no games match, the shelf simply does not render — no CSS hiding, no placeholder row.
 
+<p align="center">
+  <img src="../assets/screenshots/smart-shelf-modal.png" alt="Smart Shelf template picker" width="640">
+</p>
+
 ## Behaviour
 
 - Controlled by the `smartShelvesEnabled` global toggle in the QAM.

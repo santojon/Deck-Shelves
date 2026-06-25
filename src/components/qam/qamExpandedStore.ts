@@ -42,9 +42,11 @@ export function getQamExpanded(): boolean {
 }
 
 export function setQamExpanded(next: boolean | ((prev: boolean) => boolean)): void {
-  const g = globalThis as unknown as { __ds_set_count__?: number; __ds_last_set__?: unknown };
-  g.__ds_set_count__ = (g.__ds_set_count__ ?? 0) + 1;
-  g.__ds_last_set__ = { type: typeof next, t: Date.now() };
+  if (__DEV__) {
+    const g = globalThis as unknown as { __ds_set_count__?: number; __ds_last_set__?: unknown };
+    g.__ds_set_count__ = (g.__ds_set_count__ ?? 0) + 1;
+    g.__ds_last_set__ = { type: typeof next, t: Date.now() };
+  }
   const value = typeof next === 'function' ? next(current) : next;
   if (value === current) return;
   current = value;
@@ -67,12 +69,14 @@ export function toggleQamExpanded(): void {
 
 /* Debug hook used by the screenshot scripts and CDP probes to drive the
    sidecar open/closed without having to simulate a real gamepad input
-   (SteamClient.Input doesn't fire for dispatched keyboard events). Safe
-   to leave always-on — it's the same setter the React tree calls. */
-try {
-  const g = globalThis as unknown as { __ds_qam_expanded__?: unknown };
-  g.__ds_qam_expanded__ = { set: setQamExpanded, get: getQamExpanded, toggle: toggleQamExpanded };
-} catch {}
+   (SteamClient.Input doesn't fire for dispatched keyboard events). Dev-only —
+   `if (__DEV__)` dead-code-eliminates it from release builds. */
+if (__DEV__) {
+  try {
+    const g = globalThis as unknown as { __ds_qam_expanded__?: unknown };
+    g.__ds_qam_expanded__ = { set: setQamExpanded, get: getQamExpanded, toggle: toggleQamExpanded };
+  } catch {}
+}
 
 export function useQamExpanded(): [boolean, (next: boolean | ((prev: boolean) => boolean)) => void] {
   const [value, setValue] = useState(current);

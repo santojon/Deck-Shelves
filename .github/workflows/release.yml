@@ -14,6 +14,10 @@ permissions:
 
 jobs:
   release:
+    # Skip pre-release tags (v3.0.0-beta.1 etc.) — those are handled by
+    # prerelease.yml. Only clean `vX.Y.Z` tags (no SemVer pre-release suffix)
+    # cut a real release. Manual dispatch always runs.
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

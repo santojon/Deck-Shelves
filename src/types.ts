@@ -224,6 +224,7 @@ export const SmartShelfSchema = z.object({
   enableIcon: z.boolean().optional(),
   enableDescription: z.boolean().optional(),
   descriptionBelowLogo: z.boolean().optional(),
+  logoBelowShelf: z.boolean().optional(),
   logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   logoSize: z.number().int().min(50).max(200).nullable().optional(),
@@ -247,6 +248,9 @@ export const SmartShelfSchema = z.object({
   hideRefreshCard: z.boolean().optional(),
   // Per-shelf hero opt-in (same semantics as the regular Shelf flag).
   heroEnabled: z.boolean().optional(),
+  // Per-shelf: render the focused game's info (name, playtime, …) above the
+  // cards in a full-page layout. Decoupled from any theme — pure opt-in.
+  gameInfoAbove: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
@@ -359,6 +363,7 @@ export const ShelfSchema = z.object({
   enableIcon: z.boolean().optional(),
   enableDescription: z.boolean().optional(),
   descriptionBelowLogo: z.boolean().optional(),
+  logoBelowShelf: z.boolean().optional(),
   logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   logoSize: z.number().int().min(50).max(200).nullable().optional(),
@@ -385,6 +390,9 @@ export const ShelfSchema = z.object({
      `shelfHeroBackground`) tied to the focused appid. Independent of
      `hideRecents` — a regular shelf below the native recents row can opt in. */
   heroEnabled: z.boolean().optional(),
+  // Per-shelf: render the focused game's info (name, playtime, …) above the
+  // cards in a full-page layout. Decoupled from any theme — pure opt-in.
+  gameInfoAbove: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema,
@@ -453,6 +461,7 @@ export const SettingsSchema = z.object({
   globalEnableIcon: z.boolean().optional(),
   globalEnableDescription: z.boolean().optional(),
   globalDescriptionBelowLogo: z.boolean().optional(),
+  globalLogoBelowShelf: z.boolean().optional(),
   globalLogoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   globalDescriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
   globalLogoSize: z.number().int().min(50).max(200).nullable().optional(),
@@ -481,6 +490,8 @@ export const SettingsSchema = z.object({
   globalHideRefreshCard: z.boolean().default(false),
   globalDedupeByName: z.boolean().default(false),
   globalHeroEnabled: z.boolean().default(false),
+  // Global default for "show game info above the cards" (per-shelf can override).
+  globalGameInfoAbove: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),
@@ -494,6 +505,7 @@ export const SettingsSchema = z.object({
      rejects null — which previously failed `safeParse` on the entire Settings
      object and silently reset every shelf to defaults on the next load. */
   updateNotifyEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  betaChannelEnabled: z.boolean().optional(),
   updateNotifyDismissedVersion: z.string().nullable().optional(),
   onlineFeaturesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineWishlistEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
@@ -528,6 +540,7 @@ export const SettingsSchema = z.object({
   advancedModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   // Opt-in: surface stats-derived suggestions in the create-shelf template modal.
   templateSuggestionsEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  removalSuggestionsEnabled: z.boolean().optional(),
   /* Offline mode: when ON, suppresses every network call regardless of
      other settings (update check, CDN asset fallbacks, online filters /
      sources / wishlist / price). User toggles remain untouched so

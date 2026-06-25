@@ -6,6 +6,7 @@ import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCo
 import { getPortraitUrls, getLandscapeUrls, getLogoUrls, getIconUrls, getAppAssetCacheKey } from "../../core/steamAssets";
 import { getHotCachedImageSrc, warmCacheBackground, firstCacheableUrl } from "../../core/imageCache";
 import { getAppDescriptions, preloadAppDescriptions } from "../../steam/appDescriptionsCache";
+import { trackCardLaunch, trackShelfView } from "../../steam/usageTracking";
 import { logInfo } from "../../runtime/logger";
 import i18n from "../../i18n";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -141,6 +142,32 @@ const xCircleSvg = (
   </svg>
 );
 
+/* Classify a launched card by the most specific type available: store /
+   wishlist (from its shelf's source), else non-Steam / game (from the app
+   overview). Lets the stats break launches down beyond just game/non-Steam. */
+// eslint-disable-next-line complexity
+function classifyCard(appid: number, shelfId?: string): string {
+  if (shelfId) {
+    const s = getCurrentSettings();
+    const sh = [...(s?.shelves ?? []), ...((s as any)?.smartShelves ?? [])].find((x: any) => x?.id === shelfId);
+    const st = (sh as any)?.source?.type;
+    if (st === "store") return "store";
+    if (st === "wishlist") return "wishlist";
+  }
+  const ov = (globalThis as any).appStore?.GetAppOverviewByAppID?.(appid);
+  return ov?.is_non_steam === true ? "nonsteam" : "game";
+}
+
+// Usage tracking for a real game launch (skips the editor preview + the
+// highlight/hidden picker's toggle-selection click). Best-effort.
+function trackCardActivation(ref: { previewMode: boolean; appid: number; shelfId?: string; isToggle: boolean }): void {
+  if (ref.previewMode || !ref.appid || ref.isToggle) return;
+  try {
+    trackCardLaunch(classifyCard(ref.appid, ref.shelfId));
+    if (ref.shelfId) trackShelfView(ref.shelfId);
+  } catch { /* best-effort */ }
+}
+
 export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', inlineBadges = false, previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -172,11 +199,16 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
      render, just a different click handler + an overlay marker below). */
   const onActivateRef = useRef(item.onToggleSelection ?? item.onActivate);
   onActivateRef.current = item.onToggleSelection ?? item.onActivate;
+  // Updated each render so `activate` can stay a stable ([]-dep) callback while
+  // still reading fresh values for usage tracking (no extra re-renders).
+  const trackRef = useRef<{ previewMode: boolean; appid: number; shelfId?: string; isToggle: boolean }>({ previewMode, appid, shelfId: item.shelfId, isToggle: !!item.onToggleSelection });
+  trackRef.current = { previewMode, appid, shelfId: item.shelfId, isToggle: !!item.onToggleSelection };
   const activate = useCallback(() => {
     const now = Date.now();
     if (now - lastActivateRef.current < 400) return;
     lastActivateRef.current = now;
     onActivateRef.current?.();
+    trackCardActivation(trackRef.current);
   }, []);
   // Select-button action mirrors the native menu's first item per
   // state: running → RaiseWindow; update-pending → ResumeAppUpdate;

@@ -2,6 +2,10 @@
 
 Deck Shelves is a [Decky Loader](https://decky.xyz) plugin that injects custom game shelves into the Steam Deck home screen. This document describes the project structure and how the main systems connect.
 
+<p align="center">
+  <img src="../assets/screenshots/home.png" alt="Deck Shelves shelves injected into the Steam Deck home" width="640">
+</p>
+
 ## Directory Structure
 
 ```

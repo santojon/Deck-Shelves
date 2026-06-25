@@ -277,6 +277,39 @@ def test_sanitize_settings_heroEnabled_smart_shelf():
     assert result["smartShelves"][0].get("heroEnabled") is True
 
 
+# ─── gameInfoAbove sanitizer (regular + smart + global) ──────────────────────
+
+def test_sanitize_settings_gameInfoAbove_regular_shelf():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "favorites"},
+                     "gameInfoAbove": True}]
+    })
+    assert result["shelves"][0].get("gameInfoAbove") is True
+
+
+def test_sanitize_settings_gameInfoAbove_false_omitted():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "favorites"},
+                     "gameInfoAbove": False}]
+    })
+    assert result["shelves"][0].get("gameInfoAbove") is not True
+
+
+def test_sanitize_settings_gameInfoAbove_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
+                          "gameInfoAbove": True}]
+    })
+    assert result["smartShelves"][0].get("gameInfoAbove") is True
+
+
+def test_sanitize_settings_global_gameInfoAbove():
+    assert _sanitize_settings({"globalGameInfoAbove": True}).get("globalGameInfoAbove") is True
+    assert _sanitize_settings({}).get("globalGameInfoAbove") is False
+
+
 # ─── hiddenAppIds in smart shelves ───────────────────────────────────────────
 
 def test_sanitize_settings_hiddenAppIds_smart_shelf():

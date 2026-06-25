@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { Focusable } from "../../runtime/host/decky";
 import { Navigation } from "@decky/ui";
-import { ChevronLeftIcon, DocsIcon, GearIcon } from "../icons";
+import { ChevronLeftIcon, DocsIcon, GearIcon, DownloadIcon } from "../icons";
+import { checkForUpdate, openReleaseUrl, type UpdateCheckResult } from "../../core/updateNotifier";
 
 const ABOUT_ROUTE = "/deck-shelves/about";
 const SETTINGS_ROUTE = "/deck-shelves/settings";
@@ -35,6 +37,17 @@ function goSettings() {
 }
 
 export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps) {
+  // Update affordance next to the page-switch icons — same flow as the QAM
+  // banner button + the update toast (open the release notes). Cached check,
+  // so no network hit on a recent probe.
+  const [update, setUpdate] = useState<UpdateCheckResult | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    checkForUpdate().then((r) => { if (!cancelled) setUpdate(r); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const hasUpdate = !!(update?.hasUpdate && update.releaseUrl);
+  const viewRelease = () => openReleaseUrl(update?.releaseUrl);
   return (
     <Focusable
       flow-children="row"
@@ -65,6 +78,16 @@ export function PageHeader({ title, onBack, trailing, active }: PageHeaderProps)
         }}
       >{title}</h1>
       {trailing ? <div style={{ display: "inline-flex", alignItems: "center" }}>{trailing}</div> : null}
+      {hasUpdate ? (
+        <Focusable
+          onClick={viewRelease}
+          onOKButton={viewRelease}
+          onActivate={viewRelease}
+          style={{ ...iconBtnStyle, background: "rgba(74, 144, 226, 0.22)", border: "1px solid rgba(74, 144, 226, 0.6)", color: "#4a90e2" }}
+        >
+          <DownloadIcon size={20} />
+        </Focusable>
+      ) : null}
       <Focusable
         onClick={goAbout}
         onOKButton={goAbout}

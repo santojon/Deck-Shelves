@@ -142,6 +142,7 @@ function readVisualFlags(shelf: Shelf) {
     highlightedAppIds: shelf.highlightedAppIds ?? [],
     manualOrder: s.manualOrder ?? [],
     heroEnabled: s.heroEnabled === true,
+    gameInfoAbove: (s as any).gameInfoAbove === true,
     dedupeByExactName: s.dedupeByExactName === true,
     hiddenAppIds: s.hiddenAppIds ?? [],
   };

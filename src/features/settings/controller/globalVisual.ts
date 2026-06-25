@@ -27,6 +27,7 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
   };
   return {
     setGlobalHeroEnabled: (v: boolean) => setBool("globalHeroEnabled" as any, v),
+    setGlobalGameInfoAbove: (v: boolean) => setBool("globalGameInfoAbove" as any, v),
     setGlobalMatchNativeSize: (v: boolean) => setBool("globalMatchNativeSize", v),
     setGlobalHideStatusLine: (v: boolean) => setBool("globalHideStatusLine", v),
     setGlobalHideShelfTitle: (v: boolean) => setBool("globalHideShelfTitle", v),
@@ -39,6 +40,7 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     setGlobalEnableIcon: (v: boolean) => setBool("globalEnableIcon" as any, v),
     setGlobalEnableDescription: (v: boolean) => setBool("globalEnableDescription" as any, v),
     setGlobalDescriptionBelowLogo: (v: boolean) => setBool("globalDescriptionBelowLogo" as any, v),
+    setGlobalLogoBelowShelf: (v: boolean) => setBool("globalLogoBelowShelf" as any, v),
     setGlobalLogoPosition: (v: "left" | "center" | "right") => setEnum("globalLogoPosition", v),
     setGlobalDescriptionPosition: (v: "left" | "center" | "right") => setEnum("globalDescriptionPosition", v),
     setGlobalLogoSize: (v: number) => setClampedNumber("globalLogoSize", v, 50, 200),

@@ -1,5 +1,6 @@
 import type { Settings } from "../../../types";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
+import { trackFeature } from "../../../steam/usageTracking";
 
 export const FACTORY_PROFILE_ID = "__factory__";
 export const FACTORY_PROFILE_NAME = "Padrão";
@@ -58,6 +59,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       const profiles: ProfileRecord[] = (s as any).profiles ?? [];
       const profile = profiles.find((p) => p.id === id);
       if (!profile) return false;
+      trackFeature("profile");
       const next: Settings = {
         ...(profile.snapshot as any),
         profiles,
@@ -174,6 +176,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       const s = liveSettings();
       if (!s || (s as any).templateSuggestionsEnabled === templateSuggestionsEnabled) return;
       await persist({ ...s, templateSuggestionsEnabled } as Settings);
+    },
+    async setRemovalSuggestionsEnabled(removalSuggestionsEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).removalSuggestionsEnabled === removalSuggestionsEnabled) return;
+      await persist({ ...s, removalSuggestionsEnabled } as Settings);
     },
     async setOfflineModeEnabled(offlineModeEnabled: boolean) {
       const s = liveSettings();

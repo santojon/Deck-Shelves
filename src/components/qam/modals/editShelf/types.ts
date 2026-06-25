@@ -51,6 +51,7 @@ export type EditableShelfState = {
   hideSeeMore: boolean
   hideRefreshCard: boolean
   heroEnabled: boolean
+  gameInfoAbove: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   childFilterGroup: FilterGroup

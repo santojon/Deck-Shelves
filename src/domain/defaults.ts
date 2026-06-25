@@ -59,6 +59,7 @@ export function defaultSettings(): Settings {
     globalHideSeeMore: false,
     globalHideRefreshCard: false,
     globalHeroEnabled: false,
+    globalGameInfoAbove: false,
     globalDedupeByName: false,
     shelves: [],
     smartShelvesEnabled: false,

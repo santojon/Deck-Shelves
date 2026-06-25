@@ -5,6 +5,7 @@ import { isHomeRoute } from "../../components/home/mountUtils";
 import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
 import { GamepadButton, subscribeHomeButton } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { trackFeature } from "../../steam/usageTracking";
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
@@ -188,8 +189,24 @@ export function SearchOverlay() {
       await closeAmbientOverlays();
       setQuery(readSessionQuery());
       setOpen(true);
+      trackFeature("search");
       window.setTimeout(tryOpenSteamKeyboard, 60);
     })();
+  }, []);
+  /* Dev-only screenshot hook: opens the search pill (and optionally seeds a
+     query) without the Steam gamepad keyboard, which can't be driven over
+     CDP. The pill + results render into the BP DOM regardless of the OSK.
+     Stripped from release via `if (!__DEV__)`. */
+  useEffect(() => {
+    if (!__DEV__) return;
+    const g = globalThis as any;
+    g.__ds_dev_open_search = (q?: string) => {
+      setOpen(true);
+      if (typeof q === "string") setQuery(q);
+      return true;
+    };
+    g.__ds_dev_close_search = () => setOpen(false);
+    return () => { try { delete g.__ds_dev_open_search; delete g.__ds_dev_close_search; } catch {} };
   }, []);
   useEffect(() => {
     if (!enabled) return;

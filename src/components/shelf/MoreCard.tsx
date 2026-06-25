@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Focusable } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
+import { trackFeature } from "../../steam/usageTracking";
 import { buildSelectorFromToken, getRuntimeClassMap } from "../../core/webpackCompat";
 import { logInfo } from "../../runtime/logger";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
@@ -100,8 +101,8 @@ export function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive
       ref={cardRef}
       className={`ds-card${nativeCardClass ? ` ${nativeCardClass}` : ''}`}
       focusClassName="gpfocus"
-      onActivate={item.onActivate}
-      onOKButton={item.onActivate}
+      onActivate={() => { trackFeature("see_more"); item.onActivate?.(); }}
+      onOKButton={() => { trackFeature("see_more"); item.onActivate?.(); }}
       style={containerStyle}
     >
       {innerArt}

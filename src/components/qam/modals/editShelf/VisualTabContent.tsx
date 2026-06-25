@@ -17,8 +17,8 @@ export function VisualTabContent({
   effectiveManualOrder,
 }: {
   t: (k: any, opts?: any) => string;
-  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean };
-  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean }>) => void;
+  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean };
+  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean }>) => void;
   highlightedAppIds: number[];
   setHighlightedAppIds: (next: number[]) => void;
   highlightPickerOpen: boolean;
@@ -54,6 +54,7 @@ export function VisualTabContent({
       <ToggleField label={t('highlight_all')} checked={flags.highlightAll} onChange={(v: boolean) => setFlags({ highlightAll: v })} />
       <ToggleField label={t('highlight_random')} checked={flags.highlightRandom} onChange={(v: boolean) => setFlags({ highlightRandom: v })} />
       <ToggleField label={t('hero_enabled_label')} checked={flags.heroEnabled} onChange={(v: boolean) => setFlags({ heroEnabled: v })} />
+      <ToggleField label={t('game_info_above_label' as any)} checked={flags.gameInfoAbove} onChange={(v: boolean) => setFlags({ gameInfoAbove: v })} />
       <GroupDivider />
       {/* Group: Logo + dependent options (position, size, offset) */}
       <ToggleField label={t('enable_logo')} checked={flags.enableLogo} onChange={(v: boolean) => setFlags({ enableLogo: v })} />

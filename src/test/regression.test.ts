@@ -137,14 +137,23 @@ describe("Collection filter — Bazzite #55 fix", () => {
 describe("Update notifier — semver compare", () => {
   // Pinning the compareSemver behavior because the update banner's hasUpdate
   // logic depends on it; an off-by-one here would either spam or hide updates.
-  it("ignores leading 'v' and pre-release suffixes", async () => {
+  it("ignores leading 'v', compares numeric core, and is pre-release aware", async () => {
     const { compareSemver } = await import("../core/updateNotifier");
     expect(compareSemver("v2.2.0", "2.1.1")).toBe(1);
     expect(compareSemver("2.1.1", "v2.2.0")).toBe(-1);
     expect(compareSemver("2.1.0", "2.1.0")).toBe(0);
-    expect(compareSemver("2.1.0-beta.1", "2.1.0")).toBe(0);
     expect(compareSemver("3.0.0", "2.99.99")).toBe(1);
     expect(compareSemver("2.10.0", "2.9.0")).toBe(1);
+    // Pre-release precedence (drives the beta channel): a release outranks a
+    // pre-release of the same core, and alpha < beta < rc < release.
+    expect(compareSemver("2.1.0-beta.1", "2.1.0")).toBe(-1);
+    expect(compareSemver("3.0.0", "3.0.0-rc.1")).toBe(1);
+    expect(compareSemver("3.0.0-beta.2", "3.0.0-beta.1")).toBe(1);
+    expect(compareSemver("3.0.0-rc.1", "3.0.0-beta.5")).toBe(1);
+    expect(compareSemver("3.0.0-alpha.1", "3.0.0-beta.1")).toBe(-1);
+    expect(compareSemver("3.0.0-beta.2", "3.0.0-beta.2")).toBe(0);
+    // Build metadata (`+sha`) is ignored.
+    expect(compareSemver("3.0.0-beta.2+abc1234", "3.0.0-beta.2")).toBe(0);
   });
 });
 

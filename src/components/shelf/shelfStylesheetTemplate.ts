@@ -119,24 +119,13 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       padding-left: 0 !important;
     }
 
-    /* ArtHero (and any future hero-label theme) opts into the full layout:
-       full-height shelf, title hidden, cards flexed to the bottom — so the
-       hero overlay can fill the visible area above the row exactly the way
-       native recents do. Gated on the data-ds-hero-label attribute (set by
-       HeroBackground when an ArtHero-family theme is detected) so that
-       deactivating ArtHero reverts the layout to the compact default
-       above without any code change. */
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      display: flex !important;
-      flex-direction: column;
-      height: calc(100vh - 56px) !important;
-    }
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-shelf-title {
-      display: none !important;
-    }
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll {
-      margin-top: auto;
-    }
+    /* "Show game info above the cards" (data-ds-info-above) ONLY shows the
+       focused game's info clone above the row — it does NOT make the shelf
+       full-page (that's the fullPageShelf toggle / hero-fullscreen theme,
+       below). The band above the cards is reserved inline in DeckRow's
+       paddingTop, so it stacks UNDER the logo/description instead of fighting
+       the inline logo reservation, and is skipped on full-page shelves where
+       flex-end already leaves room above the cards. */
 
     /* Hero-label overlay (ArtHero etc.): when the active theme requires the
        focused card's info to be shown above the row, PerShelfHero clones
@@ -149,7 +138,7 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        ".ds-card .ds-card-label" descendant so it does NOT also hide the
        cloned overlay label, which lives in .ds-promoted-hero-label and
        not inside a card. */
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card .ds-card-label {
+    .ds-shelf[data-ds-info-above="true"] .ds-card .ds-card-label {
       display: none !important;
     }
     .ds-promoted-hero-label .ds-card-label {
@@ -944,8 +933,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       animation: none !important;
     }
 
-    /* Hero Fullscreen — promoted shelves take the full viewport. Hero
-       vars set inline in PerShelfHero are overridden here via CSS. */
+    /* Hero Fullscreen — the promoted (recents-slot) shelf takes the full
+       viewport under a hero-fullscreen theme. This is the theme's own
+       full-page intent on the first shelf (or all promoted shelves under
+       force-CSS-Loader); independent of the gameInfoAbove label band. */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"] .ds-shelf[data-ds-recents-slot="true"] {
       height: 100vh !important;
       --ds-hero-top: 0px;
@@ -958,6 +949,18 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child,
     .deck-shelves-root[data-ds-hero-background="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
+    }
+    /* Decoupled first shelf (recents hidden, DS hero art on, NOT the themed
+       recents-slot): bleed the hero ART up 56px under the transparent Steam
+       header so the top isn't a black strip. Only the art moves
+       (--ds-hero-top); the shelf box, logo and label stay put — a margin-top
+       pull-up like above would shove the logo/label under the header on this
+       non-full-page shelf (it keeps minHeight:auto per the no-forced-full-page
+       rule). Without an ArtHero theme the rules above don't match, which is
+       what left the 56px header gap. */
+    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -56px;
+      --ds-hero-h: calc(100% + 56px);
     }
     /* FORCE: clean page-per-shelf (no margin, no hero fade). */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf {

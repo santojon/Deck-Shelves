@@ -8,6 +8,7 @@ import { focusElement } from "../../core/focusRestore";
 import { GamepadButton, dispatchHomeButtonDown, subscribeHomeButton } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { subscribeControllerInput } from "../../runtime/controllerInput";
+import { trackFeature } from "../../steam/usageTracking";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { isInVisibilityWindow } from "../../steam/smartShelves";
@@ -73,6 +74,29 @@ export function ShelfSideNav() {
     return () => obs.disconnect();
   }, [enabled]);
 
+  /* Dev-only screenshot hook: opens the side nav without a real gamepad
+     chord (SteamClient.Input can't be driven over CDP). Resolves the anchor
+     from the last-focused card, an explicit shelfId arg, or the first DS
+     shelf in the DOM. Stripped from release builds via `if (!__DEV__)`. */
+  useEffect(() => {
+    if (!__DEV__) return;
+    const g = globalThis as any;
+    // eslint-disable-next-line complexity
+    g.__ds_dev_open_sidenav = (shelfId?: string, appid?: number) => {
+      let sid = shelfId ?? lastFirstCardRef.current?.shelfId;
+      if (!sid) {
+        const doc = getPreferredSteamDocument() ?? document;
+        sid = doc.querySelector<HTMLElement>(".ds-shelf[data-shelfid]")?.getAttribute("data-shelfid") ?? undefined;
+      }
+      if (!sid) return false;
+      const aid = appid ?? lastFirstCardRef.current?.appid ?? null;
+      setAnchor({ shelfId: sid, focusedAppid: Number.isFinite(aid as number) ? (aid as number) : null });
+      return true;
+    };
+    g.__ds_dev_close_sidenav = () => setAnchor(null);
+    return () => { try { delete g.__ds_dev_open_sidenav; delete g.__ds_dev_close_sidenav; } catch {} };
+  }, []);
+
   useEffect(() => {
     try { (globalThis as any).__ds_sidenav_enabled = enabled; } catch {}
     if (!enabled) return;
@@ -88,6 +112,7 @@ export function ShelfSideNav() {
         await closeAmbientOverlays();
         try { (globalThis as any).__ds_sidenav_open = { shelfId, appid, t: now }; } catch {}
         setAnchor({ shelfId, focusedAppid: Number.isFinite(appid) ? (appid as number) : null });
+        trackFeature("sidenav");
       })();
     };
     const matcherState = createMatcherState();

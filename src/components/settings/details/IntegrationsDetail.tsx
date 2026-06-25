@@ -232,29 +232,19 @@ export function IntegrationsDetail({ controller, t }: IntegrationsDetailProps) {
   return (
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {Array.from(grouped.entries()).map(([group, items], i) => (
-        <div
-          key={group}
-          style={{
-            border: "1px solid var(--ds-border, rgba(255, 255, 255, 0.10))",
-            borderRadius: 10,
-            background: "var(--ds-surface, rgba(255, 255, 255, 0.04))",
-            padding: "2px 10px 8px",
-          }}
-        >
-          <CollapsibleSection id={`integ-${group}`} title={group} count={items.length} initialOpen={i === 0}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {items.map((entry) => (
-                <IntegrationRow
-                  key={entry.id}
-                  entry={entry}
-                  enabled={enabledMap[entry.id] !== false}
-                  onChange={handleToggle(entry.id)}
-                  builtInLabel={builtInLabel}
-                />
-              ))}
-            </div>
-          </CollapsibleSection>
-        </div>
+        <CollapsibleSection key={group} id={`integ-${group}`} title={group} count={items.length} initialOpen={i === 0}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {items.map((entry) => (
+              <IntegrationRow
+                key={entry.id}
+                entry={entry}
+                enabled={enabledMap[entry.id] !== false}
+                onChange={handleToggle(entry.id)}
+                builtInLabel={builtInLabel}
+              />
+            ))}
+          </div>
+        </CollapsibleSection>
       ))}
     </Focusable>
   );

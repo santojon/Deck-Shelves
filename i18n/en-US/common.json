@@ -66,5 +66,17 @@
   "create_shelf_tab_smart": "Smart",
   "create_shelf_modal_title": "Add shelf",
   "file_path": "File path",
-  "select_items_all": "Select all"
+  "select_items_all": "Select all",
+  "global_game_info_above": "Show game info above the cards",
+  "game_info_above_label": "Show game info above the cards",
+  "confirm_continue": "Continue",
+  "couple_info_above_title": "Hide the shelf title?",
+  "couple_info_above_body": "Showing game info above the cards uses the full-page layout where the title is hidden — so the shelf title will be hidden too. You can show it again anytime from the hide-title toggle.",
+  "couple_show_title_title": "Turn off game info above?",
+  "couple_show_title_body": "Showing the shelf title again turns off “show game info above the cards” for this shelf, so the cards and texts return to the normal layout.",
+  "mode_switch_title": "Switch mode?",
+  "mode_switch_light_body": "Light mode and Advanced mode can't both be on. Turning on Light mode will turn Advanced mode off.",
+  "mode_switch_advanced_body": "Light mode and Advanced mode can't both be on. Turning on Advanced mode will turn Light mode off.",
+  "beta_channel_label": "Beta channel",
+  "settings_confirm_irreversible": "This can't be undone."
 }

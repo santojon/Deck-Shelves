@@ -38,30 +38,42 @@ export function CollapsibleSection({
     saveSections(_sectionOpen)
     return next
   })
-  const header = (
-    <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} style={{ flex: 1, minWidth: 0 }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        {icon}
-        {title}
-      </span>
-      <span style={{ display: 'flex', alignItems: 'center' }}>
-        {!open && count > 0 && <span className='ds-collapsible-badge'>{count}</span>}
-        <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>
-      </span>
-    </Focusable>
-  )
+  const chevron = <span style={{ fontSize: 9, color: 'var(--ds-text-dim, #b8bcbf)' }}>{open ? '▲' : '▼'}</span>
   return (
-    <>
-      {headerExtra ? (
-        <Focusable className='ds-collapsible-row' flow-children='row' noFocusRing style={{ marginTop: 8, display: 'flex', alignItems: 'stretch' }}>
-          {header}
-          {headerExtra}
+    <div
+      className='ds-collapsible-box'
+      style={{
+        marginTop: 8,
+        background: 'var(--ds-surface, rgba(255,255,255,0.04))',
+        border: '1px solid var(--ds-border, rgba(255,255,255,0.08))',
+        borderRadius: 10,
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        {/* The title bar is ONE focus stop that toggles the section (as before).
+            Buttons + chevron sit to its right; when there are buttons the chevron
+            moves beside them (left of it). The chevron is a plain clickable span,
+            not a separate gamepad focus stop, so the title stays the focus. */}
+        <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {icon}
+            {title}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!open && count > 0 ? <span className='ds-collapsible-badge'>{count}</span> : null}
+            {!headerExtra ? chevron : null}
+          </span>
         </Focusable>
-      ) : (
-        <div style={{ marginTop: 8 }}>{header}</div>
-      )}
-      <div className='deck-shelves-separator' />
-      {open && children}
-    </>
+        {headerExtra ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px 0 8px' }} onClick={(e) => e.stopPropagation()}>
+            {headerExtra}
+            <span onClick={toggle} style={{ cursor: 'pointer', display: 'flex' }}>{chevron}</span>
+          </div>
+        ) : null}
+      </div>
+      {open ? <div className='deck-shelves-separator' /> : null}
+      {open ? <div style={{ padding: '2px 14px 10px' }}>{children}</div> : null}
+    </div>
   )
 }

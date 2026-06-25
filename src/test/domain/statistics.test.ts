@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  computeLibraryStatistics, computeShelfStatistics, appendSnapshot, summarizeHistory, deriveSuggestions,
+  computeLibraryStatistics, computeShelfStatistics, appendSnapshot, summarizeHistory, deriveSuggestions, deriveRemovalSuggestions,
   type LibraryStatGame, type ShelfStatInput, type LibraryStat,
 } from '../../domain/statistics'
 
@@ -258,5 +258,30 @@ describe('deriveSuggestions', () => {
     )
     const sg = deriveSuggestions(lib, computeShelfStatistics([shelf({})]), { exclude: ['never_played'], max: 10 })
     expect(sg.some((s) => s.templateId === 'never_played')).toBe(false)
+  })
+})
+
+describe('deriveRemovalSuggestions', () => {
+  const shelves = [{ id: 's_a', title: 'A' }, { id: 's_b', title: 'B' }, { id: 's_c', title: 'C' }]
+
+  it('suggests removing shelves with zero views when others are used', () => {
+    const sg = deriveRemovalSuggestions(shelves, { s_a: 9, s_b: 0, s_c: 0 }, { trackedDays: 10 })
+    expect(sg.map((s) => s.removeShelfId)).toEqual(['s_b', 's_c'])
+    expect(sg[0].params.name).toBe('B')
+  })
+
+  it('stays quiet until enough days are tracked', () => {
+    expect(deriveRemovalSuggestions(shelves, { s_a: 5, s_b: 0 }, { trackedDays: 2 })).toEqual([])
+  })
+
+  it('stays quiet when nothing has been used (no signal yet)', () => {
+    expect(deriveRemovalSuggestions(shelves, { s_a: 0, s_b: 0, s_c: 0 }, { trackedDays: 30 })).toEqual([])
+  })
+
+  it('caps the number of removal suggestions', () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ id: `s_${i}`, title: `S${i}` }))
+    const views: Record<string, number> = { s_0: 4 }
+    const sg = deriveRemovalSuggestions(many, views, { trackedDays: 10, max: 3 })
+    expect(sg.length).toBe(3)
   })
 })
