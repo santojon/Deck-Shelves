@@ -23,6 +23,25 @@ export function ChartLegend({ items }: { items: Array<{ label: string; color: st
   );
 }
 
+/* Legend for the pie/donut charts — each row carries its colour, label and a
+   single figure (`mode='pct'` → share-of-total, else the raw count) so the
+   slice sizes are readable as numbers (a pie alone gives no sense of
+   magnitude). The figure mode follows the same toggle as the bar charts. */
+export function DonutLegend({ data, mode = "raw" }: { data: Array<{ label: string; value: number; color: string }>; mode?: "raw" | "pct" }) {
+  const total = data.reduce((a, d) => a + d.value, 0) || 1;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, minWidth: 0 }}>
+      {data.map((d) => (
+        <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.85 }}>{d.label}</span>
+          <span style={{ fontWeight: 700, minWidth: 30, textAlign: "right" }}>{mode === "pct" ? `${Math.round((d.value / total) * 100)}%` : d.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const V = { W: 320, H: 110, pad: 6 };
 
 /* Comparative multi-series line: launches / shelf-views / feature-use overlaid

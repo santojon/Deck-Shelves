@@ -37,7 +37,7 @@ export interface ButtonBindingsDetailProps {
   t: (key: string) => string;
 }
 
-type BindingKey = "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav" | "navSidecar";
+type BindingKey = "cardHideRemove" | "cardHighlightToggle" | "cardQuickLaunch" | "navSearch" | "navSideNav" | "navSidecarOpen" | "navSidecarClose";
 
 interface BindingRow {
   key: BindingKey;
@@ -54,7 +54,8 @@ const CARD_ROWS: BindingRow[] = [
 const NAV_ROWS: BindingRow[] = [
   { key: "navSearch",           labelKey: "binding_nav_search",        nullable: false },
   { key: "navSideNav",          labelKey: "binding_nav_sidenav",       nullable: false },
-  { key: "navSidecar",          labelKey: "binding_nav_sidecar",       nullable: false },
+  { key: "navSidecarOpen",      labelKey: "binding_nav_sidecar_open",  nullable: false },
+  { key: "navSidecarClose",     labelKey: "binding_nav_sidecar_close", nullable: false },
 ];
 
 /* Quick gamepad-button glyph. Renders a small bordered chip with the
@@ -101,13 +102,25 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   const bindings: Required<ButtonBindings> = resolveBindings(rawBindings, disabledList);
   const collisions = findCollisions(bindings);
   const collisionTokens = new Set(collisions.flat());
-  const resetAll = () => confirmAction({
-    title: t("binding_reset_all"),
+  // Reset only the bindings in one scope (card actions OR navigation) back to
+  // their defaults — mirrors the per-row reset (default value + re-enable).
+  const resetScope = (rows: BindingRow[]) => confirmAction({
+    title: t("binding_reset_scope"),
     body: t("settings_confirm_irreversible"),
-    okText: t("binding_reset_all"),
+    okText: t("binding_reset_scope"),
     cancelText: t("cancel"),
-    onConfirm: () => void (controller.actions as any).resetButtonBindings?.(),
+    onConfirm: () => {
+      for (const r of rows) {
+        void (controller.actions as any).setButtonBinding?.(r.key, (DEFAULT_BINDINGS as any)[r.key]);
+        if (disabledList.includes(r.key)) void (controller.actions as any).setBindingDisabled?.(r.key, false);
+      }
+    },
   });
+  const resetButton = (rows: BindingRow[]) => (
+    <DialogButton onClick={() => resetScope(rows)} onOKButton={() => resetScope(rows)} style={BTN_ICON_STYLE}>
+      <RefreshIcon size={12} />
+    </DialogButton>
+  );
 
   const renderRows = (rows: BindingRow[]) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -116,6 +129,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
           key={row.key}
           row={row}
           rawValue={(rawBindings as any)[row.key] ?? null}
+          effectiveValue={(bindings as any)[row.key] ?? null}
           disabled={disabledList.includes(row.key)}
           colliding={collisionTokens.has(row.key)}
           controller={controller}
@@ -132,11 +146,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
         title={t("settings_card_bindings_group")}
         count={CARD_ROWS.length}
         initialOpen
-        headerExtra={
-          <DialogButton onClick={resetAll} onOKButton={resetAll} style={BTN_ICON_STYLE}>
-            <RefreshIcon size={12} />
-          </DialogButton>
-        }
+        headerExtra={resetButton(CARD_ROWS)}
       >
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 10px" }}>{t("binding_help")}</div>
         {renderRows(CARD_ROWS)}
@@ -146,6 +156,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
         title={t("settings_nav_bindings_title")}
         count={NAV_ROWS.length}
         initialOpen
+        headerExtra={resetButton(NAV_ROWS)}
       >
         {renderRows(NAV_ROWS)}
       </CollapsibleSection>
@@ -230,10 +241,11 @@ function BindingRowButtons({
 }
 
 function BindingRowView({
-  row, rawValue, disabled, colliding, controller, t,
+  row, rawValue, effectiveValue, disabled, colliding, controller, t,
 }: {
   row: BindingRow;
   rawValue: string | null;
+  effectiveValue: string | null;
   disabled: boolean;
   colliding: boolean;
   controller: ReturnType<typeof useSettingsController>;
@@ -339,7 +351,7 @@ function BindingRowView({
     }}>
       <Focusable flow-children="row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600, minWidth: 0 }}>{t(row.labelKey)}</div>
-        <BindingStatus capturing={capturing} disabled={disabled} value={captured ?? rawValue} t={t} />
+        <BindingStatus capturing={capturing} disabled={disabled} value={captured ?? effectiveValue} t={t} />
         <BindingRowButtons
           capturing={capturing}
           disabled={disabled}

@@ -21,7 +21,7 @@ import { ActionButton } from './qam/common/ActionButton'
 import { ImportMenuButton, type ImportEntry } from './qam/common/ImportMenuButton'
 import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
-import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState } from '../runtime/buttonBindings'
+import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
 import { subscribeControllerInput } from '../runtime/controllerInput'
 import { getCurrentSettings } from '../store/settingsStore'
 import { ExportModal } from './qam/modals/ExportModal'
@@ -400,7 +400,13 @@ function handleDpadInput(
   if (button === DPAD_UP || button === DPAD_DOWN) return;
   const main = scope.querySelector('.deck-shelves-qam-main');
   const insideMain = !!(main && main.contains(focused));
-  if (button === DPAD_LEFT && insideSidecar) {
+  // The nav-aware positional open/close only runs while its binding is the
+  // default dpad combo (and enabled). Remapped to anything else → the global
+  // raw-combo listener handles it, and dpad nav stays untouched here.
+  const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
+  const positionalOpen = b.navSidecarOpen === DEFAULT_BINDINGS.navSidecarOpen;
+  const positionalClose = b.navSidecarClose === DEFAULT_BINDINGS.navSidecarClose;
+  if (button === DPAD_LEFT && positionalClose && insideSidecar) {
     // Only collapse if Steam's nav couldn't move focus left within the
     // sidecar — i.e. user is already at the leftmost focusable. We detect
     // that by checking 80ms later if focus has left the sidecar.
@@ -414,13 +420,13 @@ function handleDpadInput(
     }, 80);
     return;
   }
-  if (button === DPAD_LEFT && lastFocusWasInSidecar) {
+  if (button === DPAD_LEFT && positionalClose && lastFocusWasInSidecar) {
     // Steam already moved focus back to QAM main before our handler ran.
     lastFocusWasInSidecar = false;
     fireQamExpand(win, false, setQamExpanded);
     return;
   }
-  if (button === DPAD_RIGHT && insideMain && main) {
+  if (button === DPAD_RIGHT && positionalOpen && insideMain && main) {
     /* Sliders consume horizontal dpad to change their value (the focus
        stays on the slider track) — without this bail, holding right on
        a slider would trip the "focus didn't move" check and pop the
@@ -534,21 +540,26 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     g.__ds_dev_close_sidecar = () => { fireQamExpand(getQamWindow(), false, setQamExpanded); };
     return () => { try { delete g.__ds_dev_open_sidecar; delete g.__ds_dev_close_sidecar; } catch {} };
   }, [setQamExpanded]);
-  /* Remappable "open sidecar" shortcut (default R1+R1). While the QAM is open
-     the combo toggles the sidecar panel — mirrors the search / side-nav combo
-     listeners. Raw stream so it fires regardless of where gpfocus sits. The
-     ref lets the single subscription read the latest expanded state without
-     re-subscribing on every toggle. */
-  const sidecarMatcherRef = useRef(createMatcherState());
-  const qamExpandedRef = useRef(qamExpanded);
-  qamExpandedRef.current = qamExpanded;
+  /* Remappable open / close sidecar shortcuts. The defaults (dpad-right ×2 to
+     open, dpad-left to close) are served by the nav-aware positional handler
+     in `handleDpadInput`. This raw-stream listener only kicks in when the user
+     remaps a side away from its dpad default, firing that custom combo globally
+     — so the default dpad navigation stays untouched. */
+  const openMatcherRef = useRef(createMatcherState());
+  const closeMatcherRef = useRef(createMatcherState());
   useEffect(() => {
     return subscribeControllerInput((e) => {
       if (!e.pressed) return;
-      const combo = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSidecar;
-      if (!combo) return;
-      if (!matchEvent({ button: e.button }, parseRawCombo(combo), sidecarMatcherRef.current)) return;
-      fireQamExpand(getQamWindow(), !qamExpandedRef.current, setQamExpanded);
+      const s = getCurrentSettings();
+      const b = resolveBindings(s?.buttonBindings as any, (s as any)?.buttonBindingsDisabled);
+      if (b.navSidecarOpen && b.navSidecarOpen !== DEFAULT_BINDINGS.navSidecarOpen
+        && matchEvent({ button: e.button }, parseRawCombo(b.navSidecarOpen), openMatcherRef.current)) {
+        fireQamExpand(getQamWindow(), true, setQamExpanded); return;
+      }
+      if (b.navSidecarClose && b.navSidecarClose !== DEFAULT_BINDINGS.navSidecarClose
+        && matchEvent({ button: e.button }, parseRawCombo(b.navSidecarClose), closeMatcherRef.current)) {
+        fireQamExpand(getQamWindow(), false, setQamExpanded);
+      }
     });
   }, [setQamExpanded]);
   /* Decky keeps the plugin tab mounted across QAM open/close cycles, so

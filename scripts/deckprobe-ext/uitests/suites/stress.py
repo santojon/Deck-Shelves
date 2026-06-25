@@ -36,6 +36,7 @@ ENTER_EXIT_MS     = 25000  — round-trip incl. store page load.
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any, Dict
 
@@ -871,4 +872,41 @@ def _(ctx) -> None:
         # shelves), but the per-shelf=false shelf 21 must not appear.
         assert n >= 1, "global logo ON but no overlay rendered"
     print(f"  → master switch: global={g} (live={live_g} cache={cache_g}) overlays={n}")
+
+
+@s.test("usage seeding under load — summary stays correct and fast")
+def _(ctx) -> None:
+    """Generate a heavy multi-day usage load through the real tracking model
+    (the dev seeder) and verify the statistics summary the UI renders from
+    stays correct and quick to compute over the full 120-day prune window.
+    Non-destructive: snapshots and restores the live store afterwards. Skips
+    on release builds where the dev hooks are stripped."""
+    present = ctx.eval_sjc("typeof window.__ds_dev_seed_usage === 'function'")
+    if present is not True:
+        from deckprobe.uitests.lib.runner import SkipTest
+        raise SkipTest("usage dev hooks not present (release build)")
+    ctx.navigate("/library/home", settle_ms=800)
+    ids = _shelf_ids(ctx)  # real DS shelf ids from the home DOM (seeded views map to shelves)
+    arg = json.dumps(ids) if ids else "undefined"
+    backup = ctx.eval_sjc("localStorage.getItem('ds_usage_v1')")
+    try:
+        res = ctx.eval_sjc(f"""
+(function(){{
+    window.__ds_dev_seed_usage({arg}, 120);
+    const t = performance.now();
+    const s = window.__ds_dev_usage_summary();
+    return {{ ms: performance.now() - t, days: s.totalDays,
+              launches: s.totalCardLaunches, views: s.totalShelfViews, features: s.totalFeatureUse }};
+}})()
+""", timeout=15) or {}
+        print(
+            f"  → usage seed 120d: days={res.get('days')} launches={res.get('launches')} "
+            f"views={res.get('views')} features={res.get('features')} summarize={round(res.get('ms', 0), 1)}ms"
+        )
+        assert res.get("days", 0) >= 100, f"expected ~120 tracked days, got {res.get('days')}"
+        assert res.get("launches", 0) > 0 and res.get("views", 0) > 0 and res.get("features", 0) > 0, \
+            "seeded usage did not populate all three buckets"
+        assert res.get("ms", 9999) < 250, f"summarize over 120 days took {res.get('ms')}ms (>250ms)"
+    finally:
+        ctx.eval_sjc(f"window.__ds_dev_usage_restore({json.dumps(backup)})")
     _assert_no_errors(ctx, "master switch")

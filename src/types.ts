@@ -574,7 +574,8 @@ export const SettingsSchema = z.object({
     cardQuickLaunch: z.string().nullable().optional(),
     navSearch:       z.string().optional(),
     navSideNav:      z.string().optional(),
-    navSidecar:      z.string().optional(),
+    navSidecarOpen:  z.string().optional(),
+    navSidecarClose: z.string().optional(),
   }).nullable().optional().transform((v) => v ?? {}),
   buttonBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
 });
@@ -587,5 +588,6 @@ export interface ButtonBindings {
   cardQuickLaunch?: string | null;
   navSearch?: string;
   navSideNav?: string;
-  navSidecar?: string;
+  navSidecarOpen?: string;
+  navSidecarClose?: string;
 }

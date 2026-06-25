@@ -11,7 +11,8 @@ import { ButtonBindingsDetail } from "./settings/details/ButtonBindingsDetail";
 import { BackupDetail } from "./settings/details/BackupDetail";
 import { AdvancedDetail } from "./settings/details/AdvancedDetail";
 import { StatisticsDetail } from "./settings/details/StatisticsDetail";
-import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon, SlidersIcon } from "./icons";
+import { SuggestionsDetail } from "./settings/details/SuggestionsDetail";
+import { BookmarkIcon, PersonIcon, PuzzleIcon, GamepadIcon, SaveIcon, ToolsIcon, SlidersIcon, SparkleIcon } from "./icons";
 import { useLightMode, useAdvancedMode } from "./ui/lightMode";
 import { hasExternalIntegrations } from "../core/pluginApi";
 
@@ -67,6 +68,7 @@ export function SettingsPage() {
             ]),
             { id: "backup",       title: tabLabel(<SaveIcon />,     t("settings_card_backup_title")),       content: <BackupDetail         controller={controller} t={t} /> },
             ...(lightMode ? [] : [
+              { id: "suggestions",  title: tabLabel(<SparkleIcon />,  t("settings_card_suggestions_title")),  content: <SuggestionsDetail    controller={controller} t={t} /> },
               { id: "statistics",   title: tabLabel(<SlidersIcon />,  t("settings_card_statistics_title")),   content: <StatisticsDetail     controller={controller} t={t} /> },
             ]),
             ...(advancedMode ? [
