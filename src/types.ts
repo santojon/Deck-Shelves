@@ -506,6 +506,7 @@ export const SettingsSchema = z.object({
      object and silently reset every shelf to defaults on the next load. */
   updateNotifyEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   betaChannelEnabled: z.boolean().optional(),
+  verboseLoggingEnabled: z.boolean().optional(),
   updateNotifyDismissedVersion: z.string().nullable().optional(),
   onlineFeaturesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineWishlistEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),

@@ -1,7 +1,7 @@
 import { call } from "../runtime/host/decky";
 import { SettingsSchema, type Settings } from "../types";
 import { defaultSettings } from "../domain/defaults";
-import { logError, logInfo, logWarn } from "../runtime/logger";
+import { logError, logInfo, logWarn, setVerboseLogging } from "../runtime/logger";
 import { applyQASettingsOverride } from "../qa/harness";
 
 /* Bumping the cache key invalidates persisted localStorage entries from
@@ -86,6 +86,7 @@ function notify(raw: Settings) {
     return;
   }
   current = s;
+  setVerboseLogging((s as any).verboseLoggingEnabled === true);
   writeCache(s);
   writeSharedState(s);
   logInfo("STORAGE", "notify settings", { enabled: s.enabled, shelfCount: s.shelves.length });

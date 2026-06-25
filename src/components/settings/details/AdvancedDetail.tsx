@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { DialogButton, Focusable } from "../../../runtime/host/decky";
+import { DialogButton, Focusable, ToggleField } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { openManagedModal } from "../../qam/common/openManagedModal";
 import { ResetAllModal } from "../../qam/modals/ResetAllModal";
@@ -71,6 +71,14 @@ export function AdvancedDetail({ controller, t }: AdvancedDetailProps) {
           </DialogButton>
         }
       >
+        <div style={{ marginBottom: 12 }}>
+          <ToggleField
+            label={t("settings_advanced_verbose_title")}
+            description={t("settings_advanced_verbose_desc")}
+            checked={(controller.settings as any)?.verboseLoggingEnabled === true}
+            onChange={(v: boolean) => (controller.actions as any).setVerboseLoggingEnabled?.(v)}
+          />
+        </div>
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("settings_advanced_logs_desc")}</div>
         {diags.length === 0 ? (
           <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>

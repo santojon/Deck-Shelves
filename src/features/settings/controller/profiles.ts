@@ -182,6 +182,11 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (!s || (s as any).removalSuggestionsEnabled === removalSuggestionsEnabled) return;
       await persist({ ...s, removalSuggestionsEnabled } as Settings);
     },
+    async setVerboseLoggingEnabled(verboseLoggingEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).verboseLoggingEnabled === verboseLoggingEnabled) return;
+      await persist({ ...s, verboseLoggingEnabled } as Settings);
+    },
     async setOfflineModeEnabled(offlineModeEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).offlineModeEnabled === offlineModeEnabled) return;

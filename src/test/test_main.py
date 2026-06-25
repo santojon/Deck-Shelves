@@ -33,6 +33,13 @@ def test_sanitize_settings_preserves_enabled_true():
     assert result["enabled"] is True
 
 
+def test_sanitize_settings_preserves_verbose_logging():
+    # The sanitizer whitelists top-level keys — a setting missing here is
+    # silently dropped on every save (regression: the verbose-logging toggle).
+    assert _sanitize_settings({"verboseLoggingEnabled": True, "shelves": []})["verboseLoggingEnabled"] is True
+    assert _sanitize_settings({"shelves": []})["verboseLoggingEnabled"] is False
+
+
 def test_sanitize_settings_non_dict_input_treated_as_empty():
     result = _sanitize_settings("not a dict")
     assert result["enabled"] is False

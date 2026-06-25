@@ -695,6 +695,8 @@
   "settings_advanced_reset_all": "Reset all",
   "settings_advanced_logs_title": "Diagnostic log",
   "settings_advanced_logs_desc": "Last 50 plugin events — errors, warnings, and informational entries. Cleared on plugin reload.",
+  "settings_advanced_verbose_title": "Mostrar todos los registros",
+  "settings_advanced_verbose_desc": "Envía todos los registros, incluidos los de desarrollo, a esta lista.",
   "settings_advanced_logs_clear": "Clear",
   "settings_advanced_logs_empty": "No log entries yet.",
   "settings_profiles_save_title": "Save current as profile",

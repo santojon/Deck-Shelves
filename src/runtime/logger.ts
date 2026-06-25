@@ -1,5 +1,29 @@
+import { logDiagnostic, type DiagnosticLevel } from "./diagnostics";
+
 export type DeckLogLevel = "INFO" | "WARN" | "ERROR";
 export type DeckLogScope = "HOME" | "STORAGE" | "SETTINGS" | "STEAM" | "RUNTIME" | "UPDATE" | "ONLINE";
+
+/* Verbose mode (Advanced → "Show all logs"). When on, every log — including
+   the dev-only INFO ones — also lands in the on-device diagnostics buffer (the
+   only log surface reachable without a console) so the user can inspect them.
+   Toggled from the settings store as the setting loads/changes. */
+let verbose = false;
+export function setVerboseLogging(on: boolean): void {
+  verbose = on;
+}
+
+function ctxString(context: unknown): string | undefined {
+  if (typeof context === "undefined") return undefined;
+  if (typeof context === "string") return context;
+  try { return JSON.stringify(context); } catch { return String(context); }
+}
+
+const DIAG_LEVEL: Record<DeckLogLevel, DiagnosticLevel> = { INFO: "info", WARN: "warn", ERROR: "error" };
+
+function mirrorToDiagnostics(scope: DeckLogScope, level: DeckLogLevel, message: string, context?: unknown): void {
+  if (!verbose) return;
+  try { logDiagnostic(DIAG_LEVEL[level], `[${scope}] ${message}`, ctxString(context)); } catch {}
+}
 
 const SCOPE_COLOR: Record<DeckLogScope, string> = {
   HOME: "#22c55e",
@@ -36,9 +60,16 @@ export function deckLog(scope: DeckLogScope, level: DeckLogLevel, message: strin
 }
 
 export const logInfo = (scope: DeckLogScope, message: string, context?: unknown) => {
-  if (!__DEV__) return;
+  if (!__DEV__ && !verbose) return;
   deckLog(scope, "INFO", message, context);
+  mirrorToDiagnostics(scope, "INFO", message, context);
 };
-export const logWarn = (scope: DeckLogScope, message: string, context?: unknown) => deckLog(scope, "WARN", message, context);
-export const logError = (scope: DeckLogScope, message: string, context?: unknown) => deckLog(scope, "ERROR", message, context);
+export const logWarn = (scope: DeckLogScope, message: string, context?: unknown) => {
+  deckLog(scope, "WARN", message, context);
+  mirrorToDiagnostics(scope, "WARN", message, context);
+};
+export const logError = (scope: DeckLogScope, message: string, context?: unknown) => {
+  deckLog(scope, "ERROR", message, context);
+  mirrorToDiagnostics(scope, "ERROR", message, context);
+};
 

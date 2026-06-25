@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Focusable, DialogButton } from "../../../runtime/host/decky";
 import { getUsageSummary, getUsage, clearUsage, flushUsage } from "../../../steam/usageTracking";
 import { dailyTotals } from "../../../domain/usageStats";
+import { shelfTypeBreakdown, shelfSourceBreakdown, cardTypeComposition as cardTypeCompositionPure, cardComposition as cardCompositionPure } from "../../../domain/shelfStats";
 import { ComboBarsTrend, DayAxis, StackedBars, AreaTrend, TopBarChart, DonutChart, ChartLegend, DonutLegend, TrendKpi, SERIES_COLORS } from "./UsageCharts";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { getExternalStatisticsProviders, type StatisticsEntry } from "../../../core/pluginApi";
@@ -235,97 +236,11 @@ function resolvedShelfCount(shelfId: string): number | null {
   return ids ? ids.length : null;
 }
 
-/* Online (store / wishlist) source types anywhere in a shelf's source tree.
-   Online sources are often nested inside a composite (e.g. a multi-source
-   shelf of "wishlist ∩ discount" + "store ∩ discount"), so a top-level type
-   check misses them — recurse into composite children. */
-function onlineSourceTypes(source: any): string[] {
-  if (!source) return [];
-  if (source.type === "store" || source.type === "wishlist") return [source.type];
-  if (source.type === "composite" && Array.isArray(source.sources)) {
-    return source.sources.flatMap(onlineSourceTypes);
-  }
-  return [];
-}
-
-/* Card-type composition from the actual cards in the user's shelves (not
-   launches) — so store / wishlist cards count by presence, not by being opened.
-   Online cards are attributed via the source tree (composites split their
-   resolved count across the online types they hold, since the per-child split
-   isn't recoverable once merged); the rest are game/non-Steam from the overview. */
-// eslint-disable-next-line complexity
-function cardTypeComposition(settings: any): Record<string, number> {
-  const out: Record<string, number> = { game: 0, nonsteam: 0, store: 0, wishlist: 0 };
-  const shelves = [...(settings?.shelves ?? []), ...(settings?.smartShelves ?? [])];
-  const appStore = (globalThis as any).appStore;
-  for (const sh of shelves) {
-    const ids = resolvedShelfIds(sh?.id);
-    if (!ids) continue;
-    const online = Array.from(new Set(onlineSourceTypes(sh?.source)));
-    if (online.length > 0) {
-      ids.forEach((_, i) => { out[online[i % online.length]]++; });
-      continue;
-    }
-    for (const id of ids) {
-      const ov = appStore?.GetAppOverviewByAppID?.(id);
-      if (ov?.is_non_steam === true) out.nonsteam++; else out.game++;
-    }
-  }
-  return out;
-}
-
-// Shelf count by kind — regular shelves vs smart shelves.
-function shelfTypeBreakdown(settings: any): Record<string, number> {
-  return {
-    normal: (settings?.shelves ?? []).length,
-    smart: (settings?.smartShelves ?? []).length,
-  };
-}
-
-// Count a source by its type; a composite also counts each of its children in
-// their own subtype (recursively), so the breakdown reflects nested sources.
-function countSource(src: any, out: Record<string, number>): void {
-  if (!src || !src.type) return;
-  out[src.type] = (out[src.type] ?? 0) + 1;
-  if (src.type === "composite" && Array.isArray(src.sources)) {
-    for (const child of src.sources) countSource(child, out);
-  }
-}
-
-function shelfSourceBreakdown(settings: any): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const sh of (settings?.shelves ?? [])) countSource(sh?.source, out);
-  const smart = (settings?.smartShelves ?? []).length;
-  if (smart > 0) out.smart = (out.smart ?? 0) + smart;
-  return out;
-}
-
-/* Card-composition snapshot from the current settings (not launches) — counts
-   the cards the user's shelves are made of by state: normal (regular game
-   cards), featured (highlights), decorative (synthetic cards) and hidden.
-   Normal/featured use the resolver cache for the per-shelf card count, so no
-   extra tracking on hot paths. */
-// eslint-disable-next-line complexity
-function cardComposition(settings: any): Array<{ label: string; key: string; value: number }> {
-  const shelves = [...(settings?.shelves ?? []), ...(settings?.smartShelves ?? [])];
-  let normal = 0, featured = 0, decorative = 0, hidden = 0;
-  for (const sh of shelves) {
-    decorative += sh?.syntheticCards?.length ?? 0;
-    hidden += sh?.hiddenAppIds?.length ?? 0;
-    const count = resolvedShelfCount(sh?.id);
-    const fav = sh?.highlightAll
-      ? (count ?? (sh?.highlightedAppIds?.length ?? 0))
-      : Math.min(sh?.highlightedAppIds?.length ?? 0, count ?? Number.MAX_SAFE_INTEGER) + (sh?.highlightFirst ? 1 : 0);
-    featured += fav;
-    if (count != null) normal += Math.max(0, count - fav);
-  }
-  return [
-    { key: "normal", label: "normal", value: normal },
-    { key: "featured", label: "featured", value: featured },
-    { key: "decorative", label: "decorative", value: decorative },
-    { key: "hidden", label: "hidden", value: hidden },
-  ].filter((r) => r.value > 0);
-}
+// Bound the pure breakdowns to this device's resolver cache + app overviews.
+const isNonSteamApp = (appId: number): boolean =>
+  (globalThis as any).appStore?.GetAppOverviewByAppID?.(appId)?.is_non_steam === true;
+const cardTypeComposition = (settings: any) => cardTypeCompositionPure(settings, resolvedShelfIds, isNonSteamApp);
+const cardComposition = (settings: any) => cardCompositionPure(settings, resolvedShelfCount);
 
 function ChartBlock({ title, subtitle, span, children }: { title: string; subtitle?: string; span?: "half" | "third" | "full"; children: React.ReactNode }) {
   const cls = span === "third" ? "ds-chart-block span-third" : span === "full" ? "ds-chart-block span-full" : "ds-chart-block";
