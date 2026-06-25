@@ -567,6 +567,8 @@
   "source_external": "外部ソース",
   "source_filter": "フィルター",
   "source_store": "Steamストア",
+  "source_composite": "複合",
+  "source_smart": "スマート",
   "source_store_hint": "Steamストアのゲームを閲覧します。割引やその他のフィルターで絞り込めます。オンライン機能が必要です。",
   "source_tab": "ライブラリセクション",
   "source_wishlist": "ウィッシュリスト",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "よく使う棚",
   "settings_statistics_usage_card_types": "カードの種類",
   "settings_statistics_card_composition": "カード構成",
+  "settings_statistics_shelf_types": "棚のタイプ",
+  "settings_statistics_shelf_sources": "棚のソース",
   "settings_statistics_usage_features": "機能",
   "settings_statistics_usage_clear": "使用データを消去",
   "settings_statistics_trends": "傾向",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "注目",
   "settings_statistics_cardtype_decorative": "装飾",
   "settings_statistics_cardtype_hidden": "非表示",
-  "settings_statistics_cardtype_normal": "通常"
+  "settings_statistics_cardtype_normal": "通常",
+  "settings_statistics_shelftype_normal": "通常",
+  "settings_statistics_shelftype_smart": "スマート"
 }

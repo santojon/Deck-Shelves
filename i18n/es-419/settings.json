@@ -567,6 +567,8 @@
   "source_external": "Fuente externa",
   "source_filter": "Filtro",
   "source_store": "Tienda Steam",
+  "source_composite": "Compuesta",
+  "source_smart": "Inteligente",
   "source_store_hint": "Explora juegos de la Steam Store. Aplica filtros de descuento u otros para afinar. Requiere funciones en línea.",
   "source_tab": "Sección de la biblioteca",
   "source_wishlist": "Lista de deseos",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "Estantes más usados",
   "settings_statistics_usage_card_types": "Tipos de tarjeta",
   "settings_statistics_card_composition": "Composición de tarjetas",
+  "settings_statistics_shelf_types": "Tipos de estante",
+  "settings_statistics_shelf_sources": "Fuentes de estante",
   "settings_statistics_usage_features": "Funciones",
   "settings_statistics_usage_clear": "Borrar datos de uso",
   "settings_statistics_trends": "Tendencias",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "Destacados",
   "settings_statistics_cardtype_decorative": "Decorativos",
   "settings_statistics_cardtype_hidden": "Ocultos",
-  "settings_statistics_cardtype_normal": "Normales"
+  "settings_statistics_cardtype_normal": "Normales",
+  "settings_statistics_shelftype_normal": "Normales",
+  "settings_statistics_shelftype_smart": "Inteligentes"
 }

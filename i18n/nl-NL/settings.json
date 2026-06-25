@@ -567,6 +567,8 @@
   "source_external": "Externe bron",
   "source_filter": "Filter",
   "source_store": "Steam Store",
+  "source_composite": "Samengesteld",
+  "source_smart": "Slim",
   "source_store_hint": "Blader door games van de Steam Store. Pas korting- of andere filters toe. Vereist online functies.",
   "source_tab": "Bibliotheeksectie",
   "source_wishlist": "Verlanglijst",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "Topplanken",
   "settings_statistics_usage_card_types": "Kaarttypen",
   "settings_statistics_card_composition": "Kaartsamenstelling",
+  "settings_statistics_shelf_types": "Planktypes",
+  "settings_statistics_shelf_sources": "Plankbronnen",
   "settings_statistics_usage_features": "Functies",
   "settings_statistics_usage_clear": "Gebruiksgegevens wissen",
   "settings_statistics_trends": "Trends",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "Uitgelicht",
   "settings_statistics_cardtype_decorative": "Decoratief",
   "settings_statistics_cardtype_hidden": "Verborgen",
-  "settings_statistics_cardtype_normal": "Normaal"
+  "settings_statistics_cardtype_normal": "Normaal",
+  "settings_statistics_shelftype_normal": "Normaal",
+  "settings_statistics_shelftype_smart": "Slim"
 }

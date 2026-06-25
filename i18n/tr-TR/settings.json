@@ -567,6 +567,8 @@
   "source_external": "Harici kaynak",
   "source_filter": "Filtre",
   "source_store": "Steam Store",
+  "source_composite": "Bileşik",
+  "source_smart": "Akıllı",
   "source_store_hint": "Steam Store'daki oyunlara göz at. İndirim veya diğer filtreleri uygula. Çevrimiçi özellikler gerekir.",
   "source_tab": "Kütüphane bölümü",
   "source_wishlist": "İstek listesi",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "En çok kullanılan raflar",
   "settings_statistics_usage_card_types": "Kart türleri",
   "settings_statistics_card_composition": "Kart bileşimi",
+  "settings_statistics_shelf_types": "Raf türleri",
+  "settings_statistics_shelf_sources": "Raf kaynakları",
   "settings_statistics_usage_features": "Özellikler",
   "settings_statistics_usage_clear": "Kullanım verilerini temizle",
   "settings_statistics_trends": "Eğilimler",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "Öne çıkan",
   "settings_statistics_cardtype_decorative": "Dekoratif",
   "settings_statistics_cardtype_hidden": "Gizli",
-  "settings_statistics_cardtype_normal": "Normal"
+  "settings_statistics_cardtype_normal": "Normal",
+  "settings_statistics_shelftype_normal": "Normal",
+  "settings_statistics_shelftype_smart": "Akıllı"
 }

@@ -567,6 +567,8 @@
   "source_external": "外部來源",
   "source_filter": "篩選器",
   "source_store": "Steam商店",
+  "source_composite": "組合",
+  "source_smart": "智慧",
   "source_store_hint": "瀏覽Steam商店的遊戲。可套用折扣等篩選器縮小範圍。需要線上功能。",
   "source_tab": "收藏庫區段",
   "source_wishlist": "願望清單",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "常用書架",
   "settings_statistics_usage_card_types": "卡片類型",
   "settings_statistics_card_composition": "卡片構成",
+  "settings_statistics_shelf_types": "書架類型",
+  "settings_statistics_shelf_sources": "書架來源",
   "settings_statistics_usage_features": "功能",
   "settings_statistics_usage_clear": "清除使用資料",
   "settings_statistics_trends": "趨勢",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "精選",
   "settings_statistics_cardtype_decorative": "裝飾",
   "settings_statistics_cardtype_hidden": "隱藏",
-  "settings_statistics_cardtype_normal": "一般"
+  "settings_statistics_cardtype_normal": "一般",
+  "settings_statistics_shelftype_normal": "一般",
+  "settings_statistics_shelftype_smart": "智慧"
 }

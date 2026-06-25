@@ -567,6 +567,8 @@
   "source_external": "Внешний источник",
   "source_filter": "Фильтр",
   "source_store": "Steam Store",
+  "source_composite": "Составной",
+  "source_smart": "Умная",
   "source_store_hint": "Просматривайте игры из Steam Store. Применяйте фильтры скидок или другие. Требуются онлайн-функции.",
   "source_tab": "Раздел библиотеки",
   "source_wishlist": "Список желаний",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "Топ полок",
   "settings_statistics_usage_card_types": "Типы карточек",
   "settings_statistics_card_composition": "Состав карточек",
+  "settings_statistics_shelf_types": "Типы полок",
+  "settings_statistics_shelf_sources": "Источники полок",
   "settings_statistics_usage_features": "Функции",
   "settings_statistics_usage_clear": "Очистить данные использования",
   "settings_statistics_trends": "Тренды",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "Избранные",
   "settings_statistics_cardtype_decorative": "Декоративные",
   "settings_statistics_cardtype_hidden": "Скрытые",
-  "settings_statistics_cardtype_normal": "Обычные"
+  "settings_statistics_cardtype_normal": "Обычные",
+  "settings_statistics_shelftype_normal": "Обычные",
+  "settings_statistics_shelftype_smart": "Умные"
 }

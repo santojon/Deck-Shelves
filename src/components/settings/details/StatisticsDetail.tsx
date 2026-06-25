@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Focusable, DialogButton } from "../../../runtime/host/decky";
 import { getUsageSummary, getUsage, clearUsage, flushUsage } from "../../../steam/usageTracking";
 import { dailyTotals } from "../../../domain/usageStats";
@@ -177,6 +177,17 @@ const COMPOSITION_COLORS: Record<string, string> = {
 };
 // Raw-vs-percent toggle choice, persisted so it survives re-opening the page.
 const PCT_MODE_KEY = "ds-stats-pct-mode";
+const SHELFTYPE_KEY: Record<string, string> = {
+  normal: "settings_statistics_shelftype_normal",
+  smart: "settings_statistics_shelftype_smart",
+};
+// Source-type labels reuse the edit-modal `source_*` keys.
+const SOURCE_KEY: Record<string, string> = {
+  collection: "source_collection", tab: "source_tab", filter: "source_filter",
+  external: "source_external", wishlist: "source_wishlist", store: "source_store",
+  composite: "source_composite", smart: "source_smart",
+};
+const SOURCE_ORDER = ["collection", "tab", "filter", "wishlist", "store", "composite", "smart", "external"];
 const CARD_TYPE_KEY: Record<string, string> = {
   game: "settings_statistics_cardtype_game",
   nonsteam: "settings_statistics_cardtype_nonsteam",
@@ -263,6 +274,32 @@ function cardTypeComposition(settings: any): Record<string, number> {
   return out;
 }
 
+// Shelf count by kind — regular shelves vs smart shelves.
+function shelfTypeBreakdown(settings: any): Record<string, number> {
+  return {
+    normal: (settings?.shelves ?? []).length,
+    smart: (settings?.smartShelves ?? []).length,
+  };
+}
+
+// Count a source by its type; a composite also counts each of its children in
+// their own subtype (recursively), so the breakdown reflects nested sources.
+function countSource(src: any, out: Record<string, number>): void {
+  if (!src || !src.type) return;
+  out[src.type] = (out[src.type] ?? 0) + 1;
+  if (src.type === "composite" && Array.isArray(src.sources)) {
+    for (const child of src.sources) countSource(child, out);
+  }
+}
+
+function shelfSourceBreakdown(settings: any): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const sh of (settings?.shelves ?? [])) countSource(sh?.source, out);
+  const smart = (settings?.smartShelves ?? []).length;
+  if (smart > 0) out.smart = (out.smart ?? 0) + smart;
+  return out;
+}
+
 /* Card-composition snapshot from the current settings (not launches) — counts
    the cards the user's shelves are made of by state: normal (regular game
    cards), featured (highlights), decorative (synthetic cards) and hidden.
@@ -338,6 +375,12 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
   const cardTypes = CONTENT_CARD_TYPES.map((k, i) => ({ label: t(CARD_TYPE_KEY[k]), value: cardTypeCounts[k] ?? 0, color: PIE_COLORS[i % PIE_COLORS.length] }));
   const cardTypesTotal = cardTypes.reduce((a, d) => a + d.value, 0);
   const composition = cardComposition(controller.settings).map((r) => ({ label: CARD_TYPE_KEY[r.key] ? t(CARD_TYPE_KEY[r.key]) : r.label, value: r.value, color: COMPOSITION_COLORS[r.key] ?? PIE_COLORS[0] }));
+  const shelfTypes = Object.entries(shelfTypeBreakdown(controller.settings))
+    .map(([k, v], i) => ({ label: SHELFTYPE_KEY[k] ? t(SHELFTYPE_KEY[k]) : k, value: v, color: PIE_COLORS[i % PIE_COLORS.length] }))
+    .filter((d) => d.value > 0);
+  const sourceCounts = shelfSourceBreakdown(controller.settings);
+  const shelfSources = SOURCE_ORDER.filter((k) => (sourceCounts[k] ?? 0) > 0)
+    .map((k, i) => ({ label: SOURCE_KEY[k] ? t(SOURCE_KEY[k]) : k, value: sourceCounts[k], color: PIE_COLORS[i % PIE_COLORS.length] }));
 
   let run = 0;
   const cumulative = series.map((p) => (run += p.launches + p.views + p.features));
@@ -405,13 +448,29 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
               </div>
             </ChartBlock>
           )}
+          {shelfTypes.length > 0 && (
+            <ChartBlock title={t("settings_statistics_shelf_types")} span="third">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <DonutChart data={shelfTypes} />
+                <DonutLegend data={shelfTypes} mode={mode} />
+              </div>
+            </ChartBlock>
+          )}
+          {shelfSources.length > 0 && (
+            <ChartBlock title={t("settings_statistics_shelf_sources")} span="third">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <DonutChart data={shelfSources} />
+                <DonutLegend data={shelfSources} mode={mode} />
+              </div>
+            </ChartBlock>
+          )}
           {topShelves.length > 0 && (
-            <ChartBlock title={t("settings_statistics_usage_top_shelves")} span="third">
+            <ChartBlock title={t("settings_statistics_usage_top_shelves")} span="half">
               <TopBarChart rows={topShelves} color={SERIES_COLORS.views} mode={mode} />
             </ChartBlock>
           )}
           {topFeatures.length > 0 && (
-            <ChartBlock title={t("settings_statistics_usage_features")} span="half">
+            <ChartBlock title={t("settings_statistics_usage_features")} span="third">
               <TopBarChart rows={topFeatures} color={SERIES_COLORS.features} mode={mode} />
             </ChartBlock>
           )}
@@ -421,16 +480,25 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
   );
 }
 
+// All entries of a count map as [label, value] rows, sorted high→low (no cap —
+// the usage section is the full breakdown). Deleted shelves (null label) drop.
+function allRows(rec: Record<string, number>, label: (k: string) => string | null): Array<[string, number]> {
+  return Object.entries(rec)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => [label(k), n] as [string | null, number])
+    .filter((r): r is [string, number] => r[0] != null);
+}
+
 function UsageSection({ t, controller }: { t: (k: string) => string; controller: StatisticsDetailProps["controller"] }) {
   const [tick, setTick] = useState(0);
   const summary = useMemo(() => { flushUsage(); return getUsageSummary(); }, [tick]);
-  const shelfName = useCallback((id: string): string | null => {
-    const all = [ ...((controller.settings as any)?.shelves ?? []), ...((controller.settings as any)?.smartShelves ?? []) ];
+  const settings = controller.settings;
+  const shelfName = (id: string): string | null => {
+    const all = [...((settings as any)?.shelves ?? []), ...((settings as any)?.smartShelves ?? [])];
     return all.find((s: any) => s?.id === id)?.title ?? null;
-  }, [controller]);
-  const top = (rec: Record<string, number>, n = 5): Array<[string, number]> =>
-    Object.entries(rec).sort((a, b) => b[1] - a[1]).slice(0, n);
-  const hasData = summary.totalCardLaunches > 0 || summary.totalShelfViews > 0 || summary.totalFeatureUse > 0;
+  };
+  const hasUsage = summary.totalCardLaunches > 0 || summary.totalShelfViews > 0 || summary.totalFeatureUse > 0;
+  const hasShelves = (((settings as any)?.shelves ?? []).length + ((settings as any)?.smartShelves ?? []).length) > 0;
   const clear = () => confirmAction({
     title: t("settings_statistics_usage_clear"),
     body: t("settings_confirm_irreversible"),
@@ -438,26 +506,38 @@ function UsageSection({ t, controller }: { t: (k: string) => string; controller:
     cancelText: t("cancel"),
     onConfirm: () => { clearUsage(); setTick((x) => x + 1); },
   });
+
+  // Config-derived breakdowns (don't need usage) → label/value rows.
+  const sourceCounts = shelfSourceBreakdown(settings);
+  const sourceRows = SOURCE_ORDER.filter((k) => (sourceCounts[k] ?? 0) > 0).map((k) => [SOURCE_KEY[k] ? t(SOURCE_KEY[k]) : k, sourceCounts[k]] as [string, number]);
+  const typeRows = allRows(shelfTypeBreakdown(settings), (k) => SHELFTYPE_KEY[k] ? t(SHELFTYPE_KEY[k]) : k);
+  const compRows = cardComposition(settings).map((r) => [CARD_TYPE_KEY[r.key] ? t(CARD_TYPE_KEY[r.key]) : r.label, r.value] as [string, number]);
+
   return (
     <CollapsibleArea
       title={t("settings_statistics_usage")}
       actions={
-        <DialogButton onClick={clear} onOKButton={clear} disabled={!hasData} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: 34, padding: 0, justifyContent: "center" }}>
+        <DialogButton onClick={clear} onOKButton={clear} disabled={!hasUsage} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: 34, padding: 0, justifyContent: "center" }}>
           <TrashIcon size={12} />
         </DialogButton>
       }
     >
-      {!hasData ? (
+      {!hasUsage && !hasShelves ? (
         <div style={{ fontSize: 12, opacity: 0.6 }}>{t("settings_statistics_usage_empty")}</div>
       ) : (
         <>
-          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
-            {`${t("settings_statistics_usage_days")}: ${summary.totalDays} · ${t("settings_statistics_usage_launches")}: ${summary.totalCardLaunches}`}
-          </div>
+          {hasUsage && (
+            <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+              {`${t("settings_statistics_usage_days")}: ${summary.totalDays} · ${t("settings_statistics_usage_launches")}: ${summary.totalCardLaunches} · ${t("settings_statistics_trends_views")}: ${summary.totalShelfViews} · ${t("settings_statistics_usage_features")}: ${summary.totalFeatureUse}`}
+            </div>
+          )}
           <Focusable flow-children="horizontal" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <UsageBlock title={t("settings_statistics_usage_top_shelves")} rows={top(summary.shelfViews).map(([id, n]) => [shelfName(id), n] as [string | null, number]).filter((r): r is [string, number] => r[0] != null)} />
-            <UsageBlock title={t("settings_statistics_usage_card_types")} rows={top(summary.cardLaunches).map(([k, n]) => [CARD_TYPE_KEY[k] ? t(CARD_TYPE_KEY[k]) : k, n] as [string, number])} />
-            <UsageBlock title={t("settings_statistics_usage_features")} rows={top(summary.featureUse).map(([k, n]) => [FEATURE_KEY[k] ? t(FEATURE_KEY[k]) : k, n] as [string, number])} />
+            <UsageBlock title={t("settings_statistics_usage_top_shelves")} rows={allRows(summary.shelfViews, shelfName)} />
+            <UsageBlock title={t("settings_statistics_usage_card_types")} rows={allRows(summary.cardLaunches, (k) => CARD_TYPE_KEY[k] ? t(CARD_TYPE_KEY[k]) : k)} />
+            <UsageBlock title={t("settings_statistics_usage_features")} rows={allRows(summary.featureUse, (k) => FEATURE_KEY[k] ? t(FEATURE_KEY[k]) : k)} />
+            <UsageBlock title={t("settings_statistics_shelf_types")} rows={typeRows} />
+            <UsageBlock title={t("settings_statistics_shelf_sources")} rows={sourceRows} />
+            <UsageBlock title={t("settings_statistics_card_composition")} rows={compRows} />
           </Focusable>
         </>
       )}

@@ -567,6 +567,8 @@
   "source_external": "External source",
   "source_filter": "Filter",
   "source_store": "Steam Store",
+  "source_composite": "Composite",
+  "source_smart": "Smart",
   "source_store_hint": "Browse games from the Steam Store. Apply discount or other filters to narrow results. Requires online features.",
   "source_tab": "Library section",
   "source_wishlist": "Wishlist",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "Top shelves",
   "settings_statistics_usage_card_types": "Card types",
   "settings_statistics_card_composition": "Card composition",
+  "settings_statistics_shelf_types": "Shelf types",
+  "settings_statistics_shelf_sources": "Shelf sources",
   "settings_statistics_usage_features": "Features",
   "settings_statistics_usage_clear": "Clear usage data",
   "settings_statistics_trends": "Trends",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "Featured",
   "settings_statistics_cardtype_decorative": "Decorative",
   "settings_statistics_cardtype_hidden": "Hidden",
-  "settings_statistics_cardtype_normal": "Normal"
+  "settings_statistics_cardtype_normal": "Normal",
+  "settings_statistics_shelftype_normal": "Normal",
+  "settings_statistics_shelftype_smart": "Smart"
 }

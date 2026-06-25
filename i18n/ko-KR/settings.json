@@ -567,6 +567,8 @@
   "source_external": "외부 소스",
   "source_filter": "필터",
   "source_store": "Steam 스토어",
+  "source_composite": "복합",
+  "source_smart": "스마트",
   "source_store_hint": "Steam Store에서 게임을 탐색합니다. 할인 등 필터를 적용해 좁힐 수 있습니다. 온라인 기능이 필요합니다.",
   "source_tab": "라이브러리 섹션",
   "source_wishlist": "위시리스트",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "인기 선반",
   "settings_statistics_usage_card_types": "카드 유형",
   "settings_statistics_card_composition": "카드 구성",
+  "settings_statistics_shelf_types": "선반 유형",
+  "settings_statistics_shelf_sources": "선반 소스",
   "settings_statistics_usage_features": "기능",
   "settings_statistics_usage_clear": "사용 데이터 지우기",
   "settings_statistics_trends": "추세",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "추천",
   "settings_statistics_cardtype_decorative": "장식용",
   "settings_statistics_cardtype_hidden": "숨김",
-  "settings_statistics_cardtype_normal": "일반"
+  "settings_statistics_cardtype_normal": "일반",
+  "settings_statistics_shelftype_normal": "일반",
+  "settings_statistics_shelftype_smart": "스마트"
 }

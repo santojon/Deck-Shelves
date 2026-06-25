@@ -567,6 +567,8 @@
   "source_external": "Externe Quelle",
   "source_filter": "Filter",
   "source_store": "Steam Store",
+  "source_composite": "Kombiniert",
+  "source_smart": "Smart",
   "source_store_hint": "Spiele aus dem Steam Store durchsuchen. Rabatt- oder andere Filter anwenden. Erfordert Online-Funktionen.",
   "source_tab": "Bibliotheksbereich",
   "source_wishlist": "Wunschliste",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "Top-Regale",
   "settings_statistics_usage_card_types": "Kartentypen",
   "settings_statistics_card_composition": "Kartenzusammensetzung",
+  "settings_statistics_shelf_types": "Regaltypen",
+  "settings_statistics_shelf_sources": "Regalquellen",
   "settings_statistics_usage_features": "Funktionen",
   "settings_statistics_usage_clear": "Nutzungsdaten löschen",
   "settings_statistics_trends": "Trends",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "Hervorgehoben",
   "settings_statistics_cardtype_decorative": "Dekorativ",
   "settings_statistics_cardtype_hidden": "Ausgeblendet",
-  "settings_statistics_cardtype_normal": "Normal"
+  "settings_statistics_cardtype_normal": "Normal",
+  "settings_statistics_shelftype_normal": "Normal",
+  "settings_statistics_shelftype_smart": "Smart"
 }

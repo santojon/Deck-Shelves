@@ -567,6 +567,8 @@
   "source_external": "Зовнішнє джерело",
   "source_filter": "Фільтр",
   "source_store": "Steam Store",
+  "source_composite": "Складений",
+  "source_smart": "Розумна",
   "source_store_hint": "Перегляд ігор із Steam Store. Застосовуйте фільтри знижок або інші. Потрібні онлайн-функції.",
   "source_tab": "Розділ бібліотеки",
   "source_wishlist": "Список бажань",
@@ -835,6 +837,8 @@
   "settings_statistics_usage_top_shelves": "Топ полиць",
   "settings_statistics_usage_card_types": "Типи карток",
   "settings_statistics_card_composition": "Склад карток",
+  "settings_statistics_shelf_types": "Типи полиць",
+  "settings_statistics_shelf_sources": "Джерела полиць",
   "settings_statistics_usage_features": "Функції",
   "settings_statistics_usage_clear": "Очистити дані використання",
   "settings_statistics_trends": "Тренди",
@@ -876,5 +880,7 @@
   "settings_statistics_cardtype_featured": "Вибрані",
   "settings_statistics_cardtype_decorative": "Декоративні",
   "settings_statistics_cardtype_hidden": "Приховані",
-  "settings_statistics_cardtype_normal": "Звичайні"
+  "settings_statistics_cardtype_normal": "Звичайні",
+  "settings_statistics_shelftype_normal": "Звичайні",
+  "settings_statistics_shelftype_smart": "Розумні"
 }
