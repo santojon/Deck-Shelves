@@ -15,6 +15,7 @@ import { isTabMasterInstalled, isNonSteamBadgesAvailable } from '../integrations
 import { isCssLoaderActive } from '../core/cssLoaderDetect'
 import { useLightMode } from './ui/lightMode'
 import { getUserDownloadsDir, joinDownloads } from '../core/userPaths'
+import { descriptorName } from '../core/descriptorName'
 
 import { icons } from './qam/icons'
 import { ActionButton } from './qam/common/ActionButton'
@@ -762,9 +763,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     void importsBump // re-evaluate on registry changes
     return getExternalImportTypesForTarget(target).map((d) => ({
       id: d.id,
-      label: d.displayName,
+      label: descriptorName(t, d),
       icon: d.icon ?? icons.import,
-      okDescription: d.displayName,
+      okDescription: descriptorName(t, d),
       onActivate: async () => {
         if (typeof d.runImport === 'function') { try { await d.runImport() } catch {} return }
         if (typeof d.parse === 'function') logInfo('SETTINGS', 'import descriptor has parse() but no runImport()', { id: d.id })

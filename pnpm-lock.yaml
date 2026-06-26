@@ -10,6 +10,7 @@ overrides:
   globby: ^14.1.0
   postcss: ^8.5.10
   esbuild: ^0.28.1
+  undici: ^7.28.0
 
 importers:
 

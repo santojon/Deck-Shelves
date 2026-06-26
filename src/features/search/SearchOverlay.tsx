@@ -67,14 +67,14 @@ export function SearchOverlay() {
   // Quick Search pill is one of them. User toggle stays untouched.
   const [enabled, setEnabled] = useState(() => {
     const s = getCurrentSettings() as any;
-    return s?.contextSearchEnabled === true && s?.lightModeEnabled !== true;
+    return s?.enabled === true && s?.contextSearchEnabled === true && s?.lightModeEnabled !== true;
   });
   // Virtual-keyboard default is ON; opt-out via the new toggle.
   const [kbEnabled, setKbEnabled] = useState(() => (getCurrentSettings() as any)?.contextSearchKeyboardEnabled !== false);
   // Enter-only default is OFF (debounce mode).
   const [onEnter, setOnEnter] = useState(() => (getCurrentSettings() as any)?.contextSearchOnEnter === true);
   useEffect(() => subscribeSettings((s) => {
-    setEnabled((s as any)?.contextSearchEnabled === true && (s as any)?.lightModeEnabled !== true);
+    setEnabled((s as any)?.enabled === true && (s as any)?.contextSearchEnabled === true && (s as any)?.lightModeEnabled !== true);
     setKbEnabled((s as any)?.contextSearchKeyboardEnabled !== false);
     setOnEnter((s as any)?.contextSearchOnEnter === true);
   }), []);

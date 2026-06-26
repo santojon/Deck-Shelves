@@ -20,6 +20,7 @@ type Anchor = {
   focusedAppid: number | null;
 };
 
+// eslint-disable-next-line complexity
 export function ShelfSideNav() {
   try { (globalThis as any).__ds_sidenav_mounted = (((globalThis as any).__ds_sidenav_mounted ?? 0) + 1); } catch {}
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -30,7 +31,9 @@ export function ShelfSideNav() {
   // Light mode strips advanced features for simplicity / battery — the
   // side nav is one of them. User toggle stays untouched.
   const lightMode = (settings as any)?.lightModeEnabled === true;
-  const enabled = !lightMode && (settings as any)?.sideNavEnabled === true;
+  // Gate on the master "enabled" too — when the plugin is off, the home should
+  // behave as if it isn't there (no side nav), like shelves + recents already do.
+  const enabled = (settings as any)?.enabled === true && !lightMode && (settings as any)?.sideNavEnabled === true;
 
   const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
   const lastOpenAtRef = useRef(0);

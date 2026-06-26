@@ -102,6 +102,14 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
   const bindings: Required<ButtonBindings> = resolveBindings(rawBindings, disabledList);
   const collisions = findCollisions(bindings);
   const collisionTokens = new Set(collisions.flat());
+  // Only surface a navigation shortcut whose feature is actually enabled — a
+  // Quick Search / Side Nav binding is meaningless when that feature is off.
+  // The sidecar (the QAM panel) is always available, so its rows always show.
+  const searchOn = (settings as any).contextSearchEnabled === true;
+  const sidenavOn = (settings as any).sideNavEnabled === true;
+  const navRows = NAV_ROWS.filter((r) =>
+    r.key === "navSearch" ? searchOn : r.key === "navSideNav" ? sidenavOn : true,
+  );
   // Reset only the bindings in one scope (card actions OR navigation) back to
   // their defaults — mirrors the per-row reset (default value + re-enable).
   const resetScope = (rows: BindingRow[]) => confirmAction({
@@ -154,11 +162,11 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
       <CollapsibleSection
         id="bindings-nav"
         title={t("settings_nav_bindings_title")}
-        count={NAV_ROWS.length}
+        count={navRows.length}
         initialOpen
-        headerExtra={resetButton(NAV_ROWS)}
+        headerExtra={resetButton(navRows)}
       >
-        {renderRows(NAV_ROWS)}
+        {renderRows(navRows)}
       </CollapsibleSection>
     </Focusable>
   );
