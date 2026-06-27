@@ -45,17 +45,7 @@ const EXPECTED = [
   { file: "smart-shelf-modal.png" },
   { file: "smart-shelf-edit.png" },
   { file: "global-toggles.png", surface: "qam-popup" },
-];
-
-// Optional screenshots — validated when present but not required. These
-// depend on user state (e.g. "Saved Filters" disappears from the QAM
-// when the list is empty) or on optional scenarios produced by the
-// modular runner.
-const OPTIONAL = [
   { file: "saved-filters-qam.png", surface: "qam-popup" },
-  { file: "home-hero.png" },
-  { file: "home-hide-recents.png" },
-  { file: "import-overflow.png", surface: "qam-popup" },
   { file: "about-filters.png" },
   { file: "about-smart.png" },
   { file: "about-support.png" },
@@ -66,6 +56,13 @@ const OPTIONAL = [
   { file: "settings-shortcuts.png", minSize: 50_000 },
   { file: "settings-integrations.png", minSize: 50_000 },
   { file: "settings-advanced.png", minSize: 50_000 },
+];
+
+// Optional screenshots — validated when present but not required. Only the
+// captures that depend on transient state or aren't generated yet stay here;
+// everything currently produced is required above.
+const OPTIONAL = [
+  { file: "import-overflow.png", surface: "qam-popup" },
   { file: "sidecar.png", surface: "qam-popup-sidecar" },
 ];
 

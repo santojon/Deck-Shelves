@@ -8,18 +8,15 @@ export function pickFirstVisibleShelfId(
   shelves: readonly ShelfLike[],
   renderedIds: ReadonlySet<string>,
 ): string | null {
-  let firstWeak: string | null = null;
+  /* First shelf in CONFIG order that has rendered — regardless of source.
+     Online (wishlist/store) and smart shelves are eligible for the promoted
+     first slot, so a config-first shelf wins once it resolves. Only the
+     native-recents *replacement* (recentsReplace.tsx) excludes online sources,
+     since the native row can't host async network appids. */
   for (const sh of shelves ?? []) {
-    if (!sh) continue;
-    if (!renderedIds.has(sh.id)) continue;
-    const t = sh.source?.type;
-    if (t === "smart" || t === "wishlist" || t === "store") {
-      if (firstWeak === null) firstWeak = sh.id;
-      continue;
-    }
-    return sh.id;
+    if (sh && renderedIds.has(sh.id)) return sh.id;
   }
-  return firstWeak;
+  return null;
 }
 
 export function interleaveSmartShelves<T extends ShelfLike>(

@@ -1,4 +1,4 @@
-"""Home screen scenarios: bare home, with shelves rendered, hero focus."""
+"""Home screen scenarios: bare home, with shelves rendered."""
 from __future__ import annotations
 
 import time
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict
 
 from deckprobe.screenshots.lib.cdp import Session
-from deckprobe.screenshots.lib.nav import navigate_home, ensure_bp_clean, _bp_eval
+from deckprobe.screenshots.lib.nav import ensure_bp_clean, _bp_eval
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
 
@@ -89,52 +89,3 @@ def home_shelves(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
     out = out_dir / "home-shelves.png"
     p = capture_bigpicture(host, port, out)
     return {"home-shelves.png": p} if p else {}
-
-
-@register("home_hero")
-def home_hero(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """Home with a focused card showing the hero background overlay."""
-    ensure_bp_clean(sjc, host, port)
-    # Wait for DS to render after navigation (fixed wait — polling many rapid
-    # CDP sessions can exhaust the Steam CEF connection handler).
-    time.sleep(2.5)
-    _bp_eval(host, port, """
-(function(){
-  const c = document.querySelector('.ds-card');
-  if (!c) return 'no card';
-  c.focus();
-  c.classList.add('gpfocus');
-  return 'ok';
-})()
-""")
-    time.sleep(1.5)
-    out = out_dir / "home-hero.png"
-    p = capture_bigpicture(host, port, out)
-    return {"home-hero.png": p} if p else {}
-
-
-@register("home_hide_recents")
-def home_hide_recents(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """Home with the native recents row hidden — first DS shelf promoted."""
-    ensure_bp_clean(sjc, host, port)
-    # Set localStorage flag in Big Picture window (not SJC)
-    _bp_eval(host, port, """
-(function(){
-  try { localStorage.setItem('__QA_ALL_SHELVES_HIDE_RECENTS__', '1'); } catch{}
-  return 'ok';
-})()
-""")
-    time.sleep(0.5)
-    navigate_home(sjc, settle_ms=2500)
-    # Fixed wait instead of polling — rapid CDP sessions exhaust the connection handler.
-    time.sleep(2.5)
-    out = out_dir / "home-hide-recents.png"
-    p = capture_bigpicture(host, port, out)
-    # Clean up: remove the flag so subsequent scenarios see normal home layout.
-    _bp_eval(host, port, """
-(function(){
-  try { localStorage.removeItem('__QA_ALL_SHELVES_HIDE_RECENTS__'); } catch{}
-  return 'ok';
-})()
-""")
-    return {"home-hide-recents.png": p} if p else {}

@@ -115,18 +115,22 @@ The full-page Settings route, opened from the gear icon in the QAM title bar.
   <img src="../assets/screenshots/settings-profiles.png" alt="Deck Shelves — Settings page (Profiles tab)" width="768">
 </p>
 
+## Required captures (validated)
+
+Everything the modular runner produces is **required** and checked by
+[`scripts/build/validate-screenshots.mjs`](../scripts/build/validate-screenshots.mjs):
+the home / QAM / shelf-edit / smart-shelf set, plus the Saved Filters QAM
+section (`saved-filters-qam`), the About-page tabs (`about-filters`,
+`about-smart`, `about-support`), and the Settings-page tabs (`settings-page`,
+`settings-profiles`, `settings-suggestions`, `settings-statistics`,
+`settings-shortcuts`, `settings-integrations`, `settings-advanced`).
+
 ## Optional captures
 
-These are produced by the modular runner when the matching state is reachable;
-the validator treats them as optional and they are skipped when the state
-isn't present (no saved filters, only one import source, Advanced mode off, …).
+Only these depend on transient state or a real gamepad, so the validator
+treats them as optional and skips them when absent:
 
 | File | When |
 |------|------|
-| `home-hero.png` | Home with a card focused (hero overlay visible) |
-| `home-hide-recents.png` | Home with native recents hidden and the first DS shelf promoted |
 | `import-overflow.png` | QAM with the import-options `…` overflow menu open (2+ import descriptors registered) |
-| `saved-filters-qam.png` | QAM Saved Filters section (when at least one filter is saved) |
 | `sidecar.png` | QAM with the Settings sidecar expanded (needs a real gamepad dpad-right — not reliably reproducible over CDP) |
-| `about-filters.png`, `about-smart.png`, `about-support.png` | Individual About-page tabs |
-| `settings-profiles.png`, `settings-statistics.png`, `settings-integrations.png`, `settings-advanced.png` | Settings-page tabs (Integrations / Advanced require Advanced mode on) |
