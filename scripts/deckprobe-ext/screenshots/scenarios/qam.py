@@ -145,25 +145,36 @@ def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 def sidecar(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM with the "Configurações" sidecar expanded and populated.
 
-    The sidecar only renders once the QAM compositor window is widened.
-    Flipping the `__ds_qam_expanded__` store alone leaves the panel at its
-    normal width, so the sidecar paints off-screen (a blank right strip).
-    The dev build exposes `__ds_dev_open_sidecar()` in the QAM realm, which
-    fires the same path as a dpad-right chord: it postMessages the opener to
-    widen the window AND flips the store, so the sidecar renders with content.
-    We capture only after the populated sidecar (its eye-toggle) is present."""
+    Dev builds expose `__ds_dev_open_sidecar()`, which fires the same path as
+    a dpad-right chord: it postMessages the QAM's opener to widen the
+    compositor window AND flips the expand store, so the sidecar renders with
+    content (flipping the store alone leaves the panel at normal width and the
+    sidecar paints off-screen). The hook is registered on the SharedJSContext
+    realm (where DeckQAMSettings' globalThis lives), so it must be invoked via
+    the SJC session — *not* `_qam_eval`, which runs in the QAM popup target
+    where the hook is undefined. The sidecar DOM, however, lives in the QAM
+    target, so we verify/capture there. Skips cleanly on release builds (no
+    hook) instead of capturing a non-expanded panel."""
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
     time.sleep(1.0)
-    opened = _qam_eval(host, port, "!!(window.__ds_dev_open_sidecar && window.__ds_dev_open_sidecar())")
-    time.sleep(1.5)
+    opened = sjc.evaluate(
+        "(function(){try{return !!(window.__ds_dev_open_sidecar && window.__ds_dev_open_sidecar());}catch(e){return false;}})()"
+    )
+    time.sleep(1.6)
     expanded = _qam_eval(host, port, "!!document.querySelector('.deck-shelves-qam-sidecar .ds-eye-btn')")
     if opened is not True or expanded is not True:
-        _qam_eval(host, port, "try{window.__ds_dev_close_sidecar&&window.__ds_dev_close_sidecar();}catch(e){}")
+        try:
+            sjc.evaluate("try{window.__ds_dev_close_sidecar&&window.__ds_dev_close_sidecar();}catch(e){}")
+        except Exception:
+            pass
         close_qam(sjc)
         return {}
     out = out_dir / "sidecar.png"
     p = capture_qam(host, port, out)
-    _qam_eval(host, port, "try{window.__ds_dev_close_sidecar&&window.__ds_dev_close_sidecar();}catch(e){}")
+    try:
+        sjc.evaluate("try{window.__ds_dev_close_sidecar&&window.__ds_dev_close_sidecar();}catch(e){}")
+    except Exception:
+        pass
     close_qam(sjc)
     return {"sidecar.png": p} if p else {}

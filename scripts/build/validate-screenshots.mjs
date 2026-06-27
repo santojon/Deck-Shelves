@@ -46,6 +46,7 @@ const EXPECTED = [
   { file: "smart-shelf-edit.png" },
   { file: "global-toggles.png", surface: "qam-popup" },
   { file: "saved-filters-qam.png", surface: "qam-popup" },
+  { file: "sidecar.png", surface: "qam-popup-sidecar" },
   { file: "about-filters.png" },
   { file: "about-smart.png" },
   { file: "about-support.png" },
@@ -58,12 +59,7 @@ const EXPECTED = [
   { file: "settings-advanced.png", minSize: 50_000 },
 ];
 
-// Optional screenshots — validated when present but not required. Only the
-// captures that depend on transient state or aren't generated yet stay here;
-// everything currently produced is required above.
-const OPTIONAL = [
-  { file: "sidecar.png", surface: "qam-popup-sidecar" },
-];
+const OPTIONAL = [];
 
 // Surface profiles — per-surface size bounds and an aspect-ratio window
 // (width / height) instead of raw dimensions. Steam BP and the QAM popup

@@ -94,13 +94,19 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
   // suggestion heuristics (library composition + per-shelf usage).
   useEffect(() => {
     let cancelled = false;
-    Promise.all(
-      getExternalStatisticsProviders().map(async (p) => {
-        const entries = await Promise.resolve().then(() => p.resolve()).catch(() => [] as StatisticsEntry[]);
-        return { id: p.id, displayName: p.displayName, entries: [...entries] };
-      }),
-    ).then((g) => { if (!cancelled) setGroups(g); });
-    return () => { cancelled = true; };
+    // The library provider runs a heavy library enumeration (getAllAppOverviews
+    // DOM walk) that blocks the main thread. Defer it off the mount commit so
+    // opening the tab paints immediately instead of freezing; suggestions
+    // populate a moment later.
+    const timer = setTimeout(() => {
+      Promise.all(
+        getExternalStatisticsProviders().map(async (p) => {
+          const entries = await Promise.resolve().then(() => p.resolve()).catch(() => [] as StatisticsEntry[]);
+          return { id: p.id, displayName: p.displayName, entries: [...entries] };
+        }),
+      ).then((g) => { if (!cancelled) setGroups(g); });
+    }, 60);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   const suggestions = useMemo<StatSuggestion[]>(() => {

@@ -52,11 +52,33 @@ def _switch_tab(host: str, port: int, *substrings: str) -> str:
 """) or "no-result"
 
 
-def _capture_tab(sjc, host, port, out_dir, filename, *substrings, settle=0.8):
+def _wait_bp_idle(host, port, tries=20):
+    """Wait until the BP main thread is responsive again. A Runtime.evaluate
+    queues behind whatever is running on the main thread, so a returning eval
+    means the thread is free — this naturally waits out a heavy on-mount
+    computation (the Suggestions/Statistics library scan) without guessing a
+    fixed delay. Returns True once two consecutive probes come back promptly."""
+    free = 0
+    for _ in range(tries):
+        if _bp_eval(host, port, "Date.now()") is not None:
+            free += 1
+            if free >= 2:
+                return True
+        else:
+            free = 0
+        time.sleep(0.4)
+    return False
+
+
+def _capture_tab(sjc, host, port, out_dir, filename, *substrings, settle=0.8, wait_idle=False):
     if not _open_settings(sjc, host, port):
         return {}
     if _switch_tab(host, port, *substrings) != "ok":
         return {}
+    # Heavy tabs resolve stats off the mount commit; wait for the main thread to
+    # come back before capturing so we don't shoot a half-painted/frozen frame.
+    if wait_idle:
+        _wait_bp_idle(host, port)
     time.sleep(settle)
     p = capture_bigpicture(host, port, out_dir / filename)
     _dismiss_bp_modal(host, port)
@@ -82,13 +104,13 @@ def settings_profiles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 @register("settings_suggestions")
 def settings_suggestions(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     # New tab (split out of Statistics). "Suggestions" (EN) / "Sugestões" (PT).
-    return _capture_tab(sjc, host, port, out_dir, "settings-suggestions.png", "suggestion", "sugest")
+    return _capture_tab(sjc, host, port, out_dir, "settings-suggestions.png", "suggestion", "sugest", settle=1.0, wait_idle=True)
 
 
 @register("settings_statistics")
 def settings_statistics(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     # "Statistics" (EN) / "Estatísticas" (PT) — now charts + usage breakdowns.
-    return _capture_tab(sjc, host, port, out_dir, "settings-statistics.png", "statistic", "estat")
+    return _capture_tab(sjc, host, port, out_dir, "settings-statistics.png", "statistic", "estat", settle=1.0, wait_idle=True)
 
 
 @register("settings_shortcuts")

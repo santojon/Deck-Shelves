@@ -131,14 +131,19 @@ export function StatisticsDetail({ controller, t }: StatisticsDetailProps) {
   // own area. Same registry the public API exposes; once on mount.
   useEffect(() => {
     let cancelled = false;
-    const providers = getExternalStatisticsProviders();
-    Promise.all(
-      providers.map(async (p) => {
-        const entries = await Promise.resolve().then(() => p.resolve()).catch(() => [] as StatisticsEntry[]);
-        return { id: p.id, displayName: p.displayName, entries: [...entries] };
-      }),
-    ).then((g) => { if (!cancelled) setGroups(g.filter((x) => x.entries.length > 0)); });
-    return () => { cancelled = true; };
+    // Defer the heavy provider resolution (getAllAppOverviews library DOM walk)
+    // off the mount commit so the tab paints immediately instead of freezing on
+    // open; the stats render once resolved.
+    const timer = setTimeout(() => {
+      const providers = getExternalStatisticsProviders();
+      Promise.all(
+        providers.map(async (p) => {
+          const entries = await Promise.resolve().then(() => p.resolve()).catch(() => [] as StatisticsEntry[]);
+          return { id: p.id, displayName: p.displayName, entries: [...entries] };
+        }),
+      ).then((g) => { if (!cancelled) setGroups(g.filter((x) => x.entries.length > 0)); });
+    }, 60);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   return (
