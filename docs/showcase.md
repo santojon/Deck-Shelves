@@ -127,10 +127,9 @@ section (`saved-filters-qam`), the About-page tabs (`about-filters`,
 
 ## Optional captures
 
-Only these depend on transient state or a real gamepad, so the validator
-treats them as optional and skips them when absent:
+Only this one depends on the QAM compositor widening, so the validator
+treats it as optional and skips it when absent:
 
 | File | When |
 |------|------|
-| `import-overflow.png` | QAM with the import-options `…` overflow menu open (2+ import descriptors registered) |
-| `sidecar.png` | QAM with the Settings sidecar expanded (needs a real gamepad dpad-right — not reliably reproducible over CDP) |
+| `sidecar.png` | QAM with the Settings sidecar expanded (dev-build `__ds_dev_open_sidecar()` widens the panel and populates the sidecar) |

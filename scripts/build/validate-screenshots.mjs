@@ -62,7 +62,6 @@ const EXPECTED = [
 // captures that depend on transient state or aren't generated yet stay here;
 // everything currently produced is required above.
 const OPTIONAL = [
-  { file: "import-overflow.png", surface: "qam-popup" },
   { file: "sidecar.png", surface: "qam-popup-sidecar" },
 ];
 

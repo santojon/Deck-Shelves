@@ -143,64 +143,27 @@ def saved_filters_qam(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 
 @register("sidecar")
 def sidecar(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM with the expandable "Configurações" sidecar open.
+    """QAM with the "Configurações" sidecar expanded and populated.
 
-    The `__ds_qam_expanded__` store lives in SharedJSContext but the QAM
-    component reads a separate module instance, so toggling it via CDP sets
-    the store without expanding the panel; a real gamepad dpad-right also
-    doesn't dispatch through SteamClient.Input. We attempt the SJC hook and
-    only emit the capture if the sidecar actually rendered — otherwise we
-    skip so a non-expanded QAM isn't mislabelled as the sidecar."""
+    The sidecar only renders once the QAM compositor window is widened.
+    Flipping the `__ds_qam_expanded__` store alone leaves the panel at its
+    normal width, so the sidecar paints off-screen (a blank right strip).
+    The dev build exposes `__ds_dev_open_sidecar()` in the QAM realm, which
+    fires the same path as a dpad-right chord: it postMessages the opener to
+    widen the window AND flips the store, so the sidecar renders with content.
+    We capture only after the populated sidecar (its eye-toggle) is present."""
     navigate_to_ds_qam(sjc, host, port)
     expand_qam_sections(host, port)
+    time.sleep(1.0)
+    opened = _qam_eval(host, port, "!!(window.__ds_dev_open_sidecar && window.__ds_dev_open_sidecar())")
     time.sleep(1.5)
-    try:
-        sjc.evaluate("try{window.__ds_qam_expanded__&&window.__ds_qam_expanded__.set(true);}catch(e){}")
-    except Exception:
-        pass
-    time.sleep(1.2)
     expanded = _qam_eval(host, port, "!!document.querySelector('.deck-shelves-qam-sidecar .ds-eye-btn')")
-    if expanded is not True:
+    if opened is not True or expanded is not True:
+        _qam_eval(host, port, "try{window.__ds_dev_close_sidecar&&window.__ds_dev_close_sidecar();}catch(e){}")
         close_qam(sjc)
         return {}
     out = out_dir / "sidecar.png"
     p = capture_qam(host, port, out)
-    try:
-        sjc.evaluate("try{window.__ds_qam_expanded__&&window.__ds_qam_expanded__.set(false);}catch(e){}")
-    except Exception:
-        pass
+    _qam_eval(host, port, "try{window.__ds_dev_close_sidecar&&window.__ds_dev_close_sidecar();}catch(e){}")
     close_qam(sjc)
     return {"sidecar.png": p} if p else {}
-
-
-@register("import_overflow")
-def import_overflow(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    """QAM with the import overflow menu open (needs 2+ import descriptors)."""
-    navigate_to_ds_qam(sjc, host, port)
-    expand_qam_sections(host, port)
-    res = _qam_eval(host, port, """
-(function(){
-  const btns = document.querySelectorAll('.deck-shelves-action-btn button, button[aria-label]');
-  for (const b of btns) {
-    const lbl = (b.getAttribute('aria-label') || '').toLowerCase();
-    if (lbl.includes('import') || lbl.includes('overflow') || lbl.includes('more')) {
-      b.click(); return 'clicked:' + lbl;
-    }
-    if ((b.textContent || '').trim() === '' && b.querySelector('svg circle')) {
-      b.click(); return 'clicked-circle';
-    }
-  }
-  return 'not found';
-})()
-""")
-    time.sleep(1.0)
-    # Only capture when an overflow/context menu actually opened — otherwise
-    # skip rather than capture the underlying QAM section.
-    opened = _qam_eval(host, port, "!!document.querySelector('[role=menu], [class*=contextmenu i], [class*=ContextMenu]')")
-    if not (isinstance(res, str) and res.startswith("clicked")) or opened is not True:
-        close_qam(sjc)
-        return {}
-    out = out_dir / "import-overflow.png"
-    p = capture_qam(host, port, out)
-    close_qam(sjc)
-    return {"import-overflow.png": p} if p else {}
