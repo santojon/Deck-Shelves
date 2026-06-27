@@ -34,6 +34,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<SettingsCategory> = [
   { id: "behaviour",        labelKey: "settings_category_behaviour",        keys: [
     "enabled", "hideRecents", "recentsReplaceSource", "hideHomeTabs", "shelfHeroBackground",
     "forceCssLoaderThemes", "lightModeEnabled", "offlineModeEnabled", "updateNotifyEnabled", "sideNavEnabled",
+    "betaChannelEnabled", "updateNotifyDismissedVersion",
     "contextSearchEnabled", "contextSearchKeyboardEnabled", "contextSearchOnEnter",
   ] },
   { id: "qam_visibility",   labelKey: "settings_category_qam_visibility",   keys: ["qamHiddenToggles", "qamHiddenSections", "unifiedListEnabled"] },

@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Znajomi grają",
+  "friends_overlay_recent_label": "Uwzględnij ostatnie 14 dni",
+  "friends_overlay_count_one": "{{count}} znajomy gra",
+  "friends_overlay_count_other": "{{count}} znajomych gra",
   "actions": "Akcje",
   "add_shelf": "Dodaj półkę",
   "badge_discount": "{{count}}% zniżki",

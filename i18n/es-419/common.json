@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Amigos jugando",
+  "friends_overlay_recent_label": "Incluir últimos 14 días",
+  "friends_overlay_count_one": "{{count}} amigo jugando",
+  "friends_overlay_count_other": "{{count}} amigos jugando",
   "actions": "Acciones",
   "add_shelf": "Agregar estantería",
   "badge_discount": "{{count}}% dto",

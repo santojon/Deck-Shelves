@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { DialogButton, TextField, openFilePicker } from "../../../runtime/host/decky";
 import { notify } from "../../notify";
 import type { SettingsController } from "../../../features/settings/controller";
-import { textFromDeckyChange, tryPickerCalls } from "./modalUtils";
+import { textFromDeckyChange, tryPickerCalls, splitPath, joinPath } from "./modalUtils";
 import { SelectItemsModal } from "./SelectItemsModal";
 import {
   SETTINGS_CATEGORIES,
@@ -21,7 +21,10 @@ async function pickJsonFile(startPath: string) {
 
 export function ImportAllModal({ closeModal, controller, initialPath }: { closeModal?: () => void; controller: SettingsController; initialPath: string }) {
   const { t } = controller;
-  const [path, setPath] = useState(initialPath);
+  const init = splitPath(initialPath);
+  const [folder, setFolder] = useState(init.dir);
+  const [name, setName] = useState(init.base);
+  const path = joinPath(folder, name);
   const [browseBusy, setBrowseBusy] = useState(false);
   const [present, setPresent] = useState<Set<string>>(new Set());
   const [payload, setPayload] = useState<Record<string, unknown> | null>(null);
@@ -60,19 +63,19 @@ export function ImportAllModal({ closeModal, controller, initialPath }: { closeM
   const header = (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 8 }}>
       <div>
-        <div style={{ paddingBottom: 4 }}>{t("file_path")}</div>
-        <TextField value={path} onChange={(value: unknown) => setPath(textFromDeckyChange(value))} />
+        <div style={{ paddingBottom: 4 }}>{t("file_name")}</div>
+        <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <div style={{ flex: 1, fontSize: 12, color: "var(--ds-text-dim, rgba(255,255,255,0.65))" }}>
-          {loadError ? loadError : (payload ? t("settings_import_pick_desc") : t("loading"))}
+          {loadError ? loadError : (payload ? folder : t("loading"))}
         </div>
         <DialogButton
           onClick={async () => {
             setBrowseBusy(true);
             try {
               const picked = await pickJsonFile(path);
-              if (picked) setPath(picked);
+              if (picked) { const s = splitPath(picked); setFolder(s.dir); setName(s.base); }
             } catch (e) {
               notify("error", { body: String(e) });
             } finally { setBrowseBusy(false); }

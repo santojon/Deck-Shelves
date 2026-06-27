@@ -1,5 +1,12 @@
 
 import { logInfo } from './logger';
+import { triggerShelfRefresh } from '../core/shelfRefresh';
+
+function setsEqual(a: Set<number>, b: Set<number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+}
 
 const POLL_INTERVAL_MS = 90 * 1000;
 // "Recently played" lookback — apps where any friend had `m_nAppIDLastSeenPlaying`
@@ -7,9 +14,25 @@ const POLL_INTERVAL_MS = 90 * 1000;
 // without producing an unbounded set on accounts with many friends.
 const RECENTLY_PLAYED_LOOKBACK_DAYS = 14;
 
+export type FriendBrief = { name: string; avatar: string };
+
 let _currentlyPlaying = new Set<number>();
 let _recentlyPlayed = new Set<number>();
+// appId -> friends in that app, for the "friends playing" card overlay.
+let _playingByApp = new Map<number, FriendBrief[]>();
+let _recentByApp = new Map<number, FriendBrief[]>();
 let _pollTimer: number | null = null;
+
+function avatarUrl(hash: unknown): string {
+  const h = typeof hash === "string" ? hash : "";
+  return h ? `https://avatars.steamstatic.com/${h}_medium.jpg` : "";
+}
+
+function pushFriend(map: Map<number, FriendBrief[]>, appId: number, brief: FriendBrief): void {
+  const list = map.get(appId);
+  if (list) list.push(brief);
+  else map.set(appId, [brief]);
+}
 
 function getFriendStore(): any {
   return (globalThis as any).friendStore ?? (window as any).friendStore;
@@ -26,27 +49,44 @@ function refresh(): void {
   const recentCutoff = now - RECENTLY_PLAYED_LOOKBACK_DAYS * 24 * 3600;
   const playing = new Set<number>();
   const recent = new Set<number>();
+  const playingByApp = new Map<number, FriendBrief[]>();
+  const recentByApp = new Map<number, FriendBrief[]>();
   for (const f of all) {
     try {
+      const brief: FriendBrief = { name: String(f?.m_persona?.m_strPlayerName ?? ""), avatar: avatarUrl(f?.m_persona?.m_strAvatarHash) };
       // Live "in game now": m_persona.m_unGamePlayedAppID is non-zero
       // while the friend is actively in a game on Steam.
       const live = Number(f?.m_persona?.m_unGamePlayedAppID ?? f?.m_persona?.m_gameid ?? 0);
       if (live > 0) {
         playing.add(live);
         recent.add(live);
+        pushFriend(playingByApp, live, brief);
+        pushFriend(recentByApp, live, brief);
       }
       // Historical "last seen playing": friend was observed in this app at
       // some point. Steam includes a coarse timestamp via m_dtLastSeenPlaying;
       // include only when the timestamp is recent.
       const lastApp = Number(f?.m_nAppIDLastSeenPlaying ?? 0);
-      if (lastApp > 0) {
+      if (lastApp > 0 && lastApp !== live) {
         const lastTs = Number(f?.m_dtLastSeenPlaying ?? 0);
-        if (!lastTs || lastTs >= recentCutoff) recent.add(lastApp);
+        if (!lastTs || lastTs >= recentCutoff) {
+          recent.add(lastApp);
+          pushFriend(recentByApp, lastApp, brief);
+        }
       }
     } catch {}
   }
+  // Re-resolve friends-playing shelves + the card overlay only when the set
+  // actually changed (polled ~every 90s, so this fires rarely — no debounce
+  // needed). This is what makes the shelf appear once the first poll lands.
+  const changed = !setsEqual(playing, _currentlyPlaying) || !setsEqual(recent, _recentlyPlayed);
   _currentlyPlaying = playing;
   _recentlyPlayed = recent;
+  _playingByApp = playingByApp;
+  _recentByApp = recentByApp;
+  if (changed) {
+    try { triggerShelfRefresh(); } catch {}
+  }
 }
 
 export function installFriendsState(): () => void {
@@ -69,6 +109,8 @@ export function installFriendsState(): () => void {
     }
     _currentlyPlaying = new Set();
     _recentlyPlayed = new Set();
+    _playingByApp = new Map();
+    _recentByApp = new Map();
   };
 }
 
@@ -78,6 +120,13 @@ export function getFriendsPlayingAppIds(): Set<number> {
 
 export function getFriendsRecentlyPlayedAppIds(): Set<number> {
   return _recentlyPlayed;
+}
+
+// Friends in a given app for the card overlay. `includeRecent` widens the set
+// to friends seen playing within the lookback window (not just live).
+export function getFriendsInApp(appId: number, includeRecent: boolean): FriendBrief[] {
+  if (!appId) return [];
+  return (includeRecent ? _recentByApp : _playingByApp).get(appId) ?? [];
 }
 
 export function refreshFriendsState(): void {

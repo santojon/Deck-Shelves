@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Друзі грають",
+  "friends_overlay_recent_label": "Включити останні 14 днів",
+  "friends_overlay_count_one": "{{count}} друг грає",
+  "friends_overlay_count_other": "{{count}} друзів грають",
   "actions": "Дії",
   "add_shelf": "Додати полицю",
   "badge_discount": "{{count}}%",

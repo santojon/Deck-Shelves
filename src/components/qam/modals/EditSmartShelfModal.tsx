@@ -106,6 +106,8 @@ type EditState = {
   hideRefreshCard: boolean
   heroEnabled: boolean
   gameInfoAbove: boolean
+  friendsPlayingOverlay: boolean
+  friendsPlayingOverlayRecent: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   refreshIntervalMinutes: number
@@ -166,6 +168,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
     heroEnabled: (shelf as any).heroEnabled ?? false,
     gameInfoAbove: (shelf as any).gameInfoAbove ?? false,
+    friendsPlayingOverlay: (shelf as any).friendsPlayingOverlay ?? false,
+    friendsPlayingOverlayRecent: (shelf as any).friendsPlayingOverlayRecent ?? false,
     dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
@@ -442,6 +446,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).hideRefreshCard = state.hideRefreshCard
       ;(patch as any).heroEnabled = state.heroEnabled || undefined
       ;(patch as any).gameInfoAbove = state.gameInfoAbove || undefined
+      ;(patch as any).friendsPlayingOverlay = state.friendsPlayingOverlay || undefined
+      ;(patch as any).friendsPlayingOverlayRecent = state.friendsPlayingOverlayRecent || undefined
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       // Only persist when the user diverged from the default cadence; otherwise
@@ -927,7 +933,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove }}
+                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove, friendsPlayingOverlay: state.friendsPlayingOverlay, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent }}
                       setFlags={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.gameInfoAbove === true) next.hideShelfTitle = true; return next; })}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}

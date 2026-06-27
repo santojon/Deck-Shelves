@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Vrienden spelen",
+  "friends_overlay_recent_label": "Laatste 14 dagen meenemen",
+  "friends_overlay_count_one": "{{count}} vriend speelt",
+  "friends_overlay_count_other": "{{count}} vrienden spelen",
   "actions": "Acties",
   "add_shelf": "Plank toevoegen",
   "badge_discount": "{{count}}% korting",

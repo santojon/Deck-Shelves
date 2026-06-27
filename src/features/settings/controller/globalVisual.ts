@@ -28,6 +28,8 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
   return {
     setGlobalHeroEnabled: (v: boolean) => setBool("globalHeroEnabled" as any, v),
     setGlobalGameInfoAbove: (v: boolean) => setBool("globalGameInfoAbove" as any, v),
+    setGlobalFriendsPlayingOverlay: (v: boolean) => setBool("globalFriendsPlayingOverlay" as any, v),
+    setGlobalFriendsPlayingOverlayRecent: (v: boolean) => setBool("globalFriendsPlayingOverlayRecent" as any, v),
     setGlobalMatchNativeSize: (v: boolean) => setBool("globalMatchNativeSize", v),
     setGlobalHideStatusLine: (v: boolean) => setBool("globalHideStatusLine", v),
     setGlobalHideShelfTitle: (v: boolean) => setBool("globalHideShelfTitle", v),

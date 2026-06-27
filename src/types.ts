@@ -251,6 +251,10 @@ export const SmartShelfSchema = z.object({
   // Per-shelf: render the focused game's info (name, playtime, …) above the
   // cards in a full-page layout. Decoupled from any theme — pure opt-in.
   gameInfoAbove: z.boolean().optional(),
+  // Per-shelf: overlay friend avatar(s) + "N friends playing" on cards where a
+  // Steam friend is in the game. `Recent` widens to the 14-day lookback.
+  friendsPlayingOverlay: z.boolean().optional(),
+  friendsPlayingOverlayRecent: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
@@ -393,6 +397,10 @@ export const ShelfSchema = z.object({
   // Per-shelf: render the focused game's info (name, playtime, …) above the
   // cards in a full-page layout. Decoupled from any theme — pure opt-in.
   gameInfoAbove: z.boolean().optional(),
+  // Per-shelf: overlay friend avatar(s) + "N friends playing" on cards where a
+  // Steam friend is in the game. `Recent` widens to the 14-day lookback.
+  friendsPlayingOverlay: z.boolean().optional(),
+  friendsPlayingOverlayRecent: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema,
@@ -492,6 +500,10 @@ export const SettingsSchema = z.object({
   globalHeroEnabled: z.boolean().default(false),
   // Global default for "show game info above the cards" (per-shelf can override).
   globalGameInfoAbove: z.boolean().default(false),
+  // Global default for the "friends playing" card overlay (per-shelf can
+  // override); `Recent` widens it to the 14-day lookback.
+  globalFriendsPlayingOverlay: z.boolean().default(false),
+  globalFriendsPlayingOverlayRecent: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),

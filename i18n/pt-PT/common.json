@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Amigos a jogar",
+  "friends_overlay_recent_label": "Incluir últimos 14 dias",
+  "friends_overlay_count_one": "{{count}} amigo a jogar",
+  "friends_overlay_count_other": "{{count}} amigos a jogar",
   "actions": "Ações",
   "add_shelf": "Adicionar prateleira",
   "badge_discount": "{{count}}% off",

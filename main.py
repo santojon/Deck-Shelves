@@ -217,7 +217,9 @@ class Plugin:
         return os.path.expanduser("~")
 
     async def get_user_desktop(self) -> str:
-        for candidate in [os.path.expanduser("~/Desktop"), os.path.expanduser("~/Downloads"), os.path.expanduser("~")]:
+        # Default folder for Import / Export. Prefer ~/Downloads (where the
+        # plugin's example/export files live), then ~/Desktop, then home.
+        for candidate in [os.path.expanduser("~/Downloads"), os.path.expanduser("~/Desktop"), os.path.expanduser("~")]:
             if os.path.exists(candidate):
                 return candidate
         return os.path.expanduser("~")
@@ -272,6 +274,14 @@ class Plugin:
             return self._read_state()
 
     async def write_json_file(self, path: str = "", content: str = "", *args, **kwargs) -> bool:
+        # The frontend sends a single { path, content } object. Depending on how
+        # Decky delivers it, `content` can arrive bundled inside the first
+        # positional dict (leaving the `content` param empty) — recover it so we
+        # never write a 0-byte file. `_normalize_path` extracts the path itself.
+        if isinstance(path, dict) and not content:
+            content = path.get("content", "")
+        if not content and isinstance(kwargs.get("content"), str):
+            content = kwargs.get("content")
         path = _normalize_path(path if path else (args[0] if args else kwargs.get("path")))
         if not path or not isinstance(content, str):
             return False

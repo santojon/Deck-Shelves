@@ -4,7 +4,7 @@ import { ModalShell } from "../../ui";
 import type { SettingsController } from "../../../features/settings/controller";
 import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES, coveredTemplateIds, type ShelfTemplateCategory } from "../../../domain/templates";
 import { resolveStatSuggestions } from "../../../core/statSuggestions";
-import { SMART_TEMPLATES } from "./SmartShelfTemplateModal";
+import { SMART_TEMPLATES } from "./smartTemplates";
 import { EditShelfModal } from "./EditShelfModal";
 import { EditSmartShelfModal } from "./EditSmartShelfModal";
 import { SHELF_TPL_ICON, SMART_TPL_ICON } from "./templateIcons";
@@ -15,6 +15,7 @@ import type { SmartShelfMode } from "../../../types";
 export interface CreateShelfModalProps {
   closeModal?: () => void;
   controller: SettingsController;
+  initialTab?: "standard" | "smart";
 }
 
 const TPL_CATEGORY_ORDER: ShelfTemplateCategory[] = ["status", "time", "platform", "online"];
@@ -52,9 +53,9 @@ const btnInner: React.CSSProperties = {
   flexWrap: "wrap",
 };
 
-export function CreateShelfModal({ closeModal, controller }: CreateShelfModalProps) {
+export function CreateShelfModal({ closeModal, controller, initialTab = "standard" }: CreateShelfModalProps) {
   const { t } = controller;
-  const [tab, setTab] = useState<"standard" | "smart">("standard");
+  const [tab, setTab] = useState<"standard" | "smart">(initialTab);
   return (
     <ModalShell>
       <ConfirmModal

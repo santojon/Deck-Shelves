@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Oynayan arkadaşlar",
+  "friends_overlay_recent_label": "Son 14 günü dahil et",
+  "friends_overlay_count_one": "{{count}} arkadaş oynuyor",
+  "friends_overlay_count_other": "{{count}} arkadaş oynuyor",
   "actions": "Eylemler",
   "add_shelf": "Raf ekle",
   "badge_discount": "{{count}}% indirim",

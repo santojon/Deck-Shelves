@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "플레이 중인 친구",
+  "friends_overlay_recent_label": "지난 14일 포함",
+  "friends_overlay_count_one": "친구 {{count}}명이 플레이 중",
+  "friends_overlay_count_other": "친구 {{count}}명이 플레이 중",
   "actions": "작업",
   "add_shelf": "선반 추가",
   "badge_discount": "{{count}}% 할인",

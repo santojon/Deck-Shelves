@@ -34,6 +34,11 @@ export function createDefaultSmartShelf(mode: SmartShelfMode, title: string): Sm
     // Differentiation from base long_session: this template surfaces only
     // during evening hours (19h–23h) when long sessions are typical.
     (base as any).visibleHours = [{ start: 19, end: 23 }];
+  } else if (mode === "friends_playing") {
+    // This template surfaces games friends are in — ship it with the friend
+    // avatar overlay (+ the 14-day lookback) on by default.
+    (base as any).friendsPlayingOverlay = true;
+    (base as any).friendsPlayingOverlayRecent = true;
   }
   return base;
 }
@@ -60,6 +65,8 @@ export function defaultSettings(): Settings {
     globalHideRefreshCard: false,
     globalHeroEnabled: false,
     globalGameInfoAbove: false,
+    globalFriendsPlayingOverlay: false,
+    globalFriendsPlayingOverlayRecent: false,
     globalDedupeByName: false,
     shelves: [],
     smartShelvesEnabled: false,

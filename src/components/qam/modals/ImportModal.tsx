@@ -6,7 +6,7 @@ import { getCurrentSettings, readJsonFile, saveSettings } from '../../../setting
 import { mergeCategoriesIntoSettings, unwrapPayload } from '../../../features/settings/settingsCategories'
 import { categoryIdsForScope } from '../../../features/settings/categoryScope'
 import type { SettingsController } from '../../../features/settings/controller'
-import { textFromDeckyChange, tryPickerCalls } from './modalUtils'
+import { textFromDeckyChange, tryPickerCalls, splitPath, joinPath } from './modalUtils'
 
 export type ImportScope = 'all' | 'shelves' | 'smart'
 
@@ -25,7 +25,9 @@ function titleKeyFor(scope: ImportScope): string {
 
 export function ImportModal({ closeModal, controller, initialPath, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; initialPath: string; scope?: ImportScope }) {
   const { t } = controller
-  const [path, setPath] = useState(initialPath)
+  const init = splitPath(initialPath)
+  const [folder, setFolder] = useState(init.dir)
+  const [name, setName] = useState(init.base)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
   const title = t(titleKeyFor(scope) as any)
@@ -33,7 +35,7 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
     <ModalShell>
       <ConfirmModal
         strTitle={title}
-        strDescription={path}
+        strDescription={folder}
         strOKButtonText={importBusy ? t('loading') : title}
         strCancelButtonText={t('cancel')}
         onCancel={closeModal}
@@ -42,6 +44,7 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
           closeModal?.();
           setImportBusy(true);
           (async () => {
+            const path = joinPath(folder, name);
             try {
               let ok = false
               const raw = await readJsonFile(path);
@@ -64,14 +67,14 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
         <Focusable>
           <div style={{ padding: '4px 16px 1px' }} className='name-field'>
             <div style={{ paddingBottom: '6px' }}>{t('file_name')}</div>
-            <TextField value={path} onChange={(value: unknown) => setPath(textFromDeckyChange(value))} />
+            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
             <div style={{ paddingTop: '10px' }}>
               <DialogButton
                 onClick={async () => {
                   setBrowseBusy(true)
                   try {
-                    const picked = await pickJsonFile(initialPath)
-                    if (picked) setPath(picked)
+                    const picked = await pickJsonFile(joinPath(folder, name))
+                    if (picked) { const s = splitPath(picked); setFolder(s.dir); setName(s.base) }
                   } catch (error) {
                     notify("error", { body: String(error) })
                   } finally {

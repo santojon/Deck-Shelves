@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Friends playing",
+  "friends_overlay_recent_label": "Include last 14 days",
+  "friends_overlay_count_one": "{{count}} friend playing",
+  "friends_overlay_count_other": "{{count}} friends playing",
   "actions": "Actions",
   "add_shelf": "Add shelf",
   "badge_discount": "{{count}}% off",

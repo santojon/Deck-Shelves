@@ -33,6 +33,8 @@ export interface ShelfRowProps {
   hideNonSteamBadge?: boolean;
   hideGameName?: boolean;
   hideInstallIndicator?: boolean;
+  friendsOverlay?: boolean;
+  friendsOverlayRecent?: boolean;
   enableLogo?: boolean;
   enableIcon?: boolean;
   enableDescription?: boolean;
@@ -72,6 +74,7 @@ function ShelfRowImpl({
   hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false,
   hideCompatIcons = false, hideNonSteamBadge = false,
   hideGameName = false, hideInstallIndicator = false,
+  friendsOverlay = false, friendsOverlayRecent = false,
   enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left',
   refreshInteractive, moreInteractive,
   inlineBadges = false,
@@ -137,6 +140,8 @@ function ShelfRowImpl({
             hideNonSteamBadge={hideNonSteamBadge}
             hideGameName={hideGameName}
             hideInstallIndicator={hideInstallIndicator}
+            friendsOverlay={friendsOverlay}
+            friendsOverlayRecent={friendsOverlayRecent}
             enableLogo={enableLogo}
             enableIcon={enableIcon}
             enableDescription={enableDescription}

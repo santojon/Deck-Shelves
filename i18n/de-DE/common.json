@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Freunde spielen",
+  "friends_overlay_recent_label": "Letzte 14 Tage einbeziehen",
+  "friends_overlay_count_one": "{{count}} Freund spielt",
+  "friends_overlay_count_other": "{{count}} Freunde spielen",
   "actions": "Aktionen",
   "add_shelf": "Regal hinzufugen",
   "badge_discount": "{{count}}% Rabatt",

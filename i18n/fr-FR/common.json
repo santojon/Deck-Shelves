@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Amis en jeu",
+  "friends_overlay_recent_label": "Inclure les 14 derniers jours",
+  "friends_overlay_count_one": "{{count}} ami en jeu",
+  "friends_overlay_count_other": "{{count}} amis en jeu",
   "actions": "Actions",
   "add_shelf": "Ajouter une etagere",
   "badge_discount": "{{count}}%",

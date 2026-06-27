@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "Друзья играют",
+  "friends_overlay_recent_label": "Включить последние 14 дней",
+  "friends_overlay_count_one": "{{count}} друг играет",
+  "friends_overlay_count_other": "{{count}} друзей играют",
   "actions": "Действия",
   "add_shelf": "Добавить полку",
   "badge_discount": "{{count}}%",

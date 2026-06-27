@@ -65,6 +65,12 @@ export function ExportAllModal({ closeModal, controller, folderPath }: { closeMo
         const s = getCurrentSettings();
         if (!s) return;
         const payload = pickCategoriesFromSettings(s, selectedIds);
+        // Never write an empty export (no categories selected) — that produced
+        // a `{ "state": {} }` file that looked broken to the user.
+        if (Object.keys(payload).length === 0) {
+          notify("error", { body: t("toast_failed_export") });
+          return;
+        }
         const target = `${folder}/${filenameWithJson(name)}`;
         const ok = await writeJsonFile(target, JSON.stringify({ state: payload }, null, 2));
         notify(ok ? "export" : "error", { body: ok ? t("toast_exported_file") : t("toast_failed_export") });

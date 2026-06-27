@@ -143,6 +143,8 @@ function readVisualFlags(shelf: Shelf) {
     manualOrder: s.manualOrder ?? [],
     heroEnabled: s.heroEnabled === true,
     gameInfoAbove: (s as any).gameInfoAbove === true,
+    friendsPlayingOverlay: (s as any).friendsPlayingOverlay === true,
+    friendsPlayingOverlayRecent: (s as any).friendsPlayingOverlayRecent === true,
     dedupeByExactName: s.dedupeByExactName === true,
     hiddenAppIds: s.hiddenAppIds ?? [],
   };

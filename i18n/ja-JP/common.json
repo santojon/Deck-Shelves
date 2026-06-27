@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "プレイ中のフレンド",
+  "friends_overlay_recent_label": "過去14日間を含む",
+  "friends_overlay_count_one": "{{count}}人のフレンドがプレイ中",
+  "friends_overlay_count_other": "{{count}}人のフレンドがプレイ中",
   "actions": "操作",
   "add_shelf": "シェルフを追加",
   "badge_discount": "{{count}}%引き",

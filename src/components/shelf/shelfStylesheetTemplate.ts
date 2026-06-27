@@ -829,6 +829,37 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       line-height: 0;
     }
     .ds-card-status-play { color: var(--ds-native-heading-color, rgb(89, 191, 64)); }
+    .ds-friend-avatars {
+      position: absolute;
+      z-index: 4;
+      display: flex;
+      flex-direction: row;
+      gap: 3px;
+      pointer-events: none;
+    }
+    .ds-friend-avatar {
+      position: relative;
+      width: var(--ds-friend-avatar-size, 23px);
+      height: var(--ds-friend-avatar-size, 23px);
+      flex-shrink: 0;
+      box-shadow: 2px 2px 8px 1px rgba(0, 0, 0, 0.3);
+    }
+    .ds-friend-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #1b2838;
+    }
+    .ds-friend-avatar-status {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 9%;
+      min-height: 2px;
+      background: var(--ds-native-heading-color, rgb(89, 191, 64));
+    }
     .ds-more-card-text {
       font-size: 16px;
       font-weight: 400;

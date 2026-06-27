@@ -13,6 +13,7 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { formatPlaytime } from "./shelfStyles";
 import { PlaceholderCard } from "./PlaceholderCard";
 import { resolveNativeCardClass } from "./cardUtils";
+import { getFriendsInApp } from "../../runtime/friendsState";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
 import { patchShelfInSettings } from "../../domain/settings";
 import { saveFocusTarget, beginFocusRestoreLoop } from "../../core/focusRestore";
@@ -169,7 +170,7 @@ function trackCardActivation(ref: { previewMode: boolean; appid: number; shelfId
   } catch { /* best-effort */ }
 }
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', inlineBadges = false, previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', inlineBadges = false, previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -604,6 +605,16 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
     />;
   }
 
+  const overlayFriends = friendsOverlay && !previewMode ? getFriendsInApp(appid, friendsOverlayRecent) : [];
+  const friendsLabel = overlayFriends.length === 1
+    ? t("friends_overlay_count_one", { count: 1 })
+    : overlayFriends.length > 1 ? t("friends_overlay_count_other", { count: overlayFriends.length }) : "";
+  // Avatar pixels are drawn by the global FriendsAvatarOverlay (portaled above
+  // the focus ring); the card just advertises the friend avatar URLs.
+  const friendAvatarAttr = overlayFriends.length
+    ? overlayFriends.slice(0, 3).map((f) => f.avatar).filter(Boolean).join("|") || undefined
+    : undefined;
+
   return (
     <Focusable
       ref={cardRef}
@@ -629,6 +640,7 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
         hiddenNow: !!(appid && hiddenSet?.has(appid)),
       })}
       data-appid={appid || undefined}
+      data-ds-friend-avatars={friendAvatarAttr}
       data-shelfid={item.shelfId || undefined}
       data-name={item.name || undefined}
       data-isnew={showNewBadge ? 'true' : undefined}
@@ -778,7 +790,15 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
             no meaningful install state, so "Not installed" / the install glyph
             would mislead. Hidden per card so the rule fires only on the actually-
             non-owned ones in a mixed composite shelf; owned cards keep theirs. */}
-        {!hideStatusLine && isLibraryGame && (() => {
+        {!hideStatusLine && overlayFriends.length > 0 && (
+          <div className="ds-card-status ds-card-status--friends">
+            {playIcon}
+            <span style={{ color: 'var(--ds-native-heading-color, rgb(89, 191, 64))', fontWeight: 700, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {friendsLabel}
+            </span>
+          </div>
+        )}
+        {!hideStatusLine && overlayFriends.length === 0 && isLibraryGame && (() => {
           const hasUpdate = item.updatePending === true;
           const isInstalled = item.isInstalled === true;
           const hasPlaytime = !!playtime && item.playtimeMinutes && item.playtimeMinutes > 0;

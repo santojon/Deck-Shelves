@@ -1,4 +1,8 @@
 {
+  "friends_overlay_label": "好友在玩",
+  "friends_overlay_recent_label": "包含最近 14 天",
+  "friends_overlay_count_one": "{{count}} 位好友在玩",
+  "friends_overlay_count_other": "{{count}} 位好友在玩",
   "actions": "操作",
   "add_shelf": "添加书架",
   "badge_discount": "{{count}}%折",

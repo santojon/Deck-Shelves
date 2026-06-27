@@ -682,7 +682,13 @@ export function resolveSmartShelf(
   ttlMs?: number,
   shelfId?: string,
 ): number[] {
-  const ttl = typeof ttlMs === "number" && ttlMs > 0 ? ttlMs : DEFAULT_SMART_TTL_MS;
+  /* Friends-playing reflects live friend state (polled ~every 90s). Never serve
+     a stale cached result (e.g. the empty set captured at boot before the first
+     poll) — re-resolve each refresh tick so the shelf appears as soon as a
+     friend's status is known. The resolve itself is a cheap Set filter. */
+  const ttl = mode === "friends_playing"
+    ? 0
+    : typeof ttlMs === "number" && ttlMs > 0 ? ttlMs : DEFAULT_SMART_TTL_MS;
   const paramsKey = params ? JSON.stringify(params) : "";
   /* Per-shelf namespacing: when `shelfId` is given, two shelves with the
      same `mode + limit + params + ttl` keep independent cache entries — so
