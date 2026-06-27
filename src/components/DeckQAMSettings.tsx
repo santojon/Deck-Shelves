@@ -843,24 +843,24 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('offlineModeEnabled') && (
           <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
         )}
-        {!isHid('contextSearchEnabled') && (
+        {!lightMode && !isHid('contextSearchEnabled') && (
           <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
         )}
-        {!isHid('contextSearchEnabled') && (
+        {!lightMode && !isHid('contextSearchEnabled') && (
           <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
             {t('context_search_combo' as any, { combo: formatComboForDisplay(resolveBindings((settings as any).buttonBindings).navSearch) })}
           </div>
         )}
-        {!isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
+        {!lightMode && !isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
           <ToggleField label={t('context_search_keyboard' as any)} checked={(settings as any).contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
         )}
-        {!isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
+        {!lightMode && !isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
           <ToggleField label={t('context_search_on_enter' as any)} checked={(settings as any).contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
         )}
-        {!isHid('sideNavEnabled') && (
+        {!lightMode && !isHid('sideNavEnabled') && (
           <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
         )}
-        {!isHid('sideNavEnabled') && (
+        {!lightMode && !isHid('sideNavEnabled') && (
           <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
             {t('side_nav_combo' as any, { combo: formatComboForDisplay(resolveBindings((settings as any).buttonBindings).navSideNav) })}
           </div>
@@ -1051,7 +1051,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('globalHighlightFirst') && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />}
         {!isHid('globalHighlightAll') && <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightAll(value)} />}
         {!isHid('globalHighlightRandom') && <ToggleField label={t('highlight_random')} checked={(settings as any).globalHighlightRandom === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalHighlightRandom(value)} />}
-        {/* Group: Logo + dependent options below it */}
+        {/* Decorations are stripped on the home in light mode — hide here too. */}
+        {!lightMode && (<>
         {!isHid('globalEnableLogo') && <ToggleField label={t('enable_logo')} checked={(settings as any).globalEnableLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableLogo(value)} />}
         {(settings as any).globalEnableLogo === true && !isHid('globalLogoPosition') && (
           <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
@@ -1096,6 +1097,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionLogoGap') && (
           <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
         )}
+        </>)}
 
         {!isHid('globalShelfTitlePosition') && (
           <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
@@ -1119,7 +1121,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('globalHideSeeMore') && <ToggleField label={t('hide_see_more_card')} checked={settings.globalHideSeeMore === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideSeeMore(value)} />}
         {!isHid('globalHideRefreshCard') && <ToggleField label={t('hide_refresh_card')} checked={settings.globalHideRefreshCard === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideRefreshCard(value)} />}
         {!isHid('globalDedupeByName') && <ToggleField label={t('global_dedupe_by_name' as any)} checked={(settings as any).globalDedupeByName === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDedupeByName(value)} />}
-        {!isHid('globalHeroEnabled') && <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalHeroEnabled(value)} />}
+        {!lightMode && !isHid('globalHeroEnabled') && <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalHeroEnabled(value)} />}
         {!isHid('globalGameInfoAbove') && <ToggleField label={t('global_game_info_above' as any)} checked={(settings as any).globalGameInfoAbove === true} disabled={mountCrashed} onChange={(value: boolean) => applyGameInfoAboveToggle({ next: value, hideTitle: settings.globalHideShelfTitle === true, t, setGameInfoAbove: (v) => void (actions as any).setGlobalGameInfoAbove(v), setHideTitle: (v) => actions.setGlobalHideShelfTitle(v) })} />}
         {!isHid('globalFriendsPlayingOverlay') && <ToggleField label={t('friends_overlay_label' as any)} checked={(settings as any).globalFriendsPlayingOverlay === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlay(value)} />}
         {!isHid('globalFriendsPlayingOverlay') && (settings as any).globalFriendsPlayingOverlay === true && <ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(value)} />}

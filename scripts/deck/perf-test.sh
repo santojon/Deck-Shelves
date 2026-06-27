@@ -19,6 +19,9 @@ if [[ "${1:-}" == "--compare" ]]; then
   shift
 fi
 
+# pnpm forwards an extra `--` arg separator on some platforms; drop it.
+if [[ "${1:-}" == "--" ]]; then shift; fi
+
 DURATION="${1:-${DURATION:-5}}"    # minutes
 INTERVAL=30                         # seconds between samples
 HOST="${DECK_HOST:-}"
@@ -41,6 +44,12 @@ SSH_CMD="ssh -o ConnectTimeout=10 -o BatchMode=yes ${USER_NAME}@${HOST}"
 
 # Run a remote command, return stdout (never abort on non-zero)
 remote() { $SSH_CMD "$@" 2>/dev/null || true; }
+
+# Portable replacement for `grep -oP 'KEY=\K...'` (BSD/macOS grep has no -P/\K):
+# pull the value of a `KEY=value` token from a space-separated string.
+field() { printf '%s\n' $1 | sed -n "s/^$2=//p" | head -1; }
+# Same, defaulting to 0 when the key is absent (numeric summary fields).
+fieldn() { local v; v=$(field "$1" "$2"); echo "${v:-0}"; }
 
 # Collect a snapshot: battery%, drain rate, cpu%, sleep inhibitors
 collect_sample() {
@@ -104,13 +113,13 @@ run_sampling() {
   for (( i=0; i<TOTAL_SAMPLES; i++ )); do
     raw=$(collect_sample)
 
-    capacity=$(echo "$raw" | grep -oP 'capacity=\K[^ ]+')
-    status=$(echo "$raw"   | grep -oP 'status=\K[^ ]+')
-    power_mw=$(echo "$raw" | grep -oP 'power_mw=\K[^ ]+')
-    cpu_pct=$(echo "$raw"  | grep -oP 'cpu_pct=\K[^ ]+')
-    inhibs=$(echo "$raw"   | grep -oP 'inhibitor_count=\K[^ ]+')
-    ds_inh=$(echo "$raw"   | grep -oP 'ds_inhibit=\K[^ ]+')
-    dk_cpu=$(echo "$raw"   | grep -oP 'decky_cpu=\K[^ ]+')
+    capacity=$(field "$raw" capacity)
+    status=$(field "$raw" status)
+    power_mw=$(field "$raw" power_mw)
+    cpu_pct=$(field "$raw" cpu_pct)
+    inhibs=$(field "$raw" inhibitor_count)
+    ds_inh=$(field "$raw" ds_inhibit)
+    dk_cpu=$(field "$raw" decky_cpu)
 
     [[ "$ds_inh" == "YES" ]] && DS_INHIBIT_DETECTED=1
 
@@ -188,15 +197,15 @@ if [[ $COMPARE_MODE -eq 1 ]]; then
   read -p "Press Enter to start baseline run... " _
   printf "%s\n" "T(s) Bat% Bat.Status Power(mW) CPU% Decky.CPU% Inhibitors DS.Inhibit"
   summary1=$(run_sampling | tee /dev/stderr | grep '^__SUMMARY__' | tail -n1)
-  drain1=$(echo "$summary1" | grep -oP 'drain_per_hr=\K[0-9]+' || echo 0)
-  inhib1=$(echo "$summary1" | grep -oP 'ds_inhibit=\K[01]' || echo 0)
+  drain1=$(fieldn "$summary1" drain_per_hr)
+  inhib1=$(fieldn "$summary1" ds_inhibit)
 
   echo "\nNow enable the plugin (or leave enabled) for the plugin run."
   read -p "Press Enter to start plugin run... " _
   printf "%s\n" "T(s) Bat% Bat.Status Power(mW) CPU% Decky.CPU% Inhibitors DS.Inhibit"
   summary2=$(run_sampling | tee /dev/stderr | grep '^__SUMMARY__' | tail -n1)
-  drain2=$(echo "$summary2" | grep -oP 'drain_per_hr=\K[0-9]+' || echo 0)
-  inhib2=$(echo "$summary2" | grep -oP 'ds_inhibit=\K[01]' || echo 0)
+  drain2=$(fieldn "$summary2" drain_per_hr)
+  inhib2=$(fieldn "$summary2" ds_inhibit)
 
   echo "\n══════════════════════════════════════════════════════════════════="
   echo "COMPARE RESULTS"
@@ -224,8 +233,8 @@ else
   echo "══════════════════════════════════════════════════════════════════="
   echo "$run_summary" | grep '^__SUMMARY__' || true
 
-  drain_per_hr=$(echo "$run_summary" | grep -oP 'drain_per_hr=\K[0-9]+' || echo 0)
-  ds_inhibit=$(echo "$run_summary" | grep -oP 'ds_inhibit=\K[01]' || echo 0)
+  drain_per_hr=$(fieldn "$run_summary" drain_per_hr)
+  ds_inhibit=$(fieldn "$run_summary" ds_inhibit)
 
   if [[ "$ds_inhibit" == "1" ]]; then
     echo "  ❌ FAIL  Plugin holds a sleep/idle inhibitor — screen may never auto-lock!"

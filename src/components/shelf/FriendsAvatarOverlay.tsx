@@ -37,6 +37,8 @@ export function FriendsAvatarOverlay() {
     // regardless of focus, so detect the obscuring overlay explicitly.
     const unsubOverlay = subscribeOverlayActive(doc, setObscured);
     let raf: number | null = null;
+    let lastSig = "";
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
     const sync = () => {
       raf = null;
       const next: AvatarItem[] = [];
@@ -55,19 +57,31 @@ export function FriendsAvatarOverlay() {
           avatars,
         });
       });
+      const sig = JSON.stringify(next);
+      if (sig === lastSig) return; // skip no-op re-renders (spurious syncs)
+      lastSig = sig;
       setItems(next);
     };
     const schedule = () => { if (raf === null) raf = win.requestAnimationFrame(sync); };
+    // Focus scales the featured card (transform) → re-measure on focus (cheap),
+    // plus a settle pass after the ~160ms lift, instead of observing every
+    // `class` mutation in the subtree (which fires on every nav focus change).
+    const onFocus = () => { schedule(); if (settleTimer) clearTimeout(settleTimer); settleTimer = win.setTimeout(schedule, 200); };
     const mo = new MutationObserver(schedule);
-    mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-ds-friend-avatars", "class"] });
+    mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-ds-friend-avatars"] });
+    root.addEventListener("focusin", onFocus, true);
+    root.addEventListener("focusout", onFocus, true);
     win.addEventListener("scroll", schedule, { passive: true, capture: true });
     win.addEventListener("resize", schedule);
     schedule();
     return () => {
       unsubOverlay();
       mo.disconnect();
+      root.removeEventListener("focusin", onFocus, true);
+      root.removeEventListener("focusout", onFocus, true);
       win.removeEventListener("scroll", schedule, { capture: true } as any);
       win.removeEventListener("resize", schedule);
+      if (settleTimer) clearTimeout(settleTimer);
       if (raf !== null) win.cancelAnimationFrame(raf);
     };
   }, [hostKey]);

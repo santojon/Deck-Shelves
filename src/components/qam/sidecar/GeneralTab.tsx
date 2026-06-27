@@ -164,6 +164,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         {row('offlineModeEnabled', (
           <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
         ))}
+        {/* Search + side nav are disabled on the home in light mode
+            (SearchOverlay / ShelfSideNav), so hide their toggles there too. */}
+        {!lightMode && (<>
         {row('contextSearchEnabled', (
           <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
         ))}
@@ -180,6 +183,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         {row('sideNavEnabled', (
           <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
         ))}
+        </>)}
         {row('onlineFeaturesEnabled', (
           <ToggleField
             label={t('online_features')}
@@ -302,7 +306,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {row('globalDedupeByName', (
             <ToggleField label={t('global_dedupe_by_name' as any)} checked={(settings as any).globalDedupeByName === true} onChange={(v: boolean) => (actions as any).setGlobalDedupeByName(v)} />
           ))}
-          {row('globalHeroEnabled', (
+          {!lightMode && row('globalHeroEnabled', (
             <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} onChange={(v: boolean) => void (actions as any).setGlobalHeroEnabled(v)} />
           ))}
           {row('globalGameInfoAbove', (
@@ -314,6 +318,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {(settings as any).globalFriendsPlayingOverlay === true && row('globalFriendsPlayingOverlayRecent', (
             <ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(v)} />
           ))}
+          {/* Logo / icon / description decorations are stripped from the home in
+              light mode (Shelf.tsx), so hide their controls there too. */}
+          {!lightMode && (<>
           {/* Group: Logo + dependent options */}
           {row('globalEnableLogo', (
             <ToggleField label={t('enable_logo')} checked={(settings as any).globalEnableLogo === true} onChange={(v: boolean) => (actions as any).setGlobalEnableLogo(v)} />
@@ -362,6 +369,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !lightMode && row('globalDescriptionLogoGap', (
             <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
           ))}
+          </>)}
 
           {row('globalShelfTitlePosition', (
             <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />

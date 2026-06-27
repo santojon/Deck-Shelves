@@ -103,7 +103,7 @@
 - **Unified shelf list + drag-and-drop reorder** — opt in to merge regular and smart shelves into a single ordered list and drag rows directly in the Shelves panel (gamepad `↑` / `↓` buttons stay as a fallback)
 - **External launcher discovery** — EmuDeck, RetroDECK, Heroic (Epic / GOG / Amazon), Lutris, Moonlight, and Chiaki games surface through dedicated shelf sources; read-only, refreshed every 15 minutes in the background
 - **Integrations panel** — every registered descriptor (built-in or third-party) gets a per-row enable / disable; first-party entries carry a green BUILT-IN chip
-- **Light mode** — hides advanced toggles and sliders in the QAM / sidecar so the panel stays uncluttered
+- **Display modes — Normal / Light / Advanced** — *Light* gives a minimal experience: the home drops per-shelf logo / icon / description / hero and disables context search + side navigation, and their now-dead controls are hidden from the QAM / sidecar; *Advanced* unlocks the Advanced-tools tab (verbose logging, on-device diagnostic logs, reset shortcuts) and always-on Integrations; *Normal* is the default. Light and Advanced are mutually exclusive and stored per profile. Full matrix in [docs/display-modes.md](docs/display-modes.md)
 - **Custom artwork refreshes on home return** — replace a capsule / logo / hero / icon elsewhere, press B back, and the new bitmap appears in the row with no plugin reload
 - Reorder and toggle shelf visibility from the QAM
 - **Online shelf sources (opt-in)** — wishlist and Steam Store shelves with `price_low`, `discount_high`, `original_price_high` sorts; four ready-made templates (Wishlist, Wishlist on sale, Free wishlist, Free now); cached locally so the home keeps working offline
