@@ -1,5 +1,92 @@
 [
   {
+    "ts": "2026-06-29_11-52-42",
+    "stress": false,
+    "subdir": "ci",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      7665,
+      1269,
+      4120,
+      1632,
+      137,
+      2844
+    ],
+    "total_duration_ms": 17667,
+    "_scope": "ci"
+  },
+  {
+    "ts": "2026-06-22_12-43-28",
+    "stress": false,
+    "subdir": "ci",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      7676,
+      1290,
+      3950,
+      1634,
+      142,
+      2813
+    ],
+    "total_duration_ms": 17505,
+    "_scope": "ci"
+  },
+  {
+    "ts": "2026-06-15_12-57-37",
+    "stress": false,
+    "subdir": "ci",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      7572,
+      1185,
+      3930,
+      1666,
+      146,
+      3026
+    ],
+    "total_duration_ms": 17525,
+    "_scope": "ci"
+  },
+  {
     "ts": "2026-06-08_11-49-12",
     "stress": false,
     "subdir": "ci",

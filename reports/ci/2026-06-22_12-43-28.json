@@ -1,0 +1,28 @@
+{
+  "ts": "2026-06-22_12-43-28",
+  "stress": false,
+  "subdir": "ci",
+  "overall": "PASS",
+  "passed": 6,
+  "failed": 0,
+  "skipped": 0,
+  "total": 6,
+  "per_suite": {},
+  "step_names": [
+    "TypeScript typecheck",
+    "Build (production)",
+    "Unit tests (vitest)",
+    "Package (.zip)",
+    "Verify package",
+    "Compat validation"
+  ],
+  "step_durations_ms": [
+    7676,
+    1290,
+    3950,
+    1634,
+    142,
+    2813
+  ],
+  "total_duration_ms": 17505
+}
