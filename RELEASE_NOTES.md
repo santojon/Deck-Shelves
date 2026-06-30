@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-30
+
 ### Added
 
 - **Statistics and Suggestions are now two separate tabs, with real charts.** Suggestions live in their own tab (grouped into "Creation" and "Cleanup"). The Statistics tab gains trend cards (this week vs last, with an up/down arrow), a daily-activity chart with trend lines, stacked and cumulative charts, and pie charts for your card and shelf breakdowns. A `#`/`%` button flips every chart between exact counts and percentages, and your choice is remembered. Every chart is gamepad-focusable.

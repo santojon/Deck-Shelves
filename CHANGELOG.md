@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-30
+
 ### Added
 
 - **Statistics & Suggestions reworked into two tabs with trend charts.** Suggestions moved to their own Settings tab ([`SuggestionsDetail.tsx`](src/components/settings/details/SuggestionsDetail.tsx)) — "Creation" (template/smart suggestions) and "Cleanup" (unused-shelf removal) groups; the Statistics tab keeps trends, usage and providers. New hand-rolled SVG charts in [`UsageCharts.tsx`](src/components/settings/details/UsageCharts.tsx): KPI trend cards (current vs previous 7-day with up/down arrow), a combo bar+smoothed-trend "daily activity" chart, stacked composition bars, a cumulative-launches area chart with value labels, and pie/donut charts with a count↔percent legend. A persisted `#`/`%` toggle (`ds-stats-pct-mode`) switches every bar/pie between raw counts and share-of-total at once. Every chart block is individually gamepad-focusable; varied 2-/3-up layout.
