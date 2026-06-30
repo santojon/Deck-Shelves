@@ -135,13 +135,17 @@ describe('saveHelpers.assembleFinalSource', () => {
     expect(out.sources[0]).toMatchObject({ type: 'collection' });
   });
 
-  it('filter primary skips composite even when additionalSources are populated', () => {
+  it('filter primary composes with additionalSources like any other primary', () => {
     const state = baseState({
       sourceType: 'filter',
       additionalSources: [{ type: 'wishlist' } as any],
     });
     const primary = { type: 'filter', filter: {} };
-    expect(assembleFinalSource(primary, state)).toBe(primary);
+    const out = assembleFinalSource(primary, state);
+    expect(out.type).toBe('composite');
+    expect(out.sources.length).toBe(2);
+    expect(out.sources[0]).toMatchObject({ type: 'filter' });
+    expect(out.sources[1]).toMatchObject({ type: 'wishlist' });
   });
 });
 

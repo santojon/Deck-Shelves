@@ -49,6 +49,7 @@ import {
   buildChildTypeOptions,
   buildCollectionValueOpts as buildCollectionValueOptsShared,
   buildTabValueOpts as buildTabValueOptsShared,
+  buildExternalValueOpts as buildExternalValueOptsShared,
   pickNextAvailableSource,
 } from './editShelf/compositeSourceUtils'
 import { buildInitialShelfState } from './editShelf/buildInitialState'
@@ -106,7 +107,9 @@ function computeSourceTypeState(
   deps: { collectionOptions: any[]; tabOptions: any[]; tabTextLabels: Map<string, string>; externalOptions: any[]; t: (k: string) => string },
 ): EditableShelfState {
   const { collectionOptions, tabOptions, tabTextLabels, externalOptions, t } = deps
-  const wipeExtras = type === 'filter' ? { additionalSources: [] } : {}
+  // Additional sources are preserved across primary-type changes — a filter
+  // primary can now stack composite sources like any other primary.
+  const wipeExtras = {}
   if (type === 'collection') {
     const o = firstOptParts(collectionOptions, t('new_shelf'))
     return { ...prev, sourceType: type, title: o.title, collectionId: o.data, filter: normalizeFilter({ type: 'filter', filter: prev.filter }), ...wipeExtras } as EditableShelfState
@@ -349,11 +352,13 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
     state,
     collectionOptions,
     tabOptions,
+    externalOptions,
     onlineEnabled: !!settings?.onlineFeaturesEnabled,
     labels: {
       collection: t('source_collection'),
       tab: t('source_tab'),
       filter: t('source_filter'),
+      external: t('source_external'),
       wishlistLabel: onlineLabel('source_wishlist'),
       storeLabel: onlineLabel('source_store'),
     },
@@ -361,6 +366,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const buildChildTypeOptionsFn = (excludeRow: number) => buildChildTypeOptions(compositeOpts, excludeRow)
   const buildCollectionValueOpts = (excludeRow: number) => buildCollectionValueOptsShared(state, collectionOptions, excludeRow)
   const buildTabValueOpts = (excludeRow: number) => buildTabValueOptsShared(state, tabOptions, excludeRow)
+  const buildExternalValueOpts = (excludeRow: number) => buildExternalValueOptsShared(state, externalOptions, excludeRow)
   const pickNextAvailable = () => pickNextAvailableSource(compositeOpts)
   const canAddSource = buildChildTypeOptionsFn(-1).length > 0
 
@@ -482,18 +488,20 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                         )}
                         {state.additionalSources.map((child: any, idx: number) => {
                           const rawType = child?.type;
-                          const childType: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' =
-                            rawType === 'collection' || rawType === 'wishlist' || rawType === 'store' || rawType === 'filter' ? rawType : 'tab';
-                          const needsValuePicker = childType === 'collection' || childType === 'tab';
+                          const childType: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external' =
+                            rawType === 'collection' || rawType === 'wishlist' || rawType === 'store' || rawType === 'filter' || rawType === 'external' ? rawType : 'tab';
+                          const needsValuePicker = childType === 'collection' || childType === 'tab' || childType === 'external';
                           const childValue = childType === 'collection'
                             ? String(child?.collectionId ?? '')
                             : childType === 'tab'
                               ? String(child?.tab ?? 'all')
-                              : '';
-                          // Per-row value pickers exclude tabs/collections that
-                          // are already in use elsewhere — the row keeps its
-                          // OWN current pick available (excludeRow=idx).
-                          const innerOpts = childType === 'collection' ? buildCollectionValueOpts(idx) : childType === 'tab' ? buildTabValueOpts(idx) : [];
+                              : childType === 'external'
+                                ? String(child?.sourceId ?? '')
+                                : '';
+                          // Per-row value pickers exclude tabs/collections/external
+                          // already in use elsewhere — the row keeps its OWN
+                          // current pick available (excludeRow=idx).
+                          const innerOpts = childType === 'collection' ? buildCollectionValueOpts(idx) : childType === 'tab' ? buildTabValueOpts(idx) : childType === 'external' ? buildExternalValueOpts(idx) : [];
                           const typeOpts = buildChildTypeOptionsFn(idx);
                           /* Type options exclude exhausted sources for this
                              row. The row's CURRENT type is always present
@@ -506,10 +514,11 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                                 : childType === 'tab' ? t('source_tab')
                                 : childType === 'wishlist' ? t('source_wishlist')
                                 : childType === 'filter' ? t('source_filter')
+                                : childType === 'external' ? t('source_external')
                                 : t('source_store'),
                             });
                           }
-                          const onTypeChange = (next: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter') => {
+                          const onTypeChange = (next: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external') => {
                             setState((prev) => {
                               const updated = prev.additionalSources.slice();
                               if (next === 'collection') {
@@ -522,6 +531,9 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                                 updated[idx] = { type: 'wishlist' } as any;
                               } else if (next === 'filter') {
                                 updated[idx] = { type: 'filter', filter: { sort: 'alphabetical' } } as any;
+                              } else if (next === 'external') {
+                                const avail = buildExternalValueOpts(idx)[0];
+                                updated[idx] = { type: 'external', sourceId: String(avail?.data ?? '') } as any;
                               } else {
                                 updated[idx] = { type: 'store' } as any;
                               }
@@ -533,6 +545,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                               const updated = prev.additionalSources.slice();
                               if (childType === 'collection') updated[idx] = { type: 'collection', collectionId: val } as any;
                               else if (childType === 'tab') updated[idx] = { type: 'tab', tab: val } as any;
+                              else if (childType === 'external') updated[idx] = { type: 'external', sourceId: val } as any;
                               return { ...prev, additionalSources: updated };
                             });
                           };
@@ -542,6 +555,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                             : childType === 'tab' ? t('source_tab')
                             : childType === 'wishlist' ? t('source_wishlist')
                             : childType === 'filter' ? t('source_filter')
+                            : childType === 'external' ? t('source_external')
                             : t('source_store');
                           return (
                             <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0', borderTop: idx === 0 ? '1px solid rgba(255,255,255,0.08)' : 'none', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -558,7 +572,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                                     selectedOption={childType}
                                     onChange={(opt: unknown) => {
                                       const v = String(optionData(opt));
-                                      onTypeChange(v === 'collection' || v === 'wishlist' || v === 'store' || v === 'filter' ? v : 'tab');
+                                      onTypeChange(v === 'collection' || v === 'wishlist' || v === 'store' || v === 'filter' || v === 'external' ? v : 'tab');
                                     }}
                                     bottomSeparator='none'
                                   />
@@ -723,41 +737,47 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 ),
               },
               ...((() => {
-                // The filters tab is visible whenever there's exactly one
-                // filter source on the shelf — either as the primary OR
-                /* stacked as a secondary (the editor's exhaustion logic
-                   caps filter sources at 1 per shelf). When the filter
-                   is secondary, this tab edits THAT row's filterGroup
-                   instead of `state.filterGroup` so the user has a UI to
-                   fill in the criteria of a stacked filter source. */
-                const secondaryFilterIdx = state.additionalSources.findIndex((s: any) => s?.type === 'filter')
-                const isPrimaryFilter = state.sourceType === 'filter'
-                const isSecondaryFilter = secondaryFilterIdx >= 0
-                if (!isPrimaryFilter && !isSecondaryFilter) return []
-                const editingGroup = isPrimaryFilter
-                  ? state.filterGroup
-                  : ((state.additionalSources[secondaryFilterIdx] as any)?.filter?.filterGroup ?? { mode: 'and', items: [] })
-                const onChangeGroup = isPrimaryFilter
-                  ? changeFilterGroup
-                  : (next: any) => setState((prev) => {
+                /* One filter section per filter source: the primary (when it
+                   is a filter) plus every stacked filter secondary. Each edits
+                   its own filterGroup, with a separator label when there's more
+                   than one — mirroring the online-filters tab below. */
+                type FSlot = { key: string; group: FilterGroup; onChange: (g: FilterGroup) => void }
+                const fslots: FSlot[] = []
+                if (state.sourceType === 'filter') {
+                  fslots.push({ key: 'primary', group: state.filterGroup, onChange: changeFilterGroup })
+                }
+                state.additionalSources.forEach((s: any, idx: number) => {
+                  if (s?.type !== 'filter') return
+                  const group: FilterGroup = (s?.filter?.filterGroup as FilterGroup) ?? { mode: 'and', items: [] }
+                  fslots.push({
+                    key: `add-${idx}`,
+                    group,
+                    onChange: (next: FilterGroup) => setState((prev) => {
                       const updated = prev.additionalSources.slice()
-                      const cur: any = updated[secondaryFilterIdx] ?? { type: 'filter', filter: { sort: 'alphabetical' } }
+                      const cur: any = updated[idx] ?? { type: 'filter', filter: { sort: 'alphabetical' } }
                       const curFilter = cur.filter ?? { sort: 'alphabetical' }
-                      updated[secondaryFilterIdx] = { ...cur, filter: { ...curFilter, filterGroup: next } }
+                      updated[idx] = { ...cur, filter: { ...curFilter, filterGroup: next } }
                       return { ...prev, additionalSources: updated }
-                    })
+                    }),
+                  })
+                })
+                if (fslots.length === 0) return []
+                const multi = fslots.length > 1
                 return [{
                   id: 'filters',
                   // Tab.title typed `string` but renders any ReactNode.
                   title: (<TabLabel icon={<FunnelIcon />} text={t('edit_tab_filters')} />) as unknown as string,
                   content: (
                     <FieldContainer>
-                      <SavedFiltersBar
-                        controller={controller}
-                        currentGroup={editingGroup}
-                        onApply={onChangeGroup}
-                      />
-                      <FilterPanel group={editingGroup} onChange={onChangeGroup} controller={controller} allowOnlineFilters={false} />
+                      {fslots.map((slot, i) => (
+                        <div key={slot.key} style={multi ? { marginBottom: 8 } : undefined}>
+                          {multi && (
+                            <div style={{ fontSize: 13, opacity: 0.85, padding: '4px 0', fontWeight: 600 }}>{`${t('source_filter')} ${i + 1}`}</div>
+                          )}
+                          <SavedFiltersBar controller={controller} currentGroup={slot.group} onApply={slot.onChange} />
+                          <FilterPanel group={slot.group} onChange={slot.onChange} controller={controller} allowOnlineFilters={false} />
+                        </div>
+                      ))}
                     </FieldContainer>
                   ),
                 }]
@@ -770,7 +790,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                       child (each child carries its own childFilter on its
                       source entry; composite parent has none).
                     - composite with only offline children → no tab. */
-                const isComposite = state.additionalSources.length > 0 && state.sourceType !== 'filter';
+                const isComposite = state.additionalSources.length > 0;
                 const primaryOnline = state.sourceType === 'wishlist' || state.sourceType === 'store';
                 const primaryOffline = state.sourceType === 'collection' || state.sourceType === 'tab';
                 const onlineAdditionalIdx: number[] = state.additionalSources

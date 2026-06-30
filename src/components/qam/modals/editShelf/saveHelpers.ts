@@ -120,14 +120,21 @@ export function dropEmptyChildFilter(s: any): any {
 }
 
 export function assembleFinalSource(primary: any, state: EditableShelfState): any {
-  if (state.sourceType === 'filter' || state.additionalSources.length === 0) return primary;
+  // A filter primary now composes with additional sources like any other
+  // primary; only a truly single-source shelf returns the bare primary.
+  if (state.additionalSources.length === 0) return primary;
   const allChildren = [primary, ...state.additionalSources].map(dropEmptyChildFilter);
   return { type: 'composite', combine: state.compositeCombine, sources: allChildren };
 }
 
 export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['sort'] {
-  if (state.sourceType === 'filter') return undefined;
-  const hasUserSort = Array.isArray(state.sort) ? state.sort.length > 0 : state.sort !== 'alphabetical';
+  // A single filter source carries its sort on the source itself, so the
+  // shelf-level sort is omitted. Once it's part of a composite, the merged
+  // result is re-sorted by the shelf-level sort — so surface the filter's
+  // chosen sort there too (state.filter.sort), otherwise the order is lost.
+  if (state.sourceType === 'filter' && state.additionalSources.length === 0) return undefined;
+  const eff = state.sourceType === 'filter' ? state.filter.sort : state.sort;
+  const hasUserSort = Array.isArray(eff) ? eff.length > 0 : (eff != null && eff !== 'alphabetical');
   if (!hasUserSort) return undefined;
-  return normalizeManualSort(state.sort as ShelfFilter['sort']) as Partial<Shelf>['sort'];
+  return normalizeManualSort(eff as ShelfFilter['sort']) as Partial<Shelf>['sort'];
 }

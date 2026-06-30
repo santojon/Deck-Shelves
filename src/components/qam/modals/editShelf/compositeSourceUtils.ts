@@ -11,6 +11,7 @@ export type SourceUsage = {
   wishlistCount: number;
   usedTabs: Set<string>;
   usedCollections: Set<string>;
+  usedExternal: Set<string>;
 };
 
 function countAdditionalByType(state: EditableShelfState, type: string, excludeRow?: number | 'primary'): number {
@@ -34,12 +35,15 @@ export function computeSourceUsage(state: EditableShelfState, excludeRow?: numbe
   if (state.sourceType === 'tab' && excludeRow !== 'primary') usedTabs.add(state.tab);
   const usedCollections = new Set<string>(collectAdditionalKeys(state, 'collection', 'collectionId', excludeRow));
   if (state.sourceType === 'collection' && excludeRow !== 'primary') usedCollections.add(state.collectionId);
+  const usedExternal = new Set<string>(collectAdditionalKeys(state, 'external', 'sourceId', excludeRow));
+  if (state.sourceType === 'external' && excludeRow !== 'primary' && state.externalSourceId) usedExternal.add(String(state.externalSourceId));
   return {
     filterCount: primaryContributes(state, 'filter', excludeRow) + countAdditionalByType(state, 'filter', excludeRow),
     storeCount: primaryContributes(state, 'store', excludeRow) + countAdditionalByType(state, 'store', excludeRow),
     wishlistCount: primaryContributes(state, 'wishlist', excludeRow) + countAdditionalByType(state, 'wishlist', excludeRow),
     usedTabs,
     usedCollections,
+    usedExternal,
   };
 }
 
@@ -47,6 +51,7 @@ type LabelFns = {
   collection: string;
   tab: string;
   filter: string;
+  external: string;
   wishlistLabel: any;
   storeLabel: any;
 };
@@ -55,12 +60,13 @@ type Opts = {
   state: EditableShelfState;
   collectionOptions: SingleDropdownOption[];
   tabOptions: SingleDropdownOption[];
+  externalOptions: SingleDropdownOption[];
   onlineEnabled: boolean;
   labels: LabelFns;
 };
 
 export function buildChildTypeOptions(opts: Opts, excludeRow: number): SingleDropdownOption[] {
-  const { state, collectionOptions, tabOptions, onlineEnabled, labels } = opts;
+  const { state, collectionOptions, tabOptions, externalOptions, onlineEnabled, labels } = opts;
   const u = computeSourceUsage(state, excludeRow);
   const out: SingleDropdownOption[] = [];
   if (collectionOptions.length === 0 || u.usedCollections.size < collectionOptions.length) {
@@ -73,7 +79,14 @@ export function buildChildTypeOptions(opts: Opts, excludeRow: number): SingleDro
     if (u.wishlistCount < 1) out.push({ data: 'wishlist', label: labels.wishlistLabel });
     if (u.storeCount < 1) out.push({ data: 'store', label: labels.storeLabel });
   }
-  if (u.filterCount < 1) out.push({ data: 'filter', label: labels.filter });
+  // External (plugin-registered) sources — offer until the catalog is
+  // exhausted (each external source can be stacked once).
+  if (externalOptions.length > 0 && u.usedExternal.size < externalOptions.length) {
+    out.push({ data: 'external', label: labels.external });
+  }
+  // Filter has no cap: it's the one source that's fully composable internally
+  // (AND/OR + many criteria), and the user can stack as many as they want.
+  out.push({ data: 'filter', label: labels.filter });
   return out;
 }
 
@@ -85,6 +98,11 @@ export function buildCollectionValueOpts(state: EditableShelfState, collectionOp
 export function buildTabValueOpts(state: EditableShelfState, tabOptions: SingleDropdownOption[], excludeRow: number): SingleDropdownOption[] {
   const u = computeSourceUsage(state, excludeRow);
   return tabOptions.filter((o) => !u.usedTabs.has(String(o.data)));
+}
+
+export function buildExternalValueOpts(state: EditableShelfState, externalOptions: SingleDropdownOption[], excludeRow: number): SingleDropdownOption[] {
+  const u = computeSourceUsage(state, excludeRow);
+  return externalOptions.filter((o) => !u.usedExternal.has(String(o.data)));
 }
 
 type SourceTypeId = string;
@@ -101,6 +119,10 @@ const NEXT_SOURCE_FACTORIES: Record<SourceTypeId, (opts: Opts) => any> = {
   wishlist: () => ({ type: 'wishlist' }),
   store: () => ({ type: 'store' }),
   filter: () => ({ type: 'filter', filter: { sort: 'alphabetical' } }),
+  external: (opts) => {
+    const e = buildExternalValueOpts(opts.state, opts.externalOptions, -1)[0];
+    return { type: 'external', sourceId: String(e?.data ?? '') };
+  },
 };
 
 export function pickNextAvailableSource(opts: Opts): any {
