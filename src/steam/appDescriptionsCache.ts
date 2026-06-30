@@ -16,11 +16,11 @@ const MAX_RETRIES = 2;
 const TIMEOUT_MS = 5000;
 const POLL_MS = 100;
 
-// Descriptions come from Steam's store in the *current* Steam/device
-// language, so scope the persistent cache by language: when the user
-// switches the device language (which restarts Steam and reloads this
-// module), the new language tag yields a fresh key → empty cache → the
-// descriptions re-fetch in the new language instead of serving stale text.
+/* Descriptions come from Steam's store in the *current* Steam/device language,
+   so scope the persistent cache by language: when the user switches the device
+   language (which restarts Steam and reloads this module), the new language tag
+   yields a fresh key → empty cache → descriptions re-fetch in the new language
+   instead of serving stale text. */
 function descriptionLangTag(): string {
   try {
     const l = (typeof navigator !== 'undefined' && (navigator as any)?.language)

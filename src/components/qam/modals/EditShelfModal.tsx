@@ -367,6 +367,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
   const buildCollectionValueOpts = (excludeRow: number) => buildCollectionValueOptsShared(state, collectionOptions, excludeRow)
   const buildTabValueOpts = (excludeRow: number) => buildTabValueOptsShared(state, tabOptions, excludeRow)
   const buildExternalValueOpts = (excludeRow: number) => buildExternalValueOptsShared(state, externalOptions, excludeRow)
+  const firstOptData = (opts: SingleDropdownOption[], fallback = ''): string => { const d = opts[0]?.data; return d == null ? fallback : String(d) }
   const pickNextAvailable = () => pickNextAvailableSource(compositeOpts)
   const canAddSource = buildChildTypeOptionsFn(-1).length > 0
 
@@ -518,25 +519,17 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                                 : t('source_store'),
                             });
                           }
+                          const buildRowSource = (next: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external') => {
+                            if (next === 'collection') return { type: 'collection', collectionId: firstOptData(buildCollectionValueOpts(idx)) } as any;
+                            if (next === 'tab') return { type: 'tab', tab: firstOptData(buildTabValueOpts(idx), 'all') } as any;
+                            if (next === 'filter') return { type: 'filter', filter: { sort: 'alphabetical' } } as any;
+                            if (next === 'external') return { type: 'external', sourceId: firstOptData(buildExternalValueOpts(idx)) } as any;
+                            return { type: next } as any; // wishlist / store have no value
+                          };
                           const onTypeChange = (next: 'collection' | 'tab' | 'wishlist' | 'store' | 'filter' | 'external') => {
                             setState((prev) => {
                               const updated = prev.additionalSources.slice();
-                              if (next === 'collection') {
-                                const avail = buildCollectionValueOpts(idx)[0];
-                                updated[idx] = { type: 'collection', collectionId: String(avail?.data ?? '') } as any;
-                              } else if (next === 'tab') {
-                                const avail = buildTabValueOpts(idx)[0];
-                                updated[idx] = { type: 'tab', tab: String(avail?.data ?? 'all') } as any;
-                              } else if (next === 'wishlist') {
-                                updated[idx] = { type: 'wishlist' } as any;
-                              } else if (next === 'filter') {
-                                updated[idx] = { type: 'filter', filter: { sort: 'alphabetical' } } as any;
-                              } else if (next === 'external') {
-                                const avail = buildExternalValueOpts(idx)[0];
-                                updated[idx] = { type: 'external', sourceId: String(avail?.data ?? '') } as any;
-                              } else {
-                                updated[idx] = { type: 'store' } as any;
-                              }
+                              updated[idx] = buildRowSource(next);
                               return { ...prev, additionalSources: updated };
                             });
                           };

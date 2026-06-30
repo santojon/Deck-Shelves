@@ -634,11 +634,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         const menuState = getMenuState();
         const menuChanged = refValue !== null && menuState !== null && menuState !== refValue;
         const noFocus = !doc.hasFocus();
-        // A >1.5s timer gap means either the popup was throttled in the
-        // background OR a heavy foreground re-render (large libraries) just
-        // blocked the main thread. Only the former should collapse — require
-        // the document to actually be non-visible so a slow render
-        // mid-interaction (e.g. toggling an eye) doesn't empty the sidecar.
+        /* A >1.5s timer gap means either the popup was throttled in the
+           background OR a heavy foreground re-render (large libraries) just
+           blocked the main thread. Only the former should collapse — require
+           the document to be non-visible so a slow render mid-interaction
+           (e.g. toggling an eye) doesn't empty the sidecar. */
         const resumedFromBackground = gap > 1500 && doc.visibilityState !== "visible";
         if (menuChanged || noFocus || resumedFromBackground) {
           try {

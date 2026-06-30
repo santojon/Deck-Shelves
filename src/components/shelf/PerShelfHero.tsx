@@ -50,14 +50,18 @@ function sanitizeHeroUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const s = String(raw).trim();
   if (!s) return null;
-  // Same-origin / path-relative — always safe.
-  if (s.startsWith("/") || s.startsWith("./") || s.startsWith("../")) return s;
-  // Allowlisted schemes. `data:` is restricted to image MIME types so a
-  // `data:text/html,...` payload can't sneak in.
-  const lower = s.toLowerCase();
-  if (lower.startsWith("http://") || lower.startsWith("https://")) return s;
-  if (lower.startsWith("blob:") || lower.startsWith("file:")) return s;
-  if (lower.startsWith("data:image/")) return s;
+  /* Reconstruct + percent-encode through the URL API rather than returning
+     the raw DOM string. URL.href escapes HTML meta-characters (`<`, `>`, `"`)
+     in the path/query, so the value reaching the <img> src can't carry markup
+     — this is the recognized barrier for CodeQL's xss-through-dom. Relative
+     paths resolve against the page origin; the scheme is then allowlisted. */
+  const base = (typeof location !== "undefined" && location.origin) ? location.origin : "https://steamloopback.host";
+  let u: URL;
+  try { u = new URL(s, base); } catch { return null; }
+  const proto = u.protocol.toLowerCase();
+  if (proto === "http:" || proto === "https:" || proto === "blob:" || proto === "file:") return u.href;
+  // `data:` restricted to image MIME types so a `data:text/html,...` payload can't sneak in.
+  if (proto === "data:" && u.href.toLowerCase().startsWith("data:image/")) return u.href;
   return null;
 }
 
