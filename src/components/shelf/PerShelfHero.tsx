@@ -631,7 +631,13 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             // when the user navigated to a different card.
             setTimeout(() => {
               if (currentAppid.current !== swapAppid) return;
-              const fresh = getHeroUrls(swapAppid);
+              // Re-check native (the user's custom / hashed art) FIRST — it
+              // loads async, so the initial pass above fell back to the
+              // central default. Using getHeroUrls (central-first) here would
+              // hand back the same central URL as url0, match, and bail —
+              // leaving the default in place instead of the user's artwork.
+              const freshNative = getNativeHeroUrls(swapAppid);
+              const fresh = (freshNative && freshNative.length) ? freshNative : getHeroUrls(swapAppid);
               const newFirst = fresh[0] ?? null;
               if (!newFirst || newFirst === url0) return;
               allUrls.current = fresh;

@@ -115,7 +115,7 @@ The full-page Settings route, opened from the gear icon in the QAM title bar.
   <img src="../assets/screenshots/settings-profiles.png" alt="Deck Shelves — Settings page (Profiles tab)" width="768">
 </p>
 
-## Settings sidecar
+## Quick settings sidecar
 
 The QAM's expandable **Configurações** sidecar (dpad-right from the plugin
 tab) — the plugin tab on the left, the populated Quick settings panel on the
@@ -124,19 +124,3 @@ right.
 <p align="center">
   <img src="../assets/screenshots/sidecar.png" alt="Deck Shelves — QAM Settings sidecar expanded" width="768">
 </p>
-
-## Required captures (validated)
-
-Every capture the modular runner produces is **required** and checked by
-[`scripts/build/validate-screenshots.mjs`](../scripts/build/validate-screenshots.mjs):
-the home / QAM / shelf-edit / smart-shelf set, plus the Saved Filters QAM
-section (`saved-filters-qam`), the expanded QAM sidecar (`sidecar`), the
-About-page tabs (`about-filters`, `about-smart`, `about-support`), and the
-Settings-page tabs (`settings-page`, `settings-profiles`,
-`settings-suggestions`, `settings-statistics`, `settings-shortcuts`,
-`settings-integrations`, `settings-advanced`).
-
-The sidecar capture is **dev-build only** — its `__ds_dev_open_sidecar()` hook
-is stripped from release builds, so the runner skips it on a release deploy.
-The committed `sidecar.png` stays required either way, so a release-build run
-that skips it never invalidates the existing asset.

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { DialogButton, Dropdown, Focusable, Field } from "../../../runtime/host/decky";
 import { CollapsibleSection } from "../../ui";
 import { PersonIcon } from "../../icons";
@@ -8,9 +9,11 @@ import { SaveProfileModal } from "../modals/SaveProfileModal";
 export interface ProfilesSectionProps {
   controller: SettingsController;
   hidden: boolean;
+  // Sidecar passes the visibility eye here (the QAM omits it).
+  headerExtra?: ReactNode;
 }
 
-export function ProfilesSection({ controller, hidden }: ProfilesSectionProps) {
+export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSectionProps) {
   if (hidden) return null;
   const { settings, t } = controller;
   if (!settings) return null;
@@ -52,6 +55,7 @@ export function ProfilesSection({ controller, hidden }: ProfilesSectionProps) {
       title={t("profile_section_title" as any) || "Perfis"}
       count={profiles.length}
       initialOpen={false}
+      headerExtra={headerExtra}
     >
       <Focusable flow-children="row" style={{ display: "flex", gap: 6, padding: "4px 8px 8px", alignItems: "center" }}>
         <DialogButton

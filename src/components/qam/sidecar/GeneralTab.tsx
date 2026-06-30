@@ -8,6 +8,7 @@ import { openManagedModal } from '../common/openManagedModal'
 import { applyGameInfoAboveToggle, applyHideTitleToggle } from '../common/gameInfoCoupling'
 import { confirmAction } from '../modals/ConfirmActionModal'
 import { OnlinePrivacyModal } from '../../DeckQAMSettings'
+import { ProfilesSection } from '../sections/ProfilesSection'
 import { isCssLoaderActive } from '../../../core/cssLoaderDetect'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 
@@ -115,6 +116,14 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
 
   return (
     <div className='ds-general-tab'>
+      {/* Profiles mirrors the QAM (it sits above Behavior there). Shown
+          unconditionally in the sidecar with an eye that toggles its QAM
+          visibility, like every other section. */}
+      <ProfilesSection
+        controller={controller}
+        hidden={false}
+        headerExtra={<SectionEyeButton id='profiles' hidden={isSecHid('profiles')} setHidden={(v) => setSecHid('profiles', v)} t={t} />}
+      />
       <CollapsibleSection
         id='behavior'
         icon={<SlidersIcon />}

@@ -3158,9 +3158,8 @@ async function _resolveFilter(ctx: ResolverContext): Promise<number[]> {
   if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
     return _resolveFilterGroupPath(ctx, f, filterGroup);
   }
-  // No filter configured → empty. Falling through to `filtered = all`
-  // would silently return the entire library (issue #1).
-  if (!hasLegacyFlatFilter(f)) {
+  const hasSort = Array.isArray(f.sort) ? f.sort.length > 0 : (typeof f.sort === "string" && f.sort.length > 0);
+  if (!hasLegacyFlatFilter(f) && !hasSort) {
     logInfo("STEAM", "resolveShelfAppIds(filter) empty — no filters configured", { filter: f });
     return finish([]);
   }
