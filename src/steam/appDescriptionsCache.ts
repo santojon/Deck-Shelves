@@ -16,10 +16,23 @@ const MAX_RETRIES = 2;
 const TIMEOUT_MS = 5000;
 const POLL_MS = 100;
 
+// Descriptions come from Steam's store in the *current* Steam/device
+// language, so scope the persistent cache by language: when the user
+// switches the device language (which restarts Steam and reloads this
+// module), the new language tag yields a fresh key → empty cache → the
+// descriptions re-fetch in the new language instead of serving stale text.
+function descriptionLangTag(): string {
+  try {
+    const l = (typeof navigator !== 'undefined' && (navigator as any)?.language)
+      ? String((navigator as any).language) : 'en';
+    return l.toLowerCase().replace(/[^a-z0-9-]/g, '') || 'en';
+  } catch { return 'en'; }
+}
+
 // Persistent cache (localStorage) survives plugin reloads — descriptions
 // rarely change for an appid, so caching them across sessions saves the
 // store round-trip on every plugin boot.
-const STORAGE_KEY = 'ds_app_descriptions_v1';
+const STORAGE_KEY = `ds_app_descriptions_v1_${descriptionLangTag()}`;
 const STORAGE_MAX = 1500;          // cap entries to keep the JSON blob small
 const STORAGE_SAVE_DEBOUNCE = 1500;
 let saveScheduled = false;

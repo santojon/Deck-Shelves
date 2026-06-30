@@ -74,6 +74,18 @@ in [`assets/screenshots/`](../assets/screenshots/).
   <img src="../assets/screenshots/about-page.png" alt="Deck Shelves — About & Filter Documentation" width="768">
 </p>
 
+<p align="center">
+  <img src="../assets/screenshots/about-filters.png" alt="Deck Shelves — About (Filters reference)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/about-smart.png" alt="Deck Shelves — About (Smart shelves reference)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/about-support.png" alt="Deck Shelves — About (Support)" width="768">
+</p>
+
 ## Smart Shelves
 
 <p align="center">
@@ -113,6 +125,26 @@ The full-page Settings route, opened from the gear icon in the QAM title bar.
 
 <p align="center">
   <img src="../assets/screenshots/settings-profiles.png" alt="Deck Shelves — Settings page (Profiles tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/settings-suggestions.png" alt="Deck Shelves — Settings page (Suggestions tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/settings-statistics.png" alt="Deck Shelves — Settings page (Statistics tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/settings-shortcuts.png" alt="Deck Shelves — Settings page (Shortcuts tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/settings-integrations.png" alt="Deck Shelves — Settings page (Integrations tab)" width="768">
+</p>
+
+<p align="center">
+  <img src="../assets/screenshots/settings-advanced.png" alt="Deck Shelves — Settings page (Advanced tools tab)" width="768">
 </p>
 
 ## Quick settings sidecar
