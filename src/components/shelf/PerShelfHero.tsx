@@ -127,11 +127,13 @@ function tryHotCache(url: string | null): string | null {
 function resolveHeroSrcFromCache(url0: string | null, urls: ReadonlyArray<string>): string | null {
   const hotUrl0 = tryHotCache(url0);
   if (hotUrl0) return hotUrl0;
+  /* Pre-warm the first cacheable fallback (a CDN URL) so an on-error fallback
+     is instant — but NEVER substitute it for url0. The cacheable URL is the
+     CDN *default* hero (custom + loopback URLs are deliberately non-cacheable),
+     so returning it would override the user's custom artwork at url0 — which
+     is served cheaply from the local loopback host anyway. */
   const warmTarget = firstCacheableUrl(urls);
-  if (!warmTarget) return url0;
-  const hotWarm = tryHotCache(warmTarget);
-  if (hotWarm) return hotWarm;
-  try { warmCacheBackground(warmTarget); } catch {}
+  if (warmTarget) { try { warmCacheBackground(warmTarget); } catch {} }
   return url0;
 }
 
@@ -631,13 +633,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             // when the user navigated to a different card.
             setTimeout(() => {
               if (currentAppid.current !== swapAppid) return;
-              // Re-check native (the user's custom / hashed art) FIRST — it
-              // loads async, so the initial pass above fell back to the
-              // central default. Using getHeroUrls (central-first) here would
-              // hand back the same central URL as url0, match, and bail —
-              // leaving the default in place instead of the user's artwork.
-              const freshNative = getNativeHeroUrls(swapAppid);
-              const fresh = (freshNative && freshNative.length) ? freshNative : getHeroUrls(swapAppid);
+              const fresh = getHeroUrls(swapAppid);
               const newFirst = fresh[0] ?? null;
               if (!newFirst || newFirst === url0) return;
               allUrls.current = fresh;

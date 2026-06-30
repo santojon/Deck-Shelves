@@ -94,10 +94,16 @@ export function getHeroUrls(appid: number): string[] {
   // "abc123def.../library_hero.jpg") for community-sourced art.
   const heroFile = la?.strHeroImage ?? (version ? "library_hero.jpg" : null);
   const urls: string[] = [];
-  if (heroFile && version) urls.push(buildLoopbackUrl(appid, heroFile, version));
-  else if (version) urls.push(buildLoopbackUrl(appid, "library_hero.jpg", version));
+  // The user's manually-set custom artwork (Steam "Set Custom Artwork")
+  // lives at /customimages/<appid>_hero.* and MUST win over the default/
+  // community hero. It used to be listed after the loopback default, so once
+  // a game's overview loaded (giving `version`) the default loaded first and
+  // the custom art was never reached. Try custom first; a missing file 404s
+  // instantly on the loopback host and falls through to the default below.
   urls.push(`/customimages/${appid}_hero.png${bust}`);
   urls.push(`/customimages/${appid}_hero.jpg${bust}`);
+  if (heroFile && version) urls.push(buildLoopbackUrl(appid, heroFile, version));
+  else if (version) urls.push(buildLoopbackUrl(appid, "library_hero.jpg", version));
   urls.push(buildSteamstaticUrl(appid, "library_hero.jpg"));
   urls.push(buildAkamaiUrl(appid, "library_hero.jpg"));
   return urls;
