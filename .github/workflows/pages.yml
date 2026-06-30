@@ -5,8 +5,9 @@ name: Publish reports to Pages
 # under reports/**; this job only regenerates the derived top-level
 # index.html + dashboard.html (gitignored) and deploys the folder.
 #
-# One-time setup: repo Settings → Pages → Build and deployment →
-# Source: "GitHub Actions". No secrets, no cost on public repos.
+# Pages is auto-enabled (Source = "GitHub Actions") by `enablement: true` on
+# actions/configure-pages below, so no manual repo setup is needed.
+# No secrets, no cost on public repos.
 
 on:
   push:
@@ -48,6 +49,11 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Enable Pages (Source = GitHub Actions) automatically on first run,
+          # so the workflow doesn't fail with "Get Pages site failed / Not
+          # Found" when Pages hasn't been turned on in repo settings yet.
+          enablement: true
 
       - name: Upload reports as Pages artifact
         uses: actions/upload-pages-artifact@v3
