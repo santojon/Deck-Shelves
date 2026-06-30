@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Focusable } from "../../runtime/host/decky";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
+import { trackFeature } from "../../steam/usageTracking";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
@@ -40,11 +41,11 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interact
   }, []);
 
   const cachedCardRadius = getCachedCardRadius();
-  // Trigger the spin via DOM class toggle rather than React state — the
-  // refresh callback usually causes setAppIds() upstream which can shift
-  // focus and unmount the row briefly. State-driven animation gets cancelled
-  // mid-flight; a CSS keyframes animation owned by the icon DOM element
-  // keeps spinning regardless of React reconciliation.
+  /* Trigger the spin via DOM class toggle rather than React state — the
+     refresh callback usually causes setAppIds() upstream which can shift
+     focus and unmount the row briefly. State-driven animation gets cancelled
+     mid-flight; a CSS keyframes animation owned by the icon DOM element
+     keeps spinning regardless of React reconciliation. */
   const handleActivate = () => {
     const icon = iconRef.current;
     if (icon) {
@@ -52,6 +53,7 @@ export function RefreshCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interact
       void icon.offsetWidth;
       icon.classList.add('ds-refresh-spinning');
     }
+    trackFeature("refresh");
     item.onActivate?.();
   };
 

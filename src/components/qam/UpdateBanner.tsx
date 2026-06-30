@@ -1,18 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { DialogButton, Focusable } from "../../runtime/host/decky";
 import type { SettingsController } from "../../features/settings/controller";
-import { checkForUpdate, __resetUpdateCheckCache, type UpdateCheckResult } from "../../core/updateNotifier";
+import { checkForUpdate, __resetUpdateCheckCache, openReleaseUrl, type UpdateCheckResult } from "../../core/updateNotifier";
 import { isOnline } from "../../core/connectivity";
 import { logInfo } from "../../runtime/logger";
 
-/**
- * Update banner — renders inside the QAM Deck Shelves panel above the shelf
- * list when a newer GitHub release is available AND the user has not
- * dismissed it for that specific version. Hidden when the toggle is off.
- *
- * Probe is a single demand call to `checkForUpdate()` per QAM open. The
- * notifier owns its 24h cache so back-to-back QAM opens reuse the result.
- */
 export function UpdateBanner({ controller }: { controller: SettingsController }) {
   const { t, settings, actions } = controller;
   const [result, setResult] = useState<UpdateCheckResult | null>(null);
@@ -22,11 +14,11 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
 
   // Track previous toggle value to detect a within-session OFF → ON flip.
   // On that edge (and only that edge), invalidate the 24h cache before the
-  // network probe — matches the boot-time behaviour in `index.tsx` so the
-  // user's explicit re-enable always reflects the latest release rather
-  // than a stale cached answer. Initial mount + plain re-renders go
-  // through the cached path as before (the banner does NOT spam the
-  // network on every QAM open).
+  /* network probe — matches the boot-time behaviour in `index.tsx` so the
+     user's explicit re-enable always reflects the latest release rather
+     than a stale cached answer. Initial mount + plain re-renders go
+     through the cached path as before (the banner does NOT spam the
+     network on every QAM open). */
   const prevEnabledRef = useRef<boolean>(enabled);
   useEffect(() => {
     if (!enabled) { prevEnabledRef.current = false; return; }
@@ -49,14 +41,7 @@ export function UpdateBanner({ controller }: { controller: SettingsController })
   if (!result?.hasUpdate || !result.latestVersion) return null;
   if (dismissed && dismissed === result.latestVersion) return null;
 
-  const open = () => {
-    if (!result.releaseUrl) return;
-    try {
-      const sc: any = (globalThis as any).SteamClient;
-      if (typeof sc?.System?.OpenInSystemBrowser === "function") sc.System.OpenInSystemBrowser(result.releaseUrl);
-      else (globalThis as any).window?.open?.(result.releaseUrl, "_blank");
-    } catch (e) { logInfo("UPDATE", "open release failed", String(e)); }
-  };
+  const open = () => openReleaseUrl(result.releaseUrl);
   const dismiss = () => { if (result.latestVersion) actions.dismissUpdateNotice(result.latestVersion); };
 
   return (

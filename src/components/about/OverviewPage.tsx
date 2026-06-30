@@ -4,10 +4,30 @@ import { useTranslation } from 'react-i18next'
 import { DocSection } from './DocSection'
 import { DocAccordion } from './DocAccordion'
 
-const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
-const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
+const labelStyle: React.CSSProperties = { fontSize: 13, color: 'var(--ds-text-dim, #b8bcbf)', lineHeight: '19px' }
+const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--ds-text, #fff)' }
 
 const GROUPS: { labelKey: string; keys: string[] }[] = [
+  {
+    labelKey: 'about_group_v25_new',
+    keys: [
+      'about_feature_settings_page',
+      'about_feature_profiles',
+      'about_feature_button_bindings',
+      'about_feature_grip_buttons',
+      'about_feature_composite_shelves',
+      'about_feature_unified_list',
+      'about_feature_drag_reorder',
+      'about_feature_light_mode',
+      'about_feature_external_launchers',
+      'about_feature_integrations_toggle',
+      'about_feature_built_in_chip',
+      'about_feature_filter_v3',
+      'about_feature_sort_v3',
+      'about_feature_source_v3',
+      'about_feature_asset_refresh',
+    ],
+  },
   {
     labelKey: 'about_group_shelves_filters',
     keys: [

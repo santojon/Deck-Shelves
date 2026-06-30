@@ -5,9 +5,9 @@ import { DocSection } from './DocSection'
 import { DocAccordion } from './DocAccordion'
 import { DocCallout } from './DocCallout'
 
-const labelStyle: React.CSSProperties = { fontSize: 13, color: '#b8bcbf', lineHeight: '19px' }
-const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#fff' }
-const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: '#dcdedf' }
+const labelStyle: React.CSSProperties = { fontSize: 13, color: 'var(--ds-text-dim, #b8bcbf)', lineHeight: '19px' }
+const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--ds-text, #fff)' }
+const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: 'var(--ds-text, #dcdedf)' }
 
 type SmartEntry = { labelKey: string; descKey: string; sortKey: string }
 
@@ -96,7 +96,7 @@ export function SmartShelvesPage() {
             <Field key={labelKey} focusable={true} bottomSeparator="none" label={
               <span style={labelStyle}>
                 • <b>{t(labelKey as any)}</b> — {t(descKey as any)}
-                <span style={{ color: '#8b949e', fontSize: 11 }}> {t(sortKey as any)}</span>
+                <span style={{ color: 'var(--ds-text-dim, #8b949e)', fontSize: 11 }}> {t(sortKey as any)}</span>
               </span>
             } />
           ))}

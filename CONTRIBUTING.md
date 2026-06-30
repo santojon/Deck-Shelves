@@ -22,25 +22,37 @@ The dev / build / validation flows run on **Linux, macOS, and Windows**.
 | `pnpm run test`                                |  ✅  |  ✅   |   ✅    |
 | `pnpm run lint`                                |  ✅  |  ✅   |   ✅    |
 | `pnpm run dev:check` (typecheck + lint + test) |  ✅  |  ✅   |   ✅    |
+| `pnpm run package` / `verify:package`          |  ✅  |  ✅   |   ✅    |
 | `pnpm run validate:compat`                     |  ✅  |  ✅   |   ⚠️    |
-| `pnpm run package` / `verify:package`          |  ✅  |  ✅   |   ⚠️    |
-| `pnpm run deploy:deck*`                        |  ✅  |  ✅   |   ❌    |
+| `pnpm run deploy:deck*` (bash)                  |  ✅  |  ✅   |   ⚠️    |
+| `pnpm run deploy:deck:win*` (PowerShell)        |  —   |  —    |   ✅    |
 | `pnpm run devtools:*` (CDP)                    |  ✅  |  ✅   |   ✅    |
 
-- ⚠️ Windows works when **Git for Windows** (provides Git Bash) or **WSL**
-  is installed — the orchestrator (`scripts/build/validate-compat.mjs`)
-  detects `bash` on PATH and routes through it.
-- ❌ Deck-operator scripts (SSH, rsync, sudo) need a POSIX shell + ssh
-  client; Windows users should run them under WSL.
+Everything a contributor needs to validate a change — build, typecheck,
+lint, tests, **packaging + verify**, and the CDP tooling — is Node or
+Python and runs natively on all three OSes (no bash, no `zip`/`unzip` CLI;
+packaging uses Python's `zipfile`).
+
+- ⚠️ `validate:compat` runs ~39 integration checks that are still bash
+  (`checks/**/*.sh`). The wrapper (`scripts/build/validate-compat.mjs`)
+  finds `bash` on PATH and routes through it, so on Windows it needs
+  **Git for Windows** (Git Bash) or **WSL**. The OS-independent subset is
+  covered by `pnpm run dev:check`.
+- ⚠️ The bash deploy scripts (`deploy:deck` / `:hard`, SSH + rsync + sudo)
+  need a POSIX shell; on Windows use **`pnpm run deploy:deck:win`** /
+  **`deploy:deck:win:hard`** — a PowerShell variant
+  ([`scripts/deploy/deploy-deck.ps1`](scripts/deploy/deploy-deck.ps1)) that
+  uses the OpenSSH `ssh`/`scp` bundled with Windows 10+ (no rsync/bash).
+  The other deck-operator scripts (watch, logs, perf-stress) remain
+  bash — run them under WSL / Git Bash.
 
 ### Windows quickstart
 
-1. Install [Node.js 20+](https://nodejs.org/), [Git for Windows](https://git-scm.com/download/win),
-   and [Python 3.9+](https://www.python.org/).
-2. From Git Bash (or PowerShell): `corepack enable && pnpm install`.
-3. `pnpm run dev:check` to verify the OS-independent path works.
-4. For the full pre-commit suite (`validate:compat`, `package`), use Git Bash
-   so `bash` is available.
+1. Install [Node.js 20+](https://nodejs.org/), [Python 3.9+](https://www.python.org/),
+   and (only for `validate:compat`) [Git for Windows](https://git-scm.com/download/win).
+2. From PowerShell or Git Bash: `corepack enable && pnpm install`. If `corepack` isn't on PATH (some Node packagers don't link it), run `pnpm run upgrade` instead — the helper (`scripts/build/upgrade-pnpm.cjs`) finds Corepack from `node`'s bundled location and falls back to `npm install -g pnpm@latest`.
+3. `pnpm run dev:check && pnpm run package` — the full local build + package flow runs natively.
+4. `pnpm run validate:compat` only needs Git Bash / WSL for the bash integration checks.
 
 ## Getting Started
 
@@ -73,7 +85,15 @@ pnpm run watch:deck <deck-hostname>
 ## Project Structure
 
 ```
-main.py                  Python backend (settings persistence)
+main.py                  Python backend entry — DEFAULT_SETTINGS, _SSL_CTX,
+                         Plugin class (lifecycle + RPC). Re-exports the
+                         helper modules below for back-compat imports.
+paths.py                 _steam_install_candidates, _normalize_path —
+                         path discovery + home-confined path validation.
+storage.py               _settings_dir, _primary_file, _safe_read_json —
+                         settings.json read helpers (Decky env-var aware).
+sanitizer.py             _sanitize_settings — settings-shape normaliser
+                         (mirrors the Zod schemas in src/types.ts).
 src/index.tsx            Frontend entry point (Decky lifecycle)
 src/types.ts             Zod schemas (Shelf, Settings, FilterGroup)
 src/steam/               Steam API access (collections, tabs, filters, apps)
@@ -91,7 +111,16 @@ src/components/          React components
 src/core/                Utilities (focus, scroll, assets, webpack compat, plugin API)
 src/domain/              Pure domain logic (settings operations, defaults, templates)
 src/runtime/             Platform integration (home patching, Steam host, logger)
-src/features/            Feature controllers (settings)
+src/features/            Feature controllers
+  settings/
+    controller.tsx       Hook entry (state + effects + compose action slices)
+    controller/          Action slices spread into the public `actions`
+      shelves.ts         Regular-shelf CRUD + import / export / reset
+      smartShelves.ts    Smart-shelf CRUD + surprise-me + import / export
+      savedFilters.ts    SavedFilter + SavedSmartFilter CRUD
+      online.ts          Online-features toggles + acceptOnlinePrivacy
+      globalVisual.ts    30 global visual setters (consolidated)
+      profiles.ts        Usage profiles + unified/lightMode/featureToggle setters
 src/integrations/        Third-party plugin integration (TabMaster, UnifiDeck)
 src/shims/               React/Decky GamepadUI shims
 src/test/                Vitest test suites
@@ -122,17 +151,18 @@ See [`docs/architecture.md`](docs/architecture.md) for a detailed breakdown.
 Before submitting, run the compatibility validation:
 
 ```bash
-bash scripts/build/validate-compat.sh
+pnpm run validate:compat
 ```
 
 All checks should pass. The individual check scripts live in the `checks/` subfolders.
 
 ## Internationalization
 
-- Base locale: `i18n/en-US.json`
-- All locales must have the same set of keys as `en-US.json`
-- When adding a new i18n key, add it to **all** locale files
-- The `validate-compat.sh` script checks i18n key consistency automatically
+- Locales are **area-sliced**: `i18n/<locale>/{home,qam,about,settings,integrations,common}.json`. The loader (`src/i18n.ts`) merges the areas at runtime.
+- Base locale: the `i18n/en-US/` directory
+- Every locale must have the same merged key set as `en-US` (no cross-area key collisions)
+- When adding a new i18n key, add it to the matching area file in **all** locale directories
+- `pnpm run validate:compat` (and `pnpm run validate` for the build-time check) verifies per-locale key consistency automatically
 
 ## Tests
 
@@ -221,7 +251,7 @@ Follow these steps to regenerate the canonical screenshots:
 1. Create a feature branch from `main`
 2. Make your changes in focused, atomic commits
 3. Add entries under `## [Unreleased]` in **both** `CHANGELOG.md` (technical detail) and `RELEASE_NOTES.md` (user-facing language). Use `### Added`, `### Fixed`, `### Changed`, `### Removed`, or `### Performance` as appropriate.
-4. Run `bash scripts/build/validate-compat.sh` and ensure all checks pass
+4. Run `pnpm run validate:compat` and ensure all checks pass
 5. Build with `pnpm run build:plugin` and verify no errors
 6. Run `pnpm run precommit` and verify no errors
 7. Test on a real Steam Deck if possible
@@ -266,7 +296,7 @@ The remaining rows (Documentation update / i18n / Build / CI) are additive — c
 - [ ] I have read [CONTRIBUTING.md](CONTRIBUTING.md)
 - [ ] My code follows the project's code style (2 spaces, semicolons, double quotes)
 - [ ] I ran `pnpm run build:plugin` with no errors
-- [ ] I ran `bash scripts/build/validate-compat.sh` and all checks pass
+- [ ] I ran `pnpm run validate:compat` and all checks pass
 - [ ] I tested on a Steam Deck (or explained why this isn't needed)
 - [ ] **(only if i18n / localization is checked above)** New i18n keys added to **all** locale files
 

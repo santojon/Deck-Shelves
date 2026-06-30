@@ -1,8 +1,3 @@
-/**
- * Online Steam Store data — wishlist + price/discount. Opt-in, demand-driven,
- * single-flight per feature, cached in localStorage with explicit TTLs.
- * Returns null when offline + cache empty; callers treat null as "hidden".
- */
 
 import { call } from "../shims/decky-api";
 import { logInfo, logWarn } from "../runtime/logger";
@@ -34,14 +29,28 @@ interface WishlistCache { ids: number[] }
 
 let wishlistInFlight: Promise<number[] | null> | null = null;
 
-/**
- * Returns wishlist appids for the current user, or null if unavailable.
- *
- * The Steam wishlist API (`store.steampowered.com/wishlist/id/…`) is blocked
- * by CORS in the SharedJSContext (different origin). The fetch is routed
- * through the plugin's Python backend (`get_wishlist` in main.py), which
- * runs without browser CORS restrictions and uses urllib.request directly.
- */
+// Read the cache regardless of age — used as a fallback when the backend
+// hangs or fails so shelves don't render Spinner forever waiting on a
+// dead RPC. Resolver consumers prefer a slightly stale list over no list.
+function readWishlistCacheAny(): WishlistCache | null {
+  try {
+    const raw = localStorage.getItem(WISHLIST_KEY);
+    if (!raw) return null;
+    const { data } = JSON.parse(raw);
+    return data as WishlistCache;
+  } catch { return null; }
+}
+
+function rpcWithTimeout<T>(method: string, args: unknown, ms = 6000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`rpc ${method} timeout after ${ms}ms`)), ms);
+    Promise.resolve(call(method, args)).then(
+      (v) => { clearTimeout(timer); resolve(v as T); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export async function getWishlistIds(): Promise<number[] | null> {
   const cached = readCache<WishlistCache>(WISHLIST_KEY, WISHLIST_TTL);
   if (cached) return cached.ids;
@@ -50,7 +59,10 @@ export async function getWishlistIds(): Promise<number[] | null> {
 
   wishlistInFlight = (async () => {
     try {
-      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) return null;
+      if (Date.now() < (backoffUntil[WISHLIST_KEY] ?? 0)) {
+        // In backoff: serve stale cache rather than hang the resolver.
+        return readWishlistCacheAny()?.ids ?? null;
+      }
       // No isOnline() guard — the Python backend handles its own connectivity.
 
       // Get the community profile URL from Steam's URL store.
@@ -65,23 +77,27 @@ export async function getWishlistIds(): Promise<number[] | null> {
       } catch {}
       if (!communityUrl) {
         logWarn("ONLINE", "wishlist: could not locate community URL");
-        return null;
+        return readWishlistCacheAny()?.ids ?? null;
       }
 
-      // Route through Python backend to bypass CORS.
-      const resp = await call("get_wishlist", { community_url: communityUrl }) as any;
+      // Route through Python backend to bypass CORS. Hard 6 s timeout so
+      // a hung Decky RPC can't park composite/wishlist resolves forever.
+      const resp = await rpcWithTimeout<any>("get_wishlist", { community_url: communityUrl }, 6000);
       if (!resp?.ok || !Array.isArray(resp.ids)) {
         logWarn("ONLINE", "wishlist backend error", resp?.error ?? "unknown");
-        return null;
+        return readWishlistCacheAny()?.ids ?? null;
       }
       const ids = (resp.ids as unknown[]).map(Number).filter(Number.isFinite);
-      if (!ids.length) return null;
+      if (!ids.length) return readWishlistCacheAny()?.ids ?? null;
       writeCache<WishlistCache>(WISHLIST_KEY, { ids });
       logInfo("ONLINE", "wishlist fetched via backend", { count: ids.length });
       return ids;
     } catch (e) {
       logWarn("ONLINE", "wishlist fetch failed", String(e));
-      return null;
+      // Soft-backoff for 10 min so the next resolve doesn't immediately
+      // retry the same hung RPC.
+      backoffUntil[WISHLIST_KEY] = Date.now() + 10 * 60 * 1000;
+      return readWishlistCacheAny()?.ids ?? null;
     } finally {
       wishlistInFlight = null;
     }
@@ -99,34 +115,11 @@ const STORE_TTL = 6 * 60 * 60 * 1000; // 6h
 
 type StoreCacheV2 = {
   ids: number[];
-  /** Per-item price hint captured from the search-row data (Steam's
-   *  /search/results JSON carries final_price + original_price + discounted
-   *  per item). Replay-written to the price cache on every getStoreGameIds
-   *  call so a "100% off" / "Free now" discount filter sees real data even
-   *  on warm cache, AND so previously-polluted unpriced:true entries from
-   *  before this fix get overwritten. */
   priceHints?: Array<{ id: number; original: number; final: number }>;
 };
 
 let storeInFlight: Promise<number[] | null> | null = null;
 
-/**
- * Returns a broad set of appids from the Steam Store (featured/popular +
- * currently on-sale games). Accessible from the browser — no CORS restriction
- * for the public search JSON endpoint. Appids are extracted from item logo URLs.
- * 6-hour cache (`ds-store-cache-v1`).
- *
- * Callers that apply a `discount` childFilter should also call
- * `getPriceMap(ids)` before evaluating the filter so the price cache is warm.
- */
-/**
- * Replays price hints from the store cache into the price cache. Runs on
- * every getStoreGameIds call (cache hit AND miss) so the discount filter
- * always sees fresh, authoritative store-search data — overwriting any
- * stale `unpriced: true` entries that may have been written by an earlier
- * api/appdetails fetch (which often returns `success: false` for
- * free-weekend titles).
- */
 function replayPriceHints(hints: Array<{ id: number; original: number; final: number }> | undefined): void {
   if (!Array.isArray(hints) || !hints.length) return;
   for (const h of hints) {
@@ -159,10 +152,10 @@ export async function getStoreGameIds(): Promise<number[] | null> {
 
   storeInFlight = (async () => {
     try {
-      // Fetch specials (on-sale), free games, and popular/featured in parallel.
-      // Promise.allSettled handles individual request failures so a single
-      // timeout or error doesn't block the other two fetches.
-      // Including maxprice=free ensures "free now" shelves find free games.
+      /* Fetch specials (on-sale), free games, and popular/featured in parallel.
+         Promise.allSettled handles individual request failures so a single
+         timeout or error doesn't block the other two fetches.
+         Including maxprice=free ensures "free now" shelves find free games. */
       const withTimeout = (url: string, ms = 6000) => {
         const ac = new AbortController();
         const tid = setTimeout(() => ac.abort(), ms);
@@ -199,11 +192,11 @@ export async function getStoreGameIds(): Promise<number[] | null> {
         if (!ct.includes("json")) continue;
         const json = await resp.json();
         // Each item carries `final_price` / `original_price` (cents) /
-        // `discounted` (bool) in addition to `name` + `logo`. Capturing
-        // these lets us pre-populate the price cache so a "100% off" /
-        // "Free now" discount filter has real data without waiting on a
-        // secondary api/appdetails fetch (which often returns success:false
-        // for free-weekend titles → cached unpriced → filter excludes them).
+        /* `discounted` (bool) in addition to `name` + `logo`. Capturing
+           these lets us pre-populate the price cache so a "100% off" /
+           "Free now" discount filter has real data without waiting on a
+           secondary api/appdetails fetch (which often returns success:false
+           for free-weekend titles → cached unpriced → filter excludes them). */
         const items: Array<{ name?: string; logo?: string; final_price?: number; original_price?: number; discounted?: boolean }> = json?.items ?? [];
         for (const item of items) {
           const m = item?.logo?.match(/\/apps\/(\d+)\//);
@@ -295,12 +288,6 @@ function writePriceCacheEntry(appid: number, data: PriceData): void {
   } catch {}
 }
 
-/**
- * Fetches price/discount data for a batch of appids.
- * Returns a map appid → PriceData. Missing entries mean "no data" (free game
- * without a price_overview, region block, etc.) — callers should treat null as
- * free / unknown.
- */
 export async function getPriceMap(appids: number[]): Promise<Map<number, PriceData>> {
   const result = new Map<number, PriceData>();
   if (!appids.length) return result;
@@ -315,11 +302,11 @@ export async function getPriceMap(appids: number[]): Promise<Map<number, PriceDa
   try {
     if (Date.now() < (backoffUntil[PRICE_KEY] ?? 0)) return result;
 
-    // Fetch budget is bounded by `deadline` below — the per-call cap was
-    // raised from 200 to 800 so store-source resolves with a discount
-    // filter (e.g. "100% off" / "Free now") actually cover the full
-    // specials list. Past 200, otherwise-promoted-free games slipped
-    // through uncached and the discount filter rejected them.
+    /* Fetch budget is bounded by `deadline` below — the per-call cap was
+       raised from 200 to 800 so store-source resolves with a discount
+       filter (e.g. "100% off" / "Free now") actually cover the full
+       specials list. Past 200, otherwise-promoted-free games slipped
+       through uncached and the discount filter rejected them. */
     const limited = toFetch.slice(0, 800);
 
     const BATCH = 50;

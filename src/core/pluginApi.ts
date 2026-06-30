@@ -1,85 +1,83 @@
-/**
- * Public Plugin API — v3. Exposed at `window.deckShelves` (with `.api`,
- * `.register`, `.debug`). External consumers should use the
- * `@deck-shelves/api` package's `register()` helper — it handles the
- * pending-queue timing so the integration works regardless of load order.
- * Every shape here is part of the ABI: additive changes are safe,
- * renames/removals bump `version`. Usage in `docs/plugin-api.md`.
- */
+/* Plugin API surface — see docs/plugin-api.md. Exposed at window.deckShelves.
+   Canonical types live in api/src/types.ts (the @deck-shelves/api npm package);
+   this file imports them via relative path so a single shape governs both the
+   runtime registry and the published consumer contract. */
 
 import type { ReactNode } from "react";
 import type { Settings } from "../types";
+import { registerTranslations } from "../i18n";
 import { getCurrentSettings, saveSettings, subscribeSettings } from "../store/settingsStore";
-import { isTabMasterInstalled } from "../integrations/registry";
+import {
+  isTabMasterInstalled,
+  isNonSteamBadgesInstalled,
+  isUnifiDeckInstalled,
+} from "../integrations/registry";
+import pkg from "../../package.json";
+import type {
+  Unsubscribe as ApiUnsubscribe,
+  PublicAppMeta as ApiPublicAppMeta,
+  ImportTarget as ApiImportTarget,
+  PublicProfile as ApiPublicProfile,
+  IntegrationInfo as ApiIntegrationInfo,
+  PublicSettingsSnapshot as ApiPublicSettingsSnapshot,
+  EnvironmentInfo as ApiEnvironmentInfo,
+} from "../../api/src/types";
 
-// ---------------------------------------------------------------------------
-// 1. PUBLIC TYPES — frozen shape exposed to external plugins
-// ---------------------------------------------------------------------------
+export type Unsubscribe = ApiUnsubscribe;
+export type PublicAppMeta = ApiPublicAppMeta;
+export type ImportTarget = ApiImportTarget;
+export type PublicProfile = ApiPublicProfile;
+export type IntegrationInfo = ApiIntegrationInfo;
+export type PublicSettingsSnapshot = ApiPublicSettingsSnapshot;
+export type EnvironmentInfo = ApiEnvironmentInfo;
 
-/** Cleanup callback returned by every `register*` method. Calling it
- *  removes the registered entry; safe to call more than once. */
-export type Unsubscribe = () => void;
-
-/**
- * Read-only subset of Steam's `AppOverview`. External resolvers and filter
- * evaluators receive this shape — never mutate it. The set of fields is
- * intentionally narrow; request additional fields via plugin API issues
- * rather than reaching into the underlying object.
- */
-export interface PublicAppMeta {
-  readonly appid: number;
-  readonly name: string;
-  readonly installed: boolean;
-  readonly is_non_steam: boolean;
-  readonly playtime_forever?: number;
-  readonly last_played?: number;
-  readonly deck_compatibility_category?: number;
-  readonly bCloudAvailable?: boolean;
-  readonly nControllerSupport?: number;
+// Translates Steam's raw AppOverview into the canonical PublicAppMeta shape.
+// External descriptors registered via @deck-shelves/api receive THIS — the
+// runtime no longer hands them the raw AppOverview cast through `unknown`.
+export function toPublicAppMeta(raw: any): PublicAppMeta {
+  if (!raw || typeof raw !== "object") return { appid: 0, name: "" };
+  const appid = Number(raw.appid ?? raw.m_unAppID ?? 0);
+  const name = String(raw.display_name ?? raw.name ?? "");
+  const isNonSteam = raw.app_type === 1073741824 || raw.is_non_steam === true;
+  const playtime = typeof raw.playtime_forever === "number" ? raw.playtime_forever : undefined;
+  const lastPlayed = typeof raw.last_played === "number" ? raw.last_played : undefined;
+  const compat = typeof raw.deck_compatibility_category === "number" ? raw.deck_compatibility_category : undefined;
+  const installed = raw.installed === true || raw.is_installed === true;
+  return {
+    appid,
+    name,
+    installed,
+    isSteam: !isNonSteam,
+    is_non_steam: isNonSteam,
+    playtimeMinutes: playtime,
+    playtime_forever: playtime,
+    lastPlayedTimestamp: lastPlayed,
+    last_played: lastPlayed,
+    deckCompatCategory: compat,
+    deck_compatibility_category: compat,
+    supportsCloud: raw.bCloudAvailable === true,
+    bCloudAvailable: raw.bCloudAvailable === true,
+    controllerSupport: typeof raw.nControllerSupport === "number" ? raw.nControllerSupport : undefined,
+    nControllerSupport: typeof raw.nControllerSupport === "number" ? raw.nControllerSupport : undefined,
+    app_type: typeof raw.app_type === "number" ? raw.app_type : undefined,
+    is_installed: installed,
+    is_hidden: raw.is_hidden === true,
+  };
 }
 
-// ---- 1a. Shelf-source registries (regular + smart) -------------------------
-
-/**
- * Regular shelf source — a plugin-supplied list of appids that becomes a
- * shelf the user can pick from the Source dropdown in the shelf editor.
- * Persisted as `{ type: "external", sourceId }`.
- */
 export interface ExternalShelfSourceDescriptor {
-  /** Stable id (recommended: `pluginName.entryName`). Survives reloads. */
   id: string;
-  /** Label shown in the Source dropdown. */
   displayName: string;
-  /** Resolves the current appid list. Called whenever Deck Shelves needs to
-   *  refresh. Returning fewer than `limit` ids is fine; returning duplicates
-   *  is silently de-duplicated. Errors are caught — return `[]` on failure. */
   resolve: (limit: number) => Promise<number[]>;
-  /** Optional descriptor schema version. Plugins may bump this when they
-   *  introduce new optional fields specific to their descriptor type so that
-   *  internal handlers can branch (`if ((d.version ?? 1) >= 2) ...`).
-   *  Defaults to `1` when omitted. */
   version?: number;
 }
 
-/**
- * Smart shelf source — like a regular source but exposes optional per-shelf
- * tuning parameters that the user can adjust in the smart-shelf editor.
- * Persisted as `{ type: "smart", mode: <id> }`; the `mode` string matches
- * `id` here when registered externally (internal modes use enum values).
- */
 export interface SmartShelfSourceDescriptor {
   id: string;
   displayName: string;
-  /** Optional descriptor schema version (default `1`). See
-   *  `ExternalShelfSourceDescriptor.version`. */
   version?: number;
-  /** Optional category key for picker grouping (e.g. "status", "time"). */
   category?: string;
-  /** Default values for every key in `paramMeta`. Required when `paramMeta`
-   *  is defined; ignored otherwise. */
   defaultParams?: Readonly<Record<string, number>>;
-  /** Slider metadata for the smart-shelf edit modal. Each key becomes a
-   *  numeric slider; units are display-only. */
   paramMeta?: Readonly<Record<string, {
     label: string;
     min: number;
@@ -87,116 +85,46 @@ export interface SmartShelfSourceDescriptor {
     step: number;
     unit?: string;
   }>>;
-  /** Returns the current appid list. `params` carries the user's overrides
-   *  merged on top of `defaultParams`. */
   resolve: (limit: number, params: Readonly<Record<string, number>>) => Promise<number[]>;
 }
 
-// ---- 1b. Filter type registry ---------------------------------------------
-
-/**
- * Filter type — pure predicate evaluated per-game by the FilterPanel
- * resolver. Persisted as a `FilterItem` with `type === <id>` and
- * `params === <plugin-defined object>`.
- *
- * Phase 1 limitation: the FilterPanel UI does not yet render external
- * editors — users construct external filter items via JSON or other
- * plugins. The runtime evaluation works as soon as the type is registered.
- */
 export interface ExternalFilterTypeDescriptor {
   id: string;
   displayName: string;
-  /** Optional descriptor schema version (default `1`). */
   version?: number;
-  /** Default `params` shape. Used when a shelf is constructed from a
-   *  template that references the filter type without explicit params. */
   defaultParams?: Readonly<Record<string, unknown>>;
-  /** Whether the filter supports the `inverted` flag. Defaults to `true`. */
   invertible?: boolean;
-  /** Pure predicate. Must not mutate `app` or `params`. Throwing is
-   *  treated as a `false` result. */
   evaluate: (app: PublicAppMeta, params: Readonly<Record<string, unknown>>) => boolean;
-  /** Optional editor (Phase 2 wire-up). Stored for future use; not yet
-   *  rendered by the FilterPanel. */
   renderEditor?: (props: {
     params: Readonly<Record<string, unknown>>;
     onChange: (next: Record<string, unknown>) => void;
   }) => ReactNode;
 }
 
-// ---- 1c. Sort option registry ---------------------------------------------
-
-/**
- * Sort option — pure ordering function. Persisted as the shelf's `sort`
- * field (any string; internal sorts use specific enum values, external
- * sorts use whatever id was registered).
- */
 export interface ExternalSortOptionDescriptor {
   id: string;
   displayName: string;
-  /** Optional descriptor schema version (default `1`). */
   version?: number;
-  /** Returns a NEW array (do not mutate input) of appids in the desired
-   *  order. Apps not present in the input are dropped silently. */
   sort: (appIds: ReadonlyArray<number>, apps: ReadonlyArray<PublicAppMeta>) => number[];
 }
 
-// ---- 1d. Import type registry ---------------------------------------------
-
-/**
- * Import target: which shelf bucket a registered import populates.
- *   - "shelves"        → regular shelves section in the QAM
- *   - "smart_shelves"  → smart shelves section in the QAM
- *
- * Defaults to "shelves" when omitted on a descriptor (back-compat with the
- * v2 initial release).
- */
-export type ImportTarget = "shelves" | "smart_shelves";
-
-/**
- * Import type — parses a payload into shelves Deck Shelves can save.
- * Each registered descriptor adds one button to the QAM action row;
- * 2+ descriptors with the same `target` collapse into a `…` overflow.
- * Provide `runImport` for custom UX (modal/picker), or `parse` to feed
- * the default file-picker flow.
- */
 export interface ExternalImportTypeDescriptor {
   id: string;
   displayName: string;
-  /** Optional descriptor schema version (default `1`). */
   version?: number;
-  /** Optional file-extension hint (e.g. ".json", ".csv"). UI-only. */
   fileExtension?: string;
-  /** Default `"shelves"`. Pick `"smart_shelves"` to populate the smart
-   *  shelves bucket instead. A single descriptor targets one bucket;
-   *  register two descriptors with different targets if the source
-   *  contains both. */
   target?: ImportTarget;
-  /** Optional icon shown next to the entry in the QAM action row / menu.
-   *  Mirrors the local `icons` shape used by built-in actions. */
   icon?: ReactNode;
-  /** Parse a raw payload into structured shelves. Optional when
-   *  `runImport` is provided (custom flows skip the parse step). */
   parse?: (raw: string) => Promise<ParsedImport>;
-  /** Optional custom action handler. When set, the QAM invokes this
-   *  instead of the default file-picker flow when the user activates
-   *  the entry. The handler is responsible for reading the source data
-   *  and calling the appropriate persistence action via the controller
-   *  it captured at registration time. */
   runImport?: () => void | Promise<void>;
 }
 
 export interface ParsedImport {
   shelves?: Array<{
     title: string;
-    /** Either an existing `ExternalShelfSourceDescriptor.id` (the source
-     *  must be registered separately) or a built-in source descriptor in
-     *  the same shape Deck Shelves uses internally. */
     source: { type: "external"; sourceId: string };
     limit?: number;
   }>;
-  /** Smart shelves to insert. The `mode` matches `SmartShelfMode` (built-in
-   *  or registered via `registerSmartShelfSource`). */
   smartShelves?: Array<{
     title: string;
     mode: string;
@@ -206,16 +134,9 @@ export interface ParsedImport {
 
 // ---- 1e. Saved filter registration ----------------------------------------
 
-/**
- * Pre-baked named `FilterGroup` plugins can seed into the QAM Saved
- * Filters section. Idempotent: same id replaces the previous entry.
- * `group.items[].type` must reference an id that exists (built-in
- * or another plugin's `registerFilterType`).
- */
 export interface ExternalSavedFilterDescriptor {
   id: string;
   name: string;
-  /** Optional descriptor schema version (default `1`). */
   version?: number;
   group: PublicFilterGroup;
 }
@@ -231,9 +152,6 @@ export interface PublicFilterItem {
   params?: Readonly<Record<string, unknown>>;
 }
 
-// ---- 1f. Consumer contracts ------------------------------------------------
-
-/** Read-only projection of a shelf, exposed to consumer plugins. */
 export interface PublicShelf {
   readonly id: string;
   readonly title: string;
@@ -267,8 +185,6 @@ export interface PublicSavedFilter {
   readonly group: PublicFilterGroup;
 }
 
-// saved smart shelf template, readable through the public
-// API so external plugins can clone / list / build on top of them.
 export interface PublicSavedSmartFilter {
   readonly id: string;
   readonly name: string;
@@ -282,20 +198,121 @@ export interface PublicSavedSmartFilter {
   readonly visibleDaysOfWeek?: ReadonlyArray<number>;
 }
 
-// ---------------------------------------------------------------------------
-// 2. API SURFACE — what `window.deckShelves.api` exposes
-// ---------------------------------------------------------------------------
+export interface SearchProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: number;
+  priority?: number;
+  search: (query: string, limit: number) => Promise<SearchHit[]>;
+}
 
-/** Focused-card snapshot — see `subscribeFocusedCard`. */
+export interface SearchHit {
+  id: string;
+  appid?: number;
+  title?: string;
+  subtitle?: string;
+  score?: number;
+  onActivate?: () => void;
+}
+
+export interface SideMenuProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: number;
+  resolve: (context: SideMenuContext) => Promise<SideMenuEntry[]> | SideMenuEntry[];
+}
+
+export interface SideMenuContext {
+  shelfId: string | null;
+  focusedAppid: number | null;
+}
+
+export interface SideMenuEntry {
+  id: string;
+  label: string;
+  category?: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+  onActivate: () => void | Promise<void>;
+}
+
+export interface ContextProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  snapshot: () => unknown;
+  subscribe: (cb: (value: unknown) => void) => () => void;
+}
+
+export interface WidgetProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  render: (size: { width: number; height: number }) => unknown;
+  refreshPolicy?: number | "focus" | null;
+  skeleton?: () => unknown;
+}
+
+export interface ShelfRendererDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  layout: (params: {
+    items: ReadonlyArray<{ appid: number; name?: string }>;
+    focusedAppid: number | null;
+    cardWidth: number;
+    cardHeight: number;
+    featured: boolean;
+  }) => unknown;
+  cardMode?: "normal" | "featured" | "compact";
+  virtualiseAfter?: number;
+}
+
+export interface MetadataProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  fields: ReadonlyArray<string>;
+  resolve: (appids: ReadonlyArray<number>, signal?: AbortSignal) => Promise<Record<number, Record<string, unknown>>>;
+}
+
+export interface StatisticsEntry {
+  id: string;
+  label: string;
+  value: string | number;
+  unit?: string;
+  category?: string;
+}
+
+export interface StatisticsProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  category?: string;
+  resolve: () => Promise<ReadonlyArray<StatisticsEntry>> | ReadonlyArray<StatisticsEntry>;
+}
+
+export interface RecommendationEntry {
+  appid: number;
+  score?: number;
+  reason?: string;
+}
+
+export interface RecommendationProviderDescriptor {
+  id: string;
+  displayName: string;
+  version?: string | number;
+  category?: string;
+  resolve: (limit: number, signal?: AbortSignal) => Promise<ReadonlyArray<RecommendationEntry>> | ReadonlyArray<RecommendationEntry>;
+}
+
 export interface FocusedCardInfo {
   appid: number;
   shelfId: string | null;
 }
 
-/** Asset types supported by `getAssetUrls`. */
 export type AssetType = "hero" | "heroBlur" | "portrait" | "landscape" | "logo" | "icon" | "storeBackground";
 
-/** Integration record passed to `window.deckShelves.register`. */
 export interface DeckShelvesIntegration {
   name: string;
   version?: string;
@@ -304,10 +321,8 @@ export interface DeckShelvesIntegration {
 }
 
 export interface DeckShelvesPublicAPI {
-  /** API surface version. v3 is the first import + register revision. */
-  readonly version: 3;
+  readonly version: 4;
 
-  // --- Registries --------------------------------------------------------
   registerShelfSource(d: ExternalShelfSourceDescriptor): Unsubscribe;
   registerSmartShelfSource(d: SmartShelfSourceDescriptor): Unsubscribe;
   registerFilterType(d: ExternalFilterTypeDescriptor): Unsubscribe;
@@ -320,11 +335,8 @@ export interface DeckShelvesPublicAPI {
   getRegisteredFilterTypes(): ReadonlyArray<ExternalFilterTypeDescriptor>;
   getRegisteredSortOptions(): ReadonlyArray<ExternalSortOptionDescriptor>;
   getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>;
-  /** Returns import types whose `target` matches (default `"shelves"`).
-   *  The QAM uses this to populate per-section import menus. */
   getRegisteredImportTypesForTarget(target: ImportTarget): ReadonlyArray<ExternalImportTypeDescriptor>;
 
-  // --- Snapshots + subscriptions -----------------------------------------
   getShelves(): ReadonlyArray<PublicShelf>;
   getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
   getSavedFilters(): ReadonlyArray<PublicSavedFilter>;
@@ -333,37 +345,57 @@ export interface DeckShelvesPublicAPI {
   subscribeSmartShelves(cb: (shelves: ReadonlyArray<PublicSmartShelf>) => void): Unsubscribe;
   subscribeSavedFilters(cb: (filters: ReadonlyArray<PublicSavedFilter>) => void): Unsubscribe;
 
-  // --- Focus tracking (v3) ----------------------------------------------
-  /** Returns the currently focused card or null when focus is elsewhere. */
   getFocusedCard(): FocusedCardInfo | null;
-  /** Fires whenever the focused card changes (also fires with null when
-   *  focus leaves all DS shelves). Immediate-fire on subscribe. */
   subscribeFocusedCard(cb: (info: FocusedCardInfo | null) => void): Unsubscribe;
 
-  // --- Asset URLs (v3) ---------------------------------------------------
-  /** Returns the prioritized URL list for the given asset type and appid.
-   *  Loopback (local Steam cache) first, then customimages, then CDN. */
   getAssetUrls(appid: number, type: AssetType): string[];
 
-  // --- Environment probes ------------------------------------------------
-  hasTabMaster(): boolean;
-}
+  getProfiles(): ReadonlyArray<PublicProfile>;
+  getActiveProfile(): PublicProfile | null;
+  subscribeProfiles(cb: (profiles: ReadonlyArray<PublicProfile>) => void): Unsubscribe;
+  getIntegrations(): ReadonlyArray<IntegrationInfo>;
+  subscribeIntegrations(cb: (integrations: ReadonlyArray<IntegrationInfo>) => void): Unsubscribe;
 
-// ---------------------------------------------------------------------------
-// 3. IN-MEMORY REGISTRIES — lookup is O(1), iteration is insertion-order
-// ---------------------------------------------------------------------------
+  getSettingsSnapshot(): PublicSettingsSnapshot;
+  subscribeSettingsSnapshot(cb: (snapshot: PublicSettingsSnapshot) => void): Unsubscribe;
+  getEnvironment(): EnvironmentInfo;
+
+  hasTabMaster(): boolean;
+
+  registerSearchProvider(d: SearchProviderDescriptor): Unsubscribe;
+  getRegisteredSearchProviders(): ReadonlyArray<SearchProviderDescriptor>;
+  registerSideMenuProvider(d: SideMenuProviderDescriptor): Unsubscribe;
+  registerContextProvider(d: ContextProviderDescriptor): Unsubscribe;
+  getRegisteredContextProviders(): ReadonlyArray<ContextProviderDescriptor>;
+  registerWidgetProvider(d: WidgetProviderDescriptor): Unsubscribe;
+  getRegisteredWidgetProviders(): ReadonlyArray<WidgetProviderDescriptor>;
+  registerShelfRenderer(d: ShelfRendererDescriptor): Unsubscribe;
+  getRegisteredShelfRenderers(): ReadonlyArray<ShelfRendererDescriptor>;
+  registerMetadataProvider(d: MetadataProviderDescriptor): Unsubscribe;
+  getRegisteredMetadataProviders(): ReadonlyArray<MetadataProviderDescriptor>;
+  getRegisteredSideMenuProviders(): ReadonlyArray<SideMenuProviderDescriptor>;
+
+  registerStatisticsProvider(d: StatisticsProviderDescriptor): Unsubscribe;
+  getRegisteredStatisticsProviders(): ReadonlyArray<StatisticsProviderDescriptor>;
+  registerRecommendationProvider(d: RecommendationProviderDescriptor): Unsubscribe;
+  getRegisteredRecommendationProviders(): ReadonlyArray<RecommendationProviderDescriptor>;
+
+  registerTranslations(locale: string, dict: Record<string, string>): void;
+}
 
 const shelfSources = new Map<string, ExternalShelfSourceDescriptor>();
 const smartSources = new Map<string, SmartShelfSourceDescriptor>();
 const filterTypes = new Map<string, ExternalFilterTypeDescriptor>();
 const sortOptions = new Map<string, ExternalSortOptionDescriptor>();
 const importTypes = new Map<string, ExternalImportTypeDescriptor>();
-
-// ---------------------------------------------------------------------------
-// 4. INTERNAL ACCESSORS — used by `src/steam/index.ts` resolver paths to
-// delegate to external entries when an unknown id is encountered. Kept
-// out of the public API so plugins can't bypass guards.
-// ---------------------------------------------------------------------------
+const searchProviders = new Map<string, SearchProviderDescriptor>();
+const sideMenuProviders = new Map<string, SideMenuProviderDescriptor>();
+const contextProviders = new Map<string, ContextProviderDescriptor>();
+const widgetProviders = new Map<string, WidgetProviderDescriptor>();
+const shelfRenderers = new Map<string, ShelfRendererDescriptor>();
+const metadataProviders = new Map<string, MetadataProviderDescriptor>();
+const statisticsProviders = new Map<string, StatisticsProviderDescriptor>();
+const recommendationProviders = new Map<string, RecommendationProviderDescriptor>();
 
 export function resolveExternalSource(sourceId: string, limit: number): Promise<number[]> {
   const src = shelfSources.get(sourceId);
@@ -392,6 +424,52 @@ export function resolveExternalSmartSource(
 
 export function getExternalSmartSourceMeta(id: string): SmartShelfSourceDescriptor | undefined {
   return smartSources.get(id);
+}
+
+export function getExternalSmartSources(): SmartShelfSourceDescriptor[] {
+  return Array.from(smartSources.values());
+}
+
+export function getExternalFilterTypes(): ExternalFilterTypeDescriptor[] {
+  return Array.from(filterTypes.values());
+}
+
+export function getExternalSortOptions(): ExternalSortOptionDescriptor[] {
+  return Array.from(sortOptions.values());
+}
+
+export function getExternalSearchProviders(): SearchProviderDescriptor[] {
+  return Array.from(searchProviders.values()).sort(
+    (a, b) => (b.priority ?? 0) - (a.priority ?? 0),
+  );
+}
+
+export function getExternalSideMenuProviders(): SideMenuProviderDescriptor[] {
+  return Array.from(sideMenuProviders.values());
+}
+
+export function getExternalContextProviders(): ContextProviderDescriptor[] {
+  return Array.from(contextProviders.values());
+}
+
+export function getExternalWidgetProviders(): WidgetProviderDescriptor[] {
+  return Array.from(widgetProviders.values());
+}
+
+export function getExternalShelfRenderers(): ShelfRendererDescriptor[] {
+  return Array.from(shelfRenderers.values());
+}
+
+export function getExternalMetadataProviders(): MetadataProviderDescriptor[] {
+  return Array.from(metadataProviders.values());
+}
+
+export function getExternalStatisticsProviders(): StatisticsProviderDescriptor[] {
+  return Array.from(statisticsProviders.values());
+}
+
+export function getExternalRecommendationProviders(): RecommendationProviderDescriptor[] {
+  return Array.from(recommendationProviders.values());
 }
 
 export function hasExternalFilterType(id: string): boolean {
@@ -433,21 +511,10 @@ export function getExternalImportTypesForTarget(target: ImportTarget): ExternalI
   return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
 }
 
-/**
- * Internal helper for registering import types from inside the plugin
- * (e.g. the QAM registers TabMaster's custom flow at mount time). Equivalent
- * to calling `window.deckShelves.api.registerImportType(d)` but without
- * crossing the global window boundary — the unsubscribe is symmetric.
- */
 export function registerInternalImportType(d: ExternalImportTypeDescriptor): () => void {
   importTypes.set(d.id, d);
   return () => { importTypes.delete(d.id); };
 }
-
-// First-party id tracking. Lets external code detect collisions with
-// built-ins via `isInternalSmartSource` / `isInternalFilterType` /
-// `isInternalSortOption`. Resolver precedence is enforced by the call
-// sites — registering an internal id twice is harmless.
 
 const internalSmartSourceIds = new Set<string>();
 const internalFilterTypeIds = new Set<string>();
@@ -457,6 +524,18 @@ export function registerInternalSmartShelfSource(d: SmartShelfSourceDescriptor):
   internalSmartSourceIds.add(d.id);
   smartSources.set(d.id, d);
   return () => { internalSmartSourceIds.delete(d.id); smartSources.delete(d.id); };
+}
+
+const internalShelfSourceIds = new Set<string>();
+
+export function registerInternalShelfSource(d: ExternalShelfSourceDescriptor): () => void {
+  internalShelfSourceIds.add(d.id);
+  shelfSources.set(d.id, d);
+  return () => { internalShelfSourceIds.delete(d.id); shelfSources.delete(d.id); };
+}
+
+export function isInternalShelfSource(id: string): boolean {
+  return internalShelfSourceIds.has(id);
 }
 
 export function registerInternalFilterType(d: ExternalFilterTypeDescriptor): () => void {
@@ -471,26 +550,66 @@ export function registerInternalSortOption(d: ExternalSortOptionDescriptor): () 
   return () => { internalSortOptionIds.delete(d.id); sortOptions.delete(d.id); };
 }
 
-/** Returns `true` when the id matches a built-in smart-shelf source. */
+const internalSearchProviderIds = new Set<string>();
+
+export function registerInternalSearchProvider(d: SearchProviderDescriptor): () => void {
+  internalSearchProviderIds.add(d.id);
+  searchProviders.set(d.id, d);
+  return () => { internalSearchProviderIds.delete(d.id); searchProviders.delete(d.id); };
+}
+
+export function isInternalSearchProvider(id: string): boolean {
+  return internalSearchProviderIds.has(id);
+}
+
+const internalStatisticsProviderIds = new Set<string>();
+
+export function registerInternalStatisticsProvider(d: StatisticsProviderDescriptor): () => void {
+  internalStatisticsProviderIds.add(d.id);
+  statisticsProviders.set(d.id, d);
+  return () => { internalStatisticsProviderIds.delete(d.id); statisticsProviders.delete(d.id); };
+}
+
+export function isInternalStatisticsProvider(id: string): boolean {
+  return internalStatisticsProviderIds.has(id);
+}
+
+function hasExternalOnlyEntries(): boolean {
+  return !!(sideMenuProviders.size || contextProviders.size || widgetProviders.size
+    || shelfRenderers.size || metadataProviders.size || recommendationProviders.size
+    || importTypes.size);
+}
+
+// True when a third-party plugin has registered any provider. External-only
+// registries count any entry; mixed registries count entries not flagged
+// internal. Drives whether the Settings → Integrations tab appears.
+export function hasExternalIntegrations(): boolean {
+  if (hasExternalOnlyEntries()) return true;
+  const mixed: Array<[Map<string, unknown>, Set<string>]> = [
+    [shelfSources, internalShelfSourceIds],
+    [smartSources, internalSmartSourceIds],
+    [filterTypes, internalFilterTypeIds],
+    [sortOptions, internalSortOptionIds],
+    [searchProviders, internalSearchProviderIds],
+    [statisticsProviders, internalStatisticsProviderIds],
+  ];
+  for (const [reg, internal] of mixed) {
+    for (const id of reg.keys()) if (!internal.has(id)) return true;
+  }
+  return false;
+}
+
 export function isInternalSmartSource(id: string): boolean {
   return internalSmartSourceIds.has(id);
 }
 
-/** Returns `true` when the id matches a built-in filter type. */
 export function isInternalFilterType(id: string): boolean {
   return internalFilterTypeIds.has(id);
 }
 
-/** Returns `true` when the id matches a built-in sort option. */
 export function isInternalSortOption(id: string): boolean {
   return internalSortOptionIds.has(id);
 }
-
-// ---------------------------------------------------------------------------
-// 5. SAVED-FILTER REGISTRATION — wires into the user settings store. A
-// plugin-registered saved filter is persisted with id prefix `ext:<id>` so
-// it never collides with user-created entries; cleanup removes it.
-// ---------------------------------------------------------------------------
 
 const SAVED_FILTER_PREFIX = "ext:";
 
@@ -511,11 +630,6 @@ async function removeRegisteredSavedFilter(id: string): Promise<void> {
   await saveSettings({ ...s, savedFilters: next as any });
 }
 
-// ---------------------------------------------------------------------------
-// 6. CONSUMER PROJECTIONS — pure functions converting internal Settings to
-// the frozen Public* shapes. Kept narrow so we never leak internal fields.
-// ---------------------------------------------------------------------------
-
 function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
   if (!s) return [];
   const out: PublicShelf[] = [];
@@ -534,9 +648,6 @@ function projectShelves(s: Settings | null): ReadonlyArray<PublicShelf> {
       enabled: sh.enabled !== false,
       hidden: !!sh.hidden,
       limit: sh.limit ?? 20,
-      // Public API surface stays single-key: external consumers see only
-      // the primary sort even when the underlying shelf uses multi-key.
-      // A future Plugin API v3 bump could expose the full array.
       sort: Array.isArray(sh.sort) ? sh.sort[0] : sh.sort,
       source: pub,
     });
@@ -568,6 +679,77 @@ function projectSavedFilters(s: Settings | null): ReadonlyArray<PublicSavedFilte
   }));
 }
 
+const KNOWN_INTEGRATIONS: ReadonlyArray<{ id: string; displayName: string; detect: () => boolean }> = [
+  { id: "tabmaster", displayName: "TabMaster", detect: isTabMasterInstalled },
+  { id: "unifideck", displayName: "UnifiDeck", detect: isUnifiDeckInstalled },
+  { id: "nonsteambadges", displayName: "Non-Steam Badges", detect: isNonSteamBadgesInstalled },
+];
+
+function projectProfiles(s: Settings | null): ReadonlyArray<PublicProfile> {
+  if (!s) return [];
+  const list = ((s as any).profiles ?? []) as Array<{ id: string; name: string; createdAt: string }>;
+  const activeName = (s as any).activeProfileName;
+  return list.map((p) => ({
+    id: String(p.id),
+    name: String(p.name),
+    createdAt: String(p.createdAt ?? ""),
+    active: typeof activeName === "string" && activeName === p.name,
+  }));
+}
+
+function projectSettingsSnapshot(s: Settings | null): PublicSettingsSnapshot {
+  const x = (s ?? {}) as any;
+  return {
+    enabled: x.enabled === true,
+    hideRecents: x.hideRecents === true,
+    recentsReplaceSource: x.recentsReplaceSource === true,
+    hideHomeTabs: x.hideHomeTabs === true,
+    shelfHeroBackground: x.shelfHeroBackground === true,
+    globalHeroEnabled: x.globalHeroEnabled === true,
+    globalFullPageShelf: x.globalFullPageShelf === true,
+    smartShelvesEnabled: x.smartShelvesEnabled === true,
+    unifiedListEnabled: x.unifiedListEnabled === true,
+    forceCssLoaderThemes: x.forceCssLoaderThemes === true,
+    lightModeEnabled: x.lightModeEnabled === true,
+    onlineFeaturesEnabled: x.onlineFeaturesEnabled === true,
+    updateNotifyEnabled: x.updateNotifyEnabled !== false,
+    integrationsEnabled: (x.integrationsEnabled ?? {}) as Record<string, boolean>,
+    featureToggles: (x.featureToggles ?? {}) as Record<string, boolean>,
+    activeProfileName: typeof x.activeProfileName === "string" ? x.activeProfileName : null,
+  };
+}
+
+function detectLocale(): string {
+  try {
+    const nav = (globalThis as any).navigator;
+    const lang = nav?.language;
+    if (typeof lang === "string" && lang.length > 0) return lang;
+  } catch {}
+  return "en-US";
+}
+
+function detectGamepadUi(): boolean {
+  try {
+    const doc = (globalThis as any).document;
+    if (!doc) return false;
+    const body = doc.body || doc.documentElement;
+    if (!body) return false;
+    return body.classList?.contains("gamepad") === true
+      || body.classList?.contains("bigpicture") === true
+      || !!doc.querySelector?.("[class*='gamepadui_GamepadUI']");
+  } catch { return false; }
+}
+
+function projectIntegrations(s: Settings | null): ReadonlyArray<IntegrationInfo> {
+  const enabledMap = (s ? ((s as any).integrationsEnabled ?? {}) : {}) as Record<string, boolean>;
+  return KNOWN_INTEGRATIONS.map((it) => {
+    let installed = false;
+    try { installed = it.detect(); } catch {}
+    const enabled = enabledMap[it.id] !== false;
+    return { id: it.id, displayName: it.displayName, installed, enabled };
+  });
+}
+
 function projectSavedSmartFilters(s: Settings | null): ReadonlyArray<PublicSavedSmartFilter> {
   if (!s) return [];
   const list = ((s as any).savedSmartFilters ?? []) as any[];
@@ -585,43 +767,34 @@ function projectSavedSmartFilters(s: Settings | null): ReadonlyArray<PublicSaved
   }));
 }
 
-// ---------------------------------------------------------------------------
-// 7. API CONSTRUCTOR
-// ---------------------------------------------------------------------------
-
 function makeApi(): DeckShelvesPublicAPI {
   return {
-    version: 3,
+    version: 4,
 
-    // v1
     registerShelfSource(d) {
       shelfSources.set(d.id, d);
       return () => { shelfSources.delete(d.id); };
     },
     getRegisteredSources() { return Array.from(shelfSources.values()); },
 
-    // Smart sources
     registerSmartShelfSource(d) {
       smartSources.set(d.id, d);
       return () => { smartSources.delete(d.id); };
     },
     getRegisteredSmartSources() { return Array.from(smartSources.values()); },
 
-    // Filter types
     registerFilterType(d) {
       filterTypes.set(d.id, d);
       return () => { filterTypes.delete(d.id); };
     },
     getRegisteredFilterTypes() { return Array.from(filterTypes.values()); },
 
-    // Sort options
     registerSortOption(d) {
       sortOptions.set(d.id, d);
       return () => { sortOptions.delete(d.id); };
     },
     getRegisteredSortOptions() { return Array.from(sortOptions.values()); },
 
-    // Import types
     registerImportType(d) {
       importTypes.set(d.id, d);
       return () => { importTypes.delete(d.id); };
@@ -631,21 +804,58 @@ function makeApi(): DeckShelvesPublicAPI {
       return Array.from(importTypes.values()).filter((d) => (d.target ?? "shelves") === target);
     },
 
-    // Saved filters — persisted in user settings under prefixed id
     registerSavedFilter(d) {
       void persistRegisteredSavedFilter(d);
       return () => { void removeRegisteredSavedFilter(d.id); };
     },
 
-    // Environment probe
     hasTabMaster() { return isTabMasterInstalled(); },
 
-    // ---- Consumer contracts ------------------------------------------------
-    // Reads project from the live settings snapshot in `settingsStore`.
-    // Subscriptions are diff-gated by JSON identity so callers only fire on
-    // real change (the store itself already de-dupes via `isSameSettings`,
-    // but a downstream consumer that only watches shelves should not wake on
-    // unrelated settings flips).
+    registerSearchProvider(d) {
+      searchProviders.set(d.id, d);
+      return () => { searchProviders.delete(d.id); };
+    },
+    getRegisteredSearchProviders() { return getExternalSearchProviders(); },
+
+    registerSideMenuProvider(d) {
+      sideMenuProviders.set(d.id, d);
+      return () => { sideMenuProviders.delete(d.id); };
+    },
+    getRegisteredSideMenuProviders() { return getExternalSideMenuProviders(); },
+
+    registerContextProvider(d) {
+      contextProviders.set(d.id, d);
+      return () => { contextProviders.delete(d.id); };
+    },
+    getRegisteredContextProviders() { return getExternalContextProviders(); },
+    registerWidgetProvider(d) {
+      widgetProviders.set(d.id, d);
+      return () => { widgetProviders.delete(d.id); };
+    },
+    getRegisteredWidgetProviders() { return getExternalWidgetProviders(); },
+    registerShelfRenderer(d) {
+      shelfRenderers.set(d.id, d);
+      return () => { shelfRenderers.delete(d.id); };
+    },
+    getRegisteredShelfRenderers() { return getExternalShelfRenderers(); },
+    registerMetadataProvider(d) {
+      metadataProviders.set(d.id, d);
+      return () => { metadataProviders.delete(d.id); };
+    },
+    getRegisteredMetadataProviders() { return getExternalMetadataProviders(); },
+    registerStatisticsProvider(d) {
+      statisticsProviders.set(d.id, d);
+      return () => { statisticsProviders.delete(d.id); };
+    },
+    getRegisteredStatisticsProviders() { return getExternalStatisticsProviders(); },
+    registerRecommendationProvider(d) {
+      recommendationProviders.set(d.id, d);
+      return () => { recommendationProviders.delete(d.id); };
+    },
+    getRegisteredRecommendationProviders() { return getExternalRecommendationProviders(); },
+
+    registerTranslations(locale, dict) { registerTranslations(locale, dict); },
+
     getShelves() { return projectShelves(getCurrentSettings()); },
     getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
     getSavedFilters() { return projectSavedFilters(getCurrentSettings()); },
@@ -681,7 +891,6 @@ function makeApi(): DeckShelvesPublicAPI {
       });
     },
 
-    // --- v3 -------------------------------------------------------------
     getFocusedCard() {
       const { getFocusedCard } = requireFocusTracker();
       return getFocusedCard();
@@ -690,6 +899,52 @@ function makeApi(): DeckShelvesPublicAPI {
       const { subscribeFocusedCard } = requireFocusTracker();
       return subscribeFocusedCard(cb);
     },
+    getProfiles() { return projectProfiles(getCurrentSettings()); },
+    getActiveProfile() {
+      const all = projectProfiles(getCurrentSettings());
+      return all.find((p) => p.active) ?? null;
+    },
+    subscribeProfiles(cb) {
+      let last = JSON.stringify(projectProfiles(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectProfiles(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    getIntegrations() { return projectIntegrations(getCurrentSettings()); },
+    subscribeIntegrations(cb) {
+      let last = JSON.stringify(projectIntegrations(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectIntegrations(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    getSettingsSnapshot() { return projectSettingsSnapshot(getCurrentSettings()); },
+    subscribeSettingsSnapshot(cb) {
+      let last = JSON.stringify(projectSettingsSnapshot(getCurrentSettings()));
+      return subscribeSettings((s) => {
+        const next = projectSettingsSnapshot(s);
+        const key = JSON.stringify(next);
+        if (key === last) return;
+        last = key;
+        try { cb(next); } catch {}
+      });
+    },
+    getEnvironment() {
+      return {
+        pluginVersion: typeof pkg?.version === "string" ? pkg.version : "0.0.0",
+        apiVersion: 4,
+        locale: detectLocale(),
+        isGamepadUi: detectGamepadUi(),
+      };
+    },
+
     getAssetUrls(appid, type) {
       const a = requireAssets();
       switch (type) {
@@ -706,36 +961,14 @@ function makeApi(): DeckShelvesPublicAPI {
   };
 }
 
-// Direct re-imports — these are leaf modules with no top-level
-// side-effects, so eager binding is fine and keeps the API constructor
-// dependency-free of runtime require()s.
 import * as focusTracker from "./focusedCardTracker";
 import * as assets from "./steamAssets";
 function requireFocusTracker(): typeof focusTracker { return focusTracker; }
 function requireAssets(): typeof assets { return assets; }
 
-// ---------------------------------------------------------------------------
-// 7. INSTALL / UNINSTALL
-// ---------------------------------------------------------------------------
-
-/**
- * Event dispatched on `window` immediately after the API surface is installed.
- * No detail payload — consumers go through `window.deckShelves.api` or use
- * `register()` from `@deck-shelves/api` which queues until ready.
- */
 export const READY_EVENT = "deck-shelves:ready";
-
-/**
- * Event dispatched on `window` immediately before the API is torn down
- * (Deck Shelves unloading). Registered integrations get their `onUnmount`
- * fired first; this event is a final signal for non-SDK consumers that
- * cached the API directly.
- */
 export const TEARDOWN_EVENT = "deck-shelves:teardown";
 
-/** Pending integrations queued by the SDK before the plugin loaded. The
- *  SDK pushes here via `globalThis[Symbol.for('deck-shelves/pending')]`;
- *  install drains the queue at the same time as it installs the global. */
 const PENDING_KEY = Symbol.for("deck-shelves/pending");
 type PendingEntry = {
   integration: DeckShelvesIntegration;
@@ -756,20 +989,12 @@ function drainPendingIntegrations(api: DeckShelvesPublicAPI, register: (i: DeckS
   return offs;
 }
 
-/**
- * Hook for the internal-registry bootstrap. The actual implementation lives
- * in `core/internalRegistry.ts` (which imports the `register*` helpers from
- * here) and registers itself by setting this slot at module-load time.
- * Keeping the binding indirect avoids the import cycle that would result
- * from this module importing `internalRegistry.ts` directly.
- */
+// Indirect binding so internalRegistry.ts can register without importing this module directly.
 let internalBootstrap: (() => () => void) | null = null;
 export function setInternalBootstrap(fn: () => () => void): void { internalBootstrap = fn; }
 
 export function installPluginApi(): () => void {
   const api = makeApi();
-  // Register every first-party id BEFORE exposing the global so plugins
-  // that listen for `deck-shelves:ready` see the full built-in surface.
   const uninstallInternals = internalBootstrap ? internalBootstrap() : () => {};
 
   const integrationUnsubs: Unsubscribe[] = [];
@@ -788,9 +1013,6 @@ export function installPluginApi(): () => void {
     };
   };
 
-  // The single public global. No underscores, no surface beyond what the
-  // contract exposes. Power users that need a direct API handle use
-  // `window.deckShelves.api`; everyone else should `register()`.
   const deckShelves = {
     version: api.version,
     api,
@@ -798,7 +1020,6 @@ export function installPluginApi(): () => void {
   };
   try { (window as unknown as { deckShelves: typeof deckShelves }).deckShelves = deckShelves; } catch {}
 
-  // Drain SDK-queued integrations.
   for (const u of drainPendingIntegrations(api, register)) integrationUnsubs.push(u);
 
   try { window.dispatchEvent(new CustomEvent(READY_EVENT)); } catch {}
@@ -814,5 +1035,7 @@ export function installPluginApi(): () => void {
     filterTypes.clear();
     sortOptions.clear();
     importTypes.clear();
+    statisticsProviders.clear();
+    recommendationProviders.clear();
   };
 }

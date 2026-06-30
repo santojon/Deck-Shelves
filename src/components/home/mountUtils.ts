@@ -9,7 +9,6 @@ export const ROOT_ID = "deck-shelves-home-root";
 // Fallback for the native shelf-section token before the classmap warms.
 const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
-/** Deterministic Fisher–Yates shuffle (seed → reproducible order). */
 export function seededShuffle<T>(arr: T[], seed: number): T[] {
   const out = [...arr];
   let s = (seed | 0) >>> 0;
@@ -40,12 +39,10 @@ function windowIsOnHome(win: Window): boolean {
   } catch { return false; }
 }
 
-/** True if any known Steam window currently points at /library/home. */
 export function isHomeRoute(): boolean {
   return collectKnownWindows().some(windowIsOnHome);
 }
 
-/** DOM-signal fallback for the home view when the route check is unreliable. */
 export function hasHomeDomSignals(): boolean {
   const doc = getPreferredSteamDocument();
   if (!doc) return false;
@@ -71,7 +68,6 @@ function findGamepadNavRoot(ctrl: any): any {
   return main.Root || main.m_Root;
 }
 
-/** Lightweight probe — does Steam's gamepad nav tree look healthy? */
 export function detectNavTreeApi(): { available: boolean; detail: string } {
   try {
     const ctrl = findGamepadNavController();
@@ -153,7 +149,6 @@ function findAnchorByContainer(doc: Document): { parent: HTMLElement; before: Ch
   return null;
 }
 
-/** Walks the home DOM looking for a stable insertion point AFTER native recents. */
 export function resolveAnchor(doc?: Document): { parent: HTMLElement; before: ChildNode | null } | null {
   doc = doc ?? getPreferredSteamDocument();
   if (!doc) return null;
@@ -204,8 +199,6 @@ function createMountIn(docs: Document[]): HTMLElement | null {
   return null;
 }
 
-/** Returns the home mount element — reused if still connected, or
- *  re-inserted/created as needed across all known Steam docs. */
 export function findOrCreateMount(): HTMLElement | null {
   const docs = collectKnownDocs();
   for (const d of docs) {

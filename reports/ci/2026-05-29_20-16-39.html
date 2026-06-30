@@ -26,8 +26,9 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .n.p{color:var(--pass)}.n.f{color:var(--fail)}.n.s{color:var(--skip)}.n.t{color:var(--muted)}
 .step{background:var(--card);border:1px solid var(--border);border-radius:9px;
   margin-bottom:10px}
-.step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;
+.step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;list-style:none;
   cursor:pointer;user-select:none;border-radius:9px}
+.step-hdr::-webkit-details-marker{display:none}
 .step-hdr:hover{background:#273548}
 .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .dot.pass{background:var(--pass)}.dot.fail{background:var(--fail);box-shadow:0 0 5px var(--fail)}
@@ -37,9 +38,10 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .slabel.pass{background:#14532d44;color:var(--pass)}
 .slabel.fail{background:#7f1d1d44;color:var(--fail)}
 .slabel.skip{background:#1e293b;color:var(--skip)}
-.chevron{font-size:11px;color:var(--muted)}
-.step-body{display:none;border-top:1px solid var(--border);border-radius:0 0 9px 9px}
-.step-body.open{display:block}
+.chevron{font-size:11px;color:var(--muted);display:inline-block;transition:transform .15s}
+.step[open] .chevron{transform:rotate(90deg)}
+.step-body{border-top:1px solid var(--border);border-radius:0 0 9px 9px}
+
 .test-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;
   background:#0d1b2a;border-bottom:1px solid var(--border);font-size:12px}
 .test-bar .tp{color:var(--pass)}.test-bar .tf{color:var(--fail)}
@@ -73,12 +75,12 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
     <div class="sc"><div class="n s">0</div><div class="l">Skipped</div></div>
     <div class="sc"><div class="n t">6</div><div class="l">Total</div></div>
   </div>
-<div class="step" id="s0"><div class="step-hdr" onclick="toggle(0)"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></div><div class="step-body" id="b0"><pre class="log">
+<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></summary><div class="step-body" id="b0"><pre class="log">
 &gt; deck-shelves@2.3.2 typecheck /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; tsc --noEmit
 
-</pre></div></div>
-<div class="step" id="s1"><div class="step-hdr" onclick="toggle(1)"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></div><div class="step-body" id="b1"><pre class="log">
+</pre></div></details>
+<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></summary><div class="step-body" id="b1"><pre class="log">
 &gt; deck-shelves@2.3.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
@@ -99,8 +101,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 [INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/imageCache.ts">src/core/imageCache.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/index.ts">src/index.ts</a>x but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/shelf/GameCard.ts">src/components/shelf/GameCard.ts</a>x, dynamic import will not move module into another chunk.
 
 <span class="g">✓ built in 530ms</span>
-</pre></div></div>
-<div class="step" id="s2"><div class="step-hdr" onclick="toggle(2)"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></div><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 22 passed</span></div><pre class="log">
+</pre></div></details>
+<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 22 passed</span></div><pre class="log">
 &gt; deck-shelves@2.3.2 test /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; vitest run
 
@@ -135,8 +137,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
    Start at  20:16:48
    Duration  3.31s (transform 1.84s, setup 0ms, import 4.04s, tests 535ms, environment 965ms)
 
-</pre></div></div>
-<div class="step" id="s3"><div class="step-hdr" onclick="toggle(3)"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></div><div class="step-body" id="b3"><pre class="log">
+</pre></div></details>
+<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></summary><div class="step-body" id="b3"><pre class="log">
 &gt; deck-shelves@2.3.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
@@ -167,8 +169,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">[verify] plugin.json flags OK (no debug)</span>
 [verify] package.json matches repo
 [verify] Package OK: /home/runner/work/Deck-Shelves/Deck-Shelves/deck-shelves-v2.3.2.zip
-</pre></div></div>
-<div class="step" id="s4"><div class="step-hdr" onclick="toggle(4)"><div class="dot pass"></div><span class="sname">Verify package</span><span class="slabel pass">PASS</span><span class="chevron" id="c4">▶</span></div><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
+</pre></div></details>
+<details class="step" id="s4"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Verify package</span><span class="slabel pass">PASS</span><span class="chevron" id="c4">▶</span></summary><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
 [verify] Found: package.json
 [verify] Found: main.py
 [verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
@@ -177,8 +179,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">[verify] plugin.json flags OK (no debug)</span>
 [verify] package.json matches repo
 [verify] Package OK: deck-shelves-v2.3.2.zip
-</pre></div></div>
-<div class="step" id="s5"><div class="step-hdr" onclick="toggle(5)"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></div><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
+</pre></div></details>
+<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
 &gt; deck-shelves@2.3.2 validate:compat /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; bash <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/validate-compat.sh">scripts/build/validate-compat.sh</a>
 
@@ -620,17 +622,9 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ SteamOS GamepadUI (3.5–3.9)</span>
 
 <span class="g">  🎉 All 39 compatibility checks passed!</span>
-</pre></div></div>
+</pre></div></details>
 
 </main>
 <footer>Deck Shelves CI &middot; 2026-05-29_20-16-39</footer>
-<script>
-function toggle(i){
-  var b=document.getElementById('b'+i);
-  var c=document.getElementById('c'+i);
-  var open=b.classList.toggle('open');
-  c.textContent=open?'▼':'▶';
-}
-</script>
 </body>
 </html>

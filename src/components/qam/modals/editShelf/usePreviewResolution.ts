@@ -158,8 +158,6 @@ async function resolveFilteredIds(args: ResolveArgs): Promise<number[]> {
   return isOnlineShelf ? await filterOwnedForOnline(rawIds, state) : rawIds;
 }
 
-/** Owns the preview's resolve → ids → meta pipeline. Mirrors Shelf.tsx's
- *  wiring so the modal count + render matches the home. */
 export function usePreviewResolution(props: Props): Result {
   const { state, previewSource, previewShelfId, hiddenPickerOpen, previewRefreshNonce, platform } = props;
   const [previewCount, setPreviewCount] = useState<number | null>(null);

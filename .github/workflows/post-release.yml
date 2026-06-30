@@ -1,8 +1,16 @@
-name: Post Release (Discord)
+name: Post Release (Discord + Reddit)
+
+# On every published release (also runnable manually via workflow_dispatch):
+#   Discord — auto-posts an embed to a webhook. Secret: DISCORD_WEBHOOK_URL
+#             (skips silently if unset, so it never fails a release).
+#   Reddit  — does NOT auto-post (Reddit's API now needs pre-approval). Instead
+#             it builds a ready-to-post submit link (title + body pre-filled) and
+#             writes it to the workflow run's Summary — open it, click, hit Post.
+#             Variable (optional): REDDIT_SUBREDDIT (default: DeckShelves).
 
 on:
-  # release:
-  #   types: [published]
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -41,15 +49,18 @@ jobs:
             NAME=$(echo "$REL_JSON" | jq -r '.name // empty')
             BODY=$(echo "$REL_JSON" | jq -r '.body // empty')
             URL=$(echo "$REL_JSON" | jq -r '.html_url // empty')
+            PRERELEASE=$(echo "$REL_JSON" | jq -r '.prerelease // false')
             TAG="$TAG_NAME"
           else
             TAG_NAME=$(jq -r '.release.tag_name // empty' "$GITHUB_EVENT_PATH")
             NAME=$(jq -r '.release.name // empty' "$GITHUB_EVENT_PATH")
             BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
             URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+            PRERELEASE=$(jq -r '.release.prerelease // false' "$GITHUB_EVENT_PATH")
           fi
           RAW_URL="https://raw.githubusercontent.com/$REPO/${TAG:-main}/assets/screenshots/home.png"
           TITLE="$([ -n "$NAME" ] && echo "$NAME" || echo "$TAG_NAME")"
+          if [ "$PRERELEASE" = "true" ]; then TITLE="🧪 Pre-release · $TITLE"; fi
           DESC=$(printf "%s" "$BODY" | tr -d '\r' | head -c 3800)
           DESC="$DESC\n\nReleases: https://github.com/$REPO/releases"
 
@@ -68,3 +79,55 @@ jobs:
             ]
           }')
           curl -s -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL" || true
+
+  reddit-link:
+    name: Reddit submit link
+    # Stable releases only — no Reddit post for alpha/beta/rc.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease != true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build ready-to-post Reddit link
+        env:
+          REDDIT_SUBREDDIT: ${{ vars.REDDIT_SUBREDDIT }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ -n "$INPUT_TAG" ]; then
+              REL_JSON=$(gh api "repos/$REPO/releases/tags/$INPUT_TAG")
+            else
+              REL_JSON=$(gh api "repos/$REPO/releases/latest")
+            fi
+            TITLE=$(echo "$REL_JSON" | jq -r '.name // .tag_name // empty')
+            BODY=$(echo "$REL_JSON"  | jq -r '.body // empty')
+            URL=$(echo "$REL_JSON"   | jq -r '.html_url // empty')
+          else
+            TITLE=$(jq -r '.release.name // .release.tag_name // empty' "$GITHUB_EVENT_PATH")
+            BODY=$(jq -r '.release.body // empty' "$GITHUB_EVENT_PATH")
+            URL=$(jq -r '.release.html_url // empty' "$GITHUB_EVENT_PATH")
+          fi
+          RSUB="${REDDIT_SUBREDDIT:-DeckShelves}"
+          # Title + body pre-filled (body trimmed; full notes linked). Reddit's
+          # submit page reliably pre-fills `title`; `text` pre-fills the body on
+          # most clients — the copy-paste block below is the fallback.
+          RTITLE="Deck Shelves $TITLE"
+          RBODY=$(printf '%s\n\n---\nFull release notes: %s' "$(printf '%s' "$BODY" | tr -d '\r' | head -c 1500)" "$URL")
+          ENC_T=$(jq -rn --arg s "$RTITLE" '$s|@uri')
+          ENC_B=$(jq -rn --arg s "$RBODY"  '$s|@uri')
+          SUBMIT="https://www.reddit.com/r/$RSUB/submit?title=$ENC_T&text=$ENC_B"
+          {
+            echo "## 📮 Post this release to r/$RSUB"
+            echo ""
+            echo "**[→ Open Reddit with the title + body pre-filled]($SUBMIT)** — review and hit *Post*."
+            echo ""
+            echo "<details><summary>If the body doesn't pre-fill, copy it</summary>"
+            echo ""
+            echo '```'
+            printf '%s\n' "$RBODY"
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Reddit submit link: $SUBMIT"

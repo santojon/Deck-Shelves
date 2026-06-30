@@ -1,0 +1,462 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { TextField } from "../../runtime/host/decky";
+import { getExternalSearchProviders, type SearchHit } from "../../core/pluginApi";
+import { isHomeRoute } from "../../components/home/mountUtils";
+import { getCurrentSettings, subscribeSettings } from "../../settingsStore";
+import { GamepadButton, subscribeHomeButton } from "../../runtime/homeInputBus";
+import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
+import { trackFeature } from "../../steam/usageTracking";
+import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
+import { getPreferredSteamDocument } from "../../runtime/steamHost";
+import { focusElement } from "../../core/focusRestore";
+import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
+
+const MIN_CHARS = 3;
+const SEARCH_LIMIT = 30;
+const DEBOUNCE_MS = 1200;
+const PAUSE_BEFORE_MOVE_MS = 800;
+const MEMORY_TTL_MS = 30_000;
+
+// Session memory: last typed query lives MEMORY_TTL_MS, then resets.
+let lastSessionQuery = "";
+let lastSessionAt = 0;
+
+function readSessionQuery(): string {
+  if (!lastSessionQuery) return "";
+  if (Date.now() - lastSessionAt > MEMORY_TTL_MS) {
+    lastSessionQuery = "";
+    return "";
+  }
+  return lastSessionQuery;
+}
+
+function tryOpenSteamKeyboard(): void {
+  const g = globalThis as any;
+  const attempts: Array<() => any> = [
+    () => g.SteamClient?.Input?.OpenGamepadKeyboard?.(0),
+    () => g.SteamClient?.Input?.ShowGamepadKeyboard?.(),
+    () => g.opener?.SteamClient?.Input?.OpenGamepadKeyboard?.(0),
+    () => g.opener?.SteamClient?.Input?.ShowGamepadKeyboard?.(),
+    () => g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.SteamClient?.Input?.OpenGamepadKeyboard?.(0),
+  ];
+  for (const a of attempts) {
+    try { const r = a(); if (r !== undefined) return; } catch {}
+  }
+}
+
+function dismissSteamKeyboard(): void {
+  // ModalKeyboardDismissed / StandaloneKeyboardDismissed live on
+  /* opener.SteamClient.Input (SharedJSContext side) and on the global
+     SteamClient — NOT on BrowserWindow.SteamClient.Input which only
+     exposes device-change registration. Using `??` against the BP Input
+     object fails silently because BP Input IS defined (just has no
+     keyboard methods), so the fallback never fires. */
+  try {
+    const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
+    const openerInput = view?.opener?.SteamClient?.Input;
+    const globalInput = (globalThis as any).SteamClient?.Input;
+    const Input = openerInput ?? globalInput;
+    Input?.ModalKeyboardDismissed?.();
+    Input?.StandaloneKeyboardDismissed?.();
+  } catch {}
+}
+
+export function SearchOverlay() {
+  try { (globalThis as any).__ds_search_mounted = (((globalThis as any).__ds_search_mounted ?? 0) + 1); } catch {}
+  // Light mode strips advanced features for simplicity / battery — the
+  // Quick Search pill is one of them. User toggle stays untouched.
+  const [enabled, setEnabled] = useState(() => {
+    const s = getCurrentSettings() as any;
+    return s?.enabled === true && s?.contextSearchEnabled === true && s?.lightModeEnabled !== true;
+  });
+  // Virtual-keyboard default is ON; opt-out via the new toggle.
+  const [kbEnabled, setKbEnabled] = useState(() => (getCurrentSettings() as any)?.contextSearchKeyboardEnabled !== false);
+  // Enter-only default is OFF (debounce mode).
+  const [onEnter, setOnEnter] = useState(() => (getCurrentSettings() as any)?.contextSearchOnEnter === true);
+  useEffect(() => subscribeSettings((s) => {
+    setEnabled((s as any)?.enabled === true && (s as any)?.contextSearchEnabled === true && (s as any)?.lightModeEnabled !== true);
+    setKbEnabled((s as any)?.contextSearchKeyboardEnabled !== false);
+    setOnEnter((s as any)?.contextSearchOnEnter === true);
+  }), []);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const debounceRef = useRef<number | null>(null);
+  const moveTimerRef = useRef<number | null>(null);
+  const searchAbort = useRef(0);
+  const priorFocusRef = useRef<HTMLElement | null>(null);
+
+  const close = useCallback((opts?: { restorePrior?: boolean; clearSession?: boolean }) => {
+    const restorePrior = opts?.restorePrior !== false;
+    if (opts?.clearSession) {
+      lastSessionQuery = "";
+      lastSessionAt = 0;
+    } else {
+      lastSessionQuery = query;
+      lastSessionAt = Date.now();
+    }
+    // Dismiss keyboard WHILE input is still mounted. ModalKeyboardDismissed
+    // needs the keyboard to be "active" to work; calling it after unmount
+    // has no target to dismiss.
+    dismissSteamKeyboard();
+    setOpen(false);
+    setQuery("");
+    if (debounceRef.current != null) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (moveTimerRef.current != null) {
+      window.clearTimeout(moveTimerRef.current);
+      moveTimerRef.current = null;
+    }
+    const prior = priorFocusRef.current;
+    priorFocusRef.current = null;
+    if (restorePrior && prior) {
+      // Same delay as the match path — overlay unmounts, NavTree drops
+      // the input node, THEN we land focus on the prior card. Without
+      // the delay the input still wins the focus race.
+      window.setTimeout(() => {
+        try { if (prior.isConnected) focusElement(prior); } catch {}
+      }, 180);
+    }
+  }, [query]);
+
+  // Runner used by both debounce path AND the Enter-only path. Picks
+  // the top hit across all providers and navigates to it (or closes
+  // silently if nothing matched).
+  const runQuery = useCallback(async (q: string) => {
+    if (q.trim().length < MIN_CHARS) return;
+    const myToken = ++searchAbort.current;
+    // The built-in Quick Search provider is registered through the
+    // public Plugin API (`internalRegistry.ts`) so it lives in the
+    /* same `getExternalSearchProviders()` list as third-party
+       providers. Ordering is by `priority` desc — the built-in's
+       priority of 100 keeps it first when ties on hit score appear.
+       — drop providers the user explicitly disabled in
+       the Integrations detail panel (`integrationsEnabled[id] === false`). */
+    const integrationsEnabled = (getCurrentSettings() as any)?.integrationsEnabled ?? {};
+    const providers = getExternalSearchProviders().filter((p) => integrationsEnabled[p.id] !== false);
+    const settled = await Promise.allSettled(
+      providers.map((p) => Promise.resolve(p.search(q, SEARCH_LIMIT)).catch(() => [])),
+    );
+    if (myToken !== searchAbort.current) return;
+    const merged: SearchHit[] = [];
+    const seen = new Set<string>();
+    for (const result of settled) {
+      if (result.status !== "fulfilled") continue;
+      for (const hit of result.value) {
+        if (seen.has(hit.id)) continue;
+        seen.add(hit.id);
+        merged.push(hit);
+      }
+    }
+    merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const first = merged[0];
+    if (first) {
+      // Close FIRST so React unmounts SearchPill and cleanup runs
+      /* (sets cancelled=true, removes the reclaim focusout listener).
+         Without this, onActivate() → BTakeFocus on card → input loses
+         focus → reclaim() fires → re-focuses input → card never gets
+         focus. After close() + one rAF (enough for React unmount), the
+         reclaim listener is gone and BTakeFocus lands cleanly. */
+      close({ restorePrior: false, clearSession: true });
+      requestAnimationFrame(() => {
+        try { first.onActivate?.(); } catch {}
+      });
+    } else {
+      close();
+    }
+  }, [close]);
+
+  // Open trigger driven by the configured navSearch combo. When OPEN,
+  // any single CANCEL/L1/R1 closes (the close legend stays fixed so the
+  // user always has a graceful out).
+  const matcherStateRef = useRef(createMatcherState());
+  const rawMatcherStateRef = useRef(createMatcherState());
+  const lastOpenAtRef = useRef(0);
+  const openSearch = useCallback(() => {
+    if (!isHomeRoute()) return;
+    if (isOverlayLocked()) return;
+    const now = Date.now();
+    if (now - lastOpenAtRef.current < 350) return;
+    lastOpenAtRef.current = now;
+    lockOverlay();
+    try {
+      const doc = getPreferredSteamDocument() ?? document;
+      const focused = doc.querySelector<HTMLElement>(".gpfocus[data-appid]");
+      if (focused) priorFocusRef.current = focused;
+    } catch {}
+    void (async () => {
+      await closeAmbientOverlays();
+      setQuery(readSessionQuery());
+      setOpen(true);
+      trackFeature("search");
+      window.setTimeout(tryOpenSteamKeyboard, 60);
+    })();
+  }, []);
+  /* Dev-only screenshot hook: opens the search pill (and optionally seeds a
+     query) without the Steam gamepad keyboard, which can't be driven over
+     CDP. The pill + results render into the BP DOM regardless of the OSK.
+     Stripped from release via `if (!__DEV__)`. */
+  useEffect(() => {
+    if (!__DEV__) return;
+    const g = globalThis as any;
+    g.__ds_dev_open_search = (q?: string) => {
+      setOpen(true);
+      if (typeof q === "string") setQuery(q);
+      return true;
+    };
+    g.__ds_dev_close_search = () => setOpen(false);
+    return () => { try { delete g.__ds_dev_open_search; delete g.__ds_dev_close_search; } catch {} };
+  }, []);
+  useEffect(() => {
+    if (!enabled) return;
+    try { (globalThis as any).__ds_search_enabled = enabled; } catch {}
+    return subscribeHomeButton((e) => {
+      if (open) {
+        if (
+          e.button === GamepadButton.CANCEL
+          || e.button === GamepadButton.BUMPER_LEFT
+          || e.button === GamepadButton.BUMPER_RIGHT
+        ) { close(); return; }
+        return;
+      }
+      const combo = parseCombo(resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSearch);
+      if (!matchEvent({ button: e.button }, combo, matcherStateRef.current)) return;
+      openSearch();
+    });
+  }, [enabled, open, close, openSearch]);
+  /* Parallel raw-stream trigger so the combo fires regardless of where
+     focus sits (QAM, Steam menu, context menu, native recents). Decky's
+     home-button bus only fires when a DS card holds focus; the raw bus
+     listens globally. `openSearch` debounces so the two paths can both
+     fire without double-opening. */
+  useEffect(() => {
+    if (!enabled || open) return;
+    return subscribeControllerInput((e) => {
+      if (!e.pressed) return;
+      const navSearch = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled).navSearch;
+      if (!navSearch) return;
+      const combo = parseRawCombo(navSearch);
+      if (!matchEvent({ button: e.button }, combo, rawMatcherStateRef.current)) return;
+      openSearch();
+    });
+  }, [enabled, open, openSearch]);
+
+  // While the pill is open, listen on the BP-polled controller bus
+  // directly — it fires regardless of which element holds gpfocus, so
+  // L1, R1 and B close even when the input has the NavTree focus.
+  useEffect(() => {
+    if (!open) return;
+    return subscribeControllerInput((e) => {
+      if (!e.pressed) return;
+      if (
+        e.button === RawBtn.L1
+        || e.button === RawBtn.R1
+        || e.button === RawBtn.B
+      ) close();
+    });
+  }, [open, close]);
+
+  // Auto-debounce path — only when the user did NOT opt into Enter-only.
+  useEffect(() => {
+    if (!open) return;
+    if (onEnter) return;
+    if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
+    if (moveTimerRef.current != null) window.clearTimeout(moveTimerRef.current);
+    if (query.trim().length < MIN_CHARS) return;
+    debounceRef.current = window.setTimeout(() => {
+      moveTimerRef.current = window.setTimeout(() => {
+        moveTimerRef.current = null;
+        void runQuery(query);
+      }, PAUSE_BEFORE_MOVE_MS);
+    }, DEBOUNCE_MS);
+  }, [query, open, onEnter, runQuery]);
+
+  if (!open) return null;
+  return (
+    <SearchPill
+      query={query}
+      onChange={setQuery}
+      keyboardEnabled={kbEnabled}
+      onEnter={onEnter ? () => void runQuery(query) : undefined}
+    />
+  );
+}
+
+function SearchPill({ query, onChange, keyboardEnabled, onEnter }: {
+  query: string;
+  onChange: (q: string) => void;
+  keyboardEnabled: boolean;
+  onEnter?: () => void;
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const onField = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e?.target?.value ?? "");
+  };
+  /* Kick HTML focus + add the HTML5 attrs Steam Deck's on-screen
+     keyboard looks for. Synthetic pointer sequence ONLY when the
+     virtual-keyboard toggle is on — that's the trigger that pops the
+     Deck's keyboard. Cleanup blurs + fires Steam's dismissed
+     notifications so the keyboard exits with the overlay. */
+  useEffect(() => {
+    let cancelled = false;
+    let captured: HTMLInputElement | null = null;
+    const tryFocus = (n: number) => {
+      if (cancelled) return;
+      const host = hostRef.current;
+      const input = host?.querySelector<HTMLInputElement>("input");
+      if (input && input.isConnected) {
+        captured = input;
+        try {
+          input.setAttribute("inputmode", "text");
+          input.setAttribute("autocomplete", "off");
+          input.setAttribute("autocorrect", "off");
+          input.setAttribute("autocapitalize", "none");
+          input.setAttribute("spellcheck", "false");
+          input.setAttribute("enterkeyhint", "search");
+          if (!input.hasAttribute("tabindex")) input.setAttribute("tabindex", "0");
+        } catch {}
+        try { input.focus(); } catch {}
+        if (n === 8 && keyboardEnabled) {
+          try {
+            const r = input.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const PD = (typeof PointerEvent !== "undefined") ? PointerEvent : null;
+            if (PD) {
+              input.dispatchEvent(new PD("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+              input.dispatchEvent(new PD("pointerup",   { bubbles: true, clientX: x, clientY: y, pointerType: "touch" }));
+            }
+            input.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: x, clientY: y }));
+          } catch {}
+        }
+        try {
+          const g = globalThis as any;
+          g.__ds_search_active = {
+            n,
+            isInput: input === input.ownerDocument?.activeElement,
+            activeTag: (input.ownerDocument?.activeElement as HTMLElement | null)?.tagName,
+            type: input.type,
+            tabIndex: input.tabIndex,
+            kb: keyboardEnabled,
+          };
+        } catch {}
+      }
+      if (n > 0) window.setTimeout(() => tryFocus(n - 1), 120);
+    };
+    tryFocus(8);
+    /* Steam occasionally steals focus back to the previously-focused
+       node (native recents card) a few hundred ms after the pill mounts
+       — especially when the pill is opened from outside DS shelves. A
+       delegated focusout listener re-claims focus on the input so the
+       user can keep typing. Stops when the pill unmounts. */
+    const reclaim = (e: FocusEvent) => {
+      if (cancelled) return;
+      const host = hostRef.current;
+      const input = host?.querySelector<HTMLInputElement>("input");
+      if (!input) return;
+      // Only react when focus leaves OUR input and lands on body /
+      // doc / a DS card (i.e. NOT another control inside the pill).
+      const next = (e.relatedTarget as HTMLElement | null) ?? input.ownerDocument?.activeElement as HTMLElement | null;
+      if (next && host?.contains(next)) return;
+      try { input.focus({ preventScroll: true }); } catch {}
+    };
+    const inputEl = hostRef.current?.querySelector<HTMLInputElement>("input");
+    inputEl?.addEventListener("focusout", reclaim);
+    return () => {
+      cancelled = true;
+      inputEl?.removeEventListener("focusout", reclaim);
+      try { captured?.blur(); } catch {}
+      dismissSteamKeyboard();
+    };
+  }, [keyboardEnabled]);
+
+  // Enter handler (only when caller passed `onEnter` — i.e. when the
+  // user opted into the "search only on Enter" toggle).
+  useEffect(() => {
+    if (!onEnter) return;
+    const input = hostRef.current?.querySelector<HTMLInputElement>("input");
+    if (!input) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onEnter();
+      }
+    };
+    input.addEventListener("keydown", handler);
+    return () => { input.removeEventListener("keydown", handler); };
+  }, [onEnter]);
+  // Width grows with the typed string, in ch units so it scales with
+  // the (vw-clamped) font-size. Floor keeps a sensible empty width;
+  // ceil prevents runaway growth on long queries.
+  const chars = Math.max(8, Math.min(40, query.length + 3));
+  return (
+    <>
+      {/* The styles below live inline because DeckQAMStyles only mounts
+          in the QAM Settings tree, never on the home. The dark backdrop
+          sits ONLY on the input itself — nothing wraps the field. */}
+      <style>{`
+        .ds-search-pill-host { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; width: 100%; }
+        .ds-search-pill-host > div, .ds-search-pill-host > div > div { background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; width: 100% !important; }
+        .ds-search-pill-host input {
+          background: rgba(0, 0, 0, 0.55) !important;
+          border: none !important;
+          outline: none !important;
+          padding: 0.35em 0.9em !important;
+          margin: 0 !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          color: white !important;
+          font-size: inherit !important;
+          font-weight: 700 !important;
+          text-align: center !important;
+          caret-color: white !important;
+          border-radius: 0.5em !important;
+          box-shadow: 0 0 18px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.10) !important;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+        }
+        .ds-search-pill-host input::placeholder { color: rgba(255,255,255,0.55) !important; }
+      `}</style>
+      <div
+        className="ds-search-overlay"
+        style={{
+          position: "fixed",
+          top: "38%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 9_999,
+          display: "inline-flex",
+          pointerEvents: "auto",
+        }}
+      >
+        <div
+          ref={hostRef}
+          className="ds-search-pill-host"
+          style={{
+            width: `${chars}ch`,
+            maxWidth: "70vw",
+            background: "transparent",
+            border: "none",
+            boxShadow: "none",
+            color: "white",
+            fontSize: "clamp(20px, 3vw, 30px)",
+            fontWeight: 700,
+            letterSpacing: 0.3,
+            fontFamily: "inherit",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "width 140ms ease",
+          }}
+        >
+          <TextField
+            value={query}
+            onChange={onField}
+            focusOnMount={true}
+            bShowClearAction={false}
+          />
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,10 +1,3 @@
-/**
- * Custom filter domain logic.
- *
- * This module defines how external filter representations (from any plugin)
- * are mapped to Deck Shelves' internal FilterItem / FilterGroup structures.
- * It has no dependency on any specific integration.
- */
 import type { FilterGroup, FilterItem, FilterItemType, ShelfSource } from '../types'
 
 export const KNOWN_FILTER_TYPES = [
@@ -25,7 +18,6 @@ export const KNOWN_FILTER_TYPES = [
 
 export type KnownFilterType = typeof KNOWN_FILTER_TYPES[number]
 
-/** Maps a raw filter type string (from any source) to an internal FilterItemType. */
 export function mapFilterTypeToInternal(raw: string): FilterItemType {
   const norm = String(raw || '').toLowerCase().replace(/[_\- ]/g, '')
   switch (norm) {
@@ -53,7 +45,6 @@ export function mapFilterTypeToInternal(raw: string): FilterItemType {
   }
 }
 
-/** Converts a single external filter object to a FilterItem. */
 export function convertFilterToItem(filter: any): FilterItem {
   const typeRaw: string = filter?.type ?? filter?.filterType ?? 'name'
   const inverted = !!filter?.inverted
@@ -76,17 +67,11 @@ export function convertFilterToItem(filter: any): FilterItem {
   return { type, inverted, params: normalizedParams }
 }
 
-/** Converts an array of external filter objects to a FilterGroup. */
 export function convertFiltersToGroup(filters: any[]): FilterGroup {
   const items = (filters || []).flatMap((f: any) => f ? [convertFilterToItem(f)] : [])
   return { mode: 'and', items }
 }
 
-/**
- * Converts a generic "container" object (any plugin's tab/collection representation)
- * to a ShelfSource. If the container has filters, produces a filter-based source;
- * otherwise produces a tab-id-based source.
- */
 export function containerToShelfSource(container: any): ShelfSource {
   if (!container) return { type: 'tab', tab: '' }
   if (!container.filters || container.filters.length === 0) {

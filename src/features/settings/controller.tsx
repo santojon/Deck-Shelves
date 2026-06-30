@@ -1,27 +1,31 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings, writeJsonFile, readJsonFile } from "../../settingsStore";
-import type { FilterGroup, SavedFilter, SavedSmartFilter, Settings, Shelf, ShelfFilter, ShelfSource, SmartShelf, SmartShelfMode } from "../../types";
+import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
+import type { Settings } from "../../types";
 import { usePlatform } from "../../runtime/platformContext";
 import type { PlatformCollection, PlatformTab } from "../../runtime/platform";
 import { logDiagnostic } from "../../runtime/diagnostics";
 import { logError, logInfo } from "../../runtime/logger";
-import { toaster } from "../../shims/decky-api";
-import { addShelfToSettings, deleteShelfFromSettings, moveShelf, normalizeFilter, patchShelfInSettings } from "../../domain/settings";
-import { createDefaultShelf, createDefaultSource, createDefaultSmartShelf, randomShelfId } from "../../domain/defaults";
-import { DEFAULT_SHELF_TEMPLATES } from "../../domain/templates";
+import { __resetUpdateCheckCache } from "../../core/updateNotifier";
+import { notify } from "../../components/notify";
+import { createSavedFilterActions } from "./controller/savedFilters";
+import { createSmartShelfActions } from "./controller/smartShelves";
+import { createOnlineActions } from "./controller/online";
+import { createGlobalVisualActions } from "./controller/globalVisual";
+import { createShelfActions } from "./controller/shelves";
+import { createProfileActions } from "./controller/profiles";
 
 export function useSettingsController() {
   const { t } = useTranslation();
   const platform = usePlatform();
-  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, qamHiddenToggles: [], qamHiddenSections: [] });
+  const [settings, setSettings] = useState<Settings | null>(() => getCurrentSettings() ?? { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, buttonBindings: {}, buttonBindingsDisabled: [] });
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collections, setCollections] = useState<PlatformCollection[]>([]);
-  // Initialise tabs from the localStorage cache so the shelf editor shows the
-  // correct tab list instantly on every QAM open (the QAM remounts each time,
-  // so useState([]) would show an empty dropdown for the 200–500ms while the
-  // async listLibraryTabs() IPC round-trip completes).
+  /* Initialise tabs from the localStorage cache so the shelf editor shows the
+     correct tab list instantly on every QAM open (the QAM remounts each time,
+     so useState([]) would show an empty dropdown for the 200–500ms while the
+     async listLibraryTabs() IPC round-trip completes). */
   const [tabs, setTabs] = useState<PlatformTab[]>(() => {
     try {
       const raw = localStorage.getItem('ds-tabs-cache-v1');
@@ -32,11 +36,11 @@ export function useSettingsController() {
 
   useEffect(() => {
     // The 5 native library tabs Steam exposes by default. Used whenever the
-    // discovery chain in `listLibraryTabs` returns nothing — covers both
-    // promise rejection (unhandled throw inside one of the integrations)
-    // AND the legit-resolved-but-empty case (no TabMaster, no fiber ctx,
-    // no DOM tabs). Without this the EditShelfModal's tab dropdown ends up
-    // empty whenever the host-window-walk hits a Proxy that throws.
+    /* discovery chain in `listLibraryTabs` returns nothing — covers both
+       promise rejection (unhandled throw inside one of the integrations)
+       AND the legit-resolved-but-empty case (no TabMaster, no fiber ctx,
+       no DOM tabs). Without this the EditShelfModal's tab dropdown ends up
+       empty whenever the host-window-walk hits a Proxy that throws. */
     const NATIVE_DEFAULT_TABS: PlatformTab[] = [
       { id: "all",       name: "All Games" },
       { id: "favorites", name: "Favorites" },
@@ -84,11 +88,11 @@ export function useSettingsController() {
     refreshSettings().catch((error) => logDiagnostic("error", "Failed to load settings", String(error)));
     // Collection refresh — same shape as tabs. Steam's collectionStore is
     // a MobX store that races plugin boot: a single call at mount time
-    // sometimes returned [] (computed not ready), leaving the Edit Shelf
-    // modal's collection picker permanently empty. The periodic refresh
-    // fills the picker as soon as Steam exposes the data, and survives
-    // QAM hot-reloads / settings round-trips. The setter no-ops when the
-    // new list matches the current one so React doesn't churn.
+    /* sometimes returned [] (computed not ready), leaving the Edit Shelf
+       modal's collection picker permanently empty. The periodic refresh
+       fills the picker as soon as Steam exposes the data, and survives
+       QAM hot-reloads / settings round-trips. The setter no-ops when the
+       new list matches the current one so React doesn't churn. */
     const refreshCollections = () => {
       platform.listCollections().then((next) => {
         setCollections((current) => {
@@ -134,11 +138,26 @@ export function useSettingsController() {
     return ok;
   };
 
+  // Extracted action slices — composed into the final `actions` object
+  // below so every call site keeps working through the same name.
+  const savedFilterActions = createSavedFilterActions({ liveSettings, persist });
+  const smartShelfActions = createSmartShelfActions({ liveSettings, persist, t });
+  const onlineActions = createOnlineActions({ liveSettings, persist });
+  const globalVisualActions = createGlobalVisualActions({ liveSettings, persist });
+  const shelfActions = createShelfActions({ liveSettings, persist, setSelectedId, selectedId, collections, tabs, shelves, t });
+  const profileActions = createProfileActions({ liveSettings, persist });
+
   const actions = {
     persist,
     selectShelf(id: string) {
       setSelectedId(id);
     },
+    ...savedFilterActions,
+    ...smartShelfActions,
+    ...onlineActions,
+    ...globalVisualActions,
+    ...shelfActions,
+    ...profileActions,
     async setEnabled(enabled: boolean) {
       const s = liveSettings();
       if (!s || s.enabled === enabled) return;
@@ -148,77 +167,43 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || (s.updateNotifyEnabled ?? true) === updateNotifyEnabled) return;
       // Re-enabling the toggle clears the "dismissed version" pin so the
-      // banner / toast can surface again — otherwise a user who dismissed
-      // a release (or accidentally hit dismiss) had no way to make the
-      // notification reappear short of editing localStorage. The OFF → ON
-      // edge is the closest natural signal we have to "I want to see
-      // update notifications again".
+      /* banner / toast can surface again — otherwise a user who dismissed
+         a release (or accidentally hit dismiss) had no way to make the
+         notification reappear short of editing localStorage. The OFF → ON
+         edge is the closest natural signal we have to "I want to see
+         update notifications again". */
       const next = updateNotifyEnabled
         ? { ...s, updateNotifyEnabled, updateNotifyDismissedVersion: undefined }
         : { ...s, updateNotifyEnabled };
       await persist(next as any);
+    },
+    async setBetaChannelEnabled(betaChannelEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).betaChannelEnabled === betaChannelEnabled) return;
+      // Switching channel invalidates the cached check + the dismissed pin so
+      // the correct channel's latest release surfaces immediately.
+      try { __resetUpdateCheckCache(); } catch {}
+      await persist({ ...s, betaChannelEnabled, updateNotifyDismissedVersion: undefined } as any);
     },
     async dismissUpdateNotice(version: string) {
       const s = liveSettings();
       if (!s || s.updateNotifyDismissedVersion === version) return;
       await persist({ ...s, updateNotifyDismissedVersion: version });
     },
-    async setOnlineFeaturesEnabled(onlineFeaturesEnabled: boolean) {
-      const s = liveSettings();
-      if (!s || (s.onlineFeaturesEnabled ?? false) === onlineFeaturesEnabled) return;
-      await persist({ ...s, onlineFeaturesEnabled });
-    },
-    async setOnlineWishlistEnabled(onlineWishlistEnabled: boolean) {
-      const s = liveSettings();
-      if (!s || (s.onlineWishlistEnabled ?? true) === onlineWishlistEnabled) return;
-      await persist({ ...s, onlineWishlistEnabled });
-    },
-    async setOnlineHideOwnedGames(onlineHideOwnedGames: boolean) {
-      const s = liveSettings();
-      if (!s || (s.onlineHideOwnedGames ?? false) === onlineHideOwnedGames) return;
-      await persist({ ...s, onlineHideOwnedGames });
-    },
-    async setOnlineHideOwnedNonSteam(onlineHideOwnedNonSteam: boolean) {
-      const s = liveSettings();
-      if (!s || (s.onlineHideOwnedNonSteam ?? false) === onlineHideOwnedNonSteam) return;
-      await persist({ ...s, onlineHideOwnedNonSteam });
-    },
-    async setOnlineHideOwnedNonSteamCloud(onlineHideOwnedNonSteamCloud: boolean) {
-      const s = liveSettings();
-      if (!s || (s.onlineHideOwnedNonSteamCloud ?? false) === onlineHideOwnedNonSteamCloud) return;
-      await persist({ ...s, onlineHideOwnedNonSteamCloud });
-    },
-    async setOnlinePriceSortEnabled(onlinePriceSortEnabled: boolean) {
-      const s = liveSettings();
-      if (!s || (s.onlinePriceSortEnabled ?? true) === onlinePriceSortEnabled) return;
-      await persist({ ...s, onlinePriceSortEnabled });
-    },
-    async acceptOnlinePrivacy() {
-      const s = liveSettings();
-      if (!s || s.onlinePrivacyAccepted) return;
-      await persist({ ...s, onlinePrivacyAccepted: true });
-    },
     async setHideRecents(hideRecents: boolean) {
       const s = liveSettings();
       if (!s || s.hideRecents === hideRecents) return;
-      // Prevent enabling hideRecents when there are no visible shelves
-      // or when visible shelves resolve to zero items.
+      // Only the hard "no shelves at all" case blocks — without this the
+      /* user would lock themselves out of the home with nothing on screen.
+         We deliberately do NOT resolve every shelf's appIds here anymore:
+         online sources (wishlist / store) and composite sources can return
+         `[]` while their price/store caches warm, and that transient state
+         was making the toggle bounce back to OFF when the user enabled it. */
       if (hideRecents) {
         const visible = (s.shelves ?? []).filter((sh) => sh.enabled && !sh.hidden);
         if (!visible.length) {
           logInfo("SETTINGS", "setHideRecents blocked — no visible shelves");
           return;
-        }
-        try {
-          const resolved = await Promise.all(visible.map((sh) => platform.resolveShelfAppIds(sh.source, sh.limit).catch(() => [])));
-          const anyHas = resolved.some((r) => Array.isArray(r) && r.length > 0);
-          if (!anyHas) {
-            logInfo("SETTINGS", "setHideRecents blocked — visible shelves have no items");
-            return;
-          }
-        } catch (e) {
-          // If platform fails, be conservative and allow the change to proceed.
-          logDiagnostic("warn", "setHideRecents: platform resolve failed", String(e));
         }
       }
       await persist({ ...s, hideRecents });
@@ -269,233 +254,28 @@ export function useSettingsController() {
       setSettings(updated);
       void saveSettings(updated);
     },
-    async setGlobalHeroEnabled(globalHeroEnabled: boolean) {
+    async setContextSearchEnabled(contextSearchEnabled: boolean) {
       const s = liveSettings();
-      if (!s || (s as any).globalHeroEnabled === globalHeroEnabled) return;
-      await persist({ ...s, globalHeroEnabled } as any);
+      if (!s || (s as any).contextSearchEnabled === contextSearchEnabled) return;
+      await persist({ ...s, contextSearchEnabled } as any);
     },
-    async setGlobalMatchNativeSize(globalMatchNativeSize: boolean) {
+    async setSideNavEnabled(sideNavEnabled: boolean) {
       const s = liveSettings();
-      if (!s || s.globalMatchNativeSize === globalMatchNativeSize) return;
-      await persist({ ...s, globalMatchNativeSize });
+      if (!s || (s as any).sideNavEnabled === sideNavEnabled) return;
+      await persist({ ...s, sideNavEnabled } as any);
     },
-    async setGlobalHideStatusLine(globalHideStatusLine: boolean) {
+    async setContextSearchKeyboardEnabled(contextSearchKeyboardEnabled: boolean) {
       const s = liveSettings();
-      if (!s || s.globalHideStatusLine === globalHideStatusLine) return;
-      await persist({ ...s, globalHideStatusLine });
+      if (!s || (s as any).contextSearchKeyboardEnabled === contextSearchKeyboardEnabled) return;
+      await persist({ ...s, contextSearchKeyboardEnabled } as any);
     },
-    async setGlobalHideShelfTitle(globalHideShelfTitle: boolean) {
+    async setContextSearchOnEnter(contextSearchOnEnter: boolean) {
       const s = liveSettings();
-      if (!s || s.globalHideShelfTitle === globalHideShelfTitle) return;
-      await persist({ ...s, globalHideShelfTitle });
-    },
-    async setGlobalHideGameNames(globalHideGameNames: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHideGameNames === globalHideGameNames) return;
-      await persist({ ...s, globalHideGameNames });
-    },
-    async setGlobalHideInstallIndicator(globalHideInstallIndicator: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHideInstallIndicator === globalHideInstallIndicator) return;
-      await persist({ ...s, globalHideInstallIndicator });
-    },
-    async setGlobalHighlightFirst(globalHighlightFirst: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHighlightFirst === globalHighlightFirst) return;
-      await persist({ ...s, globalHighlightFirst });
-    },
-    async setGlobalHighlightAll(globalHighlightAll: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHighlightAll === globalHighlightAll) return;
-      await persist({ ...s, globalHighlightAll });
-    },
-    async setGlobalHighlightRandom(globalHighlightRandom: boolean) {
-      const s = liveSettings();
-      if (!s || (s as any).globalHighlightRandom === globalHighlightRandom) return;
-      await persist({ ...s, globalHighlightRandom } as any);
-    },
-    async setGlobalEnableLogo(globalEnableLogo: boolean) {
-      const s = liveSettings();
-      if (!s || (s as any).globalEnableLogo === globalEnableLogo) return;
-      await persist({ ...s, globalEnableLogo } as any);
-    },
-    async setGlobalEnableIcon(globalEnableIcon: boolean) {
-      const s = liveSettings();
-      if (!s || (s as any).globalEnableIcon === globalEnableIcon) return;
-      await persist({ ...s, globalEnableIcon } as any);
-    },
-    async setGlobalEnableDescription(globalEnableDescription: boolean) {
-      const s = liveSettings();
-      if (!s || (s as any).globalEnableDescription === globalEnableDescription) return;
-      await persist({ ...s, globalEnableDescription } as any);
-    },
-    async setGlobalHideNewBadge(globalHideNewBadge: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHideNewBadge === globalHideNewBadge) return;
-      await persist({ ...s, globalHideNewBadge });
-    },
-    async setGlobalHideDiscountBadge(globalHideDiscountBadge: boolean) {
-      const s = liveSettings();
-      if (!s || (s as any).globalHideDiscountBadge === globalHideDiscountBadge) return;
-      await persist({ ...s, globalHideDiscountBadge });
-    },
-    async setGlobalHideCompatIcons(globalHideCompatIcons: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHideCompatIcons === globalHideCompatIcons) return;
-      await persist({ ...s, globalHideCompatIcons });
-    },
-    async setGlobalHideSeeMore(globalHideSeeMore: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHideSeeMore === globalHideSeeMore) return;
-      await persist({ ...s, globalHideSeeMore });
-    },
-    async setGlobalHideRefreshCard(globalHideRefreshCard: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHideRefreshCard === globalHideRefreshCard) return;
-      await persist({ ...s, globalHideRefreshCard });
-    },
-    async setGlobalHideNonSteamBadge(globalHideNonSteamBadge: boolean) {
-      const s = liveSettings();
-      if (!s || s.globalHideNonSteamBadge === globalHideNonSteamBadge) return;
-      await persist({ ...s, globalHideNonSteamBadge });
-    },
-    async setGlobalDedupeByName(globalDedupeByName: boolean) {
-      const s = liveSettings();
-      if (!s || (s as any).globalDedupeByName === globalDedupeByName) return;
-      await persist({ ...s, globalDedupeByName } as any);
-    },
-    async addShelf(): Promise<Shelf | undefined> {
-      const s = liveSettings();
-      if (!s) return;
-      const shelf: Shelf = { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
-      await persist(addShelfToSettings(s, shelf));
-      setSelectedId(shelf.id);
-      return shelf;
-    },
-    /** Returns a default shelf object **without persisting** — for the
-     *  modal-driven create flow that should only commit on Save. */
-    createDraftShelf(): Shelf {
-      return { ...createDefaultShelf(collections[0]?.id ?? "", t("newShelf")), title: t("newShelf") };
-    },
-    /** Persists a shelf object built locally (e.g. from `createDraftShelf`
-     *  + edits in the modal). Used by the modal-driven create flow on Save. */
-    async commitShelf(shelf: Shelf): Promise<Shelf | undefined> {
-      const s = liveSettings();
-      if (!s) return;
-      await persist(addShelfToSettings(s, shelf));
-      setSelectedId(shelf.id);
-      return shelf;
-    },
-    async exportShelves(destPath: string): Promise<boolean> {
-      const s = liveSettings();
-      if (!s) return false;
-      return writeJsonFile(destPath, JSON.stringify({ state: { shelves: s.shelves } }, null, 2));
-    },
-    async importShelves(srcPath: string): Promise<boolean> {
-      const s = liveSettings();
-      if (!s) return false;
-      const raw = await readJsonFile(srcPath);
-      if (!raw) return false;
-      try {
-        const parsed = JSON.parse(raw);
-        const imported = parsed?.state?.shelves ?? parsed?.shelves;
-        if (!Array.isArray(imported)) return false;
-        await persist({ ...s, shelves: imported });
-        if (imported[0]?.id) setSelectedId(imported[0].id);
-        return true;
-      } catch { return false; }
-    },
-    async exportSmartShelves(destPath: string): Promise<boolean> {
-      const s = liveSettings();
-      if (!s) return false;
-      return writeJsonFile(destPath, JSON.stringify({ state: { smartShelves: s.smartShelves ?? [], smartShelvesEnabled: s.smartShelvesEnabled === true, smartShelvesAtBottom: s.smartShelvesAtBottom === true, smartSurpriseMe: s.smartSurpriseMe === true, smartSurpriseMeCount: s.smartSurpriseMeCount ?? 0 } }, null, 2));
-    },
-    async saveFilter(name: string, group: FilterGroup): Promise<SavedFilter | null> {
-      const s = liveSettings();
-      if (!s) return null;
-      const trimmed = (name || "").trim().slice(0, 64);
-      if (!trimmed) return null;
-      const id = `sf_${Math.random().toString(36).slice(2, 10)}`;
-      const entry: SavedFilter = { id, name: trimmed, group };
-      const existing = s.savedFilters ?? [];
-      await persist({ ...s, savedFilters: [...existing, entry] });
-      return entry;
-    },
-    async deleteSavedFilter(id: string) {
-      const s = liveSettings();
-      if (!s) return;
-      const next = (s.savedFilters ?? []).filter((f) => f.id !== id);
-      await persist({ ...s, savedFilters: next });
-    },
-    async renameSavedFilter(id: string, name: string) {
-      const s = liveSettings();
-      if (!s) return;
-      const trimmed = (name || "").trim().slice(0, 64);
-      if (!trimmed) return;
-      const next = (s.savedFilters ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f));
-      await persist({ ...s, savedFilters: next });
-    },
-    // saved smart filter CRUD. Mirrors saveFilter / deleteSavedFilter /
-    // renameSavedFilter shape so the QAM list and EditSmartShelfModal can
-    // both manage the saved-smart-filter catalogue with the same vocabulary.
-    async saveSmartFilter(name: string, payload: Omit<SavedSmartFilter, "id" | "name">): Promise<SavedSmartFilter | null> {
-      const s = liveSettings();
-      if (!s) return null;
-      const trimmed = (name || "").trim().slice(0, 64);
-      if (!trimmed) return null;
-      const id = `ssf_${Math.random().toString(36).slice(2, 10)}`;
-      const entry: SavedSmartFilter = { id, name: trimmed, ...payload };
-      const existing = s.savedSmartFilters ?? [];
-      await persist({ ...s, savedSmartFilters: [...existing, entry] });
-      return entry;
-    },
-    async deleteSavedSmartFilter(id: string) {
-      const s = liveSettings();
-      if (!s) return;
-      const next = (s.savedSmartFilters ?? []).filter((f) => f.id !== id);
-      await persist({ ...s, savedSmartFilters: next });
-    },
-    async renameSavedSmartFilter(id: string, name: string) {
-      const s = liveSettings();
-      if (!s) return;
-      const trimmed = (name || "").trim().slice(0, 64);
-      if (!trimmed) return;
-      const next = (s.savedSmartFilters ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f));
-      await persist({ ...s, savedSmartFilters: next });
-    },
-    async resetShelves() {
-      const s = liveSettings();
-      if (!s) return;
-      await persist({ ...s, shelves: [] });
-      setSelectedId(null);
-      toaster.toast({ title: t("pluginName"), body: t("toast_shelves_reset") });
-    },
-    async resetSmartShelves() {
-      const s = liveSettings();
-      if (!s) return;
-      await persist({ ...s, smartShelves: [], smartShelvesEnabled: false, smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
-      toaster.toast({ title: t("pluginName"), body: t("toast_smart_shelves_reset") });
-    },
-    async importSmartShelves(srcPath: string): Promise<boolean> {
-      const s = liveSettings();
-      if (!s) return false;
-      const raw = await readJsonFile(srcPath);
-      if (!raw) return false;
-      try {
-        const parsed = JSON.parse(raw);
-        const src = parsed?.state ?? parsed ?? {};
-        const next: Settings = { ...s };
-        if (Array.isArray(src.smartShelves)) next.smartShelves = src.smartShelves;
-        if (typeof src.smartShelvesEnabled === "boolean") next.smartShelvesEnabled = src.smartShelvesEnabled;
-        if (typeof src.smartShelvesAtBottom === "boolean") next.smartShelvesAtBottom = src.smartShelvesAtBottom;
-        if (typeof src.smartSurpriseMe === "boolean") next.smartSurpriseMe = src.smartSurpriseMe;
-        if (typeof src.smartSurpriseMeCount === "number") next.smartSurpriseMeCount = src.smartSurpriseMeCount;
-        await persist(next);
-        return true;
-      } catch { return false; }
+      if (!s || (s as any).contextSearchOnEnter === contextSearchOnEnter) return;
+      await persist({ ...s, contextSearchOnEnter } as any);
     },
     async resetAll() {
-      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, qamHiddenToggles: [], qamHiddenSections: [] };
+      const empty: Settings = { enabled: false, hideRecents: false, recentsReplaceSource: false, hideHomeTabs: false, shelfHeroBackground: false, globalMatchNativeSize: false, globalHighlightFirst: false, globalHighlightAll: false, globalHideStatusLine: false, globalHideNewBadge: false, globalHideDiscountBadge: false, globalHideCompatIcons: false, globalHideNonSteamBadge: false, globalHideShelfTitle: false, globalHideGameNames: false, globalHideInstallIndicator: false, globalHideSeeMore: false, globalHideRefreshCard: false, globalDedupeByName: false, shelves: [], smartShelvesEnabled: false, smartShelvesAtBottom: false, smartShelves: [], smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [], savedSmartFilters: [], updateNotifyEnabled: true, onlineFeaturesEnabled: false, onlineWishlistEnabled: true, onlinePriceSortEnabled: true, onlinePrivacyAccepted: false, onlineHideOwnedGames: false, onlineHideOwnedNonSteam: false, onlineHideOwnedNonSteamCloud: false, forceCssLoaderThemes: false, globalHeroEnabled: false, globalGameInfoAbove: false, globalFriendsPlayingOverlay: false, globalFriendsPlayingOverlayRecent: false, qamHiddenToggles: [], qamHiddenSections: [], unifiedListEnabled: false, allShelvesOrder: [], lightModeEnabled: false, advancedModeEnabled: false, templateSuggestionsEnabled: false, offlineModeEnabled: false, featureToggles: {}, profiles: [], integrationsEnabled: {}, buttonBindings: {}, buttonBindingsDisabled: [] };
       try {
         const ls = globalThis.localStorage;
         if (ls) {
@@ -508,171 +288,8 @@ export function useSettingsController() {
         }
       } catch {}
       await persist(empty);
-      toaster.toast({ title: t("pluginName"), body: t("toast_settings_reset") });
+      notify("reset", { body: t("toast_settings_reset") });
       setSelectedId(null);
-    },
-    async createDefaultShelves() {
-      const s = liveSettings();
-      if (!s) return;
-      let next: Settings = { ...s, enabled: true };
-      for (const tpl of DEFAULT_SHELF_TEMPLATES) {
-        const shelf: Shelf = { ...createDefaultShelf(), title: t(tpl.titleKey), source: tpl.source };
-        next = addShelfToSettings(next, shelf);
-      }
-      await persist(next);
-      setSelectedId(next.shelves[0]?.id ?? null);
-    },
-    async addShelfWith(title: string, source: ShelfSource): Promise<Shelf | undefined> {
-      const s = liveSettings();
-      if (!s) return;
-      const shelf: Shelf = { ...createDefaultShelf(), title, source };
-      await persist(addShelfToSettings(s, shelf));
-      setSelectedId(shelf.id);
-      return shelf;
-    },
-    async patchShelf(id: string, patch: Partial<Shelf>) {
-      const s = liveSettings();
-      if (!s) return;
-      const shelf = s.shelves.find((sh) => sh.id === id);
-      if (!shelf) return;
-      const patched = { ...shelf, ...patch };
-      if (JSON.stringify(shelf) === JSON.stringify(patched)) return;
-      await persist(patchShelfInSettings(s, id, patch));
-    },
-    async duplicateShelf(id: string) {
-      const s = liveSettings();
-      if (!s) return;
-      const sourceShelf = s.shelves.find((item) => item.id === id);
-      if (!sourceShelf) return;
-      const duplicate: Shelf = JSON.parse(JSON.stringify(sourceShelf));
-      duplicate.id = randomShelfId();
-      duplicate.title = `${sourceShelf.title} ${t("copySuffix")}`.trim();
-      await persist(addShelfToSettings(s, duplicate, id));
-      setSelectedId(duplicate.id);
-    },
-    async removeShelf(id: string) {
-      const s = liveSettings();
-      if (!s) return;
-      const next = deleteShelfFromSettings(s, id);
-      await persist(next);
-      if (selectedId === id) setSelectedId(next.shelves[0]?.id ?? null);
-    },
-    async moveShelf(id: string, dir: -1 | 1) {
-      const s = liveSettings();
-      if (!s) return;
-      await persist(moveShelf(s, id, dir));
-    },
-    async reorderShelfIds(ids: string[]) {
-      const s = liveSettings();
-      if (!s) return;
-      const byId = new Map(s.shelves.map((sh) => [sh.id, sh] as const));
-      const reordered = ids.map((id) => byId.get(id)).filter(Boolean) as Shelf[];
-      if (reordered.length !== s.shelves.length) return;
-      await persist({ ...s, shelves: reordered });
-    },
-    async toggleShelfHidden(id: string) {
-      const shelf = shelves.find((item) => item.id === id);
-      if (!shelf) return;
-      await actions.patchShelf(id, { hidden: !shelf.hidden });
-    },
-    async patchFilter(id: string, patch: Partial<ShelfFilter>) {
-      const shelf = shelves.find((item) => item.id === id);
-      if (!shelf || shelf.source.type !== "filter") return;
-      await actions.patchShelf(id, { source: { type: "filter", filter: { ...normalizeFilter(shelf.source), ...patch } } });
-    },
-    async setSmartShelvesEnabled(enabled: boolean) {
-      const s = liveSettings();
-      if (!s || s.smartShelvesEnabled === enabled) return;
-      await persist({ ...s, smartShelvesEnabled: enabled });
-    },
-    async setSmartShelvesAtBottom(atBottom: boolean) {
-      const s = liveSettings();
-      if (!s || s.smartShelvesAtBottom === atBottom) return;
-      await persist({ ...s, smartShelvesAtBottom: atBottom });
-    },
-    async reorderSmartShelfIds(ids: string[]) {
-      const s = liveSettings();
-      if (!s) return;
-      const byId = new Map((s.smartShelves ?? []).map((sh) => [sh.id, sh] as const));
-      const reordered = ids.map((id) => byId.get(id)).filter(Boolean) as SmartShelf[];
-      if (reordered.length !== (s.smartShelves ?? []).length) return;
-      await persist({ ...s, smartShelves: reordered });
-    },
-    async addSmartShelf(mode: SmartShelfMode, title: string): Promise<SmartShelf | undefined> {
-      const s = liveSettings();
-      if (!s) return;
-      const shelf = createDefaultSmartShelf(mode, title);
-      await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
-      return shelf;
-    },
-    /** Returns a default smart shelf object **without persisting** — for
-     *  the modal-driven create flow that should only commit on Save. */
-    createDraftSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
-      return createDefaultSmartShelf(mode, title);
-    },
-    /** Persists a smart shelf object built locally. Used by the modal-driven
-     *  create flow on Save. */
-    async commitSmartShelf(shelf: SmartShelf): Promise<SmartShelf | undefined> {
-      const s = liveSettings();
-      if (!s) return;
-      await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
-      return shelf;
-    },
-    async removeSmartShelf(id: string) {
-      const s = liveSettings();
-      if (!s) return;
-      await persist({ ...s, smartShelves: (s.smartShelves ?? []).filter((sh) => sh.id !== id) });
-    },
-    async toggleSmartShelfHidden(id: string) {
-      const s = liveSettings();
-      if (!s) return;
-      const updated = (s.smartShelves ?? []).map((sh) => sh.id === id ? { ...sh, hidden: !sh.hidden } : sh);
-      await persist({ ...s, smartShelves: updated });
-    },
-    async patchSmartShelf(id: string, patch: Partial<SmartShelf>) {
-      const s = liveSettings();
-      if (!s) return;
-      const list = s.smartShelves ?? [];
-      const current = list.find((sh) => sh.id === id);
-      if (!current) return;
-      const next = { ...current, ...patch };
-      if (JSON.stringify(current) === JSON.stringify(next)) return;
-      const updated = list.map((sh) => sh.id === id ? next : sh);
-      await persist({ ...s, smartShelves: updated });
-    },
-    async setSmartSurpriseMe(enabled: boolean) {
-      const s = liveSettings();
-      if (!s || s.smartSurpriseMe === enabled) return;
-      await persist({ ...s, smartSurpriseMe: enabled });
-    },
-    async setSmartSurpriseMeCount(count: number) {
-      const s = liveSettings();
-      if (!s || s.smartSurpriseMeCount === count) return;
-      await persist({ ...s, smartSurpriseMeCount: Math.max(0, Math.min(5, count)) });
-    },
-    async moveSmartShelf(id: string, dir: -1 | 1) {
-      const s = liveSettings();
-      if (!s) return;
-      const list = [...(s.smartShelves ?? [])];
-      const idx = list.findIndex((sh) => sh.id === id);
-      if (idx < 0) return;
-      const target = idx + dir;
-      if (target < 0 || target >= list.length) return;
-      [list[idx], list[target]] = [list[target], list[idx]];
-      await persist({ ...s, smartShelves: list });
-    },
-    async setSourceType(id: string, type: "collection" | "tab" | "filter") {
-      if (type === "collection") {
-        const first = collections[0];
-        await actions.patchShelf(id, { source: createDefaultSource("collection", first?.id ?? "") });
-        return;
-      }
-      if (type === "tab") {
-        const firstTab = tabs[0] ?? { id: "favorites", name: t("tabs_favorites") };
-        await actions.patchShelf(id, { source: { type: "tab", tab: firstTab.id } });
-        return;
-      }
-      await actions.patchShelf(id, { source: createDefaultSource("filter") });
     },
   };
 

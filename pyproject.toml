@@ -8,6 +8,10 @@ extend-exclude = [
     "dist",
     "node_modules",
     ".venv",
+    # `deckprobe/` is a git submodule pointing at github.com/santojon/DeckProbe.
+    # It's a tools-only repo with its own rules and lifecycle — never lint
+    # from this side.
+    "deckprobe",
 ]
 
 [tool.ruff.lint]

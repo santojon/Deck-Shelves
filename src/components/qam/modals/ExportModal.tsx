@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { ConfirmModal, Focusable, DialogButton, TextField, toaster, openFilePicker } from '../../../runtime/host/decky'
+import { ConfirmModal, Focusable, DialogButton, TextField, openFilePicker } from '../../../runtime/host/decky'
+import { notify } from "../../notify";
 import { ModalShell } from '../../ui'
-import { exportSettingsToFile } from '../../../settingsStore'
+import { getCurrentSettings, writeJsonFile } from '../../../settingsStore'
+import { pickCategoriesFromSettings } from '../../../features/settings/settingsCategories'
+import { categoryIdsForScope } from '../../../features/settings/categoryScope'
 import type { SettingsController } from '../../../features/settings/controller'
 import { textFromDeckyChange, filenameWithJson, tryPickerCalls } from './modalUtils'
 
@@ -27,7 +30,7 @@ function defaultNameFor(scope: ExportScope): string {
 }
 
 export function ExportModal({ closeModal, controller, folderPath, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; folderPath: string; scope?: ExportScope }) {
-  const { t, actions } = controller
+  const { t } = controller
   const [name, setName] = useState(defaultNameFor(scope))
   const [folder, setFolder] = useState(folderPath)
   const [browseBusy, setBrowseBusy] = useState(false)
@@ -47,17 +50,19 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all' 
             const target = `${folder}/${filenameWithJson(name)}`;
             try {
               let ok = false
-              if (scope === 'shelves') ok = await actions.exportShelves(target)
-              else if (scope === 'smart') ok = await actions.exportSmartShelves(target)
-              else ok = await exportSettingsToFile(target)
+              const s = getCurrentSettings();
+              if (s) {
+                const payload = pickCategoriesFromSettings(s, categoryIdsForScope(scope));
+                ok = await writeJsonFile(target, JSON.stringify({ state: payload }, null, 2));
+              }
               if (!ok) {
-                toaster.toast({ title: t('pluginName'), body: t('toast_failed_export') });
+                notify("error", { body: t('toast_failed_export') });
                 return;
               }
-              toaster.toast({ title: t('pluginName'), body: t('toast_exported_file') });
+              notify("export", { body: t('toast_exported_file') });
               closeModal?.();
             } catch (error) {
-              toaster.toast({ title: t('pluginName'), body: String(error) });
+              notify("error", { body: String(error) });
             } finally {
               setSaveBusy(false);
             }
@@ -76,7 +81,7 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all' 
                     const picked = await pickFolder(folder)
                     if (picked) setFolder(picked)
                   } catch (error) {
-                    toaster.toast({ title: t('pluginName'), body: String(error) })
+                    notify("error", { body: String(error) })
                   } finally {
                     setBrowseBusy(false)
                   }

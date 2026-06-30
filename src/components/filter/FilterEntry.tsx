@@ -22,9 +22,6 @@ export default function FilterEntry({ item, onChange, onDelete, allowOnlineFilte
   onChange: (updated: FilterItem) => void;
   onDelete: () => void;
   shouldFocus?: boolean;
-  /** When false, online-only filter types (e.g. discount) are excluded from
-   *  the picker — they rely on the price cache populated by online sources
-   *  and have nothing to evaluate against in non-online contexts. */
   allowOnlineFilters?: boolean;
 }) {
   const invertible = canBeInverted(item.type);

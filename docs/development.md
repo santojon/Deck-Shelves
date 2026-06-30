@@ -17,11 +17,16 @@ pnpm run deck:setup    # First-time Deck configuration
 ## Environment Variables (`.env`)
 
 ```
-DECK_HOST=192.168.1.x     # Steam Deck IP address
+DECK_HOST=192.168.1.x     # Steam Deck IP address (or hostname, e.g. steamdeck)
 DECK_USER=deck             # SSH username
 DECK_SUDO_PASS=...        # sudo password for plugin dir ownership
 DECK_CDP_PORT=8081         # CEF Remote Debugging port
+DECK_CDP_HOST=127.0.0.1    # optional: CDP host (defaults to DECK_HOST; use 127.0.0.1 over an SSH tunnel)
 ```
+
+All variables are optional — each script also accepts command-line arguments
+(e.g. `pnpm run deploy:deck steamdeck`). When both are provided, the CLI
+argument takes precedence.
 
 ## Build Commands
 
@@ -35,6 +40,7 @@ DECK_CDP_PORT=8081         # CEF Remote Debugging port
 | `pnpm run deploy:deck:hard` | Deploy + restart Steam |
 | `pnpm run watch:deck` | Auto-deploy on file changes |
 | `pnpm run package` | Create distributable `.zip` |
+| `pnpm run upload:deckzip` | Upload the zip to the Deck Downloads folder |
 
 ## Testing
 
@@ -47,7 +53,7 @@ pnpm run typecheck     # TypeScript type checking
 ## Compatibility Checks
 
 ```bash
-bash scripts/build/validate-compat.sh
+pnpm run validate:compat
 ```
 
 Validates against 23 compatibility targets: Decky Loader versions, SteamOS versions, CSS Loader themes, and coexisting plugins.
@@ -60,45 +66,152 @@ The `plugin.json` ships without the `debug` flag (required for Decky Store). Dur
 
 ## Screenshots
 
+The CDP tooling lives in the `deckprobe/` package (host/port come from
+`.env`: `DECK_HOST`, `DECK_CDP_PORT`). Deploy the plugin first (requires at
+least 2 shelves with 1+ game each; `smart-shelf-edit.png` needs Smart Shelves
+enabled with one entry).
+
 ```bash
 # Capture all screenshots via CDP automation
 pnpm run devtools:screenshots
 
-# Or directly with host/port
-python3 scripts/devtools/deck/screenshots/screenshot.py --host $DECK_HOST --port $DECK_CDP_PORT
-
-# Validate captured screenshots
+# Validate captured screenshots (required files present, PNG magic header,
+# >= 60 KB — catches blank popup frames)
 pnpm run screenshots:validate
 ```
 
+Captures land in `assets/screenshots/`. The gallery is rendered in
+[`showcase.md`](./showcase.md).
+
+Capture is driven by the **modular runner** (`pnpm run devtools:screenshots`
+calls `deckprobe/cli.py screenshot`, which runs it):
+
+```bash
+# All captures (via the CLI — reads scenarios + out dir from deckprobe.config.json)
+python3 deckprobe/cli.py screenshot
+
+# Or invoke the runner directly (as a module, from the repo root):
+python3 -m deckprobe.screenshots.run --scenarios-dir scripts/deckprobe-ext/screenshots/scenarios
+python3 deckprobe/cli.py screenshot --only home,qam,about_overview   # subset
+python3 -m deckprobe.screenshots.run --list                          # list scenarios
+```
+
+Project scenarios live in `scripts/deckprobe-ext/screenshots/scenarios/*.py`
+(wired via `screenshots_scenarios_dir` in `deckprobe.config.json`). Each file
+groups related captures; add one by writing a function decorated with
+`@register("name")` that receives the SharedJS session, host, port and output
+dir and returns a `{filename: Path}` map. The runner is split into `lib/cdp.py`
+(minimal CDP `Session`), `lib/nav.py` (navigation primitives), `lib/capture.py`
+(`capture_bigpicture` / `capture_qam` with blank-frame fallback) and `run.py`
+(orchestrator over `ALL_SCENARIOS`).
+
+### Screenshot set
+
+| File | Captures |
+|------|----------|
+| `home.png` | Home with the Deck Shelves portal mounted after native recents |
+| `home-shelves.png` | Home scrolled to show the second DS shelf in full |
+| `game-menu.png` | Context menu opened on a shelf card (MENU button) |
+| `qam.png` | QAM with the Deck Shelves plugin tab active |
+| `shelf-create.png` | Template picker modal (grouped by category) |
+| `shelf-actions.png` | Per-shelf action menu (Edit / Duplicate / Hide / Delete / reorder) |
+| `shelf-edit.png` | Edit shelf modal — Source tab (sort, source type, limit) |
+| `shelf-edit-filters.png` | Edit shelf modal — Filters tab (FilterPanel + SavedFiltersBar) |
+| `shelf-edit-visual.png` | Edit shelf modal — Visual tab (highlight toggles + picker + Odd/Even) |
+| `shelf-hidden.png` | QAM showing a shelf toggled to hidden (eye-slash icon) |
+| `shelf-delete.png` | Delete shelf confirmation dialog |
+| `shelf-import.png` / `shelf-export.png` | Import / export modals |
+| `reset-all.png` | Reset-all destructive confirmation |
+| `about-page.png` | About & Filter Documentation page |
+| `smart-shelves-qam.png` | QAM scrolled to the Smart Shelves section |
+| `smart-shelf-modal.png` | Smart Shelf template picker (category accordions) |
+| `smart-shelf-edit.png` | Edit Smart Shelf modal (sort override + filters + visual) |
+| `saved-filters-qam.png` | **Optional** — Saved Filters section in QAM; captured only when a filter has been saved |
+| `global-toggles.png` | Apply Globally section in QAM |
+
+## Local UI test suite
+
+```bash
+pnpm uitests             # run every registered suite against the Deck
+pnpm uitests:list        # list every suite + test name
+pnpm uitests --only home,qam_shelves   # subset
+```
+
+Suites live in `scripts/deckprobe-ext/uitests/suites/` and reuse the screenshot
+pipeline's `lib/` (CDP session, navigation, capture). Local-only — runs against
+a real Deck or a SteamOS VM via CDP, never on CI. Use it as the optional pre-PR
+check for flows the unit tests can't reach.
+
+## Validation flows (with HTML reports)
+
+Three commands orchestrate all checks end-to-end and write an HTML report to
+`reports/`:
+
+```bash
+pnpm validate:ci             # offline: typecheck, build, tests, package, compat
+pnpm validate:full           # with Deck: above + deploy + UI tests + perf bench
+pnpm validate:full:stress    # with Deck + stress fixture (16 shelves, 50 cards each)
+```
+
+`validate:ci` is designed for CI/CD — no device or `.env` required.
+`validate:full` skips device steps gracefully when the Deck is unreachable.
+Reports land in `reports/` (gitignored) organised in three scopes (`ci/`,
+`local/`, `release/`) plus a top-level `index.html` and a statistics
+`dashboard.html`. Open them with `pnpm reports`.
+
+## Performance bench
+
+```bash
+pnpm perf:bench          # 3 runs, prints mount p_avg / p_min / p_max
+pnpm perf:bench --runs 10
+```
+
+Drops `performance.mark` / `performance.measure` calls into Big Picture,
+navigates to the home, reads the durations back. Pair with the `[PERF]` PR tag
+and before/after numbers — see [`performance.md`](./performance.md).
+
 ## CDP Diagnostics
 
-The unified `cdp.py` covers the common debug loop (find target → run probe → check result). See [`cdp.md`](./cdp.md) for the full reference.
+`deckprobe/cdp.py` covers the common debug loop (find target → run probe →
+check result). See [`cdp.md`](./cdp.md) for the full reference.
 
 ```bash
 # List CDP targets with aliases (bp / qam / sjc / mainmenu)
-python3 scripts/devtools/deck/cdp.py targets
+python3 deckprobe/cdp.py targets
 
 # Evaluate a JS expression in a target
-python3 scripts/devtools/deck/cdp.py eval bp 'document.title'
+python3 deckprobe/cdp.py eval bp 'document.title'
 
 # Capture a screenshot of the QAM
-python3 scripts/devtools/deck/cdp.py screenshot qam /tmp/qam.png
+python3 deckprobe/cdp.py screenshot qam /tmp/qam.png
 
 # Stream console warnings/errors
-python3 scripts/devtools/deck/cdp.py console sjc
+python3 deckprobe/cdp.py console sjc
 
 # Inject a classmap for testing
-python3 scripts/devtools/deck/tools/inject_classmap.py
+python3 deckprobe/tools/inject_classmap.py
 ```
 
 ## i18n
 
-> **Caution:** every new i18n key must be added to all locale files simultaneously — `validate-compat.sh` will fail CI if any file is missing a key. Use the English string as the value in non-English locales when a translation is not yet available; do not leave the key undefined or the runtime will fall back silently and log a warning.
+Locales are sliced into per-area files: `i18n/<locale>/<area>.json`, where
+`<area>` is one of `home`, `qam`, `about`, `settings`, `integrations`,
+`common`. The loader (`src/i18n.ts`) merges every area file per locale into a
+single bundle via `import.meta.glob` — `en-US` ships eagerly (first-paint
+labels), every other locale loads its area chunks lazily for the detected
+language. Adding a locale or a new sub-area is just a new JSON file; no loader
+edit. First-party integrations add `i18n/<locale>/integration-<name>.json`.
 
-- Base locale: `i18n/en-US.json`
-- New keys must be added to ALL locale files
-- `validate-compat.sh` checks key consistency
+> **Caution:** every new key must exist in all locales with no cross-area
+> collisions — `node scripts/build/validate.mjs` fails if any locale's merged
+> key set differs from `en-US` or a key appears in two area files. Use the
+> English string as the value when a translation isn't ready; never leave a
+> key undefined (the runtime falls back silently and logs a warning).
+
+- Base locale: `i18n/en-US/` (area files)
+- A key must exist in every locale and live in exactly one area file
+- External plugins register their own strings at runtime via
+  `window.deckShelves.api.registerTranslations(locale, dict)` instead of a PR
 
 ## Project Conventions
 

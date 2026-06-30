@@ -50,11 +50,11 @@ export const SavedFilterSchema = z.object({
 });
 export type SavedFilter = z.infer<typeof SavedFilterSchema>;
 
-// saved smart shelf templates. Mirrors SavedFilter but
-// captures every knob a smart shelf carries (mode + smartParams +
-// optional refinements). Stored at settings level; readable via
-// `window.deckShelves.api.getSavedSmartFilters()` so external plugins
-// can reuse them.
+/* saved smart shelf templates. Mirrors SavedFilter but
+   captures every knob a smart shelf carries (mode + smartParams +
+   optional refinements). Stored at settings level; readable via
+   `window.deckShelves.api.getSavedSmartFilters()` so external plugins
+   can reuse them. */
 export const SavedSmartFilterSchema = z.object({
   id: z.string().min(1).max(64),
   name: z.string().min(1).max(64),
@@ -88,11 +88,11 @@ export const FilterSchema = z.object({
   nameIncludes: z.string().optional(),
   nameRegex: z.string().optional(),
   deckCompatibility: z.array(z.enum(["verified", "playable", "unsupported", "unknown"])).optional(),
-  // Allow known sort enums but accept unknown strings for forward compatibility.
-  // String OR array-of-strings: when array, sorts apply as primary, secondary,
-  // tertiary keys (stable chain via right-to-left iteration in
-  // `applySortToIds`). Single-key shelves keep writing the string form for
-  // back-compat with older readers.
+  /* Allow known sort enums but accept unknown strings for forward compatibility.
+     String OR array-of-strings: when array, sorts apply as primary, secondary,
+     tertiary keys (stable chain via right-to-left iteration in
+     `applySortToIds`). Single-key shelves keep writing the string form for
+     back-compat with older readers. */
   sort: z.union([
     z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score"]),
     z.string(),
@@ -101,11 +101,11 @@ export const FilterSchema = z.object({
       z.string(),
     ])),
   ]).optional(),
-  // When true, reverse the sort result. Ignored for `manual` and `random`
-  // (re-orderings would be meaningless). Default false.
-  // Boolean OR array-of-booleans: per-key reverse aligned with the sort
-  // array. When sort is a string and sortReverse is an array (or vice versa),
-  // the union is treated as if the missing axis were repeated for every key.
+  /* When true, reverse the sort result. Ignored for `manual` and `random`
+     (re-orderings would be meaningless). Default false.
+     Boolean OR array-of-booleans: per-key reverse aligned with the sort
+     array. When sort is a string and sortReverse is an array (or vice versa),
+     the union is treated as if the missing axis were repeated for every key. */
   sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   minPlaytimeMinutes: z.number().int().min(0).optional(),
   maxPlaytimeMinutes: z.number().int().min(0).optional(),
@@ -149,10 +149,10 @@ export const SmartShelfModeSchema = z.enum([
   "recent_hidden_installs",
   "monthly_spotlight",
   "seasonal_rotation",
-  // Battery-aware template: only resolves to its candidate pool when the
-  // device is actually on battery below the threshold. When battery is OK
-  // / charging / unknown, the resolver returns the same candidates as
-  // short_battery (Deck-friendly + small) so the shelf isn't empty.
+  /* Battery-aware template: only resolves to its candidate pool when the
+     device is actually on battery below the threshold. When battery is OK
+     / charging / unknown, the resolver returns the same candidates as
+     short_battery (Deck-friendly + small) so the shelf isn't empty. */
   "low_battery_mode",
   // Achievement-aware: nearly-complete achievement progress per app.
   // Best-effort against SteamClient.Apps appDetails; returns empty when
@@ -164,10 +164,10 @@ export const SmartShelfModeSchema = z.enum([
   "couch_gaming",
   "coop_ready",
   "party_games",
-  // Online-gated runtime template: reads Steam friends presence via
-  // `friendStore.allFriends`. Returns empty when onlineFeaturesEnabled is
-  // off (reuses the existing master toggle — no new toggle needed since
-  // friends presence is conceptually network-sourced).
+  /* Online-gated runtime template: reads Steam friends presence via
+     `friendStore.allFriends`. Returns empty when onlineFeaturesEnabled is
+     off (reuses the existing master toggle — no new toggle needed since
+     friends presence is conceptually network-sourced). */
   "friends_playing",
   "custom",
 ]);
@@ -180,10 +180,10 @@ export const SmartShelfSchema = z.object({
   enabled: z.boolean().default(true),
   hidden: z.boolean().default(false),
   limit: z.number().int().min(1).max(100).optional(),
-  // Optional user overrides — apply on top of the mode's built-in behavior.
-  // `sort` overrides the mode's default ordering (supports the same values as
-  // regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
-  // `filterGroup` narrows the mode's candidate pool with additional filters.
+  /* Optional user overrides — apply on top of the mode's built-in behavior.
+     `sort` overrides the mode's default ordering (supports the same values as
+     regular shelves, including "manual" + `manualOrder` / `manualBaseSort`).
+     `filterGroup` narrows the mode's candidate pool with additional filters. */
   sort: z.union([
     z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random", "manual", "price_low", "discount_high", "original_price_high"]),
     z.string(),
@@ -197,10 +197,10 @@ export const SmartShelfSchema = z.object({
   // aligned with the `sort` array; see FilterSchema.sortReverse.
   sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
-  // Base sort applied to the rows NOT covered by `manualOrder` when
-  // sort === "manual". Accepts a single key OR a multi-key chain so the
-  // user can have e.g. recent + alphabetical tiebreaker as the base
-  // order under a manual override.
+  /* Base sort applied to the rows NOT covered by `manualOrder` when
+     sort === "manual". Accepts a single key OR a multi-key chain so the
+     user can have e.g. recent + alphabetical tiebreaker as the base
+     order under a manual override. */
   manualBaseSort: z.union([
     z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
     z.string(),
@@ -219,20 +219,23 @@ export const SmartShelfSchema = z.object({
   highlightFirst: z.boolean().optional(),
   highlightAll: z.boolean().optional(),
   highlightedAppIds: z.array(z.number().int()).optional(),
-  /** When true, a deterministic ~25 % of the cards on this shelf render in
-   *  the featured (landscape) size. The selection is stable per shelf id +
-   *  appid set, so cards don't shuffle their size between renders. Stacks
-   *  on top of the explicit highlightedAppIds — a card is featured if it's
-   *  in either set. */
   highlightRandom: z.boolean().optional(),
-  /** Opt-in: populate `logoUrl` on the per-card meta. Default off so
-   *  shelves don't pay any cost when no feature consumes the value. */
   enableLogo: z.boolean().optional(),
-  /** Opt-in: populate `iconUrl` on the per-card meta. */
   enableIcon: z.boolean().optional(),
-  /** Opt-in: warm `appDetailsStore` descriptions for this shelf's cards
-   *  + populate `description`/`fullDescription` on the meta. */
   enableDescription: z.boolean().optional(),
+  descriptionBelowLogo: z.boolean().optional(),
+  logoBelowShelf: z.boolean().optional(),
+  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  logoSize: z.number().int().min(50).max(200).nullable().optional(),
+  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+  fullPageShelf: z.boolean().optional(),
+  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
   hideStatusLine: z.boolean().optional(),
   hideNewBadge: z.boolean().optional(),
   hideDiscountBadge: z.boolean().optional(),
@@ -245,6 +248,13 @@ export const SmartShelfSchema = z.object({
   hideRefreshCard: z.boolean().optional(),
   // Per-shelf hero opt-in (same semantics as the regular Shelf flag).
   heroEnabled: z.boolean().optional(),
+  // Per-shelf: render the focused game's info (name, playtime, …) above the
+  // cards in a full-page layout. Decoupled from any theme — pure opt-in.
+  gameInfoAbove: z.boolean().optional(),
+  // Per-shelf: overlay friend avatar(s) + "N friends playing" on cards where a
+  // Steam friend is in the game. `Recent` widens to the 14-day lookback.
+  friendsPlayingOverlay: z.boolean().optional(),
+  friendsPlayingOverlayRecent: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   // Optional refresh cadence in minutes. When unset the resolver uses its
@@ -257,19 +267,19 @@ export const SmartShelfSchema = z.object({
   smartParams: z.record(z.string(), z.number()).optional(),
   // Source mixing for smart shelves: when populated, the resolver evaluates
   // each `compositeModes` entry independently (each shares the parent's
-  // `smartParams`) and merges the results per `compositeCombine`. The
-  // primary `mode` is treated as the first item of the composite so older
-  // clients that don't read these fields keep getting the single-mode
-  // behaviour. Mirrors regular `ShelfSource = "composite"` semantics so
-  // both shelf kinds expose the same mental model.
+  /* `smartParams`) and merges the results per `compositeCombine`. The
+     primary `mode` is treated as the first item of the composite so older
+     clients that don't read these fields keep getting the single-mode
+     behaviour. Mirrors regular `ShelfSource = "composite"` semantics so
+     both shelf kinds expose the same mental model. */
   compositeModes: z.array(SmartShelfModeSchema).max(5).optional(),
   compositeCombine: z.enum(["union", "intersection"]).optional(),
   // Optional visibility windows. When non-empty, the shelf only appears
-  // when the current local time falls inside ANY of the ranges (OR across
-  // the array). Each range has `start`/`end` hours in `[0, 23]`. Empty
-  // array = no window restriction (same as `undefined`). For backwards
-  // compatibility the sanitizer also accepts a single `{ start, end }`
-  // object and migrates it to a one-element array.
+  /* when the current local time falls inside ANY of the ranges (OR across
+     the array). Each range has `start`/`end` hours in `[0, 23]`. Empty
+     array = no window restriction (same as `undefined`). For backwards
+     compatibility the sanitizer also accepts a single `{ start, end }`
+     object and migrates it to a one-element array. */
   visibleHours: z.array(z.object({
     start: z.number().int().min(0).max(23),
     end: z.number().int().min(0).max(23),
@@ -285,11 +295,11 @@ export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 // `composite` is recursive (a composite source contains other sources,
 // which themselves can be composite). Zod requires `z.lazy()` to break
 // the self-reference at definition time. Because Zod can't infer the
-// type through a lazy schema, the type is declared explicitly first and
-// the schema is constrained with `ZodType<ShelfSource>`. Depth is
-// bounded at resolve time (`MAX_COMPOSITE_DEPTH` in `steam/index.ts`);
-// the schema accepts arbitrary nesting so power users editing JSON can
-// go deeper than the editor exposes.
+/* type through a lazy schema, the type is declared explicitly first and
+   the schema is constrained with `ZodType<ShelfSource>`. Depth is
+   bounded at resolve time (`MAX_COMPOSITE_DEPTH` in `steam/index.ts`);
+   the schema accepts arbitrary nesting so power users editing JSON can
+   go deeper than the editor exposes. */
 export type ShelfSource =
   | { type: "collection"; collectionId: string; childFilter?: FilterGroup }
   | { type: "tab"; tab: string; childFilter?: FilterGroup }
@@ -332,11 +342,11 @@ export const ShelfSchema = z.object({
   sortReverse: z.union([z.boolean(), z.array(z.boolean())]).optional(),
   manualOrder: z.array(z.number().int()).optional(),
   // Base sort used to order items NOT covered by `manualOrder` when `sort === "manual"`.
-  // Defaults to "alphabetical" when absent; must not be "manual" itself.
-  // Base sort applied to the rows NOT covered by `manualOrder` when
-  // sort === "manual". Accepts a single key OR a multi-key chain so the
-  // user can have e.g. recent + alphabetical tiebreaker as the base
-  // order under a manual override.
+  /* Defaults to "alphabetical" when absent; must not be "manual" itself.
+     Base sort applied to the rows NOT covered by `manualOrder` when
+     sort === "manual". Accepts a single key OR a multi-key chain so the
+     user can have e.g. recent + alphabetical tiebreaker as the base
+     order under a manual override. */
   manualBaseSort: z.union([
     z.enum(["alphabetical", "recent", "playtime", "release_date", "size_on_disk", "metacritic", "review_score", "added", "random"]),
     z.string(),
@@ -352,16 +362,23 @@ export const ShelfSchema = z.object({
   highlightFirst: z.boolean().default(false),
   highlightAll: z.boolean().default(false),
   highlightedAppIds: z.array(z.number().int()).optional(),
-  /** Deterministic random featuring (~25 %). See SmartShelfSchema for full
-   *  semantics. Stacks on top of explicit highlightedAppIds. */
   highlightRandom: z.boolean().optional(),
-  /** Opt-in: populate `logoUrl` on the per-card meta. Default off. */
   enableLogo: z.boolean().optional(),
-  /** Opt-in: populate `iconUrl` on the per-card meta. Default off. */
   enableIcon: z.boolean().optional(),
-  /** Opt-in: warm `appDetailsStore` descriptions + populate description
-   *  fields on the meta. Default off. */
   enableDescription: z.boolean().optional(),
+  descriptionBelowLogo: z.boolean().optional(),
+  logoBelowShelf: z.boolean().optional(),
+  logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  descriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  logoSize: z.number().int().min(50).max(200).nullable().optional(),
+  logoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+  fullPageShelf: z.boolean().optional(),
+  iconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+  shelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  gameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  playtimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  descriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+  descriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
   hideStatusLine: z.boolean().default(false),
   hideNewBadge: z.boolean().default(false),
   hideDiscountBadge: z.boolean().default(false),
@@ -372,11 +389,18 @@ export const ShelfSchema = z.object({
   hideInstallIndicator: z.boolean().default(false),
   hideSeeMore: z.boolean().default(false),
   hideRefreshCard: z.boolean().default(false),
-  // Per-shelf "Enable hero art" toggle. When true, focusing any card in this
-  // shelf paints the hero image (same overlay used by the global
-  // `shelfHeroBackground`) tied to the focused appid. Independent of
-  // `hideRecents` — a regular shelf below the native recents row can opt in.
+  /* Per-shelf "Enable hero art" toggle. When true, focusing any card in this
+     shelf paints the hero image (same overlay used by the global
+     `shelfHeroBackground`) tied to the focused appid. Independent of
+     `hideRecents` — a regular shelf below the native recents row can opt in. */
   heroEnabled: z.boolean().optional(),
+  // Per-shelf: render the focused game's info (name, playtime, …) above the
+  // cards in a full-page layout. Decoupled from any theme — pure opt-in.
+  gameInfoAbove: z.boolean().optional(),
+  // Per-shelf: overlay friend avatar(s) + "N friends playing" on cards where a
+  // Steam friend is in the game. `Recent` widens to the 14-day lookback.
+  friendsPlayingOverlay: z.boolean().optional(),
+  friendsPlayingOverlayRecent: z.boolean().optional(),
   dedupeByExactName: z.boolean().optional(),
   hiddenAppIds: z.array(z.number().int()).optional(),
   source: ShelfSourceSchema,
@@ -393,16 +417,16 @@ export const ShelfSchema = z.object({
       size: z.enum(["normal", "featured"]).default("normal"),
       alpha: z.number().min(0).max(1).optional(),
       placeholder: z.boolean().optional(),
-      // Decoration hero — when set, the synthetic card behaves as a
-      // hero source: while focused, this image fills the per-shelf
-      // hero background (same path PerShelfHero uses for game cards).
-      // No effect when empty or when the shelf has hero off.
+      /* Decoration hero — when set, the synthetic card behaves as a
+         hero source: while focused, this image fills the per-shelf
+         hero background (same path PerShelfHero uses for game cards).
+         No effect when empty or when the shelf has hero off. */
       heroImage: z.string().optional(),
-      // Shadow render mode for focusable (linked) decoration cards.
-      // "never" (default) keeps the prior `.ds-card--synthetic-noshadow`
-      // behaviour; "always" paints the card-frame drop shadow in every
-      // state; "onFocus" only paints it while the card is focused.
-      // Non-focusable cards always render with no shadow regardless.
+      /* Shadow render mode for focusable (linked) decoration cards.
+         "never" (default) keeps the prior `.ds-card--synthetic-noshadow`
+         behaviour; "always" paints the card-frame drop shadow in every
+         state; "onFocus" only paints it while the card is focused.
+         Non-focusable cards always render with no shadow regardless. */
       shadowMode: z.enum(["never", "onFocus", "always"]).optional(),
     }).transform((c) => {
       // Sanitise rather than reject — failing validation nuked shelves
@@ -441,12 +465,27 @@ export const SettingsSchema = z.object({
   globalHighlightFirst: z.boolean().default(false),
   globalHighlightAll: z.boolean().default(false),
   globalHighlightRandom: z.boolean().optional(),
-  /** Global opt-in for enriched per-card metadata. ORed with per-shelf
-   *  toggles — when EITHER the global OR the shelf flag is on, the data
-   *  is populated/fetched for that shelf. Default off. */
   globalEnableLogo: z.boolean().optional(),
   globalEnableIcon: z.boolean().optional(),
   globalEnableDescription: z.boolean().optional(),
+  globalDescriptionBelowLogo: z.boolean().optional(),
+  globalLogoBelowShelf: z.boolean().optional(),
+  globalLogoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalDescriptionPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalLogoSize: z.number().int().min(50).max(200).nullable().optional(),
+  globalLogoTopOffset: z.number().int().min(-50).max(100).nullable().optional(),
+  globalFullPageShelf: z.boolean().optional(),
+  settingsPageEnabled: z.boolean().optional(),
+  globalIconVerticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional(),
+  globalShelfTitlePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalGameNamePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalPlaytimePosition: z.enum(['left', 'center', 'right']).nullable().optional(),
+  globalDescriptionHeight: z.number().int().min(1).max(3).nullable().optional(),
+  globalDescriptionLogoGap: z.number().int().min(-40).max(80).nullable().optional(),
+  contextSearchEnabled: z.boolean().nullable().optional(),
+  contextSearchKeyboardEnabled: z.boolean().nullable().optional(),
+  contextSearchOnEnter: z.boolean().nullable().optional(),
+  sideNavEnabled: z.boolean().nullable().optional(),
   globalHideStatusLine: z.boolean().default(false),
   globalHideNewBadge: z.boolean().default(false),
   globalHideDiscountBadge: z.boolean().default(false),
@@ -459,6 +498,12 @@ export const SettingsSchema = z.object({
   globalHideRefreshCard: z.boolean().default(false),
   globalDedupeByName: z.boolean().default(false),
   globalHeroEnabled: z.boolean().default(false),
+  // Global default for "show game info above the cards" (per-shelf can override).
+  globalGameInfoAbove: z.boolean().default(false),
+  // Global default for the "friends playing" card overlay (per-shelf can
+  // override); `Recent` widens it to the 14-day lookback.
+  globalFriendsPlayingOverlay: z.boolean().default(false),
+  globalFriendsPlayingOverlayRecent: z.boolean().default(false),
   shelves: z.array(ShelfSchema).default([]),
   smartShelvesEnabled: z.boolean().default(false),
   smartShelvesAtBottom: z.boolean().default(false),
@@ -467,11 +512,13 @@ export const SettingsSchema = z.object({
   smartSurpriseMeCount: z.number().int().min(0).max(5).default(0),
   savedFilters: z.array(SavedFilterSchema).default([]),
   savedSmartFilters: z.array(SavedSmartFilterSchema).default([]),
-  // `nullable()` is mandatory: the Python sanitizer in `main.py` returns `null`
-  // for these when the user hasn't set them, and Zod's `optional()` alone
-  // rejects null — which previously failed `safeParse` on the entire Settings
-  // object and silently reset every shelf to defaults on the next load.
+  /* `nullable()` is mandatory: the Python sanitizer in `main.py` returns `null`
+     for these when the user hasn't set them, and Zod's `optional()` alone
+     rejects null — which previously failed `safeParse` on the entire Settings
+     object and silently reset every shelf to defaults on the next load. */
   updateNotifyEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
+  betaChannelEnabled: z.boolean().optional(),
+  verboseLoggingEnabled: z.boolean().optional(),
   updateNotifyDismissedVersion: z.string().nullable().optional(),
   onlineFeaturesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineWishlistEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
@@ -489,6 +536,71 @@ export const SettingsSchema = z.object({
   // funcionalidade, só remove o controle da listagem do QAM.
   qamHiddenToggles: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
   qamHiddenSections: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  /* merges regular + smart
+     shelves into a single ordered list. Off by default; the order
+     array is preserved across mode flips so toggling back doesn't
+     wipe it. Render path stays split until PR2. */
+  unifiedListEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  allShelvesOrder: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
+  /* usage profiles. A profile is a settings snapshot the
+     user can save, apply, duplicate, delete. `activeProfileName`
+     tracks which one (if any) is currently applied so QAM and
+     Settings stay in sync. `lightModeEnabled` and `featureToggles`
+     are the other surface fields. */
+  lightModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Advanced mode: mutually exclusive with light. Shows Integrations +
+  // Advanced tools tabs always; light hides those + shortcuts + statistics.
+  advancedModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  // Opt-in: surface stats-derived suggestions in the create-shelf template modal.
+  templateSuggestionsEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  removalSuggestionsEnabled: z.boolean().optional(),
+  /* Offline mode: when ON, suppresses every network call regardless of
+     other settings (update check, CDN asset fallbacks, online filters /
+     sources / wishlist / price). User toggles remain untouched so
+     turning offline off restores their previous online behaviour. */
+  offlineModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
+  featureToggles: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
+  activeProfileName: z.string().nullable().optional(),
+  profiles: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    createdAt: z.string(),
+    snapshot: z.record(z.string(), z.unknown()),
+    // VisibilityRule predicate that auto-
+    /* applies the profile when its predicate becomes true (battery
+       low, plugged in, external display, performance threshold, etc.).
+       Schema accepts the field; the resolver lands with the
+       visibility-rules v2 pass. Stored as `unknown` because the rule
+       shape belongs to that work — sanitizer round-trips it verbatim. */
+    trigger: z.unknown().optional(),
+  })).nullable().optional().transform((v) => v ?? []),
+  // Integrations detail panel per-row toggle. Keys are
+  /* integration ids (descriptor `id` fields registered through the
+     public Plugin API); value `false` opts the user out of seeing
+     that integration's contributions at runtime. Default behaviour
+     is "enabled" — entries are only persisted when the user flips
+     one off. */
+  integrationsEnabled: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
+  buttonBindings: z.object({
+    cardHideRemove:  z.string().nullable().optional(),
+    cardHighlightToggle: z.string().nullable().optional(),
+    cardQuickLaunch: z.string().nullable().optional(),
+    navSearch:       z.string().optional(),
+    navSideNav:      z.string().optional(),
+    navSidecarOpen:  z.string().optional(),
+    navSidecarClose: z.string().optional(),
+  }).nullable().optional().transform((v) => v ?? {}),
+  buttonBindingsDisabled: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
+
+export interface ButtonBindings {
+  cardHideRemove?: string | null;
+  cardHighlightToggle?: string | null;
+  cardQuickLaunch?: string | null;
+  navSearch?: string;
+  navSideNav?: string;
+  navSidecarOpen?: string;
+  navSidecarClose?: string;
+}

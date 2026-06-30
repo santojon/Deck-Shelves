@@ -1,19 +1,6 @@
 import { ShelfPreview } from './ShelfPreview'
 import type { PlatformAppMeta } from '../../../../runtime/platform'
 
-/**
- * Bottom preview region rendered by both `EditShelfModal` and
- * `EditSmartShelfModal`. Picks one of five render modes based on the
- * active tab and which picker is open:
- * - hidden picker (Display tab): mini-card row of overshoot candidates
- * - loading: when the shelf hasn't resolved any apps yet
- * - manual sort (Source tab + sort='manual'): drag-to-reorder row
- * - highlight picker (Visual tab): mini-card row for selecting featured games
- * - default: the shared `ShelfPreview` with display flags applied
- *
- * State is owned by the parent — every callback / id list flows in through
- * props. Adding a new mode means editing one place instead of two modals.
- */
 export type PreviewPanelProps = {
   t: (k: any, opts?: any) => string
   title: string
@@ -32,11 +19,11 @@ export type PreviewPanelProps = {
   highlightedAppIds: number[]
 
   // Picker selection drives `selectionMode` / `selectionSet` / `onToggleSelection`
-  // forwarded below; the legacy `highlightPickerOpen` / `hiddenPickerOpen` +
-  // alternating-mode + pre-pattern ref props used to drive a separate
-  // mini-card render mode here. ShelfPreview now owns the whole picker flow
-  // via the unified selection trio, so this surface only forwards what's
-  // still consumed.
+  /* forwarded below; the legacy `highlightPickerOpen` / `hiddenPickerOpen` +
+     alternating-mode + pre-pattern ref props used to drive a separate
+     mini-card render mode here. ShelfPreview now owns the whole picker flow
+     via the unified selection trio, so this surface only forwards what's
+     still consumed. */
   alternatingMode: 'odd' | 'even' | null
   hiddenAppIds: number[]
 
@@ -75,11 +62,11 @@ export type PreviewPanelProps = {
     heroImage?: string;
     shadowMode?: 'never' | 'onFocus' | 'always';
   }>
-  // Picker mode for the highlight / hidden tabs. When set, the preview
-  // renders the same real cards as every other tab but with a tinted
-  // overlay + a click handler that toggles selection. Lets the editor
-  // share one render path across tabs instead of branching into mini-
-  // card rows that lost the source-tab order.
+  /* Picker mode for the highlight / hidden tabs. When set, the preview
+     renders the same real cards as every other tab but with a tinted
+     overlay + a click handler that toggles selection. Lets the editor
+     share one render path across tabs instead of branching into mini-
+     card rows that lost the source-tab order. */
   selectionMode?: 'highlight' | 'hidden'
   selectionSet?: Set<number>
   onToggleSelection?: (appid: number) => void
@@ -110,18 +97,18 @@ export function PreviewPanel(props: PreviewPanelProps) {
   )
 
   let body: React.ReactNode
-  // Manual sort grab mode is the only branch with truly custom UX
-  // (long-press grab + L/R shift). Highlight + hidden pickers used to
-  // diverge into mini-card rows that didn't share the source-tab order;
-  // now they reuse the same ShelfPreview render with a selectionMode
-  // overlay so the row stays identical across every editor tab.
+  /* Manual sort grab mode is the only branch with truly custom UX
+     (long-press grab + L/R shift). Highlight + hidden pickers used to
+     diverge into mini-card rows that didn't share the source-tab order;
+     now they reuse the same ShelfPreview render with a selectionMode
+     overlay so the row stays identical across every editor tab. */
   if (resolvedIds.length === 0) {
     body = loading
   } else {
-    // Single render path for ALL tabs. Source-tab manual sort just turns
-    // ON drag mode; everything else (cap, trailing, synth splice, X
-    // buttons, hide flags, discount gating, focus behaviour) renders
-    // identically across every tab and across both shelf modal types.
+    /* Single render path for ALL tabs. Source-tab manual sort just turns
+       ON drag mode; everything else (cap, trailing, synth splice, X
+       buttons, hide flags, discount gating, focus behaviour) renders
+       identically across every tab and across both shelf modal types. */
     body = (
       <ShelfPreview
         manualSortMode={isManualSort && activeTab === 'source'}
@@ -160,7 +147,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
     <div style={{ flexShrink: 0, padding: '0 24px' }}>
       {!hideShelfTitle && (
         <div style={{ fontSize: 16, fontWeight: 600, padding: '4px 0 8px', opacity: 0.92, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {title || t('newShelf')}
+          {title || t('new_shelf')}
         </div>
       )}
       {body}

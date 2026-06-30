@@ -1,0 +1,27 @@
+{
+  "$schema": "./deckprobe/docs/config.schema.json",
+  "selectors": {
+    "HOME_MOUNT_ID":          "deck-shelves-home-root",
+    "QAM_SCOPE_SEL":          ".deck-shelves-qam-scope",
+    "ROOT_SEL":               ".deck-shelves-root",
+    "SHELF_SEL":              ".ds-shelf",
+    "ROW_SEL":                ".ds-row-scroll",
+    "CARD_SEL":               ".ds-card",
+    "FOCUS_CLASS":            "gpfocus",
+    "VIEWPORT_SEL":           "._3PhGYbMWIcIaZCfllWN19N",
+    "NEWS_SEL":               ".cE1SaW6jrVUDxcqRtyMo1",
+    "COLLAPSIBLE_HEADER_SEL": ".ds-collapsible-header",
+    "ABOUT_ROUTE":            "/deck-shelves/about",
+    "CLASS_MAP_GLOBAL":       "__DS_CLASS_MAP",
+    "CLASS_MAP_LS_KEY":       "ds_class_map",
+    "PROJECT_LABEL":          "deck-shelves",
+    "SETTINGS_GLOBAL":        "__DECK_SHELVES_SHARED_SETTINGS__"
+  },
+  "diag_dirs": [
+    "scripts/deckprobe-ext/diag"
+  ],
+  "uitests_suites_dir": "scripts/deckprobe-ext/uitests/suites",
+  "screenshots_scenarios_dir": "scripts/deckprobe-ext/screenshots/scenarios",
+  "screenshots_dir":    "assets/screenshots",
+  "perf_bench_config":  "scripts/deckprobe-ext/perf-bench.config.json"
+}

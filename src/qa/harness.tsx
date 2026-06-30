@@ -57,12 +57,6 @@ function qaAllShelvesFixture(): Shelf[] {
   ];
 }
 
-/**
- * Bazzite #55 repro fixture — a filter shelf whose collection-filter points
- * at a non-existent collection. Pre-fix this leaked the entire library; with
- * the fix in place the shelf renders empty (and thus is hidden by the
- * `!appIds.length` guard in `Shelf.tsx`). Useful as a regression smoke test.
- */
 function qaCollectionEmptyFixture(): Shelf[] {
   const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
   return [
@@ -75,11 +69,6 @@ function qaCollectionEmptyFixture(): Shelf[] {
   ];
 }
 
-/**
- * Bazzite #56 demo fixture — same library minus one collection. Two shelves
- * side by side: the in-collection set and its complement. Useful to visually
- * confirm the inverted-collection toggle is working.
- */
 function qaCollectionInvertedFixture(): Shelf[] {
   const base = { enabled: true, hidden: false, limit: 20, matchNativeSize: false, highlightFirst: false, highlightAll: false, hideStatusLine: false, hideNewBadge: false, hideDiscountBadge: false, hideCompatIcons: false, hideNonSteamBadge: false, hideShelfTitle: false, hideGameNames: false, hideInstallIndicator: false, hideSeeMore: false, hideRefreshCard: false };
   return [
@@ -206,6 +195,63 @@ function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
       source: { type: "filter", filter: { sort: ["recent", "alphabetical"], sortReverse: [false, false] } as any },
       sort: ["recent", "alphabetical"] as any,
       sortReverse: [false, false] as any } as any,
+    // 20 — per-shelf enableLogo=true (exercises logo overlay + padding reservation)
+    { ...base, id: "qa_st_20", title: "Stress 20 — Logo overlay enabled",
+      source: { type: "tab", tab: "installed" },
+      enableLogo: true, enableDescription: true,
+      logoPosition: "left", descriptionPosition: "left",
+      logoSize: 100, logoTopOffset: 20,
+      descriptionHeight: 2, descriptionLogoGap: 8,
+      descriptionBelowLogo: true } as any,
+    // 21 — per-shelf enableLogo=false (master-switch opt-out coverage)
+    { ...base, id: "qa_st_21", title: "Stress 21 — Logo explicitly off",
+      source: { type: "tab", tab: "favorites" },
+      enableLogo: false, enableIcon: false, enableDescription: false } as any,
+    // 22 — full-page shelf + hero (promoted layout under recents replacement)
+    { ...base, id: "qa_st_22", title: "Stress 22 — Full-page + hero",
+      source: { type: "collection", collectionId: "favorite" },
+      fullPageShelf: true, heroEnabled: true } as any,
+    // 23 — per-card highlights via highlightedAppIds (manual featured cycle)
+    { ...base, id: "qa_st_23", title: "Stress 23 — Per-card highlights",
+      source: { type: "filter", filter: { sort: "playtime" } },
+      highlightedAppIds: [220, 440, 570, 730, 4000] } as any,
+    // 24 — dedupeByExactName + hiddenAppIds overshoot
+    { ...base, id: "qa_st_24", title: "Stress 24 — Dedupe + hidden ids",
+      source: { type: "filter", filter: { sort: "alphabetical" } },
+      dedupeByExactName: true,
+      hiddenAppIds: [220, 440] } as any,
+    // 25 — composite intersection of two child sources (installed AND verified)
+    { ...base, id: "qa_st_25", title: "Stress 25 — Composite intersection",
+      source: { type: "composite", combine: "intersection", sources: [
+        { type: "tab", tab: "installed" },
+        { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "deckCompatibility", inverted: false, params: { levels: ["verified"] } }] } } },
+      ] } as any } as any,
+    // 26 — random sort + hideRefreshCard + heroEnabled (refresh card surface)
+    { ...base, id: "qa_st_26", title: "Stress 26 — Random + hero + hide refresh",
+      source: { type: "filter", filter: { sort: "random" } },
+      heroEnabled: true, hideRefreshCard: true } as any,
+    // 27 — manual sort + reverse base sort + dedupe
+    { ...base, id: "qa_st_27", title: "Stress 27 — Manual / desc base / dedupe",
+      source: { type: "tab", tab: "installed" },
+      sort: "manual" as any,
+      manualBaseSort: "playtime",
+      manualBaseSortReverse: true,
+      manualOrder: [],
+      dedupeByExactName: true } as any,
+    // 28 — wishlist composite with online discount filter
+    { ...base, id: "qa_st_28", title: "Stress 28 — Composite wishlist+store on sale",
+      source: { type: "composite", combine: "union", sources: [
+        { type: "wishlist", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 50, maxDiscount: 100 } }] } },
+        { type: "store", childFilter: { mode: "and", items: [{ type: "discount", inverted: false, params: { minDiscount: 100, maxDiscount: 100 } }] } },
+      ] } as any,
+      sort: ["discount_high", "original_price_high"] as any,
+      sortReverse: [false, false] as any } as any,
+    // 29 — friends playing now (online feature gate)
+    { ...base, id: "qa_st_29", title: "Stress 29 — Friends playing",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "friendsPlayingNow", inverted: false, params: {} }] }, sort: "alphabetical" } } } as any,
+    // 30 — appIdList whitelist source (pin specific games)
+    { ...base, id: "qa_st_30", title: "Stress 30 — App id whitelist",
+      source: { type: "filter", filter: { filterGroup: { mode: "and", items: [{ type: "appIdList", inverted: false, params: { appIds: [220, 440, 570, 730, 4000, 8930, 105600, 209650, 213610] } }] }, sort: "alphabetical" } } } as any,
   ];
 
   const smartShelves: SmartShelf[] = [
@@ -219,6 +265,31 @@ function qaStressFixture(): { shelves: Shelf[]; smartShelves: SmartShelf[] } {
     { id: "qa_ssm_07", title: "Stress Smart 07 — Backlog rescue",  mode: "backlog_rescue",  enabled: true, hidden: false, limit: 50 },
     { id: "qa_ssm_08", title: "Stress Smart 08 — Forgotten gems",  mode: "forgotten_gems",  enabled: true, hidden: false, limit: 50 },
     { id: "qa_ssm_09", title: "Stress Smart 09 — Weekly rotation", mode: "weekly_rotation", enabled: true, hidden: false, limit: 50 },
+    // Heuristic templates with tunable smartParams (cooldown / staleness / review-floor)
+    { id: "qa_ssm_10", title: "Stress Smart 10 — Hidden gems",     mode: "hidden_gems",     enabled: true, hidden: false, limit: 50,
+      smartParams: { reviewFloor: 80, maxPlaytimeMinutes: 60 } as any },
+    { id: "qa_ssm_11", title: "Stress Smart 11 — Travel mode",     mode: "travel_mode",     enabled: true, hidden: false, limit: 50,
+      smartParams: { offlineOnly: true } as any },
+    { id: "qa_ssm_12", title: "Stress Smart 12 — Monthly spotlight", mode: "monthly_spotlight", enabled: true, hidden: false, limit: 50,
+      smartParams: { rotationDays: 30 } as any },
+    // Runtime-aware (best-effort against runtime data)
+    { id: "qa_ssm_13", title: "Stress Smart 13 — Low battery",     mode: "low_battery_mode", enabled: true, hidden: false, limit: 50,
+      smartParams: { batteryBelow: 20 } as any },
+    { id: "qa_ssm_14", title: "Stress Smart 14 — Almost finished", mode: "almost_finished", enabled: true, hidden: false, limit: 50,
+      smartParams: { minCompletionPercent: 80 } as any },
+    // Per-day visibility window override (exercises per-day overrides)
+    { id: "qa_ssm_15", title: "Stress Smart 15 — Quick play (weekends)", mode: "quick_play", enabled: true, hidden: false, limit: 50,
+      visibleHours: [{ start: 9, end: 23, days: [0, 6] }] as any },
+    // refreshIntervalMinutes — exercises the refresh card trailing tile
+    { id: "qa_ssm_16", title: "Stress Smart 16 — Roulette (5min refresh)", mode: "roulette", enabled: true, hidden: false, limit: 50,
+      refreshIntervalMinutes: 5 },
+    // Custom smart-shelf — user-defined filterGroup + sort
+    { id: "qa_ssm_17", title: "Stress Smart 17 — Custom (verified + recent)", mode: "custom" as any, enabled: true, hidden: false, limit: 50,
+      filterGroup: { mode: "and", items: [
+        { type: "deckCompatibility", inverted: false, params: { levels: ["verified", "playable"] } },
+        { type: "playedWithinDays", inverted: false, params: { days: 30 } },
+      ] },
+      sort: "recent" } as any,
   ];
 
   return { shelves, smartShelves };
@@ -478,21 +549,11 @@ export function applyQASettingsOverride(s: Settings): Settings {
   };
 }
 
-/**
- * Returns a fake `UpdateCheckResult`-shaped payload when `qa:update-available`
- * is on, so the QAM banner renders without any network round trip. Returns
- * `null` otherwise — `checkForUpdate` falls through to its real flow.
- */
 export function qaForcedUpdateResult(): { hasUpdate: boolean; latestVersion: string | null; releaseUrl: string | null } | null {
   if (!updateAvailable) return null;
   return { hasUpdate: true, latestVersion: QA_FAKE_LATEST_VERSION, releaseUrl: QA_FAKE_RELEASE_URL };
 }
 
-/**
- * Returns `true` when `qa:update-offline` is set so the connectivity helper
- * can short-circuit `isOnline()` without touching the network. Lets QA
- * verify offline gating without unplugging the Deck.
- */
 export function isQAUpdateOffline(): boolean {
   return updateOffline;
 }
@@ -518,8 +579,6 @@ export function wrapHomeShelves<P extends object>(Component: React.ComponentType
   };
 }
 
-/** Returns `true` when the current build should pretend the recents-replace
- *  kill-switch fired, surfacing the `RecentsReplaceErrorBanner` in the QAM. */
 export function isReplaceFailedForced(): boolean {
   return !!forceReplaceFailed;
 }

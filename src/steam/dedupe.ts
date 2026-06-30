@@ -1,26 +1,5 @@
 import type { AppOverview } from "./index";
 
-/**
- * Normalize a game title for cross-source name matching.
- *
- * Online wishlist / store entries arrive with the official Steam title
- * (e.g. "Kingdom Come: Deliverance"), while non-Steam shortcuts that
- * the user created or that Unifideck imported often spell the same
- * game without punctuation (e.g. "Kingdom Come Deliverance"). Exact
- * lowercase compare misses these matches and leaves the wishlist row
- * advertising games the user already owns locally.
- *
- * The normalisation:
- *   - lowercases
- *   - strips trademark / copyright / registered marks
- *   - replaces every non-alphanumeric character (incl. punctuation and
- *     accented punctuation) with a single space
- *   - collapses whitespace and trims
- *
- * Accented letters are preserved so locale-specific titles still match
- * across sources ("Hadès" stays distinct from "Hades" only when one
- * side genuinely uses the accent).
- */
 export function normalizeTitleForMatch(name: string | undefined | null): string {
   if (!name) return "";
   return String(name)
@@ -31,22 +10,13 @@ export function normalizeTitleForMatch(name: string | undefined | null): string 
     .trim();
 }
 
-/**
- * Collapse duplicate names in an app list.
- *
- * Within each exact-name group (case-sensitive, trim only):
- *   - keep the first Steam app (`isNonSteam === false`) if one exists;
- *   - otherwise keep the first entry.
- *
- * The input ordering is preserved for surviving entries.
- */
 export function dedupeByName(
   apps: { appid: number; name: string; isSteam: boolean }[],
 ): number[] {
-  // Use the same normalisation the online-shelves name-dedup uses
-  // (lowercases, strips trademark glyphs, collapses non-alphanumeric
-  // runs). Without this, "Kingdom Come Deliverance" and "Kingdom Come:
-  // Deliverance" stayed as separate buckets even with dedup on.
+  /* Use the same normalisation the online-shelves name-dedup uses
+     (lowercases, strips trademark glyphs, collapses non-alphanumeric
+     runs). Without this, "Kingdom Come Deliverance" and "Kingdom Come:
+     Deliverance" stayed as separate buckets even with dedup on. */
   const seen = new Map<string, number>(); // normalised name → appid of winner
   for (const a of apps) {
     const key = normalizeTitleForMatch(a.name);
@@ -65,10 +35,6 @@ export function dedupeByName(
   return apps.filter((a) => winners.has(a.appid)).map((a) => a.appid);
 }
 
-/**
- * Apply name-dedup to a list of appids given the full app pool.
- * Returns the filtered id list in the same relative order.
- */
 export function dedupeAppIdsByName(
   ids: number[],
   all: AppOverview[],

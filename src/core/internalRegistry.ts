@@ -1,29 +1,31 @@
-/**
- * Registers every first-party shelf source / filter type / sort option /
- * smart-shelf mode on the public Plugin API registry, so plugins querying
- * `getRegistered*` see a uniform list (built-in + external) and can
- * detect collisions before registering.
- *
- * Resolver precedence is enforced at the call sites — these registrations
- * are descriptive only, they don't change runtime behavior.
- */
 
 import {
   registerInternalSmartShelfSource,
   registerInternalFilterType,
   registerInternalSortOption,
+  registerInternalSearchProvider,
+  registerInternalShelfSource,
+  registerInternalStatisticsProvider,
   setInternalBootstrap,
   type SmartShelfSourceDescriptor,
   type ExternalFilterTypeDescriptor,
   type ExternalSortOptionDescriptor,
+  type ExternalShelfSourceDescriptor,
 } from "./pluginApi";
+import { BUILT_IN_SHELF_SEARCH } from "../features/search/builtInProvider";
+import { BUILT_IN_LIBRARY_STATISTICS, BUILT_IN_SHELF_STATISTICS } from "../steam/statistics";
+import {
+  V3_FILTER_DESCRIPTORS,
+  V3_SORT_DESCRIPTORS,
+  V3_SOURCE_DESCRIPTORS,
+} from "../steam/v3Extensions";
 
 // Built-in smart-shelf modes. Each gets a noop resolve here — the actual
-// computation lives in `resolveSmartShelf` in `src/steam/smartShelves.ts`
-// and is reached via the resolver's internal-precedence branch in
-// `resolveShelfAppIds`. Plugin authors querying the registry see the id +
-// label; calling `resolve()` on this descriptor returns `[]` because the
-// registry is descriptive, not authoritative.
+/* computation lives in `resolveSmartShelf` in `src/steam/smartShelves.ts`
+   and is reached via the resolver's internal-precedence branch in
+   `resolveShelfAppIds`. Plugin authors querying the registry see the id +
+   label; calling `resolve()` on this descriptor returns `[]` because the
+   registry is descriptive, not authoritative. */
 const INTERNAL_SMART_DESCRIPTORS: SmartShelfSourceDescriptor[] = [
   { id: "quick_play",      displayName: "Quick Play",      category: "time",     resolve: async () => [] },
   { id: "not_started",     displayName: "Not started",     category: "status",   resolve: async () => [] },
@@ -74,6 +76,47 @@ export function installInternalRegistry(): () => void {
   for (const d of INTERNAL_SMART_DESCRIPTORS) unsubs.push(registerInternalSmartShelfSource(d));
   for (const d of INTERNAL_FILTER_TYPES) unsubs.push(registerInternalFilterType(d));
   for (const d of INTERNAL_SORT_OPTIONS) unsubs.push(registerInternalSortOption(d));
+  /* Plugin API track — register the built-in Quick Search via
+     the same surface external plugins use. SearchOverlay simply iterates
+     `getExternalSearchProviders()` and gets the built-in first thanks
+     to its priority of 100. */
+  unsubs.push(registerInternalSearchProvider(BUILT_IN_SHELF_SEARCH));
+  /* Built-in library statistics — the first authoritative internal
+     provider (its resolve() actually computes, unlike the descriptive
+     noop descriptors above). Registered through the same surface
+     external statistics providers use, so the QAM/About stats view and
+     any third-party consumer read it identically. */
+  unsubs.push(registerInternalStatisticsProvider(BUILT_IN_LIBRARY_STATISTICS));
+  unsubs.push(registerInternalStatisticsProvider(BUILT_IN_SHELF_STATISTICS));
+  /* register every first-party Filter v3, Sort
+     v3, and Shelf Source v3 entry through the same surface external
+     plugins use. Resolver / evaluator wiring lives in `steam/index.ts`
+     + `steam/v3Extensions.ts`; the registry entries here surface them
+     in the Integrations card + downstream dropdowns. */
+  for (const d of V3_FILTER_DESCRIPTORS) {
+    const desc: ExternalFilterTypeDescriptor = {
+      id: d.id,
+      displayName: d.displayName,
+      evaluate: () => false,
+    };
+    unsubs.push(registerInternalFilterType(desc));
+  }
+  for (const d of V3_SORT_DESCRIPTORS) {
+    const desc: ExternalSortOptionDescriptor = {
+      id: d.id,
+      displayName: d.displayName,
+      sort: (appIds) => appIds.slice(),
+    };
+    unsubs.push(registerInternalSortOption(desc));
+  }
+  for (const d of V3_SOURCE_DESCRIPTORS) {
+    const desc: ExternalShelfSourceDescriptor = {
+      id: d.id,
+      displayName: d.displayName,
+      resolve: () => Promise.resolve([]),
+    };
+    unsubs.push(registerInternalShelfSource(desc));
+  }
   return () => { for (const u of unsubs) { try { u(); } catch {} } };
 }
 

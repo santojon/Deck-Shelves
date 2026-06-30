@@ -24,6 +24,9 @@ permissions:
 
 jobs:
   notify:
+    # Skip pre-releases — prerelease.yml posts its own [Unreleased]-issue
+    # comments for those. This reporter-ping flow is for stable releases only.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease != true }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository (full history — needed for git log between tags)

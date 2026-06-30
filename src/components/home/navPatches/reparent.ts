@@ -1,14 +1,5 @@
 import { logInfo } from "../../../runtime/logger";
 
-/**
- * Moves the shelf's nav-tree nodes into the correct position inside
- * Steam's focus navigation tree. The React portal registers our
- * `Focusable` at the wrong tree depth (no home context), so D-pad
- * traversal would otherwise skip our shelves or snap to the tabs.
- *
- * Stability guard: once our nodes are parented under the chosen target,
- * the function short-circuits — no churn in steady state.
- */
 export function reparentNavTreeNodes(mountEl: HTMLElement): number {
   const ctrl = (globalThis as any).FocusNavController
     ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;
@@ -57,11 +48,11 @@ export function reparentNavTreeNodes(mountEl: HTMLElement): number {
     return null;
   }
 
-  // Preferred target: the nav node whose Element === mountEl.parentElement.
-  // That's the home Panel that in DOM already contains [recents, mount, tabs]
-  // — placing our nav node inside it gets D-pad traversal
-  // recents → shelves → tabs (matching DOM order) instead of forcing users
-  // to walk past the tabs before reaching shelves.
+  /* Preferred target: the nav node whose Element === mountEl.parentElement.
+     That's the home Panel that in DOM already contains [recents, mount, tabs]
+     — placing our nav node inside it gets D-pad traversal
+     recents → shelves → tabs (matching DOM order) instead of forcing users
+     to walk past the tabs before reaching shelves. */
   function findNodeByElement(start: any, targetEl: HTMLElement): any | null {
     let found: any = null;
     (function walk(n: any) {

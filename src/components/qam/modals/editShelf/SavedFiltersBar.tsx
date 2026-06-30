@@ -6,16 +6,6 @@ import { textFromDeckyChange } from '../modalUtils'
 import { icons } from '../../icons'
 import { optionData } from './utils'
 
-/**
- * Renders at the top of the Filters tab. Lets the user apply a previously
- * saved `FilterGroup` to the current shelf, or save the current group as a
- * new reusable filter (managed from the QAM panel).
- *
- * The save row uses an inline layout: a wide, left-aligned text field for
- * the filter name and two icon-only buttons on the right (disk = save,
- * X = cancel). The wider field gives room for descriptive names; icon
- * buttons match the action-button language used elsewhere in the QAM.
- */
 export function SavedFiltersBar({ controller, currentGroup, onApply }: { controller: SettingsController; currentGroup: FilterGroup; onApply: (g: FilterGroup) => void }) {
   const { t, settings, actions } = controller
   const saved = settings?.savedFilters ?? []

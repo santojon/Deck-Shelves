@@ -8,24 +8,12 @@ import {
 import { randomShelfId } from "../domain/defaults";
 import type { Shelf, SmartShelf } from "../types";
 
-/** Returns whether the given id belongs to the smart-shelves list. Regular
- *  and smart shelves have disjoint id spaces in practice but we look at the
- *  smart list directly to avoid relying on naming conventions. */
 function isSmartShelfId(id: string): boolean {
   const s = getCurrentSettings();
   if (!s) return false;
   return (s.smartShelves ?? []).some((sh: SmartShelf) => sh.id === id);
 }
 
-/**
- * Non-React shelf-action handlers callable from places that don't have a
- * SettingsController in scope (e.g. native game-capsule context menu).
- *
- * All mutate via `getCurrentSettings + saveSettings` so they participate in
- * the same persistence path as the QAM controller — no diverging state.
- */
-
-/** Clears online feature caches (store, wishlist, price, name). */
 export function clearOnlineShelfCache(): void {
   const keys = [
     "ds-store-cache-v1",
@@ -36,10 +24,10 @@ export function clearOnlineShelfCache(): void {
   try {
     for (const k of keys) (globalThis as any).localStorage?.removeItem?.(k);
   } catch {}
-  // No `triggerShelfRefresh()` here: callers know which shelf the user
-  // clicked, so they fire the trigger with a `shelfId` scope so only that
-  // shelf shows the visual indicator. Triggering from inside this helper
-  // would force every online shelf to flash on a single-shelf click.
+  /* No `triggerShelfRefresh()` here: callers know which shelf the user
+     clicked, so they fire the trigger with a `shelfId` scope so only that
+     shelf shows the visual indicator. Triggering from inside this helper
+     would force every online shelf to flash on a single-shelf click. */
 }
 
 export async function patchShelfById(id: string, patch: Partial<Shelf>): Promise<void> {
@@ -113,10 +101,6 @@ export async function deleteShelfById(id: string): Promise<void> {
   await saveSettings(deleteShelfFromSettings(s, id));
 }
 
-/**
- * Persists the collapsed state for a shelf and notifies any mounted DeckRow
- * via a window event so the home view updates without remount.
- */
 export function setShelfCollapsed(shelfId: string, collapsed: boolean): void {
   try {
     if (collapsed) localStorage.setItem(`ds-collapsed-${shelfId}`, "1");
@@ -127,12 +111,6 @@ export function setShelfCollapsed(shelfId: string, collapsed: boolean): void {
   } catch {}
 }
 
-/**
- * Edit / Delete need the React modal flow (controller + ConfirmModal). The
- * QAM controller registers a handler at mount; non-React callers dispatch
- * via the registry so the modal opens through the existing managed-modal
- * primitive. When no controller is mounted, the action is a silent no-op.
- */
 type ShelfModalKind = "edit" | "delete";
 type ShelfModalHandler = (kind: ShelfModalKind, shelfId: string) => void;
 
@@ -161,10 +139,10 @@ export function consumePendingShelfModalTab(): string | null {
 
 export function dispatchShelfModal(kind: ShelfModalKind, shelfId: string, opts?: { initialTab?: string }): void {
   if (opts?.initialTab) _pendingShelfModalTab = String(opts.initialTab);
-  // Primary path: navigate to a dedicated route that mounts a standalone
-  // SettingsController and opens the modal via DFL.showModal — no QAM
-  // dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The
-  // route handlers are registered in src/index.tsx at boot.
+  /* Primary path: navigate to a dedicated route that mounts a standalone
+     SettingsController and opens the modal via DFL.showModal — no QAM
+     dependency. Uses a `Navigation.Navigate('/route/:id')` pattern. The
+     route handlers are registered in src/index.tsx at boot. */
   try {
     const nav: any = (globalThis as any).DFL?.Navigation
       ?? (globalThis as any).Navigation

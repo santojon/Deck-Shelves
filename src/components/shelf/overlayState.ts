@@ -1,12 +1,3 @@
-/**
- * Single shared overlay detector for all cards. Replaces the per-card
- * body MutationObserver + focusin/focusout listeners — at home scale
- * (30+ visible cards) the duplicated observers were the dominant
- * idle-CPU cost on the home.
- *
- * One MutationObserver on body + focus listeners updates the shared
- * `active` flag. Subscribers fire only on transitions.
- */
 
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 

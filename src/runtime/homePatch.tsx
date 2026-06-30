@@ -3,11 +3,14 @@ import i18next from "i18next";
 import { HomeShelves as HomeShelvesRaw } from "../components/HomeInject";
 import { wrapHomeShelves } from "../qa/harness";
 const HomeShelves = wrapHomeShelves(HomeShelvesRaw);
+import { SearchOverlay } from "../features/search/SearchOverlay";
+import { ShelfSideNav } from "../features/sidenav/ShelfSideNav";
+try { (globalThis as any).__ds_homepatch_loaded = Date.now(); (globalThis as any).__ds_overlays_imported = typeof SearchOverlay === 'function' && typeof ShelfSideNav === 'function'; } catch {}
 import { logDiagnostic } from "./diagnostics";
 import { logError, logInfo, logWarn } from "./logger";
 import { setPreferredSteamWindow } from "./steamHost";
 import { getRuntimeClassMap } from "../core/webpackCompat";
-import { toaster } from "../shims/decky-api";
+import { notify } from "../components/notify";
 
 const ROOT_ID = "deck-shelves-home-root";
 const GLOBAL_COMPONENT_ID = "DeckShelvesHomeDomBridge";
@@ -48,14 +51,11 @@ let cachedRecentsEl: HTMLElement | null = null;
 let pendingHideRecents: boolean = false;
 let pendingHideHomeTabs: boolean = false;
 
-/** Override the DS mount margin-top when the replace-recents experimental
- *  toggle is actively injecting. Without this, the default CSS rule pulls
- *  the DS area up by 32px to overlap the recents bottom — fine when recents
- *  is collapsed, but with replace active the recents row stays visible
- *  (showing our injected content) and the 32px overlap pushes the next
- *  DS shelf's title into the recents area (especially under CSS Loader
- *  themes like SLH that extend the recents visually).
- */
+/** Override the DS mount margin-top while the replace-recents toggle is
+ *  injecting. The default CSS pulls the DS area up 32px to overlap the recents
+ *  bottom (fine when recents is collapsed); with replace active the recents row
+ *  stays visible, so that overlap would push the next DS shelf's title into it
+ *  (esp. under CSS Loader themes like SLH that extend recents visually). */
 export function applyReplaceActiveMargin(active: boolean): void {
   try {
     const { doc } = getHostContext();
@@ -127,11 +127,11 @@ export function applyHideRecents(hidden: boolean): void {
 }
 
 // --- Home tabs (the native home area: recents + friends + novidades, etc.) ---
-// Scope: hide every sibling of our mount inside the same parent. Steam's home
-// viewport places all native "tabs" as siblings of our mount; removing all of
-// them leaves our shelves as the only visible area, which is the contract.
-// Each candidate must carry at least one webpack-hashed token so decorative
-// spacers/stray nodes aren't touched — no hardcoded classes.
+/* Scope: hide every sibling of our mount inside the same parent. Steam's home
+   viewport places all native "tabs" as siblings of our mount; removing all of
+   them leaves our shelves as the only visible area, which is the contract.
+   Each candidate must carry at least one webpack-hashed token so decorative
+   spacers/stray nodes aren't touched — no hardcoded classes. */
 function hideSiblingDisplay(el: HTMLElement): void {
   if (el.dataset.dsHtHidden !== "1") {
     el.dataset.dsHtPrevDisplay = el.style.getPropertyValue("display") || "";
@@ -171,10 +171,10 @@ function setSiblingHidden(el: HTMLElement, hidden: boolean) {
 
 const hiddenHomeTabs = new Set<HTMLElement>();
 
-// Identify the "home tabs" siblings (Novidades/Amigos/Recomendados). These are
-// distinguished by containing a [role=tablist] descendant — a semantic marker
-// that survives Steam bundle renames and doesn't overlap with recents (which
-// has no tablist).
+/* Identify the "home tabs" siblings (Novidades/Amigos/Recomendados). These are
+   distinguished by containing a [role=tablist] descendant — a semantic marker
+   that survives Steam bundle renames and doesn't overlap with recents (which
+   has no tablist). */
 function collectHomeTabSiblings(mountEl: HTMLElement): HTMLElement[] {
   const parent = mountEl.parentElement;
   if (!parent) return [];
@@ -221,12 +221,6 @@ export function applyHideHomeTabs(hidden: boolean): void {
   } catch (e) { logInfo("HOME", "applyHideHomeTabs failed", String(e)); }
 }
 
-/**
- * Re-applies BOTH the most recent hide-recents AND hide-home-tabs requests.
- * Used after Steam re-renders the home DOM (e.g. user goes to library and
- * comes back with B): the freshly mounted native recents/tabs arrive without
- * our hides applied, so this re-runs both apply paths with the cached flags.
- */
 export function reapplyHomeHides(): void {
   applyHideRecents(pendingHideRecents);
   applyHideHomeTabs(pendingHideHomeTabs);
@@ -324,10 +318,10 @@ function getWindowCandidates(): Array<{ win: Window; source: string }> {
   return out;
 }
 
-// Hardcoded fallback for the native shelf-section token. Used only when the
-// runtime classmap hasn't been populated yet (very early boot, before
-// `discoverClassMap` runs). Anywhere else, prefer the live token via
-// `shelfSectionSelector(doc)`.
+/* Hardcoded fallback for the native shelf-section token. Used only when the
+   runtime classmap hasn't been populated yet (very early boot, before
+   `discoverClassMap` runs). Anywhere else, prefer the live token via
+   `shelfSectionSelector(doc)`. */
 const FALLBACK_SHELF_SECTION = "_282X0J4BtrSF1IXctmOe-X";
 
 function shelfSectionSelector(doc: Document): string {
@@ -602,7 +596,7 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
         const mount = doc.getElementById(ROOT_ID) as HTMLElement | null;
         if (mount) { mount.innerHTML = ""; mount.style.display = "none"; }
       } catch {}
-      toaster.toast({ title: i18next.t("mount_crash_title"), body: i18next.t("mount_crash_warning") });
+      notify("error", { title: i18next.t("mount_crash_title"), body: i18next.t("mount_crash_warning") });
       notifyMountFailedChange();
     } else {
       setTimeout(() => { if (!mountFailed) this.setState({ crashed: false }); }, 500);
@@ -612,8 +606,17 @@ class HomeBoundary extends React.Component<{ children: React.ReactNode }, { cras
 }
 
 function HomeDomBridge() {
+  try { (globalThis as any).__ds_bridge_renders = (((globalThis as any).__ds_bridge_renders ?? 0) + 1); } catch {}
   getHostContext();
-  return React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
+  return React.createElement(
+    HomeBoundary,
+    null,
+    React.createElement(React.Fragment, null,
+      React.createElement(HomeShelves),
+      React.createElement(SearchOverlay),
+      React.createElement(ShelfSideNav),
+    ),
+  );
 }
 
 function tryStoreMethod(store: any, method: 'addComponent' | 'register'): boolean {
@@ -788,7 +791,15 @@ export function installHomePatch(_routerHook?: any) {
   };
 
   const renderWithReactDOM = (ReactDOM: any, mount: HTMLElement): { unmount(): void } | null => {
-    const tree = React.createElement(HomeBoundary, null, React.createElement(HomeShelves));
+    const tree = React.createElement(
+    HomeBoundary,
+    null,
+    React.createElement(React.Fragment, null,
+      React.createElement(HomeShelves),
+      React.createElement(SearchOverlay),
+      React.createElement(ShelfSideNav),
+    ),
+  );
     const renderFn = ReactDOM.createRoot ?? ReactDOM.default?.createRoot;
     if (typeof renderFn === "function") {
       const root = renderFn.call(ReactDOM.default ?? ReactDOM, mount);
@@ -846,10 +857,10 @@ export function installHomePatch(_routerHook?: any) {
 
   const { win: hostWin, doc: hostDoc } = getHostContext();
   observer?.disconnect();
-  // rAF-throttle: a body+subtree observer fires hundreds of times per
-  // second at boot while Steam's UI hydrates. Coalescing to one call per
-  // frame keeps the early-mount path responsive without losing coverage
-  // of structural DOM changes the mount detection needs to react to.
+  /* rAF-throttle: a body+subtree observer fires hundreds of times per
+     second at boot while Steam's UI hydrates. Coalescing to one call per
+     frame keeps the early-mount path responsive without losing coverage
+     of structural DOM changes the mount detection needs to react to. */
   let fallbackPending: number | null = null;
   const scheduleFallback = () => {
     if (fallbackPending != null) return;

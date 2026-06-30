@@ -1,4 +1,4 @@
-import { DropdownItem, Field, SliderField, TextField, ToggleField } from "../../runtime/host/decky";
+import { DropdownItem, Field, TextField, ToggleField } from "../../runtime/host/decky";
 import type { FilterItem } from "../../types";
 import i18n from "../../i18n";
 import DeveloperFilterOptions from "./DeveloperFilterOptions";
@@ -6,6 +6,7 @@ import PublisherFilterOptions from "./PublisherFilterOptions";
 import MergeFilterOptions from "./MergeFilterOptions";
 import { COMPAT_LEVELS } from "./utils";
 import { APP_STATUS_GROUP_KEYS } from "../../steam/appDisplayStatus";
+import { DSSliderField } from '../ui'
 
 export default function FilterItemOptions({ item, onChange, controller, allowOnlineFilters = false }: { item: FilterItem; onChange: (patch: Partial<FilterItem>) => void; controller?: import("../../features/settings/controller").SettingsController; allowOnlineFilters?: boolean }) {
   const t = i18n.t.bind(i18n);
@@ -123,16 +124,16 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const days = Number(p.days ?? 30);
       return (
         <div>
-          <Field label={`${t("filter_days")}: ${days}d`} bottomSeparator="none">
-            <SliderField
-              label=""
-              value={days}
-              min={1}
-              max={365}
-              step={1}
-              onChange={(v: number) => patchParams({ days: v })}
-            />
-          </Field>
+          <DSSliderField
+            label={t("filter_days")}
+            value={days}
+            unit='d'
+            min={1}
+            max={365}
+            step={1}
+            bottomSeparator='none'
+            onChange={(v: number) => patchParams({ days: v })}
+          />
         </div>
       );
     }
@@ -143,28 +144,28 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       return (
         <>
           <div>
-            <Field label={`${t("filter_playtime_min")}: ${minH}h`} bottomSeparator="none">
-              <SliderField
-                label=""
-                value={minH}
-                min={0}
-                max={500}
-                step={5}
-                onChange={(v: number) => patchParams({ minHours: v > 0 ? v : undefined })}
-              />
-            </Field>
+            <DSSliderField
+              label={t("filter_playtime_min")}
+              value={minH}
+              unit='h'
+              min={0}
+              max={500}
+              step={5}
+              bottomSeparator='none'
+              onChange={(v: number) => patchParams({ minHours: v > 0 ? v : undefined })}
+            />
           </div>
           <div>
-            <Field label={`${t("filter_playtime_max")}: ${maxH > 0 ? maxH + "h" : t("filter_playtime_any")}`} bottomSeparator="none">
-              <SliderField
-                label=""
-                value={maxH}
-                min={0}
-                max={500}
-                step={5}
-                onChange={(v: number) => patchParams({ maxHours: v > 0 ? v : undefined })}
-              />
-            </Field>
+            <DSSliderField
+              label={t("filter_playtime_max")}
+              value={maxH}
+              valueLabel={maxH > 0 ? `${maxH}h` : t("filter_playtime_any")}
+              min={0}
+              max={500}
+              step={5}
+              bottomSeparator='none'
+              onChange={(v: number) => patchParams({ maxHours: v > 0 ? v : undefined })}
+            />
           </div>
         </>
       );
@@ -173,7 +174,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     case "nameIncludes":
       return (
         <div>
-          <Field label={t("filter_type_nameIncludes")} bottomSeparator="none">
+          <Field label={t("filter_type_name_includes")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
                 <TextField
                 value={String(p.text ?? "")}
@@ -190,7 +191,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     case "nameRegex":
       return (
         <div>
-          <Field label={t("filter_type_nameRegex")} bottomSeparator="none">
+          <Field label={t("filter_type_name_regex")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
               <TextField
                 value={String(p.pattern ?? "")}
@@ -208,11 +209,11 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       // Dropdown sourced from the same `controller.collections` the source
       // picker uses — id-based matching so name lookups (which are unreliable
       // across SteamOS / Bazzite collectionStore shapes) are bypassed entirely.
-      // Inversion still flows through `item.inverted` in the evaluator, and
-      // the prefetch pass keys on `params.collectionId` — both untouched here.
-      // Uses DropdownItem's own `label` slot (same pattern as the `hidden`
-      // filter above) instead of wrapping in a Field — Field adds extra
-      // gutter between the label and the control.
+      /* Inversion still flows through `item.inverted` in the evaluator, and
+         the prefetch pass keys on `params.collectionId` — both untouched here.
+         Uses DropdownItem's own `label` slot (same pattern as the `hidden`
+         filter above) instead of wrapping in a Field — Field adds extra
+         gutter between the label and the control. */
       const collections = controller?.collections ?? [];
       const currentId = String(p.collectionId ?? "");
       const collectionOptions = collections.map((c) => ({ data: String(c.id), label: c.name }));
@@ -242,7 +243,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const tags: string[] = Array.isArray(p.tags) ? p.tags : [];
       return (
         <div>
-          <Field label={t("filter_type_storeTag")} description={t("filter_tags_hint")} bottomSeparator="none">
+          <Field label={t("filter_type_store_tag")} description={t("filter_tags_hint")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
               <TextField
                 value={tags.join(", ")}
@@ -267,7 +268,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const ids: number[] = Array.isArray(p.appIds) ? p.appIds : [];
       return (
         <div>
-          <Field label={t("filter_type_appIdList")} description={t("filter_appIdList_hint")} bottomSeparator="none">
+          <Field label={t("filter_type_app_id_list")} description={t("filter_app_id_list_hint")} bottomSeparator="none">
             <div style={{ minWidth: 250 }}>
               <TextField
                 value={ids.join(", ")}
@@ -287,7 +288,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     case "achievements":
       return (
         <div>
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>
             {t(item.type === "friends" ? "filter_friends_info" : "filter_achievements_info")}
           </div>
         </div>
@@ -297,7 +298,7 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       // No params — just an info hint so the user knows the data source.
       return (
         <div>
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>
             {t("filter_friends_playing_now_info")}
           </div>
         </div>
@@ -307,15 +308,16 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const days = Number(p.days ?? 14);
       return (
         <>
-          <SliderField
-            label={`${t("filter_friends_played_recently_days")}: ${days}`}
+          <DSSliderField
+            label={t("filter_friends_played_recently_days")}
             value={days}
+            unit='d'
             min={1}
             max={30}
             step={1}
             onChange={(v: number) => patchParams({ days: v })}
           />
-          <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12, lineHeight: 1.4 }}>
+          <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>
             {t("filter_friends_played_recently_info")}
           </div>
         </>
@@ -327,18 +329,20 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       const maxDisc = Number(p.maxDiscount ?? 100);
       return (
         <>
-          <SliderField
-            label={`${t("filter_discount_min")}: ${minDisc}%`}
+          <DSSliderField
+            label={t("filter_discount_min")}
             value={minDisc}
+            unit='%'
             min={0}
             max={100}
             step={5}
             onChange={(v: number) => patchParams({ minDiscount: v, maxDiscount: Math.max(v, maxDisc) })}
             bottomSeparator="none"
           />
-          <SliderField
-            label={`${t("filter_discount_max")}: ${maxDisc}%`}
+          <DSSliderField
+            label={t("filter_discount_max")}
             value={maxDisc}
+            unit='%'
             min={0}
             max={100}
             step={5}

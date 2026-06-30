@@ -1,16 +1,6 @@
 import { useState } from 'react'
 import { Focusable } from '../../runtime/host/decky'
 
-/**
- * Collapsible section used by the QAM panel (Behavior / Shelves / Smart /
- * Visual Global / Saved Filters). Header click toggles, localStorage
- * persists open state per `id`, and a badge shows the live count when the
- * section is closed.
- *
- * The toggle state is stored at module scope so re-mounting the QAM panel
- * doesn't reset the user's expand/collapse choices. Separator + badge
- * styling lives in [DeckQAMStyles](../styles/DeckQAMStyles.tsx).
- */
 const SECTIONS_KEY = 'ds-qam-sections'
 
 function loadSections(): Record<string, boolean> {
@@ -48,30 +38,36 @@ export function CollapsibleSection({
     saveSections(_sectionOpen)
     return next
   })
-  const header = (
-    <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} style={{ flex: 1, minWidth: 0 }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        {icon}
-        {title}
-      </span>
-      <span style={{ display: 'flex', alignItems: 'center' }}>
-        {!open && count > 0 && <span className='ds-collapsible-badge'>{count}</span>}
-        <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>
-      </span>
-    </Focusable>
-  )
+  const chevron = <span style={{ fontSize: 9, color: 'var(--ds-text-dim, #b8bcbf)' }}>{open ? '▲' : '▼'}</span>
+  // The box (border/rounded background) + content padding only apply in the
+  // settings page; the QAM keeps the flat look. Both are CSS-scoped (see
+  // DeckQAMStyles) so the class here is the only difference.
   return (
-    <>
-      {headerExtra ? (
-        <Focusable className='ds-collapsible-row' flow-children='row' noFocusRing style={{ marginTop: 8, display: 'flex', alignItems: 'stretch' }}>
-          {header}
-          {headerExtra}
+    <div className='ds-collapsible-box'>
+      {/* The whole row highlights as one focus unit (CSS `.gpfocuswithin`),
+          whether the title toggle or the inline action button is focused. A on
+          the title toggles; vertical flow makes dpad-down move title → button →
+          next section. */}
+      <Focusable className='ds-collapsible-row' flow-children='vertical' noFocusRing focusWithinClassName='gpfocuswithin' style={{ display: 'flex', alignItems: 'center' }}>
+        <Focusable className='ds-collapsible-header' data-ds-section={id} onClick={toggle} onOKButton={toggle} noFocusRing style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {icon}
+            {title}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!open && count > 0 ? <span className='ds-collapsible-badge'>{count}</span> : null}
+            {!headerExtra ? chevron : null}
+          </span>
         </Focusable>
-      ) : (
-        <div style={{ marginTop: 8 }}>{header}</div>
-      )}
-      <div className='deck-shelves-separator' />
-      {open && children}
-    </>
+        {headerExtra ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px' }}>
+            {headerExtra}
+            <span onClick={toggle} style={{ cursor: 'pointer', display: 'flex' }}>{chevron}</span>
+          </div>
+        ) : null}
+      </Focusable>
+      {open ? <div className='deck-shelves-separator' /> : null}
+      {open ? <div className='ds-collapsible-content'>{children}</div> : null}
+    </div>
   )
 }

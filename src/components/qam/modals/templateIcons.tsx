@@ -51,6 +51,8 @@ export const SHELF_TPL_ICON: Record<string, React.ReactElement> = {
   long_session: Hourglass,
   steam_cloud: Cloud,
   deck_verified: ShieldCheck,
+  deck_playable: Shield,
+  never_played: Pause,
   top_reviewed: ThumbsUp,
   wishlist: Bookmark,
   wishlist_on_sale: Tag,

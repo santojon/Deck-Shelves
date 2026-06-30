@@ -26,6 +26,18 @@ export type EditableShelfState = {
   enableLogo: boolean
   enableIcon: boolean
   enableDescription: boolean
+  descriptionBelowLogo: boolean
+  logoPosition: 'left' | 'center' | 'right'
+  descriptionPosition: 'left' | 'center' | 'right'
+  logoSize: number
+  logoTopOffset: number
+  iconVerticalAlign: 'top' | 'center' | 'bottom'
+  shelfTitlePosition: 'left' | 'center' | 'right'
+  gameNamePosition: 'left' | 'center' | 'right'
+  playtimePosition: 'left' | 'center' | 'right'
+  descriptionHeight: number
+  descriptionLogoGap: number
+  fullPageShelf: boolean
   highlightedAppIds: number[]
   manualOrder: number[]
   hideStatusLine: boolean
@@ -39,17 +51,20 @@ export type EditableShelfState = {
   hideSeeMore: boolean
   hideRefreshCard: boolean
   heroEnabled: boolean
+  gameInfoAbove: boolean
+  friendsPlayingOverlay: boolean
+  friendsPlayingOverlayRecent: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   childFilterGroup: FilterGroup
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean
   hideOwnedNonSteamCloud: boolean
-  // Extra sources stacked on top of the primary. When non-empty, the
-  // shelf saves as `{ type: 'composite', combine, sources: [primary, ...additionalSources] }`.
-  // Empty means the shelf is single-source (saves as the primary type
-  // directly — back-compat with older clients). Forced empty when the
-  // primary is `filter` (filter is exclusive — use filter merge instead).
+  /* Extra sources stacked on top of the primary. When non-empty, the
+     shelf saves as `{ type: 'composite', combine, sources: [primary, ...additionalSources] }`.
+     Empty means the shelf is single-source (saves as the primary type
+     directly — back-compat with older clients). Forced empty when the
+     primary is `filter` (filter is exclusive — use filter merge instead). */
   compositeCombine: 'union' | 'intersection'
   additionalSources: ShelfSource[]
   // Synthetic cards. Stored separately from `additionalSources`

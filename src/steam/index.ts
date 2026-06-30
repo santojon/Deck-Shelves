@@ -5,7 +5,7 @@ import { mark, measure } from "../core/perf";
 import {
   hasExternalSortOption, applyExternalSort,
   hasExternalFilterType, evaluateExternalFilter,
-  type PublicAppMeta,
+  toPublicAppMeta,
 } from "../core/pluginApi";
 import type { PlatformAppMeta, PlatformTab } from "../runtime/platform";
 import { logInfo, logWarn } from "../runtime/logger";
@@ -14,19 +14,24 @@ import { getAppDescriptions as _getAppDescriptions } from "./appDescriptionsCach
 
 export type SteamCollection = { id: string; name: string };
 
-/**
- * Reads `onlineFeaturesEnabled` directly from the settings localStorage cache
- * without Zod validation. Used as a resilient fallback when `getCurrentSettings()`
- * returns null (e.g., when the schema rejects a stored filter type that was added
- * after the settings were persisted — parse fails, current = null, resolver stalls).
- */
 function isOnlineFeaturesEnabledRaw(): boolean {
   try {
     const raw = (globalThis as any).localStorage?.getItem?.("deck-shelves-settings-cache-v3");
     if (!raw) return false;
     const data = JSON.parse(raw);
+    // Offline mode overrides every online toggle while active so no
+    // resolver in this file fans out a request when it's on.
+    if (data?.offlineModeEnabled === true) return false;
     return data?.onlineFeaturesEnabled === true;
   } catch { return false; }
+}
+
+// Online resolvers (wishlist / store) gate on this. Offline mode wins
+// over every other toggle; otherwise honour the live setting, then the
+// localStorage-cached raw value as a fallback.
+function isOnlineEnabledForSettings(s: any): boolean {
+  if (s?.offlineModeEnabled === true) return false;
+  return s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
 }
 
 const COLLECTION_CACHE_TTL = 60_000;
@@ -94,7 +99,6 @@ function candidateCollectionIds(raw: string): string[] {
 function normalizeCollectionToken(value: string): string {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
 }
-
 
 function cacheCollectionRaw(id: string, name: string, raw: any) {
   const exactId = String(id ?? "").trim();
@@ -206,13 +210,6 @@ function hasAnyMethod(target: any, methodNames: string[]): boolean {
 let pluginContextCache: { ts: number; value: any | null } | null = null;
 const PLUGIN_CONTEXT_CACHE_TTL = 8000;
 
-/**
- * Walks the React fiber tree from `startFiber` looking for a Context.Provider
- * whose `memoizedProps.value` matches TabMaster's PublicTabMasterContext shape:
- *   { visibleTabsList: TabContainer[], tabsMap: Map<string, TabContainer>, ... }
- *
- * Uses iterative DFS to avoid stack overflow.
- */
 function hasTabMasterShape(o: any): boolean {
   return !!o && typeof o === 'object' && (Array.isArray(o.visibleTabsList) || o.tabsMap instanceof Map);
 }
@@ -240,13 +237,6 @@ function walkFiberForTabMasterContext(startFiber: any): any | null {
   return null;
 }
 
-/**
- * Finds TabMaster's React Context value by traversing all React roots in all
- * Steam window documents. Caches results for PLUGIN_CONTEXT_CACHE_TTL ms.
- *
- * Decky mounts each plugin in a separate React root (separate ReactDOM.render
- * call). We must search ALL roots, not just the first one found.
- */
 function findTabMasterValueInDoc(doc: Document): any | null {
   const visitedRoots = new WeakSet<object>();
   for (const el of Array.from(doc.querySelectorAll('*'))) {
@@ -287,10 +277,6 @@ export function findTabMasterContextValue(): any | null {
 // Keep the old name as an alias for the component that still uses it
 export const findCustomFiltersContextValue = findTabMasterContextValue;
 
-/**
- * Extracts the list of visible library tabs from TabMaster's React context.
- * Returns an empty array if TabMaster is not installed or has no tabs.
- */
 function pushTabIfNew(out: PlatformTab[], seen: Set<string>, id: string, name: string): void {
   if (!id || !name || seen.has(id)) return;
   seen.add(id);
@@ -319,10 +305,6 @@ function getCustomFiltersList(): PlatformTab[] {
   return out;
 }
 
-/**
- * Resolves app IDs for a tab using TabMaster's collection.allApps Set.
- * Returns an empty array if the tab is not found in TabMaster's context.
- */
 function bidirectionalContains(a: string, b: string): boolean {
   return a.includes(b) || b.includes(a);
 }
@@ -401,7 +383,6 @@ function collectDynamicTabStores(): any[] {
   return Array.from(new Set([...base, ...dynamic]));
 }
 
-
 function unwrapStoreApps(result: any): any[] {
   if (Array.isArray(result)) return result;
   if (!result || typeof result !== "object") return [];
@@ -440,11 +421,6 @@ export async function getTabAppIdsFromStore(tab: string): Promise<number[]> {
   return [];
 }
 
-/**
- * Resolve installation state for a single appid by querying Steam's AppStore
- * objects (GetAppOverviewByAppID) and checking per-client data / explicit fields.
- * Returns `true` = installed, `false` = not installed, `null` = unknown.
- */
 const INSTALLED_DIRECT_KEYS = ["installed", "is_installed", "m_bInstalled", "bInstalled"];
 const INSTALLED_PCD_KEYS = ["per_client_data", "local_per_client_data"];
 const INSTALLED_SIZE_KEYS = ["size_on_disk", "m_nSizeOnDisk"];
@@ -627,10 +603,6 @@ export async function listLibraryTabs(): Promise<PlatformTab[]> {
   return NATIVE_LIBRARY_TAB_DEFAULTS.slice();
 }
 
-/**
- * Remove an app from a Steam collection.
- * Tries multiple API shapes across SteamOS versions.
- */
 function removeAppFromCollectionEntry(store: any, coll: any, appid: number): boolean {
   if (!coll) return false;
   if (typeof coll.RemoveApps === 'function') {
@@ -929,11 +901,6 @@ function isHiddenOf(a: any): boolean {
   if (a?.visible_in_game_list === false) return true;
   return !!(a?.is_hidden ?? a?.hidden ?? a?.m_bHidden ?? a?.bHidden);
 }
-/**
- * AppIDs in the user's library. Steam comes from allGamesCollection;
- * non-Steam (when includeNonSteam) comes from myGamesCollection filtered
- * by isNonSteamOf. Cloud-play entries are subtracted unless includeCloudPlay.
- */
 function collectionApps(coll: any): any[] {
   if (!coll) return [];
   return coll.allApps ?? coll.visibleApps ?? coll.apps ?? [];
@@ -1814,13 +1781,6 @@ async function fetchAllAppOverviews(now: number): Promise<AppOverview[]> {
   return finalizeOverviews(dropPhantomApps(enriched), now);
 }
 
-/**
- * Extract app IDs directly from a collection node without deep traversal.
- * Deep traversal (depth 7) can cross-contaminate: MobX stores keep sibling
- * collection references on the same object, so walking deep picks up apps
- * from unrelated collections.  We try direct well-known fields first, then
- * fall back to a bounded depth-3 traversal.
- */
 const COLLECTION_VALUE_APPID_KEYS = ["appid", "appId", "nAppID", "m_unAppID"];
 
 function pickDirectAppIdNumber(val: any): number[] {
@@ -1979,11 +1939,6 @@ export type CustomFilter = {
   updatePending?: boolean;
 };
 
-/**
- * Resolve app IDs for the Steam "Favorites" collection.
- * Tries collectionStore APIs and well-known localized collection names
- * so the resolution works regardless of the console language.
- */
 const FAVORITES_LOCALIZED_NAMES = [
   "Favorites", "Favoris", "Favoriten", "Favoritos", "Preferiti",
   "Избранное", "Ulubione", "Favorieten", "Favoriler", "Обране",
@@ -2230,9 +2185,9 @@ function evalNameRegex(item: FilterItem, app: AppOverview): boolean {
 function evalCollection(item: FilterItem, app: AppOverview, ctx?: FilterEvalContext): boolean {
   const colId = String(item.params?.collectionId ?? "").trim();
   if (!colId) return true; // half-configured: don't restrict
-  // Missing entry = lookup failed or returned 0 apps. Exclude (issue #55:
-  // pass-through here previously leaked the entire library when
-  // Bazzite-shaped collectionStore returned empty).
+  /* Missing entry = lookup failed or returned 0 apps. Exclude (issue #55:
+     pass-through here previously leaked the entire library when Bazzite-shaped
+     collectionStore returned empty). */
   const appSet = ctx?.collectionAppIds.get(colId);
   return appSet ? appSet.has(app.appid) : false;
 }
@@ -2371,12 +2326,21 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
 };
 
 function evalDefault(item: FilterItem, app: AppOverview): boolean {
+  /* first-party Filter v3 evaluators live in a
+     sibling module to keep `evaluateFilterItem` lean. Lookup hits
+     before falling through to external plugin filters; v3 ids are
+     first-party so their handler must take precedence. */
+  try {
+    const { FILTER_V3_EVALUATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
+    const v3 = FILTER_V3_EVALUATORS[item.type as string];
+    if (v3) return v3(item, app);
+  } catch { /* fall through */ }
   // External plugin filter or unknown type. Unknown + unregistered →
   // pass-through (true) so an unregistered plugin filter doesn't hide
   // the user's entire library.
   try {
     if (hasExternalFilterType(item.type as string)) {
-      return evaluateExternalFilter(item.type as string, app as unknown as PublicAppMeta, item.params ?? {});
+      return evaluateExternalFilter(item.type as string, toPublicAppMeta(app), item.params ?? {});
     }
   } catch { /* fall through */ }
   return true;
@@ -2662,7 +2626,7 @@ function sortByExternalOrRandom(
   let externalIds: number[] | null = null;
   try {
     if (hasExternalSortOption(sort)) {
-      externalIds = applyExternalSort(sort, ids, apps as unknown as ReadonlyArray<PublicAppMeta>);
+      externalIds = applyExternalSort(sort, ids, apps.map(toPublicAppMeta));
     }
   } catch {}
   if (externalIds) {
@@ -2689,7 +2653,15 @@ export function applySortToIds(
   const reverseBool: boolean = Array.isArray(reverse) ? !!reverse[0] : !!reverse;
   const byId = buildSortByIdMap(all);
   const baseApps = hydrateAppsForSort(ids, byId);
-  const cmp = SINGLE_SORT_COMPARATORS[sort];
+  // first-party Sort v3 comparators live in a
+  // sibling module; lookup runs before the external-or-random
+  // fallback so v3 ids take precedence over registered externals.
+  let v3Cmp: ((a: AppOverview, b: AppOverview) => number) | undefined;
+  try {
+    const { SORT_V3_COMPARATORS } = require("./v3Extensions") as typeof import("./v3Extensions");
+    v3Cmp = SORT_V3_COMPARATORS[sort];
+  } catch {}
+  const cmp = SINGLE_SORT_COMPARATORS[sort] ?? v3Cmp;
   let apps = cmp ? baseApps.slice().sort(cmp) : sortByExternalOrRandom(sort, ids, baseApps, byId, shelfId);
   // Skip reverse for `manual` and `random`.
   if (reverseBool && sort !== "manual" && sort !== "random") apps = apps.reverse();
@@ -3186,9 +3158,8 @@ async function _resolveFilter(ctx: ResolverContext): Promise<number[]> {
   if (filterGroup && Array.isArray(filterGroup.items) && filterGroup.items.length > 0) {
     return _resolveFilterGroupPath(ctx, f, filterGroup);
   }
-  // No filter configured → empty. Falling through to `filtered = all`
-  // would silently return the entire library (issue #1).
-  if (!hasLegacyFlatFilter(f)) {
+  const hasSort = Array.isArray(f.sort) ? f.sort.length > 0 : (typeof f.sort === "string" && f.sort.length > 0);
+  if (!hasLegacyFlatFilter(f) && !hasSort) {
     logInfo("STEAM", "resolveShelfAppIds(filter) empty — no filters configured", { filter: f });
     return finish([]);
   }
@@ -3281,7 +3252,7 @@ async function _resolveWishlist(ctx: ResolverContext): Promise<number[]> {
     const { getCurrentSettings } = await import("../store/settingsStore");
     const { getWishlistIds, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
-    const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+    const onlineEnabled = isOnlineEnabledForSettings(s);
     if (!onlineEnabled || s?.onlineWishlistEnabled === false) return [];
     const wishlistIds = await getWishlistIds();
     if (!wishlistIds) return [];
@@ -3307,7 +3278,7 @@ async function _resolveStore(ctx: ResolverContext): Promise<number[]> {
     const { getCurrentSettings } = await import("../store/settingsStore");
     const { getStoreGameIds, getPriceMap } = await import("../core/onlineStore");
     const s = getCurrentSettings();
-    const onlineEnabled = s?.onlineFeaturesEnabled ?? isOnlineFeaturesEnabledRaw();
+    const onlineEnabled = isOnlineEnabledForSettings(s);
     if (!onlineEnabled) return [];
     let ids = await getStoreGameIds();
     if (!ids) return [];
@@ -3455,11 +3426,22 @@ function rebuildCompositeChildSources(rawChildSources: any[], compositeItems: an
 
 async function resolveCompositeChildren(childSources: any[], ctx: ResolverContext): Promise<number[][]> {
   const { sort, shelfId, sortReverse, options, depth: _depth, overShootLimit } = ctx;
+  /* 15 s hard ceiling per child so a single hung online source (e.g. a
+     wishlist RPC that doesn't time out cleanly) can't park the parent
+     composite resolve forever. Returning `[]` for a misbehaving child
+     still lets the union complete with the rest of the data. */
   return Promise.all(
-    childSources.map((child) =>
-      resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1)
-        .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; }),
-    ),
+    childSources.map((child) => {
+      const inner = resolveShelfAppIds(child, overShootLimit, sort, shelfId, sortReverse, options, _depth + 1);
+      const fallback = new Promise<number[]>((resolve) => {
+        setTimeout(() => {
+          logWarn("STEAM", "composite child resolve timed out", { type: child?.type, shelfId });
+          resolve([]);
+        }, 15000);
+      });
+      return Promise.race([inner, fallback])
+        .catch((e) => { logWarn("STEAM", "composite child resolve failed", String(e)); return [] as number[]; });
+    }),
   );
 }
 
@@ -3545,6 +3527,21 @@ export async function resolveShelfAppIds(
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);
+  /* first-party Shelf Source Ecosystem v3 lives
+     in a sibling module. Each resolver synchronously projects from
+     the already-loaded `all` AppOverview list. The resolver receives
+     `all` and returns the filtered AppOverview[], which we then map
+     to ids + apply sort + finish overshoot trimming. */
+  try {
+    const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
+    const v3 = SOURCE_V3_RESOLVERS[source.type];
+    if (v3) {
+      const filtered = v3(all);
+      const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+      const sorted = sort ? applySortToIds(ids, sort, all, shelfId, sortReverse) : ids;
+      return finish(sorted);
+    }
+  } catch { /* fall through to empty */ }
   return [];
 }
 
@@ -3621,7 +3618,6 @@ function checkUpdatePendingRaw(raw: any): boolean {
     || checkUpdatePendingFromProto(raw);
 }
 
-/** Cached set of appids with pending downloads/updates */
 let _pendingUpdateAppIds: Set<number> | null = null;
 let _pendingUpdateTs = 0;
 
@@ -3705,11 +3701,11 @@ type EnrichmentExtras = {
 
 function readAppDetailsEnrichment(appid: number): EnrichmentExtras {
   // Reads from our in-memory description cache only — never touches
-  // `appDetailsStore.GetDescriptions/GetAppDetails` here. Those getters
-  // can trigger Steam to internally fetch data lazily, and calling them
-  // for every appid in every shelf at mount time froze the boot.
-  // Consumers that need fresh descriptions should call
-  // `preloadAppDescriptions(appid)` on-demand (focus, tooltip, etc.).
+  /* `appDetailsStore.GetDescriptions/GetAppDetails` here. Those getters
+     can trigger Steam to internally fetch data lazily, and calling them
+     for every appid in every shelf at mount time froze the boot.
+     Consumers that need fresh descriptions should call
+     `preloadAppDescriptions(appid)` on-demand (focus, tooltip, etc.). */
   const cached = _getAppDescriptions(appid);
   if (!cached) return {};
   return {
@@ -3842,15 +3838,6 @@ function getByIdMap(catalog: AppOverview[]): Map<number, AppOverview> {
   return map;
 }
 
-/**
- * Batched metadata lookup. Walks the catalogue ONCE and answers all
- * requested ids from an in-memory map. Replaces N per-id calls (each
- * with its own fallback chain) with a single bulk pass — turns ~1 s of
- * cold-mount blocking into ~50 ms on a 1k-game library.
- *
- * For ids missing from the bulk catalogue we still fall back to the
- * per-id resolver so the result remains complete.
- */
 export async function getAppMetaBatch(appids: number[]): Promise<Map<number, PlatformAppMeta>> {
   const out = new Map<number, PlatformAppMeta>();
   if (!appids.length) return out;
@@ -3880,11 +3867,8 @@ export async function getAppMetaBatch(appids: number[]): Promise<Map<number, Pla
   return out;
 }
 
-// ---------------------------------------------------------------------------
 // Developer / Publisher data (from appDetailsStore)
-// ---------------------------------------------------------------------------
 
-/** Module-level cache so we don't re-read from the store on every filter pass */
 const developerCache = new Map<number, string>();
 
 // Persistent cache in localStorage to survive plugin reloads. Keys: appid -> developer string
@@ -3949,7 +3933,6 @@ function getAppDetailsStore(): any {
 
 const publisherCache = new Map<number, string>();
 
-/** Read publisher from appDetailsStore without triggering a network load. */
 export function getAppPublisherCached(appid: number): string {
   if (publisherCache.has(appid)) return publisherCache.get(appid)!;
   try {
@@ -4005,7 +3988,6 @@ export function getUniquePublishers(appids: number[]): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-/** Read developer from appDetailsStore without triggering a network load. */
 export function getAppDeveloperCached(appid: number): string {
   if (developerCache.has(appid)) return developerCache.get(appid)!;
   try {
@@ -4019,11 +4001,6 @@ export function getAppDeveloperCached(appid: number): string {
   }
 }
 
-/**
- * Preload developer data for a list of appids via SteamClient.Apps.RegisterForAppDetails.
- * Results are stored in the module-level developerCache.
- * Returns a promise that resolves once all registrations have fired or timed out.
- */
 export async function preloadDeveloperData(appids: number[]): Promise<void> {
   const sc = (globalThis as any).SteamClient ?? getSteamWindows().find((w: any) => w?.SteamClient)?.SteamClient;
   if (!sc?.Apps?.RegisterForAppDetails) return;
@@ -4059,10 +4036,6 @@ export async function preloadDeveloperData(appids: number[]): Promise<void> {
   }
 }
 
-/**
- * Get all unique developer names from a list of appids.
- * Uses the cache; call preloadDeveloperData first for full coverage.
- */
 export function getUniqueDevelopers(appids: number[]): string[] {
   const set = new Set<string>();
   for (const id of appids) {

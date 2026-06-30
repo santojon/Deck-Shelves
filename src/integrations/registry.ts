@@ -1,7 +1,3 @@
-/**
- * Plugin registry — detection utilities for optional integrations.
- * Uses DeckyPluginLoader.plugins as the authoritative source.
- */
 export function isPluginInstalled(name: string): boolean {
   // SteamOS 3.9 moved the loader off window — try multiple paths.
   // plugins may be array or Map depending on version.

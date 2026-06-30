@@ -5,10 +5,6 @@ import type { SavedSmartFilter } from '../../../types'
 import { openManagedModal } from '../common/openManagedModal'
 import { RenameSavedSmartFilterModal } from '../modals/RenameSavedSmartFilterModal'
 
-/**
- * Single saved-smart-filter row in the QAM Saved Smart Filters section.
- * Mirrors `SavedFilterRow` shape so both lists look and focus identically.
- */
 export function SavedSmartFilterRow({ controller, savedSmartFilter }: { controller: SettingsController; savedSmartFilter: SavedSmartFilter }) {
   const { t, actions } = controller
   const onActions = () => showContextMenu(

@@ -2,6 +2,10 @@
 
 Deck Shelves supports advanced game filtering with AND/OR logic using filter groups.
 
+<p align="center">
+  <img src="../assets/screenshots/shelf-edit-filters.png" alt="Edit shelf — Filters tab (saved filters + AND/OR groups)" width="640">
+</p>
+
 ## Filter Types
 
 | Type | Description | Parameters |

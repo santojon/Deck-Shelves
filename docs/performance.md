@@ -46,7 +46,7 @@ pnpm qa:all-shelves-show-recents
 # Wait for re-deploy; restart Steam.
 
 # 2. Open the CDP console for a fixed window:
-python3 scripts/devtools/deck/cdp.py console --duration 30
+python3 devkit/cdp.py console --duration 30
 
 # 3. Profile a specific path. Inside the BP devtools console:
 performance.mark('home-mount-start')

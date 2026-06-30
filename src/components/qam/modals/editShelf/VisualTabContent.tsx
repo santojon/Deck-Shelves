@@ -1,19 +1,8 @@
 import { useMemo, type MutableRefObject } from 'react'
-import { DialogButton, Focusable, ToggleField } from '../../../../runtime/host/decky'
-import { FieldContainer } from '../../../ui'
+import { DialogButton, Dropdown, Field, Focusable, ToggleField } from '../../../../runtime/host/decky'
+import { FieldContainer , DSSliderField} from '../../../ui'
 
-/**
- * Shared Visual tab body rendered by both `EditShelfModal` and
- * `EditSmartShelfModal`. Encapsulates:
- * - match-native-size, highlight-first, highlight-all toggles
- * - the "highlight specific games" picker
- * - odd/even alternating pattern buttons (appear when picker is open)
- * - the preview row with featured/selected card rendering
- *
- * State is owned by the parent modal — this component reads through props
- * and calls back via setters. `effectiveManualOrder` drives the odd/even
- * pattern generator and the preview order, already reflecting `manualOrder`.
- */
+// eslint-disable-next-line complexity
 export function VisualTabContent({
   t,
   flags,
@@ -28,8 +17,8 @@ export function VisualTabContent({
   effectiveManualOrder,
 }: {
   t: (k: any, opts?: any) => string;
-  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; heroEnabled: boolean };
-  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; heroEnabled: boolean }>) => void;
+  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean };
+  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean }>) => void;
   highlightedAppIds: number[];
   setHighlightedAppIds: (next: number[]) => void;
   highlightPickerOpen: boolean;
@@ -40,6 +29,24 @@ export function VisualTabContent({
   effectiveManualOrder: number[];
 }) {
   const cards = useMemo(() => effectiveManualOrder, [effectiveManualOrder])
+  const GroupDivider = () => (
+    <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '8px 12px' }} aria-hidden="true" />
+  )
+  // Reusable position-only dropdown — every left/center/right field reuses
+  // the same option set + handler shape.
+  const PositionDropdown = (props: { labelKey: string; value: 'left' | 'center' | 'right'; onChange: (v: 'left' | 'center' | 'right') => void }) => (
+    <Field label={t(props.labelKey as any)} childrenContainerWidth='min'>
+      <Dropdown
+        rgOptions={[
+          { data: 'left', label: t('logo_position_left' as any) },
+          { data: 'center', label: t('logo_position_center' as any) },
+          { data: 'right', label: t('logo_position_right' as any) },
+        ]}
+        selectedOption={props.value}
+        onChange={(opt: any) => props.onChange((opt?.data ?? 'left') as 'left' | 'center' | 'right')}
+      />
+    </Field>
+  )
   return (
     <FieldContainer scrollable>
       <ToggleField label={t('match_native_size')} checked={flags.matchNativeSize} onChange={(v: boolean) => setFlags({ matchNativeSize: v })} />
@@ -47,14 +54,70 @@ export function VisualTabContent({
       <ToggleField label={t('highlight_all')} checked={flags.highlightAll} onChange={(v: boolean) => setFlags({ highlightAll: v })} />
       <ToggleField label={t('highlight_random')} checked={flags.highlightRandom} onChange={(v: boolean) => setFlags({ highlightRandom: v })} />
       <ToggleField label={t('hero_enabled_label')} checked={flags.heroEnabled} onChange={(v: boolean) => setFlags({ heroEnabled: v })} />
-      {/* Hidden enrichment toggles — schema + persistence is wired, UI
-          stays out of sight until a feature actually renders the data.
-          Default false; ORed with the equivalent global toggles. */}
-      <div style={{ display: 'none' }} aria-hidden="true">
-        <ToggleField label={t('enable_logo')} checked={flags.enableLogo} onChange={(v: boolean) => setFlags({ enableLogo: v })} />
-        <ToggleField label={t('enable_icon')} checked={flags.enableIcon} onChange={(v: boolean) => setFlags({ enableIcon: v })} />
-        <ToggleField label={t('enable_description')} checked={flags.enableDescription} onChange={(v: boolean) => setFlags({ enableDescription: v })} />
-      </div>
+      <ToggleField label={t('game_info_above_label' as any)} checked={flags.gameInfoAbove} onChange={(v: boolean) => setFlags({ gameInfoAbove: v })} />
+      <ToggleField label={t('friends_overlay_label' as any)} checked={flags.friendsPlayingOverlay} onChange={(v: boolean) => setFlags({ friendsPlayingOverlay: v })} />
+      {flags.friendsPlayingOverlay && (
+        <ToggleField label={t('friends_overlay_recent_label' as any)} checked={flags.friendsPlayingOverlayRecent} onChange={(v: boolean) => setFlags({ friendsPlayingOverlayRecent: v })} />
+      )}
+      <GroupDivider />
+      {/* Group: Logo + dependent options (position, size, offset) */}
+      <ToggleField label={t('enable_logo')} checked={flags.enableLogo} onChange={(v: boolean) => setFlags({ enableLogo: v })} />
+      {flags.enableLogo && (
+        <PositionDropdown labelKey='logo_position_label' value={flags.logoPosition} onChange={(v) => setFlags({ logoPosition: v })} />
+      )}
+      {flags.enableLogo && (
+        <DSSliderField label={t('logo_size_label' as any)} value={flags.logoSize} min={50} max={200} step={5} unit='%' onChange={(v: number) => setFlags({ logoSize: v })} />
+      )}
+      {flags.enableLogo && (
+        <DSSliderField label={t('logo_top_offset_label' as any)} value={flags.logoTopOffset} min={-50} max={100} step={5} unit='%' onChange={(v: number) => setFlags({ logoTopOffset: v })} />
+      )}
+
+      <GroupDivider />
+      {/* Group: Icon + vertical align */}
+      <ToggleField label={t('enable_icon')} checked={flags.enableIcon} onChange={(v: boolean) => setFlags({ enableIcon: v })} />
+      {flags.enableIcon && (
+        <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
+          <Dropdown
+            rgOptions={[
+              { data: 'top', label: t('icon_vertical_align_top' as any) },
+              { data: 'center', label: t('icon_vertical_align_center' as any) },
+              { data: 'bottom', label: t('icon_vertical_align_bottom' as any) },
+            ]}
+            selectedOption={flags.iconVerticalAlign}
+            onChange={(opt: any) => setFlags({ iconVerticalAlign: (opt?.data ?? 'top') as 'top' | 'center' | 'bottom' })}
+          />
+        </Field>
+      )}
+
+      <GroupDivider />
+      {/* Group: Description + position + (when paired with logo) below-logo + height */}
+      <ToggleField label={t('enable_description')} checked={flags.enableDescription} onChange={(v: boolean) => setFlags({ enableDescription: v })} />
+      {flags.enableDescription && (
+        <PositionDropdown labelKey='description_position_label' value={flags.descriptionPosition} onChange={(v) => setFlags({ descriptionPosition: v })} />
+      )}
+      {flags.enableLogo && flags.enableDescription && (
+        <ToggleField label={t('description_below_logo' as any)} checked={flags.descriptionBelowLogo} onChange={(v: boolean) => setFlags({ descriptionBelowLogo: v })} />
+      )}
+      {flags.enableDescription && flags.descriptionBelowLogo && (
+        <>
+          <DSSliderField label={t('description_height_label' as any)} value={flags.descriptionHeight} min={1} max={3} step={1} onChange={(v: number) => setFlags({ descriptionHeight: v })} />
+          <DSSliderField label={t('description_logo_gap_label' as any)} value={flags.descriptionLogoGap} min={-40} max={80} step={5} unit='px' onChange={(v: number) => setFlags({ descriptionLogoGap: v })} />
+        </>
+      )}
+
+      <GroupDivider />
+      {/* Group: Shelf title position */}
+      <PositionDropdown labelKey='shelf_title_position_label' value={flags.shelfTitlePosition} onChange={(v) => setFlags({ shelfTitlePosition: v })} />
+
+      {/* Group: Game name position */}
+      <PositionDropdown labelKey='game_name_position_label' value={flags.gameNamePosition} onChange={(v) => setFlags({ gameNamePosition: v })} />
+
+      {/* Group: Playtime row position */}
+      <PositionDropdown labelKey='playtime_position_label' value={flags.playtimePosition} onChange={(v) => setFlags({ playtimePosition: v })} />
+
+      <GroupDivider />
+      {/* Penultimate before card-specific highlights */}
+      <ToggleField label={t('full_page_shelf_label' as any)} checked={flags.fullPageShelf} onChange={(v: boolean) => setFlags({ fullPageShelf: v })} />
       <ToggleField
         label={t('highlight_specific_games')}
         checked={highlightPickerOpen}

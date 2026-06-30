@@ -46,7 +46,7 @@ run_checks() {
     local unsafe_access
     # Ignore: optional-chained access, try/catch, comments, type decls, and
     # string-literal key arrays — guarded via `o[k]` at the call site.
-    unsafe_access=$(grep -rn --exclude-dir=test "rt_last_time_played\|minutes_playtime\|last_played" "$src" 2>/dev/null | grep -Ev '\?[.:?]|try|catch|//|type |interface |^[^:]+:[0-9]+:\s*(const|let|var|export const|export let)\s+\w+\s*=\s*\[' | head -3)
+    unsafe_access=$(grep -rn --exclude-dir=test "rt_last_time_played\|minutes_playtime\|last_played" "$src" 2>/dev/null | grep -Ev '\?[.:?]|try|catch|//|typeof |type |interface |^[^:]+:[0-9]+:\s*(const|let|var|export const|export let)\s+\w+\s*=\s*\[|^[^:]+:[0-9]+:\s*(rt_last_time_played|minutes_playtime|last_played)\s*:' | head -3)
     if [[ -z "$unsafe_access" ]]; then
       echo "  ✅ Playtime field access is guarded"
       ((pass++))

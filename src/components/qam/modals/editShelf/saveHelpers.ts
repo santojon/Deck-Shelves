@@ -4,6 +4,16 @@ import type { Shelf, ShelfFilter, FilterGroup } from '../../../../types';
 import type { EditableShelfState } from './types';
 import { filterGroupToFilter } from '../../../../domain/settings';
 
+export function primarySortKey(sort: unknown): string | undefined {
+  if (Array.isArray(sort)) return typeof sort[0] === 'string' ? sort[0] : undefined;
+  return typeof sort === 'string' ? sort : undefined;
+}
+
+export function isStateManualSort(state: EditableShelfState): boolean {
+  return primarySortKey(state.sort) === 'manual'
+    || primarySortKey(state.filter?.sort) === 'manual';
+}
+
 const SYNTH_EMPTY_STRING_FIELDS = ['text', 'image', 'heroImage'] as const;
 
 function emptyStringToUndef(out: any): void {
@@ -23,7 +33,6 @@ function stripDefaultShadow(out: any): void {
   if (out.shadowMode === 'never') delete out.shadowMode;
 }
 
-/** Strip a synthetic-card object to its persisted shape. */
 export function sanitizeSyntheticCard(card: any): any {
   const out: any = { ...card };
   emptyStringToUndef(out);
@@ -40,9 +49,6 @@ function sanitizeUrlLink(link: any): any {
   catch { return undefined; }
 }
 
-/** Returns `[manualBaseSort, manualBaseSortReverse]` shaped for persistence.
- *  Single-key default 'alphabetical' is dropped; multi-key arrays only
- *  persist when non-empty. */
 export function buildSortPatchFields(
   state: EditableShelfState,
   isManualSort: boolean,
@@ -78,14 +84,18 @@ const SOURCE_BUILDERS: Record<string, SourceBuilder> = {
   store: ({ state, childFilter }) => buildOnlineSource('store', state, childFilter),
 };
 
-function buildFilterSource(state: EditableShelfState): any {
-  const previewSort = state.filter.sort === 'manual' ? state.manualBaseSort : state.filter.sort;
-  return { type: 'filter', filter: filterGroupToFilter(state.filterGroup, previewSort as ShelfFilter['sort'], state.filter.sortReverse) };
+// Collapses `[manual, …]` → `'manual'` — secondaries are meaningless
+// once primary is manual and would leak into the UI on reopen.
+function normalizeManualSort(sort: ShelfFilter['sort']): ShelfFilter['sort'] {
+  if (Array.isArray(sort) && sort[0] === 'manual') return 'manual' as ShelfFilter['sort'];
+  return sort;
 }
 
-/** Builds the primary source object from form state. The save path passes
- *  `platformTabs` so the tab branch can pick up TabMaster-style source
- *  overrides; the preview path omits it and uses a plain `tab` source. */
+function buildFilterSource(state: EditableShelfState): any {
+  const sort = normalizeManualSort(state.filter.sort as ShelfFilter['sort']);
+  return { type: 'filter', filter: filterGroupToFilter(state.filterGroup, sort, state.filter.sortReverse) };
+}
+
 export function buildPrimarySource(ctx: PrimaryBuildCtx): any {
   const builder = SOURCE_BUILDERS[ctx.state.sourceType];
   return builder ? builder(ctx) : buildFilterSource(ctx.state);
@@ -101,7 +111,6 @@ function buildOnlineSource(type: 'wishlist' | 'store', state: EditableShelfState
   };
 }
 
-/** Drops `childFilter` when its items list is empty so saved JSON stays minimal. */
 export function dropEmptyChildFilter(s: any): any {
   if (!s?.childFilter) return s;
   const items = s.childFilter.items;
@@ -110,18 +119,22 @@ export function dropEmptyChildFilter(s: any): any {
   return rest;
 }
 
-/** Wraps primary + additionalSources into a composite when there are
- *  extras, otherwise returns the primary flat. Used by both preview and save. */
 export function assembleFinalSource(primary: any, state: EditableShelfState): any {
-  if (state.sourceType === 'filter' || state.additionalSources.length === 0) return primary;
+  // A filter primary now composes with additional sources like any other
+  // primary; only a truly single-source shelf returns the bare primary.
+  if (state.additionalSources.length === 0) return primary;
   const allChildren = [primary, ...state.additionalSources].map(dropEmptyChildFilter);
   return { type: 'composite', combine: state.compositeCombine, sources: allChildren };
 }
 
-/** Persists `shelf.sort` as a string for single-key, array for multi-key,
- *  undefined for the default alphabetical. */
 export function shelfSortForPatch(state: EditableShelfState): Partial<Shelf>['sort'] {
-  if (state.sourceType === 'filter') return undefined;
-  const hasUserSort = Array.isArray(state.sort) ? state.sort.length > 0 : state.sort !== 'alphabetical';
-  return hasUserSort ? state.sort : undefined;
+  /* A single filter source carries its sort on the source itself, so the
+     shelf-level sort is omitted. Once it's part of a composite, the merged
+     result is re-sorted by the shelf-level sort — so surface the filter's
+     chosen sort there too (state.filter.sort), otherwise the order is lost. */
+  if (state.sourceType === 'filter' && state.additionalSources.length === 0) return undefined;
+  const eff = state.sourceType === 'filter' ? state.filter.sort : state.sort;
+  const hasUserSort = Array.isArray(eff) ? eff.length > 0 : (eff != null && eff !== 'alphabetical');
+  if (!hasUserSort) return undefined;
+  return normalizeManualSort(eff as ShelfFilter['sort']) as Partial<Shelf>['sort'];
 }

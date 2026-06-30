@@ -6,7 +6,6 @@ import {
   DropdownItem,
   Field,
   Focusable,
-  SliderField,
   Tabs,
   TextField,
   ToggleField,
@@ -17,7 +16,7 @@ import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } fr
 import type { SettingsController } from '../../../features/settings/controller'
 import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
-import { FieldContainer, ModalShell } from '../../ui'
+import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
 import { logInfo } from '../../../runtime/logger'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
@@ -44,11 +43,11 @@ import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_
 // pre-fill the edit field so users see the actual current cadence.
 const DEFAULT_REFRESH_MINUTES = 60
 
-// Ordered list of every internal smart-shelf mode, used by the Source-tab
-// mode dropdown + the composite-mixing picker. Order mirrors the catalogue
-// in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
-// is excluded — it's a special-purpose mode for filter-only shelves and
-// switching INTO it would silently strip the user's smart-mode tuning.
+/* Ordered list of every internal smart-shelf mode, used by the Source-tab
+   mode dropdown + the composite-mixing picker. Order mirrors the catalogue
+   in `SmartShelfTemplateModal` (highest-result-probability first); `custom`
+   is excluded — it's a special-purpose mode for filter-only shelves and
+   switching INTO it would silently strip the user's smart-mode tuning. */
 const SMART_MODE_OPTIONS: SmartShelfMode[] = [
   'daily_pick', 'deck_picks', 'on_deck', 'recently_played',
   'long_session', 'long_session_night', 'random_pick', 'not_started',
@@ -65,12 +64,7 @@ type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'di
 
 type EditState = {
   title: string
-  /** Editable smart-shelf mode. Initialized from shelf.mode; user can switch
-   *  via the Source-tab dropdown. Changing mode resets `smartParams` to the
-   *  new mode's defaults. */
   mode: SmartShelfMode
-  /** Optional source-mixing — when non-empty, the resolver evaluates each
-   *  mode in `[mode, ...compositeModes]` and merges by `compositeCombine`. */
   compositeModes: SmartShelfMode[]
   compositeCombine: 'union' | 'intersection'
   limit: number
@@ -87,6 +81,18 @@ type EditState = {
   enableLogo: boolean
   enableIcon: boolean
   enableDescription: boolean
+  descriptionBelowLogo: boolean
+  logoPosition: 'left' | 'center' | 'right'
+  descriptionPosition: 'left' | 'center' | 'right'
+  logoSize: number
+  logoTopOffset: number
+  iconVerticalAlign: 'top' | 'center' | 'bottom'
+  shelfTitlePosition: 'left' | 'center' | 'right'
+  gameNamePosition: 'left' | 'center' | 'right'
+  playtimePosition: 'left' | 'center' | 'right'
+  descriptionHeight: number
+  descriptionLogoGap: number
+  fullPageShelf: boolean
   highlightedAppIds: number[]
   hideStatusLine: boolean
   hideNewBadge: boolean
@@ -99,6 +105,9 @@ type EditState = {
   hideSeeMore: boolean
   hideRefreshCard: boolean
   heroEnabled: boolean
+  gameInfoAbove: boolean
+  friendsPlayingOverlay: boolean
+  friendsPlayingOverlayRecent: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
   refreshIntervalMinutes: number
@@ -134,6 +143,18 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     enableLogo: (shelf as any).enableLogo === true,
     enableIcon: (shelf as any).enableIcon === true,
     enableDescription: (shelf as any).enableDescription === true,
+    descriptionBelowLogo: (shelf as any).descriptionBelowLogo === true,
+    logoPosition: ((shelf as any).logoPosition === 'center' || (shelf as any).logoPosition === 'right') ? (shelf as any).logoPosition : 'left',
+    descriptionPosition: ((shelf as any).descriptionPosition === 'center' || (shelf as any).descriptionPosition === 'right') ? (shelf as any).descriptionPosition : 'left',
+    logoSize: typeof (shelf as any).logoSize === 'number' ? Math.max(50, Math.min(200, (shelf as any).logoSize)) : 100,
+    logoTopOffset: typeof (shelf as any).logoTopOffset === 'number' ? Math.max(0, Math.min(100, (shelf as any).logoTopOffset)) : 20,
+    iconVerticalAlign: ((shelf as any).iconVerticalAlign === 'center' || (shelf as any).iconVerticalAlign === 'bottom') ? (shelf as any).iconVerticalAlign : 'top',
+    shelfTitlePosition: ((shelf as any).shelfTitlePosition === 'center' || (shelf as any).shelfTitlePosition === 'right') ? (shelf as any).shelfTitlePosition : 'left',
+    gameNamePosition: ((shelf as any).gameNamePosition === 'center' || (shelf as any).gameNamePosition === 'right') ? (shelf as any).gameNamePosition : 'left',
+    playtimePosition: ((shelf as any).playtimePosition === 'center' || (shelf as any).playtimePosition === 'right') ? (shelf as any).playtimePosition : 'left',
+    descriptionHeight: typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2,
+    descriptionLogoGap: typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 8,
+    fullPageShelf: (shelf as any).fullPageShelf === true,
     highlightedAppIds: (shelf as any).highlightedAppIds ?? [],
     hideStatusLine: (shelf as any).hideStatusLine ?? false,
     hideNewBadge: (shelf as any).hideNewBadge ?? false,
@@ -146,6 +167,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     hideSeeMore: (shelf as any).hideSeeMore ?? false,
     hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
     heroEnabled: (shelf as any).heroEnabled ?? false,
+    gameInfoAbove: (shelf as any).gameInfoAbove ?? false,
+    friendsPlayingOverlay: (shelf as any).friendsPlayingOverlay ?? false,
+    friendsPlayingOverlayRecent: (shelf as any).friendsPlayingOverlayRecent ?? false,
     dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
     hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
     refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
@@ -185,10 +209,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     visibleDaysOfWeek: (() => {
       const v = (shelf as any).visibleDaysOfWeek
       if (Array.isArray(v)) return v.slice()
-      // Undefined = no day restriction in the persisted model. Surface this
-      // in the UI as "all 7 marked" so the user starts from the everyday case
-      // and unchecks specific days. The save handler converts a fully-checked
-      // selection back into `undefined` so storage stays minimal.
+      /* Undefined = no day restriction in the persisted model. Surface this
+         in the UI as "all 7 marked" so the user starts from the everyday case
+         and unchecks specific days. The save handler converts a fully-checked
+         selection back into `undefined` so storage stays minimal. */
       return [0, 1, 2, 3, 4, 5, 6]
     })(),
     allowDayOverrides: (() => {
@@ -204,10 +228,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
 
   const paramKeys = useMemo(() => paramKeysForMode(state.mode), [state.mode])
   const setSmartParam = (key: string, value: number) => setState((prev) => ({ ...prev, smartParams: { ...prev.smartParams, [key]: value } }))
-  // Switching mode resets smartParams + drafts to the new mode's defaults.
-  // The mode field on a smart shelf is the "data source" — picking another
-  // mode means picking a different candidate-set heuristic, so the previous
-  // mode's tuning knobs no longer apply.
+  /* Switching mode resets smartParams + drafts to the new mode's defaults.
+     The mode field on a smart shelf is the "data source" — picking another
+     mode means picking a different candidate-set heuristic, so the previous
+     mode's tuning knobs no longer apply. */
   const handleModeChange = (nextMode: SmartShelfMode) => {
     if (nextMode === state.mode) return
     const nextDefaults = SMART_PARAM_DEFAULTS[nextMode] ?? {}
@@ -353,10 +377,10 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     return () => { cancelled = true }
   }, [platform, resolvedIds.join(',')])
 
-  // Meta for menu-added games (state.manualOrder entries NOT in
-  // resolvedIds — see EditShelfModal for the rationale). Without this
-  // the preview's `meta.get(tailId)` returns undefined and menu-added
-  // cards never render in non-source tabs.
+  /* Meta for menu-added games (state.manualOrder entries NOT in
+     resolvedIds — see EditShelfModal for the rationale). Without this
+     the preview's `meta.get(tailId)` returns undefined and menu-added
+     cards never render in non-source tabs. */
   useEffect(() => {
     const resolvedSet = new Set(resolvedIds)
     const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)
@@ -397,6 +421,18 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).enableLogo = state.enableLogo
       ;(patch as any).enableIcon = state.enableIcon
       ;(patch as any).enableDescription = state.enableDescription
+      ;(patch as any).descriptionBelowLogo = state.descriptionBelowLogo
+      ;(patch as any).logoPosition = state.logoPosition
+      ;(patch as any).descriptionPosition = state.descriptionPosition
+      ;(patch as any).logoSize = state.logoSize
+      ;(patch as any).logoTopOffset = state.logoTopOffset
+      ;(patch as any).iconVerticalAlign = state.iconVerticalAlign
+      ;(patch as any).shelfTitlePosition = state.shelfTitlePosition
+      ;(patch as any).gameNamePosition = state.gameNamePosition
+      ;(patch as any).playtimePosition = state.playtimePosition
+      ;(patch as any).descriptionHeight = state.descriptionHeight
+      ;(patch as any).descriptionLogoGap = state.descriptionLogoGap
+      ;(patch as any).fullPageShelf = state.fullPageShelf || undefined
       ;(patch as any).highlightedAppIds = (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined
       ;(patch as any).hideStatusLine = state.hideStatusLine
       ;(patch as any).hideNewBadge = state.hideNewBadge
@@ -409,6 +445,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).hideSeeMore = state.hideSeeMore
       ;(patch as any).hideRefreshCard = state.hideRefreshCard
       ;(patch as any).heroEnabled = state.heroEnabled || undefined
+      ;(patch as any).gameInfoAbove = state.gameInfoAbove || undefined
+      ;(patch as any).friendsPlayingOverlay = state.friendsPlayingOverlay || undefined
+      ;(patch as any).friendsPlayingOverlayRecent = state.friendsPlayingOverlayRecent || undefined
       ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
       ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
       // Only persist when the user diverged from the default cadence; otherwise
@@ -621,8 +660,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           }))
                         }}
                       />
-                      <SliderField
-                        label={`${t('limit')} (${state.limit})`}
+                      <DSSliderField
+                        label={t('limit')}
                         value={state.limit}
                         min={1}
                         max={50}
@@ -746,10 +785,11 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           )
                         }
                         return (
-                          <SliderField
+                          <DSSliderField
                             key={key}
-                            label={`${t(meta.labelKey as any)} (${value}${unit ? ` ${unit}` : ''})`}
+                            label={t(meta.labelKey as any)}
                             value={value}
+                            unit={unit ? ` ${unit}` : ''}
                             min={meta.min}
                             max={meta.max}
                             step={meta.step}
@@ -783,7 +823,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       )}
                       <Field label={t('smart_visible_days_label')} />
                       {state.visibleDaysOfWeek.length === 0 && (
-                        <div style={{ padding: '4px 8px 8px', fontSize: 12, color: '#ff9800' }}>{t('smart_visible_days_empty_warning' as any)}</div>
+                        <div style={{ padding: '4px 8px 8px', fontSize: 12, color: 'var(--ds-warn, #ff9800)' }}>{t('smart_visible_days_empty_warning' as any)}</div>
                       )}
                       <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '4px 0 8px', width: '100%', boxSizing: 'border-box' }}>
                         {[0, 1, 2, 3, 4, 5, 6].map((day) => {
@@ -828,7 +868,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           <Field label={t('smart_overrides_info_label' as any)} description={infoLines.join('  ·  ')} />
                         )}
                         {state.visibleDaysOfWeek.length === 0 && (
-                          <div style={{ padding: '4px 8px 8px', fontSize: 12, color: '#ff9800' }}>{t('smart_visible_days_empty_warning' as any)}</div>
+                          <div style={{ padding: '4px 8px 8px', fontSize: 12, color: 'var(--ds-warn, #ff9800)' }}>{t('smart_visible_days_empty_warning' as any)}</div>
                         )}
                         <div style={{ padding: '10px 0 2px', fontSize: 12, opacity: 0.7, fontWeight: 600 }}>{t('smart_schedule_day_overrides' as any)}</div>
                         <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '4px 0 8px', width: '100%', boxSizing: 'border-box' }}>
@@ -893,8 +933,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, heroEnabled: state.heroEnabled }}
-                      setFlags={(patch) => setState((prev) => ({ ...prev, ...patch }))}
+                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove, friendsPlayingOverlay: state.friendsPlayingOverlay, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent }}
+                      setFlags={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.gameInfoAbove === true) next.hideShelfTitle = true; return next; })}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}
                       highlightPickerOpen={highlightPickerOpen}
@@ -913,7 +953,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                     <DisplayTabContent
                       t={t}
                       display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
-                      setDisplay={(patch) => setState((prev) => ({ ...prev, ...patch }))}
+                      setDisplay={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.hideShelfTitle === false && (prev as any).gameInfoAbove) next.gameInfoAbove = false; return next; })}
                       hasNonSteamBadges={hasNonSteamBadges}
                       dedupeByExactName={state.dedupeByExactName}
                       setDedupeByExactName={(v) => setState((prev) => ({ ...prev, dedupeByExactName: v }))}

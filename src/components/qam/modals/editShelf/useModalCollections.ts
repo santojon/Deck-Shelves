@@ -3,11 +3,11 @@ import { usePlatform } from '../../../../runtime/platformContext'
 import type { PlatformCollection } from '../../../../runtime/platform'
 
 // Polls platform.listCollections() on a short cadence while the modal is
-// open. Steam's collectionStore can take a few seconds after plugin boot
-// to expose the map; the controller-level 30 s refresh is the long-term
-// safety net but the modal needs faster feedback for a freshly-opened
-// picker. Identity is preserved when the snapshot is unchanged so the
-// dropdown doesn't churn its options array.
+/* open. Steam's collectionStore can take a few seconds after plugin boot
+   to expose the map; the controller-level 30 s refresh is the long-term
+   safety net but the modal needs faster feedback for a freshly-opened
+   picker. Identity is preserved when the snapshot is unchanged so the
+   dropdown doesn't churn its options array. */
 export function useModalCollections(initial: ReadonlyArray<PlatformCollection>): ReadonlyArray<PlatformCollection> {
   const [modalCollections, setModalCollections] = useState<ReadonlyArray<PlatformCollection>>(initial)
   const modalPlatform = usePlatform()

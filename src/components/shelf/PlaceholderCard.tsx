@@ -45,10 +45,10 @@ export function PlaceholderCard({
     }, [250, 500, 800, 1200]);
   }, []);
 
-  // View (SELECT) binding — mirrors GameCard. Needed here because cards
-  // without library art fall through to PlaceholderCard, and the user
-  // still expects the "Atualizar / Retomar / Jogar / Instalar" hint +
-  // action on the View button for owned-library items.
+  /* View (SELECT) binding — mirrors GameCard. Needed here because cards
+     without library art fall through to PlaceholderCard, and the user
+     still expects the "Atualizar / Retomar / Jogar / Instalar" hint +
+     action on the View button for owned-library items. */
   const isLibraryGame = useMemo(() => {
     if (previewMode || !appid) return false;
     try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(appid); }
@@ -73,10 +73,10 @@ export function PlaceholderCard({
       return { label: i18n.t('menu_play'), action: 'run' };
     } catch { return { label: undefined, action: 'run' }; }
   }, [appid, previewMode]);
-  // Mirror GameCard: open the native menu and click its first item —
-  // same dispatch as the user picking that item manually. Avoids the
-  // state-specific Steam APIs (RunGame / RaiseWindowForGame /
-  // ResumeAppUpdate) which behave inconsistently on the Deck.
+  /* Mirror GameCard: open the native menu and click its first item —
+     same dispatch as the user picking that item manually. Avoids the
+     state-specific Steam APIs (RunGame / RaiseWindowForGame /
+     ResumeAppUpdate) which behave inconsistently on the Deck. */
   const quickLaunch = useCallback(() => {
     if (previewMode || !appid) return;
     if (typeof item.onMenuButton !== 'function') return;

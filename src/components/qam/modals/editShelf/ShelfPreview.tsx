@@ -17,11 +17,64 @@ const PREVIEW_CARD_W = 78
 const PREVIEW_ART_H = 110
 const FEATURED_CARD_W = Math.round(PREVIEW_CARD_W * 3.21)
 
-// Scoped overrides — keep the modal preview visually flat (no native scale,
-// no theme accent ring, no animated glow) while preserving the focus drop
-// shadow + label fade behaviour the home shelf uses. Padding is gated to the
-// text-only cards (More/Refresh share the `ds-more-card-text` child); game
-// cards stay at zero padding so the image fills the focus area edge-to-edge.
+// Manual-sort grab: decode a gamepad button / arrow key into a shift
+// direction so the grab effect's handlers stay flat.
+function grabbedDir(button: number): number {
+  if (button === DIR_LEFT) return -1
+  if (button === DIR_RIGHT) return 1
+  return 0
+}
+function grabbedKeyAction(key: string): 'left' | 'right' | 'refocus' | null {
+  if (key === 'ArrowLeft') return 'left'
+  if (key === 'ArrowRight') return 'right'
+  if (key === 'ArrowUp' || key === 'ArrowDown') return 'refocus'
+  return null
+}
+
+// Patch the gamepad dispatch so directional presses shift the grabbed
+// card instead of moving row focus. Returns a restore fn (or null).
+function patchGrabbedDispatch(
+  ctrl: any,
+  shiftGrabbed: (d: number) => void,
+  refocusGrabbed: () => void,
+): (() => void) | null {
+  try {
+    if (!ctrl || typeof ctrl.DispatchVirtualButtonClick !== 'function') return null
+    const orig = ctrl.DispatchVirtualButtonClick.bind(ctrl)
+    ctrl.DispatchVirtualButtonClick = (button: number, ...args: any[]) => {
+      const dir = grabbedDir(button)
+      if (dir) { shiftGrabbed(dir); return }
+      if (button === 9 || button === 10) { requestAnimationFrame(refocusGrabbed); return }
+      return orig(button, ...args)
+    }
+    return () => { try { ctrl.DispatchVirtualButtonClick = orig } catch {} }
+  } catch { return null }
+}
+
+// Owned-name lookup for wishlist dedup: read a display name for an appid
+// from whichever appStore is reachable (this window or the opener).
+function nameFromStore(as: any, id: number): string | null {
+  try {
+    const ov = as?.GetAppOverviewByAppID?.(id)
+    const n = (ov as any)?.display_name ?? (ov as any)?.name
+    return typeof n === 'string' && n ? n : null
+  } catch { return null }
+}
+function lookupOwnedName(id: number): string | null {
+  const opener: any = (globalThis as any).opener
+  const candidates = [(globalThis as any).appStore, opener?.appStore, opener?.AppStore].filter(Boolean)
+  for (const as of candidates) {
+    const n = nameFromStore(as, id)
+    if (n) return n
+  }
+  return null
+}
+
+/* Scoped overrides — keep the modal preview visually flat (no native scale,
+   no theme accent ring, no animated glow) while preserving the focus drop
+   shadow + label fade behaviour the home shelf uses. Padding is gated to the
+   text-only cards (More/Refresh share the `ds-more-card-text` child); game
+   cards stay at zero padding so the image fills the focus area edge-to-edge. */
 const PREVIEW_STYLE_TAG = `
 [data-ds-preview-row="1"] .ds-card-art:has(> .ds-more-card-text) { padding: 6px !important; }
 [data-ds-preview-row="1"] .ds-more-card-text { font-size: 10px !important; line-height: 1.2 !important; }
@@ -108,11 +161,11 @@ export interface ShelfPreviewProps {
   highlightFirst: boolean
   highlightAll: boolean
   highlightedAppIds: number[]
-  // Hidden ids drive the always-on 'hidden' overlay (red ring + dark
-  // tint + ✕). Even when the hidden picker is CLOSED, hidden cards
-  // appear in the preview with this overlay so the user can see which
-  // games are hidden across every tab. Home shelf still filters them
-  // out (Shelf.tsx applies the filter at the resolver level).
+  /* Hidden ids drive the always-on 'hidden' overlay (red ring + dark
+     tint + ✕). Even when the hidden picker is CLOSED, hidden cards
+     appear in the preview with this overlay so the user can see which
+     games are hidden across every tab. Home shelf still filters them
+     out (Shelf.tsx applies the filter at the resolver level). */
   hiddenAppIds?: number[]
   // When provided, the trailing RefreshCard is focusable + clickable and
   // invokes this callback to re-resolve the preview's app ids (matches the
@@ -137,20 +190,20 @@ export interface ShelfPreviewProps {
     shadowMode?: 'never' | 'onFocus' | 'always';
   }>
   // Editor picker mode: when set, every card carries an overlay marker
-  // (`highlight` blue tint + ★ / `hidden` dark tint + ✕) and its
-  // activate handler toggles membership in the selection set instead of
-  // opening the game. Lets the highlight + hidden picker tabs render
-  // through the same ShelfPreview as everywhere else, only adding the
-  // overlay + click rebinding for their specific affordance.
+  /* (`highlight` blue tint + ★ / `hidden` dark tint + ✕) and its
+     activate handler toggles membership in the selection set instead of
+     opening the game. Lets the highlight + hidden picker tabs render
+     through the same ShelfPreview as everywhere else, only adding the
+     overlay + click rebinding for their specific affordance. */
   selectionMode?: 'highlight' | 'hidden'
   selectionSet?: Set<number>
   onToggleSelection?: (appid: number) => void
   // X-button "Remove from shelf": appids in this set are the menu-added
-  // games (manualOrder entries NOT in the resolved source). They get
-  // the remove action AND are always kept by the limit cap below so
-  // they appear in every preview tab — not just the Source tab whose
-  // ManualSortRow renders with no cap. Modal owns the callback so the
-  // removal updates local state (Save/Cancel semantics preserved).
+  /* games (manualOrder entries NOT in the resolved source). They get
+     the remove action AND are always kept by the limit cap below so
+     they appear in every preview tab — not just the Source tab whose
+     ManualSortRow renders with no cap. Modal owns the callback so the
+     removal updates local state (Save/Cancel semantics preserved). */
   removableSet?: Set<number>
   onRemoveCard?: (appid: number) => void
   // Manual-sort drag mode (additive): hold-to-grab + chevron shift,
@@ -170,24 +223,24 @@ export function ShelfPreview({
 }: ShelfPreviewProps) {
   const rowRef = useRef<HTMLDivElement>(null)
   const highlightedSet = useMemo(() => new Set(highlightedAppIds), [highlightedAppIds.join(',')])
-  // Manual-sort drag state — used only when `manualSortMode` is true.
-  // Lifted here so the rowItems builder can paint the 'grabbed' mark on
-  // the right card. `cappedOrder` is computed AFTER rowItems so drag
-  // operations have the visible sentinel-bearing order to work with.
+  /* Manual-sort drag state — used only when `manualSortMode` is true.
+     Lifted here so the rowItems builder can paint the 'grabbed' mark on
+     the right card. `cappedOrder` is computed AFTER rowItems so drag
+     operations have the visible sentinel-bearing order to work with. */
   const [grabbedAppid, setGrabbedAppid] = useState<number | null>(null)
   const grabbedRef = useRef<number | null>(null)
   const cappedOrderRef = useRef<number[]>([])
   useEffect(() => { grabbedRef.current = grabbedAppid }, [grabbedAppid])
-  // Filter out synthetic sentinels (negative ids) the modal injects into
-  // `effectiveManualOrder` for the manual-sort drag grid. The preview
-  // splices its own synthetic items below from `syntheticCards[].position`
-  // so they appear regardless of the sort mode.
+  /* Filter out synthetic sentinels (negative ids) the modal injects into
+     `effectiveManualOrder` for the manual-sort drag grid. The preview
+     splices its own synthetic items below from `syntheticCards[].position`
+     so they appear regardless of the sort mode. */
   const gameOnlyIds = useMemo(() => ids.filter((id) => id >= 0), [ids])
-  // Limit cap — always keep `removableSet` entries (menu-added games at
-  // the manualOrder tail) so they appear in every tab, matching the
-  // Source tab's ManualSortRow which renders without a cap. Without
-  // this carve-out, limit would slice them off and the user's added
-  // games would only be visible while editing the source tab.
+  /* Limit cap — always keep `removableSet` entries (menu-added games at
+     the manualOrder tail) so they appear in every tab, matching the
+     Source tab's ManualSortRow which renders without a cap. Without
+     this carve-out, limit would slice them off and the user's added
+     games would only be visible while editing the source tab. */
   const cappedIds = useMemo(() => {
     if (typeof limit !== 'number' || limit < 0) return gameOnlyIds
     if (!removableSet?.size) return gameOnlyIds.slice(0, limit)
@@ -203,20 +256,16 @@ export function ShelfPreview({
   const showRefresh = shelfSource ? shouldShowRefreshCard(trailingInput) : !hideRefreshCard
   const showMore = shelfSource ? shouldShowMoreCard(trailingInput) : !hideSeeMore
 
-  // Build the items list (game cards + trailing refresh/more) so the
-  // shared <ShelfRow> can drive the entire row. Featured sizing comes
-  // from the per-game-card branch (preview uses 3.21× cardW for
-  // highlighted items, art height stays constant).
-  //
-  // `discountPercent` is pulled from the same localStorage price cache
-  // the home shelf consults — without it the preview's cards would
-  // never have discount data, so the green discount badge wouldn't
-  // render even when `inlineBadges` is on.
-  // Discount badges only make sense on online (wishlist/store) shelves
-  // — they advertise "this game is on sale, buy it". On non-online
-  // shelves (collection / tab / filter / installed) the user already
-  // owns the game so the badge is noise. Mirrors what Shelf.tsx does
-  // on the home (it only sets `discountPercent` for online sources).
+  /* Build the items list (game cards + trailing refresh/more) for the shared
+     <ShelfRow>. Featured sizing comes from the per-card branch (preview uses
+     3.21× cardW for highlighted items). `discountPercent` is pulled from the
+     same localStorage price cache the home consults, so the green discount
+     badge can render when `inlineBadges` is on. */
+  /* Discount badges only make sense on online (wishlist/store) shelves
+     — they advertise "this game is on sale, buy it". On non-online
+     shelves (collection / tab / filter / installed) the user already
+     owns the game so the badge is noise. Mirrors what Shelf.tsx does
+     on the home (it only sets `discountPercent` for online sources). */
   const isOnlineShelfSource = (() => {
     const s: any = shelfSource
     if (!s || typeof s !== 'object') return false
@@ -226,15 +275,15 @@ export function ShelfPreview({
     }
     return false
   })()
-  // Mirror Shelf.tsx render-time owned-hide: when an online source has
-  // the "exclude owned" toggle on (per-shelf or global), drop ids that
-  // match the local library by appid OR by normalized name. For composite
-  // shelves the toggle lives on the first online child (editor propagates
-  // it uniformly), so read from there. For direct online shelves read
-  // from the source itself. Owned-locally cards (overview present in
-  // appStore) only get dropped when they came from an online child —
-  // detected here via the same `appStore.GetAppOverviewByAppID` lookup
-  // Shelf.tsx uses (offline-origin cards have a local overview → kept).
+  /* Mirror Shelf.tsx render-time owned-hide: when an online source has
+     the "exclude owned" toggle on (per-shelf or global), drop ids that
+     match the local library by appid OR by normalized name. For composite
+     shelves the toggle lives on the first online child (editor propagates */
+  /* it uniformly), so read from there. For direct online shelves read
+     from the source itself. Owned-locally cards (overview present in
+     appStore) only get dropped when they came from an online child —
+     detected here via the same `appStore.GetAppOverviewByAppID` lookup
+     Shelf.tsx uses (offline-origin cards have a local overview → kept). */
   const ownedHideState = useMemo(() => {
     const s: any = shelfSource
     if (!s || typeof s !== 'object') return null
@@ -264,38 +313,20 @@ export function ShelfPreview({
     const { effectiveNonSteam, effectiveCloud } = ownedHideState
     const ownedSet = getLocalLibraryAppIds(effectiveNonSteam, effectiveCloud)
     setOwnedAppIds(ownedSet)
-    // Build ownedNames via PER-ID raw `appStore.GetAppOverviewByAppID`
-    // lookup across every Steam window — `getAllAppOverviews()` falls
-    // through `normalizeAppOverview` for many users which strips entries
-    // whose display_name ends up as the "App {id}" fallback, so the
-    // resulting `apps` array doesn't include every non-Steam shortcut
-    // (Epic / Amazon / GOG titles the user owns there). Without those,
-    // the wishlist row's name-dedup misses items like "Kingdom Come:
-    // Deliverance II". Iterating `ownedSet` directly + a raw per-id
-    // lookup guarantees every owned entry contributes its name.
+    /* Build ownedNames via PER-ID raw `appStore.GetAppOverviewByAppID`
+       lookup across every Steam window — `getAllAppOverviews()` falls
+       through `normalizeAppOverview` for many users which strips entries
+       whose display_name ends up as the "App {id}" fallback, so the */
+    /* resulting `apps` array doesn't include every non-Steam shortcut
+       (Epic / Amazon / GOG titles the user owns there). Without those,
+       the wishlist row's name-dedup misses items like "Kingdom Come:
+       Deliverance II". Iterating `ownedSet` directly + a raw per-id
+       lookup guarantees every owned entry contributes its name. */
     let cancelled = false
     ;(async () => {
       const names = new Set<string>()
-      const lookups = (id: number): string | null => {
-        try {
-          const opener: any = (globalThis as any).opener
-          const candidates = [
-            (globalThis as any).appStore,
-            opener?.appStore,
-            opener?.AppStore,
-          ].filter(Boolean)
-          for (const as of candidates) {
-            try {
-              const ov = as?.GetAppOverviewByAppID?.(id)
-              const n = (ov as any)?.display_name ?? (ov as any)?.name
-              if (typeof n === "string" && n) return n
-            } catch {}
-          }
-        } catch {}
-        return null
-      }
       for (const id of ownedSet) {
-        const n = lookups(id)
+        const n = lookupOwnedName(id)
         if (!n) continue
         const k = normalizeTitleForMatch(n)
         if (k) names.add(k)
@@ -337,20 +368,20 @@ export function ShelfPreview({
     const hiddenSet = hiddenAppIds && hiddenAppIds.length ? new Set(hiddenAppIds) : null
     const out: DeckRowItem[] = []
     let cardIdx = -1
-    // Per-id owned-overview lookup used to mirror Shelf.tsx's
-    // `isStoreFallback` proxy: cards from offline children have a local
-    // overview; cards from online children don't. For composite shelves,
-    // hide-owned only applies to online-origin cards so collection items
-    // the user owns aren't filtered out by their own ownership.
+    /* Per-id owned-overview lookup used to mirror Shelf.tsx's
+       `isStoreFallback` proxy: cards from offline children have a local
+       overview; cards from online children don't. For composite shelves,
+       hide-owned only applies to online-origin cards so collection items
+       the user owns aren't filtered out by their own ownership. */
     const hasLocalOverview = (id: number): boolean => {
       try { return !!(globalThis as any).appStore?.GetAppOverviewByAppID?.(id) }
       catch { return false }
     }
     for (const id of cappedIds) {
-      // Owned-hide gate: skip ids matching the local library by appid
-      // OR by normalized name. Composite shelves restrict the gate to
-      // online-origin cards (no local overview); direct online shelves
-      // apply it to every card (they're all online by definition).
+      /* Owned-hide gate: skip ids matching the local library by appid
+         OR by normalized name. Composite shelves restrict the gate to
+         online-origin cards (no local overview); direct online shelves
+         apply it to every card (they're all online by definition). */
       if (ownedHideState && (ownedAppIds || ownedNames)) {
         const eligible = ownedHideState.isCompositeShelf ? !hasLocalOverview(id) : true
         if (eligible) {
@@ -370,11 +401,11 @@ export function ShelfPreview({
       cardIdx++
       const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
       // Always-on intrinsic marks. Precedence (top → bottom): grabbed
-      // beats everything (active interaction); hidden beats highlight/
-      // added (the dark overlay signals "off"); highlight beats added
-      // (the user explicitly featured this card); added is the
-      // baseline marker for menu-added games. Pickers don't override
-      // these — they just enable click-to-toggle via `selectionMode`.
+      /* beats everything (active interaction); hidden beats highlight/
+         added (the dark overlay signals "off"); highlight beats added
+         (the user explicitly featured this card); added is the
+         baseline marker for menu-added games. Pickers don't override
+         these — they just enable click-to-toggle via `selectionMode`. */
       const isGrabbed = manualSortMode && grabbedAppid === id
       const isHidden = !!hiddenSet?.has(id)
       const isAdded = !!removableSet?.has(id)
@@ -398,10 +429,10 @@ export function ShelfPreview({
         updatePending: m.updatePending,
         isNew,
         discountPercent: readDiscount(id),
-        // Picker mode: paint the overlay when this id is currently
-        // selected. The toggle handler always fires (lets the user
-        // both ADD and REMOVE selection by clicking the same card).
-        // In manualSortMode, clicking toggles grab instead.
+        /* Picker mode: paint the overlay when this id is currently
+           selected. The toggle handler always fires (lets the user
+           both ADD and REMOVE selection by clicking the same card).
+           In manualSortMode, clicking toggles grab instead. */
         selectionMark: mark,
         onToggleSelection: manualSortMode
           ? () => setGrabbedAppid((g) => (g === id ? null : id))
@@ -410,17 +441,15 @@ export function ShelfPreview({
     }
     if (showRefresh) out.push({ id: '__refresh', name: t('refresh'), isRefresh: true, onActivate: onRefresh })
     if (showMore) out.push({ id: '__more', name: t('view_more'), isMoreLink: true })
-    // Splice synthetic decoration cards at their persisted `position`
-    // slots. Sorted asc so earlier slots splice before later ones (later
-    // splice positions stay valid as the array grows). Same logic as
-    // Shelf.tsx's home rowItems builder — keeps the preview 1:1 with
-    // what the user will see on the home shelf.
-    //
-    // Synth `id` is the sentinel `-(origIdx + 1)` so the manual-sort
-    // drag flow can reorder them as first-class citizens (same encoding
-    // the modal's `reorderManual` already understands). Even in
-    // non-drag mode this is harmless — ShelfRow keys on item.id and
-    // routes to SyntheticCard via item.synthetic.
+    /* Splice synthetic decoration cards at their persisted `position` slots,
+       sorted asc so earlier slots splice before later ones (later positions stay
+       valid as the array grows). Same logic as Shelf.tsx's home rowItems builder
+       — keeps the preview 1:1 with the home shelf. */
+    /* Synth `id` is the sentinel `-(origIdx + 1)` so the manual-sort
+       drag flow can reorder them as first-class citizens (same encoding
+       the modal's `reorderManual` already understands). Even in
+       non-drag mode this is harmless — ShelfRow keys on item.id and
+       routes to SyntheticCard via item.synthetic. */
     if (syntheticCards && syntheticCards.length) {
       const indexed = syntheticCards.map((c, origIdx) => ({ c, origIdx }))
       indexed.sort((a, b) => (a.c.position ?? 0) - (b.c.position ?? 0))
@@ -445,10 +474,10 @@ export function ShelfPreview({
     return out
   }, [cappedIds.join(','), meta, showRefresh, showMore, onRefresh, t, JSON.stringify(syntheticCards ?? null), selectionMode, selectionSet, onToggleSelection, isOnlineShelfSource, manualSortMode, grabbedAppid, hiddenAppIds?.join(','), removableSet, highlightedSet, highlightAll, highlightFirst, ownedHideState, ownedAppIds, ownedNames])
 
-  // Keep the focused card in view as the user navigates horizontally — same
-  // pattern HighlightRow uses on the home shelf. Without this, fast L/R input
-  // scrolls focus past the visible window and Steam's nav loses the card.
-  // Instant scroll keeps focus and view in sync at every direction press.
+  /* Keep the focused card in view as the user navigates horizontally — same
+     pattern HighlightRow uses on the home shelf. Without this, fast L/R input
+     scrolls focus past the visible window and Steam's nav loses the card.
+     Instant scroll keeps focus and view in sync at every direction press. */
   useEffect(() => {
     const row = rowRef.current
     if (!row) return
@@ -494,11 +523,11 @@ export function ShelfPreview({
   }, [rowItems])
   useEffect(() => { cappedOrderRef.current = orderableIds }, [orderableIds])
 
-  // Drag interaction — only wires when manualSortMode is true. Mirrors
-  // the old ManualSortRow logic (long-press hold-to-grab, d-pad / arrow
-  // shift, pointer-drag for desktop). The reorder emit format is the
-  // same sentinel-bearing array the modal's `reorderManual` already
-  // accepts, so the modal needs zero changes.
+  /* Drag interaction — only wires when manualSortMode is true. Mirrors
+     the old ManualSortRow logic (long-press hold-to-grab, d-pad / arrow
+     shift, pointer-drag for desktop). The reorder emit format is the
+     same sentinel-bearing array the modal's `reorderManual` already
+     accepts, so the modal needs zero changes. */
   const findCardEl = (appid: number) => {
     const rowEl = rowRef.current
     if (!rowEl || !appid) return null
@@ -550,48 +579,27 @@ export function ShelfPreview({
     const rowEl = rowRef.current
     if (!rowEl) return
     const doc = rowEl.ownerDocument ?? document
-    // Capture directional input while grabbed: native gamepad nav would
-    // move focus to a sibling row; we want it to shift the grabbed
-    // card instead. Patches DispatchVirtualButtonClick (gamepad) and
-    // listens for keyboard arrows as a desktop fallback.
+    /* Capture directional input while grabbed: native gamepad nav would
+       move focus to a sibling row; we want it to shift the grabbed
+       card instead. Patches DispatchVirtualButtonClick (gamepad) and
+       listens for keyboard arrows as a desktop fallback. */
     const ctrl: any = (globalThis as any).FocusNavController
       ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller
-    let origDispatch: ((button: number, ...args: any[]) => any) | null = null
-    try {
-      if (ctrl && typeof ctrl.DispatchVirtualButtonClick === 'function') {
-        const orig = ctrl.DispatchVirtualButtonClick.bind(ctrl)
-        origDispatch = orig
-        ctrl.DispatchVirtualButtonClick = (button: number, ...args: any[]) => {
-          if (button === DIR_LEFT) { shiftGrabbed(-1); return }
-          if (button === DIR_RIGHT) { shiftGrabbed(+1); return }
-          if (button === 9 || button === 10) {
-            requestAnimationFrame(refocusGrabbed)
-            return
-          }
-          return orig(button, ...args)
-        }
-      }
-    } catch {}
+    const restoreDispatch = patchGrabbedDispatch(ctrl, shiftGrabbed, refocusGrabbed)
     requestAnimationFrame(refocusGrabbed)
     const onDir = (e: Event) => {
       const btn = (e as CustomEvent<any>).detail?.button
       try { (e as any).stopImmediatePropagation?.(); e.preventDefault?.() } catch {}
-      if (btn === DIR_LEFT || btn === DIR_RIGHT) {
-        shiftGrabbed(btn === DIR_LEFT ? -1 : +1)
-        return
-      }
+      const dir = grabbedDir(btn)
+      if (dir) { shiftGrabbed(dir); return }
       requestAnimationFrame(refocusGrabbed)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.stopPropagation(); e.preventDefault()
-        shiftGrabbed(e.key === 'ArrowLeft' ? -1 : +1)
-        return
-      }
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.stopPropagation(); e.preventDefault()
-        requestAnimationFrame(refocusGrabbed)
-      }
+      const action = grabbedKeyAction(e.key)
+      if (!action) return
+      e.stopPropagation(); e.preventDefault()
+      if (action === 'refocus') { requestAnimationFrame(refocusGrabbed); return }
+      shiftGrabbed(action === 'left' ? -1 : +1)
     }
     const onFocusOut = (e: FocusEvent) => {
       const next = e.relatedTarget as HTMLElement | null
@@ -605,14 +613,14 @@ export function ShelfPreview({
       doc.removeEventListener('vgp_ondirection', onDir, true)
       doc.removeEventListener('keydown', onKey, true)
       rowEl.removeEventListener('focusout', onFocusOut)
-      try { if (ctrl && origDispatch) ctrl.DispatchVirtualButtonClick = origDispatch } catch {}
+      restoreDispatch?.()
     }
   }, [manualSortMode, grabbedAppid])
 
-  // Delegated pointerdown — hits whichever .ds-card the user pressed
-  // and starts the hold-to-grab + drag-to-reorder flow. Lives on the
-  // row wrapper so we don't have to wrap each card individually (which
-  // would fork ShelfRow). Only active in manualSortMode.
+  /* Delegated pointerdown — hits whichever .ds-card the user pressed
+     and starts the hold-to-grab + drag-to-reorder flow. Lives on the
+     row wrapper so we don't have to wrap each card individually (which
+     would fork ShelfRow). Only active in manualSortMode. */
   const holdTimerRef = useRef<any>(null)
   const pointerHeldRef = useRef(false)
   const onRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {

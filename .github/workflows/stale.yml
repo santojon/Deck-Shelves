@@ -1,0 +1,92 @@
+name: Stale Issues
+
+# Phase 2 — acts on issues per the agreed tiered policy. Three buckets, run
+# one at a time over a shared `stale` label; the buckets are kept disjoint by
+# their label scopes so an issue is only ever handled by one of them.
+#
+#   1 · awaiting-reporter (needs-info)      warn 21d → close 35d
+#   2 · untriaged-idle (no type::/priority) warn 30d → close 60d
+#   3 · confirmed/accepted (type::/prio)    label `stale` at 60d, NEVER close
+#
+# Bucket 4 (won't-converge: old + high comment count) is handled read-only by
+# stale-digest.yml — actions/stale can't filter by age or comment count.
+#
+# Global exemptions: keep-open, priority::critical, priority::high, any
+# assigned issue, any milestoned issue. PRs are never touched.
+#
+# Safety: a manual run (workflow_dispatch) defaults to debug-only — it logs
+# what it WOULD do without changing anything. The Monday schedule acts for
+# real. To stay label-only on buckets 1-2 for longer, set their
+# days-before-issue-close to -1.
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug_only:
+        description: 'Dry run — log actions without changing any issue'
+        type: boolean
+        default: true
+  schedule:
+    - cron: '0 9 * * 1'  # Monday 09:00 UTC (after the 07:30 digest + 08:00 enforce)
+
+permissions:
+  issues: write
+  pull-requests: write  # required by actions/stale; PRs are exempted below (days-before-pr-* = -1)
+
+concurrency:
+  group: stale-issues
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1   # serialize so the three buckets never write the same issue concurrently
+      matrix:
+        include:
+          - bucket: awaiting-reporter
+            only_labels: 'needs-info'
+            any_of_labels: ''
+            exempt_labels: 'keep-open,priority::critical,priority::high'
+            days_before_stale: 21
+            days_before_close: 14   # → closes at 35d
+            stale_message: "👋 This issue has been waiting on the requested information for a while. If it's still relevant, please reply with those details — otherwise it will be closed automatically in 14 days. Maintainers: add the `keep-open` label to exempt it."
+            close_message: "Closing because we didn't hear back — no judgment on the report. If you can still reproduce it, just comment and we'll reopen. 🙂"
+          - bucket: untriaged-idle
+            only_labels: ''
+            any_of_labels: ''
+            exempt_labels: 'keep-open,priority::critical,priority::high,needs-info,type::bug,type::feature,type::enhancement,type::duplicated,type::invalid,type::wontfix,priority::medium,priority::low'
+            days_before_stale: 30
+            days_before_close: 30   # → closes at 60d
+            stale_message: "👋 This issue hasn't had any activity for a while and isn't triaged yet. If it's still relevant, a quick comment keeps it open — otherwise it will be closed automatically in 30 days. Maintainers: add a `type::*` / `priority::*` label or `keep-open` to exempt it."
+            close_message: "Closing due to inactivity. If this still happens on a current version, please comment with details and we'll take another look. 🙂"
+          - bucket: confirmed-accepted
+            only_labels: ''
+            any_of_labels: 'type::bug,type::feature,type::enhancement,priority::medium,priority::low'
+            exempt_labels: 'keep-open,priority::critical,priority::high,needs-info'
+            days_before_stale: 60
+            days_before_close: -1   # label only — never auto-closed
+            stale_message: ''       # pure label, no comment
+            close_message: ''
+    steps:
+      - name: Stale (${{ matrix.bucket }})
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_only }}
+          ascending: true
+          operations-per-run: 60
+          stale-issue-label: stale
+          only-labels: ${{ matrix.only_labels }}
+          any-of-labels: ${{ matrix.any_of_labels }}
+          exempt-issue-labels: ${{ matrix.exempt_labels }}
+          days-before-issue-stale: ${{ matrix.days_before_stale }}
+          days-before-issue-close: ${{ matrix.days_before_close }}
+          stale-issue-message: ${{ matrix.stale_message }}
+          close-issue-message: ${{ matrix.close_message }}
+          remove-stale-when-updated: true
+          exempt-all-assignees: true
+          exempt-all-milestones: true
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          enable-statistics: true

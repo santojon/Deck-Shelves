@@ -1,14 +1,14 @@
-// DeckyHostApi — the ONLY place `@decky/*` imports may be added.
-// Re-exports every primitive / helper / class-name binding DS source
-// files need, so the rest of the codebase imports from this adapter
-// (`runtime/host/decky`) instead of reaching into `@decky/ui`
-// directly. Adding a new symbol? Add it here once and update callers.
+/* DeckyHostApi — the ONLY place `@decky/*` imports may be added.
+   Re-exports every primitive / helper / class-name binding DS source
+   files need, so the rest of the codebase imports from this adapter
+   (`runtime/host/decky`) instead of reaching into `@decky/ui`
+   directly. Adding a new symbol? Add it here once and update callers. */
 import { call, toaster, openFilePicker } from "@decky/api";
-// Re-export the @decky/api primitives DS source files need so the
-// adapter is the single import point for both `@decky/ui` and
-// `@decky/api`. Adding a new symbol? Add it here once and update
-// callers — the only file that should keep an `@decky/api` import is
-// `index.tsx` for `definePlugin` (the bundle entry point).
+/* Re-export the @decky/api primitives DS source files need so the
+   adapter is the single import point for both `@decky/ui` and
+   `@decky/api`. Adding a new symbol? Add it here once and update
+   callers — the only file that should keep an `@decky/api` import is
+   `index.tsx` for `definePlugin` (the bundle entry point). */
 export { call, toaster, openFilePicker };
 import {
   ConfirmModal, DialogBody, DialogButton, DialogControlsSection,
@@ -49,11 +49,11 @@ import type { PlatformApi } from "../platform";
 import { logInfo } from "../logger";
 
 export function createDeckyHostApi(routerHook: any): HostApi {
-  // Subscriber sets — `lifecycle.onMount` / `onUnmount` fire callbacks
-  // once when the corresponding event occurs. Steam's component
-  // lifecycle wires `onMount` at the first home render via index.tsx;
-  // `onUnmount` fires when index.tsx's teardown runs (Decky plugin
-  // unload OR Steam UI reload).
+  /* Subscriber sets — `lifecycle.onMount` / `onUnmount` fire callbacks
+     once when the corresponding event occurs. Steam's component
+     lifecycle wires `onMount` at the first home render via index.tsx;
+     `onUnmount` fires when index.tsx's teardown runs (Decky plugin
+     unload OR Steam UI reload). */
   const mountCbs = new Set<() => void>();
   const unmountCbs = new Set<() => void>();
   let registeredPlugin: PluginDescriptor | null = null;

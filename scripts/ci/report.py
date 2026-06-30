@@ -173,7 +173,8 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .step{background:var(--card);border:1px solid var(--border);border-radius:9px;
   margin-bottom:10px}
 .step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;
-  cursor:pointer;user-select:none;border-radius:9px}
+  cursor:pointer;user-select:none;border-radius:9px;list-style:none}
+.step-hdr::-webkit-details-marker{display:none}
 .step-hdr:hover{background:#273548}
 .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .dot.pass{background:var(--pass)}.dot.fail{background:var(--fail);box-shadow:0 0 5px var(--fail)}
@@ -183,9 +184,9 @@ main{max-width:1060px;margin:0 auto;padding:20px 28px}
 .slabel.pass{background:#14532d44;color:var(--pass)}
 .slabel.fail{background:#7f1d1d44;color:var(--fail)}
 .slabel.skip{background:#1e293b;color:var(--skip)}
-.chevron{font-size:11px;color:var(--muted)}
-.step-body{display:none;border-top:1px solid var(--border);border-radius:0 0 9px 9px}
-.step-body.open{display:block}
+.chevron{font-size:11px;color:var(--muted);display:inline-block;transition:transform .15s}
+.step[open] .chevron{transform:rotate(90deg)}
+.step-body{border-top:1px solid var(--border);border-radius:0 0 9px 9px}
 .test-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;
   background:#0d1b2a;border-bottom:1px solid var(--border);font-size:12px}
 .test-bar .tp{color:var(--pass)}.test-bar .tf{color:var(--fail)}
@@ -312,18 +313,22 @@ def _step_html(name: str, status: str, log_path: str, root: str, idx: int, durat
         f'<span class="sdur" title="{duration_ms} ms">{_fmt_duration_ms(duration_ms)}</span>'
         if duration_ms and duration_ms > 0 else ""
     )
+    # Native <details>: failed steps start expanded so the error is
+    # readable without a click. <details> toggles on a single activation
+    # so it can't double-fire (touch + click) and collapse itself.
+    open_attr = " open" if status == "fail" else ""
     return (
-        f'<div class="step" id="s{idx}">'
-        f'<div class="step-hdr" onclick="toggle({idx})">'
+        f'<details class="step" id="s{idx}"{open_attr}>'
+        f'<summary class="step-hdr">'
         f'<div class="dot {status}"></div>'
         f'<span class="sname">{_html.escape(name)}</span>'
         f'{dur_html}'
         f'<span class="slabel {status}">{status.upper()}</span>'
-        f'<span class="chevron" id="c{idx}">▶</span>'
-        f'</div>'
+        f'<span class="chevron">▶</span>'
+        f'</summary>'
         f'<div class="step-body" id="b{idx}">{test_bar}{issues_html}'
         f'<pre class="log">{colorized}</pre></div>'
-        f'</div>\n'
+        f'</details>\n'
     )
 
 
@@ -454,42 +459,43 @@ def _rebuild_top_index(reports_root: Path) -> None:
                 break
             except Exception:
                 pass
-        if last:
-            ts      = last.get("ts", "?")
-            overall = last.get("overall", "?").lower()
-            passed  = last.get("passed", 0)
-            last.get("failed", 0)
-            total   = last.get("total",  0)
-            try:
-                dt = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                dt = ts
-            latest_rows.append(
-                f'<tr>'
-                f'<td>{_html.escape(labels[sd])}</td>'
-                f'<td>{_html.escape(dt)}</td>'
-                f'<td><span class="b {overall}">{overall.upper()}</span></td>'
-                f'<td class="num">{passed}/{total}</td>'
-                f'<td><a href="{sd}/index.html">history &rarr;</a></td>'
-                f'</tr>'
-            )
-        else:
-            latest_rows.append(
-                f'<tr><td>{_html.escape(labels[sd])}</td>'
-                f'<td colspan="4" style="color:var(--muted)">No runs yet &nbsp;'
-                f'&mdash;&nbsp; <a href="{sd}/index.html">open &rarr;</a></td></tr>'
-            )
-
+        if not last:
+            # Scope has no runs — omit its card + row entirely.
+            continue
+        ts      = last.get("ts", "?")
+        overall = last.get("overall", "?").lower()
+        passed  = last.get("passed", 0)
+        total   = last.get("total",  0)
+        try:
+            dt = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            dt = ts
+        latest_rows.append(
+            f'<tr>'
+            f'<td>{_html.escape(labels[sd])}</td>'
+            f'<td>{_html.escape(dt)}</td>'
+            f'<td><span class="b {overall}">{overall.upper()}</span></td>'
+            f'<td class="num">{passed}/{total}</td>'
+            f'<td><a href="{sd}/index.html">history &rarr;</a></td>'
+            f'</tr>'
+        )
         section_cards.append(
-            f'<div class="scard">'
+            f'<div class="scard" data-scope="{sd}">'
             f'<h2>{_html.escape(labels[sd])}</h2>'
             f'<p>{_html.escape(descs[sd])}</p>'
             f'<a class="btn" href="{sd}/index.html">Open reports &rarr;</a>'
             f'</div>'
         )
 
-    latest_body = "\n".join(latest_rows)
-    cards_html  = "\n".join(section_cards)
+    # When no scope has any data, show a single placeholder instead of empty
+    # blocks; individual empty scopes are simply omitted above.
+    empty_msg = "No reports yet — run a validation (e.g. `pnpm validate:ci`) to populate this page."
+    cards_html  = "\n".join(section_cards) if section_cards else (
+        f'<p class="empty-note" style="grid-column:1/-1;color:var(--muted);margin:0">{_html.escape(empty_msg)}</p>'
+    )
+    latest_body = "\n".join(latest_rows) if latest_rows else (
+        f'<tr><td colspan="5" style="color:var(--muted)">{_html.escape(empty_msg)}</td></tr>'
+    )
 
     # Mirror the dashboard's client-side augmentation: server-rendered table
     # is the fallback (file:// in Chromium blocks fetch), JS replaces each
@@ -499,6 +505,8 @@ def _rebuild_top_index(reports_root: Path) -> None:
     top_js = r"""
 (function(){
   const SCOPES=[['local','Local'],['ci','CI / Automated'],['release','Release']];
+  const DESCS={local:'Full validation with Steam Deck (deploy + UI tests + perf bench).',ci:'Automated checks without device (typecheck, tests, build, compat).',release:'Release gate: CI checks + packaging + security audit.'};
+  const EMPTY='No reports yet — run a validation (e.g. `pnpm validate:ci`) to populate this page.';
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
   function fmt(ts){
     const m=/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/.exec(ts||'');
@@ -507,22 +515,32 @@ def _rebuild_top_index(reports_root: Path) -> None:
   Promise.all(SCOPES.map(([sd])=>fetch(sd+'/runs-manifest.json',{cache:'no-cache'})
     .then(r=>r.ok?r.json():[]).catch(()=>[])))
   .then(lists=>{
+    // Keep only scopes that actually have runs; omit empty ones, and when
+    // nothing has run at all, show a single placeholder message.
+    const have=SCOPES.map(([sd,label],i)=>({
+      sd,label,runs:(lists[i]||[]).slice().sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')))
+    })).filter(s=>s.runs.length);
+
+    const grid=document.querySelector('.grid');
+    if(grid){
+      grid.innerHTML = have.length
+        ? have.map(s=>`<div class="scard" data-scope="${s.sd}"><h2>${esc(s.label)}</h2><p>${esc(DESCS[s.sd])}</p><a class="btn" href="${s.sd}/index.html">Open reports &rarr;</a></div>`).join('')
+        : `<p class="empty-note" style="grid-column:1/-1;color:var(--muted);margin:0">${esc(EMPTY)}</p>`;
+    }
+
     const tbody=document.querySelector('.latest tbody');
-    if(!tbody)return;
-    const rows=SCOPES.map(([sd,label],i)=>{
-      const runs=lists[i]||[];
-      if(!runs.length){
-        return `<tr><td>${esc(label)}</td><td colspan="4" style="color:var(--muted)">No runs yet &nbsp;&mdash;&nbsp; <a href="${sd}/index.html">open &rarr;</a></td></tr>`;
-      }
-      runs.sort((a,b)=>String(b.ts||'').localeCompare(String(a.ts||'')));
-      const last=runs[0];
-      const overall=String(last.overall||'?').toLowerCase();
-      return `<tr><td>${esc(label)}</td><td>${esc(fmt(last.ts))}</td>`+
-             `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
-             `<td class="num">${last.passed||0}/${last.total||0}</td>`+
-             `<td><a href="${sd}/index.html">history &rarr;</a></td></tr>`;
-    });
-    tbody.innerHTML=rows.join('');
+    if(tbody){
+      tbody.innerHTML = have.length
+        ? have.map(s=>{
+            const last=s.runs[0];
+            const overall=String(last.overall||'?').toLowerCase();
+            return `<tr><td>${esc(s.label)}</td><td>${esc(fmt(last.ts))}</td>`+
+                   `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
+                   `<td class="num">${last.passed||0}/${last.total||0}</td>`+
+                   `<td><a href="${s.sd}/index.html">history &rarr;</a></td></tr>`;
+          }).join('')
+        : `<tr><td colspan="5" style="color:var(--muted)">${esc(EMPTY)}</td></tr>`;
+    }
   });
 })();
 """.strip()
@@ -796,6 +814,10 @@ def _suite_coverage_bars(runs: List[dict]) -> str:
     # Known suites in display order
     SUITES = [
         ("home",             "Home"),
+        ("settings",         "Settings"),
+        ("search",           "Search"),
+        ("sidenav",          "Side Nav"),
+        ("sidecar",          "Sidecar"),
         ("qam_shelves",      "QAM Shelves"),
         ("qam_smart",        "QAM Smart"),
         ("qam_global_toggles","QAM Global"),
@@ -805,6 +827,14 @@ def _suite_coverage_bars(runs: List[dict]) -> str:
         ("crash_protection", "Crash Protection"),
         ("stress",           "Stress"),
     ]
+    # Append any suite present in the data but not in the ordered list above
+    # so a newly-added suite never silently drops out of coverage.
+    _known = {k for k, _ in SUITES}
+    for m in runs:
+        for suite_name in (m.get("per_suite") or {}):
+            if suite_name not in _known:
+                _known.add(suite_name)
+                SUITES.append((suite_name, suite_name.replace("_", " ").title()))
     # Aggregate across all runs
     totals: dict = {}
     runs_with_suites = [m for m in runs if m.get("per_suite")]
@@ -927,7 +957,12 @@ def generate(
         durations_ms = [0] * len(names)
     while len(durations_ms) < len(names):
         durations_ms.append(0)
-    total_duration_ms = sum(d for d in durations_ms if isinstance(d, int) and d > 0)
+    # Drop implausible step times (>24h) — a blank _now_ms start makes a
+    # step record the raw wall-clock timestamp (~1.7e12), which would
+    # corrupt the total and the dashboard duration charts.
+    _MAX_STEP_MS = 86_400_000
+    durations_ms = [d if isinstance(d, int) and 0 < d < _MAX_STEP_MS else 0 for d in durations_ms]
+    total_duration_ms = sum(durations_ms)
 
     try:
         dt_str = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%B %d, %Y at %H:%M:%S")
@@ -972,14 +1007,6 @@ def generate(
 {steps_html}
 </main>
 <footer>Deck Shelves CI &middot; {_html.escape(ts)}</footer>
-<script>
-function toggle(i){{
-  var b=document.getElementById('b'+i);
-  var c=document.getElementById('c'+i);
-  var open=b.classList.toggle('open');
-  c.textContent=open?'▼':'▶';
-}}
-</script>
 </body>
 </html>
 """

@@ -61,7 +61,7 @@
 - [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] My code follows the project's code style (2 spaces, semicolons, double quotes).
 - [ ] I ran `pnpm run build:plugin` with no errors.
-- [ ] I ran `bash scripts/build/validate-compat.sh` and all checks pass.
+- [ ] I ran `pnpm run validate:compat` and all checks pass.
 - [ ] I tested on a Steam Deck (or explained why this isn't needed).
 - [ ] If I added i18n keys, I added them to **all** locale files.
 

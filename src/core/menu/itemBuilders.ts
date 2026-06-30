@@ -1,7 +1,7 @@
-// Menu-item builders extracted from steamGameMenu.ts to keep the
-// orchestration file under the 1k-line cap. Pure construction — no
-// module-global reads. `activeAppId` / `activeCardIndex` flow in from
-// the caller so the builder stays a function of its inputs.
+/* Menu-item builders extracted from steamGameMenu.ts to keep the
+   orchestration file under the 1k-line cap. Pure construction — no
+   module-global reads. `activeAppId` / `activeCardIndex` flow in from
+   the caller so the builder stays a function of its inputs. */
 import { MenuGroup as DeckyMenuGroup, MenuItem as DeckyMenuItem } from "../../runtime/host/decky";
 import i18n from "../../i18n";
 import { getCurrentSettings, saveSettings } from "../../store/settingsStore";
@@ -157,14 +157,14 @@ function buildMgmt(ctx: Ctx, mk: Mk): any[] {
   const { item } = mk;
   const refreshLabel = isOnline ? tLabel("refresh_cache", "Refresh cache") : tLabel("refresh", "Refresh");
   return [
-    item("ds-edit", tLabel("editShelf", "Edit"), () => dispatchShelfModal("edit", shelfId)),
-    item("ds-duplicate", tLabel("duplicateShelf", "Duplicate"), () => { void duplicateShelfById(shelfId, tLabel("copySuffix", "(Copy)")); }),
+    item("ds-edit", tLabel("edit_shelf", "Edit"), () => dispatchShelfModal("edit", shelfId)),
+    item("ds-duplicate", tLabel("duplicate_shelf", "Duplicate"), () => { void duplicateShelfById(shelfId, tLabel("copy_suffix", "(Copy)")); }),
     item("ds-collapse", isCollapsed ? tLabel("expand_shelf", "Expand shelf") : tLabel("collapse_shelf", "Collapse shelf"), () => setShelfCollapsed(shelfId, !isCollapsed)),
     item("ds-hide", isHidden ? tLabel("show_shelf", "Show shelf") : tLabel("hide_shelf", "Hide shelf"), () => { void toggleShelfHiddenById(shelfId); }),
     item("ds-move-up", tLabel("move_up", "Move up"), () => { void moveShelfById(shelfId, -1); }, idx <= 0),
     item("ds-move-down", tLabel("move_down", "Move down"), () => { void moveShelfById(shelfId, 1); }, idx >= listLen - 1),
     ...(isRandomOrSmart ? [item("ds-refresh", refreshLabel, () => runRefreshAction(ctx))] : []),
-    item("ds-delete", tLabel("deleteShelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
+    item("ds-delete", tLabel("delete_shelf", "Delete"), () => dispatchShelfModal("delete", shelfId)),
   ];
 }
 
@@ -190,13 +190,23 @@ function buildDisplay(ctx: Ctx, mk: Mk): any[] {
 
 function buildVisual(ctx: Ctx, mk: Mk): any[] {
   const { shelf, shelfId, isSmart } = ctx;
-  return [
+  const items: any[] = [
     makeFlagItem(mk, shelf, isSmart, shelfId, "matchNativeSize", "ds-v-native", "match_native_size", "Match native size"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightFirst", "ds-v-hiFirst", "highlight_first", "Highlight first card"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightAll", "ds-v-hiAll", "highlight_all", "Highlight all cards"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "highlightRandom", "ds-v-hiRandom", "highlight_random", "Random featured cards"),
     makeFlagItem(mk, shelf, isSmart, shelfId, "heroEnabled", "ds-v-hero", "hero_enabled_label", "Enable hero art"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "enableLogo", "ds-v-logo", "enable_logo", "Show logo"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "enableIcon", "ds-v-icon", "enable_icon", "Show icon"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "enableDescription", "ds-v-desc", "enable_description", "Show description"),
+    makeFlagItem(mk, shelf, isSmart, shelfId, "fullPageShelf", "ds-v-fullpage", "full_page_shelf_label", "Full-page shelf"),
   ];
+  // Only surface "description below logo" when both prereqs are on for
+  // this shelf — otherwise the toggle is a no-op and clutters the menu.
+  if (shelf?.enableLogo && shelf?.enableDescription) {
+    items.push(makeFlagItem(mk, shelf, isSmart, shelfId, "descriptionBelowLogo", "ds-v-descBelow", "description_below_logo", "Description below logo"));
+  }
+  return items;
 }
 
 function highlightActionFor(ctx: Ctx, mk: Mk): any {
@@ -302,8 +312,6 @@ function hasMenuPrimitives(dfl: any, R: any): boolean {
   return !!(dfl?.MenuItem && dfl?.MenuGroup && R?.createElement);
 }
 
-/** Builds the per-shelf submenu tree (Card actions + Shelf root group with
- *  Management / Display / Visual / Decoration / sort toggle). */
 export function buildDeckShelvesMenuItems(
   shelfId: string,
   dfl: any,
@@ -334,7 +342,6 @@ export function buildDeckShelvesMenuItems(
   ];
 }
 
-/** Public wrapper used by Shelf.tsx (online shelf card menu). */
 export function buildShelfContextMenu(shelfId: string, appid: number, dfl: any, R: any): any[] {
   return buildDeckShelvesMenuItems(shelfId, dfl, R, appid);
 }
@@ -358,7 +365,6 @@ function libraryCandidates(s: any, appid: number): { eligible: any[]; removable:
   };
 }
 
-/** Library-card Add/Remove-to-shelf injection — emits up to two `MenuGroup`s. */
 export function buildLibraryAddToShelfItems(appid: number, _dfl: any, R: any): any[] {
   if (!R?.createElement || !appid) return [];
   const s = getCurrentSettings?.();

@@ -1,20 +1,9 @@
-/**
- * UnifiDeck integration.
- *
- * UnifiDeck (github.com/mubaraknumann/unifideck) registers third-party store
- * games as Steam shortcuts (shortcuts.vdf). It injects a CSS stylesheet with
- * id="unifideck-tab-hider" and dispatches VIEW_MODE_CHANGE_EVENT events.
- *
- * UnifiDeck shortcuts have app_type = EAppType_GameShortcut (0x40000000).
- * They are detectable as non-steam apps through normal Steam app overview flags.
- */
 import { isExternalTabsProviderInstalled } from './registry';
 import { getPreferredSteamDocument } from '../runtime/steamHost';
 import { getTabAppIdsFromStore, resolveAppInstalledState } from '../steam';
 
 export type PlatformTab = { id: string; name: string };
 
-/** UnifiDeck's built-in tab IDs */
 export const UNIFIDECK_TAB_IDS = [
   'unifideck-deck',
   'unifideck-all',
@@ -28,11 +17,6 @@ export const UNIFIDECK_TAB_IDS = [
   'unifideck-nonsteam',
 ] as const;
 
-/**
- * Returns UnifiDeck tabs if the plugin is installed.
- * UnifiDeck doesn't expose a React context; its tabs are rendered via DOM.
- * We read them from the DOM's [data-tab-id] attributes if available.
- */
 export function getUnifiDeckTabs(): PlatformTab[] {
   if (!isExternalTabsProviderInstalled()) return [];
   try {
@@ -51,10 +35,6 @@ export function getUnifiDeckTabs(): PlatformTab[] {
   }
 }
 
-/**
- * Resolve installed app ids for a UnifiDeck tab.
- * Uses Steam store APIs when available and falls back to DOM scanning.
- */
 export async function getUnifiDeckInstalledAppIds(tabId: string): Promise<number[]> {
   if (!isExternalTabsProviderInstalled()) return [];
   try {
@@ -94,11 +74,6 @@ export async function getUnifiDeckInstalledAppIds(tabId: string): Promise<number
   }
 }
 
-/**
- * Reads currently visible library tabs from the Steam DOM.
- * Works regardless of which plugin is managing tabs.
- * Tabs are rendered with [data-tab-id] attributes in Steam's library UI.
- */
 export function getTabsFromDOM(): PlatformTab[] {
   try {
     const doc = getPreferredSteamDocument();

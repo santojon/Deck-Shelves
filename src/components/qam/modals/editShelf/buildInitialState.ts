@@ -14,11 +14,11 @@ type Ctx = {
   externalSources: ReadonlyArray<{ id: string }>;
 };
 
-// Composite shelves load by promoting `sources[0]` into the primary
-// fields; remaining children populate `additionalSources`. Older saves
-// carried a single composite-level childFilter slot — when present,
-// propagate it onto each online child so the per-child editor matches
-// what the resolver actually applies.
+/* Composite shelves load by promoting `sources[0]` into the primary
+   fields; remaining children populate `additionalSources`. Older saves
+   carried a single composite-level childFilter slot — when present,
+   propagate it onto each online child so the per-child editor matches
+   what the resolver actually applies. */
 function hydrateCompositeChildren(shelf: Shelf): any[] {
   if (shelf.source.type !== 'composite') return [];
   const compositeChildren: any[] = Array.isArray((shelf.source as any).sources)
@@ -116,6 +116,7 @@ function readOwnedToggles(primarySource: any) {
   };
 }
 
+// eslint-disable-next-line complexity
 function readVisualFlags(shelf: Shelf) {
   const s = shelf as any;
   return {
@@ -126,9 +127,24 @@ function readVisualFlags(shelf: Shelf) {
     enableLogo: s.enableLogo === true,
     enableIcon: s.enableIcon === true,
     enableDescription: s.enableDescription === true,
+    descriptionBelowLogo: (s as any).descriptionBelowLogo === true,
+    logoPosition: (((s as any).logoPosition === 'center' || (s as any).logoPosition === 'right') ? (s as any).logoPosition : 'left') as 'left' | 'center' | 'right',
+    descriptionPosition: (((s as any).descriptionPosition === 'center' || (s as any).descriptionPosition === 'right') ? (s as any).descriptionPosition : 'left') as 'left' | 'center' | 'right',
+    logoSize: typeof (s as any).logoSize === 'number' ? Math.max(50, Math.min(200, (s as any).logoSize)) : 100,
+    logoTopOffset: typeof (s as any).logoTopOffset === 'number' ? Math.max(0, Math.min(100, (s as any).logoTopOffset)) : 20,
+    iconVerticalAlign: (((s as any).iconVerticalAlign === 'center' || (s as any).iconVerticalAlign === 'bottom') ? (s as any).iconVerticalAlign : 'top') as 'top' | 'center' | 'bottom',
+    shelfTitlePosition: (((s as any).shelfTitlePosition === 'center' || (s as any).shelfTitlePosition === 'right') ? (s as any).shelfTitlePosition : 'left') as 'left' | 'center' | 'right',
+    gameNamePosition: (((s as any).gameNamePosition === 'center' || (s as any).gameNamePosition === 'right') ? (s as any).gameNamePosition : 'left') as 'left' | 'center' | 'right',
+    playtimePosition: (((s as any).playtimePosition === 'center' || (s as any).playtimePosition === 'right') ? (s as any).playtimePosition : 'left') as 'left' | 'center' | 'right',
+    descriptionHeight: typeof (s as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (s as any).descriptionHeight)) : 2,
+    descriptionLogoGap: typeof (s as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (s as any).descriptionLogoGap)) : 8,
+    fullPageShelf: (s as any).fullPageShelf === true,
     highlightedAppIds: shelf.highlightedAppIds ?? [],
     manualOrder: s.manualOrder ?? [],
     heroEnabled: s.heroEnabled === true,
+    gameInfoAbove: (s as any).gameInfoAbove === true,
+    friendsPlayingOverlay: (s as any).friendsPlayingOverlay === true,
+    friendsPlayingOverlayRecent: (s as any).friendsPlayingOverlayRecent === true,
     dedupeByExactName: s.dedupeByExactName === true,
     hiddenAppIds: s.hiddenAppIds ?? [],
   };
@@ -154,7 +170,6 @@ function readSyntheticCards(shelf: Shelf): any[] {
   return list?.map(sanitizeSyntheticForState) ?? [];
 }
 
-/** Derives the editor's initial state from a Shelf snapshot. */
 export function buildInitialShelfState(ctx: Ctx): EditableShelfState {
   const { shelf, mode, collections, platformTabs, externalSources } = ctx;
   const hydratedCompositeChildren = hydrateCompositeChildren(shelf);

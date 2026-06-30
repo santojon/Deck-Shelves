@@ -22,10 +22,10 @@ function isRandomOrSmart(shelf: Shelf): boolean {
 function refreshShelfCache(shelf: Shelf): void {
   if (isOnlineSource(shelf.source)) clearOnlineShelfCache()
   if ((shelf.source as any)?.type === 'smart') invalidateSmartShelfCache(shelf.id)
-  // Always clear random-sort cache for THIS shelf so refresh genuinely
-  // re-shuffles; the previous code only ran this branch on offline,
-  // non-smart shelves, so a wishlist/store/smart shelf using random sort
-  // stayed in the same order until the 24h TTL expired.
+  /* Always clear random-sort cache for THIS shelf so refresh genuinely
+     re-shuffles; the previous code only ran this branch on offline,
+     non-smart shelves, so a wishlist/store/smart shelf using random sort
+     stayed in the same order until the 24h TTL expired. */
   invalidateRandomSortCache(shelf.id)
   try { triggerShelfRefresh({ manual: true, shelfId: shelf.id }) } catch {}
 }
@@ -44,8 +44,8 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
   const showRefresh = isOnlineSource(shelf.source) || isRandomOrSmart(shelf)
   return (
     <Menu label={shelf.title || t('actions')}>
-      <MenuItem onSelected={() => showEditShelfModal(controller, shelf)}>{t('editShelf')}</MenuItem>
-      <MenuItem onSelected={() => actions.duplicateShelf(shelf.id)}>{t('duplicateShelf')}</MenuItem>
+      <MenuItem onSelected={() => showEditShelfModal(controller, shelf)}>{t('edit_shelf')}</MenuItem>
+      <MenuItem onSelected={() => actions.duplicateShelf(shelf.id)}>{t('duplicate_shelf')}</MenuItem>
       <MenuItem onSelected={() => actions.toggleShelfHidden(shelf.id)}>{shelf.hidden ? t('show_shelf') : t('hide_shelf')}</MenuItem>
       <MenuItem disabled={index <= 0} onSelected={() => actions.moveShelf(shelf.id, -1)}>{t('move_up')}</MenuItem>
       <MenuItem disabled={index >= shelves.length - 1} onSelected={() => actions.moveShelf(shelf.id, 1)}>{t('move_down')}</MenuItem>
@@ -54,7 +54,7 @@ export function ShelfActionsContextMenu({ controller, shelf }: { controller: Set
           {isOnlineSource(shelf.source) ? t('refresh_cache') : t('refresh')}
         </MenuItem>
       )}
-      <MenuItem onSelected={() => showDeleteConfirm(controller, shelf)}>{t('deleteShelf')}</MenuItem>
+      <MenuItem onSelected={() => showDeleteConfirm(controller, shelf)}>{t('delete_shelf')}</MenuItem>
     </Menu>
   )
 }

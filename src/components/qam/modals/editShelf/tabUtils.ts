@@ -31,8 +31,6 @@ const NATIVE_TAB_I18N_KEY: Record<string, string> = {
   nonsteam: 'tab_nonsteam',
 };
 
-/** Returns the i18n key for a native library tab (`tab_all` etc.) or
- *  null when the item is a custom (TabMaster / Unifideck / user) tab. */
 export function detectNativeTabKey(item: { id: string; name: string }): string | null {
   const idSlug = slugifyForTab(item.id);
   const nameSlug = slugifyForTab(item.name);
@@ -53,7 +51,6 @@ const UNSUPPORTED_TAB_SLUGS: ReadonlySet<string> = new Set([
   'korekushon', 'kolleksyeon', 'shoucang', 'shoucangji',
 ]);
 
-/** True for tabs whose underlying source the plugin doesn't render. */
 export function isUnsupportedTab(item: { id: string; name: string }): boolean {
   return UNSUPPORTED_TAB_SLUGS.has(slugifyForTab(item.id))
     || UNSUPPORTED_TAB_SLUGS.has(slugifyForTab(item.name));

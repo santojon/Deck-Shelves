@@ -1,18 +1,7 @@
-/**
- * DOM-based tab utilities.
- *
- * These read library tabs rendered into the Steam DOM and provide helpers
- * for plugins that don't expose a React context (e.g., third-party tab plugins).
- */
 import { getPreferredSteamDocument } from '../runtime/steamHost';
 
 export type PlatformTab = { id: string; name: string };
 
-/**
- * Reads currently visible library tabs from the Steam DOM.
- * Works regardless of which plugin is managing tabs.
- * Tabs are rendered with [data-tab-id] attributes in Steam's library UI.
- */
 export function getTabsFromDOM(): PlatformTab[] {
   try {
     const doc = getPreferredSteamDocument();
@@ -35,9 +24,6 @@ export function getTabsFromDOM(): PlatformTab[] {
   }
 }
 
-/**
- * Convenience function: read UnifiDeck-specific tabs (those with data-tab-id starting with 'unifideck-').
- */
 export function getUnifiDeckTabs(): PlatformTab[] {
   try {
     const doc = getPreferredSteamDocument();

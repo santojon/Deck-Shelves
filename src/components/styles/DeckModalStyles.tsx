@@ -1,11 +1,11 @@
 import { gamepadDialogClasses } from '../../runtime/host/decky'
 
 // Last-known fallback values for the QAM panel classes. `quickAccessControlsClasses`
-// is undefined in SharedJSContext (where this style block renders), so we read
-// the live tokens from localStorage — written by `DeckQAMStyles` on module
-// load (QAM context HAS the classes). When the user has never opened the QAM,
-// we still need a working CSS string, so the constants below are the seed.
-// They will drift on Steam updates; the QAM-side bridge keeps them current.
+/* is undefined in SharedJSContext (where this style block renders), so we read
+   the live tokens from localStorage — written by `DeckQAMStyles` on module
+   load (QAM context HAS the classes). When the user has never opened the QAM,
+   we still need a working CSS string, so the constants below are the seed.
+   They will drift on Steam updates; the QAM-side bridge keeps them current. */
 const FALLBACK_PANEL_SECTION = '_10BxjeNEe7t7ZWYcnl3-J6'
 const FALLBACK_PANEL_SECTION_ROW = 'JAewWdUpiV3X2NTJykahD'
 const FALLBACK_PANEL_SECTION_TITLE = '_321l150NTQBTsPZ9NnzZIz'
@@ -45,6 +45,17 @@ export function DeckModalStyles() {
         right: 0;
       }
 
+      /* Toggle rows: re-skin the native Decky slate to the themed row surface
+         (matches the config/Shortcuts rows) and drop the native separator. */
+      .deck-shelves-modal-scope .${gamepadDialogClasses.Field}:has([role="checkbox"]) {
+        background: var(--ds-surface, rgba(255, 255, 255, 0.04)) !important;
+        border: 1px solid var(--ds-border, rgba(255, 255, 255, 0.06));
+        border-radius: var(--ds-radius-md, 6px);
+      }
+      .deck-shelves-modal-scope .${gamepadDialogClasses.Field}:has([role="checkbox"]).${gamepadDialogClasses.WithBottomSeparatorStandard}::after {
+        display: none;
+      }
+
       .deck-shelves-modal-scope .field-item-container .${gamepadDialogClasses.Field} {
         padding-left: 0;
         padding-right: 0;
@@ -71,7 +82,6 @@ export function DeckModalStyles() {
         min-width: 0;
         box-sizing: border-box;
       }
-
 
       .deck-shelves-modal-scope .deck-shelves-wide-field,
       .deck-shelves-modal-scope .deck-shelves-wide-field > div,

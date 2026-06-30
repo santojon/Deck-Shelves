@@ -1,17 +1,3 @@
-/**
- * TabMaster integration (github.com/Tormak9970/TabMaster).
- *
- * TabMaster exposes no React context and no inter-plugin IPC. The only
- * reliable source of tab data is its settings file on disk, read by our
- * Python backend at:
- *   $DECKY_HOME/settings/TabMaster/settings.json
- *
- * Format: { usersDict: { userId: { tabs: { tabId: { id, title, position,
- *   filters?, filtersMode? } } } } }
- *
- * React fiber traversal helpers below are kept as a forward-compat fallback
- * in case a future TabMaster version re-exposes a context.
- */
 import { call } from '../runtime/host/decky';
 import type { PlatformTab } from '../runtime/platform';
 import { containerToShelfSource } from '../domain/customfilters';
@@ -19,7 +5,6 @@ import { logInfo, logError } from '../runtime/logger';
 
 // ─── Context shape detection ──────────────────────────────────────────────
 
-/** Returns true if an object looks like TabMaster's PublicTabMasterContext value */
 export function isTabMasterContextValue(val: any): boolean {
   if (!val || typeof val !== 'object' || Array.isArray(val)) return false;
   // Top-level has visibleTabsList (array) or tabsMap (Map)
@@ -94,16 +79,6 @@ export interface TabMasterTabEntry {
   filtersMode: string;
 }
 
-/**
- * Reads TabMaster's tab list from its settings.json via Deck Shelves' Python backend.
- *
- * TabMaster does NOT expose tabs via React context, globals, or inter-plugin IPC.
- * The only reliable source is its settings file on disk, which our backend reads
- * at `$DECKY_HOME/settings/TabMaster/settings.json` (falls back to
- * `~/homebrew/settings/TabMaster/settings.json` when the env var is absent).
- *
- * Tabs are sorted by position: visible (position >= 0) first, then hidden (-1).
- */
 export async function getTabsFromSettingsFile(): Promise<TabMasterTabEntry[]> {
   // Unconditional call: the backend returns {"tabs":[]} when the file
   // is absent; works on both SteamOS 3.7 and 3.9.
@@ -122,7 +97,6 @@ export async function getTabsFromSettingsFile(): Promise<TabMasterTabEntry[]> {
   }
 }
 
-/** Returns only the visible tabs (position >= 0), sorted ascending, with pre-resolved source. */
 export async function getVisibleTabsFromSettingsFile(): Promise<PlatformTab[]> {
   const all = await getTabsFromSettingsFile();
   return all
@@ -167,11 +141,6 @@ export interface ImportableTab {
   source: ReturnType<typeof tabContainerToShelfSource>;
 }
 
-/**
- * Extracts tabs from a TabMaster manager/context for use in the import modal.
- * Accepts either the PublicTabMasterContext (with visibleTabsList) or
- * the raw backend result (object of tab settings).
- */
 export function extractTabsForImport(managerOrCtx: any): ImportableTab[] {
   if (!managerOrCtx) return [];
   try {

@@ -6,17 +6,6 @@ import { textFromDeckyChange } from '../modalUtils'
 import { icons } from '../../icons'
 import { optionData } from './utils'
 
-/**
- * Renders inside EditSmartShelfModal. Lets the user apply a previously
- * saved smart-shelf configuration (mode + smartParams + filterGroup + sort
- * + limit + visibleHours + visibleDaysOfWeek) or save the current shelf
- * config as a new entry.
- *
- * Mirrors the regular `SavedFiltersBar` shape so QAM and modal feel
- * consistent. The saved entries are stored at settings level
- * (`Settings.savedSmartFilters`) and exposed read-only to external
- * plugins via `__DECK_SHELVES_API__.getSavedSmartFilters()`.
- */
 export function SavedSmartFiltersBar({
   controller,
   currentPayload,
@@ -25,9 +14,6 @@ export function SavedSmartFiltersBar({
 }: {
   controller: SettingsController
   currentPayload: Omit<SavedSmartFilter, 'id' | 'name'>
-  /** When set, restrict the dropdown to saved entries for the same mode.
-   *  Smart shelves don't change mode after creation; cross-mode apply
-   *  would create field-mismatch confusion. */
   filterMode?: string
   onApply: (filter: SavedSmartFilter) => void
 }) {

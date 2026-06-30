@@ -23,22 +23,6 @@ type SyntheticCardSpec = {
   placeholder?: boolean;
 }
 
-/**
- * Horizontal row used in the Source tab when sort === "manual". Renders
- * through the SAME `ShelfRow` the other preview tabs use so cards (hide
- * flags, synthetics, badges, X-button bindings, sizing) match 1:1
- * across every tab and across both shelf modal types. The only extras
- * here are the manual-sort interaction layer:
- *
- * - Gamepad grab mode: A to grab, L/R d-pad to shift, A to drop. While
- *   grabbed, `FocusNavController.DispatchVirtualButtonClick` is patched so
- *   directional input is consumed before Steam moves focus away — otherwise
- *   the next A press can land on Save/Cancel instead of releasing the grab.
- * - Pointer-hold grab: hold ~300ms, drag to reorder, release to drop.
- * - Re-centers the shifted card after every move (focus-centered scroll
- *   only fires on `focusin`, which doesn't re-fire when the same card
- *   stays focused but moves in the DOM).
- */
 export function ManualSortRow({
   order, meta, onReorder, t, highlightFirst, highlightAll, highlightedAppIds, highlightPickerOpen,
   shelfSource,
@@ -76,10 +60,10 @@ export function ManualSortRow({
   useEffect(() => { orderRef.current = order }, [order])
   useEffect(() => { grabbedRef.current = grabbedAppid }, [grabbedAppid])
 
-  // Same discount-source rule ShelfPreview applies — only online shelves
-  // (wishlist / store / composite-with-online-child) should ever display
-  // the discount badge. On owned/installed/collection shelves the user
-  // already has the game so the % off is noise.
+  /* Same discount-source rule ShelfPreview applies — only online shelves
+     (wishlist / store / composite-with-online-child) should ever display
+     the discount badge. On owned/installed/collection shelves the user
+     already has the game so the % off is noise. */
   const isOnlineShelfSource = (() => {
     const s: any = shelfSource
     if (!s || typeof s !== 'object') return false
@@ -94,10 +78,10 @@ export function ManualSortRow({
     const rowEl = rowRef.current
     if (!rowEl) return
     let rafPending: number | null = null
-    // Mirror ShelfPreview's focusin behaviour 1:1 — `scrollIntoView({
-    // block: nearest, inline: center })` is what every other preview
-    // row uses. Selector uses `.ds-card` (GameCard's class), matching
-    // every other tab.
+    /* Mirror ShelfPreview's focusin behaviour 1:1 — `scrollIntoView({
+       block: nearest, inline: center })` is what every other preview
+       row uses. Selector uses `.ds-card` (GameCard's class), matching
+       every other tab. */
     const onFocusIn = (e: Event) => {
       const target = e.target as HTMLElement | null
       const card = target?.closest('.ds-card') as HTMLElement | null
@@ -120,11 +104,11 @@ export function ManualSortRow({
   }, [])
 
   // Look up a card's DOM element by its DeckRowItem.id (the value passed
-  // through ShelfRow → GameCard → data-appid). For game cards the id is
-  // the appid; for synthetic sentinels (negative) we encode it in
-  // data-appid too via `__synth_<sentinelKey>` — but the grab system
-  // only ever targets positive appids, so the synthetic case isn't
-  // reachable here.
+  /* through ShelfRow → GameCard → data-appid). For game cards the id is
+     the appid; for synthetic sentinels (negative) we encode it in
+     data-appid too via `__synth_<sentinelKey>` — but the grab system
+     only ever targets positive appids, so the synthetic case isn't
+     reachable here. */
   const findCardEl = (appid: number) => {
     const rowEl = rowRef.current
     if (!rowEl || !appid) return null
@@ -160,17 +144,17 @@ export function ManualSortRow({
     if (to === from) return
     const [picked] = base.splice(from, 1)
     base.splice(to, 0, picked)
-    // Update orderRef synchronously so successive rapid presses operate
-    // on the latest order — without this, every press until React
-    // commits computes the same shift against stale state and the
-    // visible movement falls behind the keystrokes.
+    /* Update orderRef synchronously so successive rapid presses operate
+       on the latest order — without this, every press until React
+       commits computes the same shift against stale state and the
+       visible movement falls behind the keystrokes. */
     orderRef.current = base
     onReorder(base)
-    // Two rAFs: first lets React commit, second guarantees layout.
-    // refocus + center happens AFTER the DOM has the new position so
-    // the focus indicator and the scroll position both track the
-    // grabbed card precisely — otherwise the card runs off-screen on
-    // rapid moves and the user loses track of where they're dragging.
+    /* Two rAFs: first lets React commit, second guarantees layout.
+       refocus + center happens AFTER the DOM has the new position so
+       the focus indicator and the scroll position both track the
+       grabbed card precisely — otherwise the card runs off-screen on
+       rapid moves and the user loses track of where they're dragging. */
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refocusGrabbed()
@@ -245,10 +229,10 @@ export function ManualSortRow({
     }
   }, [grabbedAppid])
 
-  // Delegated pointerdown — hits whichever card the user pressed and
-  // starts the hold-to-grab + drag-to-reorder flow. Lives on the row
-  // wrapper so we don't have to wrap each card individually (which
-  // ShelfRow doesn't allow without forking it).
+  /* Delegated pointerdown — hits whichever card the user pressed and
+     starts the hold-to-grab + drag-to-reorder flow. Lives on the row
+     wrapper so we don't have to wrap each card individually (which
+     ShelfRow doesn't allow without forking it). */
   const onRowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const card = (e.target as HTMLElement | null)?.closest('.ds-card[data-appid]') as HTMLElement | null
     if (!card) return
@@ -308,11 +292,11 @@ export function ManualSortRow({
   // Build rowItems with the SAME shape ShelfPreview produces so the
   // resulting ShelfRow render is visually identical — hide flags,
   // synthetic interleaving, picker overlays, X-button binding, discount
-  // gating. The only differences:
-  //   - 'grabbed' selectionMark for the currently held card
-  //   - onToggleSelection wired to toggleGrab (click toggles grab)
-  //   - Synthetic sentinels in `order` (negative ids) translate to
-  //     synthetic DeckRowItems using state.syntheticCards data
+  /* gating. The only differences:
+       - 'grabbed' selectionMark for the currently held card
+       - onToggleSelection wired to toggleGrab (click toggles grab)
+       - Synthetic sentinels in `order` (negative ids) translate to
+         synthetic DeckRowItems using state.syntheticCards data */
   const rowItems = useMemo<DeckRowItem[]>(() => {
     let priceCache: any = null
     if (isOnlineShelfSource) {
@@ -355,10 +339,10 @@ export function ManualSortRow({
       const grabbed = grabbedAppid === id
       const inHighlighted = highlightedAppIds.includes(id)
       const isNew = m.addedTimestamp ? (Date.now() - m.addedTimestamp * 1000) < NEW_GAME_WINDOW_MS : false
-      // Selection-mark precedence: grab wins (active drag intent);
-      // highlight-picker selection second; otherwise none. Matches the
-      // prior ManualSortRow logic so the visual overlay rules don't
-      // change across the refactor.
+      /* Selection-mark precedence: grab wins (active drag intent);
+         highlight-picker selection second; otherwise none. Matches the
+         prior ManualSortRow logic so the visual overlay rules don't
+         change across the refactor. */
       const mark: DeckRowItem['selectionMark'] =
         grabbed ? 'grabbed'
           : (highlightPickerOpen && inHighlighted) ? 'highlight'

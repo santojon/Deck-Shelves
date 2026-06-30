@@ -33,6 +33,13 @@ def test_sanitize_settings_preserves_enabled_true():
     assert result["enabled"] is True
 
 
+def test_sanitize_settings_preserves_verbose_logging():
+    # The sanitizer whitelists top-level keys — a setting missing here is
+    # silently dropped on every save (regression: the verbose-logging toggle).
+    assert _sanitize_settings({"verboseLoggingEnabled": True, "shelves": []})["verboseLoggingEnabled"] is True
+    assert _sanitize_settings({"shelves": []})["verboseLoggingEnabled"] is False
+
+
 def test_sanitize_settings_non_dict_input_treated_as_empty():
     result = _sanitize_settings("not a dict")
     assert result["enabled"] is False
@@ -277,6 +284,39 @@ def test_sanitize_settings_heroEnabled_smart_shelf():
     assert result["smartShelves"][0].get("heroEnabled") is True
 
 
+# ─── gameInfoAbove sanitizer (regular + smart + global) ──────────────────────
+
+def test_sanitize_settings_gameInfoAbove_regular_shelf():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "favorites"},
+                     "gameInfoAbove": True}]
+    })
+    assert result["shelves"][0].get("gameInfoAbove") is True
+
+
+def test_sanitize_settings_gameInfoAbove_false_omitted():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "limit": 10,
+                     "source": {"type": "tab", "tab": "favorites"},
+                     "gameInfoAbove": False}]
+    })
+    assert result["shelves"][0].get("gameInfoAbove") is not True
+
+
+def test_sanitize_settings_gameInfoAbove_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "Smart", "mode": "recently_played",
+                          "gameInfoAbove": True}]
+    })
+    assert result["smartShelves"][0].get("gameInfoAbove") is True
+
+
+def test_sanitize_settings_global_gameInfoAbove():
+    assert _sanitize_settings({"globalGameInfoAbove": True}).get("globalGameInfoAbove") is True
+    assert _sanitize_settings({}).get("globalGameInfoAbove") is False
+
+
 # ─── hiddenAppIds in smart shelves ───────────────────────────────────────────
 
 def test_sanitize_settings_hiddenAppIds_smart_shelf():
@@ -406,3 +446,257 @@ def test_sanitize_settings_single_key_sort_still_works():
     })
     assert result["shelves"][0].get("sort") == "recent"
     assert result["shelves"][0].get("sortReverse") is True
+
+
+def test_sanitize_settings_buttonBindings_passthrough():
+    result = _sanitize_settings({
+        "buttonBindings": {
+            "cardHideRemove": "X",
+            "cardHighlightToggle": "Y",
+            "cardQuickLaunch": None,
+            "navSearch": "L1+R1",
+            "navSideNav": "L1+L1",
+        }
+    })
+    bb = result.get("buttonBindings")
+    assert bb is not None
+    assert bb.get("cardHideRemove") == "X"
+    assert bb.get("cardHighlightToggle") == "Y"
+    assert bb.get("cardQuickLaunch") is None
+    assert bb.get("navSearch") == "L1+R1"
+    assert bb.get("navSideNav") == "L1+L1"
+
+
+def test_sanitize_settings_buttonBindings_missing_yields_empty_dict():
+    result = _sanitize_settings({})
+    assert result.get("buttonBindings") == {}
+
+
+def test_sanitize_settings_buttonBindings_uppercases_and_trims():
+    result = _sanitize_settings({
+        "buttonBindings": {"cardHideRemove": "  l1+r1  "}
+    })
+    assert result["buttonBindings"]["cardHideRemove"] == "L1+R1"
+
+
+# ─── Logo / icon / description tri-state preservation ──────────────────────────
+
+def test_sanitize_shelf_enableLogo_true_round_trip():
+    result = _sanitize_settings({
+        "shelves": [{
+            "id": "s1",
+            "title": "S1",
+            "source": {"type": "tab", "tab": "all"},
+            "enableLogo": True,
+        }]
+    })
+    assert result["shelves"][0].get("enableLogo") is True
+
+
+def test_sanitize_shelf_enableLogo_false_round_trip():
+    """Explicit per-shelf opt-out must survive sanitisation. A previous bug
+    collapsed `False` to `None` on output, so the global master switch had
+    no way to override per-shelf state. The tri-state semantic
+    (True / False / None=follow-global) requires both booleans to round-trip."""
+    result = _sanitize_settings({
+        "shelves": [{
+            "id": "s1",
+            "title": "S1",
+            "source": {"type": "tab", "tab": "all"},
+            "enableLogo": False,
+        }]
+    })
+    assert result["shelves"][0].get("enableLogo") is False
+
+
+def test_sanitize_shelf_enableLogo_missing_omitted_from_output():
+    """`None` (follow-global) means the key is absent on output so the
+    settings blob stays small for the default case."""
+    result = _sanitize_settings({
+        "shelves": [{
+            "id": "s1",
+            "title": "S1",
+            "source": {"type": "tab", "tab": "all"},
+        }]
+    })
+    assert "enableLogo" not in result["shelves"][0]
+    assert "enableIcon" not in result["shelves"][0]
+    assert "enableDescription" not in result["shelves"][0]
+
+
+def test_sanitize_shelf_enableIcon_enableDescription_round_trip():
+    result = _sanitize_settings({
+        "shelves": [{
+            "id": "s1",
+            "title": "S1",
+            "source": {"type": "tab", "tab": "all"},
+            "enableIcon": False,
+            "enableDescription": True,
+        }]
+    })
+    sh = result["shelves"][0]
+    assert sh.get("enableIcon") is False
+    assert sh.get("enableDescription") is True
+
+
+# ─── Composite source shape ────────────────────────────────────────────────────
+
+def test_sanitize_composite_source_passes_through():
+    result = _sanitize_settings({
+        "shelves": [{
+            "id": "s1",
+            "title": "Composite",
+            "source": {
+                "type": "composite",
+                "combine": "union",
+                "sources": [
+                    {"type": "tab", "tab": "installed"},
+                    {"type": "wishlist"},
+                ],
+            },
+        }]
+    })
+    sh = result["shelves"][0]
+    assert sh["source"]["type"] == "composite"
+    assert sh["source"]["combine"] == "union"
+    assert len(sh["source"]["sources"]) == 2
+
+
+def test_sanitize_composite_intersection_passes_through():
+    result = _sanitize_settings({
+        "shelves": [{
+            "id": "s1",
+            "title": "Both",
+            "source": {
+                "type": "composite",
+                "combine": "intersection",
+                "sources": [
+                    {"type": "tab", "tab": "installed"},
+                    {"type": "filter", "filter": {"group": {"mode": "and", "items": []}}},
+                ],
+            },
+        }]
+    })
+    assert result["shelves"][0]["source"]["combine"] == "intersection"
+
+
+# ─── Profiles (snapshot + trigger round-trip) ──────────────────────────────────
+
+def test_sanitize_profiles_round_trip():
+    result = _sanitize_settings({
+        "profiles": [{
+            "id": "p1",
+            "name": "Travel",
+            "createdAt": "2026-06-17T00:00:00Z",
+            "snapshot": {"hideRecents": True},
+        }],
+        "activeProfileName": "Travel",
+    })
+    assert len(result.get("profiles", [])) == 1
+    p = result["profiles"][0]
+    assert p["id"] == "p1"
+    assert p["name"] == "Travel"
+    assert p["snapshot"] == {"hideRecents": True}
+    assert result.get("activeProfileName") == "Travel"
+
+
+def test_sanitize_profile_trigger_round_trip():
+    """Profiles ship a forward-compat `trigger?: unknown` slot for the
+    Visibility Rules v2 resolver. The sanitizer round-trips it verbatim
+    when it's a dict — older clients that don't know about it just preserve."""
+    result = _sanitize_settings({
+        "profiles": [{
+            "id": "p1",
+            "name": "Low battery",
+            "createdAt": "2026-06-17T00:00:00Z",
+            "snapshot": {},
+            "trigger": {"kind": "battery", "below": 20},
+        }]
+    })
+    p = result["profiles"][0]
+    assert p.get("trigger") == {"kind": "battery", "below": 20}
+
+
+def test_sanitize_profile_trigger_invalid_dropped():
+    result = _sanitize_settings({
+        "profiles": [{
+            "id": "p1",
+            "name": "Travel",
+            "createdAt": "2026-06-17T00:00:00Z",
+            "snapshot": {},
+            "trigger": "not a dict",
+        }]
+    })
+    p = result["profiles"][0]
+    assert "trigger" not in p
+
+
+# ─── integrationsEnabled (opt-out only) ────────────────────────────────────────
+
+def test_sanitize_integrationsEnabled_round_trip():
+    result = _sanitize_settings({
+        "integrationsEnabled": {
+            "ext-plugin.foo": False,
+            "ext-plugin.bar": True,
+        }
+    })
+    ie = result.get("integrationsEnabled") or {}
+    assert ie.get("ext-plugin.foo") is False
+    assert ie.get("ext-plugin.bar") is True
+
+
+def test_sanitize_integrationsEnabled_default_empty():
+    result = _sanitize_settings({})
+    assert result.get("integrationsEnabled") == {}
+
+
+# ─── featureToggles + lightMode + unifiedListEnabled ───────────────────────────
+
+def test_sanitize_featureToggles_round_trip():
+    result = _sanitize_settings({
+        "featureToggles": {"feature_widgets": False, "feature_smart_shelves": True}
+    })
+    ft = result.get("featureToggles") or {}
+    assert ft.get("feature_widgets") is False
+    assert ft.get("feature_smart_shelves") is True
+
+
+def test_sanitize_lightModeEnabled_true():
+    result = _sanitize_settings({"lightModeEnabled": True})
+    assert result.get("lightModeEnabled") is True
+
+
+def test_sanitize_unifiedListEnabled_with_allShelvesOrder():
+    result = _sanitize_settings({
+        "unifiedListEnabled": True,
+        "allShelvesOrder": ["s1", "s2", "smart1"],
+    })
+    assert result.get("unifiedListEnabled") is True
+    assert result.get("allShelvesOrder") == ["s1", "s2", "smart1"]
+
+
+def test_sanitize_allShelvesOrder_non_list_treated_as_empty():
+    result = _sanitize_settings({"allShelvesOrder": "not a list"})
+    assert result.get("allShelvesOrder") == []
+
+
+# ─── qamHiddenToggles / qamHiddenSections ──────────────────────────────────────
+
+def test_sanitize_qamHiddenToggles_round_trip():
+    result = _sanitize_settings({
+        "qamHiddenToggles": ["hideRecents", "shelfHeroBackground"],
+        "qamHiddenSections": ["smart", "additional"],
+    })
+    assert "hideRecents" in result.get("qamHiddenToggles", [])
+    assert "smart" in result.get("qamHiddenSections", [])
+
+
+def test_sanitize_qamHiddenToggles_drops_non_strings():
+    result = _sanitize_settings({
+        "qamHiddenToggles": ["hideRecents", 42, None, "shelfHeroBackground"]
+    })
+    qht = result.get("qamHiddenToggles") or []
+    assert "hideRecents" in qht
+    assert "shelfHeroBackground" in qht
+    assert 42 not in qht
+    assert None not in qht

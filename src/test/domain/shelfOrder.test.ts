@@ -21,10 +21,10 @@ describe('pickFirstVisibleShelfId', () => {
     expect(pickFirstVisibleShelfId(shelves, rendered)).toBe('b')
   })
 
-  it('prefers a normal shelf over a smart shelf when both are rendering', () => {
+  it('promotes the config-first shelf even when it is smart', () => {
     const shelves = [smart('s1'), smart('s2'), tab('a')]
     const rendered = new Set(['s1', 's2', 'a'])
-    expect(pickFirstVisibleShelfId(shelves, rendered)).toBe('a')
+    expect(pickFirstVisibleShelfId(shelves, rendered)).toBe('s1')
   })
 
   it('returns null when no shelf has rendered yet', () => {
@@ -42,16 +42,17 @@ describe('pickFirstVisibleShelfId', () => {
     expect(pickFirstVisibleShelfId(shelves, new Set(['s1', 's2']))).toBe('s1')
   })
 
-  it('prefers a local shelf over an online (wishlist) shelf when both are rendering', () => {
+  it('promotes the config-first shelf even when it is online (wishlist)', () => {
     const shelves = [wishlist('w'), tab('a')]
-    expect(pickFirstVisibleShelfId(shelves, new Set(['w', 'a']))).toBe('a')
+    expect(pickFirstVisibleShelfId(shelves, new Set(['w', 'a']))).toBe('w')
   })
 
-  it('skips an online shelf that rendered first while the earlier-config local shelf has not', () => {
-    // Cold restart: config order is [local, online, local]; the online shelf
-    // renders from cache before the first local shelf resolves its app data.
+  it('promotes the first rendered shelf in config order during a cold restart', () => {
+    // Config order is [local, online, local]; the earlier-config local shelf
+    // has not resolved yet, so the next rendered shelf in config order (the
+    // online one) is promoted until the local shelf renders and reclaims it.
     const shelves = [filter('local1'), wishlist('w'), tab('local2')]
-    expect(pickFirstVisibleShelfId(shelves, new Set(['w', 'local2']))).toBe('local2')
+    expect(pickFirstVisibleShelfId(shelves, new Set(['w', 'local2']))).toBe('w')
   })
 
   it('falls back to an online shelf only when no local or smart shelf is rendering', () => {

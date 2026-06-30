@@ -45,20 +45,6 @@ function interceptMenuBtn(button: number): boolean {
   return false;
 }
 
-/**
- * Intercepts the Options/Menu button so pressing it on a shelf card opens
- * our game context menu instead of Steam's default behavior (which crashes
- * on our synthetic cards). Installs three layers:
- *
- * - Document-level `vgp_onmenubutton` / `contextmenu` listeners (one per
- *   known Steam document) — first chance to catch the press.
- * - `ctrl.DispatchVirtualButtonClick` instance-level patch.
- * - Prototype-level patch as fallback when the controller doesn't own
- *   its own dispatch fn.
- *
- * All three dedupe through `patchedMenuControllers: WeakSet` so repeat
- * calls (e.g. from observer-driven re-runs) are no-ops.
- */
 export function patchMenuButton(): void {
   const DS_DOC_MENU = "__ds_doc_menu__";
   // Register on every Steam document we can see: ds-cards may live in the
@@ -67,11 +53,11 @@ export function patchMenuButton(): void {
   const handleMenu = (evt: Event) => {
     try {
       // vgp_onmenubutton / contextmenu fire on the focused element — read the
-      // target directly before falling back to the focus-based queries. This
-      // handles cases where __ds_last_focused_card is briefly stale (e.g.
-      // DispatchVirtualButtonClick intercepted for the wrong card) because the
-      // document-level capture listener fires once the event IS dispatched on
-      // the correct element.
+      /* target directly before falling back to the focus-based queries. This
+         handles cases where __ds_last_focused_card is briefly stale (e.g.
+         DispatchVirtualButtonClick intercepted for the wrong card) because the
+         document-level capture listener fires once the event IS dispatched on
+         the correct element. */
       const fromTarget = (evt.target as HTMLElement)?.closest?.('.ds-card') as HTMLElement | null;
       const focused = fromTarget ?? findFocusedDsCard();
       if (focused) {

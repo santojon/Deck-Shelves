@@ -146,38 +146,34 @@ export function getTypeLabel(type: FilterItemType): string {
   const map: Record<FilterItemType, string> = {
     installed: t("filter_type_installed"),
     favorites: t("filter_type_favorites"),
-    nonSteam: t("filter_type_nonSteam"),
+    nonSteam: t("filter_type_non_steam"),
     hidden: t("filter_type_hidden"),
-    updatePending: t("filter_type_updatePending"),
-    isNew: t("filter_type_isNew"),
-    deckCompatibility: t("filter_type_deckCompatibility"),
-    playedWithinDays: t("filter_type_playedWithinDays"),
-    playtimeRange: t("filter_type_playtimeRange"),
-    nameIncludes: t("filter_type_nameIncludes"),
-    nameRegex: t("filter_type_nameRegex"),
+    updatePending: t("filter_type_update_pending"),
+    isNew: t("filter_type_is_new"),
+    deckCompatibility: t("filter_type_deck_compatibility"),
+    playedWithinDays: t("filter_type_played_within_days"),
+    playtimeRange: t("filter_type_playtime_range"),
+    nameIncludes: t("filter_type_name_includes"),
+    nameRegex: t("filter_type_name_regex"),
     friends: t("filter_type_friends"),
-    friendsPlayingNow: t("filter_type_friendsPlayingNow"),
-    friendsPlayedRecently: t("filter_type_friendsPlayedRecently"),
-    storeTag: t("filter_type_storeTag"),
+    friendsPlayingNow: t("filter_type_friends_playing_now"),
+    friendsPlayedRecently: t("filter_type_friends_played_recently"),
+    storeTag: t("filter_type_store_tag"),
     achievements: t("filter_type_achievements"),
     collection: t("filter_type_collection"),
     developer: t("filter_type_developer"),
     publisher: t("filter_type_publisher"),
-    appIdList: t("filter_type_appIdList"),
-    cloudAvailable: t("filter_type_cloudAvailable"),
-    controllerSupport: t("filter_type_controllerSupport"),
+    appIdList: t("filter_type_app_id_list"),
+    cloudAvailable: t("filter_type_cloud_available"),
+    controllerSupport: t("filter_type_controller_support"),
     merge: t("filter_type_merge"),
-    shortcutType: t("filter_type_shortcutType"),
-    appStatus: t("filter_type_appStatus"),
+    shortcutType: t("filter_type_shortcut_type"),
+    appStatus: t("filter_type_app_status"),
     discount: t("filter_type_discount"),
   };
   return map[type] ?? type;
 }
 
-/** Returns true when this filter type requires online features (price cache,
- *  friend presence). The composite resolver and the editor's "Online filters"
- *  tab use this to scope behaviour to predicates that only make sense for
- *  online-connected runtime data. */
 export function isOnlineFilterType(type: FilterItemType): boolean {
   return type === "discount" || type === "friendsPlayingNow" || type === "friendsPlayedRecently";
 }
@@ -186,11 +182,11 @@ export function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// Icons moved to the shared `src/components/icons.tsx` module so other
-// surfaces (QAM section headers, edit modal tabs, About) consume the same
-// stroke-style set. Re-exported here to keep existing call sites working
-// without churn — they import `CheckIcon` / `XIcon` / `ChevronIcon` /
-// `TrashIcon` from this filter-utils module.
+/* Icons moved to the shared `src/components/icons.tsx` module so other
+   surfaces (QAM section headers, edit modal tabs, About) consume the same
+   stroke-style set. Re-exported here to keep existing call sites working
+   without churn — they import `CheckIcon` / `XIcon` / `ChevronIcon` /
+   `TrashIcon` from this filter-utils module. */
 export { CheckIcon, XIcon, ChevronIcon, TrashIcon } from '../icons';
 
 export default {};

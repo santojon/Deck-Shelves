@@ -5,16 +5,16 @@ import { RefreshCard } from "./RefreshCard";
 import { SyntheticCard } from "./SyntheticCard";
 import type { DeckRowItem } from "./types";
 
-// Shared `items.map → GameCard/RefreshCard/MoreCard` loop used by both the
-// home shelf (DeckRow) and the EditShelfModal preview. Pure presentational
-// — no state, no effects. Sizing, featured rules, and hide-flags come in
-// as props; the caller owns the surrounding wrapper (focus delegate,
-// scroll padding, theme overrides).
-//
-// Trailing cards (Refresh, More) follow the same `isRefresh` / `isMoreLink`
-// item-flag convention DeckRow already uses. Home shelves render them
-// interactive by default; preview sets `refreshInteractive`/`moreInteractive`
-// to opt out where the modal wants flat / read-only cards.
+/* Shared `items.map → GameCard/RefreshCard/MoreCard` loop used by both the
+   home shelf (DeckRow) and the EditShelfModal preview. Pure presentational
+   — no state, no effects. Sizing, featured rules, and hide-flags come in
+   as props; the caller owns the surrounding wrapper (focus delegate,
+   scroll padding, theme overrides). */
+/*
+   Trailing cards (Refresh, More) follow the same `isRefresh` / `isMoreLink`
+   item-flag convention DeckRow already uses. Home shelves render them
+   interactive by default; preview sets `refreshInteractive`/`moreInteractive`
+   to opt out where the modal wants flat / read-only cards. */
 export interface ShelfRowProps {
   items: DeckRowItem[];
   cardW: number;
@@ -33,6 +33,17 @@ export interface ShelfRowProps {
   hideNonSteamBadge?: boolean;
   hideGameName?: boolean;
   hideInstallIndicator?: boolean;
+  friendsOverlay?: boolean;
+  friendsOverlayRecent?: boolean;
+  enableLogo?: boolean;
+  enableIcon?: boolean;
+  enableDescription?: boolean;
+  descriptionBelowLogo?: boolean;
+  logoPosition?: 'left' | 'center' | 'right';
+  descriptionPosition?: 'left' | 'center' | 'right';
+  iconVerticalAlign?: 'top' | 'center' | 'bottom';
+  gameNamePosition?: 'left' | 'center' | 'right';
+  playtimePosition?: 'left' | 'center' | 'right';
   refreshInteractive?: boolean;
   moreInteractive?: boolean;
   // Render badges inside the card instead of via the BP-body portal.
@@ -44,11 +55,11 @@ export interface ShelfRowProps {
   previewMode?: boolean;
   // Per-card X-button binding. `removableSet` = appids that get the
   // "Remove from shelf" action — the manualOrder entries NOT present in
-  // the resolved source (typically games appended via the library menu
-  // "Add to shelf"). Drag-ordered cards stay OUT of this set so X
-  // doesn't pretend to remove them (it'd just re-pop them from source).
-  // For cards NOT in `removableSet`, X falls back to "Hide from shelf"
-  // when `onHideCard` is provided.
+  /* the resolved source (typically games appended via the library menu
+     "Add to shelf"). Drag-ordered cards stay OUT of this set so X
+     doesn't pretend to remove them (it'd just re-pop them from source).
+     For cards NOT in `removableSet`, X falls back to "Hide from shelf"
+     when `onHideCard` is provided. */
   removableSet?: Set<number>;
   onRemoveCard?: (appid: number) => void;
   hiddenSet?: Set<number>;
@@ -63,6 +74,8 @@ function ShelfRowImpl({
   hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false,
   hideCompatIcons = false, hideNonSteamBadge = false,
   hideGameName = false, hideInstallIndicator = false,
+  friendsOverlay = false, friendsOverlayRecent = false,
+  enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left',
   refreshInteractive, moreInteractive,
   inlineBadges = false,
   previewMode = false,
@@ -127,6 +140,17 @@ function ShelfRowImpl({
             hideNonSteamBadge={hideNonSteamBadge}
             hideGameName={hideGameName}
             hideInstallIndicator={hideInstallIndicator}
+            friendsOverlay={friendsOverlay}
+            friendsOverlayRecent={friendsOverlayRecent}
+            enableLogo={enableLogo}
+            enableIcon={enableIcon}
+            enableDescription={enableDescription}
+            descriptionBelowLogo={descriptionBelowLogo}
+            logoPosition={logoPosition}
+            descriptionPosition={descriptionPosition}
+            iconVerticalAlign={iconVerticalAlign}
+            gameNamePosition={gameNamePosition}
+            playtimePosition={playtimePosition}
             inlineBadges={inlineBadges}
             previewMode={previewMode}
             removableSet={removableSet}

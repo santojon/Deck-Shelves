@@ -119,24 +119,13 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       padding-left: 0 !important;
     }
 
-    /* ArtHero (and any future hero-label theme) opts into the full layout:
-       full-height shelf, title hidden, cards flexed to the bottom — so the
-       hero overlay can fill the visible area above the row exactly the way
-       native recents do. Gated on the data-ds-hero-label attribute (set by
-       HeroBackground when an ArtHero-family theme is detected) so that
-       deactivating ArtHero reverts the layout to the compact default
-       above without any code change. */
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] {
-      display: flex !important;
-      flex-direction: column;
-      height: calc(100vh - 56px) !important;
-    }
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-shelf-title {
-      display: none !important;
-    }
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-row-scroll {
-      margin-top: auto;
-    }
+    /* "Show game info above the cards" (data-ds-info-above) ONLY shows the
+       focused game's info clone above the row — it does NOT make the shelf
+       full-page (that's the fullPageShelf toggle / hero-fullscreen theme,
+       below). The band above the cards is reserved inline in DeckRow's
+       paddingTop, so it stacks UNDER the logo/description instead of fighting
+       the inline logo reservation, and is skipped on full-page shelves where
+       flex-end already leaves room above the cards. */
 
     /* Hero-label overlay (ArtHero etc.): when the active theme requires the
        focused card's info to be shown above the row, PerShelfHero clones
@@ -149,7 +138,7 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        ".ds-card .ds-card-label" descendant so it does NOT also hide the
        cloned overlay label, which lives in .ds-promoted-hero-label and
        not inside a card. */
-    .deck-shelves-root[data-ds-hero-label="true"] .ds-shelf[data-ds-recents-slot="true"] .ds-card .ds-card-label {
+    .ds-shelf[data-ds-info-above="true"] .ds-card .ds-card-label {
       display: none !important;
     }
     .ds-promoted-hero-label .ds-card-label {
@@ -660,7 +649,8 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     .ds-card:hover .ds-card-label {
       opacity: 1;
     }
-    .ds-card img { transition: opacity .15s ease; width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    .ds-card img:not(.ds-card-icon):not(.ds-card-logo) { transition: opacity .15s ease; width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    .ds-card .ds-card-icon { width: 20px !important; height: 20px !important; object-fit: contain !important; }
     .ds-compat {
       position: absolute; bottom: 4px; right: 4px;
       display: var(--ds-compat-display, flex); align-items: center;
@@ -754,6 +744,81 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       white-space: nowrap;
       overflow: visible;
     }
+    [data-ds-playtime-position="center"] .ds-card-status { justify-content: center; }
+    [data-ds-playtime-position="right"]  .ds-card-status { justify-content: flex-end; }
+    /* Enrichment renderers — logo overlay over the art, prepended icon,
+       description snippet. Logo: max 80 % of the card width, anchored
+       to the bottom of the art so it composes the same way the native
+       game-view layout does. Icon: square ~14 px before the name span.
+       Description: clamped to 2 lines, ~3 cards wide, ellipsis. */
+    .ds-card-logo-overlay {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+    .ds-card-logo-overlay[data-ds-position="left"] { align-items: flex-start; }
+    .ds-card-logo-overlay[data-ds-position="right"] { align-items: flex-end; }
+    /* Description below the install row inherits the same horizontal
+       alignment when the logo is shown, for visual consistency. */
+    .ds-card-description[data-ds-position="left"] { text-align: left; margin-left: 0; margin-right: auto; }
+    .ds-card-description[data-ds-position="center"] { text-align: center; margin-left: auto; margin-right: auto; }
+    .ds-card-description[data-ds-position="right"] { text-align: right; margin-left: auto; margin-right: 0; }
+    .ds-card-logo {
+      width: 92%;
+      max-height: 60%;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.7));
+    }
+    .ds-card-icon {
+      width: 12px;
+      height: 12px;
+      object-fit: contain;
+      flex-shrink: 0;
+      border-radius: 2px;
+    }
+    .ds-card-description {
+      /* Anchored to the text column (which is set to position:relative
+         in GameCard) so the snippet starts at the same x as the game
+         name / playtime row — even when the icon is shown to its left.
+         Width is 4 cards + 3 inter-card gaps so it visually spans the
+         next 4 cards' worth of space; only the focused card's snippet
+         is visible (others stay opacity:0). */
+      position: absolute;
+      top: 100%;
+      margin-top: 2px;
+      font-size: 0.7em;
+      line-height: 1.2;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      /* min() clamps against the viewport so the snippet never overflows
+         the screen on a card focused near the right edge — without this
+         the absolute element walks straight off the side. */
+      width: min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw);
+      max-width: min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw);
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+      font-weight: normal;
+      text-transform: none;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .ds-card-description[data-ds-position="left"]   { left: 0; right: auto; text-align: left; }
+    .ds-card-description[data-ds-position="center"] { left: 50%; transform: translateX(-50%); text-align: center; }
+    .ds-card-description[data-ds-position="right"]  { right: 0; left: auto; text-align: right; }
+    .ds-card.gpfocus .ds-card-description,
+    .ds-card.gpfocuswithin .ds-card-description { opacity: 0.88; }
+    .ds-card-description--below-logo {
+      margin-top: 6px;
+      max-width: 80%;
+    }
     .ds-card-status-icon {
       display: inline-flex;
       align-items: center;
@@ -764,6 +829,37 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       line-height: 0;
     }
     .ds-card-status-play { color: var(--ds-native-heading-color, rgb(89, 191, 64)); }
+    .ds-friend-avatars {
+      position: absolute;
+      z-index: 4;
+      display: flex;
+      flex-direction: row;
+      gap: 3px;
+      pointer-events: none;
+    }
+    .ds-friend-avatar {
+      position: relative;
+      width: var(--ds-friend-avatar-size, 23px);
+      height: var(--ds-friend-avatar-size, 23px);
+      flex-shrink: 0;
+      box-shadow: 2px 2px 8px 1px rgba(0, 0, 0, 0.3);
+    }
+    .ds-friend-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #1b2838;
+    }
+    .ds-friend-avatar-status {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 9%;
+      min-height: 2px;
+      background: var(--ds-native-heading-color, rgb(89, 191, 64));
+    }
     .ds-more-card-text {
       font-size: 16px;
       font-weight: 400;
@@ -837,22 +933,12 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
        with a 6-stop top fade that lands opaque at the shelf top. Bottom
        fade is extended to 132px / 5 stops for a smoother blend into the
        next shelf. */
-    .deck-shelves-root > .ds-shelf:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
-      --ds-hero-top: -150px;
-      --ds-hero-h: calc(100% + 150px);
-      --ds-hero-mask: linear-gradient(to bottom,
-        transparent 0,
-        rgba(0,0,0,0.08) 30px,
-        rgba(0,0,0,0.25) 60px,
-        rgba(0,0,0,0.5) 90px,
-        rgba(0,0,0,0.78) 120px,
-        black 150px,
-        black calc(100% - 140px),
-        rgba(0,0,0,0.78) calc(100% - 105px),
-        rgba(0,0,0,0.45) calc(100% - 70px),
-        rgba(0,0,0,0.2) calc(100% - 35px),
-        transparent calc(100% - 8px));
-    }
+    /* First-shelf hero override removed — JS's per-shelf mask (subtle
+     * fade for !isFirstShelf, opaque-top for isFirstShelf) plus the
+     * native recents' built-in bottom fade handle the composition
+     * correctly without our intervention. Adding a CSS override here
+     * was conflicting with full-page mode (caused a visible black band
+     * at the fade-in boundary). */
 
     /* Second DS shelf top bleed — tuned based on what the first is.
        Default inline -140 stays for force/other cases. */
@@ -878,8 +964,10 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       animation: none !important;
     }
 
-    /* Hero Fullscreen — promoted shelves take the full viewport. Hero
-       vars set inline in PerShelfHero are overridden here via CSS. */
+    /* Hero Fullscreen — the promoted (recents-slot) shelf takes the full
+       viewport under a hero-fullscreen theme. This is the theme's own
+       full-page intent on the first shelf (or all promoted shelves under
+       force-CSS-Loader); independent of the gameInfoAbove label band. */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"] .ds-shelf[data-ds-recents-slot="true"] {
       height: 100vh !important;
       --ds-hero-top: 0px;
@@ -887,9 +975,23 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
     }
     /* First DS shelf pulled UP 56px only when recents are hidden (no
        native content above) — covers the transparent header band without
-       overlapping native when it stays visible. */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
+       overlapping native when it stays visible. Applies under a CSS Loader
+       fullscreen-hero theme OR DS's own fullscreen hero background. */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child,
+    .deck-shelves-root[data-ds-hero-background="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
+    }
+    /* Decoupled first shelf (recents hidden, DS hero art on, NOT the themed
+       recents-slot): bleed the hero ART up 56px under the transparent Steam
+       header so the top isn't a black strip. Only the art moves
+       (--ds-hero-top); the shelf box, logo and label stay put — a margin-top
+       pull-up like above would shove the logo/label under the header on this
+       non-full-page shelf (it keeps minHeight:auto per the no-forced-full-page
+       rule). Without an ArtHero theme the rules above don't match, which is
+       what left the 56px header gap. */
+    .deck-shelves-root[data-ds-recents-hidden="true"] > .ds-shelf[data-ds-hero-enabled="true"]:first-child:not([data-ds-recents-slot="true"]) [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -56px;
+      --ds-hero-h: calc(100% + 56px);
     }
     /* FORCE: clean page-per-shelf (no margin, no hero fade). */
     .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-force-themes="true"] .ds-shelf {

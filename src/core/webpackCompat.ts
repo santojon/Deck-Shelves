@@ -16,8 +16,6 @@ function pickHashedClass(el: HTMLElement): string | null {
   return null;
 }
 
-/** Scans the document for a webpack-hashed CSS class token (starts with `_`, length > 5)
- *  on a visible scrollable element. Used as a seed for the class map discovery. */
 export function findWebpackHashedClass(doc: Document): string | null {
   try {
     for (const el of Array.from(doc.querySelectorAll<HTMLElement>('[class]'))) {
@@ -29,14 +27,11 @@ export function findWebpackHashedClass(doc: Document): string | null {
   return null;
 }
 
-/** Converts a class token (or space-separated tokens) into a CSS selector string. */
 export function buildSelectorFromToken(token: string | null): string | null {
   if (!token) return null;
   return `.${token.replace(/\s+/g, '.')}`;
 }
 
-/** Returns the cached class map for the given document window, from in-memory store
- *  (`__DS_CLASS_MAP`) or localStorage fallback. Returns null if not yet discovered. */
 export function getRuntimeClassMap(doc: Document): Record<string, string> | null {
   try {
     const w = (doc as any).defaultView as Window | undefined;
@@ -49,8 +44,6 @@ export function getRuntimeClassMap(doc: Document): Record<string, string> | null
   return null;
 }
 
-/** Persists the class map to `__DS_CLASS_MAP` (in-memory) and `localStorage` for the
- *  given document window. Called after a successful discovery pass. */
 export function setRuntimeClassMap(doc: Document, map: Record<string, string>) {
   try {
     const w = (doc as any).defaultView as Window | undefined;
@@ -143,16 +136,11 @@ function _discoverNativeCardTokens(doc: Document): Record<string, string> | null
   return null;
 }
 
-/** Diff a focused card and an unfocused card to extract:
- *   - `nativeCardCommon`: classes present on every card regardless of state
- *   - `nativeCardStateFocus`: classes added only when the card is focused
- *   - `nativeCardStateDefault`: classes added only when the card is not focused
- *  Used by themes that want to mirror Steam's focus visuals on DS cards.
- *
- *  Captures BOTH `_xxx` (webpack-hashed) and non-underscore obfuscated tokens
- *  (Steam ships both in the same className list). Tokens are space-joined
- *  inside each role bucket so they survive being treated as a selector chunk.
- */
+/** Diff a focused vs unfocused card into class buckets: `nativeCardCommon`
+ *  (always present), `nativeCardStateFocus` (focus-only), `nativeCardStateDefault`
+ *  (unfocused-only). Captures both `_xxx` webpack-hashed and non-underscore
+ *  obfuscated tokens (space-joined per bucket) so themes can mirror Steam's
+ *  focus visuals on DS cards. */
 const KNOWN_NATIVE_CLASSES = new Set(['Panel', 'Focusable', 'gpfocus', 'gpfocuswithin', 'gpfocus-within', 'Action', 'ButtonBase']);
 
 function isObfuscatedToken(c: string): boolean {
@@ -234,12 +222,10 @@ function _discoverNativeShelfRowLayers(doc: Document): Record<string, string> {
   } catch { return {}; }
 }
 
-/** Walk the ancestor chain from the scrollGrid up to documentElement and
- *  label each named layer. Steam stacks 6-10 wrappers above the grid
- *  (section → page → app shell → root) that themes commonly target for
- *  positioning, background, and scroll behaviour. Skip layers already named
- *  by other helpers (scrollGrid, shelfSection, viewport).
- */
+/** Walk the ancestor chain from the scrollGrid to documentElement, labelling
+ *  each layer. Steam stacks 6-10 wrappers above the grid (section → page → app
+ *  shell → root) that themes target for positioning / background / scroll.
+ *  Skips layers already named elsewhere (scrollGrid, shelfSection, viewport). */
 function _discoverNativeContainerChain(doc: Document, alreadyNamed: Set<string>): Record<string, string> {
   const out: Record<string, string> = {};
   try {
@@ -318,13 +304,11 @@ function _discoverNativeHomeSectionTokens(doc: Document): Record<string, string>
   return out;
 }
 
-/** Traverse shelf-level elements to discover nativeShelf, nativeShelfTitle, nativeShelfRow tokens.
- *  Primary anchor: the ReactVirtualized inner scroll container — its direct
- *  children are the rendered shelf rows. Modern Steam shelves are
- *  virtualized vertically, so individual rows don't use overflow-x.
- *  Falls back to the old horizontal-scroll heuristic if the grid isn't
- *  found (older builds / non-home routes).
- */
+/** Traverse shelf elements to discover nativeShelf / nativeShelfTitle /
+ *  nativeShelfRow tokens. Primary anchor: the ReactVirtualized inner scroll
+ *  container, whose direct children are the rendered (vertically-virtualized)
+ *  rows. Falls back to the old horizontal-scroll heuristic when the grid isn't
+ *  found (older builds / non-home routes). */
 function findHeadingTokenIn(root: Element): string | undefined {
   for (const el of Array.from(root.querySelectorAll<HTMLElement>('*'))) {
     try {
@@ -405,21 +389,10 @@ export type NativeCardDims = {
   featuredImgHeight?: number;
 };
 
-/** Measure native Recent Games card dimensions by finding portrait card images
- *  and measuring the focusable card root element.
- *  Also detects the wider "featured" first card if present (e.g. when a
- *  theme shows a landscape highlight card before the portrait row).
- *  Returns { width, height, gap, featuredWidth?, featuredHeight? } or null.
- */
-/**
- * Fallback measurement when native cards are hidden (display:none).
- * Creates a temporary element with the native card CSS class — inside a
- * container that mirrors the native shelf row's flex context when possible
- * — and reads its computed dimensions. Works regardless of whether recents
- * are visible, so matchNativeSize keeps responding to viewport changes
- * (e.g. Deck ↔ external monitor) even when the recents shelf is
- * display:none for nav-tree exclusion.
- */
+/** Measure native Recent Games card dimensions from portrait card images + the
+ *  focusable card root. Also detects the wider "featured" first card when a
+ *  theme shows a landscape highlight before the portrait row. Returns
+ *  { width, height, gap, featuredWidth?, featuredHeight? } or null. */
 function buildMeasurementHost(doc: Document, rowToken: string): HTMLElement {
   const host = doc.createElement('div');
   if (rowToken) {
@@ -608,10 +581,6 @@ export function discoverNativeCardDimensions(doc: Document): NativeCardDims | nu
   return null;
 }
 
-
-/** Build a Set of "primary" tokens already named under a stable key in the
- *  base discovery output, so the container-chain helper can skip them and
- *  avoid duplicate entries under generic `homeLayerN` keys. */
 function _namedPrimaries(base: Record<string, string>): Set<string> {
   const out = new Set<string>();
   for (const v of Object.values(base)) {
@@ -764,18 +733,6 @@ export function discoverClassMap(doc: Document): Record<string, string> | null {
   } catch { return null; }
 }
 
-/**
- * Scan the document stylesheets for the native Deck compat icon color rules
- * and return the obfuscated class name for each level.
- *
- * Steam's base stylesheet sets:
- *   .kEODDe6M5cuHWuPlcQexX           { color: rgb(89, 191, 64);   }  ← Verified
- *   .mPD42Bwx3VAs0qw9wubf2           { color: rgb(255, 200, 44);  }  ← Playable
- *   ._2LAaxz6RtHXrJJj9NzCNL4, ...   { color: rgb(220, 222, 223); }  ← Unsupported/Unknown
- *
- * We find these rules by their exact color values (not by class name) so the
- * detection survives Steam bundle renames.
- */
 const SINGLE_CLASS_RE = /^\.[A-Za-z_][A-Za-z0-9_-]+$/;
 
 const COMPAT_COLOR_TO_KEY: Record<string, 'verified' | 'playable' | 'unsupported'> = {

@@ -28,10 +28,10 @@ export default function DeveloperFilterOptions({ selected, onChange }: { selecte
   const selectedSet = new Set(selected);
 
   if (loading) {
-    return <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_developer_loading")}</div>;
+    return <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12 }}>{t("filter_developer_loading")}</div>;
   }
   if (allDevs.length === 0) {
-    return <div style={{ padding: "6px 0", color: "#8b9ab5", fontSize: 12 }}>{t("filter_developer_empty")}</div>;
+    return <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12 }}>{t("filter_developer_empty")}</div>;
   }
 
   return (

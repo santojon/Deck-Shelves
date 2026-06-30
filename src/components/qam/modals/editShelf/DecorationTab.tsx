@@ -3,20 +3,11 @@ import { DialogButton, Focusable, TextField, ToggleField, DropdownItem } from '.
 import { pickImageFile } from '../../../../core/imagePicker'
 import { resolveLocalImage, subscribeLocalImage } from '../../../../core/localImage'
 
-// Synthetic-card editor — horizontal carousel of card configs with a
-// master/detail interaction model.
-//
-// Navigation:
-//   - Tabs row (above) ↓ → first card config block focused.
-//   - L/R between card blocks; the trailing `[+]` block is the last
-//     focusable in the row and creates a new card.
-//   - ↓ from any card block → shelf preview (lives below this tab).
-//   - A on a card block → "select" the card: the block expands inline,
-//     focus moves to the first field inside, ↑/↓ now walks through the
-//     card's fields. B collapses the block back to the summary view.
-//
-// Per-row rules: text XOR image; link/heroImage/shadowMode only with
-// base content; position is managed by the manual-order grid.
+/* Synthetic-card editor — horizontal carousel of card configs (master/detail).
+   Nav: Tabs ↓ → first block; L/R between blocks; trailing `[+]` creates a card;
+   ↓ from a block → preview below; A selects a block (expands, focus → first
+   field, ↑/↓ walks fields); B collapses. Per-row: text XOR image; link/
+   heroImage/shadowMode only with base content; position via the manual grid. */
 type SyntheticCardInput = {
   position: number
   image?: string
@@ -58,10 +49,10 @@ function shadowOptions(t: (k: any) => string) {
   ]
 }
 
-// Inline preview thumb — uses the same backend image resolver as the
-// home card so local file:// paths render via the base64 cache.
-// Subscribes to the cache so the thumbnail appears as soon as the RPC
-// returns (first render is null while the read is in flight).
+/* Inline preview thumb — uses the same backend image resolver as the
+   home card so local file:// paths render via the base64 cache.
+   Subscribes to the cache so the thumbnail appears as soon as the RPC
+   returns (first render is null while the read is in flight). */
 function ImagePreview({ src, label, size = 64 }: { src: string | undefined; label: string; size?: number }) {
   const [, setTick] = useState(0)
   useEffect(() => subscribeLocalImage(() => setTick((n) => n + 1)), [])
@@ -89,10 +80,10 @@ function ImagePreview({ src, label, size = 64 }: { src: string | undefined; labe
   )
 }
 
-// Collapsed summary card — single Focusable, no nested fields. Shows
-// a compact preview (image thumb / text / "empty"), the card number,
-// and a couple of status badges so the user can tell decorations
-// apart at a glance. Activate enters edit mode.
+/* Collapsed summary card — single Focusable, no nested fields. Shows
+   a compact preview (image thumb / text / "empty"), the card number,
+   and a couple of status badges so the user can tell decorations
+   apart at a glance. Activate enters edit mode. */
 function CardSummary({
   t,
   card,
@@ -186,10 +177,10 @@ function CardSummary({
 export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCardAdded }: DecorationTabProps) {
   const [pickingImageIdx, setPickingImageIdx] = useState<number | null>(null)
   const [pickingHeroIdx, setPickingHeroIdx] = useState<number | null>(null)
-  // Master/detail state — `null` keeps every card collapsed (summary view,
-  // single focusable, L/R nav between them + [+]). Setting it expands
-  // the targeted card so its fields become focusable in vertical order;
-  // B (cancel) on the expanded card collapses back to summary view.
+  /* Master/detail state — `null` keeps every card collapsed (summary view,
+     single focusable, L/R nav between them + [+]). Setting it expands
+     the targeted card so its fields become focusable in vertical order;
+     B (cancel) on the expanded card collapses back to summary view. */
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const updateCard = (idx: number, patch: Partial<SyntheticCardInput>) => {
     const next = cards.slice()
@@ -223,12 +214,10 @@ export function DecorationTab({ t, cards, setCards, defaultPosition, onFirstCard
 
   return (
     <div style={{ padding: '4px 0 12px' }}>
-      {/* Focus visual + horizontal-flow hint scoped to this tab. The
-          .gpfocus glow makes selection obvious on dark cards (Steam's
-          default ring is suppressed on our DS cards across the rest of
-          the modal). Per-row horizontal flow comes from the explicit
-          Focusable wrapper below, but inline CSS reinforces it so
-          mouse/touch hover also signals reachability. */}
+      {/* Focus visual + horizontal-flow hint scoped to this tab. The .gpfocus
+          glow makes selection obvious on dark cards (Steam's default ring is
+          suppressed on DS cards elsewhere in the modal). Per-row flow comes from
+          the Focusable wrapper below; inline CSS reinforces it for mouse/touch. */}
       <style>{`
         .ds-deco-tab-row > .Focusable.gpfocus,
         .ds-deco-tab-row > .Focusable:focus,

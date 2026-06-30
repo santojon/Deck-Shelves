@@ -2,15 +2,6 @@ import { getPreferredSteamDocument } from "../../../runtime/steamHost";
 import { logInfo } from "../../../runtime/logger";
 import { DIR_DOWN, DIR_LEFT, DIR_RIGHT, DS_EDGE_PATCHED, DS_EDGE_LISTENER } from "./constants";
 
-/**
- * Patches `BTryInternalNavigation` on the nav-tree root prototype to
- * prevent the D-pad from escaping a shelf row horizontally past its
- * content, and from wrapping DOWN past the last shelf when the native
- * tab bar is hidden (hideHomeTabs).
- *
- * Also stops `vgp_ondirection` L/R from bubbling out of our wrapper so
- * Steam's global nav can't steal the event while a row is mid-throttle.
- */
 export function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
   const ctrl = (globalThis as any).FocusNavController
     ?? (globalThis as any).GamepadNavTree?.m_context?.m_controller;
@@ -43,7 +34,12 @@ export function patchShelfEdgeNavigation(mountEl: HTMLElement): void {
           const mount = doc?.getElementById("deck-shelves-home-root") as HTMLElement | null;
           const focused = (doc?.querySelector(".gpfocus") as HTMLElement | null) ?? null;
           if (mount && focused && mount.contains(focused)) {
-            const lastShelf = mount.querySelector<HTMLElement>(".ds-shelf:last-child");
+            /* Find the last *.ds-shelf* directly — :last-child fails when
+               Steam re-injects an empty-state div as the trailing sibling
+               of our shelves inside .deck-shelves-root, leaving no shelf
+               as the literal last child of its parent. */
+            const shelves = mount.querySelectorAll<HTMLElement>(".ds-shelf");
+            const lastShelf = shelves[shelves.length - 1] ?? null;
             if (lastShelf && lastShelf.contains(focused)) {
               const tabs = doc?.querySelector('[role="tablist"]') as HTMLElement | null;
               const tabsVisible = !!tabs && tabs.getBoundingClientRect().height > 0;

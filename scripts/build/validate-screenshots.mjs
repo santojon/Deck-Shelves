@@ -45,21 +45,21 @@ const EXPECTED = [
   { file: "smart-shelf-modal.png" },
   { file: "smart-shelf-edit.png" },
   { file: "global-toggles.png", surface: "qam-popup" },
-];
-
-// Optional screenshots — validated when present but not required. These
-// depend on user state (e.g. "Saved Filters" disappears from the QAM
-// when the list is empty) or on optional scenarios produced by the
-// modular runner.
-const OPTIONAL = [
   { file: "saved-filters-qam.png", surface: "qam-popup" },
-  { file: "home-hero.png" },
-  { file: "home-hide-recents.png" },
-  { file: "import-overflow.png", surface: "qam-popup" },
+  { file: "sidecar.png", surface: "qam-popup-sidecar" },
   { file: "about-filters.png" },
   { file: "about-smart.png" },
   { file: "about-support.png" },
+  { file: "settings-page.png", minSize: 50_000 },
+  { file: "settings-profiles.png", minSize: 50_000 },
+  { file: "settings-suggestions.png", minSize: 50_000 },
+  { file: "settings-statistics.png", minSize: 50_000 },
+  { file: "settings-shortcuts.png", minSize: 50_000 },
+  { file: "settings-integrations.png", minSize: 50_000 },
+  { file: "settings-advanced.png", minSize: 50_000 },
 ];
+
+const OPTIONAL = [];
 
 // Surface profiles — per-surface size bounds and an aspect-ratio window
 // (width / height) instead of raw dimensions. Steam BP and the QAM popup
@@ -78,14 +78,23 @@ const OPTIONAL = [
 // `minWidth` filters out tiny / cropped captures.
 //
 // `minSize` catches truly-empty PNGs (compressed dark uniform fill,
-// well under 20 KB). Keep in sync with `QAM_CAPTURE_BLANK_THRESHOLD` in
-// `scripts/devtools/deck/screenshots/screenshot.py`.
+// well under 20 KB). Keep in sync with the blank-frame threshold in
+// `deckprobe/screenshots/lib/capture.py`.
 const SURFACES = {
   "qam-popup": {
     minSize: 20_000,
     maxSize: 250_000,
     aspectRange: [1.40, 2.20],  // landscape popup: 1281×681 → 1.881
     minWidth: 1000,
+  },
+  // QAM popup with the Deck Shelves sidecar expanded — the panel widens
+  // by ~503 px (main 300 + sidecar 503 + native chrome), pushing the
+  // aspect well above the standard qam-popup band.
+  "qam-popup-sidecar": {
+    minSize: 20_000,
+    maxSize: 350_000,
+    aspectRange: [1.80, 3.20],
+    minWidth: 1200,
   },
   "big-picture": {
     minSize: 60_000,
@@ -183,7 +192,7 @@ for (const entry of OPTIONAL) validate(entry, { required: false });
 if (errors > 0) {
   console.error(`\n${errors} screenshot(s) failed validation`);
   console.error("\nResolution hints:");
-  console.error("  MISSING          → capture is absent. Rerun `python3 scripts/devtools/deck/screenshots/screenshot.py`.");
+  console.error("  MISSING          → capture is absent. Rerun `pnpm run screenshots` (modular runner).");
   console.error("  TOO SMALL        → QAM popup frame is blank (compositor not ready). Rerun; the capture script retries on blanks.");
   console.error("  WRONG SURFACE    → a Big Picture screenshot was saved for a file expected to be a QAM popup capture. Rerun with the current script.");
   console.error("  WRONG ASPECT     → the PNG ratio is outside the expected window for this surface. Likely the file was saved into the wrong slot.");

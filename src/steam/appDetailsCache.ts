@@ -1,30 +1,8 @@
-/**
- * Best-effort per-app metadata cache populated from
- * `SteamClient.Apps.RegisterForAppDetails`.
- *
- * Smart-shelf templates that depend on data NOT in AppOverview (achievement
- * progress, store categories) consult this cache. The cache is populated
- * lazily: the first time a template asks for `vecCategories` or achievement
- * data for an app, the resolver schedules a fetch. Subsequent reads return
- * the cached value.
- *
- * Cold path: when the data isn't yet cached, the template's filter returns
- * `false` for that app (= exclude from shelf). After the fetch completes on
- * the next refresh tick, the app is correctly included. This is acceptable
- * because smart-shelf resolvers run on a TTL'd cache anyway — first paint
- * may be partial, second is complete.
- *
- * Graceful degradation: when `SteamClient.Apps.RegisterForAppDetails` isn't
- * available (older SteamOS, non-Steam-Deck environment), the cache stays
- * empty and the templates that depend on it return empty shelves silently.
- */
 
 import { logInfo } from "../runtime/logger";
 
 export type AppDetailsSummary = {
-  /** Lowercase store-category display names (e.g. "co-op", "shared/split screen multi-player"). */
   categories: string[];
-  /** Achievement percentage as a fraction in [0, 1]. NaN when not exposed. */
   achievementProgress: number;
 };
 
@@ -36,13 +14,10 @@ function getSteamClient(): any {
   return (globalThis as any).SteamClient;
 }
 
-/** Returns cached summary or null when not yet fetched. */
 export function getAppDetailsSummary(appid: number): AppDetailsSummary | null {
   return cache.get(appid) ?? null;
 }
 
-/** Schedules a background fetch for the appid if not already cached / pending.
- *  Returns immediately — the cache is populated on the SteamClient callback. */
 export function preloadAppDetailsSummary(appid: number): void {
   if (cache.has(appid) || pending.has(appid)) return;
   const sc = getSteamClient();
@@ -98,22 +73,16 @@ export function preloadAppDetailsSummary(appid: number): void {
   }
 }
 
-/** Preload a batch of appids. Throttled internally — no batching limits
- *  applied here because `SteamClient.Apps.RegisterForAppDetails` is already
- *  per-app. */
 export function preloadAppDetailsSummaries(appids: number[]): void {
   for (const id of appids) preloadAppDetailsSummary(id);
 }
 
-/** Clears the cache. Called on Steam OS suspend/resume to refresh stale data. */
 export function clearAppDetailsCache(): void {
   cache.clear();
   pending.clear();
   logInfo("STEAM", "appDetailsCache cleared");
 }
 
-/** Returns true when the given appid's cached categories include any of the
- *  query strings (substring match, both lowercased). */
 export function appHasAnyCategory(appid: number, queries: string[]): boolean {
   const summary = cache.get(appid);
   if (!summary) return false;
@@ -125,8 +94,6 @@ export function appHasAnyCategory(appid: number, queries: string[]): boolean {
   return false;
 }
 
-/** Returns the achievement progress as a percentage [0, 100] or NaN if
- *  not yet cached. */
 export function getAppAchievementPct(appid: number): number {
   const summary = cache.get(appid);
   if (!summary || !Number.isFinite(summary.achievementProgress)) return NaN;

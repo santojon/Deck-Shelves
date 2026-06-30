@@ -15,8 +15,6 @@ import { clearOnlineShelfCache } from "../core/shelfActions";
 import { invalidateRandomSortCache } from "../steam";
 import { subscribeShelfRefresh, triggerShelfRefresh } from "../core/shelfRefresh";
 
-/** Parses the shelfId out of the current URL path. Route is registered as
- *  /deck-shelves/manage/:shelfId. */
 function getShelfIdFromLocation(): string {
   try {
     const p = (globalThis as any).window?.location?.pathname ?? "";
@@ -88,10 +86,10 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
             <p style={{ opacity: 0.7, marginBottom: 16 }}>{shelf.title}</p>
             <PanelSection>
               <PanelSectionRow>
-                <DialogButton onClick={onEdit} onOKButton={onEdit}>{t("editShelf") ?? "Edit"}</DialogButton>
+                <DialogButton onClick={onEdit} onOKButton={onEdit}>{t("edit_shelf") ?? "Edit"}</DialogButton>
               </PanelSectionRow>
               <PanelSectionRow>
-                <DialogButton onClick={onDuplicate} onOKButton={onDuplicate}>{t("duplicateShelf") ?? "Duplicate"}</DialogButton>
+                <DialogButton onClick={onDuplicate} onOKButton={onDuplicate}>{t("duplicate_shelf") ?? "Duplicate"}</DialogButton>
               </PanelSectionRow>
               <PanelSectionRow>
                 <DialogButton onClick={onToggleCollapse} onOKButton={onToggleCollapse}>
@@ -121,7 +119,7 @@ function ShelfManageRouteImpl({ shelfId: shelfIdProp }: { shelfId: string }) {
                 </PanelSectionRow>
               )}
               <PanelSectionRow>
-                <DialogButton onClick={onDelete} onOKButton={onDelete}>{t("deleteShelf") ?? "Delete"}</DialogButton>
+                <DialogButton onClick={onDelete} onOKButton={onDelete}>{t("delete_shelf") ?? "Delete"}</DialogButton>
               </PanelSectionRow>
             </PanelSection>
           </DialogControlsSection>

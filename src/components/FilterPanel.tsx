@@ -9,7 +9,6 @@ import { isValidParams, defaultParams } from "./filter/utils";
 
 // ---------- constants ----------
 
-
 // ---------- icons (inline SVG, no external deps) ----------
 
 // icons moved to filter/utils
@@ -33,15 +32,7 @@ import { isValidParams, defaultParams } from "./filter/utils";
 export type FilterPanelProps = {
   group: FilterGroup;
   onChange: (group: FilterGroup) => void;
-  /** When provided, nested `merge` filters render their own SavedFiltersBar
-   *  so users can apply saved filter groups to a merge's sub-filters. The
-   *  top-level SavedFiltersBar lives outside this component (it owns the
-   *  whole shelf's group) — this prop only enables the inner one. */
   controller?: import("../features/settings/controller").SettingsController;
-  /** Allow online-only filter types (e.g. discount) in the picker. Only
-   *  meaningful for wishlist/store child filters where the price cache
-   *  actually has data; defaults to false elsewhere. Propagates to nested
-   *  merge groups via MergeFilterOptions → FilterPanel. */
   allowOnlineFilters?: boolean;
 };
 

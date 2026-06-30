@@ -1,14 +1,3 @@
-/**
- * Network availability primitive — `isOnline()` returns true when a 3s HEAD
- * to a Steam-owned, always-cached endpoint succeeds with 2xx.
- *
- * Single-flight: concurrent callers share the in-flight request.
- * 30s TTL: cached result reused until expiry; never throws; resolves false
- * on DNS failure, timeout, abort, or non-2xx.
- *
- * Demand-driven only — no polling, no boot probe, no listeners. Callers
- * invoke when they need a gate (update notifier, online-store fetcher).
- */
 const PROBE_URL = "https://store.steampowered.com/favicon.ico";
 const PROBE_TIMEOUT_MS = 3000;
 const TTL_MS = 10 * 1000; // 10s — short enough to recover from startup false-negative
@@ -55,7 +44,6 @@ async function probe(): Promise<boolean> {
   }
 }
 
-/** Test/QA helper — clears the cache so the next isOnline() probes again. */
 export function __resetConnectivityCache(): void {
   cachedResult = null;
   cachedAt = 0;

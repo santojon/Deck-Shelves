@@ -139,7 +139,7 @@ jobs:
               r'I have read \[CONTRIBUTING\.md\]',
               r"My code follows the project's code style",
               r'I ran `pnpm run build:plugin` with no errors',
-              r'I ran `bash scripts/build/validate-compat\.sh`',
+              r'I ran `pnpm run validate:compat`',
               r'I tested on a Steam Deck',
           ]
           for row in checklist_rows:

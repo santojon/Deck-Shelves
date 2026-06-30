@@ -7,8 +7,6 @@ import { openManagedModal } from "./qam/common/openManagedModal";
 import { EditSmartShelfModal } from "./qam/modals/EditSmartShelfModal";
 import { DeleteConfirmSmartModal } from "./qam/modals/DeleteConfirmSmartModal";
 
-/** Parses the shelfId out of the current URL path. Routes are registered as
- *  /deck-shelves/edit/:shelfId and /deck-shelves/delete/:shelfId. */
 function getShelfIdFromLocation(): string {
   try {
     const p = (globalThis as any).window?.location?.pathname ?? "";
@@ -17,17 +15,6 @@ function getShelfIdFromLocation(): string {
   } catch { return ""; }
 }
 
-/**
- * Full-screen route that opens the Edit or Delete modal for a shelf, then
- * navigates back when the modal closes. This is the QAM-independent path —
- * the menu action's `Navigation.Navigate('/deck-shelves/edit/{shelfId}')`
- * lands here, the route mounts a SettingsController via the hook, and the
- * modal opens via DFL.showModal (independent of the QAM panel).
- *
- * The Route component itself renders nothing visible — its only job is to
- * mount the controller and trigger the modal in an effect. On modal close,
- * it pops back to the previous route.
- */
 function ShelfModalRouteImpl({ kind, shelfId: shelfIdProp }: { kind: "edit" | "delete"; shelfId: string }) {
   const controller = useSettingsController();
   const triggeredRef = useRef(false);

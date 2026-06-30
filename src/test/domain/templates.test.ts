@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { SHELF_TEMPLATES, DEFAULT_SHELF_TEMPLATES } from '../../domain/templates'
+import { SHELF_TEMPLATES, DEFAULT_SHELF_TEMPLATES, shelfSourceSignature, coveredTemplateIds } from '../../domain/templates'
+
+describe('template exclusion', () => {
+  it('signature ignores sort so a re-sorted shelf still matches its template', () => {
+    const a = shelfSourceSignature({ type: 'filter', filter: { maxPlaytimeMinutes: 0, sort: 'alphabetical' } })
+    const b = shelfSourceSignature({ type: 'filter', filter: { maxPlaytimeMinutes: 0, sort: 'playtime' } })
+    expect(a).toBe(b)
+  })
+
+  it('covers a template id when a matching shelf exists', () => {
+    const neverPlayed = SHELF_TEMPLATES.find((t) => t.id === 'never_played')!
+    const covered = coveredTemplateIds([{ source: { ...neverPlayed.source, sort: 'recent' } }], [])
+    expect(covered).toContain('never_played')
+    expect(covered).not.toContain('deck_verified')
+  })
+
+  it('covers existing smart modes', () => {
+    expect(coveredTemplateIds([], ['best_unplayed'])).toContain('best_unplayed')
+  })
+})
 
 describe('SHELF_TEMPLATES', () => {
   it('has unique template ids', () => {
@@ -48,6 +67,25 @@ describe('SHELF_TEMPLATES', () => {
       expect(group).toBeDefined()
       expect(group!.items[0].type).toBe('deckCompatibility')
       expect(group!.items[0].params?.levels).toEqual(['verified'])
+    }
+  })
+
+  it('never_played template targets the backlog via maxPlaytimeMinutes:0', () => {
+    const np = SHELF_TEMPLATES.find((t) => t.id === 'never_played')
+    expect(np).toBeDefined()
+    if (np!.source.type === 'filter') {
+      expect(np!.source.filter.maxPlaytimeMinutes).toBe(0)
+      expect(np!.source.filter.sort).toBe('alphabetical')
+    }
+  })
+
+  it('deck_playable template targets the "playable" compatibility level', () => {
+    const dp = SHELF_TEMPLATES.find((t) => t.id === 'deck_playable')
+    expect(dp).toBeDefined()
+    if (dp!.source.type === 'filter') {
+      const group = dp!.source.filter.filterGroup
+      expect(group!.items[0].type).toBe('deckCompatibility')
+      expect(group!.items[0].params?.levels).toEqual(['playable'])
     }
   })
 

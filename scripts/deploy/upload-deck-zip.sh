@@ -15,7 +15,7 @@ if [[ -z "$HOST" ]]; then
   exit 1
 fi
 
-ZIP="$(bash scripts/build/package.sh | sed -n 's/^\[package\] Created installable archive: //p' | tail -n1)"
+ZIP="$(python3 scripts/build/package.py | sed -n 's/^\[package\] Created installable archive: //p' | tail -n1)"
 if [[ -z "$ZIP" || ! -f "$ZIP" ]]; then
   VERSION="$(node -p 'require("./package.json").version')"
   SLUG="$(node -p 'require("./package.json").name')"
