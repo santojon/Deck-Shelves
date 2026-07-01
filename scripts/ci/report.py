@@ -150,11 +150,7 @@ def _parse_uitests_by_suite(log_text: str) -> dict:
 # ── CSS ────────────────────────────────────────────────────────────────────────
 
 _CSS = """\
-*,*::before,*::after{box-sizing:border-box}
-:root{font-family:system-ui,-apple-system,sans-serif;
-  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
-  --pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:#60a5fa}
-body{margin:0;background:var(--bg);color:var(--text)}
+:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 header{background:var(--card);border-bottom:1px solid var(--border);
   padding:16px 28px;display:flex;align-items:center;gap:12px}
@@ -214,11 +210,7 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
 """
 
 _IDX_CSS = """\
-*,*::before,*::after{box-sizing:border-box}
-:root{font-family:system-ui,-apple-system,sans-serif;
-  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
-  --pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--link:#60a5fa}
-body{margin:0;background:var(--bg);color:var(--text)}
+:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 28px}
 header h1{margin:0;font-size:18px;font-weight:700}
@@ -243,11 +235,7 @@ footer{text-align:center;color:var(--border);font-size:10px;padding:24px}
 """
 
 _TOP_CSS = """\
-*,*::before,*::after{box-sizing:border-box}
-:root{font-family:system-ui,-apple-system,sans-serif;
-  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
-  --pass:#4ade80;--fail:#f87171;--link:#60a5fa}
-body{margin:0;background:var(--bg);color:var(--text)}
+:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 header{background:var(--card);border-bottom:1px solid var(--border);padding:18px 32px}
 header h1{margin:0;font-size:20px;font-weight:700}
@@ -259,8 +247,8 @@ main{max-width:760px;margin:0 auto;padding:24px 32px}
 .scard h2{margin:0;font-size:15px;font-weight:700}
 .scard p{margin:0;font-size:11px;color:var(--muted);flex:1}
 .scard a.btn{display:inline-block;padding:6px 14px;border-radius:6px;font-size:12px;
-  font-weight:600;background:#1e40af;color:#fff;margin-top:4px;text-align:center}
-.scard a.btn:hover{background:#2563eb;text-decoration:none}
+  font-weight:600;background:#2563eb;color:#fff;margin-top:4px;text-align:center}
+.scard a.btn:hover{background:#1d6fff;text-decoration:none}
 .latest{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
 .latest h2{margin:0 0 12px;font-size:14px;font-weight:700}
 table{width:100%;border-collapse:collapse;font-size:12px}
@@ -272,6 +260,38 @@ tr:hover td{background:#273548}
 .b.pass{background:#14532d44;color:var(--pass)}.b.fail{background:#7f1d1d44;color:var(--fail)}
 footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
 """
+
+
+# ── Shared landing-style nav ─────────────────────────────────────────────────
+
+_LOGO_SVG = (
+    '<svg class="brand-mark" viewBox="217 444 854 378">'
+    '<g fill="#0080FF"><circle cx="300" cy="620" r="80"/>'
+    '<rect rx="8" x="550" y="460" width="80" height="285"/>'
+    '<rect rx="8" x="645" y="500" width="75" height="245"/></g>'
+    '<g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 '
+    '473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 '
+    '313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C '
+    '344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/>'
+    '<rect rx="8" x="740" y="530" width="75" height="215"/>'
+    '<rect rx="8" x="840" y="470" width="75" height="275"/>'
+    '<rect rx="8" x="500" y="750" width="570" height="25"/></g></svg>'
+)
+
+
+def _report_nav(landing: str, reports_home: str, dash: str) -> str:
+    """Landing-matching top bar so reports share the site's header + logo and
+    always offer a one-click path back to the home page."""
+    return (
+        '<div class="nav"><div class="container nav-inner">'
+        f'<a class="brand" href="{landing}">{_LOGO_SVG}'
+        '<div><div class="brand-name">DECK <b>SHELVES</b></div>'
+        '<div class="brand-tag">Validation reports</div></div></a>'
+        f'<nav class="nav-links"><a href="{reports_home}">All reports</a>'
+        f'<a href="{dash}">Dashboard</a></nav>'
+        f'<a class="btn btn-ghost" href="{landing}">&larr; Back to site</a>'
+        '</div></div>'
+    )
 
 
 # ── Step HTML ──────────────────────────────────────────────────────────────────
@@ -405,9 +425,11 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; {_html.escape(label)} Reports</title>
+<link rel="stylesheet" href="../../style.css">
 <style>{_IDX_CSS}</style>
 </head>
 <body>
+{_report_nav('../../index.html', '../index.html', '../dashboard.html')}
 <header>
   <h1>Deck Shelves &mdash; {_html.escape(label)}</h1>
   <p>{len(records)} run(s) &nbsp;&middot;&nbsp; newest first</p>
@@ -551,19 +573,16 @@ def _rebuild_top_index(reports_root: Path) -> None:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; Validation Reports</title>
+<link rel="stylesheet" href="../style.css">
 <style>{_TOP_CSS}</style>
 </head>
 <body>
+{_report_nav('../index.html', 'index.html', 'dashboard.html')}
 <header>
   <h1>Deck Shelves &mdash; Validation Reports</h1>
   <p>Three validation scopes + dashboard &middot; local-only, not committed</p>
 </header>
 <main>
-  <div style="margin-bottom:20px">
-    <a class="btn" href="dashboard.html"
-       style="display:inline-block;padding:9px 18px;border-radius:8px;font-size:13px;
-              font-weight:700;background:#7c3aed;color:#fff">📊 Open Dashboard &rarr;</a>
-  </div>
   <div class="grid">
 {cards_html}
   </div>
@@ -588,11 +607,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
 # ── Dashboard ──────────────────────────────────────────────────────────────────
 
 _DASH_CSS = """\
-*,*::before,*::after{box-sizing:border-box}
-:root{font-family:system-ui,-apple-system,sans-serif;
-  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
-  --pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--link:#60a5fa;--accent:#a78bfa}
-body{margin:0;background:var(--bg);color:var(--text)}
+:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 header{background:var(--card);border-bottom:1px solid var(--border);padding:18px 32px;
   display:flex;align-items:center;gap:14px}
@@ -729,8 +744,8 @@ def _svg_line_chart(runs: List[dict], w: int = 480, h: int = 200) -> str:
     )
     return f"""<svg viewBox="0 0 {w} {h}" width="100%" height="{h}">
 {''.join(grid)}
-<path d="{area_d}" fill="#7c3aed22"/>
-<path d="{line_d}" fill="none" stroke="#a78bfa" stroke-width="2"/>
+<path d="{area_d}" fill="#3d8bff22"/>
+<path d="{line_d}" fill="none" stroke="#6ea8ff" stroke-width="2"/>
 {dots}
 </svg>"""
 
@@ -984,9 +999,11 @@ def generate(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; {_html.escape(scope_label)} {_html.escape(ts)}</title>
+<link rel="stylesheet" href="../../style.css">
 <style>{_CSS}</style>
 </head>
 <body>
+{_report_nav('../../index.html', '../index.html', '../dashboard.html')}
 <header>
   <a class="back" href="index.html">&larr;</a>
   <div style="flex:1">
@@ -1098,9 +1115,11 @@ def main() -> int:
     args = p.parse_args()
 
     if args.rebuild:
-        rebuild_aggregates(Path(args.root) / "reports" if (Path(args.root) / "reports").is_dir()
-                           else Path(args.root),
-                           scope_only=args.scope_only)
+        rr = Path(args.root) / "site" / "reports"
+        if not rr.is_dir():
+            legacy = Path(args.root) / "reports"
+            rr = legacy if legacy.is_dir() else Path(args.root)
+        rebuild_aggregates(rr, scope_only=args.scope_only)
         return 0
 
     # Per-run path needs the full set of arguments.

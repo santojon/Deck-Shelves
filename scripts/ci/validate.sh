@@ -12,8 +12,8 @@ STRESS=0
 [[ "${1:-}" == "--stress" ]] && STRESS=1
 
 TS="$(date '+%Y-%m-%d_%H-%M-%S')"
-TMP="${ROOT}/reports/local/.tmp_${TS}"
-REPORT_DIR="${ROOT}/reports/local"
+TMP="${ROOT}/site/reports/local/.tmp_${TS}"
+REPORT_DIR="${ROOT}/site/reports/local"
 mkdir -p "${TMP}" "${REPORT_DIR}"
 
 if [[ -f "${ROOT}/.env" ]]; then

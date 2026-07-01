@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Deck Shelves &mdash; Release 2026-06-10_14-37-15</title>
+<title>Deck Shelves &mdash; CI / Automated 2026-06-08_11-49-12</title>
+<link rel="stylesheet" href="../../style.css">
 <style>*,*::before,*::after{box-sizing:border-box}
-:root{font-family:system-ui,-apple-system,sans-serif;
-  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
-  --pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:#60a5fa}
+:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 body{margin:0;background:var(--bg);color:var(--text)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 header{background:var(--card);border-bottom:1px solid var(--border);
@@ -69,11 +68,12 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
 </style>
 </head>
 <body>
+<div class="nav"><div class="container nav-inner"><a class="brand" href="../../index.html"><svg class="brand-mark" viewBox="217 444 854 378"><g fill="#0080FF"><circle cx="300" cy="620" r="80"/><rect rx="8" x="550" y="460" width="80" height="285"/><rect rx="8" x="645" y="500" width="75" height="245"/></g><g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/><rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/><rect rx="8" x="500" y="750" width="570" height="25"/></g></svg><div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Validation reports</div></div></a><nav class="nav-links"><a href="../index.html">All reports</a><a href="../dashboard.html">Dashboard</a></nav><a class="btn btn-ghost" href="../../index.html">&larr; Back to site</a></div></div>
 <header>
   <a class="back" href="index.html">&larr;</a>
   <div style="flex:1">
-    <h1>Deck Shelves &mdash; Release</h1>
-    <div class="meta">June 10, 2026 at 14:37:15 &nbsp;&middot;&nbsp; 6 steps</div>
+    <h1>Deck Shelves &mdash; CI / Automated</h1>
+    <div class="meta">June 08, 2026 at 11:49:12 &nbsp;&middot;&nbsp; 6 steps</div>
   </div>
   <span class="hbadge pass">PASS</span>
 </header>
@@ -83,129 +83,129 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
     <div class="sc"><div class="n f">0</div><div class="l">Failed</div></div>
     <div class="sc"><div class="n s">0</div><div class="l">Skipped</div></div>
     <div class="sc"><div class="n t">6</div><div class="l">Total</div></div>
-    <div class="sc"><div class="n t">17.0s</div><div class="l">Duration</div></div>
+    <div class="sc"><div class="n t">16.7s</div><div class="l">Duration</div></div>
   </div>
-  <div class="panel"><h2>Step durations</h2><div class="bm"><div class="bm-row"><span class="bm-name">TypeScript typecheck</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:100.0%;background:#4ade80"></div></div><span class="bm-dur">7.4s</span></div><div class="bm-row"><span class="bm-name">Build (production)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:15.0%;background:#4ade80"></div></div><span class="bm-dur">1.1s</span></div><div class="bm-row"><span class="bm-name">Unit tests (vitest)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:51.5%;background:#4ade80"></div></div><span class="bm-dur">3.8s</span></div><div class="bm-row"><span class="bm-name">Package (.zip)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:22.2%;background:#4ade80"></div></div><span class="bm-dur">1.6s</span></div><div class="bm-row"><span class="bm-name">Verify package</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:2.0%;background:#4ade80"></div></div><span class="bm-dur">142 ms</span></div><div class="bm-row"><span class="bm-name">Compat validation</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:39.2%;background:#4ade80"></div></div><span class="bm-dur">2.9s</span></div></div></div>
-<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="sdur" title="7381 ms">7.4s</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></summary><div class="step-body" id="b0"><pre class="log">
-&gt; deck-shelves@2.4.2 typecheck /home/runner/work/Deck-Shelves/Deck-Shelves
+  <div class="panel"><h2>Step durations</h2><div class="bm"><div class="bm-row"><span class="bm-name">TypeScript typecheck</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:100.0%;background:#4ade80"></div></div><span class="bm-dur">7.1s</span></div><div class="bm-row"><span class="bm-name">Build (production)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:15.8%;background:#4ade80"></div></div><span class="bm-dur">1.1s</span></div><div class="bm-row"><span class="bm-name">Unit tests (vitest)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:53.4%;background:#4ade80"></div></div><span class="bm-dur">3.8s</span></div><div class="bm-row"><span class="bm-name">Package (.zip)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:23.0%;background:#4ade80"></div></div><span class="bm-dur">1.6s</span></div><div class="bm-row"><span class="bm-name">Verify package</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:2.0%;background:#4ade80"></div></div><span class="bm-dur">145 ms</span></div><div class="bm-row"><span class="bm-name">Compat validation</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:40.7%;background:#4ade80"></div></div><span class="bm-dur">2.9s</span></div></div></div>
+<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="sdur" title="7124 ms">7.1s</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></summary><div class="step-body" id="b0"><pre class="log">
+&gt; deck-shelves@2.4.1 typecheck /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; tsc --noEmit
 
 </pre></div></details>
-<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="sdur" title="1107 ms">1.1s</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></summary><div class="step-body" id="b1"><pre class="log">
-&gt; deck-shelves@2.4.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="sdur" title="1124 ms">1.1s</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></summary><div class="step-body" id="b1"><pre class="log">
+&gt; deck-shelves@2.4.1 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
 vite v8.0.14 building client environment for production...
 
-<span class="g">transforming...✓ 308 modules transformed.</span>
+<span class="g">transforming...✓ 306 modules transformed.</span>
 rendering chunks...
 computing gzip size...
 dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>    0.91 kB │ gzip:   0.47 kB
 dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>           0.96 kB │ gzip:   0.45 kB
 dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>       2.87 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-DLINninX.js">/chunks/pluginApi-DLINninX.js</a>           8.46 kB │ gzip:   2.33 kB
 dist<a class="fl" href="vscode://file//chunks/decky-BFr0zX7Q.js">/chunks/decky-BFr0zX7Q.js</a>               8.56 kB │ gzip:   3.14 kB
 dist<a class="fl" href="vscode://file//chunks/onlineStore-BIRGpWmE.js">/chunks/onlineStore-BIRGpWmE.js</a>        11.59 kB │ gzip:   3.92 kB
-dist<a class="fl" href="vscode://file//chunks/pluginApi-Bjz0a65c.js">/chunks/pluginApi-Bjz0a65c.js</a>          15.54 kB │ gzip:   4.28 kB
-dist<a class="fl" href="vscode://file//chunks/zh-CN-Dzt5jC0r.js">/chunks/zh-CN-Dzt5jC0r.js</a>              59.92 kB │ gzip:  21.44 kB
-dist<a class="fl" href="vscode://file//chunks/zh-TW-DSkKHz4q.js">/chunks/zh-TW-DSkKHz4q.js</a>              61.14 kB │ gzip:  21.56 kB
-dist<a class="fl" href="vscode://file//chunks/en-GB-BbZoAIIs.js">/chunks/en-GB-BbZoAIIs.js</a>              61.43 kB │ gzip:  19.24 kB
-dist<a class="fl" href="vscode://file//chunks/nl-NL-DfE5STuZ.js">/chunks/nl-NL-DfE5STuZ.js</a>              64.23 kB │ gzip:  20.75 kB
-dist<a class="fl" href="vscode://file//chunks/pl-PL-C688bgCv.js">/chunks/pl-PL-C688bgCv.js</a>              64.54 kB │ gzip:  21.42 kB
-dist<a class="fl" href="vscode://file//chunks/it-IT-DEqQbFB2.js">/chunks/it-IT-DEqQbFB2.js</a>              65.19 kB │ gzip:  20.64 kB
-dist<a class="fl" href="vscode://file//chunks/tr-TR-YNXL4Umw.js">/chunks/tr-TR-YNXL4Umw.js</a>              65.73 kB │ gzip:  21.28 kB
-dist<a class="fl" href="vscode://file//chunks/de-DE-CqLhDTj4.js">/chunks/de-DE-CqLhDTj4.js</a>              65.87 kB │ gzip:  21.31 kB
-dist<a class="fl" href="vscode://file//chunks/es-419-DiyUQTs2.js">/chunks/es-419-DiyUQTs2.js</a>             66.12 kB │ gzip:  20.84 kB
-dist<a class="fl" href="vscode://file//chunks/ko-KR-BS2RKEBu.js">/chunks/ko-KR-BS2RKEBu.js</a>              66.18 kB │ gzip:  21.46 kB
-dist<a class="fl" href="vscode://file//chunks/pt-BR-DIbehkSX.js">/chunks/pt-BR-DIbehkSX.js</a>              66.23 kB │ gzip:  20.28 kB
-dist<a class="fl" href="vscode://file//chunks/pt-PT-Bq-00cBG.js">/chunks/pt-PT-Bq-00cBG.js</a>              66.41 kB │ gzip:  20.51 kB
-dist<a class="fl" href="vscode://file//chunks/es-ES-he3zQsxl.js">/chunks/es-ES-he3zQsxl.js</a>              66.58 kB │ gzip:  20.78 kB
-dist<a class="fl" href="vscode://file//chunks/fr-CA-ob2kERpM.js">/chunks/fr-CA-ob2kERpM.js</a>              67.20 kB │ gzip:  21.17 kB
-dist<a class="fl" href="vscode://file//chunks/fr-FR-BRtU91Xm.js">/chunks/fr-FR-BRtU91Xm.js</a>              67.82 kB │ gzip:  21.11 kB
-dist<a class="fl" href="vscode://file//chunks/ja-JP-1y_aEAMK.js">/chunks/ja-JP-1y_aEAMK.js</a>              71.18 kB │ gzip:  22.25 kB
-dist<a class="fl" href="vscode://file//chunks/uk-UA-DA8r3hZJ.js">/chunks/uk-UA-DA8r3hZJ.js</a>              83.33 kB │ gzip:  23.54 kB
-dist<a class="fl" href="vscode://file//chunks/ru-RU-BG4ri5hC.js">/chunks/ru-RU-BG4ri5hC.js</a>              83.61 kB │ gzip:  23.85 kB
-dist<a class="fl" href="vscode://file//chunks/steam-L-ehnjBh.js">/chunks/steam-L-ehnjBh.js</a>              93.86 kB │ gzip:  23.83 kB
-dist<a class="fl" href="vscode://file//chunks/settingsStore-j1km20sn.js">/chunks/settingsStore-j1km20sn.js</a>     129.68 kB │ gzip:  28.43 kB
-dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             860.32 kB │ gzip: 199.39 kB
+dist<a class="fl" href="vscode://file//chunks/zh-CN-lBMdrjgV.js">/chunks/zh-CN-lBMdrjgV.js</a>              59.74 kB │ gzip:  21.38 kB
+dist<a class="fl" href="vscode://file//chunks/zh-TW-CmPsZ8lA.js">/chunks/zh-TW-CmPsZ8lA.js</a>              60.96 kB │ gzip:  21.51 kB
+dist<a class="fl" href="vscode://file//chunks/en-GB-CFzLVGFl.js">/chunks/en-GB-CFzLVGFl.js</a>              61.25 kB │ gzip:  19.18 kB
+dist<a class="fl" href="vscode://file//chunks/nl-NL-BVOAV8Vc.js">/chunks/nl-NL-BVOAV8Vc.js</a>              64.03 kB │ gzip:  20.68 kB
+dist<a class="fl" href="vscode://file//chunks/pl-PL-B9FVe1ck.js">/chunks/pl-PL-B9FVe1ck.js</a>              64.36 kB │ gzip:  21.36 kB
+dist<a class="fl" href="vscode://file//chunks/it-IT-BwOFOb9t.js">/chunks/it-IT-BwOFOb9t.js</a>              65.00 kB │ gzip:  20.58 kB
+dist<a class="fl" href="vscode://file//chunks/tr-TR-D58aJvCi.js">/chunks/tr-TR-D58aJvCi.js</a>              65.52 kB │ gzip:  21.22 kB
+dist<a class="fl" href="vscode://file//chunks/de-DE-BiT0h-bz.js">/chunks/de-DE-BiT0h-bz.js</a>              65.67 kB │ gzip:  21.25 kB
+dist<a class="fl" href="vscode://file//chunks/es-419-BErkqhFc.js">/chunks/es-419-BErkqhFc.js</a>             65.93 kB │ gzip:  20.78 kB
+dist<a class="fl" href="vscode://file//chunks/ko-KR-D1I2ndzX.js">/chunks/ko-KR-D1I2ndzX.js</a>              65.99 kB │ gzip:  21.40 kB
+dist<a class="fl" href="vscode://file//chunks/pt-BR-D2WvEsk1.js">/chunks/pt-BR-D2WvEsk1.js</a>              66.04 kB │ gzip:  20.23 kB
+dist<a class="fl" href="vscode://file//chunks/pt-PT-IgHuzrF5.js">/chunks/pt-PT-IgHuzrF5.js</a>              66.22 kB │ gzip:  20.45 kB
+dist<a class="fl" href="vscode://file//chunks/es-ES-UiRHFs_B.js">/chunks/es-ES-UiRHFs_B.js</a>              66.39 kB │ gzip:  20.72 kB
+dist<a class="fl" href="vscode://file//chunks/fr-CA-CqmeUwQl.js">/chunks/fr-CA-CqmeUwQl.js</a>              67.00 kB │ gzip:  21.11 kB
+dist<a class="fl" href="vscode://file//chunks/fr-FR-BlY7_-Lr.js">/chunks/fr-FR-BlY7_-Lr.js</a>              67.61 kB │ gzip:  21.04 kB
+dist<a class="fl" href="vscode://file//chunks/ja-JP-DWWoK62h.js">/chunks/ja-JP-DWWoK62h.js</a>              70.99 kB │ gzip:  22.18 kB
+dist<a class="fl" href="vscode://file//chunks/uk-UA-EJtJjTT3.js">/chunks/uk-UA-EJtJjTT3.js</a>              83.05 kB │ gzip:  23.47 kB
+dist<a class="fl" href="vscode://file//chunks/ru-RU-CweGqEJt.js">/chunks/ru-RU-CweGqEJt.js</a>              83.33 kB │ gzip:  23.78 kB
+dist<a class="fl" href="vscode://file//chunks/steam-BqC8870b.js">/chunks/steam-BqC8870b.js</a>              92.65 kB │ gzip:  23.56 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-CfXDnvix.js">/chunks/settingsStore-CfXDnvix.js</a>     129.24 kB │ gzip:  28.38 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             855.82 kB │ gzip: 198.33 kB
 
-<span class="g">✓ built in 495ms</span>
+<span class="g">✓ built in 507ms</span>
 </pre></div></details>
-<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="sdur" title="3800 ms">3.8s</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 23 passed</span></div><pre class="log">
-&gt; deck-shelves@2.4.2 test /home/runner/work/Deck-Shelves/Deck-Shelves
+<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="sdur" title="3801 ms">3.8s</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 23 passed</span></div><pre class="log">
+&gt; deck-shelves@2.4.1 test /home/runner/work/Deck-Shelves/Deck-Shelves
 <span class="w">&gt; NODE_NO_WARNINGS=1 vitest run</span>
 
 
  RUN  v4.1.7 /home/runner/work/Deck-Shelves/Deck-Shelves
 
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelvesRuntime.test.ts">src/test/steam/smartShelvesRuntime.test.ts</a> (19 tests) 18ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/settings.test.ts">src/test/domain/settings.test.ts</a> (43 tests) 28ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelves.test.ts">src/test/steam/smartShelves.test.ts</a> (36 tests) 25ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/evaluateFilterGroup.test.ts">src/test/steam/evaluateFilterGroup.test.ts</a> (28 tests) 14ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/customfilters.test.ts">src/test/domain/customfilters.test.ts</a> (17 tests) 11ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/regression.test.ts">src/test/regression.test.ts</a> (36 tests) 45ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam.test.ts">src/test/steam.test.ts</a> (8 tests) 12ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applySortToIds.test.ts">src/test/steam/applySortToIds.test.ts</a> (13 tests) 23ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/syntheticCards.test.ts">src/test/domain/syntheticCards.test.ts</a> (11 tests) 17ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/shelfOrder.test.ts">src/test/domain/shelfOrder.test.ts</a> (17 tests) 13ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/mergeCompositeResults.test.ts">src/test/steam/mergeCompositeResults.test.ts</a> (15 tests) 10ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/trailingCards.test.ts">src/test/components/trailingCards.test.ts</a> (13 tests) 9ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/heuristics.test.ts">src/test/steam/heuristics.test.ts</a> (9 tests) 7ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/qa/qam-visibility.test.ts">src/test/qa/qam-visibility.test.ts</a> (10 tests) 15ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/schemas.test.ts">src/test/domain/schemas.test.ts</a> (8 tests) 36ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/reorder.test.ts">src/test/core/reorder.test.ts</a> (14 tests) 9ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/normalizeTitleForMatch.test.ts">src/test/steam/normalizeTitleForMatch.test.ts</a> (10 tests) 10ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/templates.test.ts">src/test/domain/templates.test.ts</a> (8 tests) 9ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applyManualOrder.test.ts">src/test/steam/applyManualOrder.test.ts</a> (9 tests) 8ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/webpackCompat.test.ts">src/test/core/webpackCompat.test.ts</a> (7 tests) 200ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/compareAdded.test.ts">src/test/compareAdded.test.ts</a> (3 tests) 5ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelvesRuntime.test.ts">src/test/steam/smartShelvesRuntime.test.ts</a> (19 tests) 23ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/settings.test.ts">src/test/domain/settings.test.ts</a> (43 tests) 26ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelves.test.ts">src/test/steam/smartShelves.test.ts</a> (36 tests) 27ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/evaluateFilterGroup.test.ts">src/test/steam/evaluateFilterGroup.test.ts</a> (28 tests) 28ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/customfilters.test.ts">src/test/domain/customfilters.test.ts</a> (17 tests) 15ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/regression.test.ts">src/test/regression.test.ts</a> (36 tests) 60ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applySortToIds.test.ts">src/test/steam/applySortToIds.test.ts</a> (13 tests) 25ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam.test.ts">src/test/steam.test.ts</a> (8 tests) 15ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/syntheticCards.test.ts">src/test/domain/syntheticCards.test.ts</a> (11 tests) 14ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/shelfOrder.test.ts">src/test/domain/shelfOrder.test.ts</a> (17 tests) 11ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/mergeCompositeResults.test.ts">src/test/steam/mergeCompositeResults.test.ts</a> (15 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/trailingCards.test.ts">src/test/components/trailingCards.test.ts</a> (13 tests) 7ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/heuristics.test.ts">src/test/steam/heuristics.test.ts</a> (9 tests) 11ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/qa/qam-visibility.test.ts">src/test/qa/qam-visibility.test.ts</a> (10 tests) 13ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/schemas.test.ts">src/test/domain/schemas.test.ts</a> (8 tests) 32ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/reorder.test.ts">src/test/core/reorder.test.ts</a> (14 tests) 13ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/normalizeTitleForMatch.test.ts">src/test/steam/normalizeTitleForMatch.test.ts</a> (10 tests) 7ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/templates.test.ts">src/test/domain/templates.test.ts</a> (8 tests) 7ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applyManualOrder.test.ts">src/test/steam/applyManualOrder.test.ts</a> (9 tests) 9ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/webpackCompat.test.ts">src/test/core/webpackCompat.test.ts</a> (7 tests) 220ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/compareAdded.test.ts">src/test/compareAdded.test.ts</a> (3 tests) 6ms</span>
 <span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/scrollUtils.test.ts">src/test/scrollUtils.test.ts</a> (2 tests) 3ms</span>
 <span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/refreshableSmartModes.test.ts">src/test/components/refreshableSmartModes.test.ts</a> (3 tests) 6ms</span>
 
 <span class="g"> Test Files  23 passed (23)</span>
 <span class="g">      Tests  339 passed (339)</span>
-   Start at  14:37:24
-   Duration  3.11s (transform 1.22s, setup 0ms, import 3.52s, tests 534ms, environment 977ms)
+   Start at  11:49:21
+   Duration  3.11s (transform 935ms, setup 0ms, import 3.26s, tests 589ms, environment 960ms)
 
 </pre></div></details>
-<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="sdur" title="1638 ms">1.6s</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></summary><div class="step-body" id="b3"><pre class="log">
-&gt; deck-shelves@2.4.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="sdur" title="1635 ms">1.6s</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></summary><div class="step-body" id="b3"><pre class="log">
+&gt; deck-shelves@2.4.1 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
 vite v8.0.14 building client environment for production...
 
-<span class="g">transforming...✓ 308 modules transformed.</span>
+<span class="g">transforming...✓ 306 modules transformed.</span>
 rendering chunks...
 computing gzip size...
 dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>    0.91 kB │ gzip:   0.47 kB
 dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>           0.96 kB │ gzip:   0.45 kB
 dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>       2.87 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-DLINninX.js">/chunks/pluginApi-DLINninX.js</a>           8.46 kB │ gzip:   2.33 kB
 dist<a class="fl" href="vscode://file//chunks/decky-BFr0zX7Q.js">/chunks/decky-BFr0zX7Q.js</a>               8.56 kB │ gzip:   3.14 kB
 dist<a class="fl" href="vscode://file//chunks/onlineStore-BIRGpWmE.js">/chunks/onlineStore-BIRGpWmE.js</a>        11.59 kB │ gzip:   3.92 kB
-dist<a class="fl" href="vscode://file//chunks/pluginApi-Bjz0a65c.js">/chunks/pluginApi-Bjz0a65c.js</a>          15.54 kB │ gzip:   4.28 kB
-dist<a class="fl" href="vscode://file//chunks/zh-CN-Dzt5jC0r.js">/chunks/zh-CN-Dzt5jC0r.js</a>              59.92 kB │ gzip:  21.44 kB
-dist<a class="fl" href="vscode://file//chunks/zh-TW-DSkKHz4q.js">/chunks/zh-TW-DSkKHz4q.js</a>              61.14 kB │ gzip:  21.56 kB
-dist<a class="fl" href="vscode://file//chunks/en-GB-BbZoAIIs.js">/chunks/en-GB-BbZoAIIs.js</a>              61.43 kB │ gzip:  19.24 kB
-dist<a class="fl" href="vscode://file//chunks/nl-NL-DfE5STuZ.js">/chunks/nl-NL-DfE5STuZ.js</a>              64.23 kB │ gzip:  20.75 kB
-dist<a class="fl" href="vscode://file//chunks/pl-PL-C688bgCv.js">/chunks/pl-PL-C688bgCv.js</a>              64.54 kB │ gzip:  21.42 kB
-dist<a class="fl" href="vscode://file//chunks/it-IT-DEqQbFB2.js">/chunks/it-IT-DEqQbFB2.js</a>              65.19 kB │ gzip:  20.64 kB
-dist<a class="fl" href="vscode://file//chunks/tr-TR-YNXL4Umw.js">/chunks/tr-TR-YNXL4Umw.js</a>              65.73 kB │ gzip:  21.28 kB
-dist<a class="fl" href="vscode://file//chunks/de-DE-CqLhDTj4.js">/chunks/de-DE-CqLhDTj4.js</a>              65.87 kB │ gzip:  21.31 kB
-dist<a class="fl" href="vscode://file//chunks/es-419-DiyUQTs2.js">/chunks/es-419-DiyUQTs2.js</a>             66.12 kB │ gzip:  20.84 kB
-dist<a class="fl" href="vscode://file//chunks/ko-KR-BS2RKEBu.js">/chunks/ko-KR-BS2RKEBu.js</a>              66.18 kB │ gzip:  21.46 kB
-dist<a class="fl" href="vscode://file//chunks/pt-BR-DIbehkSX.js">/chunks/pt-BR-DIbehkSX.js</a>              66.23 kB │ gzip:  20.28 kB
-dist<a class="fl" href="vscode://file//chunks/pt-PT-Bq-00cBG.js">/chunks/pt-PT-Bq-00cBG.js</a>              66.41 kB │ gzip:  20.51 kB
-dist<a class="fl" href="vscode://file//chunks/es-ES-he3zQsxl.js">/chunks/es-ES-he3zQsxl.js</a>              66.58 kB │ gzip:  20.78 kB
-dist<a class="fl" href="vscode://file//chunks/fr-CA-ob2kERpM.js">/chunks/fr-CA-ob2kERpM.js</a>              67.20 kB │ gzip:  21.17 kB
-dist<a class="fl" href="vscode://file//chunks/fr-FR-BRtU91Xm.js">/chunks/fr-FR-BRtU91Xm.js</a>              67.82 kB │ gzip:  21.11 kB
-dist<a class="fl" href="vscode://file//chunks/ja-JP-1y_aEAMK.js">/chunks/ja-JP-1y_aEAMK.js</a>              71.18 kB │ gzip:  22.25 kB
-dist<a class="fl" href="vscode://file//chunks/uk-UA-DA8r3hZJ.js">/chunks/uk-UA-DA8r3hZJ.js</a>              83.33 kB │ gzip:  23.54 kB
-dist<a class="fl" href="vscode://file//chunks/ru-RU-BG4ri5hC.js">/chunks/ru-RU-BG4ri5hC.js</a>              83.61 kB │ gzip:  23.85 kB
-dist<a class="fl" href="vscode://file//chunks/steam-L-ehnjBh.js">/chunks/steam-L-ehnjBh.js</a>              93.86 kB │ gzip:  23.83 kB
-dist<a class="fl" href="vscode://file//chunks/settingsStore-j1km20sn.js">/chunks/settingsStore-j1km20sn.js</a>     129.68 kB │ gzip:  28.43 kB
-dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             860.32 kB │ gzip: 199.39 kB
+dist<a class="fl" href="vscode://file//chunks/zh-CN-lBMdrjgV.js">/chunks/zh-CN-lBMdrjgV.js</a>              59.74 kB │ gzip:  21.38 kB
+dist<a class="fl" href="vscode://file//chunks/zh-TW-CmPsZ8lA.js">/chunks/zh-TW-CmPsZ8lA.js</a>              60.96 kB │ gzip:  21.51 kB
+dist<a class="fl" href="vscode://file//chunks/en-GB-CFzLVGFl.js">/chunks/en-GB-CFzLVGFl.js</a>              61.25 kB │ gzip:  19.18 kB
+dist<a class="fl" href="vscode://file//chunks/nl-NL-BVOAV8Vc.js">/chunks/nl-NL-BVOAV8Vc.js</a>              64.03 kB │ gzip:  20.68 kB
+dist<a class="fl" href="vscode://file//chunks/pl-PL-B9FVe1ck.js">/chunks/pl-PL-B9FVe1ck.js</a>              64.36 kB │ gzip:  21.36 kB
+dist<a class="fl" href="vscode://file//chunks/it-IT-BwOFOb9t.js">/chunks/it-IT-BwOFOb9t.js</a>              65.00 kB │ gzip:  20.58 kB
+dist<a class="fl" href="vscode://file//chunks/tr-TR-D58aJvCi.js">/chunks/tr-TR-D58aJvCi.js</a>              65.52 kB │ gzip:  21.22 kB
+dist<a class="fl" href="vscode://file//chunks/de-DE-BiT0h-bz.js">/chunks/de-DE-BiT0h-bz.js</a>              65.67 kB │ gzip:  21.25 kB
+dist<a class="fl" href="vscode://file//chunks/es-419-BErkqhFc.js">/chunks/es-419-BErkqhFc.js</a>             65.93 kB │ gzip:  20.78 kB
+dist<a class="fl" href="vscode://file//chunks/ko-KR-D1I2ndzX.js">/chunks/ko-KR-D1I2ndzX.js</a>              65.99 kB │ gzip:  21.40 kB
+dist<a class="fl" href="vscode://file//chunks/pt-BR-D2WvEsk1.js">/chunks/pt-BR-D2WvEsk1.js</a>              66.04 kB │ gzip:  20.23 kB
+dist<a class="fl" href="vscode://file//chunks/pt-PT-IgHuzrF5.js">/chunks/pt-PT-IgHuzrF5.js</a>              66.22 kB │ gzip:  20.45 kB
+dist<a class="fl" href="vscode://file//chunks/es-ES-UiRHFs_B.js">/chunks/es-ES-UiRHFs_B.js</a>              66.39 kB │ gzip:  20.72 kB
+dist<a class="fl" href="vscode://file//chunks/fr-CA-CqmeUwQl.js">/chunks/fr-CA-CqmeUwQl.js</a>              67.00 kB │ gzip:  21.11 kB
+dist<a class="fl" href="vscode://file//chunks/fr-FR-BlY7_-Lr.js">/chunks/fr-FR-BlY7_-Lr.js</a>              67.61 kB │ gzip:  21.04 kB
+dist<a class="fl" href="vscode://file//chunks/ja-JP-DWWoK62h.js">/chunks/ja-JP-DWWoK62h.js</a>              70.99 kB │ gzip:  22.18 kB
+dist<a class="fl" href="vscode://file//chunks/uk-UA-EJtJjTT3.js">/chunks/uk-UA-EJtJjTT3.js</a>              83.05 kB │ gzip:  23.47 kB
+dist<a class="fl" href="vscode://file//chunks/ru-RU-CweGqEJt.js">/chunks/ru-RU-CweGqEJt.js</a>              83.33 kB │ gzip:  23.78 kB
+dist<a class="fl" href="vscode://file//chunks/steam-BqC8870b.js">/chunks/steam-BqC8870b.js</a>              92.65 kB │ gzip:  23.56 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-CfXDnvix.js">/chunks/settingsStore-CfXDnvix.js</a>     129.24 kB │ gzip:  28.38 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             855.82 kB │ gzip: 198.33 kB
 
-<span class="g">✓ built in 503ms</span>
-[package] Created installable archive: deck-shelves-v2.4.2.zip
+<span class="g">✓ built in 518ms</span>
+[package] Created installable archive: deck-shelves-v2.4.1.zip
 [verify] Found: plugin.json
 [verify] Found: package.json
 [verify] Found: main.py
@@ -214,9 +214,9 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 [verify] main.py is executable
 <span class="g">[verify] plugin.json flags OK (no debug)</span>
 [verify] package.json matches repo
-[verify] Package OK: /home/runner/work/Deck-Shelves/Deck-Shelves/deck-shelves-v2.4.2.zip
+[verify] Package OK: /home/runner/work/Deck-Shelves/Deck-Shelves/deck-shelves-v2.4.1.zip
 </pre></div></details>
-<details class="step" id="s4"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Verify package</span><span class="sdur" title="142 ms">142 ms</span><span class="slabel pass">PASS</span><span class="chevron" id="c4">▶</span></summary><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
+<details class="step" id="s4"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Verify package</span><span class="sdur" title="145 ms">145 ms</span><span class="slabel pass">PASS</span><span class="chevron" id="c4">▶</span></summary><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
 [verify] Found: package.json
 [verify] Found: main.py
 [verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
@@ -224,10 +224,10 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 [verify] main.py is executable
 <span class="g">[verify] plugin.json flags OK (no debug)</span>
 [verify] package.json matches repo
-[verify] Package OK: deck-shelves-v2.4.2.zip
+[verify] Package OK: deck-shelves-v2.4.1.zip
 </pre></div></details>
-<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="sdur" title="2893 ms">2.9s</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
-&gt; deck-shelves@2.4.2 validate:compat /home/runner/work/Deck-Shelves/Deck-Shelves
+<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="sdur" title="2900 ms">2.9s</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
+&gt; deck-shelves@2.4.1 validate:compat /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/validate-compat.mjs">scripts/build/validate-compat.mjs</a>
 
 ╔══════════════════════════════════════════════╗
@@ -238,7 +238,7 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
   Build Output (Vite/ESM)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 <span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> exists</span>
-<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> is non-empty (860324 bytes)</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> is non-empty (855822 bytes)</span>
 <span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> size under 2.5MB</span>
 <span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> has ESM exports</span>
 <span class="g">  ✅ No node_modules imports in bundle</span>
@@ -301,7 +301,7 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ No unused backend/ directory</span>
 <span class="g">  ✅ No unused defaults/ directory</span>
 <span class="g">  ✅ No remote code execution patterns in source</span>
-<span class="g">  ✅ Built output is not heavily obfuscated (25918 lines)</span>
+<span class="g">  ✅ Built output is not heavily obfuscated (25736 lines)</span>
 <span class="g">  ✅ No private/local dependencies</span>
 <span class="g">  ✅ assets/icon.png not required (store uses publish.image)</span>
 <span class="g">  ✅ No debug flag in plugin.json</span>
@@ -538,7 +538,7 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ i18n/ directory exists</span>
 <span class="g">  ✅ en-US.json base locale exists</span>
 <span class="g">  ✅ All locale files are valid JSON</span>
-<span class="g">  ✅ Base locale has 780 keys</span>
+<span class="g">  ✅ Base locale has 776 keys</span>
 <span class="g">  ✅ All locales have consistent keys</span>
 
 <span class="e">  Result: 5 passed, 0 failed</span>
@@ -671,6 +671,6 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 </pre></div></details>
 
 </main>
-<footer>Deck Shelves CI &middot; 2026-06-10_14-37-15</footer>
+<footer>Deck Shelves CI &middot; 2026-06-08_11-49-12</footer>
 </body>
 </html>

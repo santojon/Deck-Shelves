@@ -5,7 +5,7 @@ on:
     # Skip CI runs whose only changes are the auto-committed report files.
     # Without this every `chore(report): …` commit would re-trigger CI in a loop.
     paths-ignore:
-      - 'reports/**'
+      - 'site/reports/**'
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:

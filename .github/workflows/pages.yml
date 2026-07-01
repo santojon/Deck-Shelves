@@ -1,21 +1,27 @@
-name: Publish reports to Pages
+name: Publish project site to Pages
 
-# Publishes the committed CI/release reports + the aggregated dashboard to
-# GitHub Pages (free for public repos). The per-run HTML/JSON already live
-# under reports/**; this job only regenerates the derived top-level
-# index.html + dashboard.html (gitignored) and deploys the folder.
+# Publishes a curated project landing page to GitHub Pages, with the
+# validation reports available under /reports and the dashboard linked from
+# the footer. The reports are regenerated on demand and copied into the site
+# artifact so the public page can expose them without replacing the root page.
 #
 # ONE-TIME SETUP (REQUIRED): repo Settings → Pages → Build and deployment →
 # Source: "GitHub Actions". This must be done by hand — the Actions token
 # can't create the Pages site itself (that's an admin operation; `enablement`
 # fails with "Resource not accessible by integration"). Once enabled, this
-# workflow publishes on every push that touches reports/**. No secrets, no cost.
+# workflow publishes on every push that touches the site/docs/reports content.
+# No secrets, no cost.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'reports/**'
+      - 'site/**'
+      - 'README.md'
+      - 'RELEASE_NOTES.md'
+      - 'docs/**'
+      - 'package.json'
+      - 'scripts/site/build_site.py'
       - 'scripts/ci/report.py'
       - 'scripts/ci/report_dashboard.py'
       - '.github/workflows/pages.yml'
@@ -49,13 +55,16 @@ jobs:
       - name: Rebuild report aggregates (index + dashboard)
         run: python3 scripts/ci/report.py --rebuild --root .
 
+      - name: Build project site (release notes, features page, reports)
+        run: python3 scripts/site/build_site.py --root .
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload reports as Pages artifact
+      - name: Upload project site as Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: reports
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deploy

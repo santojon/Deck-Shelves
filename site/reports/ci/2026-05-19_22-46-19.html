@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Deck Shelves &mdash; CI / Automated 2026-06-06_23-51-12</title>
+<title>Deck Shelves &mdash; CI / Automated 2026-05-19_22-46-19</title>
+<link rel="stylesheet" href="../../style.css">
 <style>*,*::before,*::after{box-sizing:border-box}
-:root{font-family:system-ui,-apple-system,sans-serif;
-  --bg:#0f172a;--card:#1e293b;--border:#334155;--muted:#64748b;--text:#e2e8f0;
-  --pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:#60a5fa}
+:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 body{margin:0;background:var(--bg);color:var(--text)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 header{background:var(--card);border-bottom:1px solid var(--border);
@@ -57,23 +56,15 @@ a.fl{color:var(--link)}
 .stress-tag{font-size:10px;color:#a5b4fc;background:#1e1b4b;
   padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
 footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
-.sdur{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-bottom:18px}
-.panel h2{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--text)}
-.bm{display:flex;flex-direction:column;gap:6px}
-.bm-row{display:grid;grid-template-columns:minmax(120px,1fr) 3fr 70px;align-items:center;gap:10px;font-size:11.5px}
-.bm-name{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bm-bar-wrap{background:#0d1b2a;border-radius:4px;height:10px;overflow:hidden}
-.bm-bar{height:100%;border-radius:4px;transition:width .2s ease}
-.bm-dur{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
 </style>
 </head>
 <body>
+<div class="nav"><div class="container nav-inner"><a class="brand" href="../../index.html"><svg class="brand-mark" viewBox="217 444 854 378"><g fill="#0080FF"><circle cx="300" cy="620" r="80"/><rect rx="8" x="550" y="460" width="80" height="285"/><rect rx="8" x="645" y="500" width="75" height="245"/></g><g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/><rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/><rect rx="8" x="500" y="750" width="570" height="25"/></g></svg><div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Validation reports</div></div></a><nav class="nav-links"><a href="../index.html">All reports</a><a href="../dashboard.html">Dashboard</a></nav><a class="btn btn-ghost" href="../../index.html">&larr; Back to site</a></div></div>
 <header>
   <a class="back" href="index.html">&larr;</a>
   <div style="flex:1">
     <h1>Deck Shelves &mdash; CI / Automated</h1>
-    <div class="meta">June 06, 2026 at 23:51:12 &nbsp;&middot;&nbsp; 6 steps</div>
+    <div class="meta">May 19, 2026 at 22:46:19 &nbsp;&middot;&nbsp; 6 steps</div>
   </div>
   <span class="hbadge pass">PASS</span>
 </header>
@@ -83,129 +74,101 @@ footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
     <div class="sc"><div class="n f">0</div><div class="l">Failed</div></div>
     <div class="sc"><div class="n s">0</div><div class="l">Skipped</div></div>
     <div class="sc"><div class="n t">6</div><div class="l">Total</div></div>
-    <div class="sc"><div class="n t">17.1s</div><div class="l">Duration</div></div>
   </div>
-  <div class="panel"><h2>Step durations</h2><div class="bm"><div class="bm-row"><span class="bm-name">TypeScript typecheck</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:100.0%;background:#4ade80"></div></div><span class="bm-dur">7.2s</span></div><div class="bm-row"><span class="bm-name">Build (production)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:17.7%;background:#4ade80"></div></div><span class="bm-dur">1.3s</span></div><div class="bm-row"><span class="bm-name">Unit tests (vitest)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:55.1%;background:#4ade80"></div></div><span class="bm-dur">4.0s</span></div><div class="bm-row"><span class="bm-name">Package (.zip)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:22.7%;background:#4ade80"></div></div><span class="bm-dur">1.6s</span></div><div class="bm-row"><span class="bm-name">Verify package</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:2.0%;background:#4ade80"></div></div><span class="bm-dur">142 ms</span></div><div class="bm-row"><span class="bm-name">Compat validation</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:40.2%;background:#4ade80"></div></div><span class="bm-dur">2.9s</span></div></div></div>
-<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="sdur" title="7195 ms">7.2s</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></summary><div class="step-body" id="b0"><pre class="log">
-&gt; deck-shelves@2.4.1 typecheck /home/runner/work/Deck-Shelves/Deck-Shelves
+<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="slabel pass">PASS</span><span class="chevron" id="c0">▶</span></summary><div class="step-body" id="b0"><pre class="log">
+&gt; deck-shelves@2.2.2 typecheck /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; tsc --noEmit
 
 </pre></div></details>
-<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="sdur" title="1276 ms">1.3s</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></summary><div class="step-body" id="b1"><pre class="log">
-&gt; deck-shelves@2.4.1 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="slabel pass">PASS</span><span class="chevron" id="c1">▶</span></summary><div class="step-body" id="b1"><pre class="log">
+&gt; deck-shelves@2.2.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
-vite v8.0.14 building client environment for production...
+vite v8.0.13 building client environment for production...
 
-<span class="g">transforming...✓ 306 modules transformed.</span>
+<span class="g">transforming...✓ 278 modules transformed.</span>
 rendering chunks...
 computing gzip size...
-dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>    0.91 kB │ gzip:   0.47 kB
-dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>           0.96 kB │ gzip:   0.45 kB
-dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>       2.87 kB │ gzip:   1.06 kB
-dist<a class="fl" href="vscode://file//chunks/pluginApi-DLINninX.js">/chunks/pluginApi-DLINninX.js</a>           8.46 kB │ gzip:   2.33 kB
-dist<a class="fl" href="vscode://file//chunks/decky-BFr0zX7Q.js">/chunks/decky-BFr0zX7Q.js</a>               8.56 kB │ gzip:   3.14 kB
-dist<a class="fl" href="vscode://file//chunks/onlineStore-BIRGpWmE.js">/chunks/onlineStore-BIRGpWmE.js</a>        11.59 kB │ gzip:   3.92 kB
-dist<a class="fl" href="vscode://file//chunks/zh-CN-lBMdrjgV.js">/chunks/zh-CN-lBMdrjgV.js</a>              59.74 kB │ gzip:  21.38 kB
-dist<a class="fl" href="vscode://file//chunks/zh-TW-CmPsZ8lA.js">/chunks/zh-TW-CmPsZ8lA.js</a>              60.96 kB │ gzip:  21.51 kB
-dist<a class="fl" href="vscode://file//chunks/en-GB-CFzLVGFl.js">/chunks/en-GB-CFzLVGFl.js</a>              61.25 kB │ gzip:  19.18 kB
-dist<a class="fl" href="vscode://file//chunks/nl-NL-BVOAV8Vc.js">/chunks/nl-NL-BVOAV8Vc.js</a>              64.03 kB │ gzip:  20.68 kB
-dist<a class="fl" href="vscode://file//chunks/pl-PL-B9FVe1ck.js">/chunks/pl-PL-B9FVe1ck.js</a>              64.36 kB │ gzip:  21.36 kB
-dist<a class="fl" href="vscode://file//chunks/it-IT-BwOFOb9t.js">/chunks/it-IT-BwOFOb9t.js</a>              65.00 kB │ gzip:  20.58 kB
-dist<a class="fl" href="vscode://file//chunks/tr-TR-D58aJvCi.js">/chunks/tr-TR-D58aJvCi.js</a>              65.52 kB │ gzip:  21.22 kB
-dist<a class="fl" href="vscode://file//chunks/de-DE-BiT0h-bz.js">/chunks/de-DE-BiT0h-bz.js</a>              65.67 kB │ gzip:  21.25 kB
-dist<a class="fl" href="vscode://file//chunks/es-419-BErkqhFc.js">/chunks/es-419-BErkqhFc.js</a>             65.93 kB │ gzip:  20.78 kB
-dist<a class="fl" href="vscode://file//chunks/ko-KR-D1I2ndzX.js">/chunks/ko-KR-D1I2ndzX.js</a>              65.99 kB │ gzip:  21.40 kB
-dist<a class="fl" href="vscode://file//chunks/pt-BR-D2WvEsk1.js">/chunks/pt-BR-D2WvEsk1.js</a>              66.04 kB │ gzip:  20.23 kB
-dist<a class="fl" href="vscode://file//chunks/pt-PT-IgHuzrF5.js">/chunks/pt-PT-IgHuzrF5.js</a>              66.22 kB │ gzip:  20.45 kB
-dist<a class="fl" href="vscode://file//chunks/es-ES-UiRHFs_B.js">/chunks/es-ES-UiRHFs_B.js</a>              66.39 kB │ gzip:  20.72 kB
-dist<a class="fl" href="vscode://file//chunks/fr-CA-CqmeUwQl.js">/chunks/fr-CA-CqmeUwQl.js</a>              67.00 kB │ gzip:  21.11 kB
-dist<a class="fl" href="vscode://file//chunks/fr-FR-BlY7_-Lr.js">/chunks/fr-FR-BlY7_-Lr.js</a>              67.61 kB │ gzip:  21.04 kB
-dist<a class="fl" href="vscode://file//chunks/ja-JP-DWWoK62h.js">/chunks/ja-JP-DWWoK62h.js</a>              70.99 kB │ gzip:  22.18 kB
-dist<a class="fl" href="vscode://file//chunks/uk-UA-EJtJjTT3.js">/chunks/uk-UA-EJtJjTT3.js</a>              83.05 kB │ gzip:  23.47 kB
-dist<a class="fl" href="vscode://file//chunks/ru-RU-CweGqEJt.js">/chunks/ru-RU-CweGqEJt.js</a>              83.33 kB │ gzip:  23.78 kB
-dist<a class="fl" href="vscode://file//chunks/steam-BqC8870b.js">/chunks/steam-BqC8870b.js</a>              92.65 kB │ gzip:  23.56 kB
-dist<a class="fl" href="vscode://file//chunks/settingsStore-CfXDnvix.js">/chunks/settingsStore-CfXDnvix.js</a>     129.24 kB │ gzip:  28.38 kB
-dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             855.82 kB │ gzip: 198.33 kB
+dist<a class="fl" href="vscode://file//chunks/registry-C9FIKfS9.js">/chunks/registry-C9FIKfS9.js</a>           0.53 kB │ gzip:   0.33 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-B-td0het.js">/chunks/steamHost-B-td0het.js</a>          0.87 kB │ gzip:   0.39 kB
+dist<a class="fl" href="vscode://file//chunks/decky-api-C9oq75-6.js">/chunks/decky-api-C9oq75-6.js</a>          2.77 kB │ gzip:   1.23 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-CPy7Esua.js">/chunks/customfilters-CPy7Esua.js</a>      2.82 kB │ gzip:   1.03 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-D2umOx4n.js">/chunks/pluginApi-D2umOx4n.js</a>          7.01 kB │ gzip:   1.90 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-C3KkTCx6.js">/chunks/settingsStore-C3KkTCx6.js</a>    117.06 kB │ gzip:  26.26 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                          1,641.11 kB │ gzip: 450.44 kB
 
-<span class="g">✓ built in 611ms</span>
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditShelfModal.ts">src/components/qam/modals/EditShelfModal.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/shelfRefresh.ts">src/core/shelfRefresh.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/ShelfManageRoute.ts">src/components/ShelfManageRoute.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/DeveloperFilterOptions.ts">src/components/filter/DeveloperFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/PublisherFilterOptions.ts">src/components/filter/PublisherFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/list/ShelfActions.ts">src/components/qam/list/ShelfActions.ts</a>x, ..., dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/smartShelves.ts">src/steam/smartShelves.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/HomeInject.ts">src/components/HomeInject.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/list/ShelfActions.ts">src/components/qam/list/ShelfActions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditShelfModal.ts">src/components/qam/modals/EditShelfModal.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditSmartShelfModal.ts">src/components/qam/modals/EditSmartShelfModal.ts</a>x, ..., dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/onlineStore.ts">src/core/onlineStore.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditShelfModal.ts">src/components/qam/modals/EditShelfModal.ts</a>x, dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/tabmaster.ts">src/integrations/tabmaster.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/index.ts">src/integrations/index.ts</a>, dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/domtabs.ts">src/integrations/domtabs.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/index.ts">src/integrations/index.ts</a>, dynamic import will not move module into another chunk.
+
+<span class="g">✓ built in 460ms</span>
 </pre></div></details>
-<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="sdur" title="3966 ms">4.0s</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 23 passed</span></div><pre class="log">
-&gt; deck-shelves@2.4.1 test /home/runner/work/Deck-Shelves/Deck-Shelves
-<span class="w">&gt; NODE_NO_WARNINGS=1 vitest run</span>
+<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="slabel pass">PASS</span><span class="chevron" id="c2">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 17 passed</span></div><pre class="log">
+&gt; deck-shelves@2.2.2 test /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; vitest run
 
 
- RUN  v4.1.7 /home/runner/work/Deck-Shelves/Deck-Shelves
+ RUN  v4.1.6 /home/runner/work/Deck-Shelves/Deck-Shelves
 
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelvesRuntime.test.ts">src/test/steam/smartShelvesRuntime.test.ts</a> (19 tests) 24ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/settings.test.ts">src/test/domain/settings.test.ts</a> (43 tests) 36ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelves.test.ts">src/test/steam/smartShelves.test.ts</a> (36 tests) 23ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/evaluateFilterGroup.test.ts">src/test/steam/evaluateFilterGroup.test.ts</a> (28 tests) 14ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/customfilters.test.ts">src/test/domain/customfilters.test.ts</a> (17 tests) 11ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/regression.test.ts">src/test/regression.test.ts</a> (36 tests) 59ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applySortToIds.test.ts">src/test/steam/applySortToIds.test.ts</a> (13 tests) 22ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam.test.ts">src/test/steam.test.ts</a> (8 tests) 10ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/syntheticCards.test.ts">src/test/domain/syntheticCards.test.ts</a> (11 tests) 14ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/shelfOrder.test.ts">src/test/domain/shelfOrder.test.ts</a> (17 tests) 11ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/mergeCompositeResults.test.ts">src/test/steam/mergeCompositeResults.test.ts</a> (15 tests) 11ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/trailingCards.test.ts">src/test/components/trailingCards.test.ts</a> (13 tests) 7ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/heuristics.test.ts">src/test/steam/heuristics.test.ts</a> (9 tests) 8ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/qa/qam-visibility.test.ts">src/test/qa/qam-visibility.test.ts</a> (10 tests) 16ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/schemas.test.ts">src/test/domain/schemas.test.ts</a> (8 tests) 38ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/reorder.test.ts">src/test/core/reorder.test.ts</a> (14 tests) 10ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/normalizeTitleForMatch.test.ts">src/test/steam/normalizeTitleForMatch.test.ts</a> (10 tests) 7ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/settings.test.ts">src/test/domain/settings.test.ts</a> (37 tests) 19ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/schemas.test.ts">src/test/domain/schemas.test.ts</a> (8 tests) 27ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelves.test.ts">src/test/steam/smartShelves.test.ts</a> (25 tests) 17ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/webpackCompat.test.ts">src/test/core/webpackCompat.test.ts</a> (7 tests) 210ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/qa/qam-visibility.test.ts">src/test/qa/qam-visibility.test.ts</a> (10 tests) 14ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/regression.test.ts">src/test/regression.test.ts</a> (36 tests) 52ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/customfilters.test.ts">src/test/domain/customfilters.test.ts</a> (17 tests) 14ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/shelfOrder.test.ts">src/test/domain/shelfOrder.test.ts</a> (14 tests) 9ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/evaluateFilterGroup.test.ts">src/test/steam/evaluateFilterGroup.test.ts</a> (28 tests) 18ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/reorder.test.ts">src/test/core/reorder.test.ts</a> (14 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam.test.ts">src/test/steam.test.ts</a> (8 tests) 15ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applyManualOrder.test.ts">src/test/steam/applyManualOrder.test.ts</a> (9 tests) 15ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/trailingCards.test.ts">src/test/components/trailingCards.test.ts</a> (13 tests) 8ms</span>
 <span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/templates.test.ts">src/test/domain/templates.test.ts</a> (8 tests) 9ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/webpackCompat.test.ts">src/test/core/webpackCompat.test.ts</a> (7 tests) 182ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applyManualOrder.test.ts">src/test/steam/applyManualOrder.test.ts</a> (9 tests) 8ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/refreshableSmartModes.test.ts">src/test/components/refreshableSmartModes.test.ts</a> (3 tests) 7ms</span>
 <span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/compareAdded.test.ts">src/test/compareAdded.test.ts</a> (3 tests) 5ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/scrollUtils.test.ts">src/test/scrollUtils.test.ts</a> (2 tests) 4ms</span>
-<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/refreshableSmartModes.test.ts">src/test/components/refreshableSmartModes.test.ts</a> (3 tests) 6ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/scrollUtils.test.ts">src/test/scrollUtils.test.ts</a> (2 tests) 3ms</span>
 
-<span class="g"> Test Files  23 passed (23)</span>
-<span class="g">      Tests  339 passed (339)</span>
-   Start at  23:51:21
-   Duration  3.24s (transform 1.45s, setup 0ms, import 3.75s, tests 536ms, environment 936ms)
+<span class="g"> Test Files  17 passed (17)</span>
+<span class="g">      Tests  242 passed (242)</span>
+   Start at  22:46:27
+   Duration  2.50s (transform 1.19s, setup 0ms, import 2.82s, tests 455ms, environment 958ms)
 
 </pre></div></details>
-<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="sdur" title="1633 ms">1.6s</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></summary><div class="step-body" id="b3"><pre class="log">
-&gt; deck-shelves@2.4.1 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="slabel pass">PASS</span><span class="chevron" id="c3">▶</span></summary><div class="step-body" id="b3"><pre class="log">
+&gt; deck-shelves@2.2.2 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
 &gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
 
-vite v8.0.14 building client environment for production...
+vite v8.0.13 building client environment for production...
 
-<span class="g">transforming...✓ 306 modules transformed.</span>
+<span class="g">transforming...✓ 278 modules transformed.</span>
 rendering chunks...
 computing gzip size...
-dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>    0.91 kB │ gzip:   0.47 kB
-dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>           0.96 kB │ gzip:   0.45 kB
-dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>       2.87 kB │ gzip:   1.06 kB
-dist<a class="fl" href="vscode://file//chunks/pluginApi-DLINninX.js">/chunks/pluginApi-DLINninX.js</a>           8.46 kB │ gzip:   2.33 kB
-dist<a class="fl" href="vscode://file//chunks/decky-BFr0zX7Q.js">/chunks/decky-BFr0zX7Q.js</a>               8.56 kB │ gzip:   3.14 kB
-dist<a class="fl" href="vscode://file//chunks/onlineStore-BIRGpWmE.js">/chunks/onlineStore-BIRGpWmE.js</a>        11.59 kB │ gzip:   3.92 kB
-dist<a class="fl" href="vscode://file//chunks/zh-CN-lBMdrjgV.js">/chunks/zh-CN-lBMdrjgV.js</a>              59.74 kB │ gzip:  21.38 kB
-dist<a class="fl" href="vscode://file//chunks/zh-TW-CmPsZ8lA.js">/chunks/zh-TW-CmPsZ8lA.js</a>              60.96 kB │ gzip:  21.51 kB
-dist<a class="fl" href="vscode://file//chunks/en-GB-CFzLVGFl.js">/chunks/en-GB-CFzLVGFl.js</a>              61.25 kB │ gzip:  19.18 kB
-dist<a class="fl" href="vscode://file//chunks/nl-NL-BVOAV8Vc.js">/chunks/nl-NL-BVOAV8Vc.js</a>              64.03 kB │ gzip:  20.68 kB
-dist<a class="fl" href="vscode://file//chunks/pl-PL-B9FVe1ck.js">/chunks/pl-PL-B9FVe1ck.js</a>              64.36 kB │ gzip:  21.36 kB
-dist<a class="fl" href="vscode://file//chunks/it-IT-BwOFOb9t.js">/chunks/it-IT-BwOFOb9t.js</a>              65.00 kB │ gzip:  20.58 kB
-dist<a class="fl" href="vscode://file//chunks/tr-TR-D58aJvCi.js">/chunks/tr-TR-D58aJvCi.js</a>              65.52 kB │ gzip:  21.22 kB
-dist<a class="fl" href="vscode://file//chunks/de-DE-BiT0h-bz.js">/chunks/de-DE-BiT0h-bz.js</a>              65.67 kB │ gzip:  21.25 kB
-dist<a class="fl" href="vscode://file//chunks/es-419-BErkqhFc.js">/chunks/es-419-BErkqhFc.js</a>             65.93 kB │ gzip:  20.78 kB
-dist<a class="fl" href="vscode://file//chunks/ko-KR-D1I2ndzX.js">/chunks/ko-KR-D1I2ndzX.js</a>              65.99 kB │ gzip:  21.40 kB
-dist<a class="fl" href="vscode://file//chunks/pt-BR-D2WvEsk1.js">/chunks/pt-BR-D2WvEsk1.js</a>              66.04 kB │ gzip:  20.23 kB
-dist<a class="fl" href="vscode://file//chunks/pt-PT-IgHuzrF5.js">/chunks/pt-PT-IgHuzrF5.js</a>              66.22 kB │ gzip:  20.45 kB
-dist<a class="fl" href="vscode://file//chunks/es-ES-UiRHFs_B.js">/chunks/es-ES-UiRHFs_B.js</a>              66.39 kB │ gzip:  20.72 kB
-dist<a class="fl" href="vscode://file//chunks/fr-CA-CqmeUwQl.js">/chunks/fr-CA-CqmeUwQl.js</a>              67.00 kB │ gzip:  21.11 kB
-dist<a class="fl" href="vscode://file//chunks/fr-FR-BlY7_-Lr.js">/chunks/fr-FR-BlY7_-Lr.js</a>              67.61 kB │ gzip:  21.04 kB
-dist<a class="fl" href="vscode://file//chunks/ja-JP-DWWoK62h.js">/chunks/ja-JP-DWWoK62h.js</a>              70.99 kB │ gzip:  22.18 kB
-dist<a class="fl" href="vscode://file//chunks/uk-UA-EJtJjTT3.js">/chunks/uk-UA-EJtJjTT3.js</a>              83.05 kB │ gzip:  23.47 kB
-dist<a class="fl" href="vscode://file//chunks/ru-RU-CweGqEJt.js">/chunks/ru-RU-CweGqEJt.js</a>              83.33 kB │ gzip:  23.78 kB
-dist<a class="fl" href="vscode://file//chunks/steam-BqC8870b.js">/chunks/steam-BqC8870b.js</a>              92.65 kB │ gzip:  23.56 kB
-dist<a class="fl" href="vscode://file//chunks/settingsStore-CfXDnvix.js">/chunks/settingsStore-CfXDnvix.js</a>     129.24 kB │ gzip:  28.38 kB
-dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             855.82 kB │ gzip: 198.33 kB
+dist<a class="fl" href="vscode://file//chunks/registry-C9FIKfS9.js">/chunks/registry-C9FIKfS9.js</a>           0.53 kB │ gzip:   0.33 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-B-td0het.js">/chunks/steamHost-B-td0het.js</a>          0.87 kB │ gzip:   0.39 kB
+dist<a class="fl" href="vscode://file//chunks/decky-api-C9oq75-6.js">/chunks/decky-api-C9oq75-6.js</a>          2.77 kB │ gzip:   1.23 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-CPy7Esua.js">/chunks/customfilters-CPy7Esua.js</a>      2.82 kB │ gzip:   1.03 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-D2umOx4n.js">/chunks/pluginApi-D2umOx4n.js</a>          7.01 kB │ gzip:   1.90 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-C3KkTCx6.js">/chunks/settingsStore-C3KkTCx6.js</a>    117.06 kB │ gzip:  26.26 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                          1,641.11 kB │ gzip: 450.44 kB
 
-<span class="g">✓ built in 521ms</span>
-[package] Created installable archive: deck-shelves-v2.4.1.zip
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditShelfModal.ts">src/components/qam/modals/EditShelfModal.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/shelfRefresh.ts">src/core/shelfRefresh.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/ShelfManageRoute.ts">src/components/ShelfManageRoute.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/DeveloperFilterOptions.ts">src/components/filter/DeveloperFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/PublisherFilterOptions.ts">src/components/filter/PublisherFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/list/ShelfActions.ts">src/components/qam/list/ShelfActions.ts</a>x, ..., dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/smartShelves.ts">src/steam/smartShelves.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/HomeInject.ts">src/components/HomeInject.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/list/ShelfActions.ts">src/components/qam/list/ShelfActions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditShelfModal.ts">src/components/qam/modals/EditShelfModal.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditSmartShelfModal.ts">src/components/qam/modals/EditSmartShelfModal.ts</a>x, ..., dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/onlineStore.ts">src/core/onlineStore.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/modals/EditShelfModal.ts">src/components/qam/modals/EditShelfModal.ts</a>x, dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/tabmaster.ts">src/integrations/tabmaster.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/index.ts">src/integrations/index.ts</a>, dynamic import will not move module into another chunk.
+
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/domtabs.ts">src/integrations/domtabs.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/integrations/index.ts">src/integrations/index.ts</a>, dynamic import will not move module into another chunk.
+
+<span class="g">✓ built in 459ms</span>
+[package] Created installable archive: deck-shelves-v2.2.2.zip
 [verify] Found: plugin.json
 [verify] Found: package.json
 [verify] Found: main.py
@@ -214,9 +177,9 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 [verify] main.py is executable
 <span class="g">[verify] plugin.json flags OK (no debug)</span>
 [verify] package.json matches repo
-[verify] Package OK: /home/runner/work/Deck-Shelves/Deck-Shelves/deck-shelves-v2.4.1.zip
+[verify] Package OK: /home/runner/work/Deck-Shelves/Deck-Shelves/deck-shelves-v2.2.2.zip
 </pre></div></details>
-<details class="step" id="s4"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Verify package</span><span class="sdur" title="142 ms">142 ms</span><span class="slabel pass">PASS</span><span class="chevron" id="c4">▶</span></summary><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
+<details class="step" id="s4"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Verify package</span><span class="slabel pass">PASS</span><span class="chevron" id="c4">▶</span></summary><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
 [verify] Found: package.json
 [verify] Found: main.py
 [verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
@@ -224,11 +187,11 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 [verify] main.py is executable
 <span class="g">[verify] plugin.json flags OK (no debug)</span>
 [verify] package.json matches repo
-[verify] Package OK: deck-shelves-v2.4.1.zip
+[verify] Package OK: deck-shelves-v2.2.2.zip
 </pre></div></details>
-<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="sdur" title="2891 ms">2.9s</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
-&gt; deck-shelves@2.4.1 validate:compat /home/runner/work/Deck-Shelves/Deck-Shelves
-&gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/validate-compat.mjs">scripts/build/validate-compat.mjs</a>
+<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="slabel pass">PASS</span><span class="chevron" id="c5">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log">
+&gt; deck-shelves@2.2.2 validate:compat /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; bash <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/validate-compat.sh">scripts/build/validate-compat.sh</a>
 
 ╔══════════════════════════════════════════════╗
 ║     Deck Shelves — Compatibility Checks      ║
@@ -238,8 +201,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
   Build Output (Vite/ESM)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 <span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> exists</span>
-<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> is non-empty (855822 bytes)</span>
-<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> size under 2.5MB</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> is non-empty (1641115 bytes)</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> size under 2MB</span>
 <span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> has ESM exports</span>
 <span class="g">  ✅ No node_modules imports in bundle</span>
 
@@ -301,7 +264,7 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ No unused backend/ directory</span>
 <span class="g">  ✅ No unused defaults/ directory</span>
 <span class="g">  ✅ No remote code execution patterns in source</span>
-<span class="g">  ✅ Built output is not heavily obfuscated (25736 lines)</span>
+<span class="g">  ✅ Built output is not heavily obfuscated (32595 lines)</span>
 <span class="g">  ✅ No private/local dependencies</span>
 <span class="g">  ✅ assets/icon.png not required (store uses publish.image)</span>
 <span class="g">  ✅ No debug flag in plugin.json</span>
@@ -310,8 +273,8 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   CheatDeck (Coexistence)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<span class="g">  ✅ No CheatDeck namespace collision (no references)</span>
-<span class="g">  ✅ No high z-index values that would cover CheatDeck overlay (portal-scoped badge excluded)</span>
+<span class="g">  ✅ References CheatDeck without overwriting (1 files)</span>
+<span class="g">  ✅ No high z-index values that would cover CheatDeck overlay</span>
 <span class="g">  ✅ DOM mount uses unique &#x27;deck-shelves-&#x27; prefixed ID</span>
 <span class="g">  ✅ No global-level input event listeners</span>
 <span class="g">  ✅ Apps API uses safe access patterns</span>
@@ -384,30 +347,11 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 
 <span class="e">  Result: 1 passed, 0 failed</span>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  CSS Loader Theme (Focus Highlight Color)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<span class="g">  ✅ isFocusRoundCompatActive() detection present</span>
-<span class="g">  ✅ Detection uses unique keyframe signature (appportrait_blinker + flangrande)</span>
-<span class="g">  ✅ Round Compat flag set on .deck-shelves-root / &lt;html&gt;</span>
-<span class="g">  ✅ Round Compat suppression rule present in shelfStyles</span>
-<span class="g">  ✅ Theme variables read-only (no flangrande writes)</span>
-
-<span class="e">  Result: 5 passed, 0 failed</span>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   CSS Loader Theme (Fullscreen Menus)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 <span class="g">  ✅ No &#x27;Fullscreen Menus&#x27; references found</span>
 
 <span class="e">  Result: 1 passed, 0 failed</span>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  CSS Loader Theme (Game Cover Shine Animation Color)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<span class="g">  ✅ Native card class promoted onto .ds-card (shine reaches DS cards)</span>
-<span class="g">  ✅ ::after opacity left to the theme (no forced opacity 1)</span>
-<span class="g">  ✅ Shine ::after suppressed under Round Compat flag</span>
-<span class="g">  ✅ Theme variable read-only</span>
-
-<span class="e">  Result: 4 passed, 0 failed</span>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   CSS Loader Theme (Main Menu Hide Tabs)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -419,17 +363,17 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 <span class="g">  ✅ Custom styles scoped under #deck-shelves-home-root</span>
 <span class="g">  ✅ Font sizes inside scoped selectors or using relative units</span>
-<span class="g">  ✅ Explicit color values (13) — not dependent on theme variables</span>
+<span class="g">  ✅ Explicit color values (15) — not dependent on theme variables</span>
 <span class="g">  ✅ Explicit background colors in components</span>
 <span class="g">  ✅ No reliance on generic Steam panel class styling</span>
-<span class="g">  ✅ z-index values are reasonable (≤ 100; portal-scoped badge excluded)</span>
+<span class="g">  ✅ z-index values are reasonable (≤ 100)</span>
 <span class="g">  ✅ Modal styles scoped under .deck-shelves-modal-scope</span>
 
 <span class="e">  Result: 7 passed, 0 failed</span>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   CSS Loader Theme (Outrun)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<span class="g">  ✅ No &#x27;outrun&#x27; references in code (comments OK)</span>
+<span class="g">  ✅ No &#x27;outrun&#x27; references found</span>
 
 <span class="e">  Result: 1 passed, 0 failed</span>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -452,7 +396,7 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ Card art border-radius reads from CSS variable</span>
 <span class="g">  ✅ Card containers use overflow:hidden (content clipped to border-radius)</span>
 <span class="g">  ✅ No hardcoded borderRadius: 0 overriding theme</span>
-<span class="g">  ✅ Radius detection uses 7 selector references for broad theme support</span>
+<span class="g">  ✅ Radius detection uses 4 selector variants for broad theme support</span>
 <span class="g">  ✅ Detected radius is cached (no repeated DOM queries)</span>
 
 <span class="e">  Result: 7 passed, 0 failed</span>
@@ -538,7 +482,7 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ i18n/ directory exists</span>
 <span class="g">  ✅ en-US.json base locale exists</span>
 <span class="g">  ✅ All locale files are valid JSON</span>
-<span class="g">  ✅ Base locale has 776 keys</span>
+<span class="g">  ✅ Base locale has 581 keys</span>
 <span class="g">  ✅ All locales have consistent keys</span>
 
 <span class="e">  Result: 5 passed, 0 failed</span>
@@ -641,9 +585,7 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ CSS Loader Theme (Colored Compatibility Icons)</span>
 <span class="g">  ✅ CSS Loader Theme (Delly Footer)</span>
 <span class="g">  ✅ CSS Loader Theme (Delly Volume)</span>
-<span class="g">  ✅ CSS Loader Theme (Focus Highlight Color)</span>
 <span class="g">  ✅ CSS Loader Theme (Fullscreen Menus)</span>
-<span class="g">  ✅ CSS Loader Theme (Game Cover Shine Animation Color)</span>
 <span class="g">  ✅ CSS Loader Theme (Main Menu Hide Tabs)</span>
 <span class="g">  ✅ Obsidian Theme (CSS Loader Theme)</span>
 <span class="g">  ✅ CSS Loader Theme (Outrun)</span>
@@ -667,10 +609,10 @@ dist<a class="fl" href="vscode://file//index.js">/index.js</a>                  
 <span class="g">  ✅ SteamOS 3.9 (Stable)</span>
 <span class="g">  ✅ SteamOS GamepadUI (3.5–3.9)</span>
 
-<span class="g">  🎉 All 39 compatibility checks passed!</span>
+<span class="g">  🎉 All 37 compatibility checks passed!</span>
 </pre></div></details>
 
 </main>
-<footer>Deck Shelves CI &middot; 2026-06-06_23-51-12</footer>
+<footer>Deck Shelves CI &middot; 2026-05-19_22-46-19</footer>
 </body>
 </html>

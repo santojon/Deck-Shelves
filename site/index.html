@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deck Shelves — Your Steam Deck Home Screen. Your Way.</title>
+  <meta name="description" content="Deck Shelves is a Decky plugin that lets you build custom shelves from your collections, library tabs, and smart filters — with decoration cards, smart shelves and a built-in editor in Quick Access.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- inline icon + logo definitions -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="ds-logo" viewBox="217 444 854 378">
+        <path fill="#FFFFFF" stroke="#000" stroke-width="2" d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/>
+        <circle cx="300" cy="620" r="80" fill="#0080FF" stroke="#000" stroke-width="2"/>
+        <rect fill="#0080FF" stroke="#000" stroke-width="2" rx="8" ry="8" x="550" y="460" width="80" height="285"/>
+        <rect fill="#0044B0" x="551" y="500" width="79" height="25"/>
+        <rect fill="#0080FF" stroke="#000" stroke-width="2" rx="8" ry="8" x="645" y="500" width="75" height="245"/>
+        <rect fill="#0044B0" x="646" y="535" width="73" height="25"/>
+        <rect fill="#FFFFFF" stroke="#000" stroke-width="2" rx="8" ry="8" x="740" y="530" width="75" height="215"/>
+        <rect fill="#D2D2D2" x="741" y="570" width="73" height="25"/>
+        <rect fill="#FFFFFF" stroke="#000" stroke-width="2" rx="8" ry="8" x="840" y="470" width="75" height="275"/>
+        <rect fill="#D2D2D2" x="841" y="505" width="73" height="25"/>
+        <g transform="rotate(-15)">
+          <rect fill="#0080FF" stroke="#000" stroke-width="2" rx="8" ry="8" x="750" y="750" width="60" height="225"/>
+          <rect fill="#0044B0" x="751" y="785" width="58" height="25"/>
+        </g>
+        <rect fill="#FFFFFF" stroke="#000" stroke-width="2" rx="8" ry="8" x="500" y="750" width="570" height="25"/>
+        <rect fill="#FFFFFF" stroke="#000" stroke-width="2" rx="8" ry="8" x="530" y="780" width="25" height="25"/>
+        <rect fill="#FFFFFF" stroke="#000" stroke-width="2" rx="8" ry="8" x="1020" y="780" width="25" height="25"/>
+      </symbol>
+
+      <symbol id="i-deck" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="4"/><circle cx="7" cy="12" r="1.4"/><circle cx="17" cy="12" r="1.4"/><path d="M7 9.5v5M4.5 12h5"/></symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M3 8l18 8"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.6 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.6-3.8-9S9.5 5.4 12 3z"/></symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+      <symbol id="i-gamepad" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 10v4M5 12h4"/><circle cx="16" cy="11" r="1"/><circle cx="18.5" cy="13.5" r="1"/></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4 17l5-5 4 4 3-3 4 4"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.3l6.1-.7z"/></symbol>
+      <symbol id="i-backup" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
+      <symbol id="i-wand" viewBox="0 0 24 24"><path d="M15 4l5 5L9 20l-5 0 0-5z"/><path d="M13 6l5 5M19 3l.6 1.4L21 5l-1.4.6L19 7l-.6-1.4L17 5l1.4-.6z"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.3"/></symbol>
+      <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 4h16l-1 5a3 3 0 0 1-3 2.4A3 3 0 0 1 12 9a3 3 0 0 1-4 2.4A3 3 0 0 1 5 9z"/><path d="M5 11v9h14v-9M10 20v-5h4v5"/></symbol>
+      <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49v-1.7c-2.78.62-3.37-1.22-3.37-1.22-.46-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.35 1.12 2.92.86.09-.66.35-1.12.63-1.38-2.22-.26-4.55-1.14-4.55-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.4 9.4 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .27.18.6.69.49A10.26 10.26 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-chevL" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+      <symbol id="i-chevR" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M11 8v6M8 11h6"/></symbol>
+      <symbol id="i-report" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- NAV -->
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="#top">
+        <svg class="brand-mark"><use href="#ds-logo"/></svg>
+        <div>
+          <div class="brand-name">DECK <b>SHELVES</b></div>
+          <div class="brand-tag">Customize your Steam Deck Home.</div>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#showcase">Screenshots</a>
+        <a href="#install">Installation</a>
+        <a href="https://github.com/santojon/Deck-Shelves/tree/main/docs">Docs</a>
+      </nav>
+      <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves">
+        <svg class="icon"><use href="#i-github"/></svg> GitHub
+      </a>
+    </div>
+  </header>
+
+  <a id="top"></a>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <span class="eyebrow">Decky Loader plugin</span>
+        <h1>Your Steam Deck<br><span class="accent">Home Screen.</span><br>Your Way.</h1>
+        <p class="lead">
+          Deck Shelves lets you build custom shelves from your collections, library tabs, or
+          smart filters. Add decoration cards, smart shelves, and wishlist/store rows — all from a
+          built-in editor in Quick Access. No desktop mode, no config files.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.0.0.zip" download>
+            <svg class="icon"><use href="#i-download"/></svg> Download latest release
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves">
+            <svg class="icon"><use href="#i-github"/></svg> View on GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- Steam Deck frame holding the real home screenshot -->
+      <div class="deck-wrap">
+        <div class="deck">
+          <div class="deck-btns left"><span></span><span></span><span></span><span></span></div>
+          <div class="deck-btns right"><span></span><span></span><span></span><span></span></div>
+          <div class="deck-stick left"></div>
+          <div class="deck-stick right"></div>
+          <div class="deck-screen">
+            <img src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png" alt="Deck Shelves home screen with custom shelves and hero artwork" loading="eager">
+          </div>
+          <div class="deck-labels">
+            <span>STEAM &nbsp; MENU</span>
+            <span>SELECT &nbsp; BACK</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURE STRIP -->
+  <div class="strip">
+    <div class="container">
+      <div class="strip-grid">
+        <div class="strip-item">
+          <svg class="icon"><use href="#i-deck"/></svg>
+          <div><h3>Built for Steam Deck</h3><p>Seamless integration via Quick Access.</p></div>
+        </div>
+        <div class="strip-item">
+          <svg class="icon"><use href="#i-monitor"/></svg>
+          <div><h3>No Desktop Mode</h3><p>Everything works directly on your Deck.</p></div>
+        </div>
+        <div class="strip-item">
+          <svg class="icon"><use href="#i-sliders"/></svg>
+          <div><h3>Built-in Editor</h3><p>Configure every shelf from Quick Access.</p></div>
+        </div>
+        <div class="strip-item">
+          <svg class="icon"><use href="#i-globe"/></svg>
+          <div><h3>Cross-Platform</h3><p>Works on SteamOS, Linux and Windows.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POWERFUL FEATURES -->
+  <section id="features" class="block">
+    <div class="container">
+      <div class="section-head">
+        <h2>Powerful Features</h2>
+        <div class="rule"></div>
+      </div>
+      <div class="feat-grid">
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-filter"/></svg></div>
+          <h3>Advanced Filters</h3>
+          <p>Filter by playtime, genre, achievements, status, size, friends, tags and much more with AND/OR logic.</p>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-layers"/></svg></div>
+          <h3>Multiple Sources</h3>
+          <p>Combine collections, tabs, wishlists and stores into a single shelf via Union or Intersection.</p>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-gamepad"/></svg></div>
+          <h3>Smart Shortcuts</h3>
+          <p>Quick add to shelf, Y-button highlight, remappable buttons and a per-game context menu.</p>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-image"/></svg></div>
+          <h3>Decoration Cards</h3>
+          <p>Pin text, banners, URL shortcuts or gaps — with your own chosen art that can act as the shelf hero.</p>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-star"/></svg></div>
+          <h3>Smart Shelves</h3>
+          <p>30+ heuristic shelves like Deck Picks or Never Played that appear automatically when relevant.</p>
+        </article>
+        <article class="feat-card">
+          <div class="feat-ico"><svg class="icon"><use href="#i-backup"/></svg></div>
+          <h3>Profiles &amp; Backup</h3>
+          <p>Save, switch, export and import your setups. Includes a Default profile to reset anytime.</p>
+        </article>
+      </div>
+      <div class="center-btn">
+        <a class="btn btn-ghost" href="features.html">
+          Explore all features <svg class="icon"><use href="#i-arrow"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEE IT IN ACTION -->
+  <section id="showcase" class="block">
+    <div class="container">
+      <div class="section-head">
+        <h2>See It in Action</h2>
+        <div class="rule"></div>
+        <p>Scroll through the gallery — click any screenshot to view it full-size.</p>
+      </div>
+      <div class="carousel">
+        <button class="car-btn prev" data-car-prev aria-label="Scroll left"><svg class="icon"><use href="#i-chevL"/></svg></button>
+        <button class="car-btn next" data-car-next aria-label="Scroll right"><svg class="icon"><use href="#i-chevR"/></svg></button>
+        <div class="shots" data-gallery data-track>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png" alt="Beautiful Home"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Beautiful Home</b><span>Decoration cards, banners and custom art.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home-shelves.png" alt="Smart Shelves"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Shelves</b><span>Combine tabs, filters and multiple sources.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/shelf-edit-visual.png" alt="Shelf Editor (Visual)"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Shelf Editor</b><span>Powerful editor with live preview.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/shelf-edit-filters.png" alt="Advanced Filters"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Advanced Filters</b><span>Filter groups with AND/OR logic.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-statistics.png" alt="Statistics & Insights"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Statistics &amp; Insights</b><span>Charts for usage and most-played games.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-suggestions.png" alt="Suggestions"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Suggestions</b><span>One-tap ideas to improve your setup.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/smart-shelf-modal.png" alt="Smart Shelf templates"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Smart Shelves</b><span>30+ ready-made templates.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/qam.png" alt="Quick Access Menu"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Quick Access</b><span>Configure everything on the Deck.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/game-menu.png" alt="Game context menu"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Game Menu</b><span>Per-game actions and quick add to shelf.</span></button>
+          <button class="shot-btn"><span class="thumb"><img loading="lazy" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/settings-page.png" alt="Settings"><span class="zoom"><svg class="icon"><use href="#i-zoom"/></svg></span></span><b>Settings</b><span>Full-page settings in one place.</span></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox" data-lightbox aria-hidden="true">
+    <button class="lb-close" data-lb-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
+    <button class="lb-nav prev" data-lb-prev aria-label="Previous"><svg class="icon"><use href="#i-chevL"/></svg></button>
+    <button class="lb-nav next" data-lb-next aria-label="Next"><svg class="icon"><use href="#i-chevR"/></svg></button>
+    <div class="lb-stage">
+      <div class="lb-frame"><img data-lb-img src="" alt=""></div>
+      <div class="lb-cap"><b data-lb-title></b><span data-lb-sub></span></div>
+      <div class="lb-dots" data-lb-dots></div>
+    </div>
+  </div>
+
+  <!-- HIGHLIGHTS -->
+  <section class="block">
+    <div class="container cols3">
+      <div class="hcol">
+        <div class="hcol-head"><svg class="icon"><use href="#i-chart"/></svg><h3>Analytics &amp; Suggestions</h3></div>
+        <p>See how you use your shelves with real charts and get smart suggestions to improve your setup.</p>
+        <div class="subcard">
+          <span class="badge"><svg class="icon"><use href="#i-chart"/></svg></span>
+          <div><b>Usage statistics</b><span>Activity, most-used shelves and library breakdown.</span></div>
+        </div>
+        <div class="subcard">
+          <span class="badge"><svg class="icon"><use href="#i-wand"/></svg></span>
+          <div><b>Smart suggestions</b><span>Get new shelf ideas and clean up unused ones.</span></div>
+        </div>
+      </div>
+
+      <div class="hcol">
+        <div class="hcol-head"><svg class="icon"><use href="#i-image"/></svg><h3>Make It Yours</h3></div>
+        <p>Personalize each shelf with logos, descriptions and layouts that fit your style.</p>
+        <div class="subcard">
+          <span class="badge"><svg class="icon"><use href="#i-image"/></svg></span>
+          <div><b>Custom banners &amp; icons</b><span>Add logos, icons or descriptions and place them anywhere.</span></div>
+        </div>
+        <div class="subcard">
+          <span class="badge"><svg class="icon"><use href="#i-store"/></svg></span>
+          <div><b>Online rows</b><span>Wishlist and store shelves with discount badges.</span></div>
+        </div>
+      </div>
+
+      <div class="hcol">
+        <div class="hcol-head"><svg class="icon"><use href="#i-search"/></svg><h3>Find &amp; Navigate Faster</h3></div>
+        <p>Quick Search helps you find any game instantly and Side Navigation keeps you one swipe away.</p>
+        <div class="subcard">
+          <span class="badge"><svg class="icon"><use href="#i-search"/></svg></span>
+          <div><b>Quick Search</b><span>Jump to any game in seconds.</span></div>
+        </div>
+        <div class="subcard">
+          <span class="badge"><svg class="icon"><use href="#i-list"/></svg></span>
+          <div><b>Side Navigation</b><span>Switch between shelves easily and quickly.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RELEASE NOTES -->
+  <section id="releases" class="block">
+    <div class="container">
+      <div class="panel-block release">
+        <div>
+          <span class="ver-chip"><svg class="icon" style="width:16px;height:16px"><use href="#i-tag"/></svg> <span data-rn-version>v3.0.0</span></span>
+          <h2>What's New</h2>
+          <p class="date">Latest release · <span data-rn-date>June 30, 2026</span></p>
+          <div class="links">
+            <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/blob/main/RELEASE_NOTES.md">
+              Release notes <svg class="icon"><use href="#i-arrow"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/releases">Older releases</a>
+          </div>
+        </div>
+        <ul class="rn-list" data-rn-list>
+          <li>
+            <b>Statistics and Suggestions are now two separate tabs, with real charts</b>
+            <p>Suggestions live in their own tab (grouped into "Creation" and "Cleanup").</p>
+          </li>
+          <li>
+            <b>See what your shelves are made of</b>
+            <p>New breakdowns show your cards by type (games, non-Steam, <strong>store, wishlist</strong> — counted even when they live inside a multi-source shelf and you've never opened them), by state (normal, featured, decorative,…</p>
+          </li>
+          <li>
+            <b>Remap the sidecar open/close shortcuts</b>
+            <p>"Open Sidecar" (default dpad-right ×2) and "Close Sidecar" (default dpad-left) are now in the Shortcuts tab and can be remapped to any combo.</p>
+          </li>
+          <li>
+            <b>&quot;Show all logs&quot; switch (Advanced → Logs)</b>
+            <p>Turn it on to route every log — including developer-only ones — into the on-device log list, so you can inspect what the plugin is doing without a PC console.</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALLATION -->
+  <section id="install" class="block">
+    <div class="container">
+      <div class="section-head">
+        <h2>Installation</h2>
+        <div class="rule"></div>
+        <p>Deck Shelves runs on top of <a class="accent" href="https://decky.xyz">Decky Loader</a>. Install it from the Decky Store, or grab the latest release and add it manually.</p>
+      </div>
+      <div class="install-grid">
+        <div class="inst-card">
+          <h3><svg class="icon"><use href="#i-store"/></svg> From Decky Store</h3>
+          <p>The easiest way — updates are delivered automatically.</p>
+          <ol class="steps">
+            <li><span>Install <b>Decky Loader</b> on your Steam Deck.</span></li>
+            <li><span>Open the Decky Store and search for <b>Deck Shelves</b>.</span></li>
+            <li><span>Install and restart Steam if prompted.</span></li>
+          </ol>
+        </div>
+        <div class="inst-card">
+          <h3><svg class="icon"><use href="#i-download"/></svg> Manual installation</h3>
+          <p>Install the latest build directly from GitHub Releases.</p>
+          <ol class="steps">
+            <li><span>Download the latest <b>deck-shelves-v*.zip</b> from the Releases page.</span></li>
+            <li><span>In game mode, go to Decky <b>Developer → Install from zip file</b>.</span></li>
+            <li><span>Select the zip, confirm, and restart Steam if prompted.</span></li>
+          </ol>
+        </div>
+      </div>
+      <div class="install-actions">
+        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.0.0.zip" download>
+          <svg class="icon"><use href="#i-download"/></svg> Download latest release
+        </a>
+        <a class="btn btn-ghost" href="https://decky.xyz">
+          <svg class="icon"><use href="#i-globe"/></svg> Get Decky Loader
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="block" style="padding-top:0">
+    <div class="container">
+      <div class="cta">
+        <div class="cta-txt">
+          <div class="cta-ico"><svg class="icon" style="width:28px;height:28px"><use href="#i-download"/></svg></div>
+          <div>
+            <h2>Ready to transform your Steam Deck?</h2>
+            <p>Grab the latest release and start building your perfect home screen.</p>
+          </div>
+        </div>
+        <a class="btn btn-primary" href="https://github.com/santojon/Deck-Shelves/releases/latest/download/deck-shelves-v3.0.0.zip" download>
+          <svg class="icon"><use href="#i-download"/></svg> Download latest release
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="brand" href="#top">
+            <svg class="brand-mark"><use href="#ds-logo"/></svg>
+            <div>
+              <div class="brand-name">DECK <b>SHELVES</b></div>
+              <div class="brand-tag">Customize your Steam Deck Home.</div>
+            </div>
+          </a>
+          <p>Built with <span class="heart">♥</span> by <a href="https://github.com/santojon">Jonathan Santos</a>. An open source Decky plugin that gives you complete control over your Steam Deck home screen.</p>
+        </div>
+
+        <div class="foot-col">
+          <h4>Explore</h4>
+          <a href="#features">Features</a>
+          <a href="#showcase">Screenshots</a>
+          <a href="#install">Installation</a>
+          <a href="https://github.com/santojon/Deck-Shelves/tree/main/docs">Docs</a>
+        </div>
+
+        <div class="foot-col">
+          <h4>Community</h4>
+          <a href="https://github.com/santojon/Deck-Shelves">GitHub</a>
+          <a href="https://discord.gg/EChuVEDakk">Discord</a>
+          <a href="https://www.reddit.com/r/DeckShelves/">Reddit</a>
+          <a href="https://ko-fi.com/santojon">Support on Ko-fi</a>
+        </div>
+
+        <div class="foot-col">
+          <h4>Reports</h4>
+          <a href="reports/index.html">Validation reports</a>
+          <a href="reports/dashboard.html">Reports dashboard</a>
+          <a href="reports/ci/index.html">CI reports</a>
+          <a href="reports/release/index.html">Release reports</a>
+        </div>
+      </div>
+
+      <div class="foot-bottom">
+        <span>© 2026 Deck Shelves · BSD 3-Clause · by <a href="https://github.com/santojon">Jonathan Santos</a></span>
+        <span>Made for Steam Deck.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var gallery = document.querySelector('[data-gallery]');
+      var lb = document.querySelector('[data-lightbox]');
+      if (!gallery || !lb) return;
+
+      var buttons = Array.prototype.slice.call(gallery.querySelectorAll('.shot-btn'));
+      var slides = buttons.map(function (b) {
+        var img = b.querySelector('img');
+        var t = b.querySelector('b');
+        var s = b.querySelector('span:last-child');
+        return { src: img.getAttribute('src'), alt: img.getAttribute('alt'), title: t ? t.textContent : '', sub: s ? s.textContent : '' };
+      });
+
+      var imgEl = lb.querySelector('[data-lb-img]');
+      var titleEl = lb.querySelector('[data-lb-title]');
+      var subEl = lb.querySelector('[data-lb-sub]');
+      var dotsWrap = lb.querySelector('[data-lb-dots]');
+      var current = 0;
+
+      var dots = slides.map(function (_, i) {
+        var d = document.createElement('button');
+        d.className = 'lb-dot';
+        d.setAttribute('aria-label', 'Go to image ' + (i + 1));
+        d.addEventListener('click', function () { show(i); });
+        dotsWrap.appendChild(d);
+        return d;
+      });
+
+      function show(i) {
+        current = (i + slides.length) % slides.length;
+        var sl = slides[current];
+        imgEl.setAttribute('src', sl.src);
+        imgEl.setAttribute('alt', sl.alt);
+        titleEl.textContent = sl.title;
+        subEl.textContent = sl.sub;
+        dots.forEach(function (d, di) { d.classList.toggle('active', di === current); });
+      }
+      function open(i) { show(i); lb.classList.add('open'); lb.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
+      function close() { lb.classList.remove('open'); lb.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+
+      buttons.forEach(function (b, i) { b.addEventListener('click', function () { open(i); }); });
+      lb.querySelector('[data-lb-prev]').addEventListener('click', function () { show(current - 1); });
+      lb.querySelector('[data-lb-next]').addEventListener('click', function () { show(current + 1); });
+      lb.querySelector('[data-lb-close]').addEventListener('click', close);
+      lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+      document.addEventListener('keydown', function (e) {
+        if (!lb.classList.contains('open')) return;
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowLeft') show(current - 1);
+        else if (e.key === 'ArrowRight') show(current + 1);
+      });
+
+      // Horizontal carousel arrows (scroll the strip ~one page at a time).
+      var track = document.querySelector('[data-track]');
+      var carPrev = document.querySelector('[data-car-prev]');
+      var carNext = document.querySelector('[data-car-next]');
+      function page() { return track ? track.clientWidth * 0.8 : 0; }
+      if (carPrev) carPrev.addEventListener('click', function () { track.scrollBy({ left: -page(), behavior: 'smooth' }); });
+      if (carNext) carNext.addEventListener('click', function () { track.scrollBy({ left: page(), behavior: 'smooth' }); });
+    })();
+  </script>
+</body>
+</html>

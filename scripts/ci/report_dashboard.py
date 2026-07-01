@@ -16,6 +16,7 @@ if _HERE not in sys.path:
 from report import (  # type: ignore[import-not-found]
     _collect_all_runs,
     _DASH_CSS,
+    _report_nav,
 )
 _DASH_JS = r"""
 (function(){
@@ -149,7 +150,7 @@ _DASH_JS = r"""
     const line='M'+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L');
     const area=`M${pts[0].x.toFixed(1)},${pt+ch} L`+pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L')+` L${pts[pts.length-1].x.toFixed(1)},${pt+ch} Z`;
     const dots=pts.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${(p.m.failed||0)===0?PASS:FAIL}"><title>${esc(p.m.ts||'?')} [${esc(scopeOf(p.m)||'?')}] ${Math.round(p.rate)}% (${p.m.passed||0}/${p.m.total||0})</title></circle>`).join('');
-    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}<path d="${area}" fill="#7c3aed22"/><path d="${line}" fill="none" stroke="#a78bfa" stroke-width="2"/>${dots}</svg>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${grid}<path d="${area}" fill="#3d8bff22"/><path d="${line}" fill="none" stroke="#6ea8ff" stroke-width="2"/>${dots}</svg>`;
   }
 
   // Total run duration over time — shows whether validation is trending
@@ -449,9 +450,11 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; Dashboard</title>
+<link rel="stylesheet" href="../style.css">
 <style>{_DASH_CSS}</style>
 </head>
 <body>
+{_report_nav('../index.html', 'index.html', 'dashboard.html')}
 <header>
   <h1>Deck Shelves &mdash; Dashboard</h1>
   <a class="back" href="index.html">&larr; All reports</a>

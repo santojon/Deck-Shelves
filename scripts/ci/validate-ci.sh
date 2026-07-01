@@ -16,7 +16,7 @@ if [[ -z "${REPORT_SCOPE:-}" && "${GITHUB_REF:-}" == refs/tags/v* ]]; then
 fi
 
 TS="$(date '+%Y-%m-%d_%H-%M-%S')"
-REPORT_DIR="${ROOT}/reports/${SCOPE}"
+REPORT_DIR="${ROOT}/site/reports/${SCOPE}"
 TMP="${REPORT_DIR}/.tmp_${TS}"
 mkdir -p "${TMP}" "${REPORT_DIR}"
 

@@ -35,7 +35,7 @@ git checkout "$TARGET"
 # Ensure tip-of-branch — rebase any parallel landed commit; next run retries naturally.
 git pull --rebase origin "$TARGET" || true
 
-git add reports/ 2>/dev/null || true
+git add site/reports/ 2>/dev/null || true
 if git diff --staged --quiet; then
   echo "no report changes — nothing to commit"
   echo "::endgroup::"

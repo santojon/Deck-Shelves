@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ci-weekly-report-${{ github.run_id }}
-          path: reports/ci/
+          path: site/reports/ci/
           retention-days: 90
 
       # Commit the freshly-generated report back to main. Scheduled runs
