@@ -455,10 +455,6 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 </head>
 <body>
 {_report_nav('../index.html', 'index.html', 'dashboard.html')}
-<header>
-  <h1>Deck Shelves &mdash; Dashboard</h1>
-  <a class="back" href="index.html">&larr; All reports</a>
-</header>
 <main>
   {chips}
   {panels}

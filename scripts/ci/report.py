@@ -431,7 +431,7 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
 <body>
 {_report_nav('../../index.html', '../index.html', '../dashboard.html')}
 <header>
-  <h1>Deck Shelves &mdash; {_html.escape(label)}</h1>
+  <h1>{_html.escape(label)}</h1>
   <p>{len(records)} run(s) &nbsp;&middot;&nbsp; newest first</p>
 </header>
 <main>
@@ -578,10 +578,6 @@ def _rebuild_top_index(reports_root: Path) -> None:
 </head>
 <body>
 {_report_nav('../index.html', 'index.html', 'dashboard.html')}
-<header>
-  <h1>Deck Shelves &mdash; Validation Reports</h1>
-  <p>Three validation scopes + dashboard &middot; local-only, not committed</p>
-</header>
 <main>
   <div class="grid">
 {cards_html}
@@ -1007,7 +1003,7 @@ def generate(
 <header>
   <a class="back" href="index.html">&larr;</a>
   <div style="flex:1">
-    <h1>Deck Shelves &mdash; {_html.escape(scope_label)}{stress_tag}</h1>
+    <h1>{_html.escape(scope_label)}{stress_tag}</h1>
     <div class="meta">{_html.escape(dt_str)} &nbsp;&middot;&nbsp; {total} steps</div>
   </div>
   <span class="hbadge {overall}">{"PASS" if overall == "pass" else "FAIL"}</span>
