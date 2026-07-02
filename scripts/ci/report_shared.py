@@ -71,7 +71,7 @@ def _site_footer(prefix: str) -> str:
         '<hr class="foot-rule">'
         '<div class="container"><div class="foot-disclaimer">Steam Deck and Steam are trademarks '
         'and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of '
-        'their respective owners. Deck Shelves is an independent, community-made plugin and is not '
+        'their respective owners. Deck Shelves is an independent plugin and is not '
         'affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project.</div></div>'
         '<hr class="foot-rule">'
         '<div class="container"><div class="foot-bottom"><span>&copy; 2026 Deck Shelves &middot; BSD 3-Clause &middot; by '
