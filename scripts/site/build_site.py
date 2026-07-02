@@ -26,7 +26,7 @@ from pathlib import Path
 # Reuse the exact shared footer from the report generator so every page
 # (landing, features, reports) renders an identical footer.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ci"))
-from report import _site_footer  # type: ignore[import-not-found]  # noqa: E402
+from report_shared import _site_footer  # type: ignore[import-not-found]  # noqa: E402
 
 _MONTHS = [
     "January", "February", "March", "April", "May", "June",

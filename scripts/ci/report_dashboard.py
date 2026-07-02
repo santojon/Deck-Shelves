@@ -16,9 +16,8 @@ if _HERE not in sys.path:
 from report import (  # type: ignore[import-not-found]
     _collect_all_runs,
     _DASH_CSS,
-    _report_nav,
-    _site_footer,
 )
+from report_shared import _report_nav, _site_footer  # type: ignore[import-not-found]
 _DASH_JS = r"""
 (function(){
   const SCOPES=['local','ci','release'];
