@@ -240,6 +240,7 @@ _FEATURES_TEMPLATE = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Deck Shelves — All Features</title>
 <meta name="description" content="The full Deck Shelves feature list.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -251,7 +252,7 @@ _FEATURES_TEMPLATE = """<!DOCTYPE html>
 <g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/>
 <rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/>
 <rect rx="8" x="500" y="750" width="570" height="25"/></g></svg>
-<div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Customize your Steam Deck Home.</div></div>
+<div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div></div>
 </a>
 <a class="nav-back" href="index.html">&larr; Back to home</a>
 </div></header>

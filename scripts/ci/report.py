@@ -154,8 +154,8 @@ def _parse_uitests_by_suite(log_text: str) -> dict:
 _CSS = """\
 :root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
-header{background:var(--card);border-bottom:1px solid var(--border);
-  padding:16px 28px;display:flex;align-items:center;gap:12px}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 0}
+header .container{display:flex;align-items:center;gap:12px}
 header h1{margin:0;font-size:18px;font-weight:700;flex:1}
 .hbadge{padding:4px 14px;border-radius:99px;font-size:12px;font-weight:700}
 .hbadge.pass{background:#14532d;color:var(--pass)}.hbadge.fail{background:#7f1d1d;color:var(--fail)}
@@ -213,7 +213,7 @@ a.fl{color:var(--link)}
 _IDX_CSS = """\
 :root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
-header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 28px}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 0}
 header h1{margin:0;font-size:18px;font-weight:700}
 header p{margin:3px 0 0;color:var(--muted);font-size:11px}
 .back{font-size:11px;display:block;margin-bottom:14px;color:var(--link)}
@@ -392,15 +392,16 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; {_html.escape(label)} Reports</title>
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="stylesheet" href="../../style.css">
 <style>{_IDX_CSS}</style>
 </head>
 <body>
 {_report_nav('../../index.html', '../index.html', '../dashboard.html')}
-<header>
+<header><div class="container">
   <h1>{_html.escape(label)}</h1>
   <p>{len(records)} run(s) &nbsp;&middot;&nbsp; newest first</p>
-</header>
+</div></header>
 <main>
 <a class="back" href="../index.html">&larr; All reports</a>
 <table>
@@ -540,6 +541,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; Validation Reports</title>
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="stylesheet" href="../style.css">
 <style>{_TOP_CSS}</style>
 </head>
@@ -961,19 +963,20 @@ def generate(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; {_html.escape(scope_label)} {_html.escape(ts)}</title>
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="stylesheet" href="../../style.css">
 <style>{_CSS}</style>
 </head>
 <body>
 {_report_nav('../../index.html', '../index.html', '../dashboard.html')}
-<header>
+<header><div class="container">
   <a class="back" href="index.html">&larr;</a>
   <div style="flex:1">
     <h1>{_html.escape(scope_label)}{stress_tag}</h1>
     <div class="meta">{_html.escape(dt_str)} &nbsp;&middot;&nbsp; {total} steps</div>
   </div>
   <span class="hbadge {overall}">{"PASS" if overall == "pass" else "FAIL"}</span>
-</header>
+</div></header>
 <main>
   <div class="summary">
     <div class="sc"><div class="n p">{passed}</div><div class="l">Passed</div></div>

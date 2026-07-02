@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0a0e1a"/>
+  <g transform="translate(256,256) scale(0.46) translate(-643,-697)">
+    <path fill="#fff" d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/>
+    <circle cx="300" cy="620" r="80" fill="#0080FF"/>
+    <rect fill="#0080FF" rx="8" x="550" y="460" width="80" height="285"/>
+    <rect fill="#0044B0" x="551" y="500" width="79" height="25"/>
+    <rect fill="#0080FF" rx="8" x="645" y="500" width="75" height="245"/>
+    <rect fill="#0044B0" x="646" y="535" width="73" height="25"/>
+    <rect fill="#fff" rx="8" x="740" y="530" width="75" height="215"/>
+    <rect fill="#D2D2D2" x="741" y="570" width="73" height="25"/>
+    <rect fill="#fff" rx="8" x="840" y="470" width="75" height="275"/>
+    <rect fill="#D2D2D2" x="841" y="505" width="73" height="25"/>
+    <g transform="rotate(-15)">
+      <rect fill="#0080FF" rx="8" x="750" y="750" width="60" height="225"/>
+      <rect fill="#0044B0" x="751" y="785" width="58" height="25"/>
+    </g>
+    <rect fill="#fff" rx="8" x="500" y="750" width="570" height="25"/>
+    <rect fill="#fff" rx="8" x="530" y="780" width="25" height="25"/>
+    <rect fill="#fff" rx="8" x="1020" y="780" width="25" height="25"/>
+  </g>
+</svg>

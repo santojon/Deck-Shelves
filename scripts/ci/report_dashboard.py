@@ -459,6 +459,7 @@ def _rebuild_dashboard(reports_root: Path) -> None:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deck Shelves &mdash; Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="stylesheet" href="../style.css">
 <style>{_DASH_CSS}</style>
 </head>
