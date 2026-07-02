@@ -197,7 +197,6 @@ pre.log .e{color:var(--fail)}pre.log .w{color:var(--warn)}pre.log .g{color:var(-
 a.fl{color:var(--link)}
 .stress-tag{font-size:10px;color:#a5b4fc;background:#1e1b4b;
   padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
-footer{text-align:center;color:var(--border);font-size:11px;padding:24px}
 .sdur{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
 .panel{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-bottom:18px}
 .panel h2{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--text)}
@@ -231,7 +230,6 @@ tr:hover td{background:var(--card)}
 .section-card h2{margin:0;padding:13px 16px;font-size:14px;font-weight:700;
   border-bottom:1px solid var(--border)}
 .section-card table{font-size:12px}
-footer{text-align:center;color:var(--border);font-size:10px;padding:24px}
 """
 
 _TOP_CSS = """\
@@ -258,7 +256,6 @@ td{padding:8px 10px;border-bottom:1px solid #1e293b}
 tr:hover td{background:#273548}
 .b{display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700}
 .b.pass{background:#14532d44;color:var(--pass)}.b.fail{background:#7f1d1d44;color:var(--fail)}
-footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
 """
 
 
@@ -291,6 +288,47 @@ def _report_nav(landing: str, reports_home: str, dash: str) -> str:
         f'<a href="{dash}">Dashboard</a></nav>'
         f'<a class="btn btn-ghost" href="{landing}">&larr; Back to site</a>'
         '</div></div>'
+    )
+
+
+def _site_footer(prefix: str) -> str:
+    """The shared site footer — identical across the landing, features page and
+    every report page. `prefix` is the relative path from the current page back
+    to the site root ('' landing/features, '../' reports/, '../../' reports/<scope>/)."""
+    p = prefix
+    return (
+        '<footer><div class="container"><div class="foot-grid">'
+        f'<div class="foot-brand"><a class="brand" href="{p}index.html">{_LOGO_SVG}'
+        '<div><div class="brand-name">DECK <b>SHELVES</b></div>'
+        '<div class="brand-tag">Customize your Steam Deck Home.</div></div></a>'
+        '<p>Built with <span class="heart">&hearts;</span> by '
+        '<a href="https://github.com/santojon">Jonathan Santos</a>. An open source plugin '
+        'that gives you complete control over your Steam Deck home screen.</p></div>'
+        '<div class="foot-col"><h4>Explore</h4>'
+        f'<a href="{p}index.html#features">Features</a>'
+        f'<a href="{p}index.html#showcase">Screenshots</a>'
+        f'<a href="{p}index.html#install">Installation</a>'
+        '<a href="https://github.com/santojon/Deck-Shelves/tree/main/docs">Docs</a></div>'
+        '<div class="foot-col"><h4>Community</h4>'
+        '<a href="https://github.com/santojon/Deck-Shelves">GitHub</a>'
+        '<a href="https://discord.gg/EChuVEDakk">Discord</a>'
+        '<a href="https://www.reddit.com/r/DeckShelves/">Reddit</a>'
+        '<a href="https://ko-fi.com/santojon">Support on Ko-fi</a>'
+        '<a href="https://www.npmjs.com/package/@deck-shelves/api">API on npm</a></div>'
+        '<div class="foot-col"><h4>Reports</h4>'
+        f'<a href="{p}reports/index.html">Validation reports</a>'
+        f'<a href="{p}reports/dashboard.html">Reports dashboard</a>'
+        f'<a href="{p}reports/ci/index.html">CI reports</a>'
+        f'<a href="{p}reports/release/index.html">Release reports</a></div>'
+        '</div>'
+        '<div class="foot-disclaimer">Steam Deck and Steam are trademarks and/or registered '
+        'trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their '
+        'respective owners. Deck Shelves is an independent, community-made plugin and is not '
+        'affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project.</div>'
+        '<div class="foot-bottom"><span>&copy; 2026 Deck Shelves &middot; BSD 3-Clause &middot; by '
+        '<a href="https://github.com/santojon">Jonathan Santos</a></span>'
+        '<span>Made for Steam Deck.</span></div>'
+        '</div></footer>'
     )
 
 
@@ -444,7 +482,7 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
   <tbody>{body}</tbody>
 </table>
 </main>
-<footer>Deck Shelves CI &middot; {_html.escape(label)}</footer>
+{_site_footer('../../')}
 </body>
 </html>
 """
@@ -460,7 +498,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
     descs   = {
         "local":   "Full validation with Steam Deck (deploy + UI tests + perf bench).",
         "ci":      "Automated checks without device (typecheck, tests, build, compat).",
-        "release": "Release gate: CI checks + packaging + security audit.",
+        "release": "Full CI suite (typecheck, build, tests, packaging, verify, compat) run on a release tag.",
     }
 
     # Latest run per subdir
@@ -527,7 +565,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
     top_js = r"""
 (function(){
   const SCOPES=[['local','Local'],['ci','CI / Automated'],['release','Release']];
-  const DESCS={local:'Full validation with Steam Deck (deploy + UI tests + perf bench).',ci:'Automated checks without device (typecheck, tests, build, compat).',release:'Release gate: CI checks + packaging + security audit.'};
+  const DESCS={local:'Full validation with Steam Deck (deploy + UI tests + perf bench).',ci:'Automated checks without device (typecheck, tests, build, compat).',release:'Full CI suite (typecheck, build, tests, packaging, verify, compat) run on a release tag.'};
   const EMPTY='No reports yet — run a validation (e.g. `pnpm validate:ci`) to populate this page.';
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
   function fmt(ts){
@@ -592,7 +630,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
     </table>
   </div>
 </main>
-<footer>Deck Shelves CI &middot; local-only</footer>
+{_site_footer('../')}
 <script>{top_js}</script>
 </body>
 </html>
@@ -627,7 +665,6 @@ main{max-width:1080px;margin:0 auto;padding:24px 32px}
 .bar{flex:1;height:22px;border-radius:5px;overflow:hidden;display:flex;background:#0f172a}
 .bar i{display:block;height:100%}
 .scope-row .ct{width:70px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px}
-footer{text-align:center;color:var(--border);font-size:11px;padding:28px}
 text{font-family:system-ui,sans-serif}
 .filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
 .filter-chips button{background:var(--card);border:1px solid var(--border);color:var(--muted);
@@ -1019,7 +1056,7 @@ def generate(
   {('<div class="panel"><h2>Step durations</h2>' + benchmark_html + '</div>') if benchmark_html else ''}
 {steps_html}
 </main>
-<footer>Deck Shelves CI &middot; {_html.escape(ts)}</footer>
+{_site_footer('../../')}
 </body>
 </html>
 """

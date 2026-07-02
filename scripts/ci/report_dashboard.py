@@ -17,6 +17,7 @@ from report import (  # type: ignore[import-not-found]
     _collect_all_runs,
     _DASH_CSS,
     _report_nav,
+    _site_footer,
 )
 _DASH_JS = r"""
 (function(){
@@ -60,7 +61,9 @@ _DASH_JS = r"""
       ['no stress',   total-stress,    '#6b7280','stress','no'],
     ];
     return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">'+
-      items.map(([n,v,c,axis,val])=>{
+      items
+      .filter(([n,v,c,axis,val])=>v>0||(axis==='deck'&&currentDeck===val)||(axis==='stress'&&currentStress===val))
+      .map(([n,v,c,axis,val])=>{
         const active=(axis==='deck'&&currentDeck===val)||(axis==='stress'&&currentStress===val);
         const bg=active?(c+'55'):(c+'22');
         const border=active?(c+'cc'):(c+'44');
@@ -370,12 +373,19 @@ def _rebuild_dashboard(reports_root: Path) -> None:
         for m in runs
     ]
 
+    # Only surface scope chips that actually have runs — a machine with no
+    # local validation shouldn't show an empty "Local" filter.
+    present = {m.get("_scope") for m in runs}
+    chip_defs = [("all", "All")] + [
+        (s, label) for s, label in (("local", "Local"), ("ci", "CI"), ("release", "Release"))
+        if s in present
+    ]
     chips = (
         '<div class="filter-chips" role="tablist" aria-label="Scope filter">'
         + "".join(
             f'<button type="button" data-filter="{s}" '
             f'class="{"active" if s == "all" else ""}" role="tab">{label}</button>'
-            for s, label in (("all", "All"), ("local", "Local"), ("ci", "CI"), ("release", "Release"))
+            for s, label in chip_defs
         )
         + '</div>'
     )
@@ -459,7 +469,7 @@ def _rebuild_dashboard(reports_root: Path) -> None:
   {chips}
   {panels}
 </main>
-<footer>Deck Shelves CI &middot; dashboard &middot; <span id="footer-count">0</span> run(s) aggregated</footer>
+{_site_footer('../')}
 <script>window.__BAKED_RUNS__={baked_json};</script>
 <script>{_DASH_JS}</script>
 </body>

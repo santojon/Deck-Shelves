@@ -18,9 +18,15 @@ Usage: python3 scripts/site/build_site.py [--root .]
 from __future__ import annotations
 
 import html
+import os
 import re
 import sys
 from pathlib import Path
+
+# Reuse the exact shared footer from the report generator so every page
+# (landing, features, reports) renders an identical footer.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ci"))
+from report import _site_footer  # type: ignore[import-not-found]  # noqa: E402
 
 _MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -268,10 +274,7 @@ _FEATURES_TEMPLATE = """<!DOCTYPE html>
 </div>
 </div></main>
 
-<footer class="foot-simple"><div class="container">
-Deck Shelves · <a href="index.html">Back to home</a> ·
-<a href="https://github.com/santojon/Deck-Shelves">GitHub</a>
-</div></footer>
+{footer}
 </body>
 </html>
 """
@@ -311,7 +314,8 @@ def main() -> int:
     if feats:
         html_list = _features_list_html(feats)
         (site / "features.html").write_text(
-            _FEATURES_TEMPLATE.format(showcase=_showcase_html(), items=html_list),
+            _FEATURES_TEMPLATE.format(showcase=_showcase_html(), items=html_list,
+                                      footer=_site_footer("")),
             encoding="utf-8")
         print(f"[build_site] features.html: {len(feats)} lines + {len(_SHOWCASE)} showcases")
     else:

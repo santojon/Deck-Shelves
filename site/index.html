@@ -48,6 +48,8 @@
       <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
       <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.3"/></symbol>
       <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 4h16l-1 5a3 3 0 0 1-3 2.4A3 3 0 0 1 12 9a3 3 0 0 1-4 2.4A3 3 0 0 1 5 9z"/><path d="M5 11v9h14v-9M10 20v-5h4v5"/></symbol>
+      <symbol id="i-package" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13 5l-2 14"/></symbol>
       <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49v-1.7c-2.78.62-3.37-1.22-3.37-1.22-.46-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.35 1.12 2.92.86.09-.66.35-1.12.63-1.38-2.22-.26-4.55-1.14-4.55-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.4 9.4 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .27.18.6.69.49A10.26 10.26 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
@@ -66,7 +68,7 @@
         <svg class="brand-mark"><use href="#ds-logo"/></svg>
         <div>
           <div class="brand-name">DECK <b>SHELVES</b></div>
-          <div class="brand-tag">Customize your Steam Deck Home.</div>
+          <div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div>
         </div>
       </a>
       <nav class="nav-links">
@@ -87,11 +89,10 @@
   <section class="hero">
     <div class="container hero-grid">
       <div>
-        <span class="eyebrow">Decky Loader plugin</span>
-        <h1>Your Steam Deck<br><span class="accent">Home Screen.</span><br>Your Way.</h1>
+        <h1>Your Steam Deck<br><span class="hero-hl">Home Screen.</span><br>Your Way.</h1>
         <p class="lead">
           Deck Shelves lets you build custom shelves from your collections, library tabs, or
-          smart filters. Add decoration cards, smart shelves, and wishlist/store rows — all from a
+          filters. Add decoration cards, smart shelves, and wishlist/store rows — all from a
           built-in editor in Quick Access. No desktop mode, no config files.
         </p>
         <div class="actions">
@@ -104,20 +105,12 @@
         </div>
       </div>
 
-      <!-- Steam Deck frame holding the real home screenshot -->
-      <div class="deck-wrap">
-        <div class="deck">
-          <div class="deck-btns left"><span></span><span></span><span></span><span></span></div>
-          <div class="deck-btns right"><span></span><span></span><span></span><span></span></div>
-          <div class="deck-stick left"></div>
-          <div class="deck-stick right"></div>
-          <div class="deck-screen">
-            <img src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png" alt="Deck Shelves home screen with custom shelves and hero artwork" loading="eager">
-          </div>
-          <div class="deck-labels">
-            <span>STEAM &nbsp; MENU</span>
-            <span>SELECT &nbsp; BACK</span>
-          </div>
+      <!-- Real Steam Deck (transparent-bg PNG); the screenshot overlays the screen,
+           and the frame bleeds off the right edge like the reference. -->
+      <div class="deck-photo">
+        <div class="deck-inner">
+          <img class="deck-frame-img" src="img/steam-deck.png" alt="Steam Deck" loading="eager">
+          <img class="deck-screen-img" src="https://raw.githubusercontent.com/santojon/Deck-Shelves/main/assets/screenshots/home.png" alt="Deck Shelves home screen with custom shelves and hero artwork" loading="eager">
         </div>
       </div>
     </div>
@@ -167,8 +160,8 @@
         </article>
         <article class="feat-card">
           <div class="feat-ico"><svg class="icon"><use href="#i-gamepad"/></svg></div>
-          <h3>Smart Shortcuts</h3>
-          <p>Quick add to shelf, Y-button highlight, remappable buttons and a per-game context menu.</p>
+          <h3>Configurable Shortcuts</h3>
+          <p>Remap or disable the gamepad buttons for hide, highlight, quick-launch, Quick Search and Side Navigation.</p>
         </article>
         <article class="feat-card">
           <div class="feat-ico"><svg class="icon"><use href="#i-image"/></svg></div>
@@ -277,6 +270,25 @@
     </div>
   </section>
 
+  <!-- API -->
+  <section id="api" class="block" style="padding-top:0">
+    <div class="container">
+      <div class="panel-block api-band">
+        <div class="api-lead">
+          <div class="feat-ico api-ico"><svg class="icon"><use href="#i-code"/></svg></div>
+          <div>
+            <h2>Built to be extended</h2>
+            <p>Other plugins can register custom shelf sources, filters, sorts, smart shelves and statistics through the public <b>@deck-shelves/api</b> (v4).</p>
+          </div>
+        </div>
+        <div class="api-actions">
+          <a class="btn btn-ghost" href="https://github.com/santojon/Deck-Shelves/tree/main/api"><svg class="icon"><use href="#i-github"/></svg> API on GitHub</a>
+          <a class="btn btn-ghost" href="https://www.npmjs.com/package/@deck-shelves/api"><svg class="icon"><use href="#i-package"/></svg> View on npm</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- RELEASE NOTES -->
   <section id="releases" class="block">
     <div class="container">
@@ -325,11 +337,11 @@
       <div class="install-grid">
         <div class="inst-card">
           <h3><svg class="icon"><use href="#i-store"/></svg> From Decky Store</h3>
-          <p>The easiest way — updates are delivered automatically.</p>
+          <p>The easiest way — once installed, Deck Shelves updates on a click of a button whenever a new version is available in the store.</p>
           <ol class="steps">
             <li><span>Install <b>Decky Loader</b> on your Steam Deck.</span></li>
             <li><span>Open the Decky Store and search for <b>Deck Shelves</b>.</span></li>
-            <li><span>Install and restart Steam if prompted.</span></li>
+            <li><span>Install and restart Steam if prompted — future updates land on their own.</span></li>
           </ol>
         </div>
         <div class="inst-card">
@@ -383,7 +395,7 @@
               <div class="brand-tag">Customize your Steam Deck Home.</div>
             </div>
           </a>
-          <p>Built with <span class="heart">♥</span> by <a href="https://github.com/santojon">Jonathan Santos</a>. An open source Decky plugin that gives you complete control over your Steam Deck home screen.</p>
+          <p>Built with <span class="heart">♥</span> by <a href="https://github.com/santojon">Jonathan Santos</a>. An open source plugin that gives you complete control over your Steam Deck home screen.</p>
         </div>
 
         <div class="foot-col">
@@ -400,6 +412,7 @@
           <a href="https://discord.gg/EChuVEDakk">Discord</a>
           <a href="https://www.reddit.com/r/DeckShelves/">Reddit</a>
           <a href="https://ko-fi.com/santojon">Support on Ko-fi</a>
+          <a href="https://www.npmjs.com/package/@deck-shelves/api">API on npm</a>
         </div>
 
         <div class="foot-col">
@@ -409,6 +422,10 @@
           <a href="reports/ci/index.html">CI reports</a>
           <a href="reports/release/index.html">Release reports</a>
         </div>
+      </div>
+
+      <div class="foot-disclaimer">
+        Steam Deck and Steam are trademarks and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their respective owners. Deck Shelves is an independent plugin and is not affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project.
       </div>
 
       <div class="foot-bottom">
