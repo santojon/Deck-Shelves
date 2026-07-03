@@ -9,6 +9,7 @@ import { getUserDownloadsDir, joinDownloads } from "../../../core/userPaths";
 import { SettingsSection } from "../../ui/SettingsSection";
 import { DownloadIcon, UploadIcon } from "../../icons";
 import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
+import { getExternalExportHandlers, getExternalImportHandlers } from "../../../core/pluginApi";
 
 
 export interface BackupDetailProps {
@@ -32,6 +33,15 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
   ));
   const importCustom = () => openManagedModal((close) => (
     <ImportAllModal closeModal={close} controller={controller} initialPath={joinDownloads("deck-shelves.json")} />
+  ));
+  // Third-party export / import formats registered through the Plugin API.
+  const exportHandlers = getExternalExportHandlers();
+  const importHandlers = getExternalImportHandlers();
+  const exportViaHandler = (id: string, label: string, ext?: string) => () => openManagedModal((close) => (
+    <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} handlerId={id} handlerLabel={label} fileExt={ext} />
+  ));
+  const importViaHandler = (id: string, label: string, ext?: string) => () => openManagedModal((close) => (
+    <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads(`deck-shelves.${ext || "json"}`)} handlerId={id} handlerLabel={label} />
   ));
 
   return (
@@ -71,6 +81,26 @@ export function BackupDetail({ controller, t }: BackupDetailProps) {
         onExport={exportCustom}
         onImport={importCustom}
       />
+      {exportHandlers.map((h) => (
+        <BackupGroup
+          key={`exp-${h.id}`}
+          title={h.displayName}
+          description={`.${h.fileExtension || "json"}`}
+          exportLabel={t("settings_backup_export")}
+          importLabel={t("settings_backup_import")}
+          onExport={exportViaHandler(h.id, h.displayName, h.fileExtension)}
+        />
+      ))}
+      {importHandlers.map((h) => (
+        <BackupGroup
+          key={`imp-${h.id}`}
+          title={h.displayName}
+          description={`.${h.fileExtension || "json"}`}
+          exportLabel={t("settings_backup_export")}
+          importLabel={t("settings_backup_import")}
+          onImport={importViaHandler(h.id, h.displayName, h.fileExtension)}
+        />
+      ))}
     </Focusable>
   );
 }
@@ -82,8 +112,8 @@ function BackupGroup({
   description: string;
   exportLabel: string;
   importLabel: string;
-  onExport: () => void;
-  onImport: () => void;
+  onExport?: () => void;
+  onImport?: () => void;
 }) {
   return (
     <SettingsSection
@@ -91,14 +121,18 @@ function BackupGroup({
       description={description}
       trailing={
         <Focusable flow-children="horizontal" style={{ display: "flex", gap: 8 }}>
-          <DialogButton onClick={onExport} onOKButton={onExport} style={BTN_COMPACT_STYLE}>
-            <UploadIcon size={12} />
-            <span>{exportLabel}</span>
-          </DialogButton>
-          <DialogButton onClick={onImport} onOKButton={onImport} style={BTN_COMPACT_STYLE}>
-            <DownloadIcon size={12} />
-            <span>{importLabel}</span>
-          </DialogButton>
+          {onExport && (
+            <DialogButton onClick={onExport} onOKButton={onExport} style={BTN_COMPACT_STYLE}>
+              <UploadIcon size={12} />
+              <span>{exportLabel}</span>
+            </DialogButton>
+          )}
+          {onImport && (
+            <DialogButton onClick={onImport} onOKButton={onImport} style={BTN_COMPACT_STYLE}>
+              <DownloadIcon size={12} />
+              <span>{importLabel}</span>
+            </DialogButton>
+          )}
         </Focusable>
       }
     >

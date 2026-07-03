@@ -5,6 +5,14 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Other plugins can now offer their own export / import formats.** When a companion plugin adds one, it shows up under Settings → Backup, so you can move your shelves, smart shelves and saved filters between tools without losing anything.
+
+### Changed
+
+- **The "See more" tile is smarter now.** It only shows up when your shelf actually holds more games than it can fit — so a shelf that already shows everything no longer ends with a pointless "See more". You can still hide it yourself whenever you like.
+
 ## [3.0.0] - 2026-06-30
 
 ### Added

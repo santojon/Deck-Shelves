@@ -151,6 +151,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      event-driven refreshes pass no `manual` flag and remain silent. */
   const [refreshing, setRefreshing] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pre-limit match count reported by the resolver (undefined when the
+  // resolver doesn't report it) — drives the dynamic "See more" decision.
+  const resolvedTotalRef = useRef<number | undefined>(undefined);
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
@@ -204,7 +207,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         const hiddenAppIds: number[] | undefined = (shelf as any).hiddenAppIds?.length ? (shelf as any).hiddenAppIds : undefined
         const __traceStart = Date.now();
         try { (globalThis as any).__ds_resolve_trace = (globalThis as any).__ds_resolve_trace || {}; (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "started", at: __traceStart, gen, currentGen: resolveGenRef.current, cancelled }; } catch {}
-        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined })
+        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined, onResolveTotal: (n) => { resolvedTotalRef.current = n; } })
           .then((ids) => {
             try { (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "then", at: Date.now(), tookMs: Date.now() - __traceStart, gen, currentGen: resolveGenRef.current, cancelled, idCount: ids?.length }; } catch {}
             if (cancelled || gen !== resolveGenRef.current) return;
@@ -591,6 +594,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       hideRefreshCard: (shelf as any).hideRefreshCard === true,
       globalHideSeeMore,
       globalHideRefreshCard,
+      resolvedTotal: resolvedTotalRef.current,
+      limit: shelf.limit,
+      isOnline: isOnlineShelf,
     };
     if (shouldShowRefreshCard(trailingInput)) {
       const isSmart = (shelf.source as any)?.type === 'smart';

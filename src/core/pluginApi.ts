@@ -132,6 +132,35 @@ export interface ParsedImport {
   }>;
 }
 
+// ---- 1d-bis. Portable export / import handlers ----------------------------
+// Plugin-to-plugin transfer. A handler converts between Deck Shelves' own
+// snapshot JSON (a serialized bundle of shelves / smart shelves / saved
+// filters / saved smart filters) and the handler's own format, so a plugin
+// can offer "Export to format X" / "Import from format Y". The contract is
+// format-agnostic — both sides exchange the snapshot as a JSON string, so no
+// internal type leaks and the round-trip stays lossless.
+
+export interface ExportHandlerDescriptor {
+  id: string;
+  displayName: string;
+  version?: number;
+  /** File extension the export produces (default `json`). */
+  fileExtension?: string;
+  icon?: ReactNode;
+  /** Serialize the Deck Shelves snapshot JSON into this handler's format. */
+  export: (snapshotJson: string) => string | Promise<string>;
+}
+
+export interface ImportHandlerDescriptor {
+  id: string;
+  displayName: string;
+  version?: number;
+  fileExtension?: string;
+  icon?: ReactNode;
+  /** Parse this handler's format back into a Deck Shelves snapshot JSON. */
+  import: (raw: string) => string | Promise<string>;
+}
+
 // ---- 1e. Saved filter registration ----------------------------------------
 
 export interface ExternalSavedFilterDescriptor {
@@ -329,6 +358,11 @@ export interface DeckShelvesPublicAPI {
   registerSortOption(d: ExternalSortOptionDescriptor): Unsubscribe;
   registerImportType(d: ExternalImportTypeDescriptor): Unsubscribe;
   registerSavedFilter(d: ExternalSavedFilterDescriptor): Unsubscribe;
+  // Portable export / import handlers (additive — no version bump).
+  registerExportHandler(d: ExportHandlerDescriptor): Unsubscribe;
+  registerImportHandler(d: ImportHandlerDescriptor): Unsubscribe;
+  getRegisteredExportHandlers(): ReadonlyArray<ExportHandlerDescriptor>;
+  getRegisteredImportHandlers(): ReadonlyArray<ImportHandlerDescriptor>;
 
   getRegisteredSources(): ReadonlyArray<ExternalShelfSourceDescriptor>;
   getRegisteredSmartSources(): ReadonlyArray<SmartShelfSourceDescriptor>;
@@ -396,6 +430,8 @@ const shelfRenderers = new Map<string, ShelfRendererDescriptor>();
 const metadataProviders = new Map<string, MetadataProviderDescriptor>();
 const statisticsProviders = new Map<string, StatisticsProviderDescriptor>();
 const recommendationProviders = new Map<string, RecommendationProviderDescriptor>();
+const exportHandlers = new Map<string, ExportHandlerDescriptor>();
+const importHandlers = new Map<string, ImportHandlerDescriptor>();
 
 export function resolveExternalSource(sourceId: string, limit: number): Promise<number[]> {
   const src = shelfSources.get(sourceId);
@@ -470,6 +506,14 @@ export function getExternalStatisticsProviders(): StatisticsProviderDescriptor[]
 
 export function getExternalRecommendationProviders(): RecommendationProviderDescriptor[] {
   return Array.from(recommendationProviders.values());
+}
+
+export function getExternalExportHandlers(): ExportHandlerDescriptor[] {
+  return Array.from(exportHandlers.values());
+}
+
+export function getExternalImportHandlers(): ImportHandlerDescriptor[] {
+  return Array.from(importHandlers.values());
 }
 
 export function hasExternalFilterType(id: string): boolean {
@@ -767,7 +811,7 @@ function projectSavedSmartFilters(s: Settings | null): ReadonlyArray<PublicSaved
   }));
 }
 
-function makeApi(): DeckShelvesPublicAPI {
+export function makeApi(): DeckShelvesPublicAPI {
   return {
     version: 4,
 
@@ -808,6 +852,17 @@ function makeApi(): DeckShelvesPublicAPI {
       void persistRegisteredSavedFilter(d);
       return () => { void removeRegisteredSavedFilter(d.id); };
     },
+
+    registerExportHandler(d) {
+      exportHandlers.set(d.id, d);
+      return () => { exportHandlers.delete(d.id); };
+    },
+    registerImportHandler(d) {
+      importHandlers.set(d.id, d);
+      return () => { importHandlers.delete(d.id); };
+    },
+    getRegisteredExportHandlers() { return getExternalExportHandlers(); },
+    getRegisteredImportHandlers() { return getExternalImportHandlers(); },
 
     hasTabMaster() { return isTabMasterInstalled(); },
 

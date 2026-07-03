@@ -71,6 +71,24 @@ export function initI18n() {
     }).catch(() => {});
   }
 
+  // Release-screenshot hook: force the UI to a specific locale so captures are
+  // deterministic (the pipeline forces en-US, whose bundle is always loaded
+  // eagerly). Harmless in normal use — it only flips the display language.
+  try {
+    (globalThis as any).__dsSetLocale = (loc?: string) => {
+      const l = loc || "en-US";
+      const apply = () => { try { i18n.changeLanguage(l); } catch {} };
+      if (l !== "en-US" && !i18n.hasResourceBundle(l, "translation")) {
+        loadLocaleDict(l).then((dict) => {
+          if (dict && Object.keys(dict).length) i18n.addResourceBundle(l, "translation", dict, true, true);
+          apply();
+        }).catch(apply);
+      } else {
+        apply();
+      }
+    };
+  } catch { /* no globalThis */ }
+
   return i18n;
 }
 

@@ -12,6 +12,13 @@ export type TrailingCardInput = {
   hideRefreshCard?: boolean;
   globalHideSeeMore?: boolean;
   globalHideRefreshCard?: boolean;
+  /* Dynamic "See more": the pre-limit match count and the shelf limit.
+     When both are known (and the shelf isn't online), the card is hidden
+     if the source has nothing more than what already fits. Absent on the
+     modal preview, where the card keeps its previous always-shown shape. */
+  resolvedTotal?: number;
+  limit?: number;
+  isOnline?: boolean;
 };
 
 function primarySort(sort: string | string[] | undefined): string | undefined {
@@ -43,5 +50,17 @@ export function shouldShowRefreshCard(input: TrailingCardInput): boolean {
 
 export function shouldShowMoreCard(input: TrailingCardInput): boolean {
   if (input.globalHideSeeMore === true || input.hideSeeMore === true) return false;
-  return input.source?.type !== "smart";
+  if (input.source?.type === "smart") return false;
+  // Dynamic: on a library (non-online) shelf, hide "See more" when the
+  // source has nothing beyond what the limit already shows. Online shelves
+  // always link out to the store. When the total is unknown (resolver
+  // didn't report it, or the modal preview), keep the previous behaviour
+  // and show the card.
+  if (input.isOnline !== true
+      && typeof input.resolvedTotal === "number"
+      && typeof input.limit === "number"
+      && input.resolvedTotal <= input.limit) {
+    return false;
+  }
+  return true;
 }

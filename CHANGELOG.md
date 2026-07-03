@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Portable snapshot export/import** ([`domain/snapshot.ts`](src/domain/snapshot.ts) + controller `exportSnapshot` / `importSnapshot`). Bundles regular shelves, smart shelves, saved filters and saved smart filters into a single versioned JSON; `merge` appends with id de-duplication, `replace` overwrites. Format-compatible with the existing per-concept exports.
+- **Plugin-to-plugin export/import handlers** ([`pluginApi.ts`](src/core/pluginApi.ts) + [`api/src/types.ts`](api/src/types.ts)). New `registerExportHandler` / `registerImportHandler` (+ `getRegisteredExportHandlers` / `getRegisteredImportHandlers`) let a third-party plugin offer "Export to format X" / "Import from format Y". Handlers are format-agnostic — they translate between the snapshot JSON and their own format, so the transfer is lossless. Bridged by controller `exportViaHandler` / `importViaHandler` and surfaced in Settings → Backup. Additive to the frozen contract (no `version` bump).
+
+### Changed
+
+- **"See more" card is dynamic on library shelves (#65).** The trailing "See more" tile now appears only when the shelf's source actually has more games than the configured limit (e.g. it is hidden when 18 games fill a limit-20 shelf). Manually hiding it via the per-shelf / global toggle is unchanged; online (wishlist / store) shelves still always link out. Driven by a new optional `onResolveTotal` hook on `resolveShelfAppIds` reported by the collection / filter resolvers; when the count is unknown the tile is shown, so nothing regresses.
+
+### Fixed
+
+- **Screenshot tooling failed under an English UI.** The release-screenshot scenarios matched tab labels with locale-tolerant needles, one of which (`"filtr"`) never matched the English "Filters". The pipeline now **forces the plugin UI to en-US** before each capture (new `globalThis.__dsSetLocale` hook exposed by [`i18n.ts`](src/i18n.ts), invoked from the SharedJSContext realm) and the scenario needles are plain English, so captures are deterministic regardless of the device's Steam language.
+
 ## [3.0.0] - 2026-06-30
 
 ### Added

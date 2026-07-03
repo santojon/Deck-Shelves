@@ -76,7 +76,7 @@
 - **Highlight first game** — first card renders as a landscape featured card
 - **Highlight all games** — toggle per-shelf or globally to render every card as a landscape featured card
 - **Hide status line** — toggle to hide the the play/install status of a game
-- **Hide trailing cards** — separate per-shelf and global toggles to hide the "See more" tile and / or the "Refresh" tile on shelves that emit them (random-sorted regular shelves and refreshable smart shelves)
+- **Hide trailing cards** — separate per-shelf and global toggles to hide the "See more" tile and / or the "Refresh" tile on shelves that emit them (random-sorted regular shelves and refreshable smart shelves). The "See more" tile also hides on its own when a shelf already shows every game that matches, so it only appears when there's actually more to see
 - **Per-shelf size** — limit slider goes up to 50 cards in the shelf and smart-shelf editors
 - **Sub-filters for collection and tab sources** — when a shelf's source is a collection or library tab, an Additional Filters tab in the editor lets you add further filter criteria on top of the source
 - **Manually hide games per shelf** — "Hide specific games" toggle in the Display tab opens a mini-card picker; the shelf automatically fetches extra candidates to keep the configured number of visible cards filled

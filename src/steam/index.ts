@@ -2737,11 +2737,14 @@ type ResolverContext = {
   sort?: string | string[];
   shelfId?: string;
   sortReverse?: boolean | boolean[];
-  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean };
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean; onResolveTotal?: (n: number) => void };
   depth: number;
   all: AppOverview[];
   overShootLimit: number;
   finish: (ids: number[]) => number[];
+  // Reports the pre-limit match count so callers can decide whether a
+  // "See more" affordance is warranted (only some resolvers report it).
+  reportTotal?: (n: number) => void;
 };
 
 type CollectionMatches = { exactMatches: SteamCollection[]; softMatches: SteamCollection[] };
@@ -2822,6 +2825,7 @@ async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
   ids = applyCollectionChildFilter(ids, source, all);
   if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
   ids = deduplicateNonSteam(ids, all);
+  ctx.reportTotal?.(ids.length);
   return finish(ids.slice(0, overShootLimit));
 }
 
@@ -3102,6 +3106,7 @@ async function _resolveFilterGroupPath(
   const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
   if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
   else logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
+  ctx.reportTotal?.(ids.length);
   return finish(ids.slice(0, overShootLimit));
 }
 
@@ -3121,6 +3126,7 @@ function _resolveFilterLegacyPathMultiKey(
   const ids = deduplicateNonSteam(sortedIds, all);
   if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filter) empty", { filter: f, allCount: all.length });
   else logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
+  ctx.reportTotal?.(ids.length);
   return finish(ids.slice(0, overShootLimit));
 }
 
@@ -3496,7 +3502,7 @@ export async function resolveShelfAppIds(
   sort?: string | string[],
   shelfId?: string,
   sortReverse?: boolean | boolean[],
-  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean },
+  options?: { hiddenAppIds?: number[]; dedupeByName?: boolean; onResolveTotal?: (n: number) => void },
   _depth: number = 0,
 ): Promise<number[]> {
   const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
@@ -3524,6 +3530,7 @@ export async function resolveShelfAppIds(
   const ctx: ResolverContext = {
     source, limit, sort, shelfId, sortReverse, options,
     depth: _depth, all, overShootLimit, finish,
+    reportTotal: options?.onResolveTotal,
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);
