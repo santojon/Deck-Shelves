@@ -8,6 +8,33 @@ function readForceThemes(): boolean {
   } catch { return false; }
 }
 
+const NATIVE_CARD_EXCLUDED = new Set(['Panel', 'Focusable', 'gpfocus', 'gpfocuswithin']);
+// forceCssLoaderThemes adds DFL semantic card tokens (no state classes). Do NOT
+// add `nativeCardWrapper` or `gpfocuswithin` — both turn theme focused-state
+// selectors into all-card always-on rules.
+const FORCE_THEME_TOKENS = [
+  'nativeSemanticCard', 'nativeSemanticCardContainer', 'nativeSemanticCardImage',
+  'nativeSemanticCardWrapper', 'nativeCapsule', 'nativeCapsuleImage',
+  'nativeCapsuleArt', 'nativeCapsuleContainer', 'nativeCapsuleBg',
+  'nativeLibraryItemBox', 'nativeGameCapsule',
+];
+
+function addSplitTokens(value: string | undefined, out: Set<string>): void {
+  if (!value) return;
+  for (const c of value.split(/\s+/)) if (c) out.add(c);
+}
+
+function collectSampleClasses(sample: HTMLElement, out: Set<string>): void {
+  for (const cls of Array.from(sample.classList)) {
+    if (NATIVE_CARD_EXCLUDED.has(cls) || cls.startsWith('ds-')) continue;
+    out.add(cls);
+  }
+}
+
+function addForceThemeExtras(map: any, out: Set<string>): void {
+  for (const k of FORCE_THEME_TOKENS) addSplitTokens(map[k], out);
+}
+
 // Returns null when the class map isn't ready yet (caller should retry).
 // Returns a string (possibly empty) once the map is available.
 export function resolveNativeCardClass(doc: Document | null): string | null {
@@ -17,31 +44,12 @@ export function resolveNativeCardClass(doc: Document | null): string | null {
   const nativeSample = sampleSelector ? doc?.querySelector(`${sampleSelector}:not(.ds-card)`) as HTMLElement | null : null;
   const out = new Set<string>();
   if (nativeSample) {
-    for (const cls of Array.from(nativeSample.classList)) {
-      if (cls === 'Panel' || cls === 'Focusable' || cls === 'gpfocus' || cls === 'gpfocuswithin') continue;
-      if (cls.startsWith('ds-')) continue;
-      out.add(cls);
-    }
+    collectSampleClasses(nativeSample, out);
   } else {
     if (map.nativeCard) out.add(map.nativeCard);
-    if (map.nativeCardMods) for (const c of map.nativeCardMods.split(/\s+/)) if (c) out.add(c);
+    addSplitTokens(map.nativeCardMods, out);
   }
-  // Do NOT add `nativeCardWrapper` or `gpfocuswithin` here — both turn
-  // theme focused-state selectors into all-card always-on rules.
-  // forceCssLoaderThemes adds DFL semantic card tokens (no state classes).
-  if (readForceThemes()) {
-    const extras = [
-      'nativeSemanticCard', 'nativeSemanticCardContainer', 'nativeSemanticCardImage',
-      'nativeSemanticCardWrapper', 'nativeCapsule', 'nativeCapsuleImage',
-      'nativeCapsuleArt', 'nativeCapsuleContainer', 'nativeCapsuleBg',
-      'nativeLibraryItemBox', 'nativeGameCapsule',
-    ];
-    for (const k of extras) {
-      const v = map[k];
-      if (!v) continue;
-      for (const c of v.split(/\s+/)) if (c) out.add(c);
-    }
-  }
+  if (readForceThemes()) addForceThemeExtras(map, out);
   return Array.from(out).join(' ');
 }
 

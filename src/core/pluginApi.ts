@@ -133,12 +133,11 @@ export interface ParsedImport {
 }
 
 // ---- 1d-bis. Portable export / import handlers ----------------------------
-// Plugin-to-plugin transfer. A handler converts between Deck Shelves' own
-// snapshot JSON (a serialized bundle of shelves / smart shelves / saved
-// filters / saved smart filters) and the handler's own format, so a plugin
-// can offer "Export to format X" / "Import from format Y". The contract is
-// format-agnostic — both sides exchange the snapshot as a JSON string, so no
-// internal type leaks and the round-trip stays lossless.
+/* Plugin-to-plugin transfer. A handler converts between Deck Shelves' snapshot
+   JSON (shelves / smart shelves / saved filters / saved smart filters) and its
+   own format, so a plugin can offer "Export to format X" / "Import from format
+   Y". Format-agnostic — both sides exchange the snapshot as a JSON string, so
+   no internal type leaks and the round-trip stays lossless. */
 
 export interface ExportHandlerDescriptor {
   id: string;

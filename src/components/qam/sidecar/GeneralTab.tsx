@@ -161,7 +161,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         ))}
         {settings.updateNotifyEnabled !== false && (
           <div style={{ paddingLeft: 16 }}>
-            <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} onChange={(v: boolean) => (actions as any).setBetaChannelEnabled(v)} />
+            {row('betaChannelEnabled', (
+              <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} onChange={(v: boolean) => (actions as any).setBetaChannelEnabled(v)} />
+            ))}
           </div>
         )}
         {row('lightModeEnabled', (

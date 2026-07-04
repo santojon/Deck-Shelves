@@ -2747,6 +2747,13 @@ type ResolverContext = {
   reportTotal?: (n: number) => void;
 };
 
+// Report a resolver's pre-limit match count without spreading an optional-call
+// branch across every resolver that opts in.
+function emitResolvedTotal(ctx: ResolverContext, total: number): void {
+  const cb = ctx.reportTotal;
+  if (cb) cb(total);
+}
+
 type CollectionMatches = { exactMatches: SteamCollection[]; softMatches: SteamCollection[] };
 
 function partitionCollectionsByNeedle(collections: SteamCollection[], rawCollectionId: string): CollectionMatches {
@@ -2825,7 +2832,7 @@ async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
   ids = applyCollectionChildFilter(ids, source, all);
   if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
   ids = deduplicateNonSteam(ids, all);
-  ctx.reportTotal?.(ids.length);
+  emitResolvedTotal(ctx, ids.length);
   return finish(ids.slice(0, overShootLimit));
 }
 
@@ -3106,7 +3113,7 @@ async function _resolveFilterGroupPath(
   const ids = deduplicateNonSteam(filtered.map((a) => appIdOf(a)).filter(Number.isFinite), all);
   if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filterGroup) empty", { filter: f, allCount: all.length });
   else logInfo("STEAM", "resolveShelfAppIds(filterGroup) resolved", { count: ids.length, allCount: all.length });
-  ctx.reportTotal?.(ids.length);
+  emitResolvedTotal(ctx, ids.length);
   return finish(ids.slice(0, overShootLimit));
 }
 
@@ -3126,7 +3133,7 @@ function _resolveFilterLegacyPathMultiKey(
   const ids = deduplicateNonSteam(sortedIds, all);
   if (!ids.length) logWarn("STEAM", "resolveShelfAppIds(filter) empty", { filter: f, allCount: all.length });
   else logInfo("STEAM", "resolveShelfAppIds(filter) resolved", { count: ids.length, allCount: all.length });
-  ctx.reportTotal?.(ids.length);
+  emitResolvedTotal(ctx, ids.length);
   return finish(ids.slice(0, overShootLimit));
 }
 
@@ -3505,7 +3512,8 @@ export async function resolveShelfAppIds(
   options?: { hiddenAppIds?: number[]; dedupeByName?: boolean; onResolveTotal?: (n: number) => void },
   _depth: number = 0,
 ): Promise<number[]> {
-  const hiddenSet = options?.hiddenAppIds?.length ? new Set(options.hiddenAppIds) : undefined;
+  const { hiddenAppIds, dedupeByName, onResolveTotal } = options ?? {};
+  const hiddenSet = hiddenAppIds?.length ? new Set(hiddenAppIds) : undefined;
   // Overshoot for render-time filters: hidden*2 for the picker, plus
   // max(10, 50% of limit) for online owned/name matches. Capped at 3x.
   const isOnlineShelf = source.type === "wishlist" || source.type === "store";
@@ -3523,14 +3531,14 @@ export async function resolveShelfAppIds(
   const finish = (ids: number[]): number[] => {
     let result = ids;
     if (hiddenSet) result = result.filter((id) => !hiddenSet.has(id));
-    if (options?.dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
+    if (dedupeByName && result.length > 1) result = dedupeAppIdsByName(result, all);
     return result.slice(0, overShootLimit);
   };
 
   const ctx: ResolverContext = {
     source, limit, sort, shelfId, sortReverse, options,
     depth: _depth, all, overShootLimit, finish,
-    reportTotal: options?.onResolveTotal,
+    reportTotal: onResolveTotal,
   };
   const handler = SOURCE_RESOLVERS[source.type];
   if (handler) return handler(ctx);

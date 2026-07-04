@@ -26,7 +26,7 @@ __pycache__/
 # VSCode
 .vscode/
 
-# Decky build artifacts
+# Build artifacts
 bin/
 backend/out/
 

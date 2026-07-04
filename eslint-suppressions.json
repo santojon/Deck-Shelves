@@ -102,11 +102,6 @@
       "count": 1
     }
   },
-  "src/components/qam/modals/modalUtils.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/components/qam/sections/ProfilesSection.tsx": {
     "complexity": {
       "count": 1
@@ -132,11 +127,6 @@
       "count": 3
     }
   },
-  "src/components/shelf/MoreCard.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/shelf/PerShelfHero.tsx": {
     "complexity": {
       "count": 5
@@ -157,19 +147,9 @@
       "count": 2
     }
   },
-  "src/components/shelf/cardUtils.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/shelf/shelfStyles.ts": {
     "complexity": {
       "count": 4
-    }
-  },
-  "src/components/styles/DeckModalStyles.tsx": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/core/cssLoaderDetect.ts": {
@@ -204,11 +184,6 @@
   },
   "src/core/steamGameMenu.ts": {
     "max-lines": {
-      "count": 1
-    }
-  },
-  "src/core/steamOSVersion.ts": {
-    "complexity": {
       "count": 1
     }
   },
@@ -250,11 +225,6 @@
   "src/features/sidenav/ShelfSideNav.tsx": {
     "complexity": {
       "count": 3
-    }
-  },
-  "src/i18n.ts": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/index.tsx": {
@@ -348,11 +318,6 @@
   "src/steam/smartShelves.ts": {
     "complexity": {
       "count": 3
-    }
-  },
-  "src/steam/v3Extensions.ts": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/types.ts": {

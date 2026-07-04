@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Beta channel toggle was missing its "hide from QAM" eye button.** In the sidecar the beta-channel sub-toggle now carries its own eye button like every other toggle ([`GeneralTab.tsx`](src/components/qam/sidecar/GeneralTab.tsx)), and the QAM hides it via its own `betaChannelEnabled` key instead of inheriting the update-check toggle's visibility ([`DeckQAMSettings.tsx`](src/components/DeckQAMSettings.tsx)).
 - **Screenshot tooling failed under an English UI.** The release-screenshot scenarios matched tab labels with locale-tolerant needles, one of which (`"filtr"`) never matched the English "Filters". The pipeline now **forces the plugin UI to en-US** before each capture (new `globalThis.__dsSetLocale` hook exposed by [`i18n.ts`](src/i18n.ts), invoked from the SharedJSContext realm) and the scenario needles are plain English, so captures are deterministic regardless of the device's Steam language.
 
 ## [3.0.0] - 2026-06-30

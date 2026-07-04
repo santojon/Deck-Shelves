@@ -24,25 +24,24 @@ async function loadLocaleDict(locale: string): Promise<Record<string, string>> {
   return Object.assign({}, ...dicts);
 }
 
+// Ordered prefix → locale map; the first matching prefix wins, so more
+// specific variants (pt-pt, es-es, fr-ca, zh-tw/zh-hant, en-gb) precede their
+// broader language prefix.
+const LOCALE_PREFIXES: ReadonlyArray<readonly [string, string]> = [
+  ["pt-pt", "pt-PT"], ["pt", "pt-BR"],
+  ["es-es", "es-ES"], ["es", "es-419"],
+  ["it", "it-IT"],
+  ["fr-ca", "fr-CA"], ["fr", "fr-FR"],
+  ["de", "de-DE"], ["ru", "ru-RU"], ["pl", "pl-PL"], ["nl", "nl-NL"],
+  ["tr", "tr-TR"], ["uk", "uk-UA"], ["ja", "ja-JP"], ["ko", "ko-KR"],
+  ["zh-tw", "zh-TW"], ["zh-hant", "zh-TW"], ["zh", "zh-CN"],
+  ["en-gb", "en-GB"],
+];
+
 function pickLocale(l: string): string {
-  if (l.startsWith("pt-pt")) return "pt-PT";
-  if (l.startsWith("pt")) return "pt-BR";
-  if (l === "es-es" || l.startsWith("es-es")) return "es-ES";
-  if (l.startsWith("es")) return "es-419";
-  if (l.startsWith("it")) return "it-IT";
-  if (l === "fr-ca" || l.startsWith("fr-ca")) return "fr-CA";
-  if (l.startsWith("fr")) return "fr-FR";
-  if (l.startsWith("de")) return "de-DE";
-  if (l.startsWith("ru")) return "ru-RU";
-  if (l.startsWith("pl")) return "pl-PL";
-  if (l.startsWith("nl")) return "nl-NL";
-  if (l.startsWith("tr")) return "tr-TR";
-  if (l.startsWith("uk")) return "uk-UA";
-  if (l.startsWith("ja")) return "ja-JP";
-  if (l.startsWith("ko")) return "ko-KR";
-  if (l.startsWith("zh-tw") || l.startsWith("zh-hant")) return "zh-TW";
-  if (l.startsWith("zh")) return "zh-CN";
-  if (l.startsWith("en-gb")) return "en-GB";
+  for (const [prefix, locale] of LOCALE_PREFIXES) {
+    if (l.startsWith(prefix)) return locale;
+  }
   return "en-US";
 }
 

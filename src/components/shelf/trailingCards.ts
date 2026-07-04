@@ -51,11 +51,10 @@ export function shouldShowRefreshCard(input: TrailingCardInput): boolean {
 export function shouldShowMoreCard(input: TrailingCardInput): boolean {
   if (input.globalHideSeeMore === true || input.hideSeeMore === true) return false;
   if (input.source?.type === "smart") return false;
-  // Dynamic: on a library (non-online) shelf, hide "See more" when the
-  // source has nothing beyond what the limit already shows. Online shelves
-  // always link out to the store. When the total is unknown (resolver
-  // didn't report it, or the modal preview), keep the previous behaviour
-  // and show the card.
+  /* Dynamic: on a library (non-online) shelf, hide "See more" when the source
+     has nothing beyond what the limit already shows. Online shelves always link
+     out to the store. When the total is unknown (resolver didn't report it, or
+     the modal preview), keep the previous behaviour and show the card. */
   if (input.isOnline !== true
       && typeof input.resolvedTotal === "number"
       && typeof input.limit === "number"

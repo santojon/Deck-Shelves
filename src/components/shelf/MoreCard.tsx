@@ -8,6 +8,27 @@ import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
 import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
 
+function findNativeCardSample(doc: Document | null): HTMLElement | null {
+  const map = doc ? getRuntimeClassMap(doc) : null;
+  if (!map?.nativeCard) return null;
+  const sel = buildSelectorFromToken(map.nativeCard);
+  return sel ? (doc?.querySelector(`${sel}:not(.ds-card)`) as HTMLElement | null) : null;
+}
+
+// Read the native card's ::after animation name onto the card so the theme's
+// focus-glow pseudo-element styling matches. Best-effort — swallows failures.
+function applyNativeAfterAnimation(doc: Document | null, target: HTMLElement | null): void {
+  if (!target) return;
+  try {
+    const sample = findNativeCardSample(doc);
+    if (!sample) return;
+    const animName = (getComputedStyle(sample, '::after').animationName || '').split(',')[0] || '';
+    if (animName && animName !== 'none') target.style.setProperty('--ds-native-after-animation', animName);
+  } catch (e) {
+    logInfo("HOME", "MoreCard: animation read failed", String(e));
+  }
+}
+
 export function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive = true }: { item: DeckRowItem; cardW?: number; cardH?: number; interactive?: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [nativeCardClass, setNativeCardClass] = useState('');
@@ -18,21 +39,7 @@ export function MoreCard({ item, cardW = CARD_W, cardH = CARD_ART_H, interactive
       const cls = resolveNativeCardClass(doc);
       if (cls === null) return false;
       setNativeCardClass(cls);
-      // Read animation from native sample for ::after pseudo-element styling
-      try {
-        const map = doc ? getRuntimeClassMap(doc) : null;
-        if (map?.nativeCard) {
-          const sel = buildSelectorFromToken(map.nativeCard);
-          const sample = sel ? doc?.querySelector(`${sel}:not(.ds-card)`) as HTMLElement | null : null;
-          if (sample) {
-            const pa = getComputedStyle(sample, '::after');
-            const animName = (pa.animationName || '').split(',')[0] || '';
-            if (animName && animName !== 'none' && cardRef.current) cardRef.current.style.setProperty('--ds-native-after-animation', animName);
-          }
-        }
-      } catch (e) {
-        logInfo("HOME", "MoreCard: animation read failed", String(e));
-      }
+      applyNativeAfterAnimation(doc, cardRef.current);
       return true;
     }, [250, 500, 800, 1200]);
   }, []);

@@ -11,11 +11,10 @@
 [![pytest](https://img.shields.io/badge/pytest-70%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
-[![API](https://img.shields.io/badge/%40deck--shelves%2Fapi-v4-purple?logo=typescript&logoColor=white)](api/)
+[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
 [![Downloads](https://img.shields.io/github/downloads/santojon/Deck-Shelves/total.svg?label=downloads&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
 [![GitHub release](https://img.shields.io/github/v/release/santojon/Deck-Shelves?label=latest&color=blue)](https://github.com/santojon/Deck-Shelves/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
-[![Plugin](https://img.shields.io/badge/plugin%20for-Decky-purple.svg)](https://decky.xyz)
+
 [![Discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg?logo=discord&logoColor=white)](https://discord.gg/EChuVEDakk)
 [![Reddit](https://img.shields.io/badge/community-r%2FDeckShelves-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/DeckShelves/)
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/santojon)
@@ -23,7 +22,7 @@
 
 </div>
 
-**Deck Shelves** is a plugin that makes the Steam Deck Home screen yours. Build custom shelves from your collections, library tabs, or smart filters; let **smart shelves** surface games automatically when they're relevant; add hero artwork, decoration cards, and online wishlist/store rows — all configured right on the Deck through a built-in Quick Access Menu editor. No desktop mode, no config files.
+**Deck Shelves** is a plugin that makes the Steam Deck Home screen yours. Build custom shelves from your collections, library tabs, or filters; let **smart shelves** surface games automatically when they're relevant; add hero artwork, decoration cards, and online wishlist/store rows — all configured right on the Deck through a built-in Quick Access Menu editor. No desktop mode, no config files.
 
 **New here?** Read the [getting-started guide](https://github.com/santojon/Deck-Shelves/discussions/48), then install from the Decky Store or latest versions manually (see [Installation](#installation)). Questions or ideas? Join the [Discord](https://discord.gg/EChuVEDakk) or [r/DeckShelves](https://www.reddit.com/r/DeckShelves/).
 

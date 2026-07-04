@@ -834,7 +834,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('updateNotifyEnabled') && (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
         )}
-        {!isHid('updateNotifyEnabled') && settings.updateNotifyEnabled !== false && (
+        {!isHid('betaChannelEnabled') && settings.updateNotifyEnabled !== false && (
           <div style={{ paddingLeft: 16 }}>
             <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setBetaChannelEnabled(value)} />
           </div>
