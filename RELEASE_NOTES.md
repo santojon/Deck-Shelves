@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-07-05
+
 ### Added
 
 - **Run Deck Shelves on the machine you're developing on.** If your Deck / Linux PC / Windows PC already has Decky Loader, `pnpm run deploy:local` builds and installs the plugin straight into it — no SSH, no second machine. It never installs Decky for you; point `DECKY_PLUGINS_DIR` at your install if it's in a non-standard spot.

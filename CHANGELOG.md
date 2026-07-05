@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-07-05
+
 ### Added
 
 - **Local dev deploy without SSH** ([`scripts/deploy/deploy-local.mjs`](scripts/deploy/deploy-local.mjs)). `pnpm run deploy:local` / `deploy:local:hard` build and install the plugin into **this machine's** Decky Loader plugin dir (default `~/homebrew/plugins`, overridable via `DECKY_PLUGINS_DIR` / `DECKY_HOME`) — for developing directly on a Deck / Linux / Windows box that already has Decky, with no remote SSH. Cross-OS Node; it never installs Decky (clear error + override hint when the homebrew dir is absent). `:hard` best-effort restarts `plugin_loader.service` + Steam on Linux. Also documented the opt-in `DECK_CDP_HOST=127.0.0.1` + `DECK_CDP_PORT=8080` for pointing `deckprobe` at local Steam (shipped default `8081` unchanged, so Deck/CI flows are unaffected).
