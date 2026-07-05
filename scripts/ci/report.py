@@ -15,7 +15,7 @@ Layout:
       index.html
       ...
 
-Called by validate*.sh with --steps-json and --subdir.
+Called by validate*.mjs (the cross-OS QA harness) with --steps-json and --subdir.
 """
 from __future__ import annotations
 
@@ -30,12 +30,15 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from report_shared import _report_nav, _site_footer
-
-# ── ANSI strip ─────────────────────────────────────────────────────────────────
-_ANSI = re.compile(r'\x1b\[[0-9;]*[mGKHF]|\x1b\][\s\S]*?\x07|\x1b[()][AB]')
-
-def _strip(text: str) -> str:
-    return _ANSI.sub('', text)
+from report_metrics import (
+    _strip,
+    _parse_uitests_by_suite,
+    _extract_metrics,
+    _read_version,
+    _read_suppressions,
+    _backfill_versions,
+    _backfill_html_versions,
+)
 
 
 # ── File-reference linker ──────────────────────────────────────────────────────
@@ -121,32 +124,6 @@ def _parse_test_results(log_text: str) -> Optional[dict]:
     return None
 
 
-_UITEST_LINE = re.compile(r'^(PASS|FAIL|SKIP|ERROR)\s+([a-z_]+)\.(.+?)(?:\s+::.*)?$')
-
-def _parse_uitests_by_suite(log_text: str) -> dict:
-    """Parse UI test output into per-suite {passed,failed,skipped} counts.
-
-    Input lines:
-        PASS home.renders at least one shelf
-        FAIL qam_shelves.Add shelf button :: reason
-        SKIP stress.enter + exit :: timeout
-    """
-    text = _strip(log_text)
-    by_suite: dict = {}
-    for line in text.splitlines():
-        line = line.strip()
-        m = _UITEST_LINE.match(line)
-        if not m:
-            continue
-        status, suite, _ = m.group(1), m.group(2), m.group(3)
-        s = by_suite.setdefault(suite, {"passed": 0, "failed": 0, "skipped": 0})
-        if status == "PASS":
-            s["passed"] += 1
-        elif status in ("FAIL", "ERROR"):
-            s["failed"] += 1
-        elif status == "SKIP":
-            s["skipped"] += 1
-    return by_suite
 
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
@@ -364,15 +341,18 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
         skipped = m.get("skipped", 0)
         total   = m.get("total",   0)
         stress  = m.get("stress",  False)
+        version = m.get("version", "")
         try:
             dt = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
         except ValueError:
             dt = ts
         f_html = Path(ts + ".html").name
         stag = '<span class="stress">stress</span>' if stress else ""
+        vcell = f'v{_html.escape(version)}' if version else '&mdash;'
         rows.append(
             f'<tr>'
             f'<td>{_html.escape(dt)}{stag}</td>'
+            f'<td class="num" style="color:var(--muted);font-weight:600">{vcell}</td>'
             f'<td><span class="b {overall}">{overall.upper()}</span></td>'
             f'<td class="num" style="color:var(--pass)">{passed}</td>'
             f'<td class="num" style="color:var(--fail)">{failed}</td>'
@@ -383,7 +363,7 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
         )
 
     body = "\n".join(rows) if rows else (
-        '<tr><td colspan="7" style="color:#475569;padding:20px 10px">No reports yet.</td></tr>'
+        '<tr><td colspan="8" style="color:#475569;padding:20px 10px">No reports yet.</td></tr>'
     )
     label = _subfolder_label(subdir_path.name)
     idx_html = f"""<!DOCTYPE html>
@@ -406,7 +386,7 @@ def _rebuild_subfolder_index(subdir_path: Path) -> List[dict]:
 <a class="back" href="../index.html">&larr; All reports</a>
 <table>
   <thead><tr>
-    <th>Date / Time</th><th>Result</th>
+    <th>Date / Time</th><th>Version</th><th>Result</th>
     <th>Pass</th><th>Fail</th><th>Skip</th><th>Total</th><th></th>
   </tr></thead>
   <tbody>{body}</tbody>
@@ -456,6 +436,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
         overall = last.get("overall", "?").lower()
         passed  = last.get("passed", 0)
         total   = last.get("total",  0)
+        version = last.get("version", "")
         try:
             dt = datetime.strptime(ts, "%Y-%m-%d_%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
         except ValueError:
@@ -464,6 +445,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
             f'<tr>'
             f'<td>{_html.escape(labels[sd])}</td>'
             f'<td>{_html.escape(dt)}</td>'
+            f'<td class="num" style="color:var(--muted);font-weight:600">{("v" + _html.escape(version)) if version else "&mdash;"}</td>'
             f'<td><span class="b {overall}">{overall.upper()}</span></td>'
             f'<td class="num">{passed}/{total}</td>'
             f'<td><a href="{sd}/index.html">history &rarr;</a></td>'
@@ -484,7 +466,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
         f'<p class="empty-note" style="grid-column:1/-1;color:var(--muted);margin:0">{_html.escape(empty_msg)}</p>'
     )
     latest_body = "\n".join(latest_rows) if latest_rows else (
-        f'<tr><td colspan="5" style="color:var(--muted)">{_html.escape(empty_msg)}</td></tr>'
+        f'<tr><td colspan="6" style="color:var(--muted)">{_html.escape(empty_msg)}</td></tr>'
     )
 
     # Mirror the dashboard's client-side augmentation: server-rendered table
@@ -525,11 +507,12 @@ def _rebuild_top_index(reports_root: Path) -> None:
             const last=s.runs[0];
             const overall=String(last.overall||'?').toLowerCase();
             return `<tr><td>${esc(s.label)}</td><td>${esc(fmt(last.ts))}</td>`+
+                   `<td class="num" style="color:var(--muted);font-weight:600">${last.version?('v'+esc(last.version)):'&mdash;'}</td>`+
                    `<td><span class="b ${overall}">${overall.toUpperCase()}</span></td>`+
                    `<td class="num">${last.passed||0}/${last.total||0}</td>`+
                    `<td><a href="${s.sd}/index.html">history &rarr;</a></td></tr>`;
           }).join('')
-        : `<tr><td colspan="5" style="color:var(--muted)">${esc(EMPTY)}</td></tr>`;
+        : `<tr><td colspan="6" style="color:var(--muted)">${esc(EMPTY)}</td></tr>`;
     }
   });
 })();
@@ -555,7 +538,7 @@ def _rebuild_top_index(reports_root: Path) -> None:
     <h2>Latest run per scope</h2>
     <table>
       <thead><tr>
-        <th>Scope</th><th>Date / Time</th><th>Result</th><th>Pass / Total</th><th></th>
+        <th>Scope</th><th>Date / Time</th><th>Version</th><th>Result</th><th>Pass / Total</th><th></th>
       </tr></thead>
       <tbody>{latest_body}</tbody>
     </table>
@@ -649,6 +632,8 @@ def _backfill_per_suite(meta: dict, json_path: Path) -> None:
             break
     except Exception:
         pass
+
+
 
 
 def _collect_all_runs(reports_root: Path) -> List[dict]:
@@ -872,7 +857,7 @@ def _context_pills(runs: List[dict]) -> str:
         f'<span style="background:{c}22;color:{c};border:1px solid {c}44;'
         f'padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap">'
         f'{n} <b>{v}</b></span>'
-        for (n, v, c) in items
+        for (n, v, c) in items if v > 0
     )
     return f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">{pills}</div>'
 
@@ -949,6 +934,9 @@ def generate(
         dt_str = ts
 
     scope_label = _subfolder_label(subdir)
+    version = _read_version(root)
+    version_tag = (f'<span class="stress-tag" style="background:#0c2a4d;color:#7dd3fc">'
+                   f'v{_html.escape(version)}</span>') if version else ""
     stress_tag = '<span class="stress-tag">stress</span>' if stress else ""
 
     steps_html = "".join(
@@ -972,7 +960,7 @@ def generate(
 <header><div class="container">
   <a class="back" href="index.html">&larr;</a>
   <div style="flex:1">
-    <h1>{_html.escape(scope_label)}{stress_tag}</h1>
+    <h1>{_html.escape(scope_label)}{version_tag}{stress_tag}</h1>
     <div class="meta">{_html.escape(dt_str)} &nbsp;&middot;&nbsp; {total} steps</div>
   </div>
   <span class="hbadge {overall}">{"PASS" if overall == "pass" else "FAIL"}</span>
@@ -996,22 +984,20 @@ def generate(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
 
-    # Extract per-suite breakdown from the "UI tests" step log (if present)
-    per_suite: dict = {}
-    for step_name, log_path in zip(names, logs):
-        if "ui test" in step_name.lower() and log_path and Path(log_path).exists():
-            try:
-                raw = Path(log_path).read_text(errors="replace")
-                per_suite = _parse_uitests_by_suite(raw)
-            except OSError:
-                pass
-            break
+    # Parse the test/lint metrics this run captured from its step logs.
+    metrics = _extract_metrics(names, logs)
 
     meta = {
         "ts": ts, "stress": stress, "subdir": subdir,
+        "version": version,
         "overall": overall.upper(),
         "passed": passed, "failed": failed, "skipped": skipped, "total": total,
-        "per_suite": per_suite,
+        "per_suite": metrics["per_suite"],
+        "unit": metrics["unit"],
+        "pytest": metrics["pytest"],
+        "ruff": metrics["ruff"],
+        "lint": metrics["lint"],
+        "suppressions": _read_suppressions(root),
         "step_names": names,
         "step_durations_ms": durations_ms,
         "total_duration_ms": total_duration_ms,
@@ -1084,6 +1070,8 @@ def main() -> int:
         if not rr.is_dir():
             legacy = Path(args.root) / "reports"
             rr = legacy if legacy.is_dir() else Path(args.root)
+        _backfill_versions(rr, args.root)
+        _backfill_html_versions(rr)
         rebuild_aggregates(rr, scope_only=args.scope_only)
         return 0
 

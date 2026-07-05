@@ -116,7 +116,6 @@ function readOwnedToggles(primarySource: any) {
   };
 }
 
-// eslint-disable-next-line complexity
 function readVisualFlags(shelf: Shelf) {
   const s = shelf as any;
   return {
@@ -137,7 +136,7 @@ function readVisualFlags(shelf: Shelf) {
     gameNamePosition: (((s as any).gameNamePosition === 'center' || (s as any).gameNamePosition === 'right') ? (s as any).gameNamePosition : 'left') as 'left' | 'center' | 'right',
     playtimePosition: (((s as any).playtimePosition === 'center' || (s as any).playtimePosition === 'right') ? (s as any).playtimePosition : 'left') as 'left' | 'center' | 'right',
     descriptionHeight: typeof (s as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (s as any).descriptionHeight)) : 2,
-    descriptionLogoGap: typeof (s as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (s as any).descriptionLogoGap)) : 8,
+    descriptionLogoGap: typeof (s as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (s as any).descriptionLogoGap)) : 10,
     fullPageShelf: (s as any).fullPageShelf === true,
     highlightedAppIds: shelf.highlightedAppIds ?? [],
     manualOrder: s.manualOrder ?? [],

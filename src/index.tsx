@@ -33,6 +33,7 @@ import { pickNewSuggestions } from "./runtime/suggestionNotifier";
 import { notify } from "./components/notify";
 import { logError, logInfo } from "./runtime/logger";
 import { Navigation, Focusable, DialogButton, quickAccessMenuClasses, createDeckyHostApi } from "./runtime/host/decky";
+import { createStandaloneHostApi, isStandaloneHost } from "./runtime/host/standalone";
 import { AboutPage } from "./components/AboutPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ShelfEditRoute, ShelfDeleteRoute } from "./components/ShelfModalRoute";
@@ -133,7 +134,9 @@ export default definePlugin((serverAPI?: any) => {
   const routerHook = serverAPI?.routerHook
     ?? (globalThis as any).window?.DFL?.routerHook
     ?? (globalThis as any).DFL?.routerHook;
-  _hostApi = createDeckyHostApi(routerHook);
+  // Host selection: use the standalone runtime (Shelves Loader) when its global
+  // is present, otherwise the Decky adapter. Same HostApi contract either way.
+  _hostApi = isStandaloneHost() ? createStandaloneHostApi() : createDeckyHostApi(routerHook);
   const patch = enableHomePatch ? installHomePatch(routerHook) : null;
   const recentsReplacePatch = installRecentsReplace(routerHook);
   const uninstallRefresh = installShelfRefreshEmitter();

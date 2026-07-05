@@ -27,11 +27,16 @@ The dev / build / validation flows run on **Linux, macOS, and Windows**.
 | `pnpm run deploy:deck*` (bash)                  |  ✅  |  ✅   |   ⚠️    |
 | `pnpm run deploy:deck:win*` (PowerShell)        |  —   |  —    |   ✅    |
 | `pnpm run devtools:*` (CDP)                    |  ✅  |  ✅   |   ✅    |
+| `pnpm run qa` / `validate:full` / `validate:ci`|  ✅  |  ✅   |   ✅    |
+| `pnpm run update` / `update:*`                 |  ✅  |  ✅   |   ✅    |
 
 Everything a contributor needs to validate a change — build, typecheck,
-lint, tests, **packaging + verify**, and the CDP tooling — is Node or
-Python and runs natively on all three OSes (no bash, no `zip`/`unzip` CLI;
-packaging uses Python's `zipfile`).
+lint, tests, **packaging + verify**, the full QA/validation harness
+(`qa` / `validate:*`), the dependency-update flow (`update:*`), and the CDP
+tooling — is Node or Python and runs natively on all three OSes (no bash, no
+`zip`/`unzip` CLI; packaging uses Python's `zipfile`). Python is invoked through
+a cross-OS launcher (`scripts/build/py.mjs`, which resolves `python3` /
+`python` / `py -3`), so a bare `python3` on PATH is not required on Windows.
 
 - ⚠️ `validate:compat` runs ~39 integration checks that are still bash
   (`checks/**/*.sh`). The wrapper (`scripts/build/validate-compat.mjs`)
@@ -81,6 +86,20 @@ pnpm run deploy:deck <deck-hostname>
 ```bash
 pnpm run watch:deck <deck-hostname>
 ```
+
+### Developing on the machine that runs Steam
+
+If you're working **directly on a Deck / Linux / Windows box that already has
+Decky Loader installed**, skip the SSH flow and install into the local Decky
+plugin dir:
+
+```bash
+pnpm run deploy:local        # build + install locally (no SSH)
+pnpm run deploy:local:hard   # + reload plugin_loader + restart Steam (Linux)
+```
+
+It never installs Decky — set `DECKY_PLUGINS_DIR` if Decky isn't at
+`~/homebrew/plugins`. See [docs/development.md](docs/development.md#run-locally-decky-already-installed).
 
 ## Project Structure
 

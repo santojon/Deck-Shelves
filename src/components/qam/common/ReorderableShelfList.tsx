@@ -5,16 +5,19 @@ import { useContainerDragReorder } from '../../../core/reorder'
 
 type EntryData = { id: string }
 
-export function ReorderableShelfList<T extends { id: string; title: string; hidden?: boolean }>({
+export function ReorderableShelfList<T extends { id: string; title?: string; hidden?: boolean }>({
   items,
   emptyText,
   renderActions,
   onReorder,
+  renderLabel,
 }: {
   items: T[]
   emptyText: string
   renderActions: (item: T) => ReactNode
   onReorder: (ids: string[]) => void
+  // Defaults to the shelf label; other lists (e.g. profiles) pass their own.
+  renderLabel?: (item: T) => ReactNode
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   // Pointer-hold drag reorder coexisting with up/down buttons.
@@ -39,7 +42,7 @@ export function ReorderableShelfList<T extends { id: string; title: string; hidd
         data-ds-shelf-row={item.id}
         style={grabbedId === item.id ? { outline: '2px solid #ffd54f', boxShadow: '0 0 0 3px rgba(255,213,79,0.35)' } : undefined}
       >
-        <ShelfListLabel shelf={item} />
+        {renderLabel ? renderLabel(item) : <ShelfListLabel shelf={item} />}
       </div>
     ),
     position: idx,

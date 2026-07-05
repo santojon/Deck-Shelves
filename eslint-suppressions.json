@@ -1,7 +1,7 @@
 {
   "src/components/DeckQAMSettings.tsx": {
     "complexity": {
-      "count": 2
+      "count": 7
     },
     "react-hooks/rules-of-hooks": {
       "count": 3
@@ -102,7 +102,22 @@
       "count": 1
     }
   },
+  "src/components/qam/modals/editShelf/VisualTabContent.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/editShelf/buildInitialState.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
   "src/components/qam/sections/ProfilesSection.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/qam/sidecar/GeneralTab.tsx": {
     "complexity": {
       "count": 1
     }
@@ -117,9 +132,19 @@
       "count": 2
     }
   },
+  "src/components/settings/details/StatisticsDetail.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/settings/details/SuggestionsDetail.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
   "src/components/shelf/GameCard.tsx": {
     "complexity": {
-      "count": 9
+      "count": 10
     }
   },
   "src/components/shelf/HeroBackground.tsx": {
@@ -192,12 +217,22 @@
       "count": 1
     }
   },
+  "src/core/updateNotifier.ts": {
+    "complexity": {
+      "count": 3
+    }
+  },
   "src/domain/customfilters.ts": {
     "complexity": {
       "count": 2
     }
   },
   "src/domain/settings.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/domain/shelfStats.ts": {
     "complexity": {
       "count": 1
     }
@@ -224,7 +259,7 @@
   },
   "src/features/sidenav/ShelfSideNav.tsx": {
     "complexity": {
-      "count": 3
+      "count": 5
     }
   },
   "src/index.tsx": {
@@ -259,7 +294,7 @@
   },
   "src/runtime/controllerInput.ts": {
     "complexity": {
-      "count": 1
+      "count": 2
     }
   },
   "src/runtime/deckyPlatform.ts": {
@@ -300,6 +335,11 @@
   "src/shims/react-dom-client.ts": {
     "complexity": {
       "count": 2
+    }
+  },
+  "src/steam/appDescriptionsCache.ts": {
+    "complexity": {
+      "count": 1
     }
   },
   "src/steam/appDetailsCache.ts": {

@@ -736,6 +736,7 @@
   "profile_cancel": "Cancelar",
   "profile_none_option": "Nenhum",
   "profile_active_label": "Perfil ativo",
+  "profile_list_label": "Lista de perfis",
   "profile_add_action": "Salvar atual",
   "settings_profiles_io_title": "Importar / Exportar",
   "settings_profiles_io_desc": "Move perfis entre dispositivos ou faz backup. Arquivos vão pra pasta Downloads por padrão.",

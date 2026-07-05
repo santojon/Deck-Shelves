@@ -37,7 +37,6 @@ const STORAGE_MAX = 1500;          // cap entries to keep the JSON blob small
 const STORAGE_SAVE_DEBOUNCE = 1500;
 let saveScheduled = false;
 
-// eslint-disable-next-line complexity
 function loadFromStorage(): void {
   try {
     const ls = (globalThis as { localStorage?: Storage }).localStorage;

@@ -26,6 +26,31 @@
       2844
     ],
     "total_duration_ms": 17667,
+    "version": "2.4.3",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 159,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -55,6 +80,31 @@
       2813
     ],
     "total_duration_ms": 17505,
+    "version": "2.4.3",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 159,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -84,6 +134,31 @@
       3026
     ],
     "total_duration_ms": 17525,
+    "version": "2.4.3",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 159,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -113,6 +188,31 @@
       2900
     ],
     "total_duration_ms": 16729,
+    "version": "2.4.1",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 149,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -142,6 +242,31 @@
       2891
     ],
     "total_duration_ms": 17103,
+    "version": "2.4.1",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 149,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -171,6 +296,31 @@
       5132
     ],
     "total_duration_ms": 10180,
+    "version": "2.4.0",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 46,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 8,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -183,6 +333,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.4.0",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 46,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 8,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -195,6 +370,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.4.0",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 46,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 8,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -207,6 +407,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.4.0",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 46,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 8,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -219,6 +444,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.3.2",
+    "unit": {
+      "passed": 241,
+      "failed": 0,
+      "skipped": 0,
+      "total": 241,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 46,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "total": 38,
+      "estimated": true
+    },
+    "suppressions": 7,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -231,6 +481,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.3.2",
+    "unit": {
+      "passed": 241,
+      "failed": 0,
+      "skipped": 0,
+      "total": 241,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 46,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "total": 38,
+      "estimated": true
+    },
+    "suppressions": 7,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -243,6 +518,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.3.2",
+    "unit": {
+      "passed": 241,
+      "failed": 0,
+      "skipped": 0,
+      "total": 241,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 46,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "total": 38,
+      "estimated": true
+    },
+    "suppressions": 7,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -255,6 +555,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.2.2",
+    "unit": {
+      "passed": 235,
+      "failed": 0,
+      "skipped": 0,
+      "total": 235,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 107,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "total": 28,
+      "estimated": true
+    },
+    "suppressions": 7,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -267,6 +592,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.2.2",
+    "unit": {
+      "passed": 235,
+      "failed": 0,
+      "skipped": 0,
+      "total": 235,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 107,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "total": 28,
+      "estimated": true
+    },
+    "suppressions": 7,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -279,6 +629,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.2.2",
+    "unit": {
+      "passed": 235,
+      "failed": 0,
+      "skipped": 0,
+      "total": 235,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 107,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "total": 28,
+      "estimated": true
+    },
+    "suppressions": 7,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   },
   {
@@ -291,6 +666,31 @@
     "skipped": 0,
     "total": 6,
     "per_suite": {},
+    "version": "2.2.2",
+    "unit": {
+      "passed": 235,
+      "failed": 0,
+      "skipped": 0,
+      "total": 235,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 107,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "total": 28,
+      "estimated": true
+    },
+    "suppressions": 7,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "ci"
   }
 ]

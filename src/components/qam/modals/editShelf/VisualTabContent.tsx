@@ -2,7 +2,6 @@ import { useMemo, type MutableRefObject } from 'react'
 import { DialogButton, Dropdown, Field, Focusable, ToggleField } from '../../../../runtime/host/decky'
 import { FieldContainer , DSSliderField} from '../../../ui'
 
-// eslint-disable-next-line complexity
 export function VisualTabContent({
   t,
   flags,

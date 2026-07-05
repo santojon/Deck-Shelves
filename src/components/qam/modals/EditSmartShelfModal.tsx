@@ -153,7 +153,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     gameNamePosition: ((shelf as any).gameNamePosition === 'center' || (shelf as any).gameNamePosition === 'right') ? (shelf as any).gameNamePosition : 'left',
     playtimePosition: ((shelf as any).playtimePosition === 'center' || (shelf as any).playtimePosition === 'right') ? (shelf as any).playtimePosition : 'left',
     descriptionHeight: typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2,
-    descriptionLogoGap: typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 8,
+    descriptionLogoGap: typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 10,
     fullPageShelf: (shelf as any).fullPageShelf === true,
     highlightedAppIds: (shelf as any).highlightedAppIds ?? [],
     hideStatusLine: (shelf as any).hideStatusLine ?? false,

@@ -633,6 +633,8 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
                 continue
             ptrigger = p.get("trigger")
             entry = {"id": pid, "name": pname, "createdAt": pcreated, "snapshot": psnap}
+            if p.get("hidden") is True:
+                entry["hidden"] = True
             # VisibilityRule predicate, round-tripped verbatim. The
             # dict-check guards against bad client writes without
             # enforcing the rule shape here.

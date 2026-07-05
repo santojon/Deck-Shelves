@@ -33,7 +33,6 @@ const QA_FAKE_LATEST_VERSION = "99.0.0";
 const QA_FAKE_RELEASE_URL = "https://github.com/santojon/Deck-Shelves/releases/tag/v99.0.0";
 
 if (firstRun || qamError || shelfError || allShelvesHide || allShelvesShow || allShelvesHideTabs || allShelvesShowTabs || forceTabMaster || forceUnifiDeck || forceNonSteamBadges || smartShelvesFixture || savedFiltersFixture || forceHidden || surpriseMe || forceCrash || forceReplaceFailed || updateAvailable || updateDismissed || updateOffline || collectionEmpty || collectionInverted || sourcesFixture || templatesFixture) {
-  // eslint-disable-next-line no-console
   console.warn("[Deck Shelves QA] active flags:", {
     firstRun, qamError, shelfError,
     allShelvesHide, allShelvesShow, allShelvesHideTabs, allShelvesShowTabs,

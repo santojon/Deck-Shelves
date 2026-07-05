@@ -7,5 +7,30 @@
   "failed": 0,
   "skipped": 0,
   "total": 6,
-  "per_suite": {}
+  "per_suite": {},
+  "version": "2.2.2",
+  "unit": {
+    "passed": 235,
+    "failed": 0,
+    "skipped": 0,
+    "total": 235,
+    "estimated": true
+  },
+  "ruff": {
+    "issues": 107,
+    "estimated": true
+  },
+  "pytest": {
+    "passed": 28,
+    "failed": 0,
+    "skipped": 0,
+    "total": 28,
+    "estimated": true
+  },
+  "suppressions": 7,
+  "suppressionsEst": true,
+  "lint": {
+    "problems": 0,
+    "estimated": true
+  }
 }

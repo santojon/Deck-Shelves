@@ -270,7 +270,6 @@ function KpiCard({ title, subtitle, value, refValue }: { title: string; subtitle
   );
 }
 
-// eslint-disable-next-line complexity
 function TrendsSection({ t, controller }: { t: (k: string) => string; controller: StatisticsDetailProps["controller"] }) {
   const [pctMode, setPctMode] = useState(() => { try { return localStorage.getItem(PCT_MODE_KEY) === "1"; } catch { return false; } });
   const togglePct = () => setPctMode((v) => { const n = !v; try { localStorage.setItem(PCT_MODE_KEY, n ? "1" : "0"); } catch {} return n; });

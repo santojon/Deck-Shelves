@@ -147,7 +147,6 @@ const xCircleSvg = (
 /* Classify a launched card by the most specific type available: store /
    wishlist (from its shelf's source), else non-Steam / game (from the app
    overview). Lets the stats break launches down beyond just game/non-Steam. */
-// eslint-disable-next-line complexity
 function classifyCard(appid: number, shelfId?: string): string {
   if (shelfId) {
     const s = getCurrentSettings();

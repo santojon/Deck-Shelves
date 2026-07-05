@@ -566,6 +566,9 @@ export const SettingsSchema = z.object({
     name: z.string(),
     createdAt: z.string(),
     snapshot: z.record(z.string(), z.unknown()),
+    // Hidden profiles stay in the list (crossed-out eye) but are omitted
+    // from the quick-select dropdown.
+    hidden: z.boolean().optional(),
     // VisibilityRule predicate that auto-
     /* applies the profile when its predicate becomes true (battery
        low, plugged in, external display, performance threshold, etc.).

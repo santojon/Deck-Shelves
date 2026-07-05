@@ -337,8 +337,13 @@ export function DeckQAMStyles() {
         overflow: hidden;
         margin-bottom: 12px;
       }
+      /* No horizontal padding: content focusables span the section's full
+         width (so focus highlights read edge-to-edge like the header row), and
+         each item's own internal padding (FieldLabel / FieldChildrenInner 16px,
+         action rows 0 16px) aligns everything to 16px — matching the section
+         title and the QAM-footer actions row. */
       .deck-shelves-qam-scope .ds-collapsible-content {
-        padding: 2px 14px 10px;
+        padding: 2px 0 10px;
       }
       /* More breathing room below the header in the settings page (the QAM
          stays compact). */
