@@ -26,13 +26,14 @@ __pycache__/
 # VSCode
 .vscode/
 
-# Decky build artifacts
+# Build artifacts
 bin/
 backend/out/
 
 # Environment (secrets)
 .env
 .env.*
+!.env.example
 
 # Build files
 build/*

@@ -6,8 +6,8 @@ default (Shortcuts/Suggestions/Statistics hide in Light mode). Integrations and
 Advanced only render with Advanced mode on, so those are best-effort: if the tab
 is absent the scenario returns no file.
 
-Tab matching tries both the English and Portuguese labels so the flow works
-regardless of the device locale.
+Screenshots are captured with the UI forced to en-US (see the settings opener),
+so tab matching uses plain English labels.
 """
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from deckprobe.screenshots.lib.nav import (
 )
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
+from ._locale import force_english
 
 GEAR_ICON = "M19.4 15a1.65"  # Settings gear icon in the QAM title bar
 
@@ -29,6 +30,7 @@ GEAR_ICON = "M19.4 15a1.65"  # Settings gear icon in the QAM title bar
 def _open_settings(sjc: Session, host: str, port: int) -> bool:
     if not navigate_to_ds_qam(sjc, host, port):
         return False
+    force_english(sjc)
     if not click_qam_button(host, port, GEAR_ICON):
         return False
     time.sleep(2.5)
@@ -97,36 +99,33 @@ def settings_overview(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 
 @register("settings_profiles")
 def settings_profiles(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    # "Profiles" (EN) / "Perfis" (PT).
-    return _capture_tab(sjc, host, port, out_dir, "settings-profiles.png", "prof", "perf", settle=0.7)
+    return _capture_tab(sjc, host, port, out_dir, "settings-profiles.png", "profiles", settle=0.7)
 
 
 @register("settings_suggestions")
 def settings_suggestions(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    # New tab (split out of Statistics). "Suggestions" (EN) / "Sugestões" (PT).
-    return _capture_tab(sjc, host, port, out_dir, "settings-suggestions.png", "suggestion", "sugest", settle=1.0, wait_idle=True)
+    # New tab (split out of Statistics).
+    return _capture_tab(sjc, host, port, out_dir, "settings-suggestions.png", "suggestions", settle=1.0, wait_idle=True)
 
 
 @register("settings_statistics")
 def settings_statistics(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    # "Statistics" (EN) / "Estatísticas" (PT) — now charts + usage breakdowns.
-    return _capture_tab(sjc, host, port, out_dir, "settings-statistics.png", "statistic", "estat", settle=1.0, wait_idle=True)
+    # Charts + usage breakdowns.
+    return _capture_tab(sjc, host, port, out_dir, "settings-statistics.png", "statistics", settle=1.0, wait_idle=True)
 
 
 @register("settings_shortcuts")
 def settings_shortcuts(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     # Restructured (Card actions + Navigation sections, sidecar bindings).
-    # "Shortcuts" (EN) / "Atalhos" (PT).
-    return _capture_tab(sjc, host, port, out_dir, "settings-shortcuts.png", "shortcut", "atalho")
+    return _capture_tab(sjc, host, port, out_dir, "settings-shortcuts.png", "shortcuts")
 
 
 @register("settings_integrations")
 def settings_integrations(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    # "Integrations" (EN) / "Integrações" (PT).
-    return _capture_tab(sjc, host, port, out_dir, "settings-integrations.png", "integ", settle=0.7)
+    return _capture_tab(sjc, host, port, out_dir, "settings-integrations.png", "integrations", settle=0.7)
 
 
 @register("settings_advanced")
 def settings_advanced(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    # "Advanced" (EN) / "Avançado" (PT) — now verbose-logging toggle + colour log list.
-    return _capture_tab(sjc, host, port, out_dir, "settings-advanced.png", "advanc", "avanç", settle=0.7)
+    # Verbose-logging toggle + colour log list.
+    return _capture_tab(sjc, host, port, out_dir, "settings-advanced.png", "advanced", settle=0.7)

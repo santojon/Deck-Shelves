@@ -6,6 +6,12 @@
 - Steam Deck with [Decky Loader](https://decky.xyz) and SSH access
 - CEF Remote Debugging enabled on the Deck
 
+> Dev works on **Windows, macOS, SteamOS, and other Linux** (see
+> [CONTRIBUTING.md § Supported platforms](../CONTRIBUTING.md#supported-platforms)).
+> The `pnpm` scripts invoke Python cross-OS via `scripts/build/py.mjs`; the raw
+> `python3 …` examples below assume `python3` on PATH — on Windows use
+> `python` / `py -3` or the equivalent `pnpm` / `pnpm --filter deckprobe …` flows.
+
 ## Setup
 
 ```bash
@@ -14,6 +20,30 @@ cp .env.example .env   # Edit with your Deck's IP
 pnpm run deck:setup    # First-time Deck configuration
 ```
 
+## Run locally (Decky already installed)
+
+To develop **directly on the machine that runs Steam** — a Steam Deck, a Linux
+box, or Windows — that **already has Decky Loader installed**, deploy into the
+local Decky plugin dir instead of over SSH:
+
+```bash
+pnpm run deploy:local        # build + install into THIS machine's Decky plugin dir
+pnpm run deploy:local:hard   # + reload plugin_loader and restart Steam (Linux)
+```
+
+- It does **not** install Decky — it only copies the plugin into an existing
+  install. Default location is `~/homebrew/plugins`; if Decky lives elsewhere,
+  set `DECKY_PLUGINS_DIR=/path/to/homebrew/plugins` (or `DECKY_HOME=/path/to/homebrew`)
+  in `.env` or the environment.
+- After a plain `deploy:local`, reload from Decky (Developer → Reload
+  deck-shelves) or restart Steam. `:hard` tries to do that for you on Linux
+  (needs passwordless `sudo` or `DECK_SUDO_PASS`).
+- **CDP against local Steam:** `deckprobe` defaults to the Deck's LAN port
+  (`8081`). To point it at the local Steam instead, set `DECK_CDP_HOST=127.0.0.1`
+  and `DECK_CDP_PORT=8080` in `.env` — Steam's CEF listens on `8080` on the same
+  machine. This is opt-in via `.env`; the shipped default stays `8081`, so
+  existing Deck/CI flows are unaffected.
+
 ## Environment Variables (`.env`)
 
 ```
@@ -21,8 +51,12 @@ DECK_HOST=192.168.1.x     # Steam Deck IP address (or hostname, e.g. steamdeck)
 DECK_USER=deck             # SSH username
 DECK_SUDO_PASS=...        # sudo password for plugin dir ownership
 DECK_CDP_PORT=8081         # CEF Remote Debugging port
-DECK_CDP_HOST=127.0.0.1    # optional: CDP host (defaults to DECK_HOST; use 127.0.0.1 over an SSH tunnel)
+DECK_CDP_HOST=127.0.0.1    # optional: CDP host (defaults to DECK_HOST; use 127.0.0.1 for local Steam / over an SSH tunnel)
+DECKY_PLUGINS_DIR=         # optional: local Decky plugins dir for `deploy:local` (default ~/homebrew/plugins)
 ```
+
+> Local Steam: set `DECK_CDP_HOST=127.0.0.1` + `DECK_CDP_PORT=8080` (Steam's CEF
+> is on `8080` on the same machine; `8081` is the Deck's LAN port).
 
 All variables are optional — each script also accepts command-line arguments
 (e.g. `pnpm run deploy:deck steamdeck`). When both are provided, the CLI
@@ -38,6 +72,8 @@ argument takes precedence.
 > **Caution:** always use `build:release` when creating a package for distribution or submission to the Decky Store. The `build` command includes sourcemaps and enables debug logging — it is for local development only.
 | `pnpm run deploy:deck` | Build + deploy to Deck via SSH |
 | `pnpm run deploy:deck:hard` | Deploy + restart Steam |
+| `pnpm run deploy:local` | Build + install into the **local** Decky (no SSH; Decky must already be installed) |
+| `pnpm run deploy:local:hard` | Local install + reload plugin_loader + restart Steam (Linux) |
 | `pnpm run watch:deck` | Auto-deploy on file changes |
 | `pnpm run package` | Create distributable `.zip` |
 | `pnpm run upload:deckzip` | Upload the zip to the Deck Downloads folder |

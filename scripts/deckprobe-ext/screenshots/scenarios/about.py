@@ -12,6 +12,7 @@ from deckprobe.screenshots.lib.nav import (
 )
 from deckprobe.screenshots.lib.capture import capture_bigpicture
 from deckprobe.screenshots.lib.registry import register
+from ._locale import force_english
 
 BOOK_ICON = "M4 19.5A2.5"  # About / docs book icon in the QAM title bar
 
@@ -19,6 +20,7 @@ BOOK_ICON = "M4 19.5A2.5"  # About / docs book icon in the QAM title bar
 def _open_about(sjc: Session, host: str, port: int) -> bool:
     if not navigate_to_ds_qam(sjc, host, port):
         return False
+    force_english(sjc)
     if not click_qam_button(host, port, BOOK_ICON):
         return False
     time.sleep(2.5)
@@ -52,15 +54,13 @@ def about_overview(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[st
     return {"about-page.png": p} if p else {}
 
 
-# Locale-tolerant tab needles (Deck renders in its own language):
-#   filters  → "filtr"   (Filtros / Filters / Filtres / Filtri)
-#   smart    → "intelig" (Prateleiras Inteligentes / Smart …)  + "smart" fallback
-#   support  → "sobre"   (Sobre / About)                       + "support"/"about"
+# English tab needles — screenshots are captured with the UI forced to en-US
+# (see _open_about), so the tab labels are always English.
 @register("about_filters")
 def about_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     if not _open_about(sjc, host, port):
         return {}
-    _switch_tab(host, port, "filtr")
+    _switch_tab(host, port, "filter")
     out = out_dir / "about-filters.png"
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)
@@ -71,8 +71,7 @@ def about_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
 def about_smart(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     if not _open_about(sjc, host, port):
         return {}
-    if _switch_tab(host, port, "intelig") != "ok":
-        _switch_tab(host, port, "smart")
+    _switch_tab(host, port, "smart")
     out = out_dir / "about-smart.png"
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)
@@ -83,9 +82,8 @@ def about_smart(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, 
 def about_support(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     if not _open_about(sjc, host, port):
         return {}
-    if _switch_tab(host, port, "sobre") != "ok":
-        if _switch_tab(host, port, "support") != "ok":
-            _switch_tab(host, port, "about")
+    if _switch_tab(host, port, "support") != "ok":
+        _switch_tab(host, port, "about")
     out = out_dir / "about-support.png"
     p = capture_bigpicture(host, port, out)
     _dismiss_bp_modal(host, port)

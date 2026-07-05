@@ -6,6 +6,8 @@ import { DEFAULT_SHELF_TEMPLATES } from "../../../domain/templates";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
 import { notify } from "../../../components/notify";
 import { trackFeature } from "../../../steam/usageTracking";
+import { buildSnapshot, applySnapshot, type SnapshotConcept } from "../../../domain/snapshot";
+import { getExternalExportHandlers, getExternalImportHandlers } from "../../../core/pluginApi";
 
 export interface ShelvesDeps {
   liveSettings: () => Settings | null;
@@ -69,6 +71,61 @@ export function createShelfActions(deps: ShelvesDeps) {
         if (!Array.isArray(imported)) return false;
         await persist({ ...s, shelves: imported });
         if (imported[0]?.id) setSelectedId(imported[0].id);
+        try { trackFeature("import"); } catch {}
+        return true;
+      } catch { return false; }
+    },
+    /* Portable multi-concept snapshot (shelves + smart shelves + saved
+       filters + saved smart filters). `include` narrows the bundle. */
+    async exportSnapshot(destPath: string, include?: readonly SnapshotConcept[]): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      try { trackFeature("export"); } catch {}
+      return writeJsonFile(destPath, JSON.stringify(buildSnapshot(s, include), null, 2));
+    },
+    async importSnapshot(srcPath: string, mode: "merge" | "replace" = "merge"): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const raw = await readJsonFile(srcPath);
+      if (!raw) return false;
+      try {
+        const next = applySnapshot(s, JSON.parse(raw), mode);
+        await persist(next);
+        if (next.shelves[0]?.id) setSelectedId(next.shelves[0].id);
+        try { trackFeature("import"); } catch {}
+        return true;
+      } catch { return false; }
+    },
+    /* Plugin-to-plugin bridge: run a registered export/import handler
+       against the snapshot. Export builds the snapshot JSON, hands it to the
+       handler to serialize into its format, and writes the result. Import
+       reads the file, lets the handler parse it back into a snapshot JSON,
+       then applies it. */
+    async exportViaHandler(handlerId: string, destPath: string): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const handler = getExternalExportHandlers().find((h) => h.id === handlerId);
+      if (!handler) return false;
+      try {
+        const out = await handler.export(JSON.stringify(buildSnapshot(s)));
+        if (typeof out !== "string") return false;
+        try { trackFeature("export"); } catch {}
+        return writeJsonFile(destPath, out);
+      } catch { return false; }
+    },
+    async importViaHandler(handlerId: string, srcPath: string, mode: "merge" | "replace" = "merge"): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const handler = getExternalImportHandlers().find((h) => h.id === handlerId);
+      if (!handler) return false;
+      const raw = await readJsonFile(srcPath);
+      if (!raw) return false;
+      try {
+        const snapshotJson = await handler.import(raw);
+        if (typeof snapshotJson !== "string") return false;
+        const next = applySnapshot(s, JSON.parse(snapshotJson), mode);
+        await persist(next);
+        if (next.shelves[0]?.id) setSelectedId(next.shelves[0].id);
         try { trackFeature("import"); } catch {}
         return true;
       } catch { return false; }

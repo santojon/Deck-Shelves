@@ -151,6 +151,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      event-driven refreshes pass no `manual` flag and remain silent. */
   const [refreshing, setRefreshing] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pre-limit match count reported by the resolver (undefined when the
+  // resolver doesn't report it) — drives the dynamic "See more" decision.
+  const resolvedTotalRef = useRef<number | undefined>(undefined);
 
   const sourceKey = useMemo(() => JSON.stringify({ source: shelf.source, sort: shelf.sort }), [shelf.source, shelf.sort]);
 
@@ -204,7 +207,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
         const hiddenAppIds: number[] | undefined = (shelf as any).hiddenAppIds?.length ? (shelf as any).hiddenAppIds : undefined
         const __traceStart = Date.now();
         try { (globalThis as any).__ds_resolve_trace = (globalThis as any).__ds_resolve_trace || {}; (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "started", at: __traceStart, gen, currentGen: resolveGenRef.current, cancelled }; } catch {}
-        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined })
+        platform.resolveShelfAppIds(resolveSource, shelf.limit, resolveSort, shelf.id, resolveReverse, { hiddenAppIds, dedupeByName: dedupeByName || undefined, onResolveTotal: (n) => { resolvedTotalRef.current = n; } })
           .then((ids) => {
             try { (globalThis as any).__ds_resolve_trace[shelf.id] = { state: "then", at: Date.now(), tookMs: Date.now() - __traceStart, gen, currentGen: resolveGenRef.current, cancelled, idCount: ids?.length }; } catch {}
             if (cancelled || gen !== resolveGenRef.current) return;
@@ -591,6 +594,9 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       hideRefreshCard: (shelf as any).hideRefreshCard === true,
       globalHideSeeMore,
       globalHideRefreshCard,
+      resolvedTotal: resolvedTotalRef.current,
+      limit: shelf.limit,
+      isOnline: isOnlineShelf,
     };
     if (shouldShowRefreshCard(trailingInput)) {
       const isSmart = (shelf.source as any)?.type === 'smart';
@@ -771,7 +777,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectivePlaytimePosition: 'left' | 'center' | 'right' = isValidPos(globalPlaytimePosition) ? globalPlaytimePosition : (isValidPos((shelf as any).playtimePosition) ? (shelf as any).playtimePosition : 'left');
   const effectiveDescriptionHeight: number = typeof globalDescriptionHeight === 'number' ? Math.max(1, Math.min(3, globalDescriptionHeight)) : (typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2);
   const globalDescriptionLogoGap = (getCurrentSettings() as any)?.globalDescriptionLogoGap as number | null | undefined;
-  const effectiveDescriptionLogoGap: number = typeof globalDescriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, globalDescriptionLogoGap)) : (typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 8);
+  const effectiveDescriptionLogoGap: number = typeof globalDescriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, globalDescriptionLogoGap)) : (typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 10);
   const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoBelowShelf={effectiveLogoBelowShelf} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={forceExpanded && !fullPageLayout} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={lightMode ? (forceExpanded || forceLayoutAsRecents) : (heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true)} heroLabelMount={heroLabelMount} infoAbove={globalGameInfoAbove || (shelf as any).gameInfoAbove === true} friendsOverlay={globalFriendsPlayingOverlay || (shelf as any).friendsPlayingOverlay === true} friendsOverlayRecent={globalFriendsPlayingOverlayRecent || (shelf as any).friendsPlayingOverlayRecent === true} />;
   /* Brief opacity dip while a user-triggered refresh is in flight so the
      click is never ambiguous — even when the resolver returns identical

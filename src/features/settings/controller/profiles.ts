@@ -135,6 +135,26 @@ export function createProfileActions(deps: ProfilesDeps) {
       await persist({ ...s, profiles: nextProfiles } as Settings);
       return true;
     },
+    // Toggle a profile's hidden flag (still listed, omitted from the dropdown).
+    async toggleProfileHidden(id: string): Promise<void> {
+      const s = liveSettings();
+      if (!s) return;
+      const profiles: ProfileRecord[] = (s as any).profiles ?? [];
+      if (!profiles.some((p) => p.id === id)) return;
+      const nextProfiles = profiles.map((p) => p.id === id ? { ...p, hidden: !(p as any).hidden } : p);
+      await persist({ ...s, profiles: nextProfiles } as Settings);
+    },
+    // Reorder the profiles array (drives both the list and the dropdown order).
+    async setProfilesOrder(ids: string[]): Promise<void> {
+      const s = liveSettings();
+      if (!s) return;
+      const profiles: ProfileRecord[] = (s as any).profiles ?? [];
+      const byId = new Map(profiles.map((p) => [p.id, p]));
+      const reordered = ids.map((id) => byId.get(id)).filter(Boolean) as ProfileRecord[];
+      for (const p of profiles) if (!ids.includes(p.id)) reordered.push(p);
+      if (reordered.length !== profiles.length) return;
+      await persist({ ...s, profiles: reordered } as Settings);
+    },
     async clearActiveProfile(): Promise<void> {
       const s = liveSettings();
       if (!s) return;

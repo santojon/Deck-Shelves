@@ -86,7 +86,6 @@ export function compareSemver(a: string, b: string): number {
    identifiers compared left-to-right; numeric < alphanumeric; fewer
    identifiers sorts lower when otherwise equal. alpha < beta < rc falls out of
    the ASCII compare. */
-// eslint-disable-next-line complexity
 function comparePreRelease(a: string, b: string): number {
   const pa = a.split("."), pb = b.split(".");
   const len = Math.max(pa.length, pb.length);
@@ -115,7 +114,6 @@ function buildResult(latestVersion: string | null, releaseUrl: string | null, ts
 
 /* Pick the highest-precedence non-draft release from the `/releases` array
    (used by the beta channel, which includes pre-releases). */
-// eslint-disable-next-line complexity
 function pickNewestRelease(json: any): { version: string | null; url: string | null } {
   if (!Array.isArray(json)) return { version: null, url: null };
   let best: { version: string; url: string | null } | null = null;
@@ -130,7 +128,6 @@ function pickNewestRelease(json: any): { version: string | null; url: string | n
   return best ?? { version: null, url: null };
 }
 
-// eslint-disable-next-line complexity
 async function fetchLatest(beta: boolean): Promise<{ version: string | null; url: string | null }> {
   const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch {} }, FETCH_TIMEOUT_MS) : null;

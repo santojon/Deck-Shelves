@@ -24,5 +24,30 @@
     142,
     2904
   ],
-  "total_duration_ms": 17297
+  "total_duration_ms": 17297,
+  "version": "2.4.3",
+  "unit": {
+    "passed": 340,
+    "failed": 0,
+    "skipped": 0,
+    "total": 340,
+    "estimated": true
+  },
+  "ruff": {
+    "issues": 0,
+    "estimated": true
+  },
+  "pytest": {
+    "passed": 45,
+    "failed": 0,
+    "skipped": 0,
+    "total": 45,
+    "estimated": true
+  },
+  "suppressions": 159,
+  "suppressionsEst": true,
+  "lint": {
+    "problems": 0,
+    "estimated": true
+  }
 }

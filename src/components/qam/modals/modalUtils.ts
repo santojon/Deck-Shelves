@@ -1,6 +1,12 @@
+// Decky's onChange hands back a raw string, an event, or a `{ value }` object
+// depending on the field. Pick the first defined candidate across those shapes.
+function pickChangeValue(v: any): unknown {
+  return v?.target?.value ?? v?.currentTarget?.value ?? v?.value ?? v
+}
+
 export function textFromDeckyChange(value: unknown): string {
   if (typeof value === 'string') return value
-  const maybe = (value as any)?.target?.value ?? (value as any)?.currentTarget?.value ?? (value as any)?.value ?? value
+  const maybe = pickChangeValue(value)
   return typeof maybe === 'string' ? maybe : ''
 }
 
@@ -23,11 +29,22 @@ export function joinPath(dir: string, base: string): string {
   return dir.endsWith(sep) ? `${dir}${base}` : `${dir}${sep}${base}`
 }
 
+// The picker result shape varies across Steam/Decky builds — take the first
+// defined path-ish field, matching the previous `?? ` fallback order.
+const PICKER_PATH_KEYS = ['realpath', 'path', 'strPath', 'filepath', 'file_path', 'selectedPath']
+
+function firstPathField(o: any): string {
+  for (const k of PICKER_PATH_KEYS) {
+    const v = o?.[k]
+    if (v !== undefined && v !== null) return String(v)
+  }
+  return ''
+}
+
 export function pickerPath(result: unknown): string {
   if (typeof result === 'string') return result
   if (Array.isArray(result)) return pickerPath(result[0])
-  const maybe = result as any
-  return String(maybe?.realpath ?? maybe?.path ?? maybe?.strPath ?? maybe?.filepath ?? maybe?.file_path ?? maybe?.selectedPath ?? '')
+  return firstPathField(result)
 }
 
 export async function tryPickerCalls(calls: Array<() => Promise<unknown>>): Promise<string> {

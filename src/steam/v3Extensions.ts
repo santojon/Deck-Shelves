@@ -443,6 +443,20 @@ function temporaryQueueIds(): number[] {
   } catch { return []; }
 }
 
+// Collect every appid held by a set of (dynamic) Steam collections, tolerant of
+// the shape variants across SteamOS versions (allApps / m_rgApps).
+function collectCollectionAppIds(collections: any[]): Set<number> {
+  const ids = new Set<number>();
+  for (const c of collections) {
+    const apps = c?.allApps ?? c?.m_rgApps ?? [];
+    for (const a of apps) {
+      const id = Number(a?.appid);
+      if (Number.isFinite(id)) ids.add(id);
+    }
+  }
+  return ids;
+}
+
 export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
   // Steam-side
   dynamic_collections: (all) => {
@@ -450,14 +464,7 @@ export const SOURCE_V3_RESOLVERS: Record<string, ShelfSourceResolver> = {
       const cs: any = (globalThis as any).collectionStore;
       const list: any[] = cs?.userCollections ?? [];
       const dynamic = list.filter((c) => c?.bIsDynamic === true || c?.m_bIsDynamic === true);
-      const ids = new Set<number>();
-      for (const c of dynamic) {
-        const apps = c?.allApps ?? c?.m_rgApps ?? [];
-        for (const a of apps) {
-          const id = Number(a?.appid);
-          if (Number.isFinite(id)) ids.add(id);
-        }
-      }
+      const ids = collectCollectionAppIds(dynamic);
       return all.filter((a) => ids.has(appIdOf(a)));
     } catch { return []; }
   },

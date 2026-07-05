@@ -24,5 +24,30 @@
     53,
     5827
   ],
-  "total_duration_ms": 24963
+  "total_duration_ms": 24963,
+  "version": "3.0.0",
+  "unit": {
+    "passed": 496,
+    "failed": 0,
+    "skipped": 0,
+    "total": 496,
+    "estimated": true
+  },
+  "ruff": {
+    "issues": 0,
+    "estimated": true
+  },
+  "pytest": {
+    "passed": 70,
+    "failed": 0,
+    "skipped": 0,
+    "total": 70,
+    "estimated": true
+  },
+  "suppressions": 177,
+  "suppressionsEst": true,
+  "lint": {
+    "problems": 0,
+    "estimated": true
+  }
 }

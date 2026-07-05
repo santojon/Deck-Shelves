@@ -1,24 +1,37 @@
 let cachedVersion: string | null | undefined;
 let prefetchPromise: Promise<string | null> | null = null;
 
-function readRawVersionSync(): string | null {
+function versionFromSteamClient(): string | null {
   try {
     const sc: any = (globalThis as any).SteamClient;
     const os = sc?.System?.GetOSVersion?.();
     if (typeof os === "string" && os.length) return os;
     if (typeof os === "number" && Number.isFinite(os)) return String(os);
   } catch {}
+  return null;
+}
+
+function versionFromDeckySettings(): string | null {
   try {
     const ds: any = (globalThis as any).SteamUIStore?.DeckySettings;
     const v = ds?.steamos_version ?? ds?.osVersion;
     if (typeof v === "string" && v.length) return v;
   } catch {}
+  return null;
+}
+
+function versionFromUserAgent(): string | null {
   try {
     const ua = (globalThis as any).navigator?.userAgent as string | undefined;
     const m = ua?.match(/SteamOS\/(\d+\.\d+(?:\.\d+)?)/);
     if (m?.[1]) return m[1];
   } catch {}
   return null;
+}
+
+// Sync SteamOS-version sources in priority order (first hit wins).
+function readRawVersionSync(): string | null {
+  return versionFromSteamClient() ?? versionFromDeckySettings() ?? versionFromUserAgent();
 }
 
 async function readRawVersionAsync(): Promise<string | null> {

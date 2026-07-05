@@ -29,6 +29,15 @@ from deckprobe.screenshots.lib.nav import (
 )
 from deckprobe.screenshots.lib.capture import capture_bigpicture, capture_qam
 from deckprobe.screenshots.lib.registry import register
+from ._locale import force_english
+
+
+def _open_qam(sjc: Session, host: str, port: int):
+    """Open the DS QAM and force the UI to en-US so the tab/menu label needles
+    below (Filters / Smart / Visual) are always English."""
+    ok = navigate_to_ds_qam(sjc, host, port)
+    force_english(sjc)
+    return ok
 
 
 def _click_action(host: str, port: int, ok_description: str) -> bool:
@@ -150,7 +159,7 @@ def _click_first_smart_actions(host: str, port: int) -> str:
 @register("shelf_create")
 def shelf_create(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Template picker modal opened from the QAM."""
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_action(host, port, "addshelf")
     time.sleep(3.5)
@@ -162,7 +171,7 @@ def shelf_create(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 
 @register("shelf_import")
 def shelf_import(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_action(host, port, "import_shelves")
     time.sleep(3.5)
@@ -174,7 +183,7 @@ def shelf_import(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 
 @register("shelf_export")
 def shelf_export(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_action(host, port, "export_shelves")
     time.sleep(3.5)
@@ -187,7 +196,7 @@ def shelf_export(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 @register("shelf_edit")
 def shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Shelf edit modal — opens via ellipsis context menu → Edit."""
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
@@ -201,7 +210,7 @@ def shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, P
 
 @register("shelf_edit_filters")
 def shelf_edit_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
@@ -212,8 +221,8 @@ def shelf_edit_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dic
 (function(){
   var tabs = Array.from(document.querySelectorAll('[role="tab"], [class*="tab-bar-entry"], [class*="TabBar"] .Focusable'));
   for (var t of tabs) {
-    // 'filtr' matches the tab label across locales (EN filters / PT filtros / ES filtros / FR filtres / IT filtri).
-    if ((t.textContent||'').toLowerCase().indexOf('filtr') !== -1) { t.click(); return 'ok'; }
+    // English UI (forced to en-US): match the "Filters" tab label.
+    if ((t.textContent||'').toLowerCase().indexOf('filter') !== -1) { t.click(); return 'ok'; }
   }
   return 'not found';
 })()
@@ -227,7 +236,7 @@ def shelf_edit_filters(sjc: Session, host: str, port: int, out_dir: Path) -> Dic
 
 @register("shelf_edit_visual")
 def shelf_edit_visual(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
@@ -253,7 +262,7 @@ def shelf_edit_visual(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 @register("smart_shelf_modal")
 def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Smart-shelf template picker (Add Smart Shelf button)."""
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     # Scroll to bottom so the smart section add button is visible
     _qam_eval(host, port, """
@@ -277,7 +286,7 @@ def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
   var all = Array.from(document.querySelectorAll('[role="tab"], button, .Focusable, span, div'));
   for (var t of all) {
     var txt = (t.textContent || '').trim().toLowerCase();
-    if (txt === 'inteligentes' || txt === 'smart' || txt === 'intelligentes') {
+    if (txt === 'smart') {
       // Fire on the element and its nearest focusable/button ancestor.
       fire(t);
       var p = t;
@@ -302,7 +311,7 @@ def smart_shelf_modal(sjc: Session, host: str, port: int, out_dir: Path) -> Dict
 @register("smart_shelf_edit")
 def smart_shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Smart-shelf editor — opens via ellipsis context menu → Edit."""
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     # Scroll to smart section and click its first ellipsis
     _qam_eval(host, port, """
@@ -313,7 +322,7 @@ def smart_shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[
   var node;
   while (node = walker.nextNode()) {
     var txt = (node.textContent || '').trim().toLowerCase();
-    if (txt.indexOf('smart') !== -1 || txt.indexOf('inteligente') !== -1) {
+    if (txt.indexOf('smart') !== -1) {
       var el = node.parentElement;
       if (el) { el.scrollIntoView({ behavior: 'instant', block: 'center' }); return 'scrolled'; }
     }
@@ -334,7 +343,7 @@ def smart_shelf_edit(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[
 
 @register("reset_all")
 def reset_all(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     # Scroll to bottom so the footer Reset All button is in view
     _qam_eval(host, port, """
@@ -369,7 +378,7 @@ def reset_all(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Pa
 @register("shelf_actions")
 def shelf_actions(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Shelf context menu open (context menu renders in Big Picture DOM)."""
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)
@@ -384,7 +393,7 @@ def shelf_actions(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str
 @register("shelf_hidden")
 def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """QAM showing a hidden shelf row. Stays on the QAM popup (portrait)."""
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _qam_eval(host, port, """
 (function(){
@@ -403,7 +412,7 @@ def shelf_hidden(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str,
 @register("shelf_delete")
 def shelf_delete(sjc: Session, host: str, port: int, out_dir: Path) -> Dict[str, Path]:
     """Shelf delete confirmation modal — opens via ellipsis context menu → Delete."""
-    navigate_to_ds_qam(sjc, host, port)
+    _open_qam(sjc, host, port)
     expand_qam_sections(host, port)
     _click_first_shelf_actions(host, port)
     time.sleep(1.0)

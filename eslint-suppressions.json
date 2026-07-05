@@ -1,7 +1,7 @@
 {
   "src/components/DeckQAMSettings.tsx": {
     "complexity": {
-      "count": 2
+      "count": 7
     },
     "react-hooks/rules-of-hooks": {
       "count": 3
@@ -102,12 +102,22 @@
       "count": 1
     }
   },
-  "src/components/qam/modals/modalUtils.ts": {
+  "src/components/qam/modals/editShelf/VisualTabContent.tsx": {
     "complexity": {
-      "count": 2
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/editShelf/buildInitialState.ts": {
+    "complexity": {
+      "count": 1
     }
   },
   "src/components/qam/sections/ProfilesSection.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/qam/sidecar/GeneralTab.tsx": {
     "complexity": {
       "count": 1
     }
@@ -122,19 +132,24 @@
       "count": 2
     }
   },
+  "src/components/settings/details/StatisticsDetail.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/settings/details/SuggestionsDetail.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
   "src/components/shelf/GameCard.tsx": {
     "complexity": {
-      "count": 9
+      "count": 10
     }
   },
   "src/components/shelf/HeroBackground.tsx": {
     "complexity": {
       "count": 3
-    }
-  },
-  "src/components/shelf/MoreCard.tsx": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/components/shelf/PerShelfHero.tsx": {
@@ -157,19 +172,9 @@
       "count": 2
     }
   },
-  "src/components/shelf/cardUtils.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/shelf/shelfStyles.ts": {
     "complexity": {
       "count": 4
-    }
-  },
-  "src/components/styles/DeckModalStyles.tsx": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/core/cssLoaderDetect.ts": {
@@ -207,14 +212,14 @@
       "count": 1
     }
   },
-  "src/core/steamOSVersion.ts": {
+  "src/core/syntheticCardMenu.ts": {
     "complexity": {
       "count": 1
     }
   },
-  "src/core/syntheticCardMenu.ts": {
+  "src/core/updateNotifier.ts": {
     "complexity": {
-      "count": 1
+      "count": 3
     }
   },
   "src/domain/customfilters.ts": {
@@ -223,6 +228,11 @@
     }
   },
   "src/domain/settings.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/domain/shelfStats.ts": {
     "complexity": {
       "count": 1
     }
@@ -249,12 +259,7 @@
   },
   "src/features/sidenav/ShelfSideNav.tsx": {
     "complexity": {
-      "count": 3
-    }
-  },
-  "src/i18n.ts": {
-    "complexity": {
-      "count": 1
+      "count": 5
     }
   },
   "src/index.tsx": {
@@ -289,7 +294,7 @@
   },
   "src/runtime/controllerInput.ts": {
     "complexity": {
-      "count": 1
+      "count": 2
     }
   },
   "src/runtime/deckyPlatform.ts": {
@@ -332,6 +337,11 @@
       "count": 2
     }
   },
+  "src/steam/appDescriptionsCache.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
   "src/steam/appDetailsCache.ts": {
     "complexity": {
       "count": 1
@@ -348,11 +358,6 @@
   "src/steam/smartShelves.ts": {
     "complexity": {
       "count": 3
-    }
-  },
-  "src/steam/v3Extensions.ts": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/types.ts": {

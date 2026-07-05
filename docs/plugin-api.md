@@ -47,6 +47,39 @@ locale bundle at runtime and never overwrites built-in keys — namespace yours
 (`my-plugin.*`). Built-in strings live in `i18n/<locale>/<area>.json` (see
 [`development.md`](./development.md#i18n)).
 
+## Export / import handlers
+
+Offer "Export to format X" / "Import from format Y" for portable, plugin-to-
+plugin transfer. Handlers are format-agnostic: both sides exchange the Deck
+Shelves **snapshot JSON** (a serialized bundle of shelves, smart shelves, saved
+filters and saved smart filters), so the round-trip stays lossless and no
+internal types leak.
+
+```ts
+// Serialize the snapshot JSON into your format.
+const offExport = api.registerExportHandler({
+  id: "my-plugin.csv",
+  displayName: "My CSV",
+  fileExtension: "csv",
+  export: (snapshotJson) => toCsv(JSON.parse(snapshotJson)),
+});
+
+// Parse your format back into a snapshot JSON string.
+const offImport = api.registerImportHandler({
+  id: "my-plugin.csv",
+  displayName: "My CSV",
+  fileExtension: "csv",
+  import: (raw) => JSON.stringify(fromCsv(raw)),
+});
+```
+
+`export` receives the current snapshot JSON and returns your format's text;
+`import` receives your text and returns a snapshot JSON string, which Deck
+Shelves applies (merge by default). Both may be async. Registered handlers
+surface in Settings → Backup. Enumerate them with
+`getRegisteredExportHandlers()` / `getRegisteredImportHandlers()`. Additive —
+does not bump the API `version`.
+
 ## First-party Filter / Sort / Source IDs (v3)
 
 These ids are registered through the same public registries. A third-party

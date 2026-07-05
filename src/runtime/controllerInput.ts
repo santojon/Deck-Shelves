@@ -69,7 +69,6 @@ function exposeSubscribersForDebug(): void {
   } catch {}
 }
 
-// eslint-disable-next-line complexity
 function getAllInputApis(): any[] {
   const g = globalThis as any;
   const seen = new Set<any>();

@@ -23,14 +23,25 @@ function titleKeyFor(scope: ImportScope): string {
   return 'import_settings'
 }
 
-export function ImportModal({ closeModal, controller, initialPath, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; initialPath: string; scope?: ImportScope }) {
+async function performImport(controller: SettingsController, path: string, scope: ImportScope, handlerId?: string): Promise<boolean> {
+  if (handlerId) return controller.actions.importViaHandler(handlerId, path, 'merge')
+  const raw = await readJsonFile(path)
+  const cur = getCurrentSettings()
+  if (!raw || !cur) return false
+  const next = mergeCategoriesIntoSettings(cur, unwrapPayload(JSON.parse(raw)), categoryIdsForScope(scope))
+  const ok = await saveSettings(next)
+  if (ok && next.shelves?.[0]?.id) controller.actions.selectShelf(next.shelves[0].id)
+  return ok
+}
+
+export function ImportModal({ closeModal, controller, initialPath, scope = 'all', handlerId, handlerLabel }: { closeModal?: () => void; controller: SettingsController; initialPath: string; scope?: ImportScope; handlerId?: string; handlerLabel?: string }) {
   const { t } = controller
   const init = splitPath(initialPath)
   const [folder, setFolder] = useState(init.dir)
   const [name, setName] = useState(init.base)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
-  const title = t(titleKeyFor(scope) as any)
+  const title = handlerId ? (handlerLabel ?? t('import_settings' as any)) : t(titleKeyFor(scope) as any)
   return (
     <ModalShell>
       <ConfirmModal
@@ -46,15 +57,7 @@ export function ImportModal({ closeModal, controller, initialPath, scope = 'all'
           (async () => {
             const path = joinPath(folder, name);
             try {
-              let ok = false
-              const raw = await readJsonFile(path);
-              const cur = getCurrentSettings();
-              if (raw && cur) {
-                const parsed = JSON.parse(raw);
-                const next = mergeCategoriesIntoSettings(cur, unwrapPayload(parsed), categoryIdsForScope(scope));
-                ok = await saveSettings(next);
-                if (ok && next.shelves?.[0]?.id) controller.actions.selectShelf(next.shelves[0].id);
-              }
+              const ok = await performImport(controller, path, scope, handlerId);
               notify(ok ? "import" : "error", { body: ok ? `${t('toast_imported')}: ${path}` : t('toast_failed_save') });
             } catch (error) {
               notify("error", { body: String(error) });

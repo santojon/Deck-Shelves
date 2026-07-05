@@ -41,7 +41,6 @@ function suggestionIcon(sg: StatSuggestion): React.ReactNode {
   return <Fallback size={26} />;
 }
 
-// eslint-disable-next-line complexity
 function SuggestionBlock(
   { t, sg, why, applied, onApply }:
   { t: (k: string) => string; sg: StatSuggestion; why: string; applied: boolean; onApply: () => void },

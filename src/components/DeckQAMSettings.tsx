@@ -122,7 +122,6 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
     if (!innerEl) return;
     const doc = innerEl.ownerDocument;
     const win = doc.defaultView ?? window;
-    // eslint-disable-next-line complexity
     const measure = () => {
       const sideEl = doc.querySelector('.deck-shelves-qam-sidecar') as HTMLElement | null;
       if (!sideEl) return;
@@ -236,7 +235,6 @@ function setAttr(el: HTMLElement | null, name: string, value: string): void {
   try { el?.setAttribute(name, value); } catch {}
 }
 
-// eslint-disable-next-line complexity
 function getInputApiFromScope(scope: HTMLElement | null): NonNullable<NonNullable<OpenerWithInput['SteamClient']>['Input']> | null {
   const realWin = (scope?.ownerDocument?.defaultView ?? null) as (Window & OpenerWithInput) | null;
   setAttr(scope, 'data-ds-real-win', realWin ? 'yes' : 'no');
@@ -294,7 +292,6 @@ function useDpadExpandBridge(
     const scope = scopeRef.current;
     const doc = scope?.ownerDocument ?? document;
     let prev: HTMLElement | null = null;
-    // eslint-disable-next-line complexity
     const obs = new MutationObserver(() => {
       const f = doc.querySelector('.gpfocus') as HTMLElement | null;
       if (f && f.closest('.deck-shelves-qam-sidecar')) {
@@ -377,7 +374,6 @@ export function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<s
 let lastFocusWasInSidecar = false;
 let lastRightTarget: HTMLElement | null = null;
 
-// eslint-disable-next-line complexity
 function handleDpadInput(
   scope: HTMLElement,
   button: number,
@@ -502,7 +498,6 @@ export function SavedSmartFiltersList({ controller }: { controller: SettingsCont
   )
 }
 
-// eslint-disable-next-line complexity
 export function DeckQAMSettings({ controller }: { controller: SettingsController }) {
   const { t, settings, shelves, actions } = controller
   const platform = usePlatform();
@@ -834,7 +829,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('updateNotifyEnabled') && (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
         )}
-        {!isHid('updateNotifyEnabled') && settings.updateNotifyEnabled !== false && (
+        {!isHid('betaChannelEnabled') && settings.updateNotifyEnabled !== false && (
           <div style={{ paddingLeft: 16 }}>
             <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setBetaChannelEnabled(value)} />
           </div>

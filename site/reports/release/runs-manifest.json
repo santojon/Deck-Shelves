@@ -26,6 +26,31 @@
       5827
     ],
     "total_duration_ms": 24963,
+    "version": "3.0.0",
+    "unit": {
+      "passed": 496,
+      "failed": 0,
+      "skipped": 0,
+      "total": 496,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 70,
+      "failed": 0,
+      "skipped": 0,
+      "total": 70,
+      "estimated": true
+    },
+    "suppressions": 177,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "release"
   },
   {
@@ -55,6 +80,31 @@
       2904
     ],
     "total_duration_ms": 17297,
+    "version": "2.4.3",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 159,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "release"
   },
   {
@@ -84,6 +134,31 @@
       2893
     ],
     "total_duration_ms": 16961,
+    "version": "2.4.2",
+    "unit": {
+      "passed": 340,
+      "failed": 0,
+      "skipped": 0,
+      "total": 340,
+      "estimated": true
+    },
+    "ruff": {
+      "issues": 0,
+      "estimated": true
+    },
+    "pytest": {
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "total": 45,
+      "estimated": true
+    },
+    "suppressions": 149,
+    "suppressionsEst": true,
+    "lint": {
+      "problems": 0,
+      "estimated": true
+    },
     "_scope": "release"
   }
 ]

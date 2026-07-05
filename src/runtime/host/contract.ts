@@ -9,7 +9,7 @@
    Scope: capability interfaces + re-export shapes only. No behavior. */
 import type { PlatformApi } from "../platform";
 
-export const HOST_API_VERSION = "1.0.0" as const;
+export const HOST_API_VERSION = "1.1.0" as const;
 
 export interface PluginDescriptor {
   name: string;

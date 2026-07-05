@@ -29,16 +29,16 @@ function defaultNameFor(scope: ExportScope): string {
   return 'deck-shelves'
 }
 
-export function ExportModal({ closeModal, controller, folderPath, scope = 'all' }: { closeModal?: () => void; controller: SettingsController; folderPath: string; scope?: ExportScope }) {
+export function ExportModal({ closeModal, controller, folderPath, scope = 'all', handlerId, handlerLabel, fileExt }: { closeModal?: () => void; controller: SettingsController; folderPath: string; scope?: ExportScope; handlerId?: string; handlerLabel?: string; fileExt?: string }) {
   const { t } = controller
-  const [name, setName] = useState(defaultNameFor(scope))
+  const [name, setName] = useState(handlerId ? 'deck-shelves' : defaultNameFor(scope))
   const [folder, setFolder] = useState(folderPath)
   const [browseBusy, setBrowseBusy] = useState(false)
   const [saveBusy, setSaveBusy] = useState(false)
   return (
     <ModalShell>
       <ConfirmModal
-        strTitle={t(titleKeyFor(scope) as any)}
+        strTitle={handlerId ? (handlerLabel ?? t('export_settings' as any)) : t(titleKeyFor(scope) as any)}
         strDescription={folder}
         strOKButtonText={saveBusy ? t('loading') : t('save')}
         strCancelButtonText={t('cancel')}
@@ -47,13 +47,17 @@ export function ExportModal({ closeModal, controller, folderPath, scope = 'all' 
         onOK={() => {
           setSaveBusy(true);
           (async () => {
-            const target = `${folder}/${filenameWithJson(name)}`;
+            const target = handlerId ? `${folder}/${name}.${fileExt || 'json'}` : `${folder}/${filenameWithJson(name)}`;
             try {
               let ok = false
-              const s = getCurrentSettings();
-              if (s) {
-                const payload = pickCategoriesFromSettings(s, categoryIdsForScope(scope));
-                ok = await writeJsonFile(target, JSON.stringify({ state: payload }, null, 2));
+              if (handlerId) {
+                ok = await controller.actions.exportViaHandler(handlerId, target);
+              } else {
+                const s = getCurrentSettings();
+                if (s) {
+                  const payload = pickCategoriesFromSettings(s, categoryIdsForScope(scope));
+                  ok = await writeJsonFile(target, JSON.stringify({ state: payload }, null, 2));
+                }
               }
               if (!ok) {
                 notify("error", { body: t('toast_failed_export') });

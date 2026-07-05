@@ -59,7 +59,6 @@ export function shelfSourceBreakdown(settings: any): Record<string, number> {
    store / wishlist cards count by presence. Online cards are attributed via the
    source tree (composites split their resolved count across the online types
    they hold); the rest are game / non-Steam via `isNonSteam`. */
-// eslint-disable-next-line complexity
 export function cardTypeComposition(settings: any, resolvedIds: ResolvedIds, isNonSteam: IsNonSteam): Record<string, number> {
   const out: Record<string, number> = { game: 0, nonsteam: 0, store: 0, wishlist: 0 };
   for (const sh of allShelves(settings)) {
@@ -80,7 +79,6 @@ export function cardTypeComposition(settings: any, resolvedIds: ResolvedIds, isN
 /* Card-composition snapshot by display state: normal (regular game cards),
    featured (highlights), decorative (synthetic cards) and hidden. Normal /
    featured use the injected resolved per-shelf card count. */
-// eslint-disable-next-line complexity
 export function cardComposition(settings: any, resolvedCount: ResolvedCount): CompositionSlice[] {
   let normal = 0, featured = 0, decorative = 0, hidden = 0;
   for (const sh of allShelves(settings)) {

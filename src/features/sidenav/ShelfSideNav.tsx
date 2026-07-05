@@ -20,7 +20,6 @@ type Anchor = {
   focusedAppid: number | null;
 };
 
-// eslint-disable-next-line complexity
 export function ShelfSideNav() {
   try { (globalThis as any).__ds_sidenav_mounted = (((globalThis as any).__ds_sidenav_mounted ?? 0) + 1); } catch {}
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -84,7 +83,6 @@ export function ShelfSideNav() {
   useEffect(() => {
     if (!__DEV__) return;
     const g = globalThis as any;
-    // eslint-disable-next-line complexity
     g.__ds_dev_open_sidenav = (shelfId?: string, appid?: number) => {
       let sid = shelfId ?? lastFirstCardRef.current?.shelfId;
       if (!sid) {
@@ -364,7 +362,6 @@ function SideNavShell({ anchor, settings, onClose }: { anchor: Anchor; settings:
       if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

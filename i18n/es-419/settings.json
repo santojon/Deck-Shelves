@@ -736,6 +736,7 @@
   "profile_cancel": "Cancel",
   "profile_none_option": "None",
   "profile_active_label": "Active profile",
+  "profile_list_label": "Lista de perfiles",
   "profile_add_action": "Save current",
   "settings_profiles_io_title": "Import / Export",
   "settings_profiles_io_desc": "Move profiles between devices or back them up. Files land in your Downloads folder by default.",

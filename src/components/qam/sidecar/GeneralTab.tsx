@@ -11,55 +11,9 @@ import { OnlinePrivacyModal } from '../../DeckQAMSettings'
 import { ProfilesSection } from '../sections/ProfilesSection'
 import { isCssLoaderActive } from '../../../core/cssLoaderDetect'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
+import { HideableRow, type HideableRowMode } from './HideableRow'
 
-type Mode = 'qam' | 'sidecar'
-
-function HideableRow({
-  tk,
-  hidden,
-  setHidden,
-  mode,
-  t,
-  children,
-}: {
-  tk: string;
-  hidden: boolean;
-  setHidden: (next: boolean) => void;
-  mode: Mode;
-  t: (k: string) => string;
-  children: React.ReactNode;
-}) {
-  /* Toggling shows/hides the row in the QAM main panel, which makes Steam
-     re-resolve the nav tree and yank focus out of the sidecar — re-assert
-     focus on the eye after the re-render so the sidecar stays usable. */
-  const eyeRef = useRef<HTMLDivElement>(null)
-  const toggle = () => {
-    setHidden(!hidden)
-    const el = eyeRef.current
-    if (el) requestAnimationFrame(() => { try { takeNavTreeFocus(el) } catch {} })
-  }
-  if (mode === 'qam' && hidden) return null
-  if (mode === 'qam') return <>{children}</>
-  // sidecar: row with toggle on the left and an eye button on the right.
-  // flow-children='row' lets Steam's nav dpad-right into the eye button.
-  return (
-    <Focusable className='ds-hide-row' flow-children='row' noFocusRing>
-      {children}
-      <Focusable
-        ref={eyeRef as any}
-        className='ds-eye-btn'
-        onClick={toggle}
-        onOKButton={toggle}
-        onActivate={toggle}
-        data-ds-eye-toggle={tk}
-        data-ds-eye-state={hidden ? 'hidden' : 'shown'}
-        title={hidden ? t('qam_show') : t('qam_hide')}
-      >
-        {hidden ? <EyeOffIcon /> : <EyeIcon />}
-      </Focusable>
-    </Focusable>
-  )
-}
+type Mode = HideableRowMode
 
 function SectionEyeButton({
   id,
@@ -94,7 +48,6 @@ function SectionEyeButton({
   )
 }
 
-// eslint-disable-next-line complexity
 export function GeneralTab({ controller }: { controller: SettingsController }) {
   const { t, actions } = controller
   const settings = controller.settings
@@ -161,7 +114,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
         ))}
         {settings.updateNotifyEnabled !== false && (
           <div style={{ paddingLeft: 16 }}>
-            <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} onChange={(v: boolean) => (actions as any).setBetaChannelEnabled(v)} />
+            {row('betaChannelEnabled', (
+              <ToggleField label={t('beta_channel_label' as any)} checked={(settings as any).betaChannelEnabled === true} onChange={(v: boolean) => (actions as any).setBetaChannelEnabled(v)} />
+            ))}
           </div>
         )}
         {row('lightModeEnabled', (

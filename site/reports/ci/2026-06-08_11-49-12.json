@@ -24,5 +24,30 @@
     145,
     2900
   ],
-  "total_duration_ms": 16729
+  "total_duration_ms": 16729,
+  "version": "2.4.1",
+  "unit": {
+    "passed": 340,
+    "failed": 0,
+    "skipped": 0,
+    "total": 340,
+    "estimated": true
+  },
+  "ruff": {
+    "issues": 0,
+    "estimated": true
+  },
+  "pytest": {
+    "passed": 45,
+    "failed": 0,
+    "skipped": 0,
+    "total": 45,
+    "estimated": true
+  },
+  "suppressions": 149,
+  "suppressionsEst": true,
+  "lint": {
+    "problems": 0,
+    "estimated": true
+  }
 }

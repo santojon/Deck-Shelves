@@ -24,25 +24,24 @@ async function loadLocaleDict(locale: string): Promise<Record<string, string>> {
   return Object.assign({}, ...dicts);
 }
 
+// Ordered prefix → locale map; the first matching prefix wins, so more
+// specific variants (pt-pt, es-es, fr-ca, zh-tw/zh-hant, en-gb) precede their
+// broader language prefix.
+const LOCALE_PREFIXES: ReadonlyArray<readonly [string, string]> = [
+  ["pt-pt", "pt-PT"], ["pt", "pt-BR"],
+  ["es-es", "es-ES"], ["es", "es-419"],
+  ["it", "it-IT"],
+  ["fr-ca", "fr-CA"], ["fr", "fr-FR"],
+  ["de", "de-DE"], ["ru", "ru-RU"], ["pl", "pl-PL"], ["nl", "nl-NL"],
+  ["tr", "tr-TR"], ["uk", "uk-UA"], ["ja", "ja-JP"], ["ko", "ko-KR"],
+  ["zh-tw", "zh-TW"], ["zh-hant", "zh-TW"], ["zh", "zh-CN"],
+  ["en-gb", "en-GB"],
+];
+
 function pickLocale(l: string): string {
-  if (l.startsWith("pt-pt")) return "pt-PT";
-  if (l.startsWith("pt")) return "pt-BR";
-  if (l === "es-es" || l.startsWith("es-es")) return "es-ES";
-  if (l.startsWith("es")) return "es-419";
-  if (l.startsWith("it")) return "it-IT";
-  if (l === "fr-ca" || l.startsWith("fr-ca")) return "fr-CA";
-  if (l.startsWith("fr")) return "fr-FR";
-  if (l.startsWith("de")) return "de-DE";
-  if (l.startsWith("ru")) return "ru-RU";
-  if (l.startsWith("pl")) return "pl-PL";
-  if (l.startsWith("nl")) return "nl-NL";
-  if (l.startsWith("tr")) return "tr-TR";
-  if (l.startsWith("uk")) return "uk-UA";
-  if (l.startsWith("ja")) return "ja-JP";
-  if (l.startsWith("ko")) return "ko-KR";
-  if (l.startsWith("zh-tw") || l.startsWith("zh-hant")) return "zh-TW";
-  if (l.startsWith("zh")) return "zh-CN";
-  if (l.startsWith("en-gb")) return "en-GB";
+  for (const [prefix, locale] of LOCALE_PREFIXES) {
+    if (l.startsWith(prefix)) return locale;
+  }
   return "en-US";
 }
 
@@ -70,6 +69,24 @@ export function initI18n() {
       i18n.changeLanguage(target);
     }).catch(() => {});
   }
+
+  // Release-screenshot hook: force the UI to a specific locale so captures are
+  // deterministic (the pipeline forces en-US, whose bundle is always loaded
+  // eagerly). Harmless in normal use — it only flips the display language.
+  try {
+    (globalThis as any).__dsSetLocale = (loc?: string) => {
+      const l = loc || "en-US";
+      const apply = () => { try { i18n.changeLanguage(l); } catch {} };
+      if (l !== "en-US" && !i18n.hasResourceBundle(l, "translation")) {
+        loadLocaleDict(l).then((dict) => {
+          if (dict && Object.keys(dict).length) i18n.addResourceBundle(l, "translation", dict, true, true);
+          apply();
+        }).catch(apply);
+      } else {
+        apply();
+      }
+    };
+  } catch { /* no globalThis */ }
 
   return i18n;
 }
