@@ -1,0 +1,39 @@
+{
+  "ts": "2026-07-05_17-56-50",
+  "stress": false,
+  "subdir": "release",
+  "version": "3.0.1",
+  "overall": "PASS",
+  "passed": 6,
+  "failed": 0,
+  "skipped": 0,
+  "total": 6,
+  "per_suite": {},
+  "unit": {
+    "passed": 496,
+    "failed": 0,
+    "skipped": 0,
+    "total": 496
+  },
+  "pytest": {},
+  "ruff": {},
+  "lint": {},
+  "suppressions": 166,
+  "step_names": [
+    "TypeScript typecheck",
+    "Build (production)",
+    "Unit tests (vitest)",
+    "Package (.zip)",
+    "Verify package",
+    "Compat validation"
+  ],
+  "step_durations_ms": [
+    8687,
+    1465,
+    5552,
+    1839,
+    69,
+    5827
+  ],
+  "total_duration_ms": 23439
+}
