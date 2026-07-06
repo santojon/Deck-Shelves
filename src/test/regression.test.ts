@@ -70,11 +70,11 @@ describe("Filter editor — invertibility (#56)", () => {
     (type) => { expect(canBeInverted(type as any)).toBe(true); },
   );
 
-  // Types whose evaluator semantics make negation meaningless or trivially
-  // expressible without a flag.
-  it.each(["installed", "nonSteam", "hidden", "updatePending", "merge"] as const)(
-    "%s is intentionally not invertible",
-    (type) => { expect(canBeInverted(type as any)).toBe(false); },
+  // Every filter type is now invertible — the evaluator negates uniformly, so
+  // the editor exposes the opposite-effect toggle for all of them.
+  it.each(["installed", "nonSteam", "hidden", "updatePending", "isNew", "friends", "storeTag", "achievements", "appIdList", "merge"] as const)(
+    "%s is invertible",
+    (type) => { expect(canBeInverted(type as any)).toBe(true); },
   );
 });
 

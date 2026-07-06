@@ -389,6 +389,8 @@
   "online_privacy_item_wishlist": "Lista de desejos — atualizada uma vez por dia",
   "online_privacy_title": "Ativar funcionalidades online",
   "online_wishlist": "Fonte: lista de desejos",
+  "online_metadata": "Metadados de jogos não-Steam",
+  "online_metadata_desc": "Busca metacritic / avaliações / lançamento online, só quando não disponíveis localmente — para filtros e ordenação por nota funcionarem com GOG/Epic/Amazon (Unifideck) e jogos não instalados.",
   "reset_all_button": "Repor tudo",
   "reset_all_confirm_desc": "Isto apaga permanentemente todas as prateleiras, definições e caches do Deck Shelves. Não pode ser anulado.",
   "reset_all_confirm_ok": "Repor",

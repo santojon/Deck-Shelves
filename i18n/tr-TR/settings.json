@@ -389,6 +389,8 @@
   "online_privacy_item_wishlist": "İstek listesi — günde bir kez senkronize edilir",
   "online_privacy_title": "Çevrimiçi özellikleri etkinleştir",
   "online_wishlist": "Kaynak: istek listesi",
+  "online_metadata": "Non-Steam game metadata",
+  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
   "reset_all_button": "Tümünü sıfırla",
   "reset_all_confirm_desc": "Bu, Deck Shelves'e ait tüm rafları, ayarları ve önbelleği kalıcı olarak siler. Geri alınamaz.",
   "reset_all_confirm_ok": "Sıfırla",

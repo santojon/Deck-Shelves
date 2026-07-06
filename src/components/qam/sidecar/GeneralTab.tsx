@@ -168,6 +168,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
             {row('onlineWishlistEnabled', (
               <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(v: boolean) => void actions.setOnlineWishlistEnabled(v)} />
             ))}
+            {row('onlineMetadataEnabled', (
+              <ToggleField label={t('online_metadata')} description={t('online_metadata_desc')} checked={settings.onlineMetadataEnabled === true} onChange={(v: boolean) => void actions.setOnlineMetadataEnabled(v)} />
+            ))}
             {row('onlinePriceSortEnabled', (
               <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(v: boolean) => void actions.setOnlinePriceSortEnabled(v)} />
             ))}

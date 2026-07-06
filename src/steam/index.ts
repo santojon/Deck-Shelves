@@ -1,6 +1,6 @@
 import type { FilterGroup, FilterItem } from "../types";
 import { dedupeAppIdsByName } from "./dedupe";
-import { UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS } from "./appDisplayStatus";
+import { UPDATE_PENDING_STATUSES, APP_STATUS_GROUPS, EAppDisplayStatus } from "./appDisplayStatus";
 import { mark, measure } from "../core/perf";
 import {
   hasExternalSortOption, applyExternalSort,
@@ -2139,7 +2139,14 @@ function evalHidden(item: FilterItem, app: AppOverview): boolean {
 
 function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
   const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
-  const ds = (app as any).display_status as number | undefined;
+  let ds = (app as any).display_status as number | undefined;
+  /* Non-Steam shortcuts (e.g. Unifideck) usually carry no per-client
+     display_status, so a status filter would match nothing. Synthesize
+     installed / not-installed from the install heuristic so the installed_idle
+     and not_installed groups work for them too. */
+  if ((ds === undefined || ds === 0) && isNonSteamOf(app)) {
+    ds = isInstalledOf(app) ? EAppDisplayStatus.Installed : EAppDisplayStatus.NotInstalled;
+  }
   return groups.some((g) => {
     const statuses = APP_STATUS_GROUPS[g as keyof typeof APP_STATUS_GROUPS];
     return statuses ? statuses.includes(ds as number) : false;
@@ -2819,6 +2826,34 @@ function applyCollectionChildFilter(ids: number[], source: any, all: AppOverview
   return evaluateFilterGroup(cf, candidates).map((a) => appIdOf(a)).filter(Number.isFinite);
 }
 
+/* Sort keys whose data (metacritic / review% / release date) is often absent
+   from the local overview — non-Steam and uninstalled titles. When selected we
+   optionally fetch it online first (gated + bounded + cached in enrichApps). */
+const META_SORT_KEYS: ReadonlySet<string> = new Set(["metacritic", "review_score", "release_date"]);
+
+function sortNeedsMeta(sort: unknown): boolean {
+  const keys = Array.isArray(sort) ? sort : [sort];
+  return keys.some((k) => typeof k === "string" && META_SORT_KEYS.has(k));
+}
+
+// Enrich (in place, best-effort) the given app overviews so a metacritic /
+// review / release sort has values to work with. No-op unless the sub-toggle
+// is on (checked inside enrichApps) and the sort actually needs the metadata.
+async function enrichAppsForMetaSort(sort: unknown, apps: AppOverview[]): Promise<void> {
+  if (!sortNeedsMeta(sort) || !apps.length) return;
+  try {
+    const { enrichApps } = require("../core/onlineMetadata") as typeof import("../core/onlineMetadata");
+    await enrichApps(apps);
+  } catch { /* sort falls back to whatever's local */ }
+}
+
+async function enrichForSort(sort: unknown, ids: number[], all: AppOverview[]): Promise<void> {
+  if (!sortNeedsMeta(sort) || !ids.length) return;
+  const byId = new Map<number, AppOverview>();
+  for (const a of all) { const aid = appIdOf(a); if (Number.isFinite(aid)) byId.set(aid, a); }
+  await enrichAppsForMetaSort(sort, ids.map((id) => byId.get(id)).filter(Boolean) as AppOverview[]);
+}
+
 async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
   const { source, all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
   const rawCollectionId = String(source.collectionId ?? "").trim();
@@ -2830,7 +2865,7 @@ async function _resolveCollection(ctx: ResolverContext): Promise<number[]> {
     logInfo("STEAM", "resolveShelfAppIds(collection) resolved", { collectionId: rawCollectionId, count: ids.length });
   }
   ids = applyCollectionChildFilter(ids, source, all);
-  if (sort) ids = applySortToIds(ids, sort, all, shelfId, sortReverse);
+  if (sort) { await enrichForSort(sort, ids, all); ids = applySortToIds(ids, sort, all, shelfId, sortReverse); }
   ids = deduplicateNonSteam(ids, all);
   emitResolvedTotal(ctx, ids.length);
   return finish(ids.slice(0, overShootLimit));
@@ -3103,6 +3138,7 @@ async function _resolveFilterGroupPath(
   }
   let filtered = evaluateFilterGroup(filterGroup, all, evalCtx);
   const fSort = (ctx.source.filter as any)?.sort as string | undefined;
+  await enrichAppsForMetaSort(fSort, filtered);
   filtered = sortAppsByFilterKey(filtered, fSort, shelfId);
   // Asc/desc inversion. Prefer the filter's own `sortReverse` (the editor
   // writes there on filter shelves; shelf-level `sortReverse` is never
@@ -3553,6 +3589,7 @@ export async function resolveShelfAppIds(
     if (v3) {
       const filtered = v3(all);
       const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);
+      if (sort) await enrichForSort(sort, ids, all);
       const sorted = sort ? applySortToIds(ids, sort, all, shelfId, sortReverse) : ids;
       return finish(sorted);
     }

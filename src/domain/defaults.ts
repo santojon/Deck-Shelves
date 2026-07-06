@@ -81,6 +81,7 @@ export function defaultSettings(): Settings {
     onlineWishlistEnabled: true,
     onlinePriceSortEnabled: true,
     onlinePrivacyAccepted: false,
+    onlineMetadataEnabled: false,
     onlineHideOwnedGames: false,
     onlineHideOwnedNonSteam: false,
     onlineHideOwnedNonSteamCloud: false,

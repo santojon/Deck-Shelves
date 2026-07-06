@@ -524,6 +524,7 @@ export const SettingsSchema = z.object({
   onlineWishlistEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   onlinePriceSortEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
+  onlineMetadataEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedNonSteam: z.boolean().nullable().optional().transform((v) => v ?? false),
   // When TRUE, cloud-play non-Steam entries count as owned (their store

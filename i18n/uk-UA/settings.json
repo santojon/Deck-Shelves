@@ -389,6 +389,8 @@
   "online_privacy_item_wishlist": "Список бажань — синхронізується раз на день",
   "online_privacy_title": "Увімкнути онлайн-функції",
   "online_wishlist": "Джерело: список бажань",
+  "online_metadata": "Non-Steam game metadata",
+  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
   "reset_all_button": "Скинути все",
   "reset_all_confirm_desc": "Це остаточно видалить усі полиці, налаштування та кеш Deck Shelves. Скасувати неможливо.",
   "reset_all_confirm_ok": "Скинути",

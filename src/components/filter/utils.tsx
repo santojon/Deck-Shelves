@@ -31,30 +31,12 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
 
-const INVERTIBLE_SET = new Set<FilterItemType>([
-  "favorites",
-  "deckCompatibility",
-  "shortcutType",
-  "appStatus",
-  "playedWithinDays",
-  "playtimeRange",
-  "nameIncludes",
-  "nameRegex",
-  "developer",
-  "publisher",
-  "cloudAvailable",
-  "controllerSupport",
-  // Collection negation requested in #56 — schema already supports the
-  // `inverted` flag on every item; this just exposes the toggle in the
-  // editor for the collection type. Evaluator path is unchanged.
-  "collection",
-  "discount",
-  "friendsPlayingNow",
-  "friendsPlayedRecently",
-]);
-
-export function canBeInverted(type: FilterItemType): boolean {
-  return INVERTIBLE_SET.has(type);
+/* Every filter type is invertible: the evaluator negates uniformly
+   (`evaluateFilterItem`: `item.inverted ? !result : result`), so the editor
+   exposes the opposite-effect toggle for all types — installed, non-Steam,
+   hidden, appId blacklist, merge groups, etc. */
+export function canBeInverted(_type: FilterItemType): boolean {
+  return true;
 }
 
 export function defaultParams(type: FilterItemType): Record<string, any> {

@@ -1,7 +1,8 @@
 /* Plugin API surface — see docs/plugin-api.md. Exposed at window.deckShelves.
    Canonical types live in api/src/types.ts (the @deck-shelves/api npm package);
-   this file imports them via relative path so a single shape governs both the
-   runtime registry and the published consumer contract. */
+   this file imports them via the `@deck-shelves/api` specifier (aliased to the
+   api submodule source in vite + tsconfig `paths`) so a single shape governs
+   both the runtime registry and the published consumer contract. */
 
 import type { ReactNode } from "react";
 import type { Settings } from "../types";
@@ -21,7 +22,7 @@ import type {
   IntegrationInfo as ApiIntegrationInfo,
   PublicSettingsSnapshot as ApiPublicSettingsSnapshot,
   EnvironmentInfo as ApiEnvironmentInfo,
-} from "../../api/src/types";
+} from "@deck-shelves/api";
 
 export type Unsubscribe = ApiUnsubscribe;
 export type PublicAppMeta = ApiPublicAppMeta;

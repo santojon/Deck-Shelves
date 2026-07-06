@@ -18,6 +18,11 @@ export function createOnlineActions(deps: OnlineDeps) {
       if (!s || (s.onlineWishlistEnabled ?? true) === onlineWishlistEnabled) return;
       await persist({ ...s, onlineWishlistEnabled });
     },
+    async setOnlineMetadataEnabled(onlineMetadataEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s.onlineMetadataEnabled ?? false) === onlineMetadataEnabled) return;
+      await persist({ ...s, onlineMetadataEnabled });
+    },
     async setOnlineHideOwnedGames(onlineHideOwnedGames: boolean) {
       const s = liveSettings();
       if (!s || (s.onlineHideOwnedGames ?? false) === onlineHideOwnedGames) return;

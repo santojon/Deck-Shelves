@@ -352,6 +352,7 @@ const TOGGLE_PARENTS: Record<string, string> = {
   shelfHeroBackground: 'hideRecents',
   recentsReplaceSource: 'hideRecents',
   onlineWishlistEnabled: 'onlineFeaturesEnabled',
+  onlineMetadataEnabled: 'onlineFeaturesEnabled',
   onlinePriceSortEnabled: 'onlineFeaturesEnabled',
   onlineHideOwnedGames: 'onlineFeaturesEnabled',
   onlineHideOwnedNonSteam: 'onlineHideOwnedGames',
@@ -891,9 +892,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         {settings.onlineFeaturesEnabled === true && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
-            {!isHid('onlineWishlistEnabled') && (
-              <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />
-            )}
+            {!isHid('onlineWishlistEnabled') && <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />}
+            {!isHid('onlineMetadataEnabled') && <ToggleField label={t('online_metadata')} description={t('online_metadata_desc')} checked={settings.onlineMetadataEnabled === true} onChange={(value: boolean) => void actions.setOnlineMetadataEnabled(value)} />}
             {!isHid('onlinePriceSortEnabled') && (
               <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(value: boolean) => void actions.setOnlinePriceSortEnabled(value)} />
             )}

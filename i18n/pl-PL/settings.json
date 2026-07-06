@@ -389,6 +389,8 @@
   "online_privacy_item_wishlist": "Lista życzeń — synchronizowana raz dziennie",
   "online_privacy_title": "Włącz funkcje online",
   "online_wishlist": "Źródło: lista życzeń",
+  "online_metadata": "Non-Steam game metadata",
+  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
   "reset_all_button": "Zresetuj wszystko",
   "reset_all_confirm_desc": "Spowoduje to trwałe usunięcie wszystkich półek, ustawień i pamięci podręcznej Deck Shelves. Operacja nieodwracalna.",
   "reset_all_confirm_ok": "Resetuj",
