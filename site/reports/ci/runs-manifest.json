@@ -1,5 +1,45 @@
 [
   {
+    "ts": "2026-07-06_11-22-35",
+    "stress": false,
+    "subdir": "ci",
+    "version": "3.0.1",
+    "overall": "FAIL",
+    "passed": 5,
+    "failed": 1,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "unit": {
+      "passed": 496,
+      "failed": 0,
+      "skipped": 0,
+      "total": 496
+    },
+    "pytest": {},
+    "ruff": {},
+    "lint": {},
+    "suppressions": 166,
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      9528,
+      1483,
+      5708,
+      1790,
+      70,
+      5548
+    ],
+    "total_duration_ms": 24127,
+    "_scope": "ci"
+  },
+  {
     "ts": "2026-06-29_11-52-42",
     "stress": false,
     "subdir": "ci",
