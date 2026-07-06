@@ -8,7 +8,7 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { dirname, extname, join, normalize, resolve } from "node:path";
+import { dirname, extname, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -16,9 +16,11 @@ const siteDir = join(root, "site");
 const PORT = 8765;
 
 function openBrowser(target) {
+  // Never spawn a shell (cmd/sh) — pass the target as a direct argv entry to a
+  // non-shell opener so the path can't be interpreted as a command.
   const [cmd, args] =
     process.platform === "win32"
-      ? ["cmd", ["/c", "start", "", target]]
+      ? ["explorer.exe", [target]]
       : process.platform === "darwin"
         ? ["open", [target]]
         : ["xdg-open", [target]];
@@ -60,7 +62,10 @@ const server = createServer(async (req, res) => {
     }
     const info = await stat(filePath);
     if (info.isDirectory()) {
-      res.writeHead(302, { Location: urlPath.replace(/index\.html$/, "") + "/" });
+      // Redirect target derived from the validated filePath (guaranteed inside
+      // siteDir), never the raw request — avoids open redirection via `//host`.
+      const rel = relative(siteDir, filePath).split(sep).join("/");
+      res.writeHead(302, { Location: rel ? `/${rel}/` : "/" });
       res.end();
       return;
     }
