@@ -1,6 +1,6 @@
 [
   {
-    "ts": "2026-07-05_17-56-08",
+    "ts": "2026-07-05_17-56-50",
     "stress": false,
     "subdir": "release",
     "version": "3.0.1",
@@ -29,14 +29,14 @@
       "Compat validation"
     ],
     "step_durations_ms": [
-      9752,
-      1510,
-      5794,
-      1814,
-      68,
-      5664
+      8687,
+      1465,
+      5552,
+      1839,
+      69,
+      5827
     ],
-    "total_duration_ms": 24602,
+    "total_duration_ms": 23439,
     "_scope": "release"
   },
   {
