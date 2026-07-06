@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deck Shelves &mdash; Release 2026-07-05_17-56-08</title>
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="stylesheet" href="../../style.css">
+<style>:root{--card:#0e1626;--pass:#4ade80;--fail:#f87171;--skip:#94a3b8;--warn:#fbbf24;--link:var(--blue-soft);--accent:var(--blue)}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 0}
+header .container{display:flex;align-items:center;gap:12px}
+header h1{margin:0;font-size:18px;font-weight:700;flex:1}
+.hbadge{padding:4px 14px;border-radius:99px;font-size:12px;font-weight:700}
+.hbadge.pass{background:#14532d;color:var(--pass)}.hbadge.fail{background:#7f1d1d;color:var(--fail)}
+.meta{color:var(--muted);font-size:11px;margin-top:2px}
+.back{font-size:12px;color:var(--link);margin-right:10px}
+main{max-width:1060px;margin:0 auto;padding:20px 28px}
+.summary{display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.sc{flex:1;min-width:100px;background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:13px 16px;text-align:center}
+.sc .n{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.sc .l{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.n.p{color:var(--pass)}.n.f{color:var(--fail)}.n.s{color:var(--skip)}.n.t{color:var(--muted)}
+.step{background:var(--card);border:1px solid var(--border);border-radius:9px;
+  margin-bottom:10px}
+.step-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;
+  cursor:pointer;user-select:none;border-radius:9px;list-style:none}
+.step-hdr::-webkit-details-marker{display:none}
+.step-hdr:hover{background:#273548}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot.pass{background:var(--pass)}.dot.fail{background:var(--fail);box-shadow:0 0 5px var(--fail)}
+.dot.skip{background:var(--skip)}
+.sname{font-weight:600;font-size:13.5px;flex:1}
+.slabel{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:4px}
+.slabel.pass{background:#14532d44;color:var(--pass)}
+.slabel.fail{background:#7f1d1d44;color:var(--fail)}
+.slabel.skip{background:#1e293b;color:var(--skip)}
+.chevron{font-size:11px;color:var(--muted);display:inline-block;transition:transform .15s}
+.step[open] .chevron{transform:rotate(90deg)}
+.step-body{border-top:1px solid var(--border);border-radius:0 0 9px 9px}
+.test-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;
+  background:#0d1b2a;border-bottom:1px solid var(--border);font-size:12px}
+.test-bar .tp{color:var(--pass)}.test-bar .tf{color:var(--fail)}
+.issues{padding:9px 16px;background:#1a0f0f;border-bottom:1px solid #3d1515}
+.issues h4{margin:0 0 6px;font-size:11px;color:var(--fail);text-transform:uppercase;letter-spacing:.05em}
+.issue{font-size:11px;padding:5px 8px;background:#1f1010;border-radius:4px;
+  border-left:3px solid var(--fail);margin-bottom:4px}
+pre.log{margin:0;padding:12px 16px;font-size:11px;line-height:1.65;
+  white-space:pre-wrap;word-break:break-all;background:var(--bg);color:var(--muted);
+  max-height:440px;overflow-y:auto}
+pre.log .e{color:var(--fail)}pre.log .w{color:var(--warn)}pre.log .g{color:var(--pass)}
+a.fl{color:var(--link)}
+.stress-tag{font-size:10px;color:#a5b4fc;background:#1e1b4b;
+  padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
+.sdur{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-bottom:18px}
+.panel h2{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--text)}
+.bm{display:flex;flex-direction:column;gap:6px}
+.bm-row{display:grid;grid-template-columns:minmax(120px,1fr) 3fr 70px;align-items:center;gap:10px;font-size:11.5px}
+.bm-name{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-bar-wrap{background:#0d1b2a;border-radius:4px;height:10px;overflow:hidden}
+.bm-bar{height:100%;border-radius:4px;transition:width .2s ease}
+.bm-dur{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+</style>
+</head>
+<body>
+<div class="nav"><div class="container nav-inner"><a class="brand" href="../../index.html"><svg class="brand-mark" viewBox="217 444 854 378"><g fill="#0080FF"><circle cx="300" cy="620" r="80"/><rect rx="8" x="550" y="460" width="80" height="285"/><rect rx="8" x="645" y="500" width="75" height="245"/></g><g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/><rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/><rect rx="8" x="500" y="750" width="570" height="25"/></g></svg><div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div></div></a><nav class="nav-links"><a href="../index.html">All reports</a><a href="../dashboard.html">Dashboard</a></nav><a class="btn btn-ghost" href="../../index.html">&larr; Back to site</a></div></div>
+<header><div class="container">
+  <a class="back" href="index.html">&larr;</a>
+  <div style="flex:1">
+    <h1>Release<span class="stress-tag" style="background:#0c2a4d;color:#7dd3fc">v3.0.1</span></h1>
+    <div class="meta">July 05, 2026 at 17:56:08 &nbsp;&middot;&nbsp; 6 steps</div>
+  </div>
+  <span class="hbadge pass">PASS</span>
+</div></header>
+<main>
+  <div class="summary">
+    <div class="sc"><div class="n p">6</div><div class="l">Passed</div></div>
+    <div class="sc"><div class="n f">0</div><div class="l">Failed</div></div>
+    <div class="sc"><div class="n s">0</div><div class="l">Skipped</div></div>
+    <div class="sc"><div class="n t">6</div><div class="l">Total</div></div>
+    <div class="sc"><div class="n t">24.6s</div><div class="l">Duration</div></div>
+  </div>
+  <div class="panel"><h2>Step durations</h2><div class="bm"><div class="bm-row"><span class="bm-name">TypeScript typecheck</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:100.0%;background:#4ade80"></div></div><span class="bm-dur">9.8s</span></div><div class="bm-row"><span class="bm-name">Build (production)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:15.5%;background:#4ade80"></div></div><span class="bm-dur">1.5s</span></div><div class="bm-row"><span class="bm-name">Unit tests (vitest)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:59.4%;background:#4ade80"></div></div><span class="bm-dur">5.8s</span></div><div class="bm-row"><span class="bm-name">Package (.zip)</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:18.6%;background:#4ade80"></div></div><span class="bm-dur">1.8s</span></div><div class="bm-row"><span class="bm-name">Verify package</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:2.0%;background:#4ade80"></div></div><span class="bm-dur">68 ms</span></div><div class="bm-row"><span class="bm-name">Compat validation</span><div class="bm-bar-wrap"><div class="bm-bar" style="width:58.1%;background:#4ade80"></div></div><span class="bm-dur">5.7s</span></div></div></div>
+<details class="step" id="s0"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">TypeScript typecheck</span><span class="sdur" title="9752 ms">9.8s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b0"><pre class="log"><span class="w">api                                      |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">api                                      |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+
+&gt; deck-shelves@3.0.1 typecheck /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; tsc --noEmit
+
+</pre></div></details>
+<details class="step" id="s1"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Build (production)</span><span class="sdur" title="1510 ms">1.5s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b1"><pre class="log"><span class="w">api                                      |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">api                                      |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+
+&gt; deck-shelves@3.0.1 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
+
+vite v8.0.16 building client environment for production...
+
+<span class="g">transforming...✓ 467 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>      0.91 kB │ gzip:   0.47 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>             0.96 kB │ gzip:   0.45 kB
+dist<a class="fl" href="vscode://file//chunks/home-DkD-k5ai.js">/chunks/home-DkD-k5ai.js</a>                  1.17 kB │ gzip:   0.72 kB
+dist<a class="fl" href="vscode://file//chunks/home-DdLgBRZj.js">/chunks/home-DdLgBRZj.js</a>                  1.18 kB │ gzip:   0.60 kB
+dist<a class="fl" href="vscode://file//chunks/home-BkZ7GetH.js">/chunks/home-BkZ7GetH.js</a>                  1.18 kB │ gzip:   0.73 kB
+dist<a class="fl" href="vscode://file//chunks/home-YXwx1R-U.js">/chunks/home-YXwx1R-U.js</a>                  1.21 kB │ gzip:   0.66 kB
+dist<a class="fl" href="vscode://file//chunks/home-C2yPlgKe.js">/chunks/home-C2yPlgKe.js</a>                  1.21 kB │ gzip:   0.64 kB
+dist<a class="fl" href="vscode://file//chunks/home-CUW_nhPD.js">/chunks/home-CUW_nhPD.js</a>                  1.21 kB │ gzip:   0.64 kB
+dist<a class="fl" href="vscode://file//chunks/home-DxxFiOOE.js">/chunks/home-DxxFiOOE.js</a>                  1.21 kB │ gzip:   0.67 kB
+dist<a class="fl" href="vscode://file//chunks/home-DNyV-ggm.js">/chunks/home-DNyV-ggm.js</a>                  1.21 kB │ gzip:   0.67 kB
+dist<a class="fl" href="vscode://file//chunks/home-Do_BIJio.js">/chunks/home-Do_BIJio.js</a>                  1.21 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-CD1rnkIZ.js">/chunks/home-CD1rnkIZ.js</a>                  1.23 kB │ gzip:   0.64 kB
+dist<a class="fl" href="vscode://file//chunks/home-D_Ior8TB.js">/chunks/home-D_Ior8TB.js</a>                  1.23 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-lR3fthTi.js">/chunks/home-lR3fthTi.js</a>                  1.23 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-Bd0oF_Lc.js">/chunks/home-Bd0oF_Lc.js</a>                  1.23 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-B-TQDwa2.js">/chunks/home-B-TQDwa2.js</a>                  1.23 kB │ gzip:   0.75 kB
+dist<a class="fl" href="vscode://file//chunks/home-CtSoG54L.js">/chunks/home-CtSoG54L.js</a>                  1.24 kB │ gzip:   0.69 kB
+dist<a class="fl" href="vscode://file//chunks/home--f-LDelM.js">/chunks/home--f-LDelM.js</a>                  1.28 kB │ gzip:   0.78 kB
+dist<a class="fl" href="vscode://file//chunks/home-BSC65bHC.js">/chunks/home-BSC65bHC.js</a>                  1.45 kB │ gzip:   0.80 kB
+dist<a class="fl" href="vscode://file//chunks/home-DKvd6Zhg.js">/chunks/home-DKvd6Zhg.js</a>                  1.46 kB │ gzip:   0.80 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BNH1KKxG.js">/chunks/qam-BNH1KKxG.js</a>                   2.75 kB │ gzip:   1.49 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DazZ2Mzd.js">/chunks/qam-DazZ2Mzd.js</a>                   2.81 kB │ gzip:   1.51 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>         2.87 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CC90YiOb.js">/chunks/qam-CC90YiOb.js</a>                   2.88 kB │ gzip:   1.25 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CbNUJhL5.js">/chunks/qam-CbNUJhL5.js</a>                   3.02 kB │ gzip:   1.35 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DoQKp4CM.js">/chunks/qam-DoQKp4CM.js</a>                   3.05 kB │ gzip:   1.41 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DHordfr_.js">/chunks/qam-DHordfr_.js</a>                   3.08 kB │ gzip:   1.36 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DXK_lCdk.js">/chunks/qam-DXK_lCdk.js</a>                   3.09 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-SedzVgoD.js">/chunks/qam-SedzVgoD.js</a>                   3.10 kB │ gzip:   1.45 kB
+dist<a class="fl" href="vscode://file//chunks/qam-8PveQUi4.js">/chunks/qam-8PveQUi4.js</a>                   3.11 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BTX8mWmM.js">/chunks/qam-BTX8mWmM.js</a>                   3.13 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BmxZ6lUD.js">/chunks/qam-BmxZ6lUD.js</a>                   3.15 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CXaW4FEa.js">/chunks/qam-CXaW4FEa.js</a>                   3.17 kB │ gzip:   1.55 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CpWtLYl6.js">/chunks/qam-CpWtLYl6.js</a>                   3.21 kB │ gzip:   1.42 kB
+dist<a class="fl" href="vscode://file//chunks/qam-D4DzCP7R.js">/chunks/qam-D4DzCP7R.js</a>                   3.21 kB │ gzip:   1.42 kB
+dist<a class="fl" href="vscode://file//chunks/qam-NDV_QfWs.js">/chunks/qam-NDV_QfWs.js</a>                   3.22 kB │ gzip:   1.42 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DhXvUwwa.js">/chunks/qam-DhXvUwwa.js</a>                   3.33 kB │ gzip:   1.60 kB
+dist<a class="fl" href="vscode://file//chunks/defaults-WIQ6vBd-.js">/chunks/defaults-WIQ6vBd-.js</a>              3.35 kB │ gzip:   1.20 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BvrGTXvC.js">/chunks/qam-BvrGTXvC.js</a>                   3.89 kB │ gzip:   1.65 kB
+dist<a class="fl" href="vscode://file//chunks/qam-B4IztW5J.js">/chunks/qam-B4IztW5J.js</a>                   3.95 kB │ gzip:   1.67 kB
+dist<a class="fl" href="vscode://file//chunks/common-hiorgJbw.js">/chunks/common-hiorgJbw.js</a>                4.75 kB │ gzip:   2.39 kB
+dist<a class="fl" href="vscode://file//chunks/common-CBi-ATdQ.js">/chunks/common-CBi-ATdQ.js</a>                4.79 kB │ gzip:   2.42 kB
+dist<a class="fl" href="vscode://file//chunks/common-BhLbuobt.js">/chunks/common-BhLbuobt.js</a>                4.82 kB │ gzip:   2.06 kB
+dist<a class="fl" href="vscode://file//chunks/common-CVdfZC3g.js">/chunks/common-CVdfZC3g.js</a>                5.00 kB │ gzip:   2.19 kB
+dist<a class="fl" href="vscode://file//chunks/common-BpZoEunK.js">/chunks/common-BpZoEunK.js</a>                5.02 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/common-M5EYvnvt.js">/chunks/common-M5EYvnvt.js</a>                5.08 kB │ gzip:   2.35 kB
+dist<a class="fl" href="vscode://file//chunks/common-BA5jb2su.js">/chunks/common-BA5jb2su.js</a>                5.11 kB │ gzip:   2.21 kB
+dist<a class="fl" href="vscode://file//chunks/common-CaPp-afZ.js">/chunks/common-CaPp-afZ.js</a>                5.13 kB │ gzip:   2.28 kB
+dist<a class="fl" href="vscode://file//chunks/common-BrKxc9Oq.js">/chunks/common-BrKxc9Oq.js</a>                5.18 kB │ gzip:   2.25 kB
+dist<a class="fl" href="vscode://file//chunks/common-CT6Tlzi7.js">/chunks/common-CT6Tlzi7.js</a>                5.18 kB │ gzip:   2.25 kB
+dist<a class="fl" href="vscode://file//chunks/common-CscWMrZv.js">/chunks/common-CscWMrZv.js</a>                5.21 kB │ gzip:   2.47 kB
+dist<a class="fl" href="vscode://file//chunks/common-BcJ6blQC.js">/chunks/common-BcJ6blQC.js</a>                5.22 kB │ gzip:   2.26 kB
+dist<a class="fl" href="vscode://file//chunks/common-DmNMHnAF.js">/chunks/common-DmNMHnAF.js</a>                5.24 kB │ gzip:   2.28 kB
+dist<a class="fl" href="vscode://file//chunks/common-DZrdHLdI.js">/chunks/common-DZrdHLdI.js</a>                5.25 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/common-CzRcyr9Q.js">/chunks/common-CzRcyr9Q.js</a>                5.26 kB │ gzip:   2.28 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-6GCuIV3U.js">/chunks/integrations-6GCuIV3U.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-6Ib1PxWb.js">/chunks/integrations-6Ib1PxWb.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Bm_MFUW2.js">/chunks/integrations-Bm_MFUW2.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CG5EPaIi.js">/chunks/integrations-CG5EPaIi.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Ct6UmgBn.js">/chunks/integrations-Ct6UmgBn.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D7uTwP-4.js">/chunks/integrations-D7uTwP-4.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-DVPaPOxB.js">/chunks/integrations-DVPaPOxB.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Diig3_nS.js">/chunks/integrations-Diig3_nS.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Hk8YgszA.js">/chunks/integrations-Hk8YgszA.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-KFa88C57.js">/chunks/integrations-KFa88C57.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-LYXvNtMU.js">/chunks/integrations-LYXvNtMU.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-NpS5WG3o.js">/chunks/integrations-NpS5WG3o.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-QgidOTN9.js">/chunks/integrations-QgidOTN9.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-UhULoVuw.js">/chunks/integrations-UhULoVuw.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-UspapKSO.js">/chunks/integrations-UspapKSO.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-foPmVDrB.js">/chunks/integrations-foPmVDrB.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-BzZ6sK5z.js">/chunks/integrations-BzZ6sK5z.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-DCsT6CP7.js">/chunks/integrations-DCsT6CP7.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/common-CfduA9Cn.js">/chunks/common-CfduA9Cn.js</a>                5.60 kB │ gzip:   2.59 kB
+dist<a class="fl" href="vscode://file//chunks/common-DCn2q7bb.js">/chunks/common-DCn2q7bb.js</a>                6.34 kB │ gzip:   2.66 kB
+dist<a class="fl" href="vscode://file//chunks/common-CmSKWxHs.js">/chunks/common-CmSKWxHs.js</a>                6.44 kB │ gzip:   2.68 kB
+dist<a class="fl" href="vscode://file//chunks/decky-CK1Zm5Ay.js">/chunks/decky-CK1Zm5Ay.js</a>                 8.69 kB │ gzip:   3.19 kB
+dist<a class="fl" href="vscode://file//chunks/about-CgfhXdii.js">/chunks/about-CgfhXdii.js</a>                10.34 kB │ gzip:   5.31 kB
+dist<a class="fl" href="vscode://file//chunks/about-CWxamAco.js">/chunks/about-CWxamAco.js</a>                10.59 kB │ gzip:   5.40 kB
+dist<a class="fl" href="vscode://file//chunks/about-DAcisnLs.js">/chunks/about-DAcisnLs.js</a>                10.66 kB │ gzip:   4.52 kB
+dist<a class="fl" href="vscode://file//chunks/about-CnjiHftx.js">/chunks/about-CnjiHftx.js</a>                10.98 kB │ gzip:   4.82 kB
+dist<a class="fl" href="vscode://file//chunks/about-DBCLuls2.js">/chunks/about-DBCLuls2.js</a>                11.24 kB │ gzip:   5.13 kB
+dist<a class="fl" href="vscode://file//chunks/about-CvaAqft3.js">/chunks/about-CvaAqft3.js</a>                11.29 kB │ gzip:   5.01 kB
+dist<a class="fl" href="vscode://file//chunks/about-wAJ6iKL-.js">/chunks/about-wAJ6iKL-.js</a>                11.30 kB │ gzip:   5.31 kB
+dist<a class="fl" href="vscode://file//chunks/about-D2Gmohh4.js">/chunks/about-D2Gmohh4.js</a>                11.35 kB │ gzip:   4.85 kB
+dist<a class="fl" href="vscode://file//chunks/about-Bb4iKrki.js">/chunks/about-Bb4iKrki.js</a>                11.42 kB │ gzip:   5.04 kB
+dist<a class="fl" href="vscode://file//chunks/about-D_rOT3Sa.js">/chunks/about-D_rOT3Sa.js</a>                11.52 kB │ gzip:   4.94 kB
+dist<a class="fl" href="vscode://file//chunks/about-B6_StYC5.js">/chunks/about-B6_StYC5.js</a>                11.55 kB │ gzip:   4.95 kB
+dist<a class="fl" href="vscode://file//chunks/about-uBr_YEYL.js">/chunks/about-uBr_YEYL.js</a>                11.66 kB │ gzip:   4.91 kB
+dist<a class="fl" href="vscode://file//chunks/about-DQP74O8S.js">/chunks/about-DQP74O8S.js</a>                11.73 kB │ gzip:   4.94 kB
+dist<a class="fl" href="vscode://file//chunks/about-C5YnelyM.js">/chunks/about-C5YnelyM.js</a>                11.75 kB │ gzip:   5.04 kB
+dist<a class="fl" href="vscode://file//chunks/about-tebDHrSj.js">/chunks/about-tebDHrSj.js</a>                11.75 kB │ gzip:   5.04 kB
+dist<a class="fl" href="vscode://file//chunks/about-9GVr7UAq.js">/chunks/about-9GVr7UAq.js</a>                12.50 kB │ gzip:   5.59 kB
+dist<a class="fl" href="vscode://file//chunks/onlineStore-C0nSQm8T.js">/chunks/onlineStore-C0nSQm8T.js</a>          13.37 kB │ gzip:   4.48 kB
+dist<a class="fl" href="vscode://file//chunks/about-C38BiAd4.js">/chunks/about-C38BiAd4.js</a>                14.65 kB │ gzip:   5.81 kB
+dist<a class="fl" href="vscode://file//chunks/about-D4GtXzNf.js">/chunks/about-D4GtXzNf.js</a>                14.80 kB │ gzip:   5.86 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BRwDj_pk.js">/chunks/settings-BRwDj_pk.js</a>             71.39 kB │ gzip:  24.99 kB
+dist<a class="fl" href="vscode://file//chunks/settings-Ck9TqcuH.js">/chunks/settings-Ck9TqcuH.js</a>             72.15 kB │ gzip:  25.06 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CzfpC8_e.js">/chunks/settings-CzfpC8_e.js</a>             72.58 kB │ gzip:  22.80 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CHvt1wqa.js">/chunks/settings-CHvt1wqa.js</a>             75.10 kB │ gzip:  24.26 kB
+dist<a class="fl" href="vscode://file//chunks/settings--e10ymGh.js">/chunks/settings--e10ymGh.js</a>             75.16 kB │ gzip:  24.86 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DjjNZjkX.js">/chunks/settings-DjjNZjkX.js</a>             75.78 kB │ gzip:  24.14 kB
+dist<a class="fl" href="vscode://file//chunks/settings-Cs9DA8YX.js">/chunks/settings-Cs9DA8YX.js</a>             76.22 kB │ gzip:  24.78 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BUiBhNvk.js">/chunks/settings-BUiBhNvk.js</a>             76.31 kB │ gzip:  24.66 kB
+dist<a class="fl" href="vscode://file//chunks/settings-9CNdutN7.js">/chunks/settings-9CNdutN7.js</a>             76.54 kB │ gzip:  24.99 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BcD58-yH.js">/chunks/settings-BcD58-yH.js</a>             76.70 kB │ gzip:  24.31 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BUF_CY_m.js">/chunks/settings-BUF_CY_m.js</a>             77.15 kB │ gzip:  24.23 kB
+dist<a class="fl" href="vscode://file//chunks/settings-Bt4SBotc.js">/chunks/settings-Bt4SBotc.js</a>             77.36 kB │ gzip:  23.65 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DTPnmd8-.js">/chunks/settings-DTPnmd8-.js</a>             77.51 kB │ gzip:  24.63 kB
+dist<a class="fl" href="vscode://file//chunks/settings-I1W6N_tx.js">/chunks/settings-I1W6N_tx.js</a>             77.55 kB │ gzip:  23.91 kB
+dist<a class="fl" href="vscode://file//chunks/settings-oAu4Tycc.js">/chunks/settings-oAu4Tycc.js</a>             78.13 kB │ gzip:  24.60 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CGs2vCwV.js">/chunks/settings-CGs2vCwV.js</a>             80.75 kB │ gzip:  25.67 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DB6nbh0y.js">/chunks/settings-DB6nbh0y.js</a>             91.76 kB │ gzip:  27.06 kB
+dist<a class="fl" href="vscode://file//chunks/settings-MckFiQAL.js">/chunks/settings-MckFiQAL.js</a>             91.79 kB │ gzip:  26.81 kB
+dist<a class="fl" href="vscode://file//chunks/steam-CHF2XlNX.js">/chunks/steam-CHF2XlNX.js</a>               124.60 kB │ gzip:  30.56 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-wio-Pr14.js">/chunks/settingsStore-wio-Pr14.js</a>       133.69 kB │ gzip:  28.94 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-Ckye0z_b.js">/chunks/pluginApi-Ckye0z_b.js</a>           212.81 kB │ gzip:  61.89 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             1,080.68 kB │ gzip: 236.38 kB
+
+<span class="g">✓ built in 839ms</span>
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/shelfRefresh.ts">src/core/shelfRefresh.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/ShelfManageRoute.ts">src/components/ShelfManageRoute.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/DeveloperFilterOptions.ts">src/components/filter/DeveloperFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/PublisherFilterOptions.ts">src/components/filter/PublisherFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/list/ShelfActions.ts">src/components/qam/list/ShelfActions.ts</a>x, ..., dynamic import will not move module into another chunk.
+
+</pre></div></details>
+<details class="step" id="s2"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Unit tests (vitest)</span><span class="sdur" title="5794 ms">5.8s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b2"><div class="test-bar"><span class="tp">✓ 35 passed</span></div><pre class="log"><span class="w">api                                      |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">api                                      |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+
+&gt; deck-shelves@3.0.1 test /home/runner/work/Deck-Shelves/Deck-Shelves
+<span class="w">&gt; NODE_NO_WARNINGS=1 vitest run</span>
+
+
+ RUN  v4.1.9 /home/runner/work/Deck-Shelves/Deck-Shelves
+
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelvesRuntime.test.ts">src/test/steam/smartShelvesRuntime.test.ts</a> (19 tests) 24ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/settings.test.ts">src/test/domain/settings.test.ts</a> (43 tests) 41ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/smartShelves.test.ts">src/test/steam/smartShelves.test.ts</a> (36 tests) 25ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/saveHelpers.test.ts">src/test/components/saveHelpers.test.ts</a> (32 tests) 23ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/statistics.test.ts">src/test/domain/statistics.test.ts</a> (24 tests) 21ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/evaluateFilterGroup.test.ts">src/test/steam/evaluateFilterGroup.test.ts</a> (28 tests) 13ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/runtime/buttonBindings.test.ts">src/test/runtime/buttonBindings.test.ts</a> (30 tests) 18ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/customfilters.test.ts">src/test/domain/customfilters.test.ts</a> (17 tests) 17ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/regression.test.ts">src/test/regression.test.ts</a> (36 tests) 80ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/shelfStats.test.ts">src/test/domain/shelfStats.test.ts</a> (17 tests) 16ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/resolveQuickLaunchAction.test.ts">src/test/steam/resolveQuickLaunchAction.test.ts</a> (15 tests) 11ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applySortToIds.test.ts">src/test/steam/applySortToIds.test.ts</a> (13 tests) 17ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam.test.ts">src/test/steam.test.ts</a> (8 tests) 11ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/shelfOrder.test.ts">src/test/domain/shelfOrder.test.ts</a> (17 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/syntheticCards.test.ts">src/test/domain/syntheticCards.test.ts</a> (11 tests) 22ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/snapshot.test.ts">src/test/domain/snapshot.test.ts</a> (5 tests) 11ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/templates.test.ts">src/test/domain/templates.test.ts</a> (13 tests) 16ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/mergeCompositeResults.test.ts">src/test/steam/mergeCompositeResults.test.ts</a> (15 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/exportImportHandlers.test.ts">src/test/core/exportImportHandlers.test.ts</a> (3 tests) 6ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/heuristics.test.ts">src/test/steam/heuristics.test.ts</a> (9 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/trailingCards.test.ts">src/test/components/trailingCards.test.ts</a> (13 tests) 8ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/usageStats.test.ts">src/test/domain/usageStats.test.ts</a> (7 tests) 8ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/gameInfoCoupling.test.ts">src/test/components/gameInfoCoupling.test.ts</a> (6 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/qa/qam-visibility.test.ts">src/test/qa/qam-visibility.test.ts</a> (10 tests) 21ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/domain/schemas.test.ts">src/test/domain/schemas.test.ts</a> (8 tests) 30ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/reorder.test.ts">src/test/core/reorder.test.ts</a> (14 tests) 14ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/normalizeTitleForMatch.test.ts">src/test/steam/normalizeTitleForMatch.test.ts</a> (10 tests) 9ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/core/webpackCompat.test.ts">src/test/core/webpackCompat.test.ts</a> (7 tests) 229ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/notify.test.ts">src/test/components/notify.test.ts</a> (5 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/runtime/logger.test.ts">src/test/runtime/logger.test.ts</a> (3 tests) 12ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/compareAdded.test.ts">src/test/compareAdded.test.ts</a> (3 tests) 6ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/steam/applyManualOrder.test.ts">src/test/steam/applyManualOrder.test.ts</a> (9 tests) 9ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/scrollUtils.test.ts">src/test/scrollUtils.test.ts</a> (2 tests) 4ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/labelOverhang.test.ts">src/test/components/labelOverhang.test.ts</a> (5 tests) 5ms</span>
+<span class="g"> ✓ <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/test/components/refreshableSmartModes.test.ts">src/test/components/refreshableSmartModes.test.ts</a> (3 tests) 7ms</span>
+
+<span class="g"> Test Files  35 passed (35)</span>
+<span class="g">      Tests  496 passed (496)</span>
+   Start at  17:56:20
+   Duration  5.04s (transform 1.84s, setup 0ms, import 6.07s, tests 796ms, environment 993ms)
+
+</pre></div></details>
+<details class="step" id="s3"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Package (.zip)</span><span class="sdur" title="1814 ms">1.8s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b3"><pre class="log"><span class="w">api                                      |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">api                                      |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+
+&gt; deck-shelves@3.0.1 build:release /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/build-decky.mjs">scripts/build/build-decky.mjs</a> --mode production
+
+vite v8.0.16 building client environment for production...
+
+<span class="g">transforming...✓ 467 modules transformed.</span>
+rendering chunks...
+computing gzip size...
+dist<a class="fl" href="vscode://file//chunks/rolldown-runtime-B-pNeFgv.js">/chunks/rolldown-runtime-B-pNeFgv.js</a>      0.91 kB │ gzip:   0.47 kB
+dist<a class="fl" href="vscode://file//chunks/steamHost-BuRog5c8.js">/chunks/steamHost-BuRog5c8.js</a>             0.96 kB │ gzip:   0.45 kB
+dist<a class="fl" href="vscode://file//chunks/home-DkD-k5ai.js">/chunks/home-DkD-k5ai.js</a>                  1.17 kB │ gzip:   0.72 kB
+dist<a class="fl" href="vscode://file//chunks/home-DdLgBRZj.js">/chunks/home-DdLgBRZj.js</a>                  1.18 kB │ gzip:   0.60 kB
+dist<a class="fl" href="vscode://file//chunks/home-BkZ7GetH.js">/chunks/home-BkZ7GetH.js</a>                  1.18 kB │ gzip:   0.73 kB
+dist<a class="fl" href="vscode://file//chunks/home-YXwx1R-U.js">/chunks/home-YXwx1R-U.js</a>                  1.21 kB │ gzip:   0.66 kB
+dist<a class="fl" href="vscode://file//chunks/home-C2yPlgKe.js">/chunks/home-C2yPlgKe.js</a>                  1.21 kB │ gzip:   0.64 kB
+dist<a class="fl" href="vscode://file//chunks/home-CUW_nhPD.js">/chunks/home-CUW_nhPD.js</a>                  1.21 kB │ gzip:   0.64 kB
+dist<a class="fl" href="vscode://file//chunks/home-DxxFiOOE.js">/chunks/home-DxxFiOOE.js</a>                  1.21 kB │ gzip:   0.67 kB
+dist<a class="fl" href="vscode://file//chunks/home-DNyV-ggm.js">/chunks/home-DNyV-ggm.js</a>                  1.21 kB │ gzip:   0.67 kB
+dist<a class="fl" href="vscode://file//chunks/home-Do_BIJio.js">/chunks/home-Do_BIJio.js</a>                  1.21 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-CD1rnkIZ.js">/chunks/home-CD1rnkIZ.js</a>                  1.23 kB │ gzip:   0.64 kB
+dist<a class="fl" href="vscode://file//chunks/home-D_Ior8TB.js">/chunks/home-D_Ior8TB.js</a>                  1.23 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-lR3fthTi.js">/chunks/home-lR3fthTi.js</a>                  1.23 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-Bd0oF_Lc.js">/chunks/home-Bd0oF_Lc.js</a>                  1.23 kB │ gzip:   0.65 kB
+dist<a class="fl" href="vscode://file//chunks/home-B-TQDwa2.js">/chunks/home-B-TQDwa2.js</a>                  1.23 kB │ gzip:   0.75 kB
+dist<a class="fl" href="vscode://file//chunks/home-CtSoG54L.js">/chunks/home-CtSoG54L.js</a>                  1.24 kB │ gzip:   0.69 kB
+dist<a class="fl" href="vscode://file//chunks/home--f-LDelM.js">/chunks/home--f-LDelM.js</a>                  1.28 kB │ gzip:   0.78 kB
+dist<a class="fl" href="vscode://file//chunks/home-BSC65bHC.js">/chunks/home-BSC65bHC.js</a>                  1.45 kB │ gzip:   0.80 kB
+dist<a class="fl" href="vscode://file//chunks/home-DKvd6Zhg.js">/chunks/home-DKvd6Zhg.js</a>                  1.46 kB │ gzip:   0.80 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BNH1KKxG.js">/chunks/qam-BNH1KKxG.js</a>                   2.75 kB │ gzip:   1.49 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DazZ2Mzd.js">/chunks/qam-DazZ2Mzd.js</a>                   2.81 kB │ gzip:   1.51 kB
+dist<a class="fl" href="vscode://file//chunks/customfilters-CeiM60HE.js">/chunks/customfilters-CeiM60HE.js</a>         2.87 kB │ gzip:   1.06 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CC90YiOb.js">/chunks/qam-CC90YiOb.js</a>                   2.88 kB │ gzip:   1.25 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CbNUJhL5.js">/chunks/qam-CbNUJhL5.js</a>                   3.02 kB │ gzip:   1.35 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DoQKp4CM.js">/chunks/qam-DoQKp4CM.js</a>                   3.05 kB │ gzip:   1.41 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DHordfr_.js">/chunks/qam-DHordfr_.js</a>                   3.08 kB │ gzip:   1.36 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DXK_lCdk.js">/chunks/qam-DXK_lCdk.js</a>                   3.09 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-SedzVgoD.js">/chunks/qam-SedzVgoD.js</a>                   3.10 kB │ gzip:   1.45 kB
+dist<a class="fl" href="vscode://file//chunks/qam-8PveQUi4.js">/chunks/qam-8PveQUi4.js</a>                   3.11 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BTX8mWmM.js">/chunks/qam-BTX8mWmM.js</a>                   3.13 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BmxZ6lUD.js">/chunks/qam-BmxZ6lUD.js</a>                   3.15 kB │ gzip:   1.38 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CXaW4FEa.js">/chunks/qam-CXaW4FEa.js</a>                   3.17 kB │ gzip:   1.55 kB
+dist<a class="fl" href="vscode://file//chunks/qam-CpWtLYl6.js">/chunks/qam-CpWtLYl6.js</a>                   3.21 kB │ gzip:   1.42 kB
+dist<a class="fl" href="vscode://file//chunks/qam-D4DzCP7R.js">/chunks/qam-D4DzCP7R.js</a>                   3.21 kB │ gzip:   1.42 kB
+dist<a class="fl" href="vscode://file//chunks/qam-NDV_QfWs.js">/chunks/qam-NDV_QfWs.js</a>                   3.22 kB │ gzip:   1.42 kB
+dist<a class="fl" href="vscode://file//chunks/qam-DhXvUwwa.js">/chunks/qam-DhXvUwwa.js</a>                   3.33 kB │ gzip:   1.60 kB
+dist<a class="fl" href="vscode://file//chunks/defaults-WIQ6vBd-.js">/chunks/defaults-WIQ6vBd-.js</a>              3.35 kB │ gzip:   1.20 kB
+dist<a class="fl" href="vscode://file//chunks/qam-BvrGTXvC.js">/chunks/qam-BvrGTXvC.js</a>                   3.89 kB │ gzip:   1.65 kB
+dist<a class="fl" href="vscode://file//chunks/qam-B4IztW5J.js">/chunks/qam-B4IztW5J.js</a>                   3.95 kB │ gzip:   1.67 kB
+dist<a class="fl" href="vscode://file//chunks/common-hiorgJbw.js">/chunks/common-hiorgJbw.js</a>                4.75 kB │ gzip:   2.39 kB
+dist<a class="fl" href="vscode://file//chunks/common-CBi-ATdQ.js">/chunks/common-CBi-ATdQ.js</a>                4.79 kB │ gzip:   2.42 kB
+dist<a class="fl" href="vscode://file//chunks/common-BhLbuobt.js">/chunks/common-BhLbuobt.js</a>                4.82 kB │ gzip:   2.06 kB
+dist<a class="fl" href="vscode://file//chunks/common-CVdfZC3g.js">/chunks/common-CVdfZC3g.js</a>                5.00 kB │ gzip:   2.19 kB
+dist<a class="fl" href="vscode://file//chunks/common-BpZoEunK.js">/chunks/common-BpZoEunK.js</a>                5.02 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/common-M5EYvnvt.js">/chunks/common-M5EYvnvt.js</a>                5.08 kB │ gzip:   2.35 kB
+dist<a class="fl" href="vscode://file//chunks/common-BA5jb2su.js">/chunks/common-BA5jb2su.js</a>                5.11 kB │ gzip:   2.21 kB
+dist<a class="fl" href="vscode://file//chunks/common-CaPp-afZ.js">/chunks/common-CaPp-afZ.js</a>                5.13 kB │ gzip:   2.28 kB
+dist<a class="fl" href="vscode://file//chunks/common-BrKxc9Oq.js">/chunks/common-BrKxc9Oq.js</a>                5.18 kB │ gzip:   2.25 kB
+dist<a class="fl" href="vscode://file//chunks/common-CT6Tlzi7.js">/chunks/common-CT6Tlzi7.js</a>                5.18 kB │ gzip:   2.25 kB
+dist<a class="fl" href="vscode://file//chunks/common-CscWMrZv.js">/chunks/common-CscWMrZv.js</a>                5.21 kB │ gzip:   2.47 kB
+dist<a class="fl" href="vscode://file//chunks/common-BcJ6blQC.js">/chunks/common-BcJ6blQC.js</a>                5.22 kB │ gzip:   2.26 kB
+dist<a class="fl" href="vscode://file//chunks/common-DmNMHnAF.js">/chunks/common-DmNMHnAF.js</a>                5.24 kB │ gzip:   2.28 kB
+dist<a class="fl" href="vscode://file//chunks/common-DZrdHLdI.js">/chunks/common-DZrdHLdI.js</a>                5.25 kB │ gzip:   2.29 kB
+dist<a class="fl" href="vscode://file//chunks/common-CzRcyr9Q.js">/chunks/common-CzRcyr9Q.js</a>                5.26 kB │ gzip:   2.28 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-6GCuIV3U.js">/chunks/integrations-6GCuIV3U.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-6Ib1PxWb.js">/chunks/integrations-6Ib1PxWb.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Bm_MFUW2.js">/chunks/integrations-Bm_MFUW2.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-CG5EPaIi.js">/chunks/integrations-CG5EPaIi.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Ct6UmgBn.js">/chunks/integrations-Ct6UmgBn.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-D7uTwP-4.js">/chunks/integrations-D7uTwP-4.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-DVPaPOxB.js">/chunks/integrations-DVPaPOxB.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Diig3_nS.js">/chunks/integrations-Diig3_nS.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-Hk8YgszA.js">/chunks/integrations-Hk8YgszA.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-KFa88C57.js">/chunks/integrations-KFa88C57.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-LYXvNtMU.js">/chunks/integrations-LYXvNtMU.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-NpS5WG3o.js">/chunks/integrations-NpS5WG3o.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-QgidOTN9.js">/chunks/integrations-QgidOTN9.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-UhULoVuw.js">/chunks/integrations-UhULoVuw.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-UspapKSO.js">/chunks/integrations-UspapKSO.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-foPmVDrB.js">/chunks/integrations-foPmVDrB.js</a>          5.29 kB │ gzip:   1.93 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-BzZ6sK5z.js">/chunks/integrations-BzZ6sK5z.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/integrations-DCsT6CP7.js">/chunks/integrations-DCsT6CP7.js</a>          5.56 kB │ gzip:   2.11 kB
+dist<a class="fl" href="vscode://file//chunks/common-CfduA9Cn.js">/chunks/common-CfduA9Cn.js</a>                5.60 kB │ gzip:   2.59 kB
+dist<a class="fl" href="vscode://file//chunks/common-DCn2q7bb.js">/chunks/common-DCn2q7bb.js</a>                6.34 kB │ gzip:   2.66 kB
+dist<a class="fl" href="vscode://file//chunks/common-CmSKWxHs.js">/chunks/common-CmSKWxHs.js</a>                6.44 kB │ gzip:   2.68 kB
+dist<a class="fl" href="vscode://file//chunks/decky-CK1Zm5Ay.js">/chunks/decky-CK1Zm5Ay.js</a>                 8.69 kB │ gzip:   3.19 kB
+dist<a class="fl" href="vscode://file//chunks/about-CgfhXdii.js">/chunks/about-CgfhXdii.js</a>                10.34 kB │ gzip:   5.31 kB
+dist<a class="fl" href="vscode://file//chunks/about-CWxamAco.js">/chunks/about-CWxamAco.js</a>                10.59 kB │ gzip:   5.40 kB
+dist<a class="fl" href="vscode://file//chunks/about-DAcisnLs.js">/chunks/about-DAcisnLs.js</a>                10.66 kB │ gzip:   4.52 kB
+dist<a class="fl" href="vscode://file//chunks/about-CnjiHftx.js">/chunks/about-CnjiHftx.js</a>                10.98 kB │ gzip:   4.82 kB
+dist<a class="fl" href="vscode://file//chunks/about-DBCLuls2.js">/chunks/about-DBCLuls2.js</a>                11.24 kB │ gzip:   5.13 kB
+dist<a class="fl" href="vscode://file//chunks/about-CvaAqft3.js">/chunks/about-CvaAqft3.js</a>                11.29 kB │ gzip:   5.01 kB
+dist<a class="fl" href="vscode://file//chunks/about-wAJ6iKL-.js">/chunks/about-wAJ6iKL-.js</a>                11.30 kB │ gzip:   5.31 kB
+dist<a class="fl" href="vscode://file//chunks/about-D2Gmohh4.js">/chunks/about-D2Gmohh4.js</a>                11.35 kB │ gzip:   4.85 kB
+dist<a class="fl" href="vscode://file//chunks/about-Bb4iKrki.js">/chunks/about-Bb4iKrki.js</a>                11.42 kB │ gzip:   5.04 kB
+dist<a class="fl" href="vscode://file//chunks/about-D_rOT3Sa.js">/chunks/about-D_rOT3Sa.js</a>                11.52 kB │ gzip:   4.94 kB
+dist<a class="fl" href="vscode://file//chunks/about-B6_StYC5.js">/chunks/about-B6_StYC5.js</a>                11.55 kB │ gzip:   4.95 kB
+dist<a class="fl" href="vscode://file//chunks/about-uBr_YEYL.js">/chunks/about-uBr_YEYL.js</a>                11.66 kB │ gzip:   4.91 kB
+dist<a class="fl" href="vscode://file//chunks/about-DQP74O8S.js">/chunks/about-DQP74O8S.js</a>                11.73 kB │ gzip:   4.94 kB
+dist<a class="fl" href="vscode://file//chunks/about-C5YnelyM.js">/chunks/about-C5YnelyM.js</a>                11.75 kB │ gzip:   5.04 kB
+dist<a class="fl" href="vscode://file//chunks/about-tebDHrSj.js">/chunks/about-tebDHrSj.js</a>                11.75 kB │ gzip:   5.04 kB
+dist<a class="fl" href="vscode://file//chunks/about-9GVr7UAq.js">/chunks/about-9GVr7UAq.js</a>                12.50 kB │ gzip:   5.59 kB
+dist<a class="fl" href="vscode://file//chunks/onlineStore-C0nSQm8T.js">/chunks/onlineStore-C0nSQm8T.js</a>          13.37 kB │ gzip:   4.48 kB
+dist<a class="fl" href="vscode://file//chunks/about-C38BiAd4.js">/chunks/about-C38BiAd4.js</a>                14.65 kB │ gzip:   5.81 kB
+dist<a class="fl" href="vscode://file//chunks/about-D4GtXzNf.js">/chunks/about-D4GtXzNf.js</a>                14.80 kB │ gzip:   5.86 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BRwDj_pk.js">/chunks/settings-BRwDj_pk.js</a>             71.39 kB │ gzip:  24.99 kB
+dist<a class="fl" href="vscode://file//chunks/settings-Ck9TqcuH.js">/chunks/settings-Ck9TqcuH.js</a>             72.15 kB │ gzip:  25.06 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CzfpC8_e.js">/chunks/settings-CzfpC8_e.js</a>             72.58 kB │ gzip:  22.80 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CHvt1wqa.js">/chunks/settings-CHvt1wqa.js</a>             75.10 kB │ gzip:  24.26 kB
+dist<a class="fl" href="vscode://file//chunks/settings--e10ymGh.js">/chunks/settings--e10ymGh.js</a>             75.16 kB │ gzip:  24.86 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DjjNZjkX.js">/chunks/settings-DjjNZjkX.js</a>             75.78 kB │ gzip:  24.14 kB
+dist<a class="fl" href="vscode://file//chunks/settings-Cs9DA8YX.js">/chunks/settings-Cs9DA8YX.js</a>             76.22 kB │ gzip:  24.78 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BUiBhNvk.js">/chunks/settings-BUiBhNvk.js</a>             76.31 kB │ gzip:  24.66 kB
+dist<a class="fl" href="vscode://file//chunks/settings-9CNdutN7.js">/chunks/settings-9CNdutN7.js</a>             76.54 kB │ gzip:  24.99 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BcD58-yH.js">/chunks/settings-BcD58-yH.js</a>             76.70 kB │ gzip:  24.31 kB
+dist<a class="fl" href="vscode://file//chunks/settings-BUF_CY_m.js">/chunks/settings-BUF_CY_m.js</a>             77.15 kB │ gzip:  24.23 kB
+dist<a class="fl" href="vscode://file//chunks/settings-Bt4SBotc.js">/chunks/settings-Bt4SBotc.js</a>             77.36 kB │ gzip:  23.65 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DTPnmd8-.js">/chunks/settings-DTPnmd8-.js</a>             77.51 kB │ gzip:  24.63 kB
+dist<a class="fl" href="vscode://file//chunks/settings-I1W6N_tx.js">/chunks/settings-I1W6N_tx.js</a>             77.55 kB │ gzip:  23.91 kB
+dist<a class="fl" href="vscode://file//chunks/settings-oAu4Tycc.js">/chunks/settings-oAu4Tycc.js</a>             78.13 kB │ gzip:  24.60 kB
+dist<a class="fl" href="vscode://file//chunks/settings-CGs2vCwV.js">/chunks/settings-CGs2vCwV.js</a>             80.75 kB │ gzip:  25.67 kB
+dist<a class="fl" href="vscode://file//chunks/settings-DB6nbh0y.js">/chunks/settings-DB6nbh0y.js</a>             91.76 kB │ gzip:  27.06 kB
+dist<a class="fl" href="vscode://file//chunks/settings-MckFiQAL.js">/chunks/settings-MckFiQAL.js</a>             91.79 kB │ gzip:  26.81 kB
+dist<a class="fl" href="vscode://file//chunks/steam-CHF2XlNX.js">/chunks/steam-CHF2XlNX.js</a>               124.60 kB │ gzip:  30.56 kB
+dist<a class="fl" href="vscode://file//chunks/settingsStore-wio-Pr14.js">/chunks/settingsStore-wio-Pr14.js</a>       133.69 kB │ gzip:  28.94 kB
+dist<a class="fl" href="vscode://file//chunks/pluginApi-Ckye0z_b.js">/chunks/pluginApi-Ckye0z_b.js</a>           212.81 kB │ gzip:  61.89 kB
+dist<a class="fl" href="vscode://file//index.js">/index.js</a>                             1,080.68 kB │ gzip: 236.38 kB
+
+<span class="g">✓ built in 825ms</span>
+[verify] Found: plugin.json
+[verify] Found: package.json
+[verify] Found: main.py
+[verify] Found: paths.py
+[verify] Found: storage.py
+[verify] Found: sanitizer.py
+[verify] Found: launchers.py
+[verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
+[verify] Found: i18n<a class="fl" href="vscode://file//en-US/settings.js">/en-US/settings.js</a>on
+[verify] main.py is executable
+<span class="g">[verify] plugin.json flags OK (no debug)</span>
+[verify] package.json matches repo
+[verify] Package OK: deck-shelves-v3.0.1.zip
+[package] Created installable archive: deck-shelves-v3.0.1.zip
+[INEFFECTIVE_DYNAMIC_IMPORT] <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/steam/index.ts">src/steam/index.ts</a> is dynamically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/core/shelfRefresh.ts">src/core/shelfRefresh.ts</a> but also statically imported by <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/Shelf.ts">src/components/Shelf.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/ShelfManageRoute.ts">src/components/ShelfManageRoute.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/DeveloperFilterOptions.ts">src/components/filter/DeveloperFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/filter/PublisherFilterOptions.ts">src/components/filter/PublisherFilterOptions.ts</a>x, <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/src/components/qam/list/ShelfActions.ts">src/components/qam/list/ShelfActions.ts</a>x, ..., dynamic import will not move module into another chunk.
+
+</pre></div></details>
+<details class="step" id="s4"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Verify package</span><span class="sdur" title="68 ms">68 ms</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b4"><pre class="log">[verify] Found: plugin.json
+[verify] Found: package.json
+[verify] Found: main.py
+[verify] Found: paths.py
+[verify] Found: storage.py
+[verify] Found: sanitizer.py
+[verify] Found: launchers.py
+[verify] Found: dist<a class="fl" href="vscode://file//index.js">/index.js</a>
+[verify] Found: i18n<a class="fl" href="vscode://file//en-US/settings.js">/en-US/settings.js</a>on
+[verify] main.py is executable
+<span class="g">[verify] plugin.json flags OK (no debug)</span>
+[verify] package.json matches repo
+[verify] Package OK: deck-shelves-v3.0.1.zip
+</pre></div></details>
+<details class="step" id="s5"><summary class="step-hdr"><div class="dot pass"></div><span class="sname">Compat validation</span><span class="sdur" title="5664 ms">5.7s</span><span class="slabel pass">PASS</span><span class="chevron">▶</span></summary><div class="step-body" id="b5"><div class="test-bar"><span class="tp">✓ 5 passed</span></div><pre class="log"><span class="w">api                                      |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">api                                      |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/api/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.onlyBuiltDependencies&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.onlyBuiltDependencies&quot; at the root of the workspace instead.</span>
+<span class="w">host                                     |  WARN  The field &quot;pnpm.overrides&quot; was found in <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js">/home/runner/work/Deck-Shelves/Deck-Shelves/host/package.js</a>on. This will not take effect. You should configure &quot;pnpm.overrides&quot; at the root of the workspace instead.</span>
+
+&gt; deck-shelves@3.0.1 validate:compat /home/runner/work/Deck-Shelves/Deck-Shelves
+&gt; node <a class="fl" href="vscode://file//home/runner/work/Deck-Shelves/Deck-Shelves/scripts/build/validate-compat.mjs">scripts/build/validate-compat.mjs</a>
+
+╔══════════════════════════════════════════════╗
+║     Deck Shelves — Compatibility Checks      ║
+╚══════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Build Output (Vite/ESM)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> exists</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> is non-empty (1080680 bytes)</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> size under 2.5MB</span>
+<span class="g">  ✅ dist<a class="fl" href="vscode://file//index.js">/index.js</a> has ESM exports</span>
+<span class="g">  ✅ No node_modules imports in bundle</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TypeScript / Node (Build Toolchain)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ tsconfig.json exists</span>
+<span class="g">  ✅ package.json exists</span>
+<span class="g">  ✅ pnpm-lock.yaml exists (lockfile)</span>
+<span class="g">  ✅ Node.js v20.20.2</span>
+<span class="g">  ✅ pnpm 10.33.0</span>
+<span class="g">  ✅ node_modules installed</span>
+<span class="g">  ✅ Vite config exists</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Loader 3.x (API v1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ api_version == 1 (Decky 3.x compatible)</span>
+<span class="g">  ✅ Uses @decky/api package</span>
+<span class="g">  ✅ Uses @decky/ui package</span>
+<span class="g">  ✅ Plugin._main lifecycle method</span>
+<span class="g">  ✅ Plugin._unload lifecycle method</span>
+<span class="g">  ✅ Uses &#x27;import decky&#x27; (v3 style)</span>
+<span class="g">  ✅ No legacy decky_plugin imports</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Loader (API v1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json api_version == 1</span>
+<span class="g">  ✅ plugin.json has name</span>
+<span class="g">  ✅ plugin.json has author</span>
+<span class="g">  ✅ main.py exists</span>
+<span class="g">  ✅ main.py has Plugin class</span>
+<span class="g">  ✅ decky-api shim exists</span>
+<span class="g">  ✅ decky-ui shim exists</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Store (Publishing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json has publish tags</span>
+<span class="g">  ✅ plugin.json has publish description</span>
+<span class="g">  ✅ LICENSE file exists</span>
+<span class="g">  ✅ README.md exists</span>
+<span class="g">  ✅ assets/ directory exists</span>
+<span class="g">  ✅ package.json has version</span>
+
+<span class="e">  Result: 6 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Decky Store Submission (Review Checklist)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ plugin.json is valid JSON</span>
+<span class="g">  ✅ package.json name and version conform to npm standard</span>
+<span class="g">  ✅ pnpm-lock.yaml lockfileVersion: 9.0</span>
+<span class="g">  ✅ LICENSE file present</span>
+<span class="g">  ✅ No unused backend/ directory</span>
+<span class="g">  ✅ No unused defaults/ directory</span>
+<span class="g">  ✅ No remote code execution patterns in source</span>
+<span class="g">  ✅ Built output is not heavily obfuscated (34389 lines)</span>
+<span class="g">  ✅ No private/local dependencies</span>
+<span class="g">  ✅ assets/icon.png not required (store uses publish.image)</span>
+<span class="g">  ✅ No debug flag in plugin.json</span>
+
+<span class="e">  Result: 11 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CheatDeck (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No CheatDeck namespace collision (no references)</span>
+<span class="g">  ✅ No high z-index values that would cover CheatDeck overlay (portal-scoped badge excluded)</span>
+<span class="g">  ✅ DOM mount uses unique &#x27;deck-shelves-&#x27; prefixed ID</span>
+<span class="g">  ✅ No global-level input event listeners</span>
+<span class="g">  ✅ Apps API uses safe access patterns</span>
+<span class="g">  ✅ MutationObservers are scoped (not on document.body)</span>
+
+<span class="e">  Result: 6 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader (ArtHero Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ cssLoaderDetect helper present</span>
+<span class="g">  ✅ Detection helper exports isCssLoaderActive + isArtHeroActive</span>
+<span class="g">  ✅ HeroBackground render gated by replaceInjecting (no duplicate hero)</span>
+<span class="g">  ✅ First ds-shelf promoted to recents slot when CSS Loader active</span>
+<span class="g">  ✅ Class promotion is additive (does not strip ds-*)</span>
+<span class="g">  ✅ Native recents class read from runtime DOM (no hardcoded token)</span>
+<span class="g">  ✅ Detection probes &lt;style class=&quot;css-loader-style&quot;&gt; tags</span>
+<span class="g">  ✅ ArtHero detected by structural signature (heroInner + mask-image)</span>
+<span class="g">  ✅ Invariant 1: promotion requires hideRecentsSetting</span>
+<span class="g">  ✅ Invariant 2: promotion targets only the first visible shelf</span>
+<span class="g">  ✅ Invariant 3: promotion requires CSS Loader active</span>
+<span class="g">  ✅ HeroBackground only renders when hideRecents is true</span>
+
+<span class="e">  Result: 12 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Center Home)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No unsafe &#x27;center home&#x27; coupling (CSS custom-property detection is allowed)</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Clean Game View (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Card dimensions defined as explicit constants</span>
+<span class="g">  ✅ Card backgrounds are explicitly set or use the --ds-shell-bg variable</span>
+<span class="g">  ✅ No reliance on native Steam card hover/focus classes</span>
+<span class="g">  ✅ Focus indicator uses scoped .ds-card classes</span>
+<span class="g">  ✅ Border-radius uses --ds-card-radius custom property with fallback</span>
+<span class="g">  ✅ Card shadow defined on own .ds-card-art class</span>
+<span class="g">  ✅ Image sizing uses explicit object-fit</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Injected styles are in files with scoped selectors</span>
+<span class="g">  ✅ Style elements use unique &#x27;deck-shelves-&#x27; prefixed IDs</span>
+<span class="g">  ✅ Style injection checks for existing element (no duplicates)</span>
+<span class="g">  ✅ All !important declarations are within files using scoped selectors</span>
+<span class="g">  ✅ All className values are namespaced or from Decky UI</span>
+<span class="g">  ✅ No direct document.styleSheets manipulation</span>
+<span class="g">  ✅ Root mount element has unique deck-shelves-* ID</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Colored Compatibility Icons)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No colored compatibility-icon references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Delly Footer)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Delly Footer&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Delly Volume)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Delly Volume&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Focus Highlight Color)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ isFocusRoundCompatActive() detection present</span>
+<span class="g">  ✅ Detection uses unique keyframe signature (appportrait_blinker + flangrande)</span>
+<span class="g">  ✅ Round Compat flag set on .deck-shelves-root / &lt;html&gt;</span>
+<span class="g">  ✅ Round Compat suppression rule present in shelfStyles</span>
+<span class="g">  ✅ Theme variables read-only (no flangrande writes)</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Fullscreen Menus)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;Fullscreen Menus&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Game Cover Shine Animation Color)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Native card class promoted onto .ds-card (shine reaches DS cards)</span>
+<span class="g">  ✅ ::after opacity left to the theme (no forced opacity 1)</span>
+<span class="g">  ✅ Shine ::after suppressed under Round Compat flag</span>
+<span class="g">  ✅ Theme variable read-only</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Main Menu Hide Tabs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;main menu hide tabs&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Obsidian Theme (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Custom styles scoped under #deck-shelves-home-root</span>
+<span class="g">  ✅ Font sizes inside scoped selectors or using relative units</span>
+<span class="g">  ✅ Explicit color values (15) — not dependent on theme variables</span>
+<span class="g">  ✅ Explicit background colors in components</span>
+<span class="g">  ✅ No reliance on generic Steam panel class styling</span>
+<span class="g">  ✅ z-index values are reasonable (≤ 100; portal-scoped badge excluded)</span>
+<span class="g">  ✅ Modal styles scoped under .deck-shelves-modal-scope</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Outrun)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;outrun&#x27; references in code (comments OK)</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (QAM Hide Tabs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;QAM hide tabs&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (QAM Select Bar Icon Hider)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;QAM selectbar icon hider&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Round (CSS Loader Theme)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Runtime border-radius detection from native Steam cards</span>
+<span class="g">  ✅ --ds-card-radius CSS variable allows theme override</span>
+<span class="g">  ✅ Card art border-radius reads from CSS variable</span>
+<span class="g">  ✅ Card containers use overflow:hidden (content clipped to border-radius)</span>
+<span class="g">  ✅ No hardcoded borderRadius: 0 overriding theme</span>
+<span class="g">  ✅ Radius detection uses 7 selector references for broad theme support</span>
+<span class="g">  ✅ Detected radius is cached (no repeated DOM queries)</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Switch-Like Banners)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;switch-like banners&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Switch-Like Home)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;switch-like home&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CSS Loader Theme (Top Bar Transparency)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No &#x27;top bar transparency&#x27; references found</span>
+
+<span class="e">  Result: 1 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HLTB (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No HLTB namespace collision</span>
+<span class="g">  ✅ AppOverview playtime fields read-only</span>
+<span class="g">  ✅ No app detail page modifications</span>
+<span class="g">  ✅ Shelf DOM elements use unique &#x27;deck-shelves-&#x27; prefix</span>
+<span class="g">  ✅ AppOverview access patterns reviewed</span>
+<span class="g">  ✅ Playtime field access is guarded</span>
+<span class="g">  ✅ No ServerAPI fetch calls (no API contention with HLTB)</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Non-Steam Badges (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ NonSteamBadge(s) global uses optional chaining</span>
+<span class="g">  ✅ No hard dependency on nonsteam module outside integrations/</span>
+<span class="g">  ✅ No NonSteamBadges namespace collision</span>
+<span class="g">  ✅ Shortcuts/shortcutsStore access is guarded by try/catch</span>
+<span class="g">  ✅ Dynamic probing includes shortcuts/shortcutsStore</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamGridDB (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ No SteamGridDB namespace collision</span>
+<span class="g">  ✅ Image fallback includes /customimages/ path (SteamGridDB writes here)</span>
+<span class="g">  ✅ Multiple image candidates per app (resilient to art replacements)</span>
+<span class="g">  ✅ Reads library_capsule from AppOverview (picks up SteamGridDB changes)</span>
+<span class="g">  ✅ Steam CDN URLs used only as final fallback (SteamGridDB custom art checked first)</span>
+<span class="g">  ✅ AppOverview art fields not mutated</span>
+<span class="e">  ✅ Image loading has error fallback</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TabMaster (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ TabMasterStore uses optional chaining</span>
+<span class="g">  ✅ TabMaster global uses optional chaining</span>
+<span class="g">  ✅ TabMaster access in files with try/catch guards</span>
+<span class="g">  ✅ No hard dependency on TabMaster outside integrations/</span>
+<span class="g">  ✅ Dynamic tab store probing includes TabMasterStore</span>
+<span class="g">  ✅ No TabMaster namespace collision</span>
+<span class="g">  ✅ Collection fallback aware of TabMaster</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  UnifiDeck (Coexistence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ UnifiDeckStore uses optional chaining</span>
+<span class="g">  ✅ UnifiDeck global uses optional chaining</span>
+<span class="g">  ✅ UnifiDeck access in files with try/catch guards</span>
+<span class="g">  ✅ No hard dependency on UnifiDeck</span>
+<span class="g">  ✅ Handles both UnifiDeck and UnifyDeck spellings</span>
+<span class="g">  ✅ No UnifiDeck namespace collision</span>
+<span class="g">  ✅ Dynamic collection store probing includes UnifiDeck</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Internationalization (i18n)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ i18n/ directory exists</span>
+<span class="g">  ✅ en-US base locale exists</span>
+<span class="g">  ✅ All locale slice files are valid JSON</span>
+<span class="g">  ✅ Base locale has 1204 keys</span>
+<span class="g">  ✅ All locales have consistent keys</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Python Backend (Decky Python)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ main.py syntax valid</span>
+<span class="g">  ✅ Plugin class defined</span>
+<span class="g">  ✅ _main lifecycle method found</span>
+<span class="g">  ✅ _unload lifecycle method found</span>
+<span class="g">  ✅ No dangerous module imports</span>
+
+<span class="e">  Result: 5 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.5 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Build target compatible with SteamOS 3.5 CEF</span>
+<span class="g">  ✅ No top-level await in bundle</span>
+<span class="g">  ✅ No Python 3.10+ match/case syntax</span>
+<span class="g">  ✅ main.py parses as valid Python</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.6 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ React shim uses GamepadUI shared React</span>
+<span class="g">  ✅ ESM output format</span>
+<span class="g">  ✅ No direct window.location manipulation</span>
+<span class="g">  ✅ SP_REACTDOM used as shim fallback (backward compat)</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.7 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Platform abstraction layer exists</span>
+<span class="e">  ✅ Error boundary pattern found</span>
+<span class="g">  ✅ No hardcoded obfuscated CSS class selectors in components</span>
+<span class="g">  ✅ Home route detection present</span>
+
+<span class="e">  Result: 4 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.8 (Preview/Beta)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Modern ES target</span>
+<span class="g">  ✅ Chunk splitting configured</span>
+<span class="g">  ✅ Uses @decky/api (v3 API)</span>
+<span class="g">  ✅ No legacy ServerAPI imports</span>
+<span class="g">  ✅ Diagnostics module for cross-version debugging</span>
+<span class="g">  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR</span>
+<span class="g">  ✅ No system path access from backend</span>
+
+<span class="e">  Result: 7 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS 3.9 (Stable)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ Modern ES target (ES2020+)</span>
+<span class="g">  ✅ Uses @decky/api (v3 API)</span>
+<span class="g">  ✅ No legacy ServerAPI imports</span>
+<span class="g">  ✅ Duck-typing / optional chaining used for API detection</span>
+<span class="g">  ✅ FocusNavController/GamepadUI pattern referenced</span>
+<span class="g">  ✅ vgp_* event patterns used</span>
+<span class="g">  ✅ Decky patcher utilities used (afterPatch/findInReactTree)</span>
+<span class="g">  ✅ Settings use DECKY_PLUGIN_SETTINGS_DIR</span>
+<span class="g">  ✅ Python 3.10+ match/case syntax available</span>
+<span class="g">  ✅ No hardcoded SteamOS version comparisons</span>
+<span class="g">  ✅ No system path access from backend</span>
+
+<span class="e">  Result: 11 passed, 0 failed</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SteamOS GamepadUI (3.5–3.9)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="g">  ✅ shims/ directory exists</span>
+<span class="g">  ✅ shim: react.ts</span>
+<span class="g">  ✅ shim: react-dom.ts</span>
+<span class="g">  ✅ shim: react-dom-client.ts</span>
+<span class="g">  ✅ shim: react-jsx-runtime.ts</span>
+<span class="g">  ✅ Vite config isolates React (shims or externals)</span>
+<span class="g">  ✅ Vite config targets ES module format</span>
+<span class="g">  ✅ No direct DOM manipulation in components</span>
+<span class="g">  ✅ Platform abstraction layer exists</span>
+<span class="g">  ✅ Diagnostics module exists</span>
+
+<span class="e">  Result: 10 passed, 0 failed</span>
+
+╔══════════════════════════════════════════════╗
+║                   Summary                    ║
+╚══════════════════════════════════════════════╝
+
+<span class="g">  ✅ Build Output (Vite/ESM)</span>
+<span class="g">  ✅ TypeScript / Node (Build Toolchain)</span>
+<span class="g">  ✅ Decky Loader 3.x (API v1)</span>
+<span class="g">  ✅ Decky Loader (API v1)</span>
+<span class="g">  ✅ Decky Store (Publishing)</span>
+<span class="g">  ✅ Decky Store Submission (Review Checklist)</span>
+<span class="g">  ✅ CheatDeck (Coexistence)</span>
+<span class="g">  ✅ CSS Loader (ArtHero Coexistence)</span>
+<span class="g">  ✅ CSS Loader Theme (Center Home)</span>
+<span class="g">  ✅ Clean Game View (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader (Coexistence)</span>
+<span class="g">  ✅ CSS Loader Theme (Colored Compatibility Icons)</span>
+<span class="g">  ✅ CSS Loader Theme (Delly Footer)</span>
+<span class="g">  ✅ CSS Loader Theme (Delly Volume)</span>
+<span class="g">  ✅ CSS Loader Theme (Focus Highlight Color)</span>
+<span class="g">  ✅ CSS Loader Theme (Fullscreen Menus)</span>
+<span class="g">  ✅ CSS Loader Theme (Game Cover Shine Animation Color)</span>
+<span class="g">  ✅ CSS Loader Theme (Main Menu Hide Tabs)</span>
+<span class="g">  ✅ Obsidian Theme (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader Theme (Outrun)</span>
+<span class="g">  ✅ CSS Loader Theme (QAM Hide Tabs)</span>
+<span class="g">  ✅ CSS Loader Theme (QAM Select Bar Icon Hider)</span>
+<span class="g">  ✅ Round (CSS Loader Theme)</span>
+<span class="g">  ✅ CSS Loader Theme (Switch-Like Banners)</span>
+<span class="g">  ✅ CSS Loader Theme (Switch-Like Home)</span>
+<span class="g">  ✅ CSS Loader Theme (Top Bar Transparency)</span>
+<span class="g">  ✅ HLTB (Coexistence)</span>
+<span class="g">  ✅ Non-Steam Badges (Coexistence)</span>
+<span class="g">  ✅ SteamGridDB (Coexistence)</span>
+<span class="g">  ✅ TabMaster (Coexistence)</span>
+<span class="g">  ✅ UnifiDeck (Coexistence)</span>
+<span class="g">  ✅ Internationalization (i18n)</span>
+<span class="g">  ✅ Python Backend (Decky Python)</span>
+<span class="g">  ✅ SteamOS 3.5 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.6 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.7 (Stable)</span>
+<span class="g">  ✅ SteamOS 3.8 (Preview/Beta)</span>
+<span class="g">  ✅ SteamOS 3.9 (Stable)</span>
+<span class="g">  ✅ SteamOS GamepadUI (3.5–3.9)</span>
+
+<span class="g">  🎉 All 39 compatibility checks passed!</span>
+</pre></div></details>
+
+</main>
+<footer><div class="container"><div class="foot-grid"><div class="foot-brand"><a class="brand" href="../../index.html"><svg class="brand-mark" viewBox="217 444 854 378"><g fill="#0080FF"><circle cx="300" cy="620" r="80"/><rect rx="8" x="550" y="460" width="80" height="285"/><rect rx="8" x="645" y="500" width="75" height="245"/></g><g fill="#fff"><path d="M 312.5,461.5 C 373.539,463.763 419.039,491.43 449,544.5C 475.648,600.403 473.314,655.069 442,708.5C 411.013,754.246 367.846,777.913 312.5,779.5C 312.333,760.497 312.5,741.497 313,722.5C 361.661,715.155 391.661,687.488 403,639.5C 408.643,596.312 394.143,561.812 359.5,536C 344.981,527.105 329.315,521.938 312.5,520.5C 312.5,500.833 312.5,481.167 312.5,461.5 Z"/><rect rx="8" x="740" y="530" width="75" height="215"/><rect rx="8" x="840" y="470" width="75" height="275"/><rect rx="8" x="500" y="750" width="570" height="25"/></g></svg><div><div class="brand-name">DECK <b>SHELVES</b></div><div class="brand-tag">Your Steam Deck Home Screen. Your Way.</div></div></a><p>Built with <span class="heart">&hearts;</span> by <a href="https://github.com/santojon">Jonathan Santos</a>. An open source plugin that gives you complete control over your Steam Deck home screen.</p></div><div class="foot-col"><h4>Explore</h4><a href="../../index.html#features">Features</a><a href="../../index.html#showcase">Screenshots</a><a href="../../index.html#install">Installation</a><a href="https://github.com/santojon/Deck-Shelves/tree/main/docs">Docs</a></div><div class="foot-col"><h4>Community</h4><a href="https://github.com/santojon/Deck-Shelves">GitHub</a><a href="https://discord.gg/EChuVEDakk">Discord</a><a href="https://www.reddit.com/r/DeckShelves/">Reddit</a><a href="https://ko-fi.com/santojon">Support on Ko-fi</a><a href="https://www.npmjs.com/package/@deck-shelves/api">API on npm</a></div><div class="foot-col"><h4>Reports</h4><a href="../../reports/index.html">Validation reports</a><a href="../../reports/dashboard.html">Reports dashboard</a><a href="../../reports/ci/index.html">CI reports</a><a href="../../reports/release/index.html">Release reports</a></div></div></div><hr class="foot-rule"><div class="container"><div class="foot-disclaimer">Steam Deck and Steam are trademarks and/or registered trademarks of Valve Corporation. Decky and Decky Loader are trademarks of their respective owners. Deck Shelves is an independent plugin and is not affiliated with, endorsed, or sponsored by Valve Corporation or the Decky Loader project.</div></div><hr class="foot-rule"><div class="container"><div class="foot-bottom"><span>&copy; 2026 Deck Shelves &middot; BSD 3-Clause &middot; by <a href="https://github.com/santojon">Jonathan Santos</a></span><span>Made for Steam Deck.</span></div></div></footer>
+</body>
+</html>
