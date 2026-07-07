@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "Lista de deseos — sincronizada una vez al día",
   "online_privacy_title": "Activar funciones en línea",
   "online_wishlist": "Fuente: lista de deseos",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "Metadatos de juegos no-Steam",
+  "online_metadata_desc": "Solo se obtiene cuando el dato no está disponible localmente.",
   "reset_all_button": "Restablecer todo",
   "reset_all_confirm_desc": "Esto eliminará permanentemente todas las estanterías, ajustes y cachés de Deck Shelves. No se puede deshacer.",
   "reset_all_confirm_ok": "Restablecer",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "Ocultos",
   "settings_statistics_cardtype_normal": "Normales",
   "settings_statistics_shelftype_normal": "Normales",
-  "settings_statistics_shelftype_smart": "Inteligentes"
+  "settings_statistics_shelftype_smart": "Inteligentes",
+  "cache_management_title": "Gestión de caché",
+  "cache_management_desc": "Borra la caché por origen. Las cachés borradas se reconstruyen al usarlas.",
+  "cache_group_images": "Ilustraciones de tarjetas",
+  "cache_group_store": "Tienda (ofertas / gratis)",
+  "cache_group_wishlist": "Lista de deseos y precios",
+  "cache_group_metadata": "Metadatos no-Steam",
+  "cache_group_update": "Comprobación de actualizaciones",
+  "cache_clear": "Borrar",
+  "cache_clear_all": "Borrar todas las cachés",
+  "cache_clear_all_confirm": "¿Borrar todas las cachés? Los datos se reconstruyen al usarlos.",
+  "cache_cleared": "Caché borrada"
 }

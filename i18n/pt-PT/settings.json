@@ -390,7 +390,7 @@
   "online_privacy_title": "Ativar funcionalidades online",
   "online_wishlist": "Fonte: lista de desejos",
   "online_metadata": "Metadados de jogos não-Steam",
-  "online_metadata_desc": "Busca metacritic / avaliações / lançamento online, só quando não disponíveis localmente — para filtros e ordenação por nota funcionarem com GOG/Epic/Amazon (Unifideck) e jogos não instalados.",
+  "online_metadata_desc": "Só obtém quando o dado não está disponível localmente.",
   "reset_all_button": "Repor tudo",
   "reset_all_confirm_desc": "Isto apaga permanentemente todas as prateleiras, definições e caches do Deck Shelves. Não pode ser anulado.",
   "reset_all_confirm_ok": "Repor",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "Ocultos",
   "settings_statistics_cardtype_normal": "Normais",
   "settings_statistics_shelftype_normal": "Normais",
-  "settings_statistics_shelftype_smart": "Inteligentes"
+  "settings_statistics_shelftype_smart": "Inteligentes",
+  "cache_management_title": "Gestão de cache",
+  "cache_management_desc": "Limpe a cache por origem. As caches limpas são reconstruídas no próximo uso.",
+  "cache_group_images": "Imagens dos cartões",
+  "cache_group_store": "Loja (promoções / grátis)",
+  "cache_group_wishlist": "Lista de desejos e preços",
+  "cache_group_metadata": "Metadados não-Steam",
+  "cache_group_update": "Verificação de atualização",
+  "cache_clear": "Limpar",
+  "cache_clear_all": "Limpar todas as caches",
+  "cache_clear_all_confirm": "Limpar todas as caches? Os dados são reconstruídos no próximo uso.",
+  "cache_cleared": "Cache limpa"
 }

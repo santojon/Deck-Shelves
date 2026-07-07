@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-let settings: any = { onlineFeaturesEnabled: true, onlineMetadataEnabled: true }
+let settings: any = { advancedModeEnabled: true, onlineFeaturesEnabled: true, onlineMetadataEnabled: true }
 vi.mock('../../store/settingsStore', () => ({ getCurrentSettings: () => settings }))
 vi.mock('../../runtime/logger', () => ({ logInfo: () => {}, logWarn: () => {} }))
 
@@ -22,7 +22,7 @@ const localStorageStub = {
 beforeEach(() => {
   vi.stubGlobal('localStorage', localStorageStub)
   lsStore.clear()
-  settings = { onlineFeaturesEnabled: true, onlineMetadataEnabled: true }
+  settings = { advancedModeEnabled: true, onlineFeaturesEnabled: true, onlineMetadataEnabled: true }
 })
 afterEach(() => vi.unstubAllGlobals())
 

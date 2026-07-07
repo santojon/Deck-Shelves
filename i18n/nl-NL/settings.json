@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "Verlanglijst — één keer per dag gesynchroniseerd",
   "online_privacy_title": "Online functies inschakelen",
   "online_wishlist": "Bron: verlanglijst",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "Metadata voor niet-Steam-games",
+  "online_metadata_desc": "Wordt alleen opgehaald als de gegevens lokaal niet beschikbaar zijn.",
   "reset_all_button": "Alles resetten",
   "reset_all_confirm_desc": "Dit verwijdert permanent alle schappen, instellingen en cache van Deck Shelves. Kan niet ongedaan worden gemaakt.",
   "reset_all_confirm_ok": "Resetten",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "Verborgen",
   "settings_statistics_cardtype_normal": "Normaal",
   "settings_statistics_shelftype_normal": "Normaal",
-  "settings_statistics_shelftype_smart": "Slim"
+  "settings_statistics_shelftype_smart": "Slim",
+  "cache_management_title": "Cachebeheer",
+  "cache_management_desc": "Wis de cache per bron. Gewiste caches worden bij het volgende gebruik opnieuw opgebouwd.",
+  "cache_group_images": "Kaartafbeeldingen",
+  "cache_group_store": "Winkel (aanbiedingen / gratis)",
+  "cache_group_wishlist": "Verlanglijst & prijzen",
+  "cache_group_metadata": "Niet-Steam-metadata",
+  "cache_group_update": "Updatecontrole",
+  "cache_clear": "Wissen",
+  "cache_clear_all": "Alle caches wissen",
+  "cache_clear_all_confirm": "Alle caches wissen? Gegevens worden bij het volgende gebruik opnieuw opgebouwd.",
+  "cache_cleared": "Cache gewist"
 }

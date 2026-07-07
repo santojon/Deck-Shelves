@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "위시리스트 — 하루 1회 동기화",
   "online_privacy_title": "온라인 기능 활성화",
   "online_wishlist": "위시리스트 소스",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "비Steam 게임 메타데이터",
+  "online_metadata_desc": "로컬에 데이터가 없을 때만 가져옵니다.",
   "reset_all_button": "모두 초기화",
   "reset_all_confirm_desc": "Deck Shelves의 모든 셸프, 설정, 캐시가 영구적으로 삭제됩니다. 되돌릴 수 없습니다.",
   "reset_all_confirm_ok": "초기화",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "숨김",
   "settings_statistics_cardtype_normal": "일반",
   "settings_statistics_shelftype_normal": "일반",
-  "settings_statistics_shelftype_smart": "스마트"
+  "settings_statistics_shelftype_smart": "스마트",
+  "cache_management_title": "캐시 관리",
+  "cache_management_desc": "소스별로 캐시를 지웁니다. 지운 캐시는 다음 사용 시 다시 만들어집니다.",
+  "cache_group_images": "카드 아트워크",
+  "cache_group_store": "상점 (할인 / 무료)",
+  "cache_group_wishlist": "위시리스트 및 가격",
+  "cache_group_metadata": "비Steam 메타데이터",
+  "cache_group_update": "업데이트 확인",
+  "cache_clear": "지우기",
+  "cache_clear_all": "모든 캐시 지우기",
+  "cache_clear_all_confirm": "모든 캐시를 지울까요? 데이터는 다음 사용 시 다시 만들어집니다.",
+  "cache_cleared": "캐시를 지웠습니다"
 }

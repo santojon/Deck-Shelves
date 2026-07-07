@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "İstek listesi — günde bir kez senkronize edilir",
   "online_privacy_title": "Çevrimiçi özellikleri etkinleştir",
   "online_wishlist": "Kaynak: istek listesi",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "Steam dışı oyun meta verileri",
+  "online_metadata_desc": "Yalnızca veri yerel olarak mevcut değilken alınır.",
   "reset_all_button": "Tümünü sıfırla",
   "reset_all_confirm_desc": "Bu, Deck Shelves'e ait tüm rafları, ayarları ve önbelleği kalıcı olarak siler. Geri alınamaz.",
   "reset_all_confirm_ok": "Sıfırla",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "Gizli",
   "settings_statistics_cardtype_normal": "Normal",
   "settings_statistics_shelftype_normal": "Normal",
-  "settings_statistics_shelftype_smart": "Akıllı"
+  "settings_statistics_shelftype_smart": "Akıllı",
+  "cache_management_title": "Önbellek yönetimi",
+  "cache_management_desc": "Önbelleği kaynağa göre temizleyin. Temizlenen önbellekler sonraki kullanımda yeniden oluşur.",
+  "cache_group_images": "Kart görselleri",
+  "cache_group_store": "Mağaza (indirimler / ücretsiz)",
+  "cache_group_wishlist": "İstek listesi ve fiyatlar",
+  "cache_group_metadata": "Steam dışı meta veriler",
+  "cache_group_update": "Güncelleme denetimi",
+  "cache_clear": "Temizle",
+  "cache_clear_all": "Tüm önbellekleri temizle",
+  "cache_clear_all_confirm": "Tüm önbellekler temizlensin mi? Veriler sonraki kullanımda yeniden oluşur.",
+  "cache_cleared": "Önbellek temizlendi"
 }

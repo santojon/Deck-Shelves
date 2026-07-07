@@ -98,11 +98,12 @@ function needsMeta(a: any): boolean {
   return a.metacritic_score == null || a.review_percentage == null || a.rt_original_release_date == null;
 }
 
-/** On only when both the master online toggle and the metadata sub-toggle are on. */
+/** On only in Advanced mode with both the master online toggle and the metadata
+ *  sub-toggle enabled — the whole feature is Advanced-only. */
 export function onlineMetadataOn(): boolean {
   try {
     const s = getCurrentSettings() as any;
-    return !!(s && s.onlineFeaturesEnabled && s.onlineMetadataEnabled);
+    return !!(s && s.advancedModeEnabled && s.onlineFeaturesEnabled && s.onlineMetadataEnabled);
   } catch { return false; }
 }
 

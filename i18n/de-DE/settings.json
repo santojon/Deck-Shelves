@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "Wunschliste – einmal täglich aktualisiert",
   "online_privacy_title": "Online-Funktionen aktivieren",
   "online_wishlist": "Wunschliste als Quelle",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "Metadaten für Nicht-Steam-Spiele",
+  "online_metadata_desc": "Wird nur abgerufen, wenn die Daten lokal nicht verfügbar sind.",
   "reset_all_button": "Alles zurücksetzen",
   "reset_all_confirm_desc": "Dies löscht alle Regale, Einstellungen und Caches von Deck Shelves dauerhaft. Kann nicht rückgängig gemacht werden.",
   "reset_all_confirm_ok": "Zurücksetzen",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "Ausgeblendet",
   "settings_statistics_cardtype_normal": "Normal",
   "settings_statistics_shelftype_normal": "Normal",
-  "settings_statistics_shelftype_smart": "Smart"
+  "settings_statistics_shelftype_smart": "Smart",
+  "cache_management_title": "Cache-Verwaltung",
+  "cache_management_desc": "Cache pro Quelle leeren. Geleerte Caches werden bei nächster Nutzung neu aufgebaut.",
+  "cache_group_images": "Karten-Artwork",
+  "cache_group_store": "Shop (Angebote / gratis)",
+  "cache_group_wishlist": "Wunschliste & Preise",
+  "cache_group_metadata": "Nicht-Steam-Metadaten",
+  "cache_group_update": "Update-Prüfung",
+  "cache_clear": "Leeren",
+  "cache_clear_all": "Alle Caches leeren",
+  "cache_clear_all_confirm": "Alle Caches leeren? Daten werden bei nächster Nutzung neu aufgebaut.",
+  "cache_cleared": "Cache geleert"
 }

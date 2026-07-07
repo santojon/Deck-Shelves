@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "愿望单 — 每天同步一次",
   "online_privacy_title": "启用在线功能",
   "online_wishlist": "来源：愿望单",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "非 Steam 游戏元数据",
+  "online_metadata_desc": "仅在本地没有数据时获取。",
   "reset_all_button": "全部重置",
   "reset_all_confirm_desc": "这将永久删除 Deck Shelves 的所有货架、设置和缓存。无法撤销。",
   "reset_all_confirm_ok": "重置",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "隐藏",
   "settings_statistics_cardtype_normal": "普通",
   "settings_statistics_shelftype_normal": "普通",
-  "settings_statistics_shelftype_smart": "智能"
+  "settings_statistics_shelftype_smart": "智能",
+  "cache_management_title": "缓存管理",
+  "cache_management_desc": "按来源清除缓存。清除后将在下次使用时重建。",
+  "cache_group_images": "卡片封面",
+  "cache_group_store": "商店（特惠 / 免费）",
+  "cache_group_wishlist": "愿望单与价格",
+  "cache_group_metadata": "非 Steam 元数据",
+  "cache_group_update": "更新检查",
+  "cache_clear": "清除",
+  "cache_clear_all": "清除所有缓存",
+  "cache_clear_all_confirm": "清除所有缓存？数据将在下次使用时重建。",
+  "cache_cleared": "缓存已清除"
 }

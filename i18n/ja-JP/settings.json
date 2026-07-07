@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "ウィッシュリスト — 1日1回同期",
   "online_privacy_title": "オンライン機能を有効にする",
   "online_wishlist": "ウィッシュリストソース",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "非Steamゲームのメタデータ",
+  "online_metadata_desc": "ローカルにデータがない場合のみ取得します。",
   "reset_all_button": "すべてリセット",
   "reset_all_confirm_desc": "Deck Shelves のすべての棚、設定、キャッシュを完全に削除します。元に戻せません。",
   "reset_all_confirm_ok": "リセット",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "非表示",
   "settings_statistics_cardtype_normal": "通常",
   "settings_statistics_shelftype_normal": "通常",
-  "settings_statistics_shelftype_smart": "スマート"
+  "settings_statistics_shelftype_smart": "スマート",
+  "cache_management_title": "キャッシュ管理",
+  "cache_management_desc": "ソースごとにキャッシュを消去します。消去後は次回使用時に再作成されます。",
+  "cache_group_images": "カードのアートワーク",
+  "cache_group_store": "ストア（セール / 無料）",
+  "cache_group_wishlist": "ウィッシュリストと価格",
+  "cache_group_metadata": "非Steamのメタデータ",
+  "cache_group_update": "更新チェック",
+  "cache_clear": "消去",
+  "cache_clear_all": "すべてのキャッシュを消去",
+  "cache_clear_all_confirm": "すべてのキャッシュを消去しますか？データは次回使用時に再作成されます。",
+  "cache_cleared": "キャッシュを消去しました"
 }

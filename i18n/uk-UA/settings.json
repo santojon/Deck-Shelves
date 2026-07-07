@@ -389,8 +389,8 @@
   "online_privacy_item_wishlist": "Список бажань — синхронізується раз на день",
   "online_privacy_title": "Увімкнути онлайн-функції",
   "online_wishlist": "Джерело: список бажань",
-  "online_metadata": "Non-Steam game metadata",
-  "online_metadata_desc": "Fetches metacritic / review / release info online, only when it isn't available locally — so rating filters and sorts work for GOG/Epic/Amazon (Unifideck) and uninstalled games.",
+  "online_metadata": "Метадані не-Steam ігор",
+  "online_metadata_desc": "Завантажується лише коли дані недоступні локально.",
   "reset_all_button": "Скинути все",
   "reset_all_confirm_desc": "Це остаточно видалить усі полиці, налаштування та кеш Deck Shelves. Скасувати неможливо.",
   "reset_all_confirm_ok": "Скинути",
@@ -890,5 +890,16 @@
   "settings_statistics_cardtype_hidden": "Приховані",
   "settings_statistics_cardtype_normal": "Звичайні",
   "settings_statistics_shelftype_normal": "Звичайні",
-  "settings_statistics_shelftype_smart": "Розумні"
+  "settings_statistics_shelftype_smart": "Розумні",
+  "cache_management_title": "Керування кешем",
+  "cache_management_desc": "Очищення кешу за джерелом. Очищений кеш відновиться при наступному використанні.",
+  "cache_group_images": "Обкладинки карток",
+  "cache_group_store": "Магазин (знижки / безкоштовне)",
+  "cache_group_wishlist": "Список бажаного та ціни",
+  "cache_group_metadata": "Метадані не-Steam",
+  "cache_group_update": "Перевірка оновлень",
+  "cache_clear": "Очистити",
+  "cache_clear_all": "Очистити весь кеш",
+  "cache_clear_all_confirm": "Очистити весь кеш? Дані відновляться при наступному використанні.",
+  "cache_cleared": "Кеш очищено"
 }
