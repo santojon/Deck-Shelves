@@ -70,9 +70,10 @@ export function hiddenValueFromMode(mode: string): ShelfFilter["hidden"] {
   return undefined;
 }
 
-export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
+// Boolean/enum flag filters (installed / favorites / nonSteam / hidden /
+// updatePending) as FilterItems, in legacy order.
+function legacyFlagItems(filter: ShelfFilter): FilterItem[] {
   const items: FilterItem[] = [];
-
   if (filter.installed !== undefined) {
     items.push({ type: "installed", inverted: filter.installed === false, params: {} });
   }
@@ -91,6 +92,12 @@ export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
   if (filter.updatePending !== undefined) {
     items.push({ type: "updatePending", inverted: filter.updatePending === false, params: {} });
   }
+  return items;
+}
+
+// Range/compat filters (deck compatibility / recent play / playtime range).
+function legacyRangeItems(filter: ShelfFilter): FilterItem[] {
+  const items: FilterItem[] = [];
   if (filter.deckCompatibility && filter.deckCompatibility.length > 0) {
     items.push({ type: "deckCompatibility", inverted: false, params: { levels: filter.deckCompatibility } });
   }
@@ -107,13 +114,27 @@ export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
       },
     });
   }
+  return items;
+}
+
+// Name-matching filters (substring / regex).
+function legacyNameItems(filter: ShelfFilter): FilterItem[] {
+  const items: FilterItem[] = [];
   if (filter.nameIncludes) {
     items.push({ type: "nameIncludes", inverted: false, params: { text: filter.nameIncludes } });
   }
   if (filter.nameRegex) {
     items.push({ type: "nameRegex", inverted: false, params: { pattern: filter.nameRegex } });
   }
+  return items;
+}
 
+export function legacyFilterToGroup(filter: ShelfFilter): FilterGroup {
+  const items: FilterItem[] = [
+    ...legacyFlagItems(filter),
+    ...legacyRangeItems(filter),
+    ...legacyNameItems(filter),
+  ];
   return { mode: "and", items };
 }
 

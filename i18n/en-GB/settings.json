@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Co-loaded plugins",
+  "diag_config": "Deck Shelves configuration",
   "diag_refresh": "Refresh",
   "resolver_title": "Source resolver",
   "resolver_desc": "Live-evaluate a shelf (read-only).",

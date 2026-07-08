@@ -111,3 +111,78 @@ export function collectRuntimeInfo(): RuntimeInfo {
     nonSteamBadges: pluginRegistry.isNonSteamBadgesInstalled(),
   };
 }
+
+const onOff = (v: any) => (v ? "on" : "off");
+
+// Global-visual on/off toggles surfaced in the config summary: [settings key, label].
+const VISUAL_ENABLED_FLAGS: Array<[string, string]> = [
+  ["globalMatchNativeSize", "match-native"],
+  ["globalHighlightFirst", "highlight-first"],
+  ["globalHighlightAll", "highlight-all"],
+  ["globalHighlightRandom", "highlight-random"],
+  ["globalEnableLogo", "logo"],
+  ["globalEnableIcon", "icon"],
+  ["globalEnableDescription", "description"],
+  ["globalHeroEnabled", "hero"],
+  ["globalGameInfoAbove", "info-above"],
+  ["globalFriendsPlayingOverlay", "friends"],
+  ["globalFriendsPlayingOverlayRecent", "friends-recent"],
+  ["globalFullPageShelf", "full-page"],
+  ["globalDescriptionBelowLogo", "desc-below-logo"],
+  ["globalLogoBelowShelf", "logo-below-shelf"],
+  ["globalDedupeByName", "dedupe-by-name"],
+];
+
+// Global-visual "hide element" toggles.
+const VISUAL_HIDE_FLAGS: Array<[string, string]> = [
+  ["globalHideStatusLine", "status-line"],
+  ["globalHideNewBadge", "new-badge"],
+  ["globalHideDiscountBadge", "discount-badge"],
+  ["globalHideCompatIcons", "compat-icons"],
+  ["globalHideNonSteamBadge", "nonsteam-badge"],
+  ["globalHideShelfTitle", "shelf-title"],
+  ["globalHideGameNames", "game-names"],
+  ["globalHideInstallIndicator", "install-indicator"],
+  ["globalHideSeeMore", "see-more"],
+  ["globalHideRefreshCard", "refresh-card"],
+];
+
+// The QAM "Additional features" section (matches the `additional` section's toggles).
+function featureLine(s: any): string {
+  return `Features: Update notify ${onOff(s.updateNotifyEnabled !== false)} (beta ${onOff(s.betaChannelEnabled)}) · Quick Search ${onOff(s.contextSearchEnabled)} · Side Nav ${onOff(s.sideNavEnabled)} · Online ${onOff(s.onlineFeaturesEnabled)} · Force CSS themes ${onOff(s.forceCssLoaderThemes)}`;
+}
+
+// Global visual: the enabled toggles, the hidden elements, and the numeric /
+// position values (— when unset, so it falls back to the built-in default).
+function visualLines(s: any): string[] {
+  const on = VISUAL_ENABLED_FLAGS.filter(([k]) => s[k]).map(([, l]) => l);
+  const hidden = VISUAL_HIDE_FLAGS.filter(([k]) => s[k]).map(([, l]) => l);
+  const val = (v: any, unit = "") => (v == null ? "—" : `${v}${unit}`);
+  return [
+    `Global visual on: ${on.length ? on.join(", ") : "none"}`,
+    `Global visual hidden: ${hidden.length ? hidden.join(", ") : "none"}`,
+    `Global visual values: desc-scale ${val(s.globalDescriptionScale, "%")} · logo ${val(s.globalLogoPosition)}/${val(s.globalLogoSize, "%")}/${val(s.globalLogoTopOffset, "%")} · desc ${val(s.globalDescriptionPosition)}/h${val(s.globalDescriptionHeight)}/gap ${val(s.globalDescriptionLogoGap, "px")} · icon ${val(s.globalIconVerticalAlign)} · title ${val(s.globalShelfTitlePosition)} · name ${val(s.globalGameNamePosition)} · playtime ${val(s.globalPlaytimePosition)}`,
+  ];
+}
+
+/* Compact human-readable summary of the user's currently-active Deck Shelves
+   configuration — counts, core toggles, the Additional-features section and the
+   Global-visual toggles + values — for the System information panel (and its
+   copyable dump). Read-only; tolerant of missing fields. Labels stay in English
+   so a copied dump reads the same regardless of UI language. */
+export function summarizeConfig(settings: any): string[] {
+  const s = settings ?? {};
+  const count = (v: any) => (Array.isArray(v) ? v.length : 0);
+  const recents = s.recentsReplaceSource ? "replaced" : s.hideRecents ? "hidden" : "default";
+  const active = s.activeProfileName ? ` · active "${s.activeProfileName}"` : "";
+  return [
+    `Master: ${onOff(s.enabled !== false)}`,
+    `Shelves: ${count(s.shelves)} · smart ${count(s.smartShelves)} (${onOff(s.smartShelvesEnabled)})`,
+    `Profiles: ${count(s.profiles)}${active}`,
+    `Saved filters: ${count(s.savedFilters)} · smart ${count(s.savedSmartFilters)}`,
+    `Modes: Light ${onOff(s.lightModeEnabled)} · Advanced ${onOff(s.advancedModeEnabled)} · Developer ${onOff(s.devModeEnabled)}`,
+    `Recents: ${recents} · Home tabs: ${s.hideHomeTabs ? "hidden" : "shown"} · Debug overlay: ${onOff(s.debugOverlayEnabled)}`,
+    featureLine(s),
+    ...visualLines(s),
+  ];
+}

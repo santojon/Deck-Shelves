@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "共同加载的插件",
+  "diag_config": "Deck Shelves 配置",
   "diag_refresh": "刷新",
   "resolver_title": "来源解析器",
   "resolver_desc": "实时评估书架（只读）。",

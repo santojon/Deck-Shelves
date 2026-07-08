@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Mitgeladene Plugins",
+  "diag_config": "Deck Shelves-Konfiguration",
   "diag_refresh": "Aktualisieren",
   "resolver_title": "Quellen-Resolver",
   "resolver_desc": "Ein Regal live auswerten (schreibgeschützt).",

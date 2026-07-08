@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Завантажені плагіни",
+  "diag_config": "Конфігурація Deck Shelves",
   "diag_refresh": "Оновити",
   "resolver_title": "Резолвер джерела",
   "resolver_desc": "Оцінити полицю наживо (лише читання).",

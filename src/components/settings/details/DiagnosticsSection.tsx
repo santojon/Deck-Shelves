@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { collectRuntimeInfo, collectSystemInfo, listCoLoadedPlugins, type SystemInfo } from "../../../runtime/diagnosticsInfo";
+import { collectRuntimeInfo, collectSystemInfo, listCoLoadedPlugins, summarizeConfig, type SystemInfo } from "../../../runtime/diagnosticsInfo";
+import { getCurrentSettings } from "../../../settingsStore";
 import { CheckIcon, CopyIcon, RefreshIcon, ToolsIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { copyToClipboard } from "../../ui/clipboard";
@@ -27,6 +28,7 @@ export function DiagnosticsSection({ t }: { t: (key: string) => string }) {
   const [sys, setSys] = useState<SystemInfo | null>(null);
   const info = useMemo(() => collectRuntimeInfo(), [tick]);
   const plugins = useMemo(() => listCoLoadedPlugins(), [tick]);
+  const config = useMemo(() => summarizeConfig(getCurrentSettings()), [tick]);
   const refresh = () => setTick((n) => n + 1);
 
   useEffect(() => {
@@ -54,6 +56,8 @@ export function DiagnosticsSection({ t }: { t: (key: string) => string }) {
       ...strRows.map(([k, v]) => `${t(k)}: ${v}`),
       ...boolRows.map(([k, v]) => `${t(k)}: ${v ? "yes" : "no"}`),
       `${t("diag_plugins")}: ${plugins.length ? plugins.join(", ") : DASH}`,
+      `${t("diag_config")}:`,
+      ...config.map((line) => `  ${line}`),
     ];
     void copyToClipboard(lines.join("\n")).then((ok) => {
       if (ok) notify("copy", { body: t("diag_copied") });
@@ -94,6 +98,12 @@ export function DiagnosticsSection({ t }: { t: (key: string) => string }) {
         <Focusable onActivate={() => { /* leaf — focus only */ }} focusWithinClassName="gpfocuswithin" style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4, borderRadius: 4, padding: "4px 6px" }}>
           <span style={{ fontSize: 13 }}>{t("diag_plugins")}</span>
           <span style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.5, wordBreak: "break-word" }}>{plugins.length ? plugins.join(", ") : DASH}</span>
+        </Focusable>
+        <Focusable onActivate={() => { /* leaf — focus only */ }} focusWithinClassName="gpfocuswithin" style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4, borderRadius: 4, padding: "4px 6px" }}>
+          <span style={{ fontSize: 13 }}>{t("diag_config")}</span>
+          {config.map((line, i) => (
+            <span key={i} style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.5, wordBreak: "break-word" }}>{line}</span>
+          ))}
         </Focusable>
       </Focusable>
     </CollapsibleSection>

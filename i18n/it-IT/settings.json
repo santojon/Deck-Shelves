@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Plugin caricati insieme",
+  "diag_config": "Configurazione di Deck Shelves",
   "diag_refresh": "Aggiorna",
   "resolver_title": "Risolutore origine",
   "resolver_desc": "Valuta uno scaffale in tempo reale (sola lettura).",

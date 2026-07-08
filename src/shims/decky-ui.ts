@@ -24,54 +24,61 @@ const noop = () => {};
    fallback renders both visibly with the standard Decky row layout so
    the plugin remains usable while Decky catches up. */
 import { createElement } from 'react';
+
+function buildLabel(label: any, icon: any) {
+  if (label == null) return null;
+  return createElement(
+    'div',
+    {
+      style: {
+        display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500,
+        flex: 1, minWidth: 0,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      },
+    },
+    icon ?? null,
+    label,
+  );
+}
+
+function buildRow(labelEl: any, label: any, children: any, stackChildren: boolean) {
+  if (label == null && children == null) return null;
+  return createElement(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        flexDirection: stackChildren ? 'column' : 'row',
+        alignItems: stackChildren ? 'stretch' : 'center',
+        gap: 8, width: '100%',
+      },
+    },
+    labelEl,
+    children != null
+      ? createElement('div', {
+          /* When there's no label the children container should expand to
+             fill the row — otherwise an inner Focusable with `width: 100%`
+             collapses to the children's natural width and right-aligned items
+             (justify-content: space-between) end up flush against the left
+             buttons. */
+          style: {
+            display: 'flex', alignItems: 'center',
+            flexGrow: label != null ? 0 : 1,
+            flexShrink: label != null ? 0 : 1,
+            minWidth: 0,
+          },
+        }, children)
+      : null,
+  );
+}
+
 const fieldFallback = (props: any) => {
   const { label, description, children, icon, bottomSeparator, indentLevel, childrenLayout } = props ?? {};
   const indentPx = (indentLevel || 0) * 16;
   const border = bottomSeparator === 'none' ? 'none' : '1px solid rgba(255,255,255,0.08)';
   const stackChildren = childrenLayout === 'below';
-  const labelEl = label != null
-    ? createElement(
-        'div',
-        {
-          style: {
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500,
-            flex: 1, minWidth: 0,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          },
-        },
-        icon ?? null,
-        label,
-      )
-    : null;
-  const row = (label != null || children != null)
-    ? createElement(
-        'div',
-        {
-          style: {
-            display: 'flex',
-            flexDirection: stackChildren ? 'column' : 'row',
-            alignItems: stackChildren ? 'stretch' : 'center',
-            gap: 8, width: '100%',
-          },
-        },
-        labelEl,
-        children != null
-          ? createElement('div', {
-              /* When there's no label the children container should
-                 expand to fill the row — otherwise an inner Focusable
-                 with `width: 100%` collapses to the children's natural
-                 width and right-aligned items (justify-content:
-                 space-between) end up flush against the left buttons. */
-              style: {
-                display: 'flex', alignItems: 'center',
-                flexGrow: label != null ? 0 : 1,
-                flexShrink: label != null ? 0 : 1,
-                minWidth: 0,
-              },
-            }, children)
-          : null,
-      )
-    : null;
+  const labelEl = buildLabel(label, icon);
+  const row = buildRow(labelEl, label, children, stackChildren);
   return createElement(
     'div',
     {

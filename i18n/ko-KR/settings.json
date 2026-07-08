@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "함께 로드된 플러그인",
+  "diag_config": "Deck Shelves 구성",
   "diag_refresh": "새로 고침",
   "resolver_title": "소스 리졸버",
   "resolver_desc": "선반을 실시간 평가 (읽기 전용).",

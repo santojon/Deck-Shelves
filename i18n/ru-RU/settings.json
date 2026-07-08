@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Загруженные плагины",
+  "diag_config": "Конфигурация Deck Shelves",
   "diag_refresh": "Обновить",
   "resolver_title": "Резолвер источника",
   "resolver_desc": "Оценить полку вживую (только чтение).",

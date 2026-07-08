@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "同時読み込みプラグイン",
+  "diag_config": "Deck Shelves の設定",
   "diag_refresh": "更新",
   "resolver_title": "ソースリゾルバ",
   "resolver_desc": "シェルフをライブ評価（読み取り専用）。",

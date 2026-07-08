@@ -62,13 +62,11 @@ export function VisualTabContent({
       {/* Group: Logo + dependent options (position, size, offset) */}
       <ToggleField label={t('enable_logo')} checked={flags.enableLogo} onChange={(v: boolean) => setFlags({ enableLogo: v })} />
       {flags.enableLogo && (
-        <PositionDropdown labelKey='logo_position_label' value={flags.logoPosition} onChange={(v) => setFlags({ logoPosition: v })} />
-      )}
-      {flags.enableLogo && (
-        <DSSliderField label={t('logo_size_label' as any)} value={flags.logoSize} min={50} max={200} step={5} unit='%' onChange={(v: number) => setFlags({ logoSize: v })} />
-      )}
-      {flags.enableLogo && (
-        <DSSliderField label={t('logo_top_offset_label' as any)} value={flags.logoTopOffset} min={-50} max={100} step={5} unit='%' onChange={(v: number) => setFlags({ logoTopOffset: v })} />
+        <>
+          <PositionDropdown labelKey='logo_position_label' value={flags.logoPosition} onChange={(v) => setFlags({ logoPosition: v })} />
+          <DSSliderField label={t('logo_size_label' as any)} value={flags.logoSize} min={50} max={200} step={5} unit='%' onChange={(v: number) => setFlags({ logoSize: v })} />
+          <DSSliderField label={t('logo_top_offset_label' as any)} value={flags.logoTopOffset} min={-50} max={100} step={5} unit='%' onChange={(v: number) => setFlags({ logoTopOffset: v })} />
+        </>
       )}
 
       <GroupDivider />

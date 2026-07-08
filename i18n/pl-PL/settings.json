@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Współzaładowane wtyczki",
+  "diag_config": "Konfiguracja Deck Shelves",
   "diag_refresh": "Odśwież",
   "resolver_title": "Resolver źródła",
   "resolver_desc": "Ocena półki na żywo (tylko do odczytu).",

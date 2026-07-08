@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Birlikte yüklenen eklentiler",
+  "diag_config": "Deck Shelves yapılandırması",
   "diag_refresh": "Yenile",
   "resolver_title": "Kaynak çözümleyici",
   "resolver_desc": "Bir rafı canlı değerlendir (salt okunur).",

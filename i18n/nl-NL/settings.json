@@ -912,6 +912,7 @@
   "diag_unifideck": "UnifiDeck",
   "diag_nonsteambadges": "Non-Steam Badges",
   "diag_plugins": "Meegeladen plug-ins",
+  "diag_config": "Deck Shelves-configuratie",
   "diag_refresh": "Vernieuwen",
   "resolver_title": "Bronresolver",
   "resolver_desc": "Evalueer een plank live (alleen-lezen).",

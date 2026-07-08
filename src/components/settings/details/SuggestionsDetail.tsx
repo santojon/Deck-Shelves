@@ -41,14 +41,21 @@ function suggestionIcon(sg: StatSuggestion): React.ReactNode {
   return <Fallback size={26} />;
 }
 
-function SuggestionBlock(
-  { t, sg, why, applied, onApply }:
-  { t: (k: string) => string; sg: StatSuggestion; why: string; applied: boolean; onApply: () => void },
-) {
+/* Derive the display name + the apply/done i18n keys for one suggestion
+   (template shelf, smart shelf, or a remove-shelf action). */
+function suggestionLabels(t: (k: string) => string, sg: StatSuggestion) {
   const tpl = sg.templateId ? SHELF_TEMPLATES.find((x) => x.id === sg.templateId) : undefined;
   const name = tpl ? t(tpl.titleKey) : sg.smartMode ? t(`smart_template_${sg.smartMode}`) : sg.removeShelfId ? String(sg.params.name ?? "") : "";
   const actionKey = sg.removeShelfId ? "settings_statistics_suggestion_remove" : "settings_statistics_suggestion_apply";
   const doneKey = sg.removeShelfId ? "settings_statistics_suggestion_removed" : "settings_statistics_suggestion_added";
+  return { name, actionKey, doneKey };
+}
+
+function SuggestionBlock(
+  { t, sg, why, applied, onApply }:
+  { t: (k: string) => string; sg: StatSuggestion; why: string; applied: boolean; onApply: () => void },
+) {
+  const { name, actionKey, doneKey } = suggestionLabels(t, sg);
   return (
     <Focusable
       className="ds-stat-sg"

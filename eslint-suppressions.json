@@ -27,11 +27,6 @@
       "count": 1
     }
   },
-  "src/components/ShelfModalRoute.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/filter/FilterItemOptions.tsx": {
     "complexity": {
       "count": 1
@@ -97,16 +92,6 @@
       "count": 4
     }
   },
-  "src/components/qam/modals/editShelf/SortField.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/qam/modals/editShelf/VisualTabContent.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/qam/modals/editShelf/buildInitialState.ts": {
     "complexity": {
       "count": 1
@@ -122,22 +107,12 @@
       "count": 1
     }
   },
-  "src/components/settings/details/ButtonBindingsDetail.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/settings/details/ShelvesDetail.tsx": {
     "complexity": {
       "count": 2
     }
   },
   "src/components/settings/details/StatisticsDetail.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/settings/details/SuggestionsDetail.tsx": {
     "complexity": {
       "count": 1
     }
@@ -227,11 +202,6 @@
       "count": 2
     }
   },
-  "src/domain/settings.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/features/search/SearchOverlay.tsx": {
     "complexity": {
       "count": 2
@@ -312,24 +282,9 @@
       "count": 2
     }
   },
-  "src/shims/decky-ui.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/shims/react-dom-client.ts": {
     "complexity": {
       "count": 2
-    }
-  },
-  "src/steam/appDescriptionsCache.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/steam/appDetailsCache.ts": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/steam/index.ts": {
@@ -343,11 +298,6 @@
   "src/steam/smartShelves.ts": {
     "complexity": {
       "count": 3
-    }
-  },
-  "src/types.ts": {
-    "complexity": {
-      "count": 1
     }
   }
 }
