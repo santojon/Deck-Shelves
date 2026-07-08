@@ -16,6 +16,11 @@ export default defineConfig({
       '@decky/manifest': fileURLToPath(new URL('./src/test/stubs/decky-manifest.ts', import.meta.url)),
       '@decky/api': fileURLToPath(new URL('./src/test/stubs/decky-api.ts', import.meta.url)),
       '@decky/ui': fileURLToPath(new URL('./src/test/stubs/decky-ui.ts', import.meta.url)),
+      // Resolve the workspace packages to their source (mirrors tsconfig `paths`
+      // + the vite.plugin.config alias) so tests don't need the packages built
+      // to dist — CI runs vitest before any package build.
+      '@deck-shelves/host': fileURLToPath(new URL('./host/src/contract/index.ts', import.meta.url)),
+      '@deck-shelves/api': fileURLToPath(new URL('./api/src/index.ts', import.meta.url)),
     },
   },
   test: {
