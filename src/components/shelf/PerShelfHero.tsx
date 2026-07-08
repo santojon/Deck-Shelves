@@ -1091,7 +1091,7 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
             style={{
               marginTop: wantsLogo ? descriptionLogoGap : 0,
               maxWidth: 'min(calc(var(--ds-eff-card-w, 188px) * 4 + var(--ds-eff-card-gap, 16px) * 3), 72vw)',
-              fontSize: '0.74em',
+              fontSize: 'calc(0.74em * var(--ds-eff-desc-scale, 1))',
               lineHeight: 1.2,
               color: 'rgba(255,255,255,0.85)',
               textShadow: '0 2px 8px rgba(0,0,0,0.7)',

@@ -41,6 +41,7 @@ export function createGlobalVisualActions(deps: GlobalVisualDeps) {
     setGlobalEnableLogo: (v: boolean) => setBool("globalEnableLogo" as any, v),
     setGlobalEnableIcon: (v: boolean) => setBool("globalEnableIcon" as any, v),
     setGlobalEnableDescription: (v: boolean) => setBool("globalEnableDescription" as any, v),
+    setGlobalDescriptionScale: (v: number) => setClampedNumber("globalDescriptionScale" as any, v, 100, 200),
     setGlobalDescriptionBelowLogo: (v: boolean) => setBool("globalDescriptionBelowLogo" as any, v),
     setGlobalLogoBelowShelf: (v: boolean) => setBool("globalLogoBelowShelf" as any, v),
     setGlobalLogoPosition: (v: "left" | "center" | "right") => setEnum("globalLogoPosition", v),

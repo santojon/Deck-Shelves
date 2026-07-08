@@ -5,7 +5,7 @@ import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/con
 import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
 import type { ButtonBindings } from "../../../types";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon } from "../../icons";
+import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon } from "../../icons";
 import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 
@@ -153,6 +153,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
         id="bindings-card"
         title={t("settings_card_bindings_group")}
         count={CARD_ROWS.length}
+        icon={<GamepadIcon size={14} />}
         initialOpen
         headerExtra={resetButton(CARD_ROWS)}
       >
@@ -163,6 +164,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
         id="bindings-nav"
         title={t("settings_nav_bindings_title")}
         count={navRows.length}
+        icon={<TargetIcon size={14} />}
         initialOpen
         headerExtra={resetButton(navRows)}
       >

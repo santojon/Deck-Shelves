@@ -167,7 +167,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
       <style>{SUGGESTION_STYLE}</style>
       <div style={{ fontSize: 12, opacity: 0.6, padding: "0 4px 8px" }}>{t("settings_suggestions_desc")}</div>
 
-      <CollapsibleSection id="sg-create" title={t("settings_suggestions_creation")} count={suggestions.length} initialOpen>
+      <CollapsibleSection id="sg-create" title={t("settings_suggestions_creation")} count={suggestions.length} icon={<SparkleIcon size={14} />} initialOpen>
         <ToggleField
           label={t("settings_statistics_suggest_on_create")}
           checked={(controller.settings as any)?.templateSuggestionsEnabled === true}
@@ -176,7 +176,7 @@ export function SuggestionsDetail({ controller, t }: SuggestionsDetailProps) {
         <SuggestionList t={t} items={suggestions} applied={applied} whyOf={whyOf} onApply={applySuggestion} />
       </CollapsibleSection>
 
-      <CollapsibleSection id="sg-removal" title={t("settings_suggestions_cleanup")} count={removalSuggestions.length} initialOpen>
+      <CollapsibleSection id="sg-removal" title={t("settings_suggestions_cleanup")} count={removalSuggestions.length} icon={<TrashIcon size={14} />} initialOpen>
         <ToggleField
           label={t("settings_statistics_suggest_removal")}
           checked={(controller.settings as any)?.removalSuggestionsEnabled === true}

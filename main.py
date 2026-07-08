@@ -35,7 +35,7 @@ import decky
 # by name so `from main import _sanitize_settings, _normalize_path`
 # continues to work for existing pytest suites + any external callers.
 from paths import _steam_install_candidates, _normalize_path
-from storage import _settings_dir, _primary_file, _safe_read_json
+from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS
 from sanitizer import _sanitize_settings
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
@@ -76,8 +76,10 @@ class Plugin:
                 json.dump(wrapped, f, ensure_ascii=False, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
-            # Keep a backup of the previous good write before replacing it.
+            # Keep a backup of the previous good write before replacing it:
+            # a rolling versioned snapshot (restore picker) + the single `.bak`.
             if os.path.exists(path):
+                _write_versioned_backup(path, throttle_seconds=AUTO_THROTTLE_SECONDS)
                 try:
                     os.replace(path, bak_path)
                 except Exception:
@@ -155,6 +157,68 @@ class Plugin:
     async def reset_settings(self) -> Dict[str, Any]:
         self._write_state(DEFAULT_SETTINGS)
         return dict(DEFAULT_SETTINGS)
+
+    async def list_backups(self, *args, **kwargs) -> Dict[str, Any]:
+        return await asyncio.to_thread(lambda: {"backups": _list_backups()})
+
+    def _extract_name(self, name: Any, *args, **kwargs) -> str:
+        # Decky delivers a single-object frontend arg as a positional dict.
+        if isinstance(name, dict):
+            name = name.get("name", "")
+        elif not name and kwargs.get("name"):
+            name = kwargs.get("name")
+        return str(name or "")
+
+    def _restore_backup(self, name: str) -> Dict[str, Any]:
+        if not _is_safe_backup_name(name):
+            return {"ok": False, "error": "invalid_name"}
+        bpath = os.path.join(_backups_dir(), name)
+        if not os.path.exists(bpath):
+            return {"ok": False, "error": "not_found"}
+        data = _safe_read_json(bpath)
+        state = data.get("state") if isinstance(data.get("state"), dict) else data
+        if not isinstance(state, dict) or not state:
+            return {"ok": False, "error": "invalid_backup"}
+        # Goes through the sanitizer + atomic write, which also snapshots the
+        # current state first — so a restore is itself undoable.
+        self._write_state(state)
+        return {"ok": True, "state": self._read_state()}
+
+    async def restore_backup(self, name: Any = "", *args, **kwargs) -> Dict[str, Any]:
+        resolved = self._extract_name(name, *args, **kwargs)
+        return await asyncio.to_thread(self._restore_backup, resolved)
+
+    async def create_backup(self, *args, **kwargs) -> Dict[str, Any]:
+        def _do():
+            _write_versioned_backup(_primary_file(), tag="manual")
+            return {"ok": True, "backups": _list_backups()}
+        return await asyncio.to_thread(_do)
+
+    async def export_backup(self, name: Any = "", *args, **kwargs) -> bool:
+        payload = name if isinstance(name, dict) else {"name": name, **kwargs}
+        nm = str(payload.get("name", "") or "")
+        dest = str(payload.get("dest") or payload.get("dest_path") or "")
+        return await asyncio.to_thread(_export_backup, nm, dest)
+
+    async def delete_backup(self, name: Any = "", *args, **kwargs) -> Dict[str, Any]:
+        resolved = self._extract_name(name, *args, **kwargs)
+
+        def _do():
+            return {"ok": _delete_backup(resolved), "backups": _list_backups()}
+        return await asyncio.to_thread(_do)
+
+    async def clear_backups(self, *args, **kwargs) -> Dict[str, Any]:
+        def _do():
+            return {"ok": True, "removed": _clear_backups(), "backups": _list_backups()}
+        return await asyncio.to_thread(_do)
+
+    async def import_backup(self, src_path: Any = "", *args, **kwargs) -> Dict[str, Any]:
+        payload = src_path if isinstance(src_path, dict) else {"src_path": src_path, **kwargs}
+        src = str(payload.get("src_path") or payload.get("src") or "")
+
+        def _do():
+            return {"ok": _import_backup(src), "backups": _list_backups()}
+        return await asyncio.to_thread(_do)
 
     async def get_tabmaster_tabs(self) -> Dict[str, Any]:  # noqa: C901
         """

@@ -9,7 +9,7 @@ import { getExternalStatisticsProviders, type StatisticsEntry } from "../../../c
 import { SettingsSection } from "../../ui/SettingsSection";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
-import { TrashIcon } from "../../icons";
+import { TrashIcon, StackIcon, GamepadIcon, SlidersIcon, PlayIcon } from "../../icons";
 import { BTN_COMPACT_STYLE } from "../../ui/buttonStyles";
 
 export interface StatisticsDetailProps {
@@ -43,9 +43,9 @@ const STATS_STYLE = `
    Integrations uses) so collapse/expand looks identical across screens.
    `actions` maps to its `headerExtra` slot — any top-right control (e.g. the
    icon-only clear-usage button). */
-function CollapsibleArea({ title, actions, defaultCollapsed, children }: { title: string; actions?: React.ReactNode; defaultCollapsed?: boolean; children: React.ReactNode }) {
+function CollapsibleArea({ title, icon, actions, defaultCollapsed, children }: { title: string; icon?: React.ReactNode; actions?: React.ReactNode; defaultCollapsed?: boolean; children: React.ReactNode }) {
   return (
-    <CollapsibleSection id={`stat-${title}`} title={title} count={0} initialOpen={!defaultCollapsed} headerExtra={actions}>
+    <CollapsibleSection id={`stat-${title}`} title={title} count={0} icon={icon} initialOpen={!defaultCollapsed} headerExtra={actions}>
       {children}
     </CollapsibleSection>
   );
@@ -116,10 +116,63 @@ function CategorySection({ t, cat, entries }: { t: (k: string) => string; cat: s
 function ProviderArea({ t, group }: { t: (k: string) => string; group: ProviderGroup }) {
   const cats = CATEGORY_ORDER.filter((c) => group.entries.some((e) => categoryOf(e) === c));
   return (
-    <CollapsibleArea title={providerLabel(t, group)}>
+    <CollapsibleArea title={providerLabel(t, group)} icon={group.id.includes("library") ? <GamepadIcon size={14} /> : <StackIcon size={14} />}>
       {cats.map((cat) => (
         <CategorySection key={cat} t={t} cat={cat} entries={group.entries.filter((e) => categoryOf(e) === cat)} />
       ))}
+    </CollapsibleArea>
+  );
+}
+
+const LIB_COLORS = ["#1a9fff", "#43c06d", "#ffa23a", "#bd6bff", "#38d7c4", "#8a9098"];
+
+function LibKpi({ title, value, unit }: { title: string; value: number; unit?: string }) {
+  return (
+    <Focusable className="ds-chart-block span-kpi" focusWithinClassName="gpfocuswithin" onActivate={() => {}} noFocusRing={false} style={{ outline: "none" }}>
+      <div className="ds-chart-block-title">{title}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{value}{unit ? <span style={{ fontSize: 12, opacity: 0.6 }}> {unit}</span> : null}</div>
+    </Focusable>
+  );
+}
+
+/* Library trends: a KPI row + composition charts (donuts + bar charts) built
+   from the library provider's live counts. Snapshot data — the plugin doesn't
+   track library history — presented in the same style as the shelf trends. */
+function LibraryTrendsSection({ t, groups }: { t: (k: string) => string; groups: ProviderGroup[] | null }) {
+  const lib = useMemo(() => (groups ?? []).find((g) => g.id.includes("library")) ?? null, [groups]);
+  const byId = useMemo(() => {
+    const m: Record<string, StatisticsEntry> = {};
+    for (const e of lib?.entries ?? []) m[e.id] = e;
+    return m;
+  }, [lib]);
+
+  const num = (id: string) => { const n = byId[id] ? Number(byId[id].value) : 0; return Number.isFinite(n) ? n : 0; };
+  const lbl = (id: string) => (byId[id] ? localizeLabel(t, byId[id]) : id);
+  const total = num("total_games");
+  if (total <= 0) return null;
+
+  const sl = (id: string, color: string) => ({ label: lbl(id), value: num(id), color });
+  const source = [sl("steam_games", LIB_COLORS[0]), sl("non_steam_games", LIB_COLORS[2])].filter((s) => s.value > 0);
+  const compat = [sl("deck_verified", LIB_COLORS[1]), sl("deck_playable", LIB_COLORS[2]), sl("deck_unsupported", "#e0525b"), sl("deck_unknown", LIB_COLORS[5])].filter((s) => s.value > 0);
+  const install: Array<[string, number]> = [[lbl("installed_games"), num("installed_games")], [t("settings_statistics_lib_not_installed"), Math.max(0, total - num("installed_games"))]];
+  const activity: Array<[string, number]> = [[lbl("recently_played_7d"), num("recently_played_7d")], [lbl("recently_played_30d"), num("recently_played_30d")], [lbl("never_played_games"), num("never_played_games")]];
+  const composition: Array<[string, number]> = [[lbl("favorite_games"), num("favorite_games")], [lbl("hidden_games"), num("hidden_games")], [lbl("updates_pending"), num("updates_pending")]];
+
+  return (
+    <CollapsibleArea title={t("settings_statistics_library_trends")} icon={<GamepadIcon size={14} />}>
+      <Focusable style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        <LibKpi title={lbl("total_games")} value={total} />
+        <LibKpi title={lbl("installed_games")} value={num("installed_games")} />
+        <LibKpi title={lbl("played_games")} value={num("played_games")} />
+        <LibKpi title={lbl("total_playtime")} value={num("total_playtime")} unit="h" />
+      </Focusable>
+      <Focusable style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+        {source.length > 0 ? <ChartBlock title={t("settings_statistics_lib_source")} span="third"><DonutChart data={source} /><DonutLegend data={source} /></ChartBlock> : null}
+        {compat.length > 0 ? <ChartBlock title={t("settings_statistics_lib_compat")} span="third"><DonutChart data={compat} /><DonutLegend data={compat} /></ChartBlock> : null}
+        <ChartBlock title={t("settings_statistics_lib_install")} span="third"><TopBarChart rows={install} color={LIB_COLORS[1]} /></ChartBlock>
+        <ChartBlock title={t("settings_statistics_lib_activity")} span="third"><TopBarChart rows={activity} color={LIB_COLORS[0]} /></ChartBlock>
+        <ChartBlock title={t("settings_statistics_lib_composition")} span="third"><TopBarChart rows={composition} color={LIB_COLORS[3]} /></ChartBlock>
+      </Focusable>
     </CollapsibleArea>
   );
 }
@@ -152,9 +205,10 @@ export function StatisticsDetail({ controller, t }: StatisticsDetailProps) {
       <div style={{ fontSize: 12, opacity: 0.6, padding: "0 4px 8px" }}>{t("settings_statistics_desc")}</div>
 
       <TrendsSection t={t} controller={controller} />
+      <LibraryTrendsSection t={t} groups={groups} />
       <UsageSection t={t} controller={controller} />
 
-      {(groups ?? []).map((g) => <ProviderArea key={g.id} t={t} group={g} />)}
+      {[...(groups ?? [])].sort((a, b) => (a.id.includes("library") ? 1 : 0) - (b.id.includes("library") ? 1 : 0)).map((g) => <ProviderArea key={g.id} t={t} group={g} />)}
     </Focusable>
   );
 }
@@ -328,7 +382,7 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
   );
 
   return (
-    <CollapsibleArea title={t("settings_statistics_trends")} actions={hasData ? pctToggle : undefined}>
+    <CollapsibleArea title={t("settings_statistics_trends")} icon={<SlidersIcon size={14} />} actions={hasData ? pctToggle : undefined}>
       {!hasData ? (
         <div style={{ fontSize: 12, opacity: 0.6 }}>{t("settings_statistics_usage_empty")}</div>
       ) : (
@@ -342,8 +396,8 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
             <DayAxis points={series} />
             <ChartLegend items={lineLegend} />
           </ChartBlock>
-          <ChartBlock title={t("settings_statistics_chart_breakdown")} subtitle={periodLabel} span="half">
-            <StackedBars points={series} keys={["launches", "views", "features"]} />
+          <ChartBlock title={t("settings_statistics_chart_breakdown")} subtitle={t("settings_statistics_chart_breakdown_sub")} span="half">
+            <StackedBars points={series} keys={["launches", "views", "features"]} normalize />
             <DayAxis points={series} />
             <ChartLegend items={lineLegend} />
           </ChartBlock>
@@ -435,6 +489,7 @@ function UsageSection({ t, controller }: { t: (k: string) => string; controller:
   return (
     <CollapsibleArea
       title={t("settings_statistics_usage")}
+      icon={<PlayIcon size={14} />}
       actions={
         <DialogButton onClick={clear} onOKButton={clear} disabled={!hasUsage} style={{ ...BTN_COMPACT_STYLE, minWidth: 0, width: 34, padding: 0, justifyContent: "center" }}>
           <TrashIcon size={12} />

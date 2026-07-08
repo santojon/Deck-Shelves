@@ -81,6 +81,7 @@ type EditState = {
   enableLogo: boolean
   enableIcon: boolean
   enableDescription: boolean
+  descriptionScale: number
   descriptionBelowLogo: boolean
   logoPosition: 'left' | 'center' | 'right'
   descriptionPosition: 'left' | 'center' | 'right'
@@ -143,6 +144,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     enableLogo: (shelf as any).enableLogo === true,
     enableIcon: (shelf as any).enableIcon === true,
     enableDescription: (shelf as any).enableDescription === true,
+    descriptionScale: typeof (shelf as any).descriptionScale === 'number' ? (shelf as any).descriptionScale : 100,
     descriptionBelowLogo: (shelf as any).descriptionBelowLogo === true,
     logoPosition: ((shelf as any).logoPosition === 'center' || (shelf as any).logoPosition === 'right') ? (shelf as any).logoPosition : 'left',
     descriptionPosition: ((shelf as any).descriptionPosition === 'center' || (shelf as any).descriptionPosition === 'right') ? (shelf as any).descriptionPosition : 'left',
@@ -421,6 +423,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).enableLogo = state.enableLogo
       ;(patch as any).enableIcon = state.enableIcon
       ;(patch as any).enableDescription = state.enableDescription
+      ;(patch as any).descriptionScale = state.descriptionScale !== 100 ? state.descriptionScale : undefined
       ;(patch as any).descriptionBelowLogo = state.descriptionBelowLogo
       ;(patch as any).logoPosition = state.logoPosition
       ;(patch as any).descriptionPosition = state.descriptionPosition
@@ -933,7 +936,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                   content: (
                     <VisualTabContent
                       t={t}
-                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove, friendsPlayingOverlay: state.friendsPlayingOverlay, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent }}
+                      flags={{ matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale, fullPageShelf: state.fullPageShelf, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove, friendsPlayingOverlay: state.friendsPlayingOverlay, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent }}
                       setFlags={(patch: any) => setState((prev) => { const next = { ...prev, ...patch }; if (patch.gameInfoAbove === true) next.hideShelfTitle = true; return next; })}
                       highlightedAppIds={state.highlightedAppIds}
                       setHighlightedAppIds={(next) => setState((prev) => ({ ...prev, highlightedAppIds: next }))}

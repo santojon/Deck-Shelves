@@ -25,9 +25,10 @@ run_checks() {
 
   local tab_files
   # Only consider files where TabMaster appears outside of comment lines.
-  # Exclude the QA harness (src/qa/) — its forceTabMaster flag is a plugin-
-  # internal build-time switch, not runtime access to the TabMaster globals.
-  tab_files=$(grep -rln "TabMasterStore\|TabMaster" "$src" 2>/dev/null | grep -v '\.d\.ts$' | grep -v '/qa/' | while IFS= read -r f; do
+  # Exclude the QA harness (src/qa/) and tests (src/test/, *.test.*) — their
+  # forceTabMaster flag / mocks are build-time or test scaffolding, not runtime
+  # access to the TabMaster globals.
+  tab_files=$(grep -rln "TabMasterStore\|TabMaster" "$src" 2>/dev/null | grep -v '\.d\.ts$' | grep -v '/qa/' | grep -v '/test/' | grep -v '\.test\.' | while IFS= read -r f; do
     if grep -v '^\s*[/*]' "$f" 2>/dev/null | grep -q "TabMasterStore\|TabMaster"; then echo "$f"; fi
   done)
   local all_guarded=true

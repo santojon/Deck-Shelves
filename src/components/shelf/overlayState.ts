@@ -12,6 +12,11 @@ function detect(doc: Document, win: Window): boolean {
   try {
     const homeRoot = doc.getElementById("deck-shelves-home-root");
     if (!homeRoot) return false;
+    /* A DS ambient overlay (search / Side Nav) is up: treat as obscured so the
+       portaled card decorations hide instead of floating over the on-screen
+       keyboard. Center-point hit-testing below misses these (search sits above
+       center; the Side Nav hugs the edge). */
+    if (doc.querySelector(".ds-search-overlay, .ds-sidenav-overlay")) return true;
     const cx = win.innerWidth / 2;
     const cy = win.innerHeight / 2;
     const top = doc.elementFromPoint(cx, cy);

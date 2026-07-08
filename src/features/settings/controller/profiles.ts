@@ -207,6 +207,21 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (!s || (s as any).verboseLoggingEnabled === verboseLoggingEnabled) return;
       await persist({ ...s, verboseLoggingEnabled } as Settings);
     },
+    async setDevModeEnabled(devModeEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).devModeEnabled === devModeEnabled) return;
+      await persist({ ...s, devModeEnabled } as Settings);
+    },
+    async setDebugOverlayEnabled(debugOverlayEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).debugOverlayEnabled === debugOverlayEnabled) return;
+      await persist({ ...s, debugOverlayEnabled } as Settings);
+    },
+    async setDebugOverlayOption(key: string, value: boolean | string) {
+      const s = liveSettings();
+      if (!s || (s as any)[key] === value) return;
+      await persist({ ...s, [key]: value } as Settings);
+    },
     async setOfflineModeEnabled(offlineModeEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).offlineModeEnabled === offlineModeEnabled) return;

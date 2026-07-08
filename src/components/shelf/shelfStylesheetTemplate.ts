@@ -789,7 +789,7 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       position: absolute;
       top: 100%;
       margin-top: 2px;
-      font-size: 0.7em;
+      font-size: calc(0.7em * var(--ds-eff-desc-scale, 1));
       line-height: 1.2;
       opacity: 0;
       transition: opacity 0.18s ease;

@@ -126,6 +126,7 @@ function readVisualFlags(shelf: Shelf) {
     enableLogo: s.enableLogo === true,
     enableIcon: s.enableIcon === true,
     enableDescription: s.enableDescription === true,
+    descriptionScale: typeof (s as any).descriptionScale === 'number' ? (s as any).descriptionScale : 100,
     descriptionBelowLogo: (s as any).descriptionBelowLogo === true,
     logoPosition: (((s as any).logoPosition === 'center' || (s as any).logoPosition === 'right') ? (s as any).logoPosition : 'left') as 'left' | 'center' | 'right',
     descriptionPosition: (((s as any).descriptionPosition === 'center' || (s as any).descriptionPosition === 'right') ? (s as any).descriptionPosition : 'left') as 'left' | 'center' | 'right',

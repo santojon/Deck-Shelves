@@ -288,6 +288,89 @@ export async function importSettingsFromFile(srcPath: string): Promise<Settings>
   }
 }
 
+export interface BackupEntry {
+  name: string;
+  mtime: number;
+  size: number;
+  summary: { shelves: number; smartShelves: number; profiles: number; filters: number };
+}
+
+export async function listBackups(): Promise<BackupEntry[]> {
+  try {
+    const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("list_backups"), 8000);
+    return Array.isArray(raw?.backups) ? raw.backups : [];
+  } catch (error) {
+    logError("STORAGE", "listBackups failed", String(error));
+    return [];
+  }
+}
+
+export async function restoreBackup(name: string): Promise<Settings | null> {
+  try {
+    logInfo("STORAGE", "restoreBackup start", { name });
+    const raw = await withTimeout(call<[unknown], any>("restore_backup", { name }), 15000);
+    if (!raw?.ok || !raw?.state) return null;
+    const next = normalize(raw.state);
+    notify(next);
+    logInfo("STORAGE", "restoreBackup success", { shelfCount: next.shelves.length });
+    return next;
+  } catch (error) {
+    logError("STORAGE", "restoreBackup failed", String(error));
+    return null;
+  }
+}
+
+export async function createSnapshot(): Promise<BackupEntry[]> {
+  try {
+    const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("create_backup"), 8000);
+    return Array.isArray(raw?.backups) ? raw.backups : [];
+  } catch (error) {
+    logError("STORAGE", "createSnapshot failed", String(error));
+    return [];
+  }
+}
+
+export async function exportBackupToFile(name: string, dest: string): Promise<boolean> {
+  try {
+    return !!(await withTimeout(call<[unknown], boolean>("export_backup", { name, dest }), 15000));
+  } catch (error) {
+    logError("STORAGE", "exportBackupToFile failed", String(error));
+    return false;
+  }
+}
+
+export async function deleteBackup(name: string): Promise<BackupEntry[] | null> {
+  try {
+    const raw = await withTimeout(call<[unknown], { ok?: boolean; backups?: BackupEntry[] }>("delete_backup", { name }), 8000);
+    if (!raw?.ok) return null;
+    return Array.isArray(raw?.backups) ? raw.backups : [];
+  } catch (error) {
+    logError("STORAGE", "deleteBackup failed", String(error));
+    return null;
+  }
+}
+
+export async function clearBackups(): Promise<BackupEntry[]> {
+  try {
+    const raw = await withTimeout(call<[], { backups?: BackupEntry[] }>("clear_backups"), 8000);
+    return Array.isArray(raw?.backups) ? raw.backups : [];
+  } catch (error) {
+    logError("STORAGE", "clearBackups failed", String(error));
+    return [];
+  }
+}
+
+export async function importBackupFromFile(srcPath: string): Promise<BackupEntry[] | null> {
+  try {
+    const raw = await withTimeout(call<[unknown], { ok?: boolean; backups?: BackupEntry[] }>("import_backup", { src_path: srcPath }), 15000);
+    if (!raw?.ok) return null;
+    return Array.isArray(raw?.backups) ? raw.backups : [];
+  } catch (error) {
+    logError("STORAGE", "importBackupFromFile failed", String(error));
+    return null;
+  }
+}
+
 export async function writeJsonFile(path: string, content: string): Promise<boolean> {
   try {
     return !!(await withTimeout(call<[unknown], boolean>("write_json_file", { path, content }), 15000));
