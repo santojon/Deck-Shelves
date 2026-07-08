@@ -65,27 +65,24 @@ function ProfileActionsButton({ controller, profile }: { controller: SettingsCon
   );
 }
 
-export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSectionProps) {
-  if (hidden) return null;
-  const { settings, t } = controller;
-  if (!settings) return null;
-  // Hide when the user has zero shelves of any kind.
+// Derived state the section renders from: shelf counts (for the zero-hide), the
+// profile list + active name, the sidecar flag, hidden-toggle keys, and the
+// dropdown-visible (non-hidden) profiles.
+function deriveProfilesState(settings: any, headerExtra: any) {
   const regularCount = (settings.shelves ?? []).length;
-  const smartCount = ((settings as any).smartShelves ?? []).length;
-  if (regularCount + smartCount === 0) return null;
-
-  // Array order drives both the list and the dropdown (reorder persists it).
-  const profiles: any[] = (settings as any).profiles ?? [];
-  const activeName: string | null = (settings as any).activeProfileName ?? null;
+  const smartCount = (settings.smartShelves ?? []).length;
+  const profiles: any[] = settings.profiles ?? [];
+  const activeName: string | null = settings.activeProfileName ?? null;
   const isSidecar = headerExtra != null;
-  const mode: HideableRowMode = isSidecar ? "sidecar" : "qam";
-  const hiddenToggles: string[] = (settings as any).qamHiddenToggles ?? [];
-  const isHid = (k: string) => hiddenToggles.includes(k);
-  const setHid = (k: string, v: boolean) => (controller.actions as any).setQamHiddenToggle?.(k, v);
-
-  // Hidden profiles stay in the list but drop out of the quick-select dropdown.
+  const hiddenToggles: string[] = settings.qamHiddenToggles ?? [];
   const visible = profiles.filter((p) => !p.hidden);
-  const dropdownOptions = [
+  return { regularCount, smartCount, profiles, activeName, isSidecar, hiddenToggles, visible };
+}
+
+// The quick-select dropdown options (Save current / factory / None / profiles)
+// and the currently-selected entry.
+function buildProfileDropdown(visible: any[], activeName: string | null, t: (k: string) => string) {
+  const options = [
     { label: `+ ${t("profile_add_action" as any) || "Save current"}`, data: "__SAVE__" },
     { label: FACTORY_PROFILE_NAME, data: FACTORY_PROFILE_ID },
     { label: t("profile_none_option" as any) || "None", data: "__NONE__" },
@@ -94,6 +91,25 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
   const selectedData = activeName
     ? (visible.find((p) => p.name === activeName)?.id ?? "__NONE__")
     : "__NONE__";
+  return { options, selectedData };
+}
+
+export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSectionProps) {
+  if (hidden) return null;
+  const { settings, t } = controller;
+  if (!settings) return null;
+  // Hide when the user has zero shelves of any kind. Array order drives both the
+  // list and the dropdown (reorder persists it); hidden profiles stay in the
+  // list but drop out of the quick-select dropdown.
+  const { regularCount, smartCount, profiles, activeName, isSidecar, hiddenToggles, visible } =
+    deriveProfilesState(settings, headerExtra);
+  if (regularCount + smartCount === 0) return null;
+
+  const mode: HideableRowMode = isSidecar ? "sidecar" : "qam";
+  const isHid = (k: string) => hiddenToggles.includes(k);
+  const setHid = (k: string, v: boolean) => (controller.actions as any).setQamHiddenToggle?.(k, v);
+
+  const { options: dropdownOptions, selectedData } = buildProfileDropdown(visible, activeName, t);
 
   const handleSelect = (option: { data: string }) => {
     const d = option.data;

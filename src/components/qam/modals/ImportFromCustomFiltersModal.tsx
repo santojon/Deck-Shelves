@@ -9,6 +9,57 @@ import { ChevronIcon, SteamIcon } from '../../icons'
 
 type ImportTab = { id: string; title: string; source?: any; isSteam: boolean; hidden: boolean }
 
+function looksLikeTabManager(v: any): boolean {
+  return !!v && (Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)
+}
+
+// Strategy 1: TabMaster tabs read straight from its settings file.
+async function tabsFromSettingsFile(): Promise<ImportTab[] | null> {
+  try {
+    const entries = await getTabMasterTabsFromSettingsFile()
+    if (entries.length === 0) return null
+    return entries.map((e) => {
+      const isSteam = !e.filters || e.filters.length === 0
+      return {
+        id: e.id,
+        title: e.title,
+        isSteam,
+        hidden: e.position < 0,
+        source: !isSteam
+          ? tabContainerToShelfSource({ id: e.id, title: e.title, filters: e.filters })
+          : { type: 'tab', tab: e.id },
+      }
+    })
+  } catch { return null }
+}
+
+// Strategy 2: the live TabMaster manager, via its React context or a global.
+function findTabMasterManager(): any {
+  try {
+    const ctx = findTabMasterContextValue()
+    if (looksLikeTabManager(ctx)) return ctx
+  } catch {}
+  try {
+    const gm = (globalThis as any)
+    for (const k of Object.keys(gm)) {
+      if (looksLikeTabManager(gm[k])) return gm[k]
+    }
+  } catch {}
+  return null
+}
+
+function tabsFromManager(manager: any): ImportTab[] | null {
+  try {
+    const extracted = extractTabMasterTabsForImport(manager)
+    if (extracted.length === 0) return null
+    return extracted.map((x: any) => ({
+      id: x.id, title: x.title, source: x.source,
+      isSteam: x.source?.type === 'tab',
+      hidden: false,
+    }))
+  } catch { return null }
+}
+
 export function ImportFromCustomFiltersModal({ closeModal, controller }: { closeModal?: () => void; controller: SettingsController }) {
   const { t, actions } = controller
   const [tabs, setTabs] = useState<ImportTab[]>([])
@@ -21,55 +72,11 @@ export function ImportFromCustomFiltersModal({ closeModal, controller }: { close
     const loadTabs = async () => {
       setLoading(true)
       setError(null)
-      try {
-        const entries = await getTabMasterTabsFromSettingsFile()
-        if (entries.length > 0) {
-          setTabs(entries.map((e) => {
-            const isSteam = !e.filters || e.filters.length === 0
-            return {
-              id: e.id,
-              title: e.title,
-              isSteam,
-              hidden: e.position < 0,
-              source: !isSteam
-                ? tabContainerToShelfSource({ id: e.id, title: e.title, filters: e.filters })
-                : { type: 'tab', tab: e.id },
-            }
-          }))
-          setLoading(false)
-          return
-        }
-      } catch (e) {}
-
-      let manager: any = null
-      try {
-        const ctx = findTabMasterContextValue()
-        if (ctx && (Array.isArray(ctx.visibleTabsList) || ctx.tabsMap instanceof Map)) manager = ctx
-      } catch (e) {}
-      if (!manager) {
-        try {
-          const gm = (globalThis as any)
-          for (const k of Object.keys(gm)) {
-            const v = gm[k]
-            if (v && (Array.isArray(v?.visibleTabsList) || v?.tabsMap instanceof Map)) { manager = v; break }
-          }
-        } catch (e) {}
-      }
-      if (manager) {
-        try {
-          const extracted = extractTabMasterTabsForImport(manager)
-          if (extracted.length > 0) {
-            setTabs(extracted.map((x: any) => ({
-              id: x.id, title: x.title, source: x.source,
-              isSteam: x.source?.type === 'tab',
-              hidden: false,
-            })))
-            setLoading(false)
-            return
-          }
-        } catch (e) {}
-      }
-
+      const fromFile = await tabsFromSettingsFile()
+      if (fromFile) { setTabs(fromFile); setLoading(false); return }
+      const manager = findTabMasterManager()
+      const fromManager = manager ? tabsFromManager(manager) : null
+      if (fromManager) { setTabs(fromManager); setLoading(false); return }
       setLoading(false)
       setError(t('toast_failed_import'))
     }

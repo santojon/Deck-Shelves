@@ -67,11 +67,6 @@
       "count": 3
     }
   },
-  "src/components/qam/modals/ImportFromCustomFiltersModal.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/qam/modals/editShelf/DecorationTab.tsx": {
     "complexity": {
       "count": 1
@@ -90,16 +85,6 @@
   "src/components/qam/modals/editShelf/ShelfPreview.tsx": {
     "complexity": {
       "count": 4
-    }
-  },
-  "src/components/qam/modals/editShelf/buildInitialState.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/qam/sections/ProfilesSection.tsx": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/components/qam/sidecar/GeneralTab.tsx": {
@@ -243,11 +228,6 @@
     }
   },
   "src/runtime/friendsState.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/runtime/navFocus.ts": {
     "complexity": {
       "count": 1
     }
