@@ -232,27 +232,12 @@
       "count": 1
     }
   },
-  "src/domain/shelfStats.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/features/search/SearchOverlay.tsx": {
     "complexity": {
       "count": 2
     }
   },
   "src/features/settings/controller/profiles.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/features/settings/controller/shelves.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/features/settings/controller/smartShelves.ts": {
     "complexity": {
       "count": 1
     }

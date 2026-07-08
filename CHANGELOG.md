@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Snapshots — versioned settings history** (Settings → Advanced). Rolling backups of the settings file at `settings/deck-shelves/backups/settings-<ts>.json` ([`storage.py`](storage.py) + [`SnapshotsSection.tsx`](src/components/settings/details/SnapshotsSection.tsx)). Automatic snapshots are throttled to one per 24 h (`AUTO_BACKUP_CAP` = 12, oldest pruned); user-created (`manual`) and `import` snapshots carry an origin icon. Per-row restore / export / delete plus delete-all; restore is itself undoable. Backend RPCs `list_backups` / `restore_backup` / `create_backup` / `export_backup` / `import_backup` are path-traversal guarded. Renamed from "Backups" to avoid clashing with the file export/import "Backup" area.
+- **Cache management** (Settings → Advanced). Per-key size readout + Clear (empty groups disabled) for the persisted localStorage caches, plus a confirmed clear-all ([`cacheRegistry.ts`](src/runtime/cacheRegistry.ts)); the smart-shelf memo cache folds into clear-all rather than its own row.
+- **System information panel** (Settings → Advanced, formerly "Diagnostics"). Read-only runtime detection — version, generic OS + Steam version, active theme (heuristic + CSS-Loader style count) and co-loaded plugins (TabMaster / UnifiDeck / Non-Steam Badges) — with a Copy button and individually gamepad-focusable rows ([`diagnosticsInfo.ts`](src/runtime/diagnosticsInfo.ts) + [`DiagnosticsSection.tsx`](src/components/settings/details/DiagnosticsSection.tsx)).
+- **Developer mode + Developer tab.** A `devModeEnabled` toggle at the end of Advanced reveals a Developer tab ([`DeveloperDetail.tsx`](src/components/settings/details/DeveloperDetail.tsx)) hosting the on-home debug-overlay controls, the source-resolver inspector, the reactive focus chain and the diagnostic log viewer.
+- **On-home debug overlay** ([`DebugOverlay.tsx`](src/components/DebugOverlay.tsx)). fps / frame ms, shelf / node / focusable counts, per-shelf node counts, a reactive focus chain, and weight-coloured render outlines swept across every Steam document. Live-configurable corner / orientation / transparency / content. Mounted only when enabled (zero overhead off), `pointerEvents:none`, rAF cleaned up on unmount. Gated by Developer mode (or the legacy `ds-debug` / `?debug=1` escape hatch).
+- **Source-resolver inspector** ([`SourceResolverInspector.tsx`](src/components/settings/details/SourceResolverInspector.tsx)). Live-evaluates a shelf and lists the resolved app ids per filter step.
+- **Adjustable description text size** — a global + per-shelf `descriptionScale` slider (100–200 %), replacing the old description-large boolean.
+- **Statistics → Library trends.** A KPI/numbers row plus additional, more varied chart types in the Statistics tab ([`StatisticsDetail.tsx`](src/components/settings/details/StatisticsDetail.tsx)).
+
+### Changed
+
+- **Standardised iconography across Settings and the QAM.** Export uses an up-arrow, import a down-arrow, delete a trash can and restore its own icon (replacing the floppy); collapsible sections carry icons in every settings tab, and the QAM import/export icons match the config pages.
+
+### Fixed
+
+- **Quick Search: the on-screen keyboard now closes when a game is found.** On a match the focused text input is blurred across every Steam document and the keyboard is dismissed via all known close methods ([`SearchOverlay.tsx`](src/features/search/SearchOverlay.tsx)).
+- **Card decorations no longer float over the search keyboard / Side Nav.** The portaled "new/discount" badge and the friends-playing avatars now hide while an ambient overlay (Quick Search / Side Nav) is open — the overlay-active detector treats a present `.ds-search-overlay` / `.ds-sidenav-overlay` as covering the home ([`overlayState.ts`](src/components/shelf/overlayState.ts), [`BadgeFocusOverlay.tsx`](src/components/shelf/BadgeFocusOverlay.tsx), [`FriendsAvatarOverlay.tsx`](src/components/shelf/FriendsAvatarOverlay.tsx)).
+- **Unit tests resolve the workspace packages from source.** [`vitest.config.ts`](vitest.config.ts) now aliases `@deck-shelves/host` / `@deck-shelves/api` to their `src` (mirroring the `tsconfig` paths and the build config), so CI — which runs the tests before any package is built to `dist` — no longer fails with `ERR_MODULE_NOT_FOUND`.
+- **Coexistence checks stop flagging false positives.** The UnifiDeck check no longer treats importing our own guarded `integrations/registry` helper as a hard dependency, and the TabMaster try/catch-guard scan now excludes test files (mocks aren't runtime access) ([`checks/plugins/tabmaster.sh`](checks/plugins/tabmaster.sh), [`diagnosticsInfo.ts`](src/runtime/diagnosticsInfo.ts)).
+
 ## [3.0.1] - 2026-07-05
 
 ### Added

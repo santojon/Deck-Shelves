@@ -5,6 +5,22 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Snapshots: automatic, restorable backups of your settings.** Deck Shelves now keeps a rolling history of your settings — one automatic snapshot a day, plus any you take yourself. Restore, export or delete any of them from Settings → Advanced, and if a restore isn't what you wanted you can undo it too.
+- **New power-user tools in Settings → Advanced.** Clear individual caches (each shows its size), read a one-tap **System information** summary (OS, Steam, active theme, other plugins detected) that you can copy, and switch on **Developer mode** to reveal an on-home debug overlay, a source-resolver inspector and the plugin log.
+- **Choose your description text size.** A new slider (global, with a per-shelf override) scales the shelf description text from 100 % to 200 %.
+- **More library-trend charts.** The Statistics tab gains a numbers row and extra chart types.
+
+### Changed
+
+- **Consistent icons everywhere.** Export, import, delete and restore now use the same icons across the settings pages and the Quick Access panel, and every collapsible section shows an icon.
+
+### Fixed
+
+- **The keyboard now closes after you pick a game in Quick Search.**
+- **Card badges and "friends playing" avatars no longer cover the search keyboard** (or the Side Navigation panel).
+
 ## [3.0.1] - 2026-07-05
 
 ### Added
