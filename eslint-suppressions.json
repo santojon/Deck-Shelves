@@ -207,11 +207,6 @@
       "count": 2
     }
   },
-  "src/features/settings/controller/profiles.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/features/sidenav/ShelfSideNav.tsx": {
     "complexity": {
       "count": 5
@@ -250,11 +245,6 @@
   "src/runtime/controllerInput.ts": {
     "complexity": {
       "count": 2
-    }
-  },
-  "src/runtime/deckyPlatform.ts": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/runtime/friendsState.ts": {

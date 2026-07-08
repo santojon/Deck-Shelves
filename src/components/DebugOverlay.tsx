@@ -5,6 +5,9 @@ import { getAllSteamDocuments } from "../runtime/steamHost";
 
 interface PerShelf { id: string; title: string; nodes: number }
 interface Stats { fps: number; frameMs: number; shelves: number; nodes: number; focusables: number; perShelf: PerShelf[] }
+// Focused element readout: the ancestor tag path, the focused element's own full
+// class list, and every `ds-*` class applied across the focus chain.
+interface FocusInfo { chain: string[]; classes: string[]; ds: string[] }
 
 function cornerStyle(corner: string): React.CSSProperties {
   const v: React.CSSProperties = { position: "fixed", zIndex: 99999 };
@@ -85,19 +88,30 @@ function applyOutlines(on: boolean): void {
   if (on) drawOutlines(); else clearOutlines();
 }
 
-function readFocusChain(doc: Document): string[] {
-  const out: string[] = [];
+function classListOf(el: Element): string[] {
+  return typeof el.className === "string" && el.className ? el.className.trim().split(/\s+/) : [];
+}
+
+/** Walk the gamepad-focused element's ancestor chain: build the tag path, capture
+    the focused element's own full class list, and collect every `ds-*` class
+    seen along the way (so the applied DS classes are visible at a glance). */
+function readFocusInfo(doc: Document): FocusInfo {
+  const chain: string[] = [];
+  const ds = new Set<string>();
+  let classes: string[] = [];
   try {
-    let el: Element | null = doc.querySelector(".gpfocus") ?? doc.querySelector(".gpfocuswithin");
+    const focused: Element | null = doc.querySelector(".gpfocus") ?? doc.querySelector(".gpfocuswithin");
+    let el: Element | null = focused;
     let depth = 0;
     while (el && el !== doc.documentElement && depth < 12) {
-      const cls = typeof el.className === "string" && el.className
-        ? "." + el.className.trim().split(/\s+/).slice(0, 1).join(".") : "";
-      out.push(`${el.tagName.toLowerCase()}${cls}`);
+      const list = classListOf(el);
+      if (el === focused) classes = list;
+      for (const c of list) { if (c.startsWith("ds-")) ds.add(c); }
+      chain.push(`${el.tagName.toLowerCase()}${list.length ? "." + list[0] : ""}`);
       el = el.parentElement; depth++;
     }
   } catch { /* best effort */ }
-  return out;
+  return { chain, classes, ds: Array.from(ds) };
 }
 
 function buildStats(mountEl: HTMLElement | null, titleOf: (id: string) => string, fps: number, frameMs: number): Stats {
@@ -121,16 +135,33 @@ function PerShelfBlock({ rows, vertical }: { rows: PerShelf[]; vertical: boolean
   );
 }
 
-function FocusBlock({ chain, vertical }: { chain: string[]; vertical: boolean }) {
+function FocusBlock({ info, vertical }: { info: FocusInfo; vertical: boolean }) {
+  const wrap: React.CSSProperties = vertical
+    ? { opacity: 0.85, maxWidth: 240, overflow: "hidden", wordBreak: "break-all" }
+    : { opacity: 0.85, maxWidth: "88vw", wordBreak: "break-all" };
   return (
-    <div style={vertical ? { opacity: 0.85, maxWidth: 240, overflow: "hidden" } : { opacity: 0.85 }}>
-      <span style={{ opacity: 0.6 }}>focus </span>
-      {chain.length ? chain.map((f, i) => <span key={i} style={{ marginRight: 4 }}>{i === 0 ? "▸" : "›"}{f}</span>) : <span>—</span>}
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={wrap}>
+        <span style={{ opacity: 0.6 }}>focus </span>
+        {info.chain.length ? info.chain.map((f, i) => <span key={i} style={{ marginRight: 4 }}>{i === 0 ? "▸" : "›"}{f}</span>) : <span>—</span>}
+      </div>
+      {info.ds.length > 0 ? (
+        <div style={wrap}>
+          <span style={{ opacity: 0.6 }}>ds </span>
+          {info.ds.map((c, i) => <span key={i} style={{ marginRight: 4, color: "#3ddc84" }}>.{c}</span>)}
+        </div>
+      ) : null}
+      {info.classes.length > 0 ? (
+        <div style={wrap}>
+          <span style={{ opacity: 0.6 }}>class </span>
+          <span>{info.classes.join(" ")}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function DebugPanel({ stats, focusChain }: { stats: Stats; focusChain: string[] }) {
+function DebugPanel({ stats, focusInfo }: { stats: Stats; focusInfo: FocusInfo }) {
   const o = (getCurrentSettings() as any) ?? {};
   const corner = ["tl", "tr", "bl", "br"].includes(o.debugOverlayCorner) ? o.debugOverlayCorner : "br";
   const vertical = o.debugOverlayVertical !== false;
@@ -140,7 +171,7 @@ function DebugPanel({ stats, focusChain }: { stats: Stats; focusChain: string[] 
       {o.debugOverlayFps !== false ? <div>{stats.fps} fps · {stats.frameMs} ms</div> : null}
       {o.debugOverlayStats !== false ? <div>shelves {stats.shelves} · nodes {stats.nodes} · focus {stats.focusables}</div> : null}
       {o.debugOverlayPerShelf !== false && stats.perShelf.length > 0 ? <PerShelfBlock rows={stats.perShelf} vertical={vertical} /> : null}
-      {o.debugOverlayFocus === true ? <FocusBlock chain={focusChain} vertical={vertical} /> : null}
+      {o.debugOverlayFocus === true ? <FocusBlock info={focusInfo} vertical={vertical} /> : null}
     </div>
   );
 }
@@ -152,7 +183,7 @@ function DebugPanel({ stats, focusChain }: { stats: Stats; focusChain: string[] 
     `pointerEvents:none` keeps it inert to input. */
 export function DebugOverlay({ mountEl, shelves }: { mountEl: HTMLElement | null; shelves: any[] }) {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [focusChain, setFocusChain] = useState<string[]>([]);
+  const [focusInfo, setFocusInfo] = useState<FocusInfo>({ chain: [], classes: [], ds: [] });
   const rafRef = useRef(0);
   const shelvesRef = useRef(shelves);
   shelvesRef.current = shelves;
@@ -167,12 +198,12 @@ export function DebugOverlay({ mountEl, shelves }: { mountEl: HTMLElement | null
       acc += now - last; last = now; frames++;
       const doc = mountEl?.ownerDocument ?? null;
       const opts = (getCurrentSettings() as any) ?? {};
-      // Reactive focus chain: re-read every frame, re-render only when it changes.
+      // Reactive focus readout: re-read every frame, re-render only when it changes.
       if (doc && opts.debugOverlayFocus === true) {
-        const fc = readFocusChain(doc);
-        const key = fc.join(">");
-        if (key !== lastFocusKey) { lastFocusKey = key; setFocusChain(fc); }
-      } else if (lastFocusKey) { lastFocusKey = ""; setFocusChain([]); }
+        const fi = readFocusInfo(doc);
+        const key = `${fi.chain.join(">")}#${fi.ds.join(".")}#${fi.classes.join(" ")}`;
+        if (key !== lastFocusKey) { lastFocusKey = key; setFocusInfo(fi); }
+      } else if (lastFocusKey) { lastFocusKey = ""; setFocusInfo({ chain: [], classes: [], ds: [] }); }
       if (acc >= 500) {
         applyOutlines(opts.debugOverlayOutlines === true);
         setStats(buildStats(mountEl, titleOf, Math.round((frames * 1000) / acc), Math.round((acc / frames) * 10) / 10));
@@ -187,5 +218,5 @@ export function DebugOverlay({ mountEl, shelves }: { mountEl: HTMLElement | null
   if (!stats) return null;
   const targetBody = mountEl?.ownerDocument?.body ?? (typeof document !== "undefined" ? document.body : null);
   if (!targetBody) return null;
-  return createPortal(<DebugPanel stats={stats} focusChain={focusChain} />, targetBody);
+  return createPortal(<DebugPanel stats={stats} focusInfo={focusInfo} />, targetBody);
 }
