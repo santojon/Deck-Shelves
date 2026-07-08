@@ -324,15 +324,24 @@ function KpiCard({ title, subtitle, value, refValue }: { title: string; subtitle
   );
 }
 
-function TrendsSection({ t, controller }: { t: (k: string) => string; controller: StatisticsDetailProps["controller"] }) {
-  const [pctMode, setPctMode] = useState(() => { try { return localStorage.getItem(PCT_MODE_KEY) === "1"; } catch { return false; } });
-  const togglePct = () => setPctMode((v) => { const n = !v; try { localStorage.setItem(PCT_MODE_KEY, n ? "1" : "0"); } catch {} return n; });
-  const { series, summary } = useMemo(() => {
-    flushUsage();
-    return { series: dailyTotals(getUsage(), Date.now(), 14), summary: getUsageSummary() };
-  }, []);
-  const hasData = summary.totalCardLaunches > 0 || summary.totalShelfViews > 0 || summary.totalFeatureUse > 0;
+// A donut chart + legend in a ChartBlock, shown only when the data has a
+// non-zero total (covers both empty sets and all-zero catalogues).
+function DonutBlock({ title, data, mode }: { title: string; data: Array<{ label: string; value: number; color: string }>; mode: "raw" | "pct" }) {
+  if (data.reduce((a, d) => a + d.value, 0) <= 0) return null;
+  return (
+    <ChartBlock title={title} span="third">
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <DonutChart data={data} />
+        <DonutLegend data={data} mode={mode} />
+      </div>
+    </ChartBlock>
+  );
+}
 
+// All the derived series/breakdowns the Trends section renders from — kept out
+// of the component body so its complexity stays low.
+function deriveBreakdowns(controller: StatisticsDetailProps["controller"], summary: any, t: (k: string) => string) {
+  const hasData = summary.totalCardLaunches > 0 || summary.totalShelfViews > 0 || summary.totalFeatureUse > 0;
   // Every shelf (existing only — deleted ones drop out so the chart never shows
   // raw ids), with its view count, zeros included so the full set is visible.
   const allShelves = [...((controller.settings as any)?.shelves ?? []), ...((controller.settings as any)?.smartShelves ?? [])].filter((s: any) => s?.id);
@@ -346,7 +355,6 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
     .sort((a, b) => b[1] - a[1]);
   const cardTypeCounts = cardTypeComposition(controller.settings);
   const cardTypes = CONTENT_CARD_TYPES.map((k, i) => ({ label: t(CARD_TYPE_KEY[k]), value: cardTypeCounts[k] ?? 0, color: PIE_COLORS[i % PIE_COLORS.length] }));
-  const cardTypesTotal = cardTypes.reduce((a, d) => a + d.value, 0);
   const composition = cardComposition(controller.settings).map((r) => ({ label: CARD_TYPE_KEY[r.key] ? t(CARD_TYPE_KEY[r.key]) : r.label, value: r.value, color: COMPOSITION_COLORS[r.key] ?? PIE_COLORS[0] }));
   const shelfTypes = Object.entries(shelfTypeBreakdown(controller.settings))
     .map(([k, v], i) => ({ label: SHELFTYPE_KEY[k] ? t(SHELFTYPE_KEY[k]) : k, value: v, color: PIE_COLORS[i % PIE_COLORS.length] }))
@@ -354,6 +362,18 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
   const sourceCounts = shelfSourceBreakdown(controller.settings);
   const shelfSources = SOURCE_ORDER.filter((k) => (sourceCounts[k] ?? 0) > 0)
     .map((k, i) => ({ label: SOURCE_KEY[k] ? t(SOURCE_KEY[k]) : k, value: sourceCounts[k], color: PIE_COLORS[i % PIE_COLORS.length] }));
+  return { hasData, topShelves, topFeatures, cardTypes, composition, shelfTypes, shelfSources };
+}
+
+function TrendsSection({ t, controller }: { t: (k: string) => string; controller: StatisticsDetailProps["controller"] }) {
+  const [pctMode, setPctMode] = useState(() => { try { return localStorage.getItem(PCT_MODE_KEY) === "1"; } catch { return false; } });
+  const togglePct = () => setPctMode((v) => { const n = !v; try { localStorage.setItem(PCT_MODE_KEY, n ? "1" : "0"); } catch {} return n; });
+  const { series, summary } = useMemo(() => {
+    flushUsage();
+    return { series: dailyTotals(getUsage(), Date.now(), 14), summary: getUsageSummary() };
+  }, []);
+  const { hasData, topShelves, topFeatures, cardTypes, composition, shelfTypes, shelfSources } =
+    deriveBreakdowns(controller, summary, t);
 
   let run = 0;
   const cumulative = series.map((p) => (run += p.launches + p.views + p.features));
@@ -405,38 +425,10 @@ function TrendsSection({ t, controller }: { t: (k: string) => string; controller
             <AreaTrend values={cumulative} color={SERIES_COLORS.launches} />
             <DayAxis points={series} />
           </ChartBlock>
-          {cardTypesTotal > 0 && (
-            <ChartBlock title={t("settings_statistics_usage_card_types")} span="third">
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <DonutChart data={cardTypes} />
-                <DonutLegend data={cardTypes} mode={mode} />
-              </div>
-            </ChartBlock>
-          )}
-          {composition.length > 0 && (
-            <ChartBlock title={t("settings_statistics_card_composition")} span="third">
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <DonutChart data={composition} />
-                <DonutLegend data={composition} mode={mode} />
-              </div>
-            </ChartBlock>
-          )}
-          {shelfTypes.length > 0 && (
-            <ChartBlock title={t("settings_statistics_shelf_types")} span="third">
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <DonutChart data={shelfTypes} />
-                <DonutLegend data={shelfTypes} mode={mode} />
-              </div>
-            </ChartBlock>
-          )}
-          {shelfSources.length > 0 && (
-            <ChartBlock title={t("settings_statistics_shelf_sources")} span="third">
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <DonutChart data={shelfSources} />
-                <DonutLegend data={shelfSources} mode={mode} />
-              </div>
-            </ChartBlock>
-          )}
+          <DonutBlock title={t("settings_statistics_usage_card_types")} data={cardTypes} mode={mode} />
+          <DonutBlock title={t("settings_statistics_card_composition")} data={composition} mode={mode} />
+          <DonutBlock title={t("settings_statistics_shelf_types")} data={shelfTypes} mode={mode} />
+          <DonutBlock title={t("settings_statistics_shelf_sources")} data={shelfSources} mode={mode} />
           {topShelves.length > 0 && (
             <ChartBlock title={t("settings_statistics_usage_top_shelves")} span="half">
               <TopBarChart rows={topShelves} color={SERIES_COLORS.views} mode={mode} />
