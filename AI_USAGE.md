@@ -18,9 +18,11 @@ with:
 
 ## What AI is **not** used for
 
-- **Features are conceived and authored by the
-  maintainer.** AI does not decide what the plugin does or how it should work.
-- Everything AI proposes — code, translations, scripts, or docs — is
+- **The plugin's features — both their design *and* their implementation — are
+  the maintainer's own work.** AI does not decide what the plugin does or how it
+  works. Each feature is conceived, designed, and built by the maintainer; it is
+  not idea-only direction handed to an AI to implement.
+- Everything AI proposes — auxiliary scripts, translations, or docs — is
   **reviewed, tested, and adjusted by hand** before it ships. The maintainer is
   accountable for every line in this repository.
 

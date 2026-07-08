@@ -919,6 +919,12 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
              keyframe Steam plays on every hero swap). */
           transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83), transform 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
           transform: activeSlot === 'A' ? 'scale(1)' : 'scale(1.03)',
+          /* Pivot the crossfade scale-dip on the TOP edge, not the centre — the
+             hero's visible framing is the top strip (it bleeds up over the shelf
+             above), so a centre pivot shifts that framing ~8px each swap and the
+             art bobs up/down as focus alternates slots A/B. Top pivot grows the
+             dip downward (behind the card row) and keeps the top framing fixed. */
+          transformOrigin: '50% 0',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotASrc} onError={onError('A')}
@@ -972,6 +978,8 @@ function PerShelfHero({ containerRef, showArt, isFirstShelf, forceLayoutAsRecent
           opacity: activeSlot === 'B' ? 1 : 0,
           transition: 'opacity 0.5s cubic-bezier(0.17,0.45,0.14,0.83), transform 0.5s cubic-bezier(0.17,0.45,0.14,0.83)',
           transform: activeSlot === 'B' ? 'scale(1)' : 'scale(1.03)',
+          // Match slot A: top-pivot the scale-dip so the framing doesn't bob.
+          transformOrigin: '50% 0',
         }}>
           <div className={nativeHeroZoomClass ?? undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <img src={slotBSrc} onError={onError('B')}

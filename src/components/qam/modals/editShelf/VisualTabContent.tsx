@@ -56,7 +56,9 @@ export function VisualTabContent({
       <ToggleField label={t('game_info_above_label' as any)} checked={flags.gameInfoAbove} onChange={(v: boolean) => setFlags({ gameInfoAbove: v })} />
       <ToggleField label={t('friends_overlay_label' as any)} checked={flags.friendsPlayingOverlay} onChange={(v: boolean) => setFlags({ friendsPlayingOverlay: v })} />
       {flags.friendsPlayingOverlay && (
-        <ToggleField label={t('friends_overlay_recent_label' as any)} checked={flags.friendsPlayingOverlayRecent} onChange={(v: boolean) => setFlags({ friendsPlayingOverlayRecent: v })} />
+        <div style={{ paddingLeft: 14 }}>
+          <ToggleField label={t('friends_overlay_recent_label' as any)} checked={flags.friendsPlayingOverlayRecent} onChange={(v: boolean) => setFlags({ friendsPlayingOverlayRecent: v })} />
+        </div>
       )}
       <GroupDivider />
       {/* Group: Logo + dependent options (position, size, offset) */}
