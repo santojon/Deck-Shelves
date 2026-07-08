@@ -32,11 +32,6 @@
       "count": 1
     }
   },
-  "src/components/filter/utils.tsx": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/components/home/navPatches/edgeNavigation.ts": {
     "complexity": {
       "count": 2
@@ -90,11 +85,6 @@
   "src/components/qam/sidecar/GeneralTab.tsx": {
     "complexity": {
       "count": 1
-    }
-  },
-  "src/components/settings/details/ShelvesDetail.tsx": {
-    "complexity": {
-      "count": 2
     }
   },
   "src/components/shelf/GameCard.tsx": {
@@ -177,11 +167,6 @@
       "count": 3
     }
   },
-  "src/domain/customfilters.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/features/search/SearchOverlay.tsx": {
     "complexity": {
       "count": 2
@@ -235,11 +220,6 @@
   "src/runtime/recentsReplace.tsx": {
     "complexity": {
       "count": 4
-    }
-  },
-  "src/shims/decky-api.ts": {
-    "complexity": {
-      "count": 2
     }
   },
   "src/shims/react-dom-client.ts": {

@@ -39,88 +39,69 @@ export function canBeInverted(_type: FilterItemType): boolean {
   return true;
 }
 
+// Fresh default-params factory per filter type (functions so each call gets its
+// own object/array — never a shared mutable reference).
+const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>> = {
+  hidden: () => ({ mode: "exclude" }),
+  deckCompatibility: () => ({ levels: ["verified", "playable"] }),
+  playedWithinDays: () => ({ days: 30 }),
+  playtimeRange: () => ({ minHours: undefined, maxHours: undefined }),
+  nameIncludes: () => ({ text: "" }),
+  nameRegex: () => ({ pattern: "" }),
+  friends: () => ({ friends: [] }),
+  friendsPlayingNow: () => ({}),
+  friendsPlayedRecently: () => ({ days: 14 }),
+  storeTag: () => ({ tags: [] }),
+  achievements: () => ({}),
+  collection: () => ({ collectionId: "" }),
+  developer: () => ({ developers: [] }),
+  publisher: () => ({ publishers: [] }),
+  appIdList: () => ({ appIds: [] }),
+  cloudAvailable: () => ({}),
+  controllerSupport: () => ({ min: 1 }),
+  merge: () => ({ mode: "and", items: [] }),
+  shortcutType: () => ({ kinds: ["game"] }),
+  appStatus: () => ({ groups: ["downloading", "queued"] }),
+  discount: () => ({ minDiscount: 10, maxDiscount: 100 }),
+};
+
 export function defaultParams(type: FilterItemType): Record<string, any> {
-  switch (type) {
-    case "hidden": return { mode: "exclude" };
-    case "deckCompatibility": return { levels: ["verified", "playable"] };
-    case "playedWithinDays": return { days: 30 };
-    case "playtimeRange": return { minHours: undefined, maxHours: undefined };
-    case "nameIncludes": return { text: "" };
-    case "nameRegex": return { pattern: "" };
-    case "friends": return { friends: [] };
-    case "friendsPlayingNow": return {};
-    case "friendsPlayedRecently": return { days: 14 };
-    case "storeTag": return { tags: [] };
-    case "achievements": return {};
-    case "collection": return { collectionId: "" };
-    case "developer": return { developers: [] };
-    case "publisher": return { publishers: [] };
-    case "appIdList": return { appIds: [] };
-    case "cloudAvailable": return {};
-    case "controllerSupport": return { min: 1 };
-    case "merge": return { mode: "and", items: [] };
-    case "shortcutType": return { kinds: ["game"] };
-    case "appStatus": return { groups: ["downloading", "queued"] };
-    case "discount": return { minDiscount: 10, maxDiscount: 100 };
-    default: return {};
-  }
+  return DEFAULT_PARAMS[type]?.() ?? {};
 }
 
+const nonEmptyArray = (v: any): boolean => Array.isArray(v) && v.length > 0;
+
+function isValidRegex(pattern: any): boolean {
+  const pat = String(pattern ?? "");
+  if (!pat) return false;
+  try { new RegExp(pat); return true; } catch { return false; }
+}
+
+// Per-type param validators. Types with no entry (installed / favorites /
+// nonSteam / updatePending / isNew / cloudAvailable / controllerSupport /
+// playtimeRange / friendsPlayingNow / achievements) are always valid.
+const PARAM_VALIDATORS: Partial<Record<FilterItem["type"], (p: any) => boolean>> = {
+  hidden: (p) => !!p.mode,
+  deckCompatibility: (p) => nonEmptyArray(p.levels),
+  playedWithinDays: (p) => Number(p.days ?? 0) > 0,
+  nameIncludes: (p) => String(p.text ?? "").length > 0,
+  nameRegex: (p) => isValidRegex(p.pattern),
+  friends: (p) => nonEmptyArray(p.friends),
+  friendsPlayedRecently: (p) => Number(p.days ?? 0) > 0,
+  storeTag: (p) => nonEmptyArray(p.tags),
+  collection: (p) => Boolean(p.collectionId),
+  developer: (p) => nonEmptyArray(p.developers),
+  publisher: (p) => nonEmptyArray(p.publishers),
+  appIdList: (p) => nonEmptyArray(p.appIds),
+  merge: (p) => nonEmptyArray(p.items),
+  shortcutType: (p) => nonEmptyArray(p.kinds),
+  appStatus: (p) => nonEmptyArray(p.groups),
+  discount: (p) => Number(p.minDiscount ?? 0) >= 0 && Number(p.minDiscount ?? 0) <= 100,
+};
+
 export function isValidParams(item: FilterItem): boolean {
-  const p = item.params ?? {};
-  switch (item.type) {
-    case "installed":
-    case "favorites":
-    case "nonSteam":
-    case "updatePending":
-    case "isNew":
-    case "cloudAvailable":
-    case "controllerSupport":
-      return true;
-    case "hidden":
-      return !!p.mode;
-    case "deckCompatibility":
-      return Array.isArray(p.levels) && p.levels.length > 0;
-    case "playedWithinDays":
-      return Number(p.days ?? 0) > 0;
-    case "playtimeRange":
-      return true;
-    case "nameIncludes":
-      return String(p.text ?? "").length > 0;
-    case "nameRegex": {
-      const pat = String(p.pattern ?? "");
-      if (!pat) return false;
-      try { new RegExp(pat); return true; } catch { return false; }
-    }
-    case "friends":
-      return Array.isArray(p.friends) && p.friends.length > 0;
-    case "friendsPlayingNow":
-      return true;
-    case "friendsPlayedRecently":
-      return Number(p.days ?? 0) > 0;
-    case "storeTag":
-      return Array.isArray(p.tags) && p.tags.length > 0;
-    case "achievements":
-      return true;
-    case "collection":
-      return Boolean(p.collectionId);
-    case "developer":
-      return Array.isArray(p.developers) && p.developers.length > 0;
-    case "publisher":
-      return Array.isArray(p.publishers) && p.publishers.length > 0;
-    case "appIdList":
-      return Array.isArray(p.appIds) && p.appIds.length > 0;
-    case "merge":
-      return Array.isArray(p.items) && p.items.length > 0;
-    case "shortcutType":
-      return Array.isArray(p.kinds) && p.kinds.length > 0;
-    case "appStatus":
-      return Array.isArray(p.groups) && p.groups.length > 0;
-    case "discount":
-      return Number(p.minDiscount ?? 0) >= 0 && Number(p.minDiscount ?? 0) <= 100;
-    default:
-      return true;
-  }
+  const validator = PARAM_VALIDATORS[item.type];
+  return validator ? validator(item.params ?? {}) : true;
 }
 
 export function getTypeLabel(type: FilterItemType): string {

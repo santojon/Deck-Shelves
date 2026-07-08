@@ -63,16 +63,18 @@ export function definePlugin(factory: (serverAPI?: any) => unknown) {
   };
 }
 
+// `callPluginMethod` wraps the value in `{ result }`; `call` returns it raw.
+function unwrapResult<T>(response: any): T {
+  if (response && typeof response === 'object' && 'result' in response) return response.result as T;
+  return response as T;
+}
+
 export async function call<TArgs extends unknown[], TResult>(method: string, ...args: TArgs): Promise<TResult> {
   const payload = args.length === 0 ? {} : args.length === 1 ? args[0] : { args };
 
   const serverApi = legacyServerApi;
   if (serverApi?.callPluginMethod) {
-    const response = await serverApi.callPluginMethod(method, payload);
-    if (response && typeof response === 'object' && 'result' in response) {
-      return response.result as TResult;
-    }
-    return response as TResult;
+    return unwrapResult<TResult>(await serverApi.callPluginMethod(method, payload));
   }
   if (serverApi?.call) {
     return await serverApi.call(method, payload) as TResult;
@@ -127,13 +129,22 @@ export const routerHook = (() => {
 })();
 export function getRouterHook(): any { return getDeckyGlobal()?.routerHook; }
 
+// Toast via a candidate's `toaster.toast` if present (called as a method so
+// `this` stays the toaster); `done` false means this candidate had none.
+function tryToast(target: any, input: any): { done: boolean; result?: any } {
+  const toaster = target?.toaster;
+  if (!toaster?.toast) return { done: false };
+  return { done: true, result: toaster.toast(input) };
+}
+
 export const toaster = {
   toast(input: { title?: string; body?: string; duration?: number }) {
     try {
-      if (legacyServerApi?.toaster?.toast) return legacyServerApi.toaster.toast(input);
-      const api = ensureConnected();
-      if (api?.toaster?.toast) return api.toaster.toast(input);
-      return getDeckyGlobal()?.toaster?.toast?.(input);
+      const a = tryToast(legacyServerApi, input);
+      if (a.done) return a.result;
+      const b = tryToast(ensureConnected(), input);
+      if (b.done) return b.result;
+      return tryToast(getDeckyGlobal(), input).result;
     } catch (error) {
       logWarn("RUNTIME", "toast failed", { error: String(error), input });
     }

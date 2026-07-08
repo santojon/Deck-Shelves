@@ -222,6 +222,15 @@ interface DnDProps {
   onDragEnd: () => void;
 }
 
+function dragRowStyle(dnd?: DnDProps): React.CSSProperties {
+  if (!dnd) return {};
+  return {
+    opacity: dnd.isDragging ? 0.5 : 1,
+    borderTop: dnd.isHover ? "2px solid var(--gpSystemLighter, rgba(120,180,255,0.85))" : "2px solid transparent",
+    cursor: "grab",
+  };
+}
+
 function ShelfRow({
   shelf, isSmart, controller, t, reorder, dnd,
 }: {
@@ -242,11 +251,7 @@ function ShelfRow({
       ? <DeleteConfirmSmartModal closeModal={close} controller={controller} shelf={shelf as any} />
       : <DeleteConfirmModal      closeModal={close} controller={controller} shelf={shelf as any} />
   ));
-  const dragStyle: React.CSSProperties = dnd ? {
-    opacity: dnd.isDragging ? 0.5 : 1,
-    borderTop: dnd.isHover ? "2px solid var(--gpSystemLighter, rgba(120,180,255,0.85))" : "2px solid transparent",
-    cursor: "grab",
-  } : {};
+  const dragStyle = dragRowStyle(dnd);
   return (
     <Focusable
       flow-children="row"
@@ -312,14 +317,17 @@ function TypeChip({ kind, t }: { kind: "normal" | "smart"; t: (k: string) => str
   );
 }
 
+const SOURCE_DESCRIBERS: Record<string, (s: any) => string> = {
+  tab: (s) => `tab: ${s.tab}`,
+  collection: (s) => `collection: ${s.collectionId}`,
+  filter: () => "filter",
+  composite: (s) => `composite: ${s.combine ?? "union"}`,
+  smart: (s) => `smart: ${s.mode}`,
+};
+
 function describeSource(shelf: any, isSmart: boolean): string {
   if (isSmart) return `mode: ${shelf.mode ?? "—"}`;
   const s = shelf.source;
   if (!s) return "—";
-  if (s.type === "tab")        return `tab: ${s.tab}`;
-  if (s.type === "collection") return `collection: ${s.collectionId}`;
-  if (s.type === "filter")     return "filter";
-  if (s.type === "composite")  return `composite: ${s.combine ?? "union"}`;
-  if (s.type === "smart")      return `smart: ${s.mode}`;
-  return s.type ?? "—";
+  return SOURCE_DESCRIBERS[s.type]?.(s) ?? s.type ?? "—";
 }
