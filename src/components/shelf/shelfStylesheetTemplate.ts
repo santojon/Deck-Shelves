@@ -888,11 +888,6 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       /* Respect theme overrides via CSS variables for fit/position/filter */
       object-fit: var(--ds-hero-fit, cover);
       object-position: var(--ds-hero-position, 50% 18%);
-      /* Pivot this img's own zoom on the framing anchor (not the default centre)
-         so that zoom, when it runs, doesn't drift the framing vertically. The
-         primary card-to-card bob is the crossfade scale-dip — fixed by a top
-         transform-origin on the slot wrapper in PerShelfHero.tsx. */
-      transform-origin: var(--ds-hero-position, 50% 18%);
       filter: var(--ds-hero-appearance-filter, none);
       mask-image: var(--ds-hero-mask, none);
       -webkit-mask-image: var(--ds-hero-mask, none);

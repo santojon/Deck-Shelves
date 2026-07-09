@@ -33,7 +33,12 @@ async function probe(): Promise<boolean> {
     const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
     const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch {} }, PROBE_TIMEOUT_MS) : null;
     try {
-      const res = await fetch(PROBE_URL, { method: "HEAD", cache: "no-store", signal: ctrl?.signal });
+      /* `no-cors` is required: the probe host sends no CORS headers, so a
+         default-mode cross-origin fetch REJECTS ("Failed to fetch") instead of
+         resolving — which made the opaque check below dead code and pinned
+         isOnline() to false (breaking update checks + online features). With
+         no-cors a reachable host resolves as an opaque response. */
+      const res = await fetch(PROBE_URL, { method: "HEAD", mode: "no-cors", cache: "no-store", signal: ctrl?.signal });
       // Opaque responses (CORS-blocked) indicate the server was reachable — count as online.
       return res.ok || res.type === "opaque";
     } finally {

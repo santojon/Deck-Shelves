@@ -424,6 +424,17 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
       } catch (e) {
         logInfo("HOME", "gpfocus cleanup failed", String(e));
       }
+      /* Lateral card-to-card move within the same shelf → skip the vertical
+         re-centering below (the shelf is already positioned). Only re-center
+         when focus ENTERS this shelf from another row. Re-centering on every
+         lateral focus (this block has no tolerance, unlike maybeCenter) made
+         the whole shelf — hero art included — bob ~6px per card. */
+      const prevCard: HTMLElement | null = (globalThis as any).__ds_prev_centered_card ?? null;
+      (globalThis as any).__ds_prev_centered_card = card;
+      if (prevCard && prevCard !== card && rowEl.contains(prevCard)) {
+        doHorizontalScroll(card);
+        return;
+      }
       try {
         const outer = outerRef.current;
         if (outer) requestAnimationFrame(() => {
