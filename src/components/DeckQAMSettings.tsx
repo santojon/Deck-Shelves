@@ -40,7 +40,7 @@ import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSectio
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
-import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from './ui'
+import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
 import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
@@ -1162,6 +1162,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <ActionButton iconNode={icons.reset} onClick={handleResetAll} okDescription={t('reset_all_button')} />
         </Focusable>
       </Field>
+      <VersionFooter />
       </Focusable>
       {qamExpanded && (
         <SidecarPanel controller={controller} onCollapse={() => setQamExpanded(false)} />

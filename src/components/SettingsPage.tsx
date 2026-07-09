@@ -3,6 +3,7 @@ import { Tabs, Focusable } from "../runtime/host/decky";
 import { Navigation } from "@decky/ui";
 import { useSettingsController } from "../features/settings/controller";
 import { PageHeader } from "./ui/PageHeader";
+import { VersionFooter } from "./ui/VersionFooter";
 import { DeckQAMStyles } from "./styles/DeckQAMStyles";
 import { ShelvesDetail } from "./settings/details/ShelvesDetail";
 import { ProfilesDetail } from "./settings/details/ProfilesDetail";
@@ -100,6 +101,7 @@ export function SettingsPage() {
           tabs={buildSettingsTabs(controller, t, { lightMode, showIntegrations, advancedMode, devMode })}
         />
       </div>
+      <VersionFooter />
     </Focusable>
   );
 }
