@@ -548,8 +548,17 @@ export function applyQASettingsOverride(s: Settings): Settings {
   };
 }
 
+/* Dev-only runtime QA flag read from localStorage — lets a UI test toggle a
+   scenario against a normally-built dev bundle (the `__QA_*__` defines are baked
+   at build time and can't be flipped on a deployed build). Stripped in prod via
+   the `__DEV__` gate. */
+function qaLocalFlag(name: string): boolean {
+  if (!__DEV__) return false;
+  try { return (globalThis as any).localStorage?.getItem(name) === "1"; } catch { return false; }
+}
+
 export function qaForcedUpdateResult(): { hasUpdate: boolean; latestVersion: string | null; releaseUrl: string | null } | null {
-  if (!updateAvailable) return null;
+  if (!updateAvailable && !qaLocalFlag("qa:update-available")) return null;
   return { hasUpdate: true, latestVersion: QA_FAKE_LATEST_VERSION, releaseUrl: QA_FAKE_RELEASE_URL };
 }
 

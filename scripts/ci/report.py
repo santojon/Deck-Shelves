@@ -1004,14 +1004,10 @@ def generate(
     }
     out.with_suffix(".json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
-    # NOTE: per-run generation only writes `{ts}.html` and `{ts}.json` for
-    # this run. The derived aggregates (per-scope `index.html`, per-scope
-    # `runs-manifest.json`, top-level `index.html`, `dashboard.html`) are
-    # NOT touched here — they're regenerated explicitly via `--rebuild`
-    # (exposed as `pnpm reports:rebuild`). That keeps the auto-commit step
-    # in CI from churning the committed dashboards on every run, and lets
-    # the contributor refresh them on demand against whatever's on disk
-    # locally (including `reports/local/`, which is gitignored).
+    try:
+        rebuild_aggregates(out.parent.parent, scope_only=(subdir not in ("ci", "release")))
+    except Exception as e:  # noqa: BLE001 - the report itself is already written
+        print(f"report: aggregate refresh skipped ({e})")
 
 
 def rebuild_aggregates(reports_root: Path, scope_only: bool = False) -> None:

@@ -18,6 +18,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **Full-page hero shelves no longer bob a few pixels up and down as you move between games.**
 - **Update notifications show up again** — and the online wishlist / price features work again — after fixing a connectivity check that was wrongly failing.
 - **The on-screen keyboard now closes after you pick a game in Quick Search.**
 - **Card badges and "friends playing" avatars no longer cover the search keyboard** or the Side Navigation panel.
