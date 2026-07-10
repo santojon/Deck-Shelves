@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-07-10
+
 ### Added
 
 - **Snapshots — automatic backups of your settings.** Deck Shelves keeps a rolling history (one a day, plus any you save yourself). Restore, export or delete them from Settings → Advanced, and undo a restore if you change your mind.

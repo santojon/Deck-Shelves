@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-07-10
+
 ### Added
 
 - **Snapshots — versioned settings history** (Settings → Advanced). Rolling backups of the settings file at `settings/deck-shelves/backups/settings-<ts>.json` ([`storage.py`](storage.py) + [`SnapshotsSection.tsx`](src/components/settings/details/SnapshotsSection.tsx)). Automatic snapshots are throttled to one per 24 h (`AUTO_BACKUP_CAP` = 12, oldest pruned); user-created (`manual`) and `import` snapshots carry an origin icon. Per-row restore / export / delete plus delete-all; restore is itself undoable. Backend RPCs `list_backups` / `restore_backup` / `create_backup` / `export_backup` / `import_backup` are path-traversal guarded. Renamed from "Backups" to avoid clashing with the file export/import "Backup" area.
