@@ -97,13 +97,14 @@ jobs:
       # Triggers for the report:
       #   - commit message contains `#report`
       #   - PR title contains `#report`
-      #   - version tag push (`refs/tags/v*`)
+      #   - clean release tag push (`vX.Y.Z`) — pre-release tags are excluded
+      #.  - so they don't generate/commit a report or go through the store flow.
       - name: Generate report
         id: report
         if: |
           contains(github.event.head_commit.message, '#report')
           || (github.event.pull_request && contains(github.event.pull_request.title, '#report'))
-          || startsWith(github.ref, 'refs/tags/v')
+          || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))
         run: pnpm run validate:ci
 
       # Refresh the derived aggregates (per-scope `runs-manifest.json`,
