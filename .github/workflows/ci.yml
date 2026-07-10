@@ -127,5 +127,12 @@ jobs:
           && steps.report.outcome != 'skipped'
           && github.event_name != 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # SUBMIT_TOKEN (maintainer PAT) bypasses branch protection on main so
+          # the report pushes DIRECTLY — same as release.yml / weekly-report.yml.
+          # Without it the push is rejected and commit-report.sh falls back to an
+          # `auto/reports-*` branch + PR that, since it only touches
+          # site/reports/** (paths-ignored here), can never satisfy the required
+          # `validate` check → the PR never auto-merges and the branch is orphaned.
+          SUBMIT_TOKEN: ${{ secrets.SUBMIT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SUBMIT_TOKEN || secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/commit-report.sh
