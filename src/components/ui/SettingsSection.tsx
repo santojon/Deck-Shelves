@@ -4,6 +4,7 @@ import { Focusable } from "../../runtime/host/decky";
 export interface SettingsSectionProps {
   title?: string;
   description?: string;
+  icon?: React.ReactNode;
   trailing?: React.ReactNode;
   children: React.ReactNode;
   // When set, the whole section becomes a Focusable container with
@@ -14,11 +15,11 @@ export interface SettingsSectionProps {
 // Themable card-style section. Visual tokens come from `.ds-settings-section`
 // in `DeckQAMStyles` so CSS Loader themes can override them, matching the
 // way `CollapsibleSection` is themed.
-export function SettingsSection({ title, description, trailing, children, vertical = true }: SettingsSectionProps) {
+export function SettingsSection({ title, description, icon, trailing, children, vertical = true }: SettingsSectionProps) {
   const header = (title || description || trailing) ? (
     <div className="ds-settings-section__header">
       <div className="ds-settings-section__heading">
-        {title ? <div className="ds-settings-section__title">{title}</div> : null}
+        {title ? <div className="ds-settings-section__title" style={icon ? { display: "flex", alignItems: "center", gap: 6 } : undefined}>{icon}{title}</div> : null}
         {description ? <div className="ds-settings-section__desc">{description}</div> : null}
       </div>
       {trailing ? <div className="ds-settings-section__trailing">{trailing}</div> : null}

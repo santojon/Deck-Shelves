@@ -26,6 +26,7 @@ export type EditableShelfState = {
   enableLogo: boolean
   enableIcon: boolean
   enableDescription: boolean
+  descriptionScale: number
   descriptionBelowLogo: boolean
   logoPosition: 'left' | 'center' | 'right'
   descriptionPosition: 'left' | 'center' | 'right'

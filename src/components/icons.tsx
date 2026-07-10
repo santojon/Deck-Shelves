@@ -337,6 +337,17 @@ export function RefreshIcon({ size = 14, style }: IconProps) {
   );
 }
 
+// Restore/revert: a single counter-clockwise arrow (distinct from RefreshIcon's
+// two-arrow sync). Used to roll settings back to a snapshot.
+export function RestoreIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 .49-9L1 10" />
+    </svg>
+  );
+}
+
 export function GamepadIcon({ size = 14, style }: IconProps) {
   return (
     <svg

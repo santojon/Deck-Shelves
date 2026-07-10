@@ -104,7 +104,17 @@ jobs:
       - name: Extract [Unreleased] notes
         id: notes
         run: |
-          NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          # Prefer the user-facing RELEASE_NOTES.md; fall back to the
+          # technical CHANGELOG.md when [Unreleased] is missing there.
+          # (Same source of truth as the stable release.yml body.)
+          NOTES=""
+          if [[ -f "RELEASE_NOTES.md" ]]; then
+            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' RELEASE_NOTES.md | sed '/^$/N;/^\n$/d')
+          fi
+          if [[ -z "$NOTES" && -f "CHANGELOG.md" ]]; then
+            echo "RELEASE_NOTES.md had no [Unreleased] section — falling back to CHANGELOG.md"
+            NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          fi
           {
             echo "body<<BODY_EOF"
             printf '%s\n' "$NOTES"

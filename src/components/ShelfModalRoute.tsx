@@ -15,6 +15,29 @@ function getShelfIdFromLocation(): string {
   } catch { return ""; }
 }
 
+function resolveShelf(controller: ReturnType<typeof useSettingsController>, shelfId: string) {
+  const shelf = controller.shelves.find((s) => s.id === shelfId);
+  const smartShelf = shelf ? null : (controller.settings?.smartShelves ?? []).find((s) => s.id === shelfId);
+  return { shelf, smartShelf };
+}
+
+function openShelfModal(
+  kind: "edit" | "delete",
+  shelf: any,
+  smartShelf: any,
+  controller: ReturnType<typeof useSettingsController>,
+): void {
+  try {
+    if (smartShelf) {
+      if (kind === "edit") openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={smartShelf} />);
+      else openManagedModal((close) => <DeleteConfirmSmartModal closeModal={close} controller={controller} shelf={smartShelf} />);
+    } else if (shelf) {
+      if (kind === "edit") showEditShelfModal(controller, shelf);
+      else showDeleteConfirm(controller, shelf);
+    }
+  } catch {}
+}
+
 function ShelfModalRouteImpl({ kind, shelfId: shelfIdProp }: { kind: "edit" | "delete"; shelfId: string }) {
   const controller = useSettingsController();
   const triggeredRef = useRef(false);
@@ -23,21 +46,12 @@ function ShelfModalRouteImpl({ kind, shelfId: shelfIdProp }: { kind: "edit" | "d
   useEffect(() => {
     if (triggeredRef.current) return;
     triggeredRef.current = true;
-    const shelf = controller.shelves.find((s) => s.id === shelfId);
-    const smartShelf = shelf ? null : (controller.settings?.smartShelves ?? []).find((s) => s.id === shelfId);
+    const { shelf, smartShelf } = resolveShelf(controller, shelfId);
     if (!shelf && !smartShelf) {
       try { (Navigation as any).NavigateBack?.(); } catch {}
       return;
     }
-    try {
-      if (smartShelf) {
-        if (kind === "edit") openManagedModal((close) => <EditSmartShelfModal closeModal={close} controller={controller} shelf={smartShelf} />);
-        else openManagedModal((close) => <DeleteConfirmSmartModal closeModal={close} controller={controller} shelf={smartShelf} />);
-      } else if (shelf) {
-        if (kind === "edit") showEditShelfModal(controller, shelf);
-        else showDeleteConfirm(controller, shelf);
-      }
-    } catch {}
+    openShelfModal(kind, shelf, smartShelf, controller);
     // Pop back immediately — showModal renders in a portal independent of
     // the route, so the modal stays visible over the previous page.
     try {

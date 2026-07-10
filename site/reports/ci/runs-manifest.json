@@ -1,5 +1,125 @@
 [
   {
+    "ts": "2026-07-09_23-59-58",
+    "stress": false,
+    "subdir": "ci",
+    "version": "3.0.1",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "unit": {
+      "passed": 585,
+      "failed": 0,
+      "skipped": 0,
+      "total": 585
+    },
+    "pytest": {},
+    "ruff": {},
+    "lint": {},
+    "suppressions": 137,
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      9885,
+      1539,
+      6286,
+      1899,
+      66,
+      5610
+    ],
+    "total_duration_ms": 25285,
+    "_scope": "ci"
+  },
+  {
+    "ts": "2026-07-09_10-44-53",
+    "stress": false,
+    "subdir": "ci",
+    "version": "3.0.1",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "unit": {
+      "passed": 585,
+      "failed": 0,
+      "skipped": 0,
+      "total": 585
+    },
+    "pytest": {},
+    "ruff": {},
+    "lint": {},
+    "suppressions": 137,
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      9443,
+      1498,
+      6289,
+      1860,
+      65,
+      5539
+    ],
+    "total_duration_ms": 24694,
+    "_scope": "ci"
+  },
+  {
+    "ts": "2026-07-08_20-17-19",
+    "stress": false,
+    "subdir": "ci",
+    "version": "3.0.1",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "unit": {
+      "passed": 585,
+      "failed": 0,
+      "skipped": 0,
+      "total": 585
+    },
+    "pytest": {},
+    "ruff": {},
+    "lint": {},
+    "suppressions": 137,
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      9283,
+      1530,
+      6131,
+      1865,
+      67,
+      5647
+    ],
+    "total_duration_ms": 24523,
+    "_scope": "ci"
+  },
+  {
     "ts": "2026-07-06_11-22-35",
     "stress": false,
     "subdir": "ci",

@@ -13,7 +13,11 @@
     "lib": [
       "ES2022",
       "DOM"
-    ]
+    ],
+    "paths": {
+      "@deck-shelves/host": ["./host/src/contract/index.ts"],
+      "@deck-shelves/api": ["./api/src/index.ts"]
+    }
   },
   "include": [
     "src/**/*.ts",

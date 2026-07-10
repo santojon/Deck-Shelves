@@ -20,6 +20,17 @@ export interface ShelvesDeps {
   t: (key: string) => string;
 }
 
+/* Extract the shelves array from an imported settings/export JSON (raw
+   `{shelves}` or wrapped `{state:{shelves}}`); null on parse error or a
+   non-array payload. */
+function parseImportedShelves(raw: string): any[] | null {
+  try {
+    const parsed = JSON.parse(raw);
+    const imported = parsed?.state?.shelves ?? parsed?.shelves;
+    return Array.isArray(imported) ? imported : null;
+  } catch { return null; }
+}
+
 export function createShelfActions(deps: ShelvesDeps) {
   const { liveSettings, persist, setSelectedId, collections, tabs, shelves, t } = deps;
 
@@ -65,10 +76,9 @@ export function createShelfActions(deps: ShelvesDeps) {
       if (!s) return false;
       const raw = await readJsonFile(srcPath);
       if (!raw) return false;
+      const imported = parseImportedShelves(raw);
+      if (!imported) return false;
       try {
-        const parsed = JSON.parse(raw);
-        const imported = parsed?.state?.shelves ?? parsed?.shelves;
-        if (!Array.isArray(imported)) return false;
         await persist({ ...s, shelves: imported });
         if (imported[0]?.id) setSelectedId(imported[0].id);
         try { trackFeature("import"); } catch {}

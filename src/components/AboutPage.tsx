@@ -12,6 +12,7 @@ import { OnlinePage } from './about/OnlinePage'
 import { SupportPage } from './about/SupportPage'
 import { FunnelIcon, SortIcon, SparkleIcon, InfoCircleIcon, OnlineIcon } from './icons'
 import { PageHeader } from './ui/PageHeader'
+import { VersionFooter } from './ui/VersionFooter'
 import { DeckQAMStyles } from './styles/DeckQAMStyles'
 
 // `Tab.title` is typed as `string` but renders any ReactNode at
@@ -56,6 +57,7 @@ export function AboutPage() {
           ]}
         />
       </div>
+      <VersionFooter />
     </Focusable>
   )
 }

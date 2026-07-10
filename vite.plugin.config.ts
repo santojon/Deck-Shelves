@@ -44,6 +44,8 @@ export default defineConfig(({ mode }) => {
         { find: /^@decky\/api$/, replacement: path.resolve(__dirname, "src/shims/decky-api.ts") },
         { find: /^@decky\/ui$/, replacement: path.resolve(__dirname, "src/shims/decky-ui.ts") },
         { find: /^@decky\/manifest$/, replacement: path.resolve(__dirname, "src/shims/decky-manifest.ts") },
+        { find: /^@deck-shelves\/host$/, replacement: path.resolve(__dirname, "host/src/contract/index.ts") },
+        { find: /^@deck-shelves\/api$/, replacement: path.resolve(__dirname, "api/src/index.ts") },
         { find: /^@$/, replacement: path.resolve(__dirname, "src") },
       ],
     },

@@ -229,6 +229,26 @@ section { scroll-margin-top: 80px; }
 .cta .btn-primary { background: #fff; color: #123b7a; box-shadow: none; }
 .cta .btn-primary:hover { background: #eef4ff; }
 
+/* Top CTA (fresh release) — inverted colours + more compact than the footer CTA:
+   light container with dark text, solid blue button with white text. */
+.cta-top { padding: 16px 26px; background: linear-gradient(120deg, #eef4ff, #dfeaff 55%, #d3e2ff); border-color: rgba(37, 99, 235, 0.35); box-shadow: 0 16px 40px rgba(20, 50, 120, 0.16); }
+.cta-top .cta-ico { width: 44px; height: 44px; border-radius: 12px; background: rgba(37, 99, 235, 0.14); color: #1d4ed8; }
+.cta-top h2 { font-size: 1.12rem; color: #0b1f47; }
+.cta-top p { color: #3a5488; }
+.cta-top .btn-primary { background: var(--blue-btn); color: #fff; box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28); }
+.cta-top .btn-primary:hover { background: var(--blue-btn-hover); }
+
+/* Nav social icon buttons */
+.nav-social { display: inline-flex; align-items: center; gap: 8px; }
+.btn-icon { padding: 10px; }
+
+/* Community band — same card treatment as the other panel blocks. */
+.community { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 26px 30px; border-radius: 26px; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(16, 24, 41, 0.6), rgba(9, 14, 24, 0.4)); }
+.community-head h3 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 9px; }
+.community-ico { width: 20px; height: 20px; color: var(--blue); }
+.community-head p { margin: 4px 0 0; color: #93a1b8; font-size: 0.9rem; }
+.community-links { display: flex; flex-wrap: wrap; gap: 10px; }
+
 /* footer */
 footer { border-top: 1px solid var(--border); margin-top: 30px; padding: 52px 0 34px; }
 /* Full-viewport-width divider lines (placed directly under <footer>, outside .container) */

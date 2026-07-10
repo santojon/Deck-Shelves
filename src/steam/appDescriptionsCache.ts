@@ -37,6 +37,16 @@ const STORAGE_MAX = 1500;          // cap entries to keep the JSON blob small
 const STORAGE_SAVE_DEBOUNCE = 1500;
 let saveScheduled = false;
 
+// Hydrate one persisted entry into the in-memory cache if the key is a valid
+// appid and the value carries a snippet or full HTML.
+function hydrateEntry(k: string, v: unknown): void {
+  const appid = Number(k);
+  const desc = v as Partial<AppDescriptions>;
+  if (Number.isFinite(appid) && appid > 0 && (desc?.snippet || desc?.fullHtml)) {
+    cache.set(appid, { snippet: desc.snippet ?? '', fullHtml: desc.fullHtml ?? '' });
+  }
+}
+
 function loadFromStorage(): void {
   try {
     const ls = (globalThis as { localStorage?: Storage }).localStorage;
@@ -45,13 +55,7 @@ function loadFromStorage(): void {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data && typeof data === 'object') {
-      for (const [k, v] of Object.entries(data)) {
-        const appid = Number(k);
-        const desc = v as Partial<AppDescriptions>;
-        if (Number.isFinite(appid) && appid > 0 && (desc?.snippet || desc?.fullHtml)) {
-          cache.set(appid, { snippet: desc.snippet ?? '', fullHtml: desc.fullHtml ?? '' });
-        }
-      }
+      for (const [k, v] of Object.entries(data)) hydrateEntry(k, v);
     }
   } catch { /* swallow — bad JSON / quota / privacy mode */ }
 }

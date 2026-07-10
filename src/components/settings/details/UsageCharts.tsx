@@ -147,7 +147,7 @@ export function DailyBars({ values, color }: { values: number[]; color: string }
 
 /* Stacked bars over time — a composition-style comparison of the same series
    the line chart overlays (different lens: per-day totals + share). */
-export function StackedBars({ points, keys }: { points: UsageDailyPoint[]; keys: SeriesKey[] }) {
+export function StackedBars({ points, keys, normalize = false }: { points: UsageDailyPoint[]; keys: SeriesKey[]; normalize?: boolean }) {
   const W = 320, H = 120;
   const totals = points.map((p) => keys.reduce((a, k) => a + p[k], 0));
   const max = Math.max(1, ...totals);
@@ -157,11 +157,14 @@ export function StackedBars({ points, keys }: { points: UsageDailyPoint[]; keys:
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" style={{ display: "block", width: "100%", height: "auto" }}>
       {points.map((p, i) => {
+        // Normalized ("100%") bars show each day's composition/share; the raw
+        // mode shares a global max so bar heights compare day-to-day volume.
+        const denom = normalize ? Math.max(1, totals[i]) : max;
         let y = H;
         return (
           <g key={i}>
             {SERIES_ORDER.filter((k) => keys.includes(k)).map((k) => {
-              const seg = (p[k] / max) * (H - 2);
+              const seg = (p[k] / denom) * (H - 2);
               if (seg <= 0) return null;
               y -= seg;
               const yTop = y;

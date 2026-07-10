@@ -216,3 +216,14 @@ export function openReleaseUrl(url: string | null | undefined): void {
     else (globalThis as any).window?.open?.(url, "_blank");
   } catch { /* swallow — best-effort external open */ }
 }
+
+/* Test hooks (stripped from release builds by `__DEV__`). The update UI suite
+   drives the real check + connectivity probe on-device so a regression in the
+   notifier or the isOnline no-cors fix surfaces as a failing test. */
+if (__DEV__) {
+  try {
+    const g = globalThis as any;
+    g.__ds_dev_check_update = () => { __resetUpdateCheckCache(); return checkForUpdate(); };
+    g.__ds_dev_is_online = () => isOnline();
+  } catch { /* best-effort */ }
+}

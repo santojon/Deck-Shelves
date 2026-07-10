@@ -76,6 +76,15 @@ export function cardTypeComposition(settings: any, resolvedIds: ResolvedIds, isN
   return out;
 }
 
+/* Featured (highlighted) card count for one shelf: highlightAll → the whole
+   resolved count (or the highlight list when unknown); otherwise the highlights
+   that fall within the resolved count, plus one for highlightFirst. */
+function featuredCount(sh: any, count: number | null): number {
+  const highlighted = asArray(sh?.highlightedAppIds).length;
+  if (sh?.highlightAll) return count ?? highlighted;
+  return Math.min(highlighted, count ?? Number.MAX_SAFE_INTEGER) + (sh?.highlightFirst ? 1 : 0);
+}
+
 /* Card-composition snapshot by display state: normal (regular game cards),
    featured (highlights), decorative (synthetic cards) and hidden. Normal /
    featured use the injected resolved per-shelf card count. */
@@ -85,10 +94,7 @@ export function cardComposition(settings: any, resolvedCount: ResolvedCount): Co
     decorative += asArray(sh?.syntheticCards).length;
     hidden += asArray(sh?.hiddenAppIds).length;
     const count = resolvedCount(sh?.id);
-    const highlighted = asArray(sh?.highlightedAppIds).length;
-    const fav = sh?.highlightAll
-      ? (count ?? highlighted)
-      : Math.min(highlighted, count ?? Number.MAX_SAFE_INTEGER) + (sh?.highlightFirst ? 1 : 0);
+    const fav = featuredCount(sh, count);
     featured += fav;
     if (count != null) normal += Math.max(0, count - fav);
   }

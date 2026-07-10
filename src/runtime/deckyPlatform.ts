@@ -12,6 +12,12 @@ function navigate(appid: number) {
   }
 }
 
+// Resolve Steam's Navigation object (BP global first, imported fallback).
+function resolveNav(): any {
+  const steamClient = (globalThis as any).SteamClient ?? (globalThis as any).window?.SteamClient;
+  return steamClient?.Navigation ?? Navigation;
+}
+
 function navigateToShelfSource(source: ShelfSource, _title?: string) {
   // Original navigation behavior — proven over many releases:
   //   - collection → /library/collection/<id> (specific collection page)
@@ -21,8 +27,7 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
        - default    → /library
      Bare /library is the canonical "open the library" route. Steam's BP
      resolves it to whichever library view the user was last on. */
-  const steamClient = (globalThis as any).SteamClient ?? (globalThis as any).window?.SteamClient;
-  const nav = steamClient?.Navigation ?? Navigation;
+  const nav = resolveNav();
   const safeNavigate = (path: string) => {
     try { nav?.Navigate?.(path); return true; } catch {}
     try { nav?.NavigateTo?.(path); return true; } catch {}
@@ -45,12 +50,7 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
     } catch {}
     return false;
   };
-  if (source.type === 'tab') {
-    if (safeNavigate('/library')) return;
-    safeNavigate('/library/home');
-    return;
-  }
-  if (source.type === 'collection') {
+  const navCollection = () => {
     const id = String((source as any).collectionId ?? "");
     if (id) {
       const candidates = [
@@ -64,6 +64,14 @@ function navigateToShelfSource(source: ShelfSource, _title?: string) {
     }
     if (safeNavigate('/library/collections')) return;
     safeNavigate('/library/home');
+  };
+  if (source.type === 'tab') {
+    if (safeNavigate('/library')) return;
+    safeNavigate('/library/home');
+    return;
+  }
+  if (source.type === 'collection') {
+    navCollection();
     return;
   }
   if (source.type === 'filter') {

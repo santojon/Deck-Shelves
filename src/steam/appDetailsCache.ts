@@ -14,6 +14,43 @@ function getSteamClient(): any {
   return (globalThis as any).SteamClient;
 }
 
+// Normalise one raw category entry (string, `{strDisplayName}` or `{name}`) to
+// a lowercased name; null when the shape isn't recognised.
+function catName(c: any): string | null {
+  if (typeof c === "string") return c.toLowerCase();
+  if (c && typeof c.strDisplayName === "string") return c.strDisplayName.toLowerCase();
+  if (c && typeof c.name === "string") return c.name.toLowerCase();
+  return null;
+}
+
+// Category names from an app-details payload. `vecCategories` is most common;
+// some builds expose `vecStoreCategories` / `m_setStoreCategories`.
+function extractCategories(details: any): string[] {
+  const d = details ?? {};
+  const rawCats = d.vecCategories ?? d.vecStoreCategories ?? d.m_setStoreCategories ?? [];
+  if (!Array.isArray(rawCats)) return [];
+  const out: string[] = [];
+  for (const c of rawCats) {
+    const name = catName(c);
+    if (name !== null) out.push(name);
+  }
+  return out;
+}
+
+// Achievement completion (0..1) from an app-details payload; NaN when neither
+// the `nAchievement*` nor `unAchievements*` counters are populated.
+function extractAchievementProgress(details: any): number {
+  try {
+    const d = details ?? {};
+    const earned = Number(d.nAchievementProgress ?? d.unAchievementsEarned ?? NaN);
+    const total = Number(d.nAchievementTotal ?? d.unAchievementsTotal ?? NaN);
+    if (Number.isFinite(earned) && Number.isFinite(total) && total > 0) {
+      return Math.max(0, Math.min(1, earned / total));
+    }
+  } catch {}
+  return NaN;
+}
+
 export function getAppDetailsSummary(appid: number): AppDetailsSummary | null {
   return cache.get(appid) ?? null;
 }
@@ -33,34 +70,7 @@ export function preloadAppDetailsSummary(appid: number): void {
   try {
     const handle = sc?.Apps?.RegisterForAppDetails?.(appid, (details: any) => {
       try { handle?.unregister?.(); } catch {}
-      // `vecCategories` shape varies — most commonly `Array<{ strDisplayName: string }>`.
-      // Some builds expose `m_setStoreCategories` or `vecStoreCategories`. We
-      // accept any of those + the bare strings array as a fallback.
-      const rawCats = details?.vecCategories ?? details?.vecStoreCategories ?? details?.m_setStoreCategories ?? [];
-      const categories: string[] = [];
-      if (Array.isArray(rawCats)) {
-        for (const c of rawCats) {
-          if (typeof c === "string") {
-            categories.push(c.toLowerCase());
-          } else if (c && typeof c.strDisplayName === "string") {
-            categories.push(c.strDisplayName.toLowerCase());
-          } else if (c && typeof c.name === "string") {
-            categories.push(c.name.toLowerCase());
-          }
-        }
-      }
-      // Achievement progress: `nAchievementProgress` (out of `nAchievementTotal`) is
-      // the most commonly observed shape. Some builds expose `unAchievementsEarned`
-      // / `unAchievementsTotal`. Returns NaN when neither is populated.
-      let achievementProgress = NaN;
-      try {
-        const earned = Number(details?.nAchievementProgress ?? details?.unAchievementsEarned ?? NaN);
-        const total = Number(details?.nAchievementTotal ?? details?.unAchievementsTotal ?? NaN);
-        if (Number.isFinite(earned) && Number.isFinite(total) && total > 0) {
-          achievementProgress = Math.max(0, Math.min(1, earned / total));
-        }
-      } catch {}
-      finish({ categories, achievementProgress });
+      finish({ categories: extractCategories(details), achievementProgress: extractAchievementProgress(details) });
     });
     setTimeout(() => {
       if (!done) {

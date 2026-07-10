@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPreferredSteamDocument, getAllSteamDocuments } from '../../runtime/steamHost';
+import { subscribeOverlayActive } from './overlayState';
 import i18n from '../../i18n';
 
 function findHomeRootDoc(): { doc: Document; root: HTMLElement } | null {
@@ -41,6 +42,10 @@ function readBadgeData(card: HTMLElement): { isNew: boolean; discount: number } 
 
 export function BadgeFocusOverlay() {
   const [state, setState] = useState<OverlayState | null>(null);
+  // Hide the band while an ambient overlay (search / Side Nav) covers the home —
+  // focus moves into the search input (inside the home root), so the focusout
+  // gate below keeps the last card and the band would float over the keyboard.
+  const [obscured, setObscured] = useState(false);
   /* Re-runs every render so a late-arriving preferred window doesn't strand
      the listeners on the wrong document. The cleanup tears down the prior
      listeners before the new ones attach, so duplicate handlers can't
@@ -57,6 +62,7 @@ export function BadgeFocusOverlay() {
     }
     const { doc, root } = located;
     const win = doc.defaultView ?? window;
+    const unsubOverlay = subscribeOverlayActive(doc, setObscured);
     let current: HTMLElement | null = null;
     let raf: number | null = null;
     const sync = () => {
@@ -113,6 +119,7 @@ export function BadgeFocusOverlay() {
     win.addEventListener('scroll', schedule, { passive: true, capture: true });
     win.addEventListener('resize', schedule);
     return () => {
+      unsubOverlay();
       root.removeEventListener('focusin', onFocusIn, true);
       root.removeEventListener('focusout', onFocusOut, true);
       win.removeEventListener('scroll', schedule, { capture: true } as any);
@@ -123,7 +130,7 @@ export function BadgeFocusOverlay() {
     };
   }, [hostKey]);
 
-  if (!state) return null;
+  if (obscured || !state) return null;
   const portalDoc = findHomeRootDoc()?.doc ?? document;
   return createPortal(
     <div

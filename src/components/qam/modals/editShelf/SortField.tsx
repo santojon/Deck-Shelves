@@ -3,6 +3,27 @@ import i18n from '../../../../i18n'
 import { SortDirectionButton } from './SortDirectionButton'
 import { optionData } from './utils'
 
+/* Normalise the sort/reverse props (single value or array) into the derived
+   state the field renders from. Secondary keys exclude `manual` (invalidates
+   manualOrder) and `random` (non-deterministic tiebreaker); a secondary key
+   can only be added when multi-key is allowed and the primary isn't one of
+   those two. */
+function deriveSortState(
+  sort: string | string[],
+  reverse: boolean | boolean[],
+  options: SingleDropdownOption[],
+  allowMultiKey: boolean,
+) {
+  const sortArr: string[] = Array.isArray(sort) ? sort : [sort]
+  const reverseArr: boolean[] = Array.isArray(reverse) ? reverse : sortArr.map(() => reverse)
+  const primary = sortArr[0] ?? ''
+  const primaryReverse = reverseArr[0] ?? false
+  const isMulti = sortArr.length > 1
+  const secondaryOptions = options.filter((o) => o.data !== 'manual' && o.data !== 'random')
+  const canAddSecondary = allowMultiKey && primary !== 'manual' && primary !== 'random'
+  return { sortArr, reverseArr, primary, primaryReverse, isMulti, secondaryOptions, canAddSecondary }
+}
+
 export function SortField({
   label,
   options,
@@ -24,18 +45,8 @@ export function SortField({
 }) {
   const t = (k: any) => i18n.t(k)
 
-  const sortArr: string[] = Array.isArray(sort) ? sort : [sort]
-  const reverseArr: boolean[] = Array.isArray(reverse)
-    ? reverse
-    : sortArr.map(() => reverse)
-
-  const primary = sortArr[0] ?? ''
-  const primaryReverse = reverseArr[0] ?? false
-  const isMulti = sortArr.length > 1
-
-  // Secondary keys can't be `manual` (would invalidate manualOrder) or
-  // `random` (non-deterministic — meaningless as a tiebreaker).
-  const secondaryOptions = options.filter((o) => o.data !== 'manual' && o.data !== 'random')
+  const { sortArr, reverseArr, primary, primaryReverse, isMulti, secondaryOptions, canAddSecondary } =
+    deriveSortState(sort, reverse, options, allowMultiKey)
 
   // If user picks manual/random as primary, secondary keys are stripped.
   const setPrimary = (next: string) => {
@@ -94,9 +105,6 @@ export function SortField({
       onReverseChange(nextReverse)
     }
   }
-
-  // Primary key can't be added-to with secondary if it's manual/random.
-  const canAddSecondary = allowMultiKey && primary !== 'manual' && primary !== 'random'
 
   /* When the user has 2+ sort keys, the chain shows a one-time description
      above explaining that earlier rows dominate (mirrors the smart-shelf

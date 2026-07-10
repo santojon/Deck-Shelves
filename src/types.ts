@@ -223,6 +223,7 @@ export const SmartShelfSchema = z.object({
   enableLogo: z.boolean().optional(),
   enableIcon: z.boolean().optional(),
   enableDescription: z.boolean().optional(),
+  descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
   descriptionBelowLogo: z.boolean().optional(),
   logoBelowShelf: z.boolean().optional(),
   logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
@@ -322,6 +323,27 @@ export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
 ]) as unknown as z.ZodType<ShelfSource>);
 export type ShelfFilter = z.infer<typeof FilterSchema>;
 
+// Empty content strings → undefined; when both text and image are set, image
+// wins (text dropped). Mutates the synthetic-card draft in place.
+function normalizeCardContent(out: any): void {
+  if (typeof out.text === "string" && out.text.length === 0) out.text = undefined;
+  if (typeof out.image === "string" && out.image.length === 0) out.image = undefined;
+  if (typeof out.heroImage === "string" && out.heroImage.length === 0) out.heroImage = undefined;
+  if (out.text !== undefined && out.image !== undefined) out.text = undefined;
+}
+
+// Drop a decoration card's link when it has no content, and for URL links
+// normalise/validate the target (adding https://), dropping an invalid one.
+function sanitizeCardLink(out: any, hasContent: boolean): void {
+  if (!out.link) return;
+  if (!hasContent) { out.link = undefined; return; }
+  if (out.link.type !== "url") return;
+  const raw = String(out.link.value ?? "").trim();
+  const url = /^https?:\/\//i.test(raw) ? raw : (raw ? `https://${raw}` : "");
+  try { if (url) new URL(url); else throw new Error(); }
+  catch { out.link = undefined; }
+}
+
 export const ShelfSchema = z.object({
   id: z.string().min(1).max(64),
   title: z.string().min(1).max(64),
@@ -366,6 +388,7 @@ export const ShelfSchema = z.object({
   enableLogo: z.boolean().optional(),
   enableIcon: z.boolean().optional(),
   enableDescription: z.boolean().optional(),
+  descriptionScale: z.number().int().min(100).max(200).nullable().optional(),
   descriptionBelowLogo: z.boolean().optional(),
   logoBelowShelf: z.boolean().optional(),
   logoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
@@ -433,21 +456,9 @@ export const ShelfSchema = z.object({
       // on boot. Empty strings → undefined; text+image → image wins;
       // link without text/image or with invalid URL → drop link.
       const out: any = { ...c };
-      if (typeof out.text === "string" && out.text.length === 0) out.text = undefined;
-      if (typeof out.image === "string" && out.image.length === 0) out.image = undefined;
-      if (typeof out.heroImage === "string" && out.heroImage.length === 0) out.heroImage = undefined;
-      if (out.text !== undefined && out.image !== undefined) out.text = undefined;
+      normalizeCardContent(out);
       const hasContent = out.text !== undefined || out.image !== undefined;
-      if (out.link) {
-        if (!hasContent) {
-          out.link = undefined;
-        } else if (out.link.type === "url") {
-          const raw = String(out.link.value ?? "").trim();
-          const url = /^https?:\/\//i.test(raw) ? raw : (raw ? `https://${raw}` : "");
-          try { if (url) new URL(url); else throw new Error(); }
-          catch { out.link = undefined; }
-        }
-      }
+      sanitizeCardLink(out, hasContent);
       return out;
     })
   ).optional(),
@@ -468,6 +479,7 @@ export const SettingsSchema = z.object({
   globalEnableLogo: z.boolean().optional(),
   globalEnableIcon: z.boolean().optional(),
   globalEnableDescription: z.boolean().optional(),
+  globalDescriptionScale: z.number().int().min(100).max(200).nullable().optional(),
   globalDescriptionBelowLogo: z.boolean().optional(),
   globalLogoBelowShelf: z.boolean().optional(),
   globalLogoPosition: z.enum(['left', 'center', 'right']).nullable().optional(),
@@ -519,11 +531,22 @@ export const SettingsSchema = z.object({
   updateNotifyEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   betaChannelEnabled: z.boolean().optional(),
   verboseLoggingEnabled: z.boolean().optional(),
+  devModeEnabled: z.boolean().optional(),
+  debugOverlayEnabled: z.boolean().optional(),
+  debugOverlayCorner: z.enum(["tl", "tr", "bl", "br"]).nullable().optional(),
+  debugOverlayVertical: z.boolean().optional(),
+  debugOverlayFps: z.boolean().optional(),
+  debugOverlayStats: z.boolean().optional(),
+  debugOverlayPerShelf: z.boolean().optional(),
+  debugOverlayOutlines: z.boolean().optional(),
+  debugOverlayFocus: z.boolean().optional(),
+  debugOverlayTransparent: z.boolean().optional(),
   updateNotifyDismissedVersion: z.string().nullable().optional(),
   onlineFeaturesEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineWishlistEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   onlinePriceSortEnabled: z.boolean().nullable().optional().transform((v) => v ?? true),
   onlinePrivacyAccepted: z.boolean().nullable().optional().transform((v) => v ?? false),
+  onlineMetadataEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedGames: z.boolean().nullable().optional().transform((v) => v ?? false),
   onlineHideOwnedNonSteam: z.boolean().nullable().optional().transform((v) => v ?? false),
   // When TRUE, cloud-play non-Steam entries count as owned (their store

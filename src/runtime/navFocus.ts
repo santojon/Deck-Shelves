@@ -22,12 +22,18 @@ function findNavNodeFor(node: NavNode | undefined, target: HTMLElement): NavNode
   return null;
 }
 
+// The active nav-tree root reachable from a SteamUIStore (undefined if any hop
+// is missing).
+function navRootFrom(store: any): any {
+  return store?.NavigationManager?.m_ActiveContext?.m_LastActiveNavTree?.m_Root;
+}
+
 function getActiveNavRoot(el: HTMLElement): NavNode | null {
   const view = el.ownerDocument?.defaultView as any;
   const candidates: any[] = [
-    view?.opener?.SteamUIStore?.NavigationManager?.m_ActiveContext?.m_LastActiveNavTree?.m_Root,
-    view?.SteamUIStore?.NavigationManager?.m_ActiveContext?.m_LastActiveNavTree?.m_Root,
-    (globalThis as any).SteamUIStore?.NavigationManager?.m_ActiveContext?.m_LastActiveNavTree?.m_Root,
+    navRootFrom(view?.opener?.SteamUIStore),
+    navRootFrom(view?.SteamUIStore),
+    navRootFrom((globalThis as any).SteamUIStore),
   ];
   for (const c of candidates) {
     if (c) return c as NavNode;

@@ -333,3 +333,38 @@ describe('evaluateFilterGroup — per filter type', () => {
     expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 2])
   })
 })
+
+describe('evaluateFilterGroup — appStatus on non-Steam (synthesized display_status)', () => {
+  const ns = (id: number, over: Partial<AppOverview> = {}) =>
+    app({ appid: id, is_non_steam: true, ...over } as any)
+
+  it('installed non-Steam (size on disk) matches installed_idle', () => {
+    const apps = [ns(1, { size_on_disk: 4096 } as any), ns(2, { size_on_disk: 0 } as any)]
+    const g = group([{ type: 'appStatus', params: { groups: ['installed_idle'] } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+
+  it('not-installed non-Steam (no size / no local play) matches not_installed', () => {
+    const apps = [ns(1, { size_on_disk: 4096 } as any), ns(2, { size_on_disk: 0 } as any)]
+    const g = group([{ type: 'appStatus', params: { groups: ['not_installed'] } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([2])
+  })
+
+  it('local last-play time marks a non-Steam shortcut installed', () => {
+    const apps = [ns(1, { rt_last_time_locally_played: 1700000000 } as any)]
+    const g = group([{ type: 'appStatus', params: { groups: ['installed_idle'] } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+
+  it('inverting installed on non-Steam yields the not-installed ones', () => {
+    const apps = [ns(1, { size_on_disk: 4096 } as any), ns(2, { size_on_disk: 0 } as any)]
+    const g = group([{ type: 'installed', inverted: true, params: {} }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([2])
+  })
+
+  it('Steam apps keep their real display_status (no synthesis)', () => {
+    const apps = [app({ appid: 1, display_status: 9 } as any), app({ appid: 2, display_status: 11 } as any)]
+    const g = group([{ type: 'appStatus', params: { groups: ['not_installed'] } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+})

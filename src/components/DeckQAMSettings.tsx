@@ -40,8 +40,8 @@ import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSectio
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
-import { CollapsibleSection, DSSliderField, PositionField, type HorizontalPosition } from './ui'
-import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon } from './icons'
+import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
+import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { trackFeature } from '../steam/usageTracking'
@@ -352,6 +352,7 @@ const TOGGLE_PARENTS: Record<string, string> = {
   shelfHeroBackground: 'hideRecents',
   recentsReplaceSource: 'hideRecents',
   onlineWishlistEnabled: 'onlineFeaturesEnabled',
+  onlineMetadataEnabled: 'onlineFeaturesEnabled',
   onlinePriceSortEnabled: 'onlineFeaturesEnabled',
   onlineHideOwnedGames: 'onlineFeaturesEnabled',
   onlineHideOwnedNonSteam: 'onlineHideOwnedGames',
@@ -885,15 +886,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         />
         )}
         {!isHid('onlineFeaturesEnabled') && (
-        <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
-          {t('online_features_desc')}
+        <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+          <OnlineIcon size={12} /><span>{t('online_features_desc')}</span>
         </div>
         )}
         {settings.onlineFeaturesEnabled === true && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
-            {!isHid('onlineWishlistEnabled') && (
-              <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />
-            )}
+            {!isHid('onlineWishlistEnabled') && <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />}
+            {(settings as any).advancedModeEnabled === true && !isHid('onlineMetadataEnabled') && (<><ToggleField label={t('online_metadata')} checked={settings.onlineMetadataEnabled === true} onChange={(value: boolean) => void actions.setOnlineMetadataEnabled(value)} /><div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{t('online_metadata_desc')}</div></>)}
             {!isHid('onlinePriceSortEnabled') && (
               <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(value: boolean) => void actions.setOnlinePriceSortEnabled(value)} />
             )}
@@ -1045,7 +1045,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         id='visual_global'
         icon={<WandIcon />}
         title={t('section_visual_global')}
-        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFriendsPlayingOverlay, (settings as any).globalFriendsPlayingOverlayRecent, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
+        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, ((settings as any).globalDescriptionScale ?? 100) > 100, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFriendsPlayingOverlay, (settings as any).globalFriendsPlayingOverlayRecent, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
       >
         {!isHid('globalMatchNativeSize') && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
         {!isHid('globalHighlightFirst') && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />}
@@ -1082,12 +1082,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
 
         {/* Group: Description + position + (paired) below-logo + height */}
         {!isHid('globalEnableDescription') && <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableDescription(value)} />}
+        {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionScale') && <DSSliderField label={t('description_size_label')} value={(settings as any).globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />}
         {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionPosition') && (
           <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
         )}
-        {(settings as any).globalEnableLogo === true && (settings as any).globalEnableDescription === true && !isHid('globalDescriptionBelowLogo') && (
-          <ToggleField label={t('description_below_logo' as any)} checked={(settings as any).globalDescriptionBelowLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDescriptionBelowLogo(value)} />
-        )}
+        {(settings as any).globalEnableLogo === true && (settings as any).globalEnableDescription === true && !isHid('globalDescriptionBelowLogo') && <ToggleField label={t('description_below_logo' as any)} checked={(settings as any).globalDescriptionBelowLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDescriptionBelowLogo(value)} />}
         {(settings as any).globalEnableLogo === true && !isHid('globalLogoBelowShelf') && (
           <ToggleField label={t('logo_below_shelf_label' as any)} checked={(settings as any).globalLogoBelowShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalLogoBelowShelf(value)} />
         )}
@@ -1124,7 +1123,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!lightMode && !isHid('globalHeroEnabled') && <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalHeroEnabled(value)} />}
         {!isHid('globalGameInfoAbove') && <ToggleField label={t('global_game_info_above' as any)} checked={(settings as any).globalGameInfoAbove === true} disabled={mountCrashed} onChange={(value: boolean) => applyGameInfoAboveToggle({ next: value, hideTitle: settings.globalHideShelfTitle === true, t, setGameInfoAbove: (v) => void (actions as any).setGlobalGameInfoAbove(v), setHideTitle: (v) => actions.setGlobalHideShelfTitle(v) })} />}
         {!isHid('globalFriendsPlayingOverlay') && <ToggleField label={t('friends_overlay_label' as any)} checked={(settings as any).globalFriendsPlayingOverlay === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlay(value)} />}
-        {!isHid('globalFriendsPlayingOverlay') && (settings as any).globalFriendsPlayingOverlay === true && <ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(value)} />}
+        {!isHid('globalFriendsPlayingOverlay') && (settings as any).globalFriendsPlayingOverlay === true && <div style={{ paddingLeft: 14 }}><ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(value)} /></div>}
         {!isHid('globalFullPageShelf') && <ToggleField label={t('full_page_shelves_label' as any)} checked={(settings as any).globalFullPageShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalFullPageShelf(value)} />}
       </CollapsibleSection>
       )}
@@ -1163,6 +1162,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <ActionButton iconNode={icons.reset} onClick={handleResetAll} okDescription={t('reset_all_button')} />
         </Focusable>
       </Field>
+      <VersionFooter />
       </Focusable>
       {qamExpanded && (
         <SidecarPanel controller={controller} onCollapse={() => setQamExpanded(false)} />

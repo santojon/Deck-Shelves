@@ -16,8 +16,8 @@ export function VisualTabContent({
   effectiveManualOrder,
 }: {
   t: (k: any, opts?: any) => string;
-  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean };
-  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean }>) => void;
+  flags: { matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionScale: number; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean };
+  setFlags: (patch: Partial<{ matchNativeSize: boolean; highlightFirst: boolean; highlightAll: boolean; highlightRandom: boolean; enableLogo: boolean; enableIcon: boolean; enableDescription: boolean; descriptionScale: number; descriptionBelowLogo: boolean; logoPosition: 'left' | 'center' | 'right'; descriptionPosition: 'left' | 'center' | 'right'; logoSize: number; logoTopOffset: number; iconVerticalAlign: 'top' | 'center' | 'bottom'; shelfTitlePosition: 'left' | 'center' | 'right'; gameNamePosition: 'left' | 'center' | 'right'; playtimePosition: 'left' | 'center' | 'right'; descriptionHeight: number; descriptionLogoGap: number; fullPageShelf: boolean; heroEnabled: boolean; gameInfoAbove: boolean; friendsPlayingOverlay: boolean; friendsPlayingOverlayRecent: boolean }>) => void;
   highlightedAppIds: number[];
   setHighlightedAppIds: (next: number[]) => void;
   highlightPickerOpen: boolean;
@@ -56,19 +56,19 @@ export function VisualTabContent({
       <ToggleField label={t('game_info_above_label' as any)} checked={flags.gameInfoAbove} onChange={(v: boolean) => setFlags({ gameInfoAbove: v })} />
       <ToggleField label={t('friends_overlay_label' as any)} checked={flags.friendsPlayingOverlay} onChange={(v: boolean) => setFlags({ friendsPlayingOverlay: v })} />
       {flags.friendsPlayingOverlay && (
-        <ToggleField label={t('friends_overlay_recent_label' as any)} checked={flags.friendsPlayingOverlayRecent} onChange={(v: boolean) => setFlags({ friendsPlayingOverlayRecent: v })} />
+        <div style={{ paddingLeft: 14 }}>
+          <ToggleField label={t('friends_overlay_recent_label' as any)} checked={flags.friendsPlayingOverlayRecent} onChange={(v: boolean) => setFlags({ friendsPlayingOverlayRecent: v })} />
+        </div>
       )}
       <GroupDivider />
       {/* Group: Logo + dependent options (position, size, offset) */}
       <ToggleField label={t('enable_logo')} checked={flags.enableLogo} onChange={(v: boolean) => setFlags({ enableLogo: v })} />
       {flags.enableLogo && (
-        <PositionDropdown labelKey='logo_position_label' value={flags.logoPosition} onChange={(v) => setFlags({ logoPosition: v })} />
-      )}
-      {flags.enableLogo && (
-        <DSSliderField label={t('logo_size_label' as any)} value={flags.logoSize} min={50} max={200} step={5} unit='%' onChange={(v: number) => setFlags({ logoSize: v })} />
-      )}
-      {flags.enableLogo && (
-        <DSSliderField label={t('logo_top_offset_label' as any)} value={flags.logoTopOffset} min={-50} max={100} step={5} unit='%' onChange={(v: number) => setFlags({ logoTopOffset: v })} />
+        <>
+          <PositionDropdown labelKey='logo_position_label' value={flags.logoPosition} onChange={(v) => setFlags({ logoPosition: v })} />
+          <DSSliderField label={t('logo_size_label' as any)} value={flags.logoSize} min={50} max={200} step={5} unit='%' onChange={(v: number) => setFlags({ logoSize: v })} />
+          <DSSliderField label={t('logo_top_offset_label' as any)} value={flags.logoTopOffset} min={-50} max={100} step={5} unit='%' onChange={(v: number) => setFlags({ logoTopOffset: v })} />
+        </>
       )}
 
       <GroupDivider />
@@ -91,6 +91,7 @@ export function VisualTabContent({
       <GroupDivider />
       {/* Group: Description + position + (when paired with logo) below-logo + height */}
       <ToggleField label={t('enable_description')} checked={flags.enableDescription} onChange={(v: boolean) => setFlags({ enableDescription: v })} />
+      <DSSliderField label={t('description_size_label')} value={flags.descriptionScale} min={100} max={200} step={10} unit='%' onChange={(v: number) => setFlags({ descriptionScale: v })} />
       {flags.enableDescription && (
         <PositionDropdown labelKey='description_position_label' value={flags.descriptionPosition} onChange={(v) => setFlags({ descriptionPosition: v })} />
       )}

@@ -27,6 +27,12 @@ export function isCssLoaderActive(): boolean {
   return getCssLoaderStyleNodes().length > 0;
 }
 
+/** Number of CSS Loader style blocks injected across the Steam documents — a
+    signal that something is active even when no DS-known theme matches. */
+export function cssLoaderStyleCount(): number {
+  return getCssLoaderStyleNodes().length;
+}
+
 export function isArtHeroActive(): boolean {
   let heroToken = FALLBACK_HERO_INNER;
   try {

@@ -9,6 +9,22 @@ export interface SmartShelfDeps {
   t: (key: string) => string;
 }
 
+/* Merge an imported settings/export JSON (raw or `{state}`-wrapped) onto the
+   current settings, copying only the smart-shelf fields that are present and
+   well-typed; null on parse error. */
+function applyImportedSmartShelves(s: Settings, raw: string): Settings | null {
+  let parsed: any;
+  try { parsed = JSON.parse(raw); } catch { return null; }
+  const src = parsed?.state ?? parsed ?? {};
+  const next: Settings = { ...s };
+  if (Array.isArray(src.smartShelves)) next.smartShelves = src.smartShelves;
+  if (typeof src.smartShelvesEnabled === "boolean") next.smartShelvesEnabled = src.smartShelvesEnabled;
+  if (typeof src.smartShelvesAtBottom === "boolean") next.smartShelvesAtBottom = src.smartShelvesAtBottom;
+  if (typeof src.smartSurpriseMe === "boolean") next.smartSurpriseMe = src.smartSurpriseMe;
+  if (typeof src.smartSurpriseMeCount === "number") next.smartSurpriseMeCount = src.smartSurpriseMeCount;
+  return next;
+}
+
 export function createSmartShelfActions(deps: SmartShelfDeps) {
   const { liveSettings, persist, t } = deps;
   return {
@@ -105,15 +121,9 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       if (!s) return false;
       const raw = await readJsonFile(srcPath);
       if (!raw) return false;
+      const next = applyImportedSmartShelves(s, raw);
+      if (!next) return false;
       try {
-        const parsed = JSON.parse(raw);
-        const src = parsed?.state ?? parsed ?? {};
-        const next: Settings = { ...s };
-        if (Array.isArray(src.smartShelves)) next.smartShelves = src.smartShelves;
-        if (typeof src.smartShelvesEnabled === "boolean") next.smartShelvesEnabled = src.smartShelvesEnabled;
-        if (typeof src.smartShelvesAtBottom === "boolean") next.smartShelvesAtBottom = src.smartShelvesAtBottom;
-        if (typeof src.smartSurpriseMe === "boolean") next.smartSurpriseMe = src.smartSurpriseMe;
-        if (typeof src.smartSurpriseMeCount === "number") next.smartSurpriseMeCount = src.smartSurpriseMeCount;
         await persist(next);
         return true;
       } catch { return false; }

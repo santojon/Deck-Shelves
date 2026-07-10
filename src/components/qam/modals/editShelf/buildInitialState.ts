@@ -116,6 +116,19 @@ function readOwnedToggles(primarySource: any) {
   };
 }
 
+const POS3 = ['left', 'center', 'right'] as const;
+const ALIGN3 = ['top', 'center', 'bottom'] as const;
+
+// Keep `v` if it's one of `allowed`, else fall back to `def`.
+function pickOr<T extends string>(v: any, allowed: readonly T[], def: T): T {
+  return (allowed as readonly string[]).includes(v) ? (v as T) : def;
+}
+
+// A finite number clamped to [min, max], else `def`.
+function numOr(v: any, min: number, max: number, def: number): number {
+  return typeof v === 'number' ? Math.max(min, Math.min(max, v)) : def;
+}
+
 function readVisualFlags(shelf: Shelf) {
   const s = shelf as any;
   return {
@@ -126,24 +139,25 @@ function readVisualFlags(shelf: Shelf) {
     enableLogo: s.enableLogo === true,
     enableIcon: s.enableIcon === true,
     enableDescription: s.enableDescription === true,
-    descriptionBelowLogo: (s as any).descriptionBelowLogo === true,
-    logoPosition: (((s as any).logoPosition === 'center' || (s as any).logoPosition === 'right') ? (s as any).logoPosition : 'left') as 'left' | 'center' | 'right',
-    descriptionPosition: (((s as any).descriptionPosition === 'center' || (s as any).descriptionPosition === 'right') ? (s as any).descriptionPosition : 'left') as 'left' | 'center' | 'right',
-    logoSize: typeof (s as any).logoSize === 'number' ? Math.max(50, Math.min(200, (s as any).logoSize)) : 100,
-    logoTopOffset: typeof (s as any).logoTopOffset === 'number' ? Math.max(0, Math.min(100, (s as any).logoTopOffset)) : 20,
-    iconVerticalAlign: (((s as any).iconVerticalAlign === 'center' || (s as any).iconVerticalAlign === 'bottom') ? (s as any).iconVerticalAlign : 'top') as 'top' | 'center' | 'bottom',
-    shelfTitlePosition: (((s as any).shelfTitlePosition === 'center' || (s as any).shelfTitlePosition === 'right') ? (s as any).shelfTitlePosition : 'left') as 'left' | 'center' | 'right',
-    gameNamePosition: (((s as any).gameNamePosition === 'center' || (s as any).gameNamePosition === 'right') ? (s as any).gameNamePosition : 'left') as 'left' | 'center' | 'right',
-    playtimePosition: (((s as any).playtimePosition === 'center' || (s as any).playtimePosition === 'right') ? (s as any).playtimePosition : 'left') as 'left' | 'center' | 'right',
-    descriptionHeight: typeof (s as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (s as any).descriptionHeight)) : 2,
-    descriptionLogoGap: typeof (s as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (s as any).descriptionLogoGap)) : 10,
-    fullPageShelf: (s as any).fullPageShelf === true,
+    descriptionScale: typeof s.descriptionScale === 'number' ? s.descriptionScale : 100,
+    descriptionBelowLogo: s.descriptionBelowLogo === true,
+    logoPosition: pickOr(s.logoPosition, POS3, 'left'),
+    descriptionPosition: pickOr(s.descriptionPosition, POS3, 'left'),
+    logoSize: numOr(s.logoSize, 50, 200, 100),
+    logoTopOffset: numOr(s.logoTopOffset, 0, 100, 20),
+    iconVerticalAlign: pickOr(s.iconVerticalAlign, ALIGN3, 'top'),
+    shelfTitlePosition: pickOr(s.shelfTitlePosition, POS3, 'left'),
+    gameNamePosition: pickOr(s.gameNamePosition, POS3, 'left'),
+    playtimePosition: pickOr(s.playtimePosition, POS3, 'left'),
+    descriptionHeight: numOr(s.descriptionHeight, 1, 3, 2),
+    descriptionLogoGap: numOr(s.descriptionLogoGap, -40, 80, 10),
+    fullPageShelf: s.fullPageShelf === true,
     highlightedAppIds: shelf.highlightedAppIds ?? [],
     manualOrder: s.manualOrder ?? [],
     heroEnabled: s.heroEnabled === true,
-    gameInfoAbove: (s as any).gameInfoAbove === true,
-    friendsPlayingOverlay: (s as any).friendsPlayingOverlay === true,
-    friendsPlayingOverlayRecent: (s as any).friendsPlayingOverlayRecent === true,
+    gameInfoAbove: s.gameInfoAbove === true,
+    friendsPlayingOverlay: s.friendsPlayingOverlay === true,
+    friendsPlayingOverlayRecent: s.friendsPlayingOverlayRecent === true,
     dedupeByExactName: s.dedupeByExactName === true,
     hiddenAppIds: s.hiddenAppIds ?? [],
   };

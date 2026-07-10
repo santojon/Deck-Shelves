@@ -168,6 +168,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
             {row('onlineWishlistEnabled', (
               <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(v: boolean) => void actions.setOnlineWishlistEnabled(v)} />
             ))}
+            {(settings as any).advancedModeEnabled === true && row('onlineMetadataEnabled', (
+              <ToggleField label={t('online_metadata')} checked={settings.onlineMetadataEnabled === true} onChange={(v: boolean) => void actions.setOnlineMetadataEnabled(v)} />
+            ))}
             {row('onlinePriceSortEnabled', (
               <ToggleField label={t('online_price_sort')} checked={settings.onlinePriceSortEnabled !== false} onChange={(v: boolean) => void actions.setOnlinePriceSortEnabled(v)} />
             ))}
@@ -222,7 +225,7 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           id='visual_global'
           icon={<WandIcon />}
           title={t('section_visual_global')}
-          count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFriendsPlayingOverlay, (settings as any).globalFriendsPlayingOverlayRecent, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
+          count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, ((settings as any).globalDescriptionScale ?? 100) > 100, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFriendsPlayingOverlay, (settings as any).globalFriendsPlayingOverlayRecent, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
           headerExtra={<SectionEyeButton id='visual_global' hidden={isSecHid('visual_global')} setHidden={(v) => setSecHid('visual_global', v)} t={t} />}
         >
           {row('globalMatchNativeSize', (
@@ -280,7 +283,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
             <ToggleField label={t('friends_overlay_label' as any)} checked={(settings as any).globalFriendsPlayingOverlay === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlay(v)} />
           ))}
           {(settings as any).globalFriendsPlayingOverlay === true && row('globalFriendsPlayingOverlayRecent', (
-            <ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(v)} />
+            <div style={{ paddingLeft: 14 }}>
+              <ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} onChange={(v: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(v)} />
+            </div>
           ))}
           {/* Logo / icon / description decorations are stripped from the home in
               light mode (Shelf.tsx), so hide their controls there too. */}
@@ -320,6 +325,9 @@ export function GeneralTab({ controller }: { controller: SettingsController }) {
           {/* Group: Description + dependent options */}
           {row('globalEnableDescription', (
             <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} onChange={(v: boolean) => (actions as any).setGlobalEnableDescription(v)} />
+          ))}
+          {(settings as any).globalEnableDescription === true && row('globalDescriptionScale', (
+            <DSSliderField label={t('description_size_label')} value={(settings as any).globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />
           ))}
           {(settings as any).globalEnableDescription === true && row('globalDescriptionPosition', (
             <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />

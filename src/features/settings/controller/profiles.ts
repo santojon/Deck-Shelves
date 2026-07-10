@@ -33,6 +33,46 @@ function isNameTaken(profiles: ProfileRecord[], name: string): boolean {
   return profiles.some((p) => p.name.trim().toLowerCase() === lc);
 }
 
+// Validate + de-duplicate one imported profile entry into a ProfileRecord;
+// null when the entry is malformed. Appends the chosen name to `seenNames`.
+function normalizeImportedProfile(p: any, seenNames: Set<string>): ProfileRecord | null {
+  if (!p || typeof p !== "object") return null;
+  if (typeof p.name !== "string" || !p.name.trim()) return null;
+  if (typeof p.snapshot !== "object" || !p.snapshot) return null;
+  let name = p.name.trim().slice(0, 64);
+  let n = 2;
+  while (seenNames.has(name.toLowerCase())) {
+    name = `${p.name.trim().slice(0, 56)} (cópia ${n})`.slice(0, 64);
+    n++;
+  }
+  seenNames.add(name.toLowerCase());
+  return {
+    id: randomProfileId(),
+    name,
+    createdAt: typeof p.createdAt === "string" ? p.createdAt : new Date().toISOString(),
+    snapshot: p.snapshot,
+    trigger: p.trigger,
+  };
+}
+
+// Build the imported profile list (deduped against current) + the next settings
+// payload for the chosen merge/replace mode.
+function applyProfileImport(s: Settings, incoming: any[], mode: "merge" | "replace"): { added: ProfileRecord[]; next: Settings } {
+  const current: ProfileRecord[] = mode === "replace" ? [] : ((s as any).profiles ?? []);
+  const seenNames = new Set(current.map((p) => p.name.trim().toLowerCase()));
+  const added: ProfileRecord[] = [];
+  for (const p of incoming) {
+    const rec = normalizeImportedProfile(p, seenNames);
+    if (rec) added.push(rec);
+  }
+  const next = {
+    ...s,
+    profiles: mode === "replace" ? added : [...current, ...added],
+    activeProfileName: mode === "replace" ? null : (s as any).activeProfileName,
+  } as Settings;
+  return { added, next };
+}
+
 export function createProfileActions(deps: ProfilesDeps) {
   const { liveSettings, persist } = deps;
   return {
@@ -207,6 +247,21 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (!s || (s as any).verboseLoggingEnabled === verboseLoggingEnabled) return;
       await persist({ ...s, verboseLoggingEnabled } as Settings);
     },
+    async setDevModeEnabled(devModeEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).devModeEnabled === devModeEnabled) return;
+      await persist({ ...s, devModeEnabled } as Settings);
+    },
+    async setDebugOverlayEnabled(debugOverlayEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || (s as any).debugOverlayEnabled === debugOverlayEnabled) return;
+      await persist({ ...s, debugOverlayEnabled } as Settings);
+    },
+    async setDebugOverlayOption(key: string, value: boolean | string) {
+      const s = liveSettings();
+      if (!s || (s as any)[key] === value) return;
+      await persist({ ...s, [key]: value } as Settings);
+    },
     async setOfflineModeEnabled(offlineModeEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s as any).offlineModeEnabled === offlineModeEnabled) return;
@@ -241,34 +296,9 @@ export function createProfileActions(deps: ProfilesDeps) {
         const parsed = JSON.parse(raw);
         const incoming = parsed?.profiles ?? parsed;
         if (!Array.isArray(incoming)) return 0;
-        const current: ProfileRecord[] = mode === "replace" ? [] : ((s as any).profiles ?? []);
-        const seenNames = new Set(current.map((p) => p.name.trim().toLowerCase()));
-        const added: ProfileRecord[] = [];
-        for (const p of incoming) {
-          if (!p || typeof p !== "object") continue;
-          if (typeof p.name !== "string" || !p.name.trim()) continue;
-          if (typeof p.snapshot !== "object" || !p.snapshot) continue;
-          let name = p.name.trim().slice(0, 64);
-          let n = 2;
-          while (seenNames.has(name.toLowerCase())) {
-            name = `${p.name.trim().slice(0, 56)} (cópia ${n})`.slice(0, 64);
-            n++;
-          }
-          seenNames.add(name.toLowerCase());
-          added.push({
-            id: `prof_${Math.random().toString(36).slice(2, 10)}`,
-            name,
-            createdAt: typeof p.createdAt === "string" ? p.createdAt : new Date().toISOString(),
-            snapshot: p.snapshot,
-            trigger: p.trigger,
-          });
-        }
+        const { added, next } = applyProfileImport(s, incoming, mode);
         if (added.length === 0 && mode === "merge") return 0;
-        await persist({
-          ...s,
-          profiles: mode === "replace" ? added : [...current, ...added],
-          activeProfileName: mode === "replace" ? null : (s as any).activeProfileName,
-        } as Settings);
+        await persist(next);
         return added.length;
       } catch { return 0; }
     },

@@ -18,53 +18,70 @@ export const KNOWN_FILTER_TYPES = [
 
 export type KnownFilterType = typeof KNOWN_FILTER_TYPES[number]
 
+// Normalised external filter-type aliases → our internal FilterItemType.
+// Anything unrecognised falls back to `nameIncludes`.
+const FILTER_TYPE_ALIASES: Record<string, FilterItemType> = {
+  lastplayed: 'playedWithinDays', playedwithin: 'playedWithinDays', playedwithinndays: 'playedWithinDays',
+  favorites: 'favorites',
+  installed: 'installed', installation: 'installed',
+  nonsteam: 'nonSteam', platform: 'nonSteam',
+  hidden: 'hidden',
+  updatepending: 'updatePending',
+  deckcompatibility: 'deckCompatibility', deckverde: 'deckCompatibility',
+  playtime: 'playtimeRange', playtimerange: 'playtimeRange',
+  name: 'nameIncludes', nameincludes: 'nameIncludes',
+  nameregex: 'nameRegex',
+  friends: 'friends',
+  storetag: 'storeTag', tag: 'storeTag',
+  achievements: 'achievements',
+  collection: 'collection',
+  developer: 'developer',
+  publisher: 'publisher',
+  appidlist: 'appIdList', whitelist: 'appIdList',
+  cloudavailable: 'cloudAvailable', cloudsaves: 'cloudAvailable', cloudsave: 'cloudAvailable',
+  controllersupport: 'controllerSupport', controller: 'controllerSupport',
+  merge: 'merge',
+}
+
 export function mapFilterTypeToInternal(raw: string): FilterItemType {
   const norm = String(raw || '').toLowerCase().replace(/[_\- ]/g, '')
-  switch (norm) {
-    case 'lastplayed': case 'playedwithin': case 'playedwithinndays': return 'playedWithinDays'
-    case 'favorites': return 'favorites'
-    case 'installed': case 'installation': return 'installed'
-    case 'nonsteam': case 'platform': return 'nonSteam'
-    case 'hidden': return 'hidden'
-    case 'updatepending': return 'updatePending'
-    case 'deckcompatibility': case 'deckverde': return 'deckCompatibility'
-    case 'playtime': case 'playtimerange': return 'playtimeRange'
-    case 'name': case 'nameincludes': return 'nameIncludes'
-    case 'nameregex': return 'nameRegex'
-    case 'friends': return 'friends'
-    case 'storetag': case 'tag': return 'storeTag'
-    case 'achievements': return 'achievements'
-    case 'collection': return 'collection'
-    case 'developer': return 'developer'
-    case 'publisher': return 'publisher'
-    case 'appidlist': case 'whitelist': return 'appIdList'
-    case 'cloudavailable': case 'cloudsaves': case 'cloudsave': return 'cloudAvailable'
-    case 'controllersupport': case 'controller': return 'controllerSupport'
-    case 'merge': return 'merge'
-    default: return 'nameIncludes'
+  return FILTER_TYPE_ALIASES[norm] ?? 'nameIncludes'
+}
+
+function readFilterFields(filter: any): { typeRaw: string; inverted: boolean; params: any } {
+  const f = filter ?? {}
+  return {
+    typeRaw: f.type ?? f.filterType ?? 'name',
+    inverted: !!f.inverted,
+    params: f.params ?? f.options ?? {},
   }
 }
 
-export function convertFilterToItem(filter: any): FilterItem {
-  const typeRaw: string = filter?.type ?? filter?.filterType ?? 'name'
-  const inverted = !!filter?.inverted
-  const params = filter?.params ?? filter?.options ?? {}
+// Type-specific param fix-ups when importing an external filter (e.g. TabMaster
+// stores a collection ID as `params.id`; our format uses `params.collectionId`).
+const PARAM_NORMALIZERS: Partial<Record<FilterItemType, (out: any, params: any) => void>> = {
+  friends: (out, params) => { if (Array.isArray(params?.friends)) out.friends = params.friends },
+  storeTag: (out, params) => { if (params?.tag || params?.tags) out.tags = params.tag ? [params.tag] : params.tags },
+  achievements: (out, params) => { out.achievementFilter = params },
+  collection: (out, params) => { out.collectionId = params?.collectionId ?? params?.id ?? '' },
+  deckCompatibility: (out, params) => { if (params?.compat !== undefined) out.levels = [params.compat] },
+}
 
+function normalizeFilterParams(type: FilterItemType, params: any): any {
+  const out: any = { ...params }
+  PARAM_NORMALIZERS[type]?.(out, params)
+  return out
+}
+
+export function convertFilterToItem(filter: any): FilterItem {
+  const { typeRaw, inverted, params } = readFilterFields(filter)
   if (String(typeRaw).toLowerCase() === 'merge') {
     const children = (params.filters || []) as any[]
     const childItems = children.flatMap((c: any) => c ? [convertFilterToItem(c)] : [])
     return { type: 'merge', inverted, params: { mode: params.mode ?? 'and', items: childItems } }
   }
-
   const type = mapFilterTypeToInternal(typeRaw)
-  const normalizedParams: any = { ...params }
-  if (type === 'friends' && Array.isArray(params?.friends)) normalizedParams.friends = params.friends
-  if (type === 'storeTag' && (params?.tag || params?.tags)) normalizedParams.tags = params.tag ? [params.tag] : params.tags
-  if (type === 'achievements') normalizedParams.achievementFilter = params
-  // TabMaster stores the collection ID as params.id; our internal format uses params.collectionId
-  if (type === 'collection') normalizedParams.collectionId = params?.collectionId ?? params?.id ?? ''
-  if (type === 'deckCompatibility' && params?.compat !== undefined) normalizedParams.levels = [params.compat]
-  return { type, inverted, params: normalizedParams }
+  return { type, inverted, params: normalizeFilterParams(type, params) }
 }
 
 export function convertFiltersToGroup(filters: any[]): FilterGroup {

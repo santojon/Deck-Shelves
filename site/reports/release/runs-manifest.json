@@ -40,6 +40,46 @@
     "_scope": "release"
   },
   {
+    "ts": "2026-07-05_17-56-08",
+    "stress": false,
+    "subdir": "release",
+    "version": "3.0.1",
+    "overall": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "total": 6,
+    "per_suite": {},
+    "unit": {
+      "passed": 496,
+      "failed": 0,
+      "skipped": 0,
+      "total": 496
+    },
+    "pytest": {},
+    "ruff": {},
+    "lint": {},
+    "suppressions": 166,
+    "step_names": [
+      "TypeScript typecheck",
+      "Build (production)",
+      "Unit tests (vitest)",
+      "Package (.zip)",
+      "Verify package",
+      "Compat validation"
+    ],
+    "step_durations_ms": [
+      9752,
+      1510,
+      5794,
+      1814,
+      68,
+      5664
+    ],
+    "total_duration_ms": 24602,
+    "_scope": "release"
+  },
+  {
     "ts": "2026-06-30_19-33-43",
     "stress": false,
     "subdir": "release",

@@ -5,7 +5,7 @@ import { subscribeControllerInput, Button as RawBtn } from "../../../runtime/con
 import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from "../../../runtime/buttonBindings";
 import type { ButtonBindings } from "../../../types";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon } from "../../icons";
+import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon } from "../../icons";
 import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 
@@ -153,6 +153,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
         id="bindings-card"
         title={t("settings_card_bindings_group")}
         count={CARD_ROWS.length}
+        icon={<GamepadIcon size={14} />}
         initialOpen
         headerExtra={resetButton(CARD_ROWS)}
       >
@@ -163,6 +164,7 @@ export function ButtonBindingsDetail({ controller, t }: ButtonBindingsDetailProp
         id="bindings-nav"
         title={t("settings_nav_bindings_title")}
         count={navRows.length}
+        icon={<TargetIcon size={14} />}
         initialOpen
         headerExtra={resetButton(navRows)}
       >
@@ -284,6 +286,12 @@ function BindingRowView({
 
   useEffect(() => {
     if (!capturing) return;
+    const commitCombo = (combo: string) => {
+      const v = validateCombo(combo);
+      if (v.ok) { setCaptured(combo); persist(combo); }
+      else setError(v.reason ?? "unknown");
+      stopCapture();
+    };
     const handle = (token: string | null) => {
       const now = Date.now();
       // 250ms grace — eats the A press that activated Capture itself.
@@ -301,22 +309,12 @@ function BindingRowView({
         buf.tokens = [token];
         buf.firstAt = now;
         timerRef.current = window.setTimeout(() => {
-          if (buffer.current.tokens.length === 1) {
-            const combo = buffer.current.tokens[0];
-            const v = validateCombo(combo);
-            if (v.ok) { setCaptured(combo); persist(combo); }
-            else setError(v.reason ?? "unknown");
-            stopCapture();
-          }
+          if (buffer.current.tokens.length === 1) commitCombo(buffer.current.tokens[0]);
         }, 300);
       } else if (buf.tokens.length === 1 && (now - buf.firstAt) <= 300) {
         if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
         buf.tokens.push(token);
-        const combo = buf.tokens.join("+");
-        const v = validateCombo(combo);
-        if (v.ok) { setCaptured(combo); persist(combo); }
-        else setError(v.reason ?? "unknown");
-        stopCapture();
+        commitCombo(buf.tokens.join("+"));
       }
     };
     const unsubRaw = subscribeControllerInput((e) => {

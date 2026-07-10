@@ -7,7 +7,7 @@ import { GamepadButton, subscribeHomeButton } from "../../runtime/homeInputBus";
 import { createMatcherState, matchEvent, parseCombo, parseRawCombo, resolveBindings } from "../../runtime/buttonBindings";
 import { trackFeature } from "../../steam/usageTracking";
 import { subscribeControllerInput, Button as RawBtn } from "../../runtime/controllerInput";
-import { getPreferredSteamDocument } from "../../runtime/steamHost";
+import { getPreferredSteamDocument, getAllSteamDocuments } from "../../runtime/steamHost";
 import { focusElement } from "../../core/focusRestore";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 
@@ -45,19 +45,34 @@ function tryOpenSteamKeyboard(): void {
 }
 
 function dismissSteamKeyboard(): void {
-  // ModalKeyboardDismissed / StandaloneKeyboardDismissed live on
-  /* opener.SteamClient.Input (SharedJSContext side) and on the global
-     SteamClient — NOT on BrowserWindow.SteamClient.Input which only
-     exposes device-change registration. Using `??` against the BP Input
-     object fails silently because BP Input IS defined (just has no
-     keyboard methods), so the fallback never fires. */
+  /* On a match there's no physical B press to close the OSK natively, and
+     ModalKeyboardDismissed is only a notification — it doesn't close the OSK the
+     `OpenGamepadKeyboard` call popped. So (1) blur the focused text input across
+     every Steam doc — that closes an input-tied OSK — and (2) fire every known
+     dismiss/close method on every candidate Input object. */
   try {
-    const view = (globalThis as any).SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
-    const openerInput = view?.opener?.SteamClient?.Input;
-    const globalInput = (globalThis as any).SteamClient?.Input;
-    const Input = openerInput ?? globalInput;
-    Input?.ModalKeyboardDismissed?.();
-    Input?.StandaloneKeyboardDismissed?.();
+    for (const doc of getAllSteamDocuments()) {
+      try {
+        const ae = doc.activeElement as HTMLElement | null;
+        if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) ae.blur();
+      } catch {}
+    }
+  } catch {}
+  try {
+    const g = globalThis as any;
+    const view = g.SteamUIStore?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow;
+    const inputs = [
+      view?.opener?.SteamClient?.Input,
+      g.SteamClient?.Input,
+      g.opener?.SteamClient?.Input,
+      view?.SteamClient?.Input,
+    ].filter(Boolean);
+    const methods = ["ModalKeyboardDismissed", "StandaloneKeyboardDismissed", "DismissGamepadKeyboard", "CloseGamepadKeyboard", "HideGamepadKeyboard"];
+    for (const Input of inputs) {
+      for (const m of methods) {
+        try { Input[m]?.(); } catch {}
+      }
+    }
   } catch {}
 }
 
@@ -161,6 +176,9 @@ export function SearchOverlay() {
       close({ restorePrior: false, clearSession: true });
       requestAnimationFrame(() => {
         try { first.onActivate?.(); } catch {}
+        // Re-assert after focus lands on the card — the OSK can outlive the
+        // input's unmount/blur, so a second dismiss here closes the straggler.
+        dismissSteamKeyboard();
       });
     } else {
       close();
