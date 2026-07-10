@@ -496,6 +496,10 @@
         var rd = new Date(rnDate.textContent.trim());
         if (!isNaN(rd.getTime()) && (Date.now() - rd.getTime()) <= 3 * 86400000) {
           var ver = rnVer ? rnVer.textContent.trim() : '';
+          // The version node is build-time content, but hard-validate it before
+          // it flows into the download URL: only a plain vX.Y.Z(-suffix) string
+          // is accepted, so no DOM text can leak meta-characters into the href.
+          if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/.test(ver)) ver = '';
           var vEl = freshCta.querySelector('[data-fresh-version]');
           if (vEl) vEl.textContent = ver;
           // Always point at the current release's asset, derived from the version.
