@@ -17,6 +17,8 @@ export const KNOWN_FILTER_TYPES = [
   'system compatibility',
   'remote play',
   'price range',
+  'recently active',
+  'neglected',
 ] as const
 
 export type KnownFilterType = typeof KNOWN_FILTER_TYPES[number]
@@ -35,6 +37,8 @@ const FILTER_TYPE_ALIASES: Record<string, FilterItemType> = {
   remoteplay: 'remotePlayLocation', remoteplaylocation: 'remotePlayLocation', remoteinstall: 'remotePlayLocation',
   pricerange: 'priceRange', price: 'priceRange',
   playtime: 'playtimeRange', playtimerange: 'playtimeRange',
+  recentlyactive: 'recentlyActive', recentplaytime: 'recentlyActive', currentrotation: 'recentlyActive',
+  neglected: 'neglected', abandoned: 'neglected',
   name: 'nameIncludes', nameincludes: 'nameIncludes',
   nameregex: 'nameRegex',
   friends: 'friends',

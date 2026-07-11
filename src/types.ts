@@ -10,6 +10,8 @@ export const FilterItemTypeSchema = z.enum([
   "deckCompatibility",
   "playedWithinDays",
   "playtimeRange",
+  "recentlyActive",
+  "neglected",
   "nameIncludes",
   "nameRegex",
   "friends",

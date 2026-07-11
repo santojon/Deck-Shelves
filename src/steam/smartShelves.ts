@@ -4,6 +4,7 @@ import { getParam, type SmartParams } from "./smartParams";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
 import { getBatteryState } from "../runtime/batteryState";
 import { evalDeviceRule, isDeviceRuleKind } from "../runtime/deviceState";
+import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
 import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
 import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
 import { getCurrentSettings } from "../store/settingsStore";
@@ -843,9 +844,11 @@ function evalVisibilityRule(rule: any, now: Date): boolean {
   switch (kind) {
     case "timeWindow": return evalTimeWindowRule(rule, now);
     case "dayOfWeek":  return Array.isArray(rule.days) ? rule.days.includes(now.getDay()) : true;
-    // Device kinds (battery / charging / offline / external display / resolution
-    // / ultrawide) read live hardware state; other kinds are neutral (fail-open).
-    default:           return isDeviceRuleKind(kind) ? evalDeviceRule(rule) : true;
+    // Time-context kinds (weekend / period / season / holiday) are pure date math;
+    // device kinds read live hardware state; other kinds are neutral (fail-open).
+    default:
+      if (isTimeContextKind(kind)) return evalTimeContextRule(rule, now);
+      return isDeviceRuleKind(kind) ? evalDeviceRule(rule) : true;
   }
 }
 
@@ -872,7 +875,9 @@ export function evalVisibility(entry: VisibilityLike, now: Date = new Date()): b
    clock boundary; device rules flip on hardware events, not the clock. */
 function hasClockRule(entry: VisibilityLike): boolean {
   const rules = Array.isArray(entry?.visibility?.rules) ? entry!.visibility.rules : [];
-  if (rules.length > 0) return rules.some((r: any) => r?.kind === "timeWindow" || r?.kind === "dayOfWeek");
+  if (rules.length > 0) {
+    return rules.some((r: any) => r?.kind === "timeWindow" || r?.kind === "dayOfWeek" || isTimeContextKind(String(r?.kind || "")));
+  }
   return normalizeWindow(entry?.visibleHours).length > 0 || ((entry?.visibleDaysOfWeek?.length ?? 0) > 0);
 }
 

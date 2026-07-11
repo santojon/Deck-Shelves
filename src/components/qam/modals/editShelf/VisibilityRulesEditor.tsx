@@ -14,7 +14,7 @@ type T = (k: string, opts?: any) => string
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide']
+const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide']
 const BATTERY_LEVELS = [10, 15, 20, 25, 30, 40, 50].map((n) => ({ data: n, label: `${n}%` }))
 const RESOLUTION_WIDTHS = [1280, 1600, 1920, 2560, 3440, 3840].map((n) => ({ data: n, label: `${n}px` }))
 
@@ -37,6 +37,75 @@ function ResolutionRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partia
         <Dropdown rgOptions={RESOLUTION_WIDTHS} selectedOption={Number(rule.minWidth) || 1920} onChange={(o: unknown) => onUpdate({ minWidth: Number(optionData(o) ?? 1920) })} />
       </div>
     </Focusable>
+  )
+}
+
+const PERIOD_KEYS = ['morning', 'afternoon', 'evening', 'night']
+const SEASON_KEYS = ['spring', 'summer', 'autumn', 'winter']
+const MONTHS = Array.from({ length: 12 }, (_, i) => ({ data: i + 1, label: String(i + 1).padStart(2, '0') }))
+const DOM = Array.from({ length: 31 }, (_, i) => ({ data: i + 1, label: String(i + 1).padStart(2, '0') }))
+const rowStyle = { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' } as const
+
+function EnumDropdown({ value, fallback, options, onPick }: { value: unknown; fallback: string; options: { data: string; label: string }[]; onPick: (v: string) => void }) {
+  return (
+    <div style={{ width: 150 }}>
+      <Dropdown rgOptions={options} selectedOption={String(value ?? fallback)} onChange={(o: unknown) => onPick(String(optionData(o) ?? fallback))} />
+    </div>
+  )
+}
+
+function WeekendRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const opts = [{ data: 'weekend', label: t('visibility_weekend_weekend') }, { data: 'weekday', label: t('visibility_weekend_weekday') }]
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <EnumDropdown value={rule.value} fallback="weekend" options={opts} onPick={(v) => onUpdate({ value: v })} />
+    </Focusable>
+  )
+}
+
+function PeriodRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const opts = PERIOD_KEYS.map((k) => ({ data: k, label: t(`visibility_period_${k}`) }))
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <EnumDropdown value={rule.period} fallback="morning" options={opts} onPick={(v) => onUpdate({ period: v })} />
+    </Focusable>
+  )
+}
+
+function SeasonRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const seasons = SEASON_KEYS.map((k) => ({ data: k, label: t(`visibility_season_${k}`) }))
+  const hemis = [{ data: 'north', label: t('visibility_hemisphere_north') }, { data: 'south', label: t('visibility_hemisphere_south') }]
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={{ ...rowStyle, flexWrap: 'wrap' }}>
+      <EnumDropdown value={rule.season} fallback="summer" options={seasons} onPick={(v) => onUpdate({ season: v })} />
+      <EnumDropdown value={rule.hemisphere} fallback="north" options={hemis} onPick={(v) => onUpdate({ hemisphere: v })} />
+    </Focusable>
+  )
+}
+
+function HolidayRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const ranges: any[] = Array.isArray(rule.ranges) ? rule.ranges : []
+  const part = (s: unknown, i: number) => Number(String(s || '01-01').split('-')[i]) || 1
+  const set = (idx: number, key: 'start' | 'end', m: number, d: number) => {
+    const v = `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    onUpdate({ ranges: ranges.map((r, i) => (i === idx ? { ...r, [key]: v } : r)) })
+  }
+  const addRange = () => onUpdate({ ranges: [...ranges, { start: '12-20', end: '12-31' }] })
+  const removeRange = (idx: number) => onUpdate({ ranges: ranges.filter((_, i) => i !== idx) })
+  return (
+    <div style={{ padding: '4px 0' }}>
+      {ranges.map((r, i) => (
+        <Focusable key={i} {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0', flexWrap: 'wrap' }}>
+          <div style={{ width: 64 }}><Dropdown rgOptions={MONTHS} selectedOption={part(r.start, 0)} onChange={(o: unknown) => set(i, 'start', Number(optionData(o)) || 1, part(r.start, 1))} /></div>
+          <div style={{ width: 64 }}><Dropdown rgOptions={DOM} selectedOption={part(r.start, 1)} onChange={(o: unknown) => set(i, 'start', part(r.start, 0), Number(optionData(o)) || 1)} /></div>
+          <span style={{ opacity: 0.6 }}>{t('visibility_to')}</span>
+          <div style={{ width: 64 }}><Dropdown rgOptions={MONTHS} selectedOption={part(r.end, 0)} onChange={(o: unknown) => set(i, 'end', Number(optionData(o)) || 1, part(r.end, 1))} /></div>
+          <div style={{ width: 64 }}><Dropdown rgOptions={DOM} selectedOption={part(r.end, 1)} onChange={(o: unknown) => set(i, 'end', part(r.end, 0), Number(optionData(o)) || 1)} /></div>
+          <DialogButton onClick={() => removeRange(i)} onOKButton={() => removeRange(i)} onOKActionDescription={t('remove')} style={{ minWidth: 32, width: 32, padding: 6 }}>×</DialogButton>
+        </Focusable>
+      ))}
+      <DialogButton onClick={addRange} onOKButton={addRange} style={{ marginTop: 4 }}>+ {t('visibility_holiday_add_range')}</DialogButton>
+    </div>
   )
 }
 
@@ -88,6 +157,10 @@ function RuleRow({ rule, onUpdate, onRemove, t }: { rule: Rule; onUpdate: (p: Pa
       </Focusable>
       {rule.kind === 'timeWindow' && <TimeWindowRow rule={rule} onUpdate={onUpdate} t={t} />}
       {rule.kind === 'dayOfWeek' && <DayOfWeekRow rule={rule} onUpdate={onUpdate} t={t} />}
+      {rule.kind === 'weekend' && <WeekendRow rule={rule} onUpdate={onUpdate} t={t} />}
+      {rule.kind === 'timeOfDayPeriod' && <PeriodRow rule={rule} onUpdate={onUpdate} t={t} />}
+      {rule.kind === 'season' && <SeasonRow rule={rule} onUpdate={onUpdate} t={t} />}
+      {rule.kind === 'holiday' && <HolidayRow rule={rule} onUpdate={onUpdate} t={t} />}
       {rule.kind === 'battery' && <BatteryRow rule={rule} onUpdate={onUpdate} t={t} />}
       {rule.kind === 'resolution' && <ResolutionRow rule={rule} onUpdate={onUpdate} t={t} />}
     </div>
@@ -125,6 +198,12 @@ export function VisibilityRulesEditor({ value, onChange, t }: {
       <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', gap: 8, padding: '8px 0 2px' }}>
         <DialogButton style={{ flex: 1 }} onClick={() => addRule({ kind: 'timeWindow', start: 9, end: 17 })} onOKButton={() => addRule({ kind: 'timeWindow', start: 9, end: 17 })}>+ {t('visibility_add_time')}</DialogButton>
         <DialogButton style={{ flex: 1 }} onClick={() => addRule({ kind: 'dayOfWeek', days: [] })} onOKButton={() => addRule({ kind: 'dayOfWeek', days: [] })}>+ {t('visibility_add_days')}</DialogButton>
+      </Focusable>
+      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
+        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'weekend', value: 'weekend' })} onOKButton={() => addRule({ kind: 'weekend', value: 'weekend' })}>+ {t('visibility_rule_weekend')}</DialogButton>
+        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'timeOfDayPeriod', period: 'evening' })} onOKButton={() => addRule({ kind: 'timeOfDayPeriod', period: 'evening' })}>+ {t('visibility_rule_timeOfDayPeriod')}</DialogButton>
+        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'season', season: 'summer' })} onOKButton={() => addRule({ kind: 'season', season: 'summer' })}>+ {t('visibility_rule_season')}</DialogButton>
+        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'holiday', ranges: [{ start: '12-20', end: '12-31' }] })} onOKButton={() => addRule({ kind: 'holiday', ranges: [{ start: '12-20', end: '12-31' }] })}>+ {t('visibility_rule_holiday')}</DialogButton>
       </Focusable>
       <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
         <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'battery', below: 20 })} onOKButton={() => addRule({ kind: 'battery', below: 20 })}>+ {t('visibility_rule_battery')}</DialogButton>

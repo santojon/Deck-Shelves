@@ -439,3 +439,34 @@ describe('priceRange filter', () => {
     expect(evaluateFilterGroup(g, [app({ appid: 1 }), app({ appid: 2 })]).map((a) => a.appid)).toEqual([1])
   })
 })
+
+describe('recentlyActive filter', () => {
+  it('matches games with recent 2-week playtime >= minMinutes; excludes idle', () => {
+    const apps = [
+      app({ appid: 1, playtime_last_two_weeks: 120 }),
+      app({ appid: 2, playtime_last_two_weeks: 0 }),
+      app({ appid: 3, playtime_last_two_weeks: 5 }),
+    ]
+    const g = group([{ type: 'recentlyActive', params: { minMinutes: 10 } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+
+  it('default minMinutes 1 = played at all in the last two weeks', () => {
+    const apps = [app({ appid: 1, playtime_last_two_weeks: 1 }), app({ appid: 2, playtime_last_two_weeks: 0 })]
+    const g = group([{ type: 'recentlyActive', params: {} }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+})
+
+describe('neglected filter', () => {
+  const now = Math.floor(Date.now() / 1000)
+  it('matches played-but-not-in-N-days; never-played never matches', () => {
+    const apps = [
+      app({ appid: 1, last_played: now - 60 * 86400 }), // 60 days ago → neglected
+      app({ appid: 2, last_played: now - 5 * 86400 }), // 5 days ago → recent
+      app({ appid: 3, last_played: 0 }), // never played → untouched, not neglected
+    ]
+    const g = group([{ type: 'neglected', params: { days: 30 } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+})

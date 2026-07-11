@@ -967,6 +967,7 @@ export type AppOverview = {
   sort_as?: string;
   last_played?: number;
   playtime_forever?: number;
+  playtime_last_two_weeks?: number;
   is_steam?: boolean;
   is_non_steam?: boolean;
   is_favorite?: boolean;
@@ -1096,6 +1097,7 @@ function buildPlaytimeFields(node: any) {
   return {
     last_played: firstNumber(node?.last_played, node?.rt_last_time_played, node?.m_ulLastPlayed),
     playtime_forever: firstNumber(node?.playtime_forever, node?.minutes_playtime_forever, node?.minutes_played_forever),
+    playtime_last_two_weeks: firstNumber(node?.playtime_last_two_weeks, node?.minutes_playtime_last_two_weeks),
   };
 }
 
@@ -2218,6 +2220,24 @@ function evalPlaytimeRange(item: FilterItem, app: AppOverview): boolean {
   return true;
 }
 
+// Recent activity — Steam's rolling two-week playtime (current rotation).
+function evalRecentlyActive(item: FilterItem, app: AppOverview): boolean {
+  const minMinutes = Number(item.params?.minMinutes ?? 1);
+  const recent = Number(app.playtime_last_two_weeks ?? (app as any).minutes_playtime_last_two_weeks ?? 0);
+  return recent >= minMinutes;
+}
+
+/* Neglected — played before but not in the last N days. Distinct from inverting
+   playedWithinDays: never-played titles (a last-launch timestamp of 0) are NOT
+   neglected, they are simply untouched, so they never match here. */
+function evalNeglected(item: FilterItem, app: AppOverview): boolean {
+  const days = Number(item.params?.days ?? 30);
+  const last = lastPlayedOf(app);
+  if (last <= 0) return false;
+  const cutoff = Math.floor(Date.now() / 1000) - Math.floor(days * 86400);
+  return last < cutoff;
+}
+
 function evalNameIncludes(item: FilterItem, app: AppOverview): boolean {
   const text = String(item.params?.text ?? "").toLowerCase();
   return !text || appNameOf(app).toLowerCase().includes(text);
@@ -2391,6 +2411,8 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   deckCompatibility:      (item, app) => isDeckCompatMatch(app.deck_compatibility_category, item.params?.levels ?? []),
   playedWithinDays:       evalPlayedWithinDays,
   playtimeRange:          evalPlaytimeRange,
+  recentlyActive:         evalRecentlyActive,
+  neglected:              evalNeglected,
   nameIncludes:           evalNameIncludes,
   nameRegex:              evalNameRegex,
   collection:             evalCollection,

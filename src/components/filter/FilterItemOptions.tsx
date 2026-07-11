@@ -160,6 +160,42 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
       );
     }
 
+    case "recentlyActive": {
+      const minMinutes = Number(p.minMinutes ?? 1);
+      return (
+        <div>
+          <DSSliderField
+            label={t("filter_recent_min_minutes")}
+            value={minMinutes}
+            unit='min'
+            min={1}
+            max={300}
+            step={1}
+            bottomSeparator='none'
+            onChange={(v: number) => patchParams({ minMinutes: v })}
+          />
+        </div>
+      );
+    }
+
+    case "neglected": {
+      const ndays = Number(p.days ?? 30);
+      return (
+        <div>
+          <DSSliderField
+            label={t("filter_neglected_days")}
+            value={ndays}
+            unit='d'
+            min={1}
+            max={365}
+            step={1}
+            bottomSeparator='none'
+            onChange={(v: number) => patchParams({ days: v })}
+          />
+        </div>
+      );
+    }
+
     case "playtimeRange": {
       const minH = Number(p.minHours ?? 0);
       const maxH = Number(p.maxHours ?? 0);
