@@ -5,6 +5,7 @@ import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWin
 import { getBatteryState } from "../runtime/batteryState";
 import { evalDeviceRule, isDeviceRuleKind } from "../runtime/deviceState";
 import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
+import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
 import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
 import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
 import { getCurrentSettings } from "../store/settingsStore";
@@ -844,10 +845,11 @@ function evalVisibilityRule(rule: any, now: Date): boolean {
   switch (kind) {
     case "timeWindow": return evalTimeWindowRule(rule, now);
     case "dayOfWeek":  return Array.isArray(rule.days) ? rule.days.includes(now.getDay()) : true;
-    // Time-context kinds (weekend / period / season / holiday) are pure date math;
-    // device kinds read live hardware state; other kinds are neutral (fail-open).
+    // Time-context kinds are pure date math; session kinds read live session
+    // state; device kinds read hardware; other kinds are neutral (fail-open).
     default:
       if (isTimeContextKind(kind)) return evalTimeContextRule(rule, now);
+      if (isSessionRuleKind(kind)) return evalSessionRule(rule);
       return isDeviceRuleKind(kind) ? evalDeviceRule(rule) : true;
   }
 }

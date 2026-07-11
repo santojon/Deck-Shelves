@@ -25,6 +25,7 @@ import { bumpAssetRevision } from "../core/assetRevision";
 import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
 import { evalVisibility, nextVisibilityFlip, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { subscribeDeviceState } from "../runtime/deviceState";
+import { subscribeSessionState } from "../runtime/sessionState";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
@@ -373,7 +374,12 @@ export function HomeShelves() {
      visibilityTick) so it skips the clock-boundary scheduler above. Sources fire
      only on meaningful/debounced changes — rare, event-driven, no polling. */
   const [, setDeviceTick] = useState(0);
-  useEffect(() => subscribeDeviceState(() => setDeviceTick((n) => n + 1)), []);
+  useEffect(() => {
+    const bump = () => setDeviceTick((n) => n + 1);
+    const unDevice = subscribeDeviceState(bump);
+    const unSession = subscribeSessionState(bump);
+    return () => { unDevice(); unSession(); };
+  }, []);
 
   if (!mountEl) return null;
   if (!settings) return null;

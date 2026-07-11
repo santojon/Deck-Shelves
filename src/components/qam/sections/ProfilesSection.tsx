@@ -172,6 +172,7 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
       <HideableRow tk="profileTriggers" hidden={isHid("profileTriggers")} setHidden={(v) => setHid("profileTriggers", v)} mode={mode} t={t}>
         <ToggleField
           label={t("settings_profile_triggers_label" as any)}
+          description={mode === "qam" ? t("settings_profile_triggers_qam_hint" as any) : undefined}
           checked={(settings as any).profileTriggersEnabled === true}
           onChange={(v: boolean) => (controller.actions as any).setProfileTriggersEnabled?.(v)}
         />

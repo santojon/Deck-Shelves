@@ -16,6 +16,7 @@ import { createShelfActions } from "./controller/shelves";
 import { createProfileActions } from "./controller/profiles";
 import { resolveTriggeredProfile, nextProfileTriggerFlip } from "../../steam/smartShelves";
 import { subscribeDeviceState } from "../../runtime/deviceState";
+import { subscribeSessionState } from "../../runtime/sessionState";
 
 export function useSettingsController() {
   const { t } = useTranslation();
@@ -180,9 +181,14 @@ export function useSettingsController() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings, profileTriggerTick]);
 
-  // Device-state triggers (battery / docked / …) flip on hardware events —
-  // re-run the resolver when the device state changes (no polling).
-  useEffect(() => subscribeDeviceState(() => setProfileTriggerTick((n) => n + 1)), []);
+  // Device- and session-state triggers (battery / docked / last-played source /
+  // …) flip on hardware/session events — re-run the resolver on change (no polling).
+  useEffect(() => {
+    const bump = () => setProfileTriggerTick((n) => n + 1);
+    const unDevice = subscribeDeviceState(bump);
+    const unSession = subscribeSessionState(bump);
+    return () => { unDevice(); unSession(); };
+  }, []);
 
   const actions = {
     persist,
