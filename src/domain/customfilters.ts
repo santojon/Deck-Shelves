@@ -14,6 +14,9 @@ export const KNOWN_FILTER_TYPES = [
   'hidden',
   'update pending',
   'deck compatibility',
+  'system compatibility',
+  'remote play',
+  'price range',
 ] as const
 
 export type KnownFilterType = typeof KNOWN_FILTER_TYPES[number]
@@ -28,6 +31,9 @@ const FILTER_TYPE_ALIASES: Record<string, FilterItemType> = {
   hidden: 'hidden',
   updatepending: 'updatePending',
   deckcompatibility: 'deckCompatibility', deckverde: 'deckCompatibility',
+  systemcompatibility: 'systemCompatibility', oscompatibility: 'systemCompatibility', systemcompat: 'systemCompatibility',
+  remoteplay: 'remotePlayLocation', remoteplaylocation: 'remotePlayLocation', remoteinstall: 'remotePlayLocation',
+  pricerange: 'priceRange', price: 'priceRange',
   playtime: 'playtimeRange', playtimerange: 'playtimeRange',
   name: 'nameIncludes', nameincludes: 'nameIncludes',
   nameregex: 'nameRegex',

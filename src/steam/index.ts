@@ -987,6 +987,12 @@ export type AppOverview = {
   app_type?: number;
   cloud_available?: boolean;
   controller_support?: number;
+  // Whether the app runs on the CURRENT platform (from the local client's
+  // per_client_data). undefined when there's no client data (e.g. non-Steam).
+  available_on_current_platform?: boolean;
+  // Whether the app is installed on any REMOTE client (Remote Play source).
+  // undefined for non-Steam (no per_client_data); false when no remote install.
+  installed_remote?: boolean;
 };
 
 function getPerClientData(node: any): any | null {
@@ -1134,6 +1140,24 @@ function buildTypeFields(node: any) {
   };
 }
 
+/* Per-client signals for the system-compatibility + Remote Play filters: the
+   local client (clientid "0") reports platform availability; any remote client
+   with an "Installed" status makes the app a Remote Play source. Absent client
+   data (non-Steam) → both undefined so those filters pass/skip rather than
+   mis-classify such apps. */
+function buildClientFields(node: any) {
+  const n = node ?? {};
+  const pcd: any[] = Array.isArray(n.per_client_data) ? n.per_client_data : [];
+  const remote: any[] = Array.isArray(n.remote_per_client_data) ? n.remote_per_client_data : [];
+  if (pcd.length === 0 && remote.length === 0) return {};
+  const local = pcd.find((c) => String(c?.clientid) === "0");
+  const available = local && typeof local.is_available_on_current_platform === "boolean"
+    ? local.is_available_on_current_platform : undefined;
+  const remoteList = remote.length ? remote : pcd.filter((c) => String(c?.clientid) !== "0");
+  const installedRemote = remoteList.some((c) => Number(c?.display_status) === EAppDisplayStatus.Installed);
+  return { available_on_current_platform: available, installed_remote: installedRemote };
+}
+
 export function normalizeAppOverview(node: any): AppOverview | null {
   const appid = appIdOf(node);
   if (!Number.isFinite(appid) || appid <= 0) return null;
@@ -1147,6 +1171,7 @@ export function normalizeAppOverview(node: any): AppOverview | null {
     ...buildAssetFields(node),
     ...buildTimestampFields(node),
     ...buildTypeFields(node),
+    ...buildClientFields(node),
   };
 }
 
@@ -2137,6 +2162,22 @@ function evalHidden(item: FilterItem, app: AppOverview): boolean {
   return true;
 }
 
+/* Remote Play install location. `remote-only` (installed elsewhere, not here)
+   powers a "play-from-remote" shelf. Steam apps only — non-Steam shortcuts have
+   no per-client data (installed_remote undefined), so they only match `local`. */
+function evalRemotePlay(item: FilterItem, app: AppOverview): boolean {
+  const mode = String(item.params?.mode ?? "remote-only");
+  const local = app.installed === true;
+  const remote = app.installed_remote === true;
+  switch (mode) {
+    case "local":       return local;
+    case "remote":      return remote;
+    case "remote-only": return remote && !local;
+    case "both":        return local && remote;
+    default:            return remote && !local;
+  }
+}
+
 function evalAppStatus(item: FilterItem, app: AppOverview): boolean {
   const groups: string[] = Array.isArray(item.params?.groups) ? item.params!.groups : [];
   let ds = (app as any).display_status as number | undefined;
@@ -2261,13 +2302,46 @@ function evalShortcutType(item: FilterItem, app: AppOverview): boolean {
   return kinds.some((k) => matchesShortcutKind(k, app));
 }
 
-function readPriceCacheEntry(appid: number): { discount?: number; unpriced?: boolean } | null | "bootstrap" {
+type PriceCacheEntry = { discount?: number; unpriced?: boolean; price?: number; currency?: string };
+
+/* Memoise the parsed price cache keyed on the raw string: evalDiscount /
+   evalPriceRange call this once per app, and re-parsing the whole cache each time
+   blocked the UI ~2 s per shelf-resolution pass (100+ cards). One parse serves the
+   pass; any write (raw string changes) self-invalidates it — no staleness. */
+let _priceEntriesRaw: string | null = null;
+let _priceEntriesParsed: Record<number, { ts: number; data: PriceCacheEntry }> | null = null;
+
+function readPriceCacheEntry(appid: number): PriceCacheEntry | null | "bootstrap" {
   try {
     const raw = (globalThis as any).localStorage?.getItem?.("ds-price-cache-v1");
-    if (!raw) return "bootstrap";
-    const cache: Record<number, { ts: number; data: { discount?: number; unpriced?: boolean } }> = JSON.parse(raw);
-    return cache[appid]?.data ?? null;
+    if (raw !== _priceEntriesRaw) {
+      _priceEntriesParsed = raw ? JSON.parse(raw) : null;
+      _priceEntriesRaw = raw;
+    }
+    if (!_priceEntriesParsed) return "bootstrap";
+    return _priceEntriesParsed[appid]?.data ?? null;
   } catch { return null; }
+}
+
+/* Price bounds in the user's own currency (the cache stores the final price in
+   the store's minor unit — cents — localised via appdetails). min/max params are
+   in whole currency units; unpriced/free titles never match. */
+function priceInBounds(entry: PriceCacheEntry, item: FilterItem): boolean {
+  if (entry.unpriced === true) return false;
+  const price = Number(entry.price ?? 0) / 100;
+  const min = item.params?.minPrice;
+  const max = item.params?.maxPrice;
+  if (min != null && price < Number(min)) return false;
+  if (max != null && price > Number(max)) return false;
+  return true;
+}
+
+function evalPriceRange(item: FilterItem, app: AppOverview): boolean {
+  const appid = appIdOf(app);
+  if (!appid) return false;
+  const entry = readPriceCacheEntry(appid);
+  if (entry === "bootstrap") return true;
+  return !!entry && priceInBounds(entry, item);
 }
 
 function discountInBounds(entry: { discount?: number; unpriced?: boolean }, item: FilterItem): boolean {
@@ -2326,8 +2400,11 @@ const FILTER_EVALUATORS: Record<string, FilterEvaluator> = {
   appIdList:              evalAppIdList,
   cloudAvailable:         (_i, app) => app.cloud_available === true,
   controllerSupport:      evalControllerSupport,
+  systemCompatibility:    (_i, app) => app.available_on_current_platform !== false,
+  remotePlayLocation:     evalRemotePlay,
   shortcutType:           evalShortcutType,
   discount:               evalDiscount,
+  priceRange:             evalPriceRange,
   friendsPlayingNow:      evalFriendsPlayingNow,
   friendsPlayedRecently:  evalFriendsPlayedRecently,
 };

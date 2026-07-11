@@ -700,3 +700,137 @@ def test_sanitize_qamHiddenToggles_drops_non_strings():
     assert "shelfHeroBackground" in qht
     assert 42 not in qht
     assert None not in qht
+
+
+# ─── Visibility Rules v2 (visibility tree round-trip) ─────────────────────────
+
+_VIS = {"mode": "all", "rules": [
+    {"kind": "timeWindow", "start": 19, "end": 23, "days": [5, 6]},
+    {"kind": "dayOfWeek", "days": [0, 6]},
+]}
+
+
+def test_sanitize_visibility_round_trips_on_smart_shelf():
+    result = _sanitize_settings({
+        "smartShelves": [{"id": "sm1", "title": "S", "mode": "recently_played", "visibility": _VIS}]
+    })
+    assert result["smartShelves"][0].get("visibility") == _VIS
+
+
+def test_sanitize_visibility_round_trips_on_regular_shelf():
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"}, "visibility": _VIS}]
+    })
+    assert result["shelves"][0].get("visibility") == _VIS
+
+
+def test_sanitize_visibility_round_trips_on_saved_smart_filter():
+    result = _sanitize_settings({
+        "savedSmartFilters": [{"id": "sf1", "name": "F", "mode": "recently_played", "visibility": _VIS}]
+    })
+    assert result["savedSmartFilters"][0].get("visibility") == _VIS
+
+
+def test_sanitize_visibility_empty_rules_omitted():
+    # No usable rules == no restriction: the field is dropped, not persisted empty.
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"},
+                     "visibility": {"mode": "any", "rules": []}}]
+    })
+    assert "visibility" not in result["shelves"][0]
+
+
+def test_sanitize_visibility_forward_compat_unknown_kind_preserved():
+    # A device-state kind (added in a later phase) must round-trip verbatim so an
+    # older backend never drops a rule a newer build wrote.
+    vis = {"mode": "any", "rules": [{"kind": "battery", "below": 20, "charging": False}]}
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"}, "visibility": vis}]
+    })
+    assert result["shelves"][0].get("visibility") == vis
+
+
+def test_sanitize_visibility_drops_rule_without_kind():
+    vis = {"mode": "any", "rules": [{"nope": 1}, {"kind": "dayOfWeek", "days": [1]}]}
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"}, "visibility": vis}]
+    })
+    rules = result["shelves"][0]["visibility"]["rules"]
+    assert rules == [{"kind": "dayOfWeek", "days": [1]}]
+
+
+def test_sanitize_profile_trigger_round_trips():
+    result = _sanitize_settings({
+        "profiles": [{"id": "p1", "name": "Evening", "createdAt": "x", "snapshot": {}, "trigger": _VIS}]
+    })
+    assert result["profiles"][0].get("trigger") == _VIS
+
+
+def test_sanitize_profile_triggers_enabled_toggle():
+    assert _sanitize_settings({"profileTriggersEnabled": True})["profileTriggersEnabled"] is True
+    assert _sanitize_settings({})["profileTriggersEnabled"] is False
+
+
+# ─── CSS Loader theme reader (Phase D) ───────────────────────────────────────
+
+def _make_theme(themes_dir, folder, active, name=None):
+    import os as _os
+    import json as _json
+    d = _os.path.join(themes_dir, folder)
+    _os.makedirs(d, exist_ok=True)
+    if name is not None:
+        with open(_os.path.join(d, "theme.json"), "w", encoding="utf-8") as f:
+            _json.dump({"name": name}, f)
+    with open(_os.path.join(d, "config_USER.json"), "w", encoding="utf-8") as f:
+        _json.dump({"active": active}, f)
+
+
+def test_read_css_loader_themes(tmp_path, monkeypatch):
+    from css_themes import read_css_loader_themes
+    themes = tmp_path / "themes"
+    themes.mkdir()
+    _make_theme(str(themes), "Clean Gameview", True, name="Clean Gameview")
+    _make_theme(str(themes), "MoreRound", True, name="More Round")   # name overrides folder
+    _make_theme(str(themes), "Disabled Theme", False, name="Disabled")
+    _make_theme(str(themes), "NoNameFolder", True)                    # falls back to folder name
+    (themes / "Default.profile").mkdir()                              # profiles are skipped
+    monkeypatch.setenv("DECKY_HOME", str(tmp_path))
+    out = read_css_loader_themes()
+    assert out["active"] == ["Clean Gameview", "More Round", "NoNameFolder"]  # sorted, disabled excluded
+    assert out["installed"] == 4  # 4 theme folders (profile excluded)
+
+
+def test_read_css_loader_themes_missing_dir(tmp_path, monkeypatch):
+    from css_themes import read_css_loader_themes
+    monkeypatch.setenv("DECKY_HOME", str(tmp_path / "nope"))
+    assert read_css_loader_themes() == {"active": [], "installed": 0}
+
+
+def _make_connector(root, name, status):
+    d = root / name
+    d.mkdir()
+    (d / "status").write_text(status + "\n", encoding="utf-8")
+
+
+def test_read_display_state_external_connector(tmp_path):
+    from display_state import read_display_state
+    _make_connector(tmp_path, "card0-eDP-1", "connected")       # internal panel
+    _make_connector(tmp_path, "card0-DP-1", "connected")        # external -> docked
+    _make_connector(tmp_path, "card0-Writeback-1", "unknown")   # virtual, ignored
+    out = read_display_state(str(tmp_path))
+    assert out == {"external": True, "supported": True}
+
+
+def test_read_display_state_internal_only(tmp_path):
+    from display_state import read_display_state
+    _make_connector(tmp_path, "card0-eDP-1", "connected")
+    _make_connector(tmp_path, "card0-DP-1", "disconnected")     # external present but unplugged
+    out = read_display_state(str(tmp_path))
+    assert out == {"external": False, "supported": True}
+
+
+def test_read_display_state_unsupported_off_linux(tmp_path):
+    from display_state import read_display_state
+    # No DRM sysfs present (Windows / macOS): supported False, never mis-classifies.
+    out = read_display_state(str(tmp_path / "nope"))
+    assert out == {"external": False, "supported": False}

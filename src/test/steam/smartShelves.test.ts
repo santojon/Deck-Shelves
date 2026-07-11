@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { resolveSmartShelf, invalidateSmartShelfCache, isInVisibilityWindow, nextVisibilityBoundary } from '../../steam/smartShelves'
+import { resolveSmartShelf, invalidateSmartShelfCache, isInVisibilityWindow, nextVisibilityBoundary, evalVisibility, evalVisibilityRules, nextVisibilityFlip, evalProfileTrigger, resolveTriggeredProfile } from '../../steam/smartShelves'
 import type { AppOverview } from '../../steam'
 
 function app(overrides: Partial<AppOverview> & { appid: number }): AppOverview {
@@ -368,5 +368,99 @@ describe('nextVisibilityBoundary', () => {
     expect(next).not.toBeNull()
     const nextDate = new Date(next!)
     expect(nextDate.getHours()).toBe(6)
+  })
+})
+
+// --- Visibility Rules v2 ---
+const MON = (h: number) => new Date(2026, 4, 4, h, 30, 0, 0) // base Mon 2026-05-04
+const SUN = (h: number) => new Date(2026, 4, 3, h, 30, 0, 0) // Sunday
+
+describe('evalVisibilityRules', () => {
+  it('no rules = no restriction (true)', () => {
+    expect(evalVisibilityRules({ mode: 'any', rules: [] }, MON(12))).toBe(true)
+    expect(evalVisibilityRules(undefined, MON(12))).toBe(true)
+  })
+
+  it('single timeWindow rule gates by hour', () => {
+    const v = { mode: 'any' as const, rules: [{ kind: 'timeWindow', start: 9, end: 17 }] }
+    expect(evalVisibilityRules(v, MON(12))).toBe(true)
+    expect(evalVisibilityRules(v, MON(18))).toBe(false)
+  })
+
+  it("'all' mode requires every rule; 'any' requires one", () => {
+    const rules = [{ kind: 'timeWindow', start: 9, end: 17 }, { kind: 'dayOfWeek', days: [1] }]
+    expect(evalVisibilityRules({ mode: 'all', rules }, MON(12))).toBe(true)   // Mon + midday
+    expect(evalVisibilityRules({ mode: 'all', rules }, SUN(12))).toBe(false)  // Sun fails dayOfWeek
+    expect(evalVisibilityRules({ mode: 'any', rules }, SUN(12))).toBe(true)   // midday still matches
+  })
+
+  it('unknown rule kind is fail-open (neutral true)', () => {
+    const v = { mode: 'all' as const, rules: [{ kind: 'someFutureKind', foo: 1 }] }
+    expect(evalVisibilityRules(v, MON(3))).toBe(true)
+  })
+})
+
+describe('evalVisibility (routing)', () => {
+  it('uses visibility.rules when present', () => {
+    const entry = { visibility: { mode: 'any', rules: [{ kind: 'timeWindow', start: 9, end: 17 }] } }
+    expect(evalVisibility(entry, MON(12))).toBe(true)
+    expect(evalVisibility(entry, MON(20))).toBe(false)
+  })
+
+  it('delegates to legacy window when no rules', () => {
+    expect(evalVisibility({ visibleHours: [{ start: 9, end: 17 }] }, MON(12))).toBe(true)
+    expect(evalVisibility({ visibleHours: [{ start: 9, end: 17 }] }, MON(20))).toBe(false)
+  })
+
+  it('visibility.rules win over legacy fields', () => {
+    const entry = { visibility: { mode: 'any', rules: [{ kind: 'timeWindow', start: 20, end: 22 }] }, visibleHours: [{ start: 9, end: 17 }] }
+    expect(evalVisibility(entry, MON(12))).toBe(false) // legacy would say true, rules say false
+    expect(evalVisibility(entry, MON(21))).toBe(true)
+  })
+
+  it('undefined entry = visible', () => {
+    expect(evalVisibility(undefined, MON(12))).toBe(true)
+  })
+})
+
+describe('nextVisibilityFlip', () => {
+  it('returns a boundary for a clock-based rule', () => {
+    const entry = { visibility: { mode: 'any', rules: [{ kind: 'timeWindow', start: 9, end: 17 }] } }
+    const next = nextVisibilityFlip(entry, MON(10))
+    expect(next).not.toBeNull()
+    expect(new Date(next!).getHours()).toBe(17)
+  })
+
+  it('null when nothing clock-based restricts it', () => {
+    expect(nextVisibilityFlip({ visibility: { mode: 'any', rules: [{ kind: 'battery', below: 20 }] } }, MON(10))).toBeNull()
+    expect(nextVisibilityFlip({}, MON(10))).toBeNull()
+  })
+
+  it('delegates to legacy fields', () => {
+    const next = nextVisibilityFlip({ visibleHours: [{ start: 9, end: 17 }] }, MON(10))
+    expect(new Date(next!).getHours()).toBe(17)
+  })
+})
+
+describe('profile triggers', () => {
+  it('an empty trigger never fires (unlike shelf visibility)', () => {
+    expect(evalProfileTrigger({ mode: 'any', rules: [] }, MON(12))).toBe(false)
+    expect(evalProfileTrigger(undefined, MON(12))).toBe(false)
+  })
+
+  it('a matching trigger fires', () => {
+    expect(evalProfileTrigger({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] }, MON(20))).toBe(true)
+    expect(evalProfileTrigger({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] }, MON(12))).toBe(false)
+  })
+
+  it('resolveTriggeredProfile returns the first active profile name', () => {
+    const profiles = [
+      { name: 'Work', trigger: { mode: 'any', rules: [{ kind: 'timeWindow', start: 9, end: 17 }] } },
+      { name: 'Evening', trigger: { mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] } },
+      { name: 'NoTrigger' },
+    ]
+    expect(resolveTriggeredProfile(profiles, MON(20))).toBe('Evening')
+    expect(resolveTriggeredProfile(profiles, MON(12))).toBe('Work')
+    expect(resolveTriggeredProfile(profiles, MON(3))).toBeNull()
   })
 })

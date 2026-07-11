@@ -11,7 +11,7 @@ import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { trackFeature } from "../../steam/usageTracking";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
-import { isInVisibilityWindow } from "../../steam/smartShelves";
+import { evalVisibility } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 
@@ -194,11 +194,11 @@ function appidForFocused(focused: HTMLElement): number | null {
 
 function firstVisibleShelfFromSettings(): string | null {
   const s = getCurrentSettings();
-  const visibleRegular = (s?.shelves ?? []).filter((x: any) => x.enabled && !x.hidden);
+  const visibleRegular = (s?.shelves ?? []).filter((x: any) => x.enabled && !x.hidden && evalVisibility(x));
   if (visibleRegular.length > 0) return visibleRegular[0].id;
   const visibleSmart = s?.smartShelvesEnabled
     ? (s?.smartShelves ?? []).filter((x: any) =>
-        x.enabled !== false && !x.hidden && isInVisibilityWindow(x.visibleHours, x.visibleDaysOfWeek))
+        x.enabled !== false && !x.hidden && evalVisibility(x))
     : [];
   return visibleSmart.length > 0 ? visibleSmart[0].id : null;
 }
@@ -225,7 +225,7 @@ function visibleSmartShelves(settings: Settings): SmartShelf[] {
   if (!settings.smartShelvesEnabled) return [];
   return (settings.smartShelves ?? []).filter((s: SmartShelf) =>
     (s as any).enabled !== false && !(s as any).hidden
-    && isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek));
+    && evalVisibility(s as any));
 }
 
 function shelvesFromSettings(settings: Settings): UnifiedShelf[] {

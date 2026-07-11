@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentSettings, refreshSettings, saveSettings, subscribeSettings } from "../../settingsStore";
 import type { Settings } from "../../types";
@@ -14,6 +14,8 @@ import { createOnlineActions } from "./controller/online";
 import { createGlobalVisualActions } from "./controller/globalVisual";
 import { createShelfActions } from "./controller/shelves";
 import { createProfileActions } from "./controller/profiles";
+import { resolveTriggeredProfile, nextProfileTriggerFlip } from "../../steam/smartShelves";
+import { subscribeDeviceState } from "../../runtime/deviceState";
 
 export function useSettingsController() {
   const { t } = useTranslation();
@@ -147,6 +149,41 @@ export function useSettingsController() {
   const shelfActions = createShelfActions({ liveSettings, persist, setSelectedId, selectedId, collections, tabs, shelves, t });
   const profileActions = createProfileActions({ liveSettings, persist });
 
+  /* Profile triggers (Visibility Rules v2) — auto-apply a profile when its
+     `trigger` predicate becomes true. Event-driven: a one-shot timeout re-armed
+     at the next clock boundary (no polling). Applies only on a TRANSITION (so
+     editing while a trigger is already active never snaps the profile mid-edit)
+     and only when it differs from the active one (so it can't loop). */
+  const [profileTriggerTick, setProfileTriggerTick] = useState(0);
+  const lastTriggeredRef = useRef<string | null | undefined>(undefined);
+  const applyTriggeredProfile = (profiles: any[], activeName: unknown) => {
+    let resolved: string | null = null;
+    try { resolved = resolveTriggeredProfile(profiles); } catch { return; }
+    if (resolved === lastTriggeredRef.current) return;
+    lastTriggeredRef.current = resolved;
+    if (!resolved || resolved === activeName) return;
+    const target = profiles.find((p: any) => p && p.name === resolved);
+    if (target && target.id) void profileActions.applyProfile(target.id);
+  };
+  useEffect(() => {
+    const s: any = settings;
+    // Opt-in only: auto-apply is off unless the user enables it, since it
+    // mutates global settings. No toggle on → the whole scheduler is inert.
+    if (s?.profileTriggersEnabled !== true) { lastTriggeredRef.current = undefined; return; }
+    const profiles = s?.profiles;
+    if (!Array.isArray(profiles) || profiles.length === 0) { lastTriggeredRef.current = undefined; return; }
+    applyTriggeredProfile(profiles, s?.activeProfileName);
+    const next = nextProfileTriggerFlip(profiles);
+    if (next == null) return;
+    const timer = window.setTimeout(() => setProfileTriggerTick((n) => n + 1), Math.max(1000, next - Date.now()));
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, profileTriggerTick]);
+
+  // Device-state triggers (battery / docked / …) flip on hardware events —
+  // re-run the resolver when the device state changes (no polling).
+  useEffect(() => subscribeDeviceState(() => setProfileTriggerTick((n) => n + 1)), []);
+
   const actions = {
     persist,
     selectShelf(id: string) {
@@ -162,6 +199,11 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.enabled === enabled) return;
       await persist({ ...s, enabled });
+    },
+    async setProfileTriggersEnabled(profileTriggersEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).profileTriggersEnabled ?? false) === profileTriggersEnabled) return;
+      await persist({ ...s, profileTriggersEnabled } as any);
     },
     async setUpdateNotifyEnabled(updateNotifyEnabled: boolean) {
       const s = liveSettings();

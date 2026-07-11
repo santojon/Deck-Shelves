@@ -23,7 +23,8 @@ import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, 
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { bumpAssetRevision } from "../core/assetRevision";
 import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
-import { isInVisibilityWindow, nextVisibilityBoundary, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
+import { evalVisibility, nextVisibilityFlip, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
+import { subscribeDeviceState } from "../runtime/deviceState";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
@@ -294,8 +295,7 @@ export function HomeShelves() {
     const visibleShelves = (settings?.shelves ?? []).filter((s: any) => s.enabled && !s.hidden);
     const visibleSmartCount = settings?.smartShelvesEnabled
       ? (settings?.smartShelves ?? []).filter((s: any) =>
-          s.enabled !== false && !s.hidden &&
-          isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek)
+          s.enabled !== false && !s.hidden && evalVisibility(s)
         ).length
       : 0;
     const hasAnyVisible = visibleShelves.length > 0 || visibleSmartCount > 0;
@@ -336,7 +336,7 @@ export function HomeShelves() {
   /* Schedule a one-shot refresh at the next visibility-window boundary across
      all smart shelves. Picks the earliest boundary; on fire, invalidates
      resolver caches for time-aware shelves, forces HomeInject to re-render
-     (so isInVisibilityWindow is re-evaluated), then triggers shelf refresh.
+     (so evalVisibility is re-evaluated), then triggers shelf refresh.
      Re-armed on each fire (visibilityTick dep) and on smart-shelf list changes. */
   const [visibilityTick, setVisibilityTick] = useState(0);
   const smartList = settings?.smartShelves;
@@ -349,10 +349,13 @@ export function HomeShelves() {
     for (const s of smartList) {
       const w = (s as any).visibleHours ?? getModeVisibilityWindows((s as any).mode);
       const d = (s as any).visibleDaysOfWeek;
-      if (!w && (!d || d.length === 0)) continue;
+      // Fold the mode's default window into the legacy fields; `visibility`
+      // rules (when present) win inside nextVisibilityFlip.
+      const entry = { visibility: (s as any).visibility, visibleHours: w, visibleDaysOfWeek: d };
+      const next = nextVisibilityFlip(entry, now);
+      if (next == null) continue;
       timeAwareIds.push((s as any).id);
-      const next = nextVisibilityBoundary(w, d, now);
-      if (next != null && (earliest == null || next < earliest)) earliest = next;
+      if (earliest == null || next < earliest) earliest = next;
     }
     if (earliest == null) return;
     const delay = Math.max(1000, earliest - now.getTime());
@@ -363,6 +366,14 @@ export function HomeShelves() {
     }, delay);
     return () => window.clearTimeout(t);
   }, [settings?.smartShelvesEnabled, smartList, visibilityTick]);
+
+  /* Device-state visibility rules (battery / charging / offline / external
+     display / resolution) flip on hardware events, not the clock. A cheap
+     re-render re-runs evalVisibility — no full shelf re-resolution. Own tick (not
+     visibilityTick) so it skips the clock-boundary scheduler above. Sources fire
+     only on meaningful/debounced changes — rare, event-driven, no polling. */
+  const [, setDeviceTick] = useState(0);
+  useEffect(() => subscribeDeviceState(() => setDeviceTick((n) => n + 1)), []);
 
   if (!mountEl) return null;
   if (!settings) return null;
@@ -422,10 +433,11 @@ export function HomeShelves() {
       smartShelves = (settings.smartShelves ?? [])
         .filter((s: SmartShelf) => s.enabled && !s.hidden)
         .filter((s: SmartShelf) =>
-          isInVisibilityWindow(
-            (s as any).visibleHours ?? getModeVisibilityWindows((s as any).mode),
-            (s as any).visibleDaysOfWeek,
-          )
+          evalVisibility({
+            visibility: (s as any).visibility,
+            visibleHours: (s as any).visibleHours ?? getModeVisibilityWindows((s as any).mode),
+            visibleDaysOfWeek: (s as any).visibleDaysOfWeek,
+          } as any)
         )
         .map((s: SmartShelf): Shelf => ({
           id: s.id,

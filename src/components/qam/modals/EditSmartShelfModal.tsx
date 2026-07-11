@@ -25,6 +25,7 @@ import { SORT_OPTIONS } from './editShelf/constants'
 import { optionData } from './editShelf/utils'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
+import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
 import type { PlatformAppMeta } from '../../../runtime/platform'
 import { PreviewPanel } from './editShelf/PreviewPanel'
 // SmartShelfModal also supports a modal-driven `create` mode that persists
@@ -118,6 +119,7 @@ type EditState = {
   dayOverrides: Record<string, Array<{ start: number; end: number }>>
   visibleDaysOfWeek: number[]
   allowDayOverrides: boolean
+  visibility: any
 }
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
@@ -222,6 +224,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       if (!Array.isArray(v)) return false
       return v.some((r: any) => Array.isArray(r.days) && r.days.length > 0)
     })(),
+    visibility: (shelf as any).visibility,
   })
   // Buffered text representation of the refresh-interval field — keeps the
   // user free to clear / partially edit the input without immediately
@@ -481,6 +484,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       // otherwise persist the (possibly empty) array. Empty array = never
       // visible, distinct from undefined = always visible.
       ;(patch as any).visibleDaysOfWeek = state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort()
+      // Visibility Rules v2 — an empty/undefined tree persists as no restriction.
+      ;(patch as any).visibility = (state.visibility && Array.isArray(state.visibility.rules) && state.visibility.rules.length > 0) ? state.visibility : undefined
       if (mode === 'create') {
         const draft: SmartShelf = { ...shelf, ...(patch as Partial<SmartShelf>) } as SmartShelf
         const created = await actions.commitSmartShelf(draft)
@@ -853,6 +858,12 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                           }}
                         />
                       )}
+                      <Field label={t('visibility_rules_label' as any)} description={t('visibility_rules_desc' as any)} />
+                      <VisibilityRulesEditor
+                        value={state.visibility}
+                        onChange={(v) => setState((prev) => ({ ...prev, visibility: v }))}
+                        t={t as any}
+                      />
                     </FieldContainer>
                   ),
                 },

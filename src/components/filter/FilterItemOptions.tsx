@@ -27,7 +27,29 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
     case "isNew":
     case "cloudAvailable":
     case "controllerSupport":
+    case "systemCompatibility":
       return null;
+
+    case "remotePlayLocation": {
+      const REMOTE_PLAY_OPTIONS = [
+        { data: "local", label: t("filter_remote_play_local") },
+        { data: "remote", label: t("filter_remote_play_remote") },
+        { data: "remote-only", label: t("filter_remote_play_remote_only") },
+        { data: "both", label: t("filter_remote_play_both") },
+      ];
+      return (
+        <div>
+          <DropdownItem
+            label={t("filter_type_remote_play")}
+            description={t("filter_remote_play_hint")}
+            rgOptions={REMOTE_PLAY_OPTIONS}
+            selectedOption={p.mode ?? "remote-only"}
+            onChange={(opt: any) => patchParams({ mode: (opt?.data ?? opt) as string })}
+            bottomSeparator="none"
+          />
+        </div>
+      );
+    }
 
     case "hidden":
       return (
@@ -320,6 +342,25 @@ export default function FilterItemOptions({ item, onChange, controller, allowOnl
           <div style={{ padding: "6px 0", color: "var(--ds-text-dim, #8b9ab5)", fontSize: 12, lineHeight: 1.4 }}>
             {t("filter_friends_played_recently_info")}
           </div>
+        </>
+      );
+    }
+
+    case "priceRange": {
+      const readVal = (val: any) => (typeof val === "string" ? val : (val as any)?.target?.value ?? (val as any)?.value ?? "");
+      const parse = (raw: string) => { const n = Number(String(raw).replace(",", ".").trim()); return Number.isFinite(n) && n >= 0 ? n : undefined; };
+      return (
+        <>
+          <Field label={t("filter_price_min")} bottomSeparator="none">
+            <div style={{ minWidth: 120 }}>
+              <TextField value={p.minPrice != null ? String(p.minPrice) : ""} onChange={(v: any) => patchParams({ minPrice: parse(readVal(v)) })} />
+            </div>
+          </Field>
+          <Field label={t("filter_price_max")} description={t("filter_price_hint")} bottomSeparator="none">
+            <div style={{ minWidth: 120 }}>
+              <TextField value={p.maxPrice != null ? String(p.maxPrice) : ""} onChange={(v: any) => patchParams({ maxPrice: parse(readVal(v)) })} />
+            </div>
+          </Field>
         </>
       );
     }

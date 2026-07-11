@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { DialogButton, Focusable, TextField } from "../../../runtime/host/decky";
+import { DialogButton, Focusable, TextField, ToggleField } from "../../../runtime/host/decky";
 import type { useSettingsController } from "../../../features/settings/controller";
 import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../../../features/settings/controller/profiles";
 import { joinDownloads } from "../../../core/userPaths";
 import { SettingsSection } from "../../ui/SettingsSection";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
-import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon, PersonIcon } from "../../icons";
+import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, TrashIcon, UploadIcon, XIcon, PersonIcon, TargetIcon } from "../../icons";
 import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../ui/buttonStyles";
+import { openManagedModal } from "../../qam/common/openManagedModal";
+import { SetProfileTriggerModal } from "../../qam/modals/SetProfileTriggerModal";
 
 
 export interface ProfilesDetailProps {
@@ -82,6 +84,11 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       <CollapsibleSection id="profiles-list" title={t("settings_profiles_list_title")} count={savedProfiles.length} icon={<PersonIcon size={14} />} initialOpen>
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("settings_profiles_list_desc")}</div>
+        <ToggleField
+          label={t("settings_profile_triggers_label")}
+          checked={(settings as any).profileTriggersEnabled === true}
+          onChange={(v: boolean) => void (controller.actions as any).setProfileTriggersEnabled?.(v)}
+        />
         {profiles.length === 0 ? (
           <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>
             {t("settings_profiles_empty")}
@@ -181,6 +188,14 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                             aria-label={t("settings_profiles_rename")}
                           >
                             <PencilIcon size={14} />
+                          </DialogButton>
+                          <DialogButton
+                            onClick={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}
+                            onOKButton={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}
+                            style={{ ...BTN_ICON_COMPACT_STYLE, ...(profile.trigger ? { color: "#4caf50" } : {}) }}
+                            aria-label={t("settings_profiles_set_trigger")}
+                          >
+                            <TargetIcon size={14} />
                           </DialogButton>
                           <DialogButton
                             onClick={() => (controller.actions as any).exportProfiles?.(joinDownloads(`profile-${profile.name}.json`.replace(/\s+/g, "-").toLowerCase()), profile.id)}

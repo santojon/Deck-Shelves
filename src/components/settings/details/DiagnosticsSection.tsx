@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DialogButton, Focusable } from "../../../runtime/host/decky";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { collectRuntimeInfo, collectSystemInfo, listCoLoadedPlugins, summarizeConfig, type SystemInfo } from "../../../runtime/diagnosticsInfo";
+import { refreshCssLoaderThemes } from "../../../core/cssLoaderDetect";
 import { getCurrentSettings } from "../../../settingsStore";
 import { CheckIcon, CopyIcon, RefreshIcon, ToolsIcon } from "../../icons";
 import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
@@ -25,8 +26,9 @@ function osLine(sys: SystemInfo | null, steamOS: string | null): string {
     Steam or plugin state. */
 export function DiagnosticsSection({ t }: { t: (key: string) => string }) {
   const [tick, setTick] = useState(0);
+  const [themesTick, setThemesTick] = useState(0);
   const [sys, setSys] = useState<SystemInfo | null>(null);
-  const info = useMemo(() => collectRuntimeInfo(), [tick]);
+  const info = useMemo(() => collectRuntimeInfo(), [tick, themesTick]);
   const plugins = useMemo(() => listCoLoadedPlugins(), [tick]);
   const config = useMemo(() => summarizeConfig(getCurrentSettings()), [tick]);
   const refresh = () => setTick((n) => n + 1);
@@ -34,6 +36,9 @@ export function DiagnosticsSection({ t }: { t: (key: string) => string }) {
   useEffect(() => {
     let alive = true;
     void collectSystemInfo().then((s) => { if (alive) setSys(s); });
+    // Fetch the actual CSS Loader theme names off disk (gated + fail-soft), then
+    // nudge the runtime-info memo so the theme line shows the real names.
+    void refreshCssLoaderThemes().then(() => { if (alive) setThemesTick((n) => n + 1); });
     return () => { alive = false; };
   }, [tick]);
 

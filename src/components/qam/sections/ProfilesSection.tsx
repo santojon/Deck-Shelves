@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Dropdown, Field, Menu, MenuItem, showContextMenu, DialogButton } from "../../../runtime/host/decky";
+import { Dropdown, Field, Menu, MenuItem, showContextMenu, DialogButton, ToggleField } from "../../../runtime/host/decky";
 import { CollapsibleSection } from "../../ui";
 import { PersonIcon, CheckIcon } from "../../icons";
 import { icons } from "../icons";
@@ -8,6 +8,7 @@ import { FACTORY_PROFILE_ID, FACTORY_PROFILE_NAME } from "../../../features/sett
 import { openManagedModal } from "../common/openManagedModal";
 import { SaveProfileModal } from "../modals/SaveProfileModal";
 import { RenameProfileModal } from "../modals/RenameProfileModal";
+import { SetProfileTriggerModal } from "../modals/SetProfileTriggerModal";
 import { confirmAction } from "../modals/ConfirmActionModal";
 import { joinDownloads } from "../../../core/userPaths";
 import { ReorderableShelfList } from "../common/ReorderableShelfList";
@@ -42,6 +43,7 @@ function ProfileActionsButton({ controller, profile }: { controller: SettingsCon
       <MenuItem onSelected={() => (actions as any).updateProfileSnapshot?.(profile.id)}>{t("settings_profiles_update" as any)}</MenuItem>
       <MenuItem onSelected={() => (actions as any).duplicateProfile?.(profile.id)}>{t("settings_profiles_duplicate" as any)}</MenuItem>
       <MenuItem onSelected={() => openManagedModal((close) => <RenameProfileModal closeModal={close} controller={controller} profileId={profile.id} currentName={profile.name} />)}>{t("settings_profiles_rename" as any)}</MenuItem>
+      <MenuItem onSelected={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}>{t("settings_profiles_set_trigger" as any)}</MenuItem>
       <MenuItem onSelected={() => (actions as any).toggleProfileHidden?.(profile.id)}>{profile.hidden ? t("qam_show" as any) : t("qam_hide" as any)}</MenuItem>
       <MenuItem onSelected={() => (actions as any).exportProfiles?.(exportPath, profile.id)}>{t("settings_profiles_export" as any)}</MenuItem>
       <MenuItem onSelected={() => confirmAction({
@@ -166,6 +168,13 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
     >
       <HideableRow tk="profileDropdown" hidden={isHid("profileDropdown")} setHidden={(v) => setHid("profileDropdown", v)} mode={mode} t={t}>
         {dropdownNode}
+      </HideableRow>
+      <HideableRow tk="profileTriggers" hidden={isHid("profileTriggers")} setHidden={(v) => setHid("profileTriggers", v)} mode={mode} t={t}>
+        <ToggleField
+          label={t("settings_profile_triggers_label" as any)}
+          checked={(settings as any).profileTriggersEnabled === true}
+          onChange={(v: boolean) => (controller.actions as any).setProfileTriggersEnabled?.(v)}
+        />
       </HideableRow>
       <HideableRow tk="profileList" hidden={isHid("profileList")} setHidden={(v) => setHid("profileList", v)} mode={mode} t={t}>
         {listNode}

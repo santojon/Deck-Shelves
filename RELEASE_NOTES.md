@@ -5,6 +5,22 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Smarter shelf visibility.** A shelf can now show up only when the conditions you choose are true — time of day, day of week, and now your device's state: low battery, charging, offline, docked / on an external display, or a given screen resolution or ultrawide display. Mix several with "match any" or "match all", or start from an Evenings / Weekends preset.
+- **Profiles that switch themselves.** Give a saved profile a trigger (the same conditions as above) and turn on auto-switch: Deck Shelves applies that profile on its own when the trigger matches — a "Docked" profile when you dock, a "Battery saver" profile when the battery runs low. The auto-switch toggle is in the Quick Access panel, the sidecar and Settings → Profiles, and each profile sets its own triggers.
+- **Three new filters:** keep only games that run on your current platform, filter by Remote Play (installed here, on another device, only remote, or both), and filter by a price range in your own currency.
+- **The plugin version now appears on every settings page and in the Quick Access panel**, so it's always easy to find when filing a bug report.
+- **System information now shows your real CSS Loader themes** — the actual active theme names and how many are installed.
+
+### Changed
+
+- **Store prices and featured games now use your country's Steam store** instead of always the US one.
+
+### Fixed
+
+- **Fixed a recurring stutter on the home.** Every ~30 seconds the interface could freeze for a couple of seconds — sometimes swallowing a button press so navigation felt stuck on a shelf. Deck Shelves now reuses the parsed price data instead of re-reading it for every game, so the home stays smooth.
+
 ## [3.0.2] - 2026-07-10
 
 ### Added

@@ -10,6 +10,14 @@ export type BatteryState = {
 
 let _state: BatteryState | null = null;
 let _cleanup: (() => void) | null = null;
+const _listeners = new Set<() => void>();
+
+/* Notify on battery change so device-state visibility rules re-evaluate
+   promptly (no polling — driven by the Steam battery event). */
+export function subscribeBattery(cb: () => void): () => void {
+  _listeners.add(cb);
+  return () => { _listeners.delete(cb); };
+}
 
 function getSteamClient(): any {
   return (globalThis as any).SteamClient ?? (window as any).SteamClient;
@@ -41,7 +49,17 @@ export function installBatteryState(): () => void {
     const client = getSteamClient();
     const reg = client?.System?.RegisterForBatteryStateChanges?.((event: any) => {
       try {
-        _state = normalize(event);
+        const next = normalize(event);
+        /* The Steam battery event also churns on `nSecondsRemaining` every tick;
+           only notify listeners on a MEANINGFUL change (charge-state flip or a
+           ≥5% level bucket) so device-state visibility rules don't re-render on
+           every tick. */
+        const prev = _state;
+        const meaningful = !prev
+          || prev.state !== next.state
+          || Math.round(prev.level * 20) !== Math.round(next.level * 20);
+        _state = next;
+        if (meaningful) for (const l of _listeners) { try { l(); } catch {} }
       } catch {}
     });
     if (typeof reg?.unregister === 'function') {

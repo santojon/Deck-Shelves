@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { afterPatch, findInReactTree } from "./host/decky";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
-import { isInVisibilityWindow } from "../steam/smartShelves";
+import { evalVisibility } from "../steam/smartShelves";
 import { applyManualOrder } from "../steam";
 import { isOnlineSource } from "../domain/sourceUtils";
 import { getPlatform } from "./platformContext";
@@ -152,13 +152,13 @@ function smartShelfToCandidate(s: any) {
 function visibleCandidateShelves(): any[] {
   const s = getCurrentSettings();
   if (!s) return [];
-  const normals = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden && !isOnlineSource(sh.source));
+  const normals = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden && !isOnlineSource(sh.source) && evalVisibility(sh));
   const smartEnabled = s.smartShelvesEnabled === true;
   const smarts = !smartEnabled
     ? []
     : (s.smartShelves ?? [])
         .filter((sm: any) => sm.enabled !== false && !sm.hidden)
-        .filter((sm: any) => isInVisibilityWindow(sm.visibleHours, sm.visibleDaysOfWeek))
+        .filter((sm: any) => evalVisibility(sm))
         .map(smartShelfToCandidate)
         .filter(Boolean) as any[];
   return [...normals, ...smarts];

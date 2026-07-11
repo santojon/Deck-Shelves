@@ -6,6 +6,7 @@ import pkg from "../../package.json";
 import { getSteamOSVersion } from "../core/steamOSVersion";
 import {
   isCssLoaderActive,
+  getActiveCssLoaderThemes,
   isArtHeroActive,
   isTiltedHomeActive,
   isHeroFullscreenActive,
@@ -45,15 +46,16 @@ export function listCoLoadedPlugins(): string[] {
 
 function activeTheme(): string | null {
   if (!isCssLoaderActive()) return null;
-  // Human-readable: the DS-relevant home themes we structurally detect. Reading
-  // CSS Loader's raw style-node ids proved unreadable, so we don't.
+  // Prefer the ACTUAL active theme names from the backend (read off disk); the
+  // style-node ids are UUIDs and can't be named client-side. Falls back to the
+  // DS-relevant home themes we structurally detect until the fetch resolves.
+  const names = getActiveCssLoaderThemes();
+  if (names.length) return names.join(", ");
   const parts: string[] = [];
   if (isTiltedHomeActive()) parts.push("TiltedHome");
   if (isArtHeroActive()) parts.push("ArtHero");
   if (isHeroFullscreenActive()) parts.push("Hero Fullscreen");
   if (isNoHomeTextActive()) parts.push("No Home Text");
-  // No DS-known theme matched but CSS Loader is injecting styles — surface the
-  // block count as a signal (theme names aren't reliably tagged to read).
   return parts.length ? parts.join(", ") : `CSS Loader (${cssLoaderStyleCount()})`;
 }
 
@@ -175,10 +177,13 @@ export function summarizeConfig(settings: any): string[] {
   const count = (v: any) => (Array.isArray(v) ? v.length : 0);
   const recents = s.recentsReplaceSource ? "replaced" : s.hideRecents ? "hidden" : "default";
   const active = s.activeProfileName ? ` · active "${s.activeProfileName}"` : "";
+  const triggerCount = Array.isArray(s.profiles)
+    ? s.profiles.filter((p: any) => p?.trigger && Array.isArray(p.trigger.rules) && p.trigger.rules.length > 0).length
+    : 0;
   return [
     `Master: ${onOff(s.enabled !== false)}`,
     `Shelves: ${count(s.shelves)} · smart ${count(s.smartShelves)} (${onOff(s.smartShelvesEnabled)})`,
-    `Profiles: ${count(s.profiles)}${active}`,
+    `Profiles: ${count(s.profiles)}${active} · auto-switch ${onOff(s.profileTriggersEnabled)} (${triggerCount} with triggers)`,
     `Saved filters: ${count(s.savedFilters)} · smart ${count(s.savedSmartFilters)}`,
     `Modes: Light ${onOff(s.lightModeEnabled)} · Advanced ${onOff(s.advancedModeEnabled)} · Developer ${onOff(s.devModeEnabled)}`,
     `Recents: ${recents} · Home tabs: ${s.hideHomeTabs ? "hidden" : "shown"} · Debug overlay: ${onOff(s.debugOverlayEnabled)}`,

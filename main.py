@@ -37,6 +37,8 @@ import decky
 from paths import _steam_install_candidates, _normalize_path
 from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS
 from sanitizer import _sanitize_settings
+from css_themes import read_css_loader_themes
+from display_state import read_display_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
@@ -121,6 +123,16 @@ class Plugin:
         # it off the event loop so a slow read doesn't block every other
         # plugin RPC behind it.
         return await asyncio.to_thread(self._read_state)
+
+    async def get_css_loader_themes(self, *args, **kwargs) -> Dict[str, Any]:
+        # Actual active/installed CSS Loader theme names off disk (read-only).
+        # Off-thread: it walks ~/homebrew/themes and reads small JSON files.
+        return await asyncio.to_thread(read_css_loader_themes)
+
+    async def get_display_state(self, *args, **kwargs) -> Dict[str, Any]:
+        # External-display / dock state via the Linux DRM connectors (read-only).
+        # Off-thread + fail-soft; `supported` is False off SteamOS/Linux.
+        return await asyncio.to_thread(read_display_state)
 
     def _save_pipeline(self, data: Dict[str, Any]) -> bool:
         # Whole save pipeline runs in a single worker thread so neither the

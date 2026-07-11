@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => {
       "process.env.NODE_ENV": JSON.stringify(isProd ? "production" : "development"),
       __DECK_SHELVES_ENABLE_HOME_PATCH__: JSON.stringify(true),
       __DEV__: JSON.stringify(!isProd),
+      // Build stamp injected per build so `window.__ds_build` always reflects the
+      // actually-loaded bundle (a hardcoded string silently went stale for weeks).
+      __BUILD_ID__: JSON.stringify(
+        `${new Date().toISOString().slice(0, 16).replace("T", " ")} ${isProd ? "rel" : "dev"}`,
+      ),
       __QA_FIRST_RUN__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_FIRST_RUN === "1"),
       __QA_QAM_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_QAM_ERROR === "1"),
       __QA_SHELF_ERROR__: JSON.stringify(!isProd && process.env.DS_QA_FORCE_SHELF_ERROR === "1"),
