@@ -172,10 +172,17 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
       <HideableRow tk="profileTriggers" hidden={isHid("profileTriggers")} setHidden={(v) => setHid("profileTriggers", v)} mode={mode} t={t}>
         <ToggleField
           label={t("settings_profile_triggers_label" as any)}
-          description={mode === "qam" ? t("settings_profile_triggers_qam_hint" as any) : undefined}
           checked={(settings as any).profileTriggersEnabled === true}
           onChange={(v: boolean) => (controller.actions as any).setProfileTriggersEnabled?.(v)}
         />
+        {/* QAM subtext pattern: a styled div under the toggle (not ToggleField's
+           `description`, which mis-aligns in the QAM's custom CSS) — matches the
+           context-search hint. QAM only; the sidecar stays compact. */}
+        {mode === "qam" ? (
+          <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
+            {t("settings_profile_triggers_qam_hint" as any)}
+          </div>
+        ) : null}
       </HideableRow>
       <HideableRow tk="profileList" hidden={isHid("profileList")} setHidden={(v) => setHid("profileList", v)} mode={mode} t={t}>
         {listNode}

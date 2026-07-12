@@ -39,6 +39,7 @@ from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir,
 from sanitizer import _sanitize_settings
 from css_themes import read_css_loader_themes
 from display_state import read_display_state
+from perf_probe import read_perf_snapshot
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
@@ -133,6 +134,11 @@ class Plugin:
         # External-display / dock state via the Linux DRM connectors (read-only).
         # Off-thread + fail-soft; `supported` is False off SteamOS/Linux.
         return await asyncio.to_thread(read_display_state)
+
+    async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
+        # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
+        # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
+        return await asyncio.to_thread(read_perf_snapshot)
 
     def _save_pipeline(self, data: Dict[str, Any]) -> bool:
         # Whole save pipeline runs in a single worker thread so neither the

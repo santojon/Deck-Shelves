@@ -149,7 +149,7 @@ The full-page Settings route, opened from the gear icon in the QAM title bar.
 
 ## Quick settings sidecar
 
-The QAM's expandable **Configurações** sidecar (dpad-right from the plugin
+The QAM's expandable **Settings** sidecar (dpad-right from the plugin
 tab) — the plugin tab on the left, the populated Quick settings panel on the
 right.
 

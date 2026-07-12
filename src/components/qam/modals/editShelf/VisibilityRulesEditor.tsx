@@ -14,7 +14,7 @@ type T = (k: string, opts?: any) => string
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide']
+const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget']
 const BATTERY_LEVELS = [10, 15, 20, 25, 30, 40, 50].map((n) => ({ data: n, label: `${n}%` }))
 const RESOLUTION_WIDTHS = [1280, 1600, 1920, 2560, 3440, 3840].map((n) => ({ data: n, label: `${n}px` }))
 
@@ -35,6 +35,43 @@ function ResolutionRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partia
       <span style={{ opacity: 0.7, fontSize: 12 }}>{t('visibility_resolution_min')}</span>
       <div style={{ width: 120 }}>
         <Dropdown rgOptions={RESOLUTION_WIDTHS} selectedOption={Number(rule.minWidth) || 1920} onChange={(o: unknown) => onUpdate({ minWidth: Number(optionData(o) ?? 1920) })} />
+      </div>
+    </Focusable>
+  )
+}
+
+const CPU_LEVELS = [50, 60, 70, 80, 90].map((n) => ({ data: n, label: `${n}%` }))
+const MEM_LEVELS = [5, 10, 15, 20, 25, 30].map((n) => ({ data: n, label: `${n}%` }))
+const FPS_LEVELS = [30, 40, 45, 50, 60].map((n) => ({ data: n, label: `${n} fps` }))
+
+function FrameBudgetRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <span style={{ opacity: 0.7, fontSize: 12 }}>{t('visibility_fps_below')}</span>
+      <div style={{ width: 100 }}>
+        <Dropdown rgOptions={FPS_LEVELS} selectedOption={Number(rule.belowFps) || 45} onChange={(o: unknown) => onUpdate({ belowFps: Number(optionData(o) ?? 45) })} />
+      </div>
+    </Focusable>
+  )
+}
+
+function HighCpuRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <span style={{ opacity: 0.7, fontSize: 12 }}>{t('visibility_cpu_above')}</span>
+      <div style={{ width: 100 }}>
+        <Dropdown rgOptions={CPU_LEVELS} selectedOption={Number(rule.above) || 80} onChange={(o: unknown) => onUpdate({ above: Number(optionData(o) ?? 80) })} />
+      </div>
+    </Focusable>
+  )
+}
+
+function LowMemoryRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
+      <span style={{ opacity: 0.7, fontSize: 12 }}>{t('visibility_mem_below')}</span>
+      <div style={{ width: 100 }}>
+        <Dropdown rgOptions={MEM_LEVELS} selectedOption={Number(rule.below) || 15} onChange={(o: unknown) => onUpdate({ below: Number(optionData(o) ?? 15) })} />
       </div>
     </Focusable>
   )
@@ -167,6 +204,9 @@ const RULE_BODIES: Record<string, (p: { rule: Rule; onUpdate: (p: Partial<Rule>)
   lastGameSource: LastGameSourceRow,
   battery: BatteryRow,
   resolution: ResolutionRow,
+  highCpu: HighCpuRow,
+  lowMemory: LowMemoryRow,
+  lowFrameBudget: FrameBudgetRow,
 }
 
 function RuleBody({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
@@ -238,6 +278,11 @@ export function VisibilityRulesEditor({ value, onChange, t }: {
         <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'externalDisplay' })} onOKButton={() => addRule({ kind: 'externalDisplay' })}>+ {t('visibility_rule_externalDisplay')}</DialogButton>
         <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'ultrawide' })} onOKButton={() => addRule({ kind: 'ultrawide' })}>+ {t('visibility_rule_ultrawide')}</DialogButton>
         <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'resolution', minWidth: 1920 })} onOKButton={() => addRule({ kind: 'resolution', minWidth: 1920 })}>+ {t('visibility_rule_resolution')}</DialogButton>
+      </Focusable>
+      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
+        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'highCpu', above: 80 })} onOKButton={() => addRule({ kind: 'highCpu', above: 80 })}>+ {t('visibility_rule_highCpu')}</DialogButton>
+        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'lowMemory', below: 15 })} onOKButton={() => addRule({ kind: 'lowMemory', below: 15 })}>+ {t('visibility_rule_lowMemory')}</DialogButton>
+        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'lowFrameBudget', belowFps: 45 })} onOKButton={() => addRule({ kind: 'lowFrameBudget', belowFps: 45 })}>+ {t('visibility_rule_lowFrameBudget')}</DialogButton>
       </Focusable>
       <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
         <DialogButton style={{ flex: 1 }} onClick={() => onChange({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] })} onOKButton={() => onChange({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] })}>{t('visibility_preset_evenings')}</DialogButton>

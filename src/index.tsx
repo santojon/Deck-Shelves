@@ -18,6 +18,7 @@ import { installSystemEvents } from "./runtime/systemEvents";
 import { installBatteryState } from "./runtime/batteryState";
 import { installDeviceState, getDeviceState } from "./runtime/deviceState";
 import { installSessionState } from "./runtime/sessionState";
+import { installProfileTriggers } from "./runtime/profileTriggers";
 import { installFriendsState } from "./runtime/friendsState";
 import { installPluginApi } from "./core/pluginApi";
 import { installLauncherCachePoll } from "./runtime/launcherCache";
@@ -146,6 +147,7 @@ export default definePlugin((serverAPI?: any) => {
   const uninstallBatteryState = installBatteryState();
   const uninstallDeviceState = installDeviceState();
   const uninstallSessionState = installSessionState();
+  const uninstallProfileTriggers = installProfileTriggers();
   // Dev-only: expose the live device snapshot for on-device CDP inspection.
   if (__DEV__) { try { (globalThis as any).__ds_device = getDeviceState; } catch {} }
   const uninstallFriendsState = installFriendsState();
@@ -324,6 +326,7 @@ export default definePlugin((serverAPI?: any) => {
         uninstallBatteryState();
         uninstallDeviceState();
         uninstallSessionState();
+        uninstallProfileTriggers();
         uninstallFriendsState();
         uninstallPluginApi();
         uninstallLauncherCache();

@@ -6,6 +6,7 @@ import { getBatteryState } from "../runtime/batteryState";
 import { evalDeviceRule, isDeviceRuleKind } from "../runtime/deviceState";
 import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
 import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
+import { evalPerfRule, isPerfRuleKind } from "../runtime/perfState";
 import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
 import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
 import { getCurrentSettings } from "../store/settingsStore";
@@ -850,6 +851,7 @@ function evalVisibilityRule(rule: any, now: Date): boolean {
     default:
       if (isTimeContextKind(kind)) return evalTimeContextRule(rule, now);
       if (isSessionRuleKind(kind)) return evalSessionRule(rule);
+      if (isPerfRuleKind(kind)) return evalPerfRule(rule);
       return isDeviceRuleKind(kind) ? evalDeviceRule(rule) : true;
   }
 }

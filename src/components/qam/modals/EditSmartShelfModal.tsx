@@ -120,6 +120,7 @@ type EditState = {
   visibleDaysOfWeek: number[]
   allowDayOverrides: boolean
   visibility: any
+  autoPin: any
 }
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
@@ -225,6 +226,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       return v.some((r: any) => Array.isArray(r.days) && r.days.length > 0)
     })(),
     visibility: (shelf as any).visibility,
+    autoPin: (shelf as any).autoPin,
   })
   // Buffered text representation of the refresh-interval field — keeps the
   // user free to clear / partially edit the input without immediately
@@ -486,6 +488,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).visibleDaysOfWeek = state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort()
       // Visibility Rules v2 — an empty/undefined tree persists as no restriction.
       ;(patch as any).visibility = (state.visibility && Array.isArray(state.visibility.rules) && state.visibility.rules.length > 0) ? state.visibility : undefined
+      // Auto-pin predicate — same shape; empty = never pinned.
+      ;(patch as any).autoPin = ((state as any).autoPin && Array.isArray((state as any).autoPin.rules) && (state as any).autoPin.rules.length > 0) ? (state as any).autoPin : undefined
       if (mode === 'create') {
         const draft: SmartShelf = { ...shelf, ...(patch as Partial<SmartShelf>) } as SmartShelf
         const created = await actions.commitSmartShelf(draft)
@@ -862,6 +866,12 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       <VisibilityRulesEditor
                         value={state.visibility}
                         onChange={(v) => setState((prev) => ({ ...prev, visibility: v }))}
+                        t={t as any}
+                      />
+                      <Field label={t('visibility_autopin_label' as any)} description={t('visibility_autopin_desc' as any)} />
+                      <VisibilityRulesEditor
+                        value={(state as any).autoPin}
+                        onChange={(v) => setState((prev) => ({ ...prev, autoPin: v } as any))}
                         t={t as any}
                       />
                     </FieldContainer>

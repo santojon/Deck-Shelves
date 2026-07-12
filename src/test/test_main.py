@@ -731,6 +731,16 @@ def test_sanitize_visibility_round_trips_on_saved_smart_filter():
     assert result["savedSmartFilters"][0].get("visibility") == _VIS
 
 
+def test_sanitize_autopin_round_trips_on_shelves():
+    _PIN = {"mode": "any", "rules": [{"kind": "externalDisplay"}]}
+    result = _sanitize_settings({
+        "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"}, "autoPin": _PIN}],
+        "smartShelves": [{"id": "sm1", "title": "S", "mode": "recently_played", "autoPin": _PIN}],
+    })
+    assert result["shelves"][0].get("autoPin") == _PIN
+    assert result["smartShelves"][0].get("autoPin") == _PIN
+
+
 def test_sanitize_visibility_empty_rules_omitted():
     # No usable rules == no restriction: the field is dropped, not persisted empty.
     result = _sanitize_settings({
@@ -834,3 +844,24 @@ def test_read_display_state_unsupported_off_linux(tmp_path):
     # No DRM sysfs present (Windows / macOS): supported False, never mis-classifies.
     out = read_display_state(str(tmp_path / "nope"))
     assert out == {"external": False, "supported": False}
+
+
+def test_perf_cpu_percent_math():
+    from perf_probe import _parse_cpu_line, _cpu_percent
+    a = _parse_cpu_line("cpu 100 0 50 800 50 0 0 0 0 0")  # idle+iowait = 800+50 = 850, total 1000
+    b = _parse_cpu_line("cpu 200 0 100 850 100 0 0 0 0 0")  # idle 950, total 1250 → delta idle 100, total 250
+    assert _cpu_percent(a, b) == 60.0  # 1 - 100/250 = 0.6
+    assert _cpu_percent(a, a) is None  # no delta
+
+
+def test_perf_read_mem_available_percent(tmp_path):
+    from perf_probe import read_mem_available_percent
+    p = tmp_path / "meminfo"
+    p.write_text("MemTotal:       1000 kB\nMemFree:        100 kB\nMemAvailable:   250 kB\n", encoding="utf-8")
+    assert read_mem_available_percent(str(p)) == 25.0
+
+
+def test_perf_snapshot_unsupported_off_linux(tmp_path):
+    from perf_probe import read_perf_snapshot
+    out = read_perf_snapshot(str(tmp_path / "nostat"), str(tmp_path / "nomem"))
+    assert out == {"cpuPercent": None, "memAvailablePercent": None, "supported": False}

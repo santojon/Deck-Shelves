@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickFirstVisibleShelfId, interleaveSmartShelves } from '../../domain/shelfOrder'
+import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin } from '../../domain/shelfOrder'
 
 type S = { id: string; source?: { type?: string } }
 
@@ -103,5 +103,26 @@ describe('interleaveSmartShelves', () => {
     const shelves = [tab('a'), tab('b'), tab('c'), tab('d')]
     const out = interleaveSmartShelves(shelves, 'b')
     expect(out.map((s: any) => s.id)).toEqual(['b', 'a', 'c', 'd'])
+  })
+})
+
+describe('applyAutoPin', () => {
+  const s = (id: string) => ({ id })
+
+  it('floats pinned shelves to the front, keeping relative order in each group', () => {
+    const shelves = [s('a'), s('b'), s('c'), s('d')]
+    const out = applyAutoPin(shelves, (x) => x.id === 'b' || x.id === 'd')
+    expect(out.map((x) => x.id)).toEqual(['b', 'd', 'a', 'c'])
+  })
+
+  it('returns the SAME reference when nothing is pinned (no regression)', () => {
+    const shelves = [s('a'), s('b'), s('c')]
+    const out = applyAutoPin(shelves, () => false)
+    expect(out).toBe(shelves)
+  })
+
+  it('is a no-op ordering when everything is pinned', () => {
+    const shelves = [s('a'), s('b')]
+    expect(applyAutoPin(shelves, () => true).map((x) => x.id)).toEqual(['a', 'b'])
   })
 })

@@ -330,6 +330,9 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         _vis_s = _sanitize_visibility(s.get("visibility"))
         if _vis_s:
             shelf_entry["visibility"] = _vis_s
+        _pin_s = _sanitize_visibility(s.get("autoPin"))
+        if _pin_s:
+            shelf_entry["autoPin"] = _pin_s
         sanitized.append(shelf_entry)
     # Sanitize smart shelves
     raw_smart = settings.get("smartShelves", [])
@@ -550,6 +553,9 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
         _vis_ss = _sanitize_visibility(ss.get("visibility"))
         if _vis_ss:
             entry["visibility"] = _vis_ss
+        _pin_ss = _sanitize_visibility(ss.get("autoPin"))
+        if _pin_ss:
+            entry["autoPin"] = _pin_ss
         # compositeModes / compositeCombine: optional source-mixing fields.
         # compositeModes is a list of mode strings; compositeCombine is
         # either "union" or "intersection". Both are dropped when invalid.

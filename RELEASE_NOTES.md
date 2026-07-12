@@ -8,8 +8,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 ### Added
 
 - **Smarter shelf visibility.** A shelf can now show up only when the conditions you choose are true — time of day, day of week, and now your device's state: low battery, charging, offline, docked / on an external display, or a given screen resolution or ultrawide display. Mix several with "match any" or "match all", or start from an Evenings / Weekends preset.
+- **Even more visibility conditions.** Weekend vs weekday, part of the day (morning / afternoon / evening / night), season, and your own holiday date ranges; whether the last game you played was a Steam or non-Steam game, or whether a game is currently running; and — read only when a shelf actually needs it — high CPU or low memory.
 - **Profiles that switch themselves.** Give a saved profile a trigger (the same conditions as above) and turn on auto-switch: Deck Shelves applies that profile on its own when the trigger matches — a "Docked" profile when you dock, a "Battery saver" profile when the battery runs low. The auto-switch toggle is in the Quick Access panel, the sidecar and Settings → Profiles, and each profile sets its own triggers.
-- **Three new filters:** keep only games that run on your current platform, filter by Remote Play (installed here, on another device, only remote, or both), and filter by a price range in your own currency.
+- **Five new filters:** keep only games that run on your current platform, filter by Remote Play (installed here, on another device, only remote, or both), by a price range in your own currency, by what you've **played in the last two weeks**, or by games you've **neglected** (played before but not lately).
+- **Shelves that jump to the top when you need them.** Give a shelf an auto-pin condition — the same conditions as visibility rules — and it floats to the top of your home while the condition is true (a "Docked" shelf when you dock, a "Battery saver" shelf when the battery runs low), then drops back when it clears.
+- **Recover from a crash with one tap.** If the settings screen ever fails to load and you have snapshots saved, it now offers **Restore a snapshot** so you can roll back to a working setup.
 - **The plugin version now appears on every settings page and in the Quick Access panel**, so it's always easy to find when filing a bug report.
 - **System information now shows your real CSS Loader themes** — the actual active theme names and how many are installed.
 
@@ -20,6 +23,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 ### Fixed
 
 - **Fixed a recurring stutter on the home.** Every ~30 seconds the interface could freeze for a couple of seconds — sometimes swallowing a button press so navigation felt stuck on a shelf. Deck Shelves now reuses the parsed price data instead of re-reading it for every game, so the home stays smooth.
+- **Profile auto-switch triggers now work on the home**, not only while the settings panel is open.
+- **The "apply / delete profile" confirmation now works with the controller** and clearly warns before the "Default" profile resets everything, so you can't wipe your setup by accident.
 
 ## [3.0.2] - 2026-07-10
 

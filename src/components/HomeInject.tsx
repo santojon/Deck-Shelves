@@ -22,10 +22,11 @@ import { focusNativeRecentsFirstCard, findNativeRecentsEl } from "../features/si
 import { patchShelfEdgeNavigation, patchMenuButton, installVerticalFocusBridge, reparentNavTreeNodes } from "./home/navPatches";
 import { triggerShelfRefresh } from "../core/shelfRefresh";
 import { bumpAssetRevision } from "../core/assetRevision";
-import { pickFirstVisibleShelfId, interleaveSmartShelves } from "../domain/shelfOrder";
+import { pickFirstVisibleShelfId, interleaveSmartShelves, applyAutoPin } from "../domain/shelfOrder";
 import { evalVisibility, nextVisibilityFlip, getModeVisibilityWindows, invalidateSmartShelfCache } from "../steam/smartShelves";
 import { subscribeDeviceState } from "../runtime/deviceState";
 import { subscribeSessionState } from "../runtime/sessionState";
+import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
@@ -378,7 +379,8 @@ export function HomeShelves() {
     const bump = () => setDeviceTick((n) => n + 1);
     const unDevice = subscribeDeviceState(bump);
     const unSession = subscribeSessionState(bump);
-    return () => { unDevice(); unSession(); };
+    const unPerf = subscribePerfState(bump);
+    return () => { unDevice(); unSession(); unPerf(); stopFrameSampler(); };
   }, []);
 
   if (!mountEl) return null;
@@ -518,6 +520,14 @@ export function HomeShelves() {
       ? [...normalShelves, ...smartShelves]
       : [...smartShelves, ...normalShelves];
   }
+
+  /* Auto-pin: float shelves whose `autoPin` predicate currently matches to the
+     top (stable, opt-in — untouched when nothing is pinned). Re-evaluated on the
+     device/session tick, same as visibility rules. */
+  shelves = applyAutoPin(shelves, (s) => {
+    const ap = (s as any).autoPin;
+    return !!ap && Array.isArray(ap.rules) && ap.rules.length > 0 && evalVisibility({ visibility: ap } as any);
+  }) as Shelf[];
 
   // Visual interleave mode: when hiding recents AND the user did NOT request
   /* smart-shelves-at-bottom, we render [normal..., smart...] in the DOM but

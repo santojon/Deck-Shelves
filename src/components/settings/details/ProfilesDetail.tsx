@@ -9,6 +9,7 @@ import { CheckIcon, CopyIcon, DownloadIcon, PencilIcon, PlayIcon, SaveIcon, Tras
 import { BTN_ICON_COMPACT_STYLE, BTN_STYLE } from "../../ui/buttonStyles";
 import { openManagedModal } from "../../qam/common/openManagedModal";
 import { SetProfileTriggerModal } from "../../qam/modals/SetProfileTriggerModal";
+import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 
 
 export interface ProfilesDetailProps {
@@ -19,8 +20,6 @@ export interface ProfilesDetailProps {
 export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   const settings = controller.settings;
   const [newName, setNewName] = useState("");
-  const [confirmApplyId, setConfirmApplyId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
 
@@ -55,21 +54,27 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
     if (created) setNewName("");
   };
 
-  const handleApply = async () => {
-    if (!confirmApplyId) return;
-    if (confirmApplyId === FACTORY_PROFILE_ID) {
-      await (controller.actions as any).applyFactoryProfile?.();
-    } else {
-      await (controller.actions as any).applyProfile?.(confirmApplyId);
-    }
-    setConfirmApplyId(null);
-  };
+  // Standard Decky confirm modal (focus-correct, matches the QAM + Snapshots)
+  // instead of a hand-rolled overlay — the destructive factory reset must not be
+  // triggerable without a properly focused Cancel / Confirm.
+  const askApply = (profile: any) => confirmAction({
+    title: t("settings_profiles_apply_confirm_title"),
+    body: profile.id === FACTORY_PROFILE_ID ? t("settings_profiles_factory_confirm_message") : t("settings_profiles_apply_confirm_message"),
+    okText: t("settings_profiles_apply"),
+    cancelText: t("settings_profiles_cancel"),
+    onConfirm: () => {
+      if (profile.id === FACTORY_PROFILE_ID) void (controller.actions as any).applyFactoryProfile?.();
+      else void (controller.actions as any).applyProfile?.(profile.id);
+    },
+  });
 
-  const handleDelete = async () => {
-    if (!confirmDeleteId) return;
-    await (controller.actions as any).deleteProfile?.(confirmDeleteId);
-    setConfirmDeleteId(null);
-  };
+  const askDelete = (id: string) => confirmAction({
+    title: t("settings_profiles_delete_confirm_title"),
+    body: t("settings_profiles_delete_confirm_message"),
+    okText: t("settings_profiles_delete"),
+    cancelText: t("settings_profiles_cancel"),
+    onConfirm: () => void (controller.actions as any).deleteProfile?.(id),
+  });
 
   const handleRename = async () => {
     if (!renameId) return;
@@ -84,11 +89,15 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
     <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column" }}>
       <CollapsibleSection id="profiles-list" title={t("settings_profiles_list_title")} count={savedProfiles.length} icon={<PersonIcon size={14} />} initialOpen>
         <div style={{ fontSize: 12, opacity: 0.6, margin: "2px 0 8px" }}>{t("settings_profiles_list_desc")}</div>
-        <ToggleField
-          label={t("settings_profile_triggers_label")}
-          checked={(settings as any).profileTriggersEnabled === true}
-          onChange={(v: boolean) => void (controller.actions as any).setProfileTriggersEnabled?.(v)}
-        />
+        {/* Standalone toggle before a list gets a bottom margin so it isn't
+           cramped against the first row (settings-page spacing pattern). */}
+        <div style={{ marginBottom: 12 }}>
+          <ToggleField
+            label={t("settings_profile_triggers_label")}
+            checked={(settings as any).profileTriggersEnabled === true}
+            onChange={(v: boolean) => void (controller.actions as any).setProfileTriggersEnabled?.(v)}
+          />
+        </div>
         {profiles.length === 0 ? (
           <div style={{ opacity: 0.55, padding: 12, fontStyle: "italic" }}>
             {t("settings_profiles_empty")}
@@ -156,8 +165,8 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                   ) : (
                     <Focusable flow-children="row" style={{ display: "flex", gap: 4 }}>
                       <DialogButton
-                        onClick={() => setConfirmApplyId(profile.id)}
-                        onOKButton={() => setConfirmApplyId(profile.id)}
+                        onClick={() => askApply(profile)}
+                        onOKButton={() => askApply(profile)}
                         style={BTN_ICON_COMPACT_STYLE}
                         aria-label={t("settings_profiles_apply")}
                       >
@@ -206,8 +215,8 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                             <UploadIcon size={14} />
                           </DialogButton>
                           <DialogButton
-                            onClick={() => setConfirmDeleteId(profile.id)}
-                            onOKButton={() => setConfirmDeleteId(profile.id)}
+                            onClick={() => askDelete(profile.id)}
+                            onOKButton={() => askDelete(profile.id)}
                             style={BTN_ICON_COMPACT_STYLE}
                             aria-label={t("settings_profiles_delete")}
                           >
@@ -283,72 +292,6 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
           </DialogButton>
         </SettingsSection>
       ) : null}
-
-      {confirmApplyId ? (
-        <ConfirmDialog
-          title={t("settings_profiles_apply_confirm_title")}
-          message={t("settings_profiles_apply_confirm_message")}
-          confirmLabel={t("settings_profiles_apply")}
-          cancelLabel={t("settings_profiles_cancel")}
-          onConfirm={handleApply}
-          onCancel={() => setConfirmApplyId(null)}
-        />
-      ) : null}
-      {confirmDeleteId ? (
-        <ConfirmDialog
-          title={t("settings_profiles_delete_confirm_title")}
-          message={t("settings_profiles_delete_confirm_message")}
-          confirmLabel={t("settings_profiles_delete")}
-          cancelLabel={t("settings_profiles_cancel")}
-          onConfirm={handleDelete}
-          onCancel={() => setConfirmDeleteId(null)}
-        />
-      ) : null}
-    </Focusable>
-  );
-}
-
-function ConfirmDialog({
-  title, message, confirmLabel, cancelLabel, onConfirm, onCancel,
-}: {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  cancelLabel: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <Focusable
-      flow-children="vertical"
-      onCancelButton={onCancel}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.65)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9_999,
-      }}
-    >
-      <div style={{
-        background: "rgba(20, 24, 30, 0.98)",
-        borderRadius: 10,
-        padding: "20px 24px",
-        maxWidth: 480,
-        width: "85%",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ds-text, #fff)", marginBottom: 8 }}>{title}</div>
-        <div style={{ fontSize: 13, color: "var(--ds-text-dim, rgba(255,255,255,0.85))", lineHeight: 1.45, marginBottom: 16 }}>
-          {message}
-        </div>
-        <Focusable flow-children="row" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <DialogButton onClick={onCancel} onOKButton={onCancel}>{cancelLabel}</DialogButton>
-          <DialogButton onClick={onConfirm} onOKButton={onConfirm}>{confirmLabel}</DialogButton>
-        </Focusable>
-      </div>
     </Focusable>
   );
 }

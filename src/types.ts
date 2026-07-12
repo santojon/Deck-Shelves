@@ -493,6 +493,9 @@ export const ShelfSchema = z.object({
   // Visibility Rules v2 — per-shelf predicate tree (see evalVisibility). Regular
   // shelves gain visibility windows here; absent = always visible (unchanged).
   visibility: VisibilitySchema.optional(),
+  // Auto-pin: when this predicate matches, the shelf floats to the top of the
+  // home (reverts when it clears). Same tree shape as visibility.
+  autoPin: VisibilitySchema.optional(),
 });
 
 export type Shelf = z.infer<typeof ShelfSchema>;

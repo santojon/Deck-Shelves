@@ -130,7 +130,7 @@ Per-key `sortReverse` works for any key the multi-key path supports. When `sort`
 
 ## Multi-source shelves
 
-A shelf can stack multiple sources and combine their result sets. The editor exposes this implicitly: pick a primary source, then click **+ Adicionar fonte** to stack extras. Single-source shelves persist their source flat (back-compat); two or more collapse into a `composite` source on save:
+A shelf can stack multiple sources and combine their result sets. The editor exposes this implicitly: pick a primary source, then click **+ Add source** to stack extras. Single-source shelves persist their source flat (back-compat); two or more collapse into a `composite` source on save:
 
 ```json
 {
@@ -155,7 +155,7 @@ A shelf can stack multiple sources and combine their result sets. The editor exp
 
 A single shelf cannot stack two identical sources (e.g. *Collection A* + *Collection A*). The editor enforces this per-shelf via an exhaustion check:
 
-- **filter / wishlist / store** — capped at 1 per shelf. Once one is in the source list, the type disappears from the "+ Adicionar fonte" dropdown for that shelf.
+- **filter / wishlist / store** — capped at 1 per shelf. Once one is in the source list, the type disappears from the "+ Add source" dropdown for that shelf.
 - **tab / collection** — capped at the total Steam catalog size. Each tab/collection used reduces the available options; once every tab (or collection) is in use on this shelf, the type disappears.
 - The same source CAN appear on multiple shelves — exhaustion is per-shelf, not global.
 
