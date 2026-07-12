@@ -3213,7 +3213,7 @@ async function _resolveFilterGroupPath(
   f: CustomFilter,
   filterGroup: FilterGroup,
 ): Promise<number[]> {
-  const { all, sort, shelfId, sortReverse, finish, overShootLimit } = ctx;
+  const { all, shelfId, sortReverse, finish, overShootLimit } = ctx;
   const evalCtx: FilterEvalContext = { collectionAppIds: new Map() };
   const colIds = collectCollectionIdsFromGroup(filterGroup);
   await Promise.all(colIds.map(async (colId) => {
@@ -3867,10 +3867,6 @@ function readAppDetailsEnrichment(appid: number): EnrichmentExtras {
 
 function pickString(v: unknown): string | undefined {
   return typeof v === "string" && v ? v : undefined;
-}
-
-function pickFiniteNumber(v: unknown): number | undefined {
-  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
 function readOverviewExtras(overview?: AppOverview): { releaseTimestamp?: number; metacriticScore?: number } {

@@ -762,7 +762,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      Only the first one should drive PerShelfHero's `isFirstShelf`
      (controls fade vs opaque-top). The second only changes layout. */
   const fullPageLayout = globalFullPageShelf === true || (shelf as any).fullPageShelf === true;
-  const effectiveForceExpanded = forceExpanded || fullPageLayout;
   const isValidVAlign = (v: any): v is 'top' | 'center' | 'bottom' => v === 'top' || v === 'center' || v === 'bottom';
   const effectiveIconVerticalAlign: 'top' | 'center' | 'bottom' = isValidVAlign(globalIconVerticalAlign) ? globalIconVerticalAlign : (isValidVAlign((shelf as any).iconVerticalAlign) ? (shelf as any).iconVerticalAlign : 'top');
   const effectiveShelfTitlePosition: 'left' | 'center' | 'right' = isValidPos(globalShelfTitlePosition) ? globalShelfTitlePosition : (isValidPos((shelf as any).shelfTitlePosition) ? (shelf as any).shelfTitlePosition : 'left');

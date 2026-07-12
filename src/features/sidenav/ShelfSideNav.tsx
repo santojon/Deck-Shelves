@@ -36,7 +36,7 @@ export function ShelfSideNav() {
   useEffect(() => subscribeSettings(setSettings), []);
 
   // Light mode / master-off both hide the side nav (see sideNavGate).
-  const { lightMode, enabled } = sideNavGate(settings);
+  const { enabled } = sideNavGate(settings);
 
   const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
   const lastOpenAtRef = useRef(0);

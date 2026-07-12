@@ -761,7 +761,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='smart' />)
   const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves.json')} scope='all' />)
   const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='all' />)
-  const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const buildImportEntries = (target: 'shelves' | 'smart_shelves'): ImportEntry[] => {
     void importsBump // re-evaluate on registry changes
     return getExternalImportTypesForTarget(target).map((d) => ({

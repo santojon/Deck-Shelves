@@ -262,7 +262,6 @@ function startPolling(): void {
 
 function ensureInstalled(): void {
   if (installed) return;
-  const g = globalThis as any;
   // Path A: inject into BP context (the only path Steam actually
   // dispatches controller events to for our home tree). This is the
   // primary mechanism — without it the rest is a no-op.

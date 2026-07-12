@@ -1,4 +1,3 @@
-import React from "react";
 import type { UsageDailyPoint } from "../../../domain/usageStats";
 
 /* Hand-rolled, dependency-free SVG/DOM usage charts. Time-series charts use a

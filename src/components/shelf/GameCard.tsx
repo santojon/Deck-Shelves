@@ -169,7 +169,7 @@ function trackCardActivation(ref: { previewMode: boolean; appid: number; shelfId
   } catch { /* best-effort */ }
 }
 
-export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoPosition = 'left', descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', inlineBadges = false, previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
+export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHProp, featured = false, cardIndex, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideGameName = false, hideInstallIndicator = false, friendsOverlay = false, friendsOverlayRecent = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, descriptionPosition = 'left', iconVerticalAlign = 'top', gameNamePosition = 'left', playtimePosition = 'left', previewMode = false, removableSet, onRemoveCard, hiddenSet, onHideCard }: { item: DeckRowItem; cardW?: number; cardH?: number; artH?: number; featured?: boolean; cardIndex?: number; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideGameName?: boolean; hideInstallIndicator?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; iconVerticalAlign?: 'top' | 'center' | 'bottom'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; inlineBadges?: boolean; previewMode?: boolean; removableSet?: Set<number>; onRemoveCard?: (appid: number) => void; hiddenSet?: Set<number>; onHideCard?: (appid: number) => void }) {
   const t = i18n.t.bind(i18n);
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -451,7 +451,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   const assetKey = getAppAssetCacheKey(appid);
   const logoUrls = useMemo(() => (enableLogo && appid > 0 ? getLogoUrls(appid) : []), [enableLogo, appid, assetKey]);
   const iconUrls = useMemo(() => (enableIcon && appid > 0 ? getIconUrls(appid) : []), [enableIcon, appid, assetKey]);
-  const [logoIdx, setLogoIdx] = useState(0);
   const [iconIdx, setIconIdx] = useState(0);
   /* Warm the loopback / CDN URLs in the background so subsequent renders of
      the same appid hit the in-memory blob cache (3-9 ms) instead of going
@@ -463,7 +462,6 @@ export function GameCard({ item, cardW = CARD_W, cardH = CARD_ART_H, artH: artHP
   useEffect(() => {
     for (const u of logoUrls) if (!getHotCachedImageSrc(u)) warmCacheBackground(u);
   }, [logoUrls]);
-  const logoSrc = (logoUrls[logoIdx] ? (getHotCachedImageSrc(logoUrls[logoIdx]) || logoUrls[logoIdx]) : null);
   const iconSrc = (iconUrls[iconIdx] ? (getHotCachedImageSrc(iconUrls[iconIdx]) || iconUrls[iconIdx]) : null);
   /* Description lands in the cache asynchronously after `preloadAppDescriptions`
      kicks off `RequestDescriptionsData`. A useMemo over the cache would never

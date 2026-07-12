@@ -2,15 +2,6 @@ import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderCompone
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
-import { getCurrentSettings, saveSettings } from "../store/settingsStore";
-import {
-  toggleShelfHiddenById,
-  moveShelfById,
-  duplicateShelfById,
-  setShelfCollapsed,
-  dispatchShelfModal,
-  clearOnlineShelfCache,
-} from "./shelfActions";
 import { saveFocusTarget } from "./focusRestore";
 import {
   buildDeckShelvesMenuItems as buildDeckShelvesMenuItemsBase,
