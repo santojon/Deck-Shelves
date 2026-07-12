@@ -7,8 +7,8 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-619%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-93%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-645%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-98%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -71,6 +71,8 @@
   - **Price range** — matches games whose Steam store price falls in a chosen min/max range, in your own store currency (online features required)
   - **Remote Play location** — matches by where a game is installed: locally, on another device, remote-only, or both — powers a "play from another Deck / PC" shelf
   - **System compatibility** — keeps only the games available on the platform you're currently running
+  - **Recently active** — games you've played in the last two weeks (your current rotation)
+  - **Neglected** — games you played before but haven't launched in the last N days
 - Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, review score, discount %, price, original price — each direction (asc / desc) togglable per shelf via an icon button next to the sort dropdown
 - **Multi-key sort** — chain a primary sort with one or more tiebreakers (e.g. *biggest discount → metacritic score* breaks ties between games at the same discount). Each row has its own asc/desc toggle. Stable chain — secondary keys only kick in when the primary genuinely ties.
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
@@ -92,7 +94,14 @@
 - **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
 - **Per-day time-window overrides for smart shelves** — a Smart Filters toggle opens a dedicated Overrides tab where each weekday can have its own hour ranges, on top of the shelf-level default hours and day filter
-- **Advanced visibility rules** — show a shelf (regular, smart, or saved filter) only when custom conditions match: time-of-day and day-of-week windows plus live device state — low battery, charging, offline, docked / external display, minimum screen resolution, or ultrawide — combined with **match any** or **match all**, with Evenings / Weekends presets. Fully backwards-compatible with the existing hour / day windows; device conditions re-evaluate on hardware events (no polling) and degrade gracefully off SteamOS
+- **Advanced visibility rules** — show a shelf (regular, smart, or saved filter) only when custom conditions match, combined with **match any** or **match all** (Evenings / Weekends presets):
+  - **Time** — hour-of-day and day-of-week windows, weekend vs weekday, part of the day (morning / afternoon / evening / night), season (hemisphere-aware), and your own holiday date ranges
+  - **Device** — low battery, charging, offline, docked / external display, minimum screen resolution, ultrawide
+  - **Session** — whether the last game you played was Steam or non-Steam, or whether a game is currently running
+  - **Performance** — high CPU, low memory, or low frame rate — read on demand only when a shelf actually uses them (no background polling)
+
+  Fully backwards-compatible with the existing hour / day windows; conditions re-evaluate on hardware / session events (no polling) and degrade gracefully off SteamOS
+- **Auto-pin & auto-collapse shelves** — give a shelf the same kind of condition tree to **auto-pin** it to the top of the home while the condition holds (reverts when it clears), or **auto-collapse** it to just its header when a condition matches or the shelf is empty. Both opt-in; a home with neither configured is unchanged
 - **Live shelf preview in the editor** — the preview area shows real cards as they appear on the home (title, name, status line, compat / new / non-Steam badges, See more / Refresh tiles) and reflects every Display-tab toggle in real time
 - **Smart Shelves** — 30+ heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match. Game-focused: Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten. Heuristic templates: Backlog Rescue, Forgotten Gems, Hidden Gems, Travel Mode, Never Touched Classics, Recent Hidden Installs, Weekly Rotation, Monthly Spotlight, Seasonal Rotation (each with tunable cooldown / staleness / review-floor / rotation knobs). Media-focused: Soundtracks, Videos, Demos, Cloud games. Runtime-aware (best-effort against Steam runtime data): Low Battery Mode, Almost Finished, Couch Gaming, Co-op Ready, Party Games. Online-gated: Friends Playing. Ordered by probability of results in the picker
 - **Saved smart shelf templates** — persist a fully-tuned smart shelf config and reuse it from the template picker; exposed to plugins via the public API

@@ -122,11 +122,6 @@
       "count": 4
     }
   },
-  "src/core/cssLoaderDetect.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/core/focusRestore.ts": {
     "complexity": {
       "count": 2
@@ -134,7 +129,7 @@
   },
   "src/core/onlineStore.ts": {
     "complexity": {
-      "count": 4
+      "count": 3
     }
   },
   "src/core/pluginApi.ts": {

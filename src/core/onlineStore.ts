@@ -150,23 +150,19 @@ type StoreCacheV2 = {
 
 let storeInFlight: Promise<number[] | null> | null = null;
 
+function replayOneHint(h: { id: number; original: number; final: number }): void {
+  if (!h || typeof h.id !== "number" || h.id <= 0) return;
+  const op = Number(h.original) || 0;
+  const fp = Number(h.final) || 0;
+  if (op <= 0) return;
+  const discount = Math.max(0, Math.min(100, Math.round(((op - fp) / op) * 100)));
+  const price: PriceData = { price: fp, originalPrice: op, discount, currency: "USD", isFree: false };
+  try { writePriceCacheEntry(h.id, price); } catch {}
+}
+
 function replayPriceHints(hints: Array<{ id: number; original: number; final: number }> | undefined): void {
   if (!Array.isArray(hints) || !hints.length) return;
-  for (const h of hints) {
-    if (!h || typeof h.id !== "number" || h.id <= 0) continue;
-    const op = Number(h.original) || 0;
-    const fp = Number(h.final) || 0;
-    if (op <= 0) continue;
-    const discPct = Math.max(0, Math.min(100, Math.round(((op - fp) / op) * 100)));
-    const price: PriceData = {
-      price: fp,
-      originalPrice: op,
-      discount: discPct,
-      currency: "USD",
-      isFree: false,
-    };
-    try { writePriceCacheEntry(h.id, price); } catch {}
-  }
+  for (const h of hints) replayOneHint(h);
 }
 
 export async function getStoreGameIds(): Promise<number[] | null> {

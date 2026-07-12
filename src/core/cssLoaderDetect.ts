@@ -34,6 +34,13 @@ export function cssLoaderStyleCount(): number {
   return getCssLoaderStyleNodes().length;
 }
 
+function nodeMatchesArtHero(node: Element, heroToken: string): boolean {
+  try {
+    const text = node.textContent || "";
+    return text.includes(heroToken) && /mask-image/i.test(text);
+  } catch { return false; }
+}
+
 export function isArtHeroActive(): boolean {
   let heroToken = FALLBACK_HERO_INNER;
   try {
@@ -41,14 +48,7 @@ export function isArtHeroActive(): boolean {
     const map = doc ? getRuntimeClassMap(doc) : null;
     if (map?.heroInner && typeof map.heroInner === "string") heroToken = map.heroInner;
   } catch {}
-  const nodes = getCssLoaderStyleNodes();
-  for (const node of nodes) {
-    try {
-      const text = node.textContent || "";
-      if (text.includes(heroToken) && /mask-image/i.test(text)) return true;
-    } catch {}
-  }
-  return false;
+  return getCssLoaderStyleNodes().some((node) => nodeMatchesArtHero(node, heroToken));
 }
 
 // Aggregated CSS Loader style text — cached briefly so multiple `is*Active`
@@ -150,15 +150,19 @@ export function getTiltedHomeConfig(): {
     if (!root) return null;
     const cs = (doc?.defaultView ?? window).getComputedStyle(root);
     return {
-      tiltAngle: cs.getPropertyValue("--ren-tilt-angle").trim() || "-5deg",
-      imageZoom: cs.getPropertyValue("--ren-image-zoom").trim() || "1.15",
-      mostRecentOffset: cs.getPropertyValue("--ren-most-recent-offset").trim() || "2%",
-      viewMoreOffset: cs.getPropertyValue("--ren-view-more-offset").trim() || "-7%",
-      viewMoreFocusScale: cs.getPropertyValue("--ren-view-more-focus-scale").trim() || "0.88",
+      tiltAngle: readTiltVar(cs, "--ren-tilt-angle", "-5deg"),
+      imageZoom: readTiltVar(cs, "--ren-image-zoom", "1.15"),
+      mostRecentOffset: readTiltVar(cs, "--ren-most-recent-offset", "2%"),
+      viewMoreOffset: readTiltVar(cs, "--ren-view-more-offset", "-7%"),
+      viewMoreFocusScale: readTiltVar(cs, "--ren-view-more-focus-scale", "0.88"),
     };
   } catch {
     return null;
   }
+}
+
+function readTiltVar(cs: CSSStyleDeclaration, name: string, fallback: string): string {
+  return cs.getPropertyValue(name).trim() || fallback;
 }
 
 export function isNoHomeTextActive(): boolean {

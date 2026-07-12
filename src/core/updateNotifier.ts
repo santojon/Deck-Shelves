@@ -86,22 +86,26 @@ export function compareSemver(a: string, b: string): number {
    identifiers compared left-to-right; numeric < alphanumeric; fewer
    identifiers sorts lower when otherwise equal. alpha < beta < rc falls out of
    the ASCII compare. */
+// Compare one dot-separated pre-release identifier per SemVer §11: a missing
+// identifier has lower precedence; numeric < alphanumeric; else lexical.
+function comparePreReleaseId(x: string | undefined, y: string | undefined): number {
+  if (x === undefined) return -1;
+  if (y === undefined) return 1;
+  const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
+  if (nx && ny) {
+    const d = parseInt(x, 10) - parseInt(y, 10);
+    return d === 0 ? 0 : (d < 0 ? -1 : 1);
+  }
+  if (nx !== ny) return nx ? -1 : 1;
+  return x === y ? 0 : (x < y ? -1 : 1);
+}
+
 function comparePreRelease(a: string, b: string): number {
   const pa = a.split("."), pb = b.split(".");
   const len = Math.max(pa.length, pb.length);
   for (let i = 0; i < len; i++) {
-    const x = pa[i], y = pb[i];
-    if (x === undefined) return -1;
-    if (y === undefined) return 1;
-    const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
-    if (nx && ny) {
-      const d = parseInt(x, 10) - parseInt(y, 10);
-      if (d !== 0) return d < 0 ? -1 : 1;
-    } else if (nx !== ny) {
-      return nx ? -1 : 1; // numeric identifiers have lower precedence
-    } else if (x !== y) {
-      return x < y ? -1 : 1;
-    }
+    const c = comparePreReleaseId(pa[i], pb[i]);
+    if (c !== 0) return c;
   }
   return 0;
 }
