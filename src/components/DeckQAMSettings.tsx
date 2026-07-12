@@ -52,6 +52,10 @@ import { ProfilesSection } from './qam/sections/ProfilesSection'
 import { ErrorBoundary } from './ErrorBoundary'
 
 const DPAD_RIGHT = 23;
+
+function rectEdges(rect: DOMRect | undefined, win: Window): { right: number; bottom: number } {
+  return { right: rect?.right ?? win.innerWidth, bottom: rect?.bottom ?? win.innerHeight };
+}
 try {
   (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
   if (typeof window !== 'undefined') {
@@ -140,8 +144,7 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
         // adapt if the main tab width ever changes.
         sideEl.style.left = `${Math.round(mainRect.width)}px`;
       }
-      const targetRight = panelRect?.right ?? win.innerWidth;
-      const targetBottom = panelRect?.bottom ?? win.innerHeight;
+      const { right: targetRight, bottom: targetBottom } = rectEdges(panelRect, win);
       const w = Math.max(280, Math.round(targetRight - sRect.left));
       const h = Math.max(320, Math.round(targetBottom - sRect.top + 8));
       sideEl.style.width = `${w}px`;

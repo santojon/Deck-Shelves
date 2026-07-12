@@ -27,6 +27,20 @@ import { trackFeature } from "../steam/usageTracking";
 import { patchShelfInSettings } from "../domain/settings";
 import { PerShelfHero } from "./shelf/PerShelfHero";
 
+function isScrollableEl(el: HTMLElement): boolean {
+  try {
+    const oy = (getComputedStyle(el).overflowY || '').toLowerCase();
+    return (oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight;
+  } catch (e) {
+    logInfo("HOME", "isScrollableEl: getComputedStyle failed", String(e));
+    return false;
+  }
+}
+
+function smoothScrollTo(el: HTMLElement, top: number): void {
+  try { el.scrollTo({ top, behavior: "smooth" }); } catch { el.scrollTop = top; }
+}
+
 function readCollapsed(shelfId: string): boolean {
   try { return localStorage.getItem(`ds-collapsed-${shelfId}`) === '1'; } catch (e) { logInfo("HOME", "readCollapsed failed", String(e)); return false; }
 }
@@ -337,7 +351,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
           if (scr === lastScrollable && lastTarget === 0) return;
           lastScrollable = scr;
           lastTarget = 0;
-          try { scr.scrollTo({ top: 0, behavior: "smooth" }); } catch { scr.scrollTop = 0; }
+          smoothScrollTo(scr, 0);
           return;
         }
         const currentCenterOffset = (elRect.top + elRect.height / 2) - (scrRect.top + scrRect.height / 2);
@@ -350,7 +364,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         if (scr === lastScrollable && Math.abs(clamped - lastTarget) < 2) return;
         lastScrollable = scr;
         lastTarget = clamped;
-        try { scr.scrollTo({ top: clamped, behavior: "smooth" }); } catch { scr.scrollTop = clamped; }
+        smoothScrollTo(scr, clamped);
       } catch { /* ignore */ }
     };
     let verifyTimer: number | null = null;
@@ -453,13 +467,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         function getScrollableAncestor(node: HTMLElement | null): HTMLElement | null {
           let cur = node?.parentElement ?? null;
           while (cur && cur !== document.body) {
-            try {
-              const cs = getComputedStyle(cur);
-              const oy = (cs.overflowY || '').toLowerCase();
-              if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && cur.scrollHeight > cur.clientHeight) return cur;
-            } catch (e) {
-              logInfo("HOME", "getScrollableAncestor: getComputedStyle failed", String(e));
-            }
+            if (isScrollableEl(cur)) return cur;
             cur = cur.parentElement;
           }
           return null;
@@ -599,14 +607,13 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     setCollapsed(next);
     if (shelfId) writeCollapsed(shelfId, next);
     if (!focusedInside) return;
+    const findCollapseTarget = (): HTMLElement | null => {
+      if (!next) return rowRef.current?.querySelector<HTMLElement>('.ds-card') ?? null;
+      const all = Array.from(shelf?.ownerDocument?.querySelectorAll<HTMLElement>('.ds-shelf .ds-card') ?? []);
+      return all.find((el) => !shelf?.contains(el)) ?? null;
+    };
     const tryFocus = (attempt: number) => {
-      let target: HTMLElement | null = null;
-      if (!next) {
-        target = rowRef.current?.querySelector<HTMLElement>('.ds-card') ?? null;
-      } else {
-        const all = Array.from(shelf?.ownerDocument?.querySelectorAll<HTMLElement>('.ds-shelf .ds-card') ?? []);
-        target = all.find((el) => !shelf?.contains(el)) ?? null;
-      }
+      const target = findCollapseTarget();
       if (target && focusElement(target)) return;
       if (attempt < 20) setTimeout(() => tryFocus(attempt + 1), 50);
     };

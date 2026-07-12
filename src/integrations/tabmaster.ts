@@ -15,6 +15,10 @@ export function isTabMasterContextValue(val: any): boolean {
 
 // ─── Tab extraction from context ─────────────────────────────────────────
 
+function tabIdName(c: any, key?: string): [string, string] {
+  return [String(c?.id ?? key ?? '').trim(), String(c?.title ?? c?.name ?? '').trim()];
+}
+
 export function extractTabsFromContext(ctx: any): PlatformTab[] {
   if (!ctx) return [];
   const out: PlatformTab[] = [];
@@ -26,12 +30,12 @@ export function extractTabsFromContext(ctx: any): PlatformTab[] {
 
   if (Array.isArray(ctx.visibleTabsList)) {
     for (const c of ctx.visibleTabsList) {
-      add(String(c?.id ?? '').trim(), String(c?.title ?? c?.name ?? '').trim());
+      add(...tabIdName(c));
     }
   }
   if (ctx.tabsMap instanceof Map) {
     ctx.tabsMap.forEach((c: any, key: string) => {
-      add(String(c?.id ?? key ?? '').trim(), String(c?.title ?? c?.name ?? '').trim());
+      add(...tabIdName(c, key));
     });
   }
   return out;
@@ -41,6 +45,10 @@ export function extractTabsFromContext(ctx: any): PlatformTab[] {
 
 function normalizeText(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function pickAllApps(best: any): any {
+  return best?.collection?.allApps ?? best?.allApps;
 }
 
 export function getTabAppsFromContext(ctx: any, tabId: string): number[] {
@@ -59,7 +67,7 @@ export function getTabAppsFromContext(ctx: any, tabId: string): number[] {
   }
   if (!best) return [];
 
-  const allApps = best?.collection?.allApps ?? best?.allApps;
+  const allApps = pickAllApps(best);
   if (allApps instanceof Set) {
     return Array.from(allApps.values()).map(Number).filter(Number.isFinite);
   }

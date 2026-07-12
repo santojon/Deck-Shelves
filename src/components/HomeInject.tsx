@@ -109,14 +109,7 @@ export function HomeShelves() {
         if (!m) return;
         const parent = (m as HTMLElement).parentElement;
         if (!parent) return;
-        let recentsVisible = false;
-        let tabsVisible = false;
-        for (const child of Array.from(parent.children) as HTMLElement[]) {
-          if (child === m) continue;
-          if (child.offsetHeight <= 8) continue;
-          if (child.querySelector('[role="tablist"]')) { tabsVisible = true; continue; }
-          recentsVisible = true;
-        }
+        const { recentsVisible, tabsVisible } = scanHomeChildren(parent, m as HTMLElement);
         if (recentsVisible || tabsVisible) reapplyHomeHides();
       } catch {}
     };
@@ -346,19 +339,7 @@ export function HomeShelves() {
     if (!settings?.smartShelvesEnabled) return;
     if (!Array.isArray(smartList) || smartList.length === 0) return;
     const now = new Date();
-    let earliest: number | null = null;
-    const timeAwareIds: string[] = [];
-    for (const s of smartList) {
-      const w = (s as any).visibleHours ?? getModeVisibilityWindows((s as any).mode);
-      const d = (s as any).visibleDaysOfWeek;
-      // Fold the mode's default window into the legacy fields; `visibility`
-      // rules (when present) win inside nextVisibilityFlip.
-      const entry = { visibility: (s as any).visibility, visibleHours: w, visibleDaysOfWeek: d };
-      const next = nextVisibilityFlip(entry, now);
-      if (next == null) continue;
-      timeAwareIds.push((s as any).id);
-      if (earliest == null || next < earliest) earliest = next;
-    }
+    const { earliest, timeAwareIds } = computeEarliestFlip(smartList, now);
     if (earliest == null) return;
     const delay = Math.max(1000, earliest - now.getTime());
     const t = window.setTimeout(() => {
@@ -557,6 +538,34 @@ export function HomeShelves() {
     </PlatformProvider>,
     mountEl,
   ) as any;
+}
+
+// Scan the home mount's siblings to tell if native recents / tabs are showing.
+function scanHomeChildren(parent: HTMLElement, mount: HTMLElement): { recentsVisible: boolean; tabsVisible: boolean } {
+  let recentsVisible = false;
+  let tabsVisible = false;
+  for (const child of Array.from(parent.children) as HTMLElement[]) {
+    if (child === mount) continue;
+    if (child.offsetHeight <= 8) continue;
+    if (child.querySelector('[role="tablist"]')) { tabsVisible = true; continue; }
+    recentsVisible = true;
+  }
+  return { recentsVisible, tabsVisible };
+}
+
+// Earliest visibility-window boundary across all smart shelves (+ their ids).
+function computeEarliestFlip(smartList: any[], now: Date): { earliest: number | null; timeAwareIds: string[] } {
+  let earliest: number | null = null;
+  const timeAwareIds: string[] = [];
+  for (const s of smartList) {
+    const w = (s as any).visibleHours ?? getModeVisibilityWindows((s as any).mode);
+    const entry = { visibility: (s as any).visibility, visibleHours: w, visibleDaysOfWeek: (s as any).visibleDaysOfWeek };
+    const next = nextVisibilityFlip(entry, now);
+    if (next == null) continue;
+    timeAwareIds.push((s as any).id);
+    if (earliest == null || next < earliest) earliest = next;
+  }
+  return { earliest, timeAwareIds };
 }
 
 // Auto-collapse decision for one shelf (off-context predicate + when-empty flag).

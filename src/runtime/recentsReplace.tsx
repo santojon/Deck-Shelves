@@ -106,6 +106,10 @@ function getOwnedAppIdSet(): Set<number> | null {
   return out.size > 0 ? out : null;
 }
 
+function validAppIds(ids: number[]): number[] {
+  return Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
+}
+
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
   if (!store || typeof store.GetAppOverviewByAppID !== "function") return [];
@@ -233,7 +237,7 @@ function scheduleResolve(shelf: any) {
     .then((ids: number[]) => isManual ? applyManualOrder(ids, manualOrder, hiddenAppIds) : ids)
     .then((ids: number[]) => {
       const prev = cachedAppIds;
-      const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
+      const valid = validAppIds(ids);
       const known = filterKnownAppIds(valid);
       if (known.length === 0) {
         if (valid.length > 0 && !getOwnedAppIdSet()) {

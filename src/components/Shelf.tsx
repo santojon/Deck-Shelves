@@ -21,21 +21,7 @@ import { getCurrentSettings } from "../store/settingsStore";
 import { publishShelf, unpublishShelf } from "../features/search/shelfRegistry";
 
 function openSteamStorePage(appid: number) {
-  try {
-    const sc = (globalThis as any).SteamClient;
-    if (typeof sc?.URL?.ExecuteSteamURL === 'function') {
-      sc.URL.ExecuteSteamURL(`steam://store/${appid}`);
-      return;
-    }
-    if (typeof sc?.System?.OpenInSystemBrowser === 'function') {
-      sc.System.OpenInSystemBrowser(`https://store.steampowered.com/app/${appid}/`);
-      return;
-    }
-    if (typeof sc?.WebChat?.OpenURLInClient === 'function') {
-      sc.WebChat.OpenURLInClient(`https://store.steampowered.com/app/${appid}/`);
-      return;
-    }
-  } catch {}
+  openSteamStoreUrl(`https://store.steampowered.com/app/${appid}/`, `steam://store/${appid}`);
 }
 
 function openSteamStoreUrl(url: string, steamUrl?: string) {
@@ -54,6 +40,14 @@ function openSteamStoreUrl(url: string, steamUrl?: string) {
       return;
     }
   } catch {}
+}
+
+// Cross-source name key: same normalisation as the wishlist compare so
+// "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
+function ownedNameKey(a: any): string | null {
+  const n = (a as any)?.display_name ?? (a as any)?.name;
+  if (typeof n !== 'string' || !n) return null;
+  return normalizeTitleForMatch(n) || null;
 }
 
 function getCachedDiscount(appid: number): number | null {
@@ -400,16 +394,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       for (const a of apps) {
         const id = Number((a as any)?.appid);
         if (!ownedSetForNames.has(id)) continue;
-        const n = (a as any)?.display_name ?? (a as any)?.name;
-        /* Cross-source name matching: same normalisation as the wishlist
-           compare below so "Kingdom Come Deliverance" (non-Steam local)
-           matches "Kingdom Come: Deliverance" (Steam wishlist). The
-           previous `n.trim().toLowerCase()` left punctuation intact and
-           silently leaked owned titles through to the row. */
-        if (typeof n === 'string' && n) {
-          const key = normalizeTitleForMatch(n);
-          if (key) names.add(key);
-        }
+        const key = ownedNameKey(a);
+        if (key) names.add(key);
       }
       setOwnedNames(names);
     }).catch(() => {});

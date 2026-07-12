@@ -1,7 +1,7 @@
 {
   "src/components/DeckQAMSettings.tsx": {
     "complexity": {
-      "count": 7
+      "count": 6
     },
     "react-hooks/rules-of-hooks": {
       "count": 3
@@ -9,17 +9,17 @@
   },
   "src/components/DeckRow.tsx": {
     "complexity": {
-      "count": 8
+      "count": 5
     }
   },
   "src/components/HomeInject.tsx": {
     "complexity": {
-      "count": 8
+      "count": 6
     }
   },
   "src/components/Shelf.tsx": {
     "complexity": {
-      "count": 7
+      "count": 5
     }
   },
   "src/components/ShelfManageRoute.tsx": {
@@ -39,7 +39,7 @@
   },
   "src/components/home/navPatches/menuButton.ts": {
     "complexity": {
-      "count": 3
+      "count": 2
     }
   },
   "src/components/home/navPatches/reparent.ts": {
@@ -122,11 +122,6 @@
       "count": 4
     }
   },
-  "src/core/focusRestore.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/core/onlineStore.ts": {
     "complexity": {
       "count": 3
@@ -159,7 +154,7 @@
   },
   "src/core/updateNotifier.ts": {
     "complexity": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/search/SearchOverlay.tsx": {
@@ -169,17 +164,12 @@
   },
   "src/features/sidenav/ShelfSideNav.tsx": {
     "complexity": {
-      "count": 5
+      "count": 4
     }
   },
   "src/index.tsx": {
     "complexity": {
       "count": 2
-    }
-  },
-  "src/integrations/domtabs.ts": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/integrations/registry.ts": {
@@ -189,12 +179,12 @@
   },
   "src/integrations/tabmaster.ts": {
     "complexity": {
-      "count": 3
+      "count": 1
     }
   },
   "src/integrations/unifideck.ts": {
     "complexity": {
-      "count": 2
+      "count": 1
     }
   },
   "src/runtime/buttonBindings.ts": {
@@ -214,7 +204,7 @@
   },
   "src/runtime/recentsReplace.tsx": {
     "complexity": {
-      "count": 4
+      "count": 3
     }
   },
   "src/shims/react-dom-client.ts": {
@@ -232,7 +222,7 @@
   },
   "src/steam/smartShelves.ts": {
     "complexity": {
-      "count": 3
+      "count": 2
     }
   }
 }

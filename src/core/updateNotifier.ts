@@ -93,8 +93,7 @@ function comparePreReleaseId(x: string | undefined, y: string | undefined): numb
   if (y === undefined) return 1;
   const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
   if (nx && ny) {
-    const d = parseInt(x, 10) - parseInt(y, 10);
-    return d === 0 ? 0 : (d < 0 ? -1 : 1);
+    return Math.sign(parseInt(x, 10) - parseInt(y, 10));
   }
   if (nx !== ny) return nx ? -1 : 1;
   return x === y ? 0 : (x < y ? -1 : 1);

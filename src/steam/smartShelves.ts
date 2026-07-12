@@ -768,6 +768,10 @@ function inSingleRange(r: VisibilityRange, h: number): boolean {
   return h >= start || h < end;
 }
 
+function dayAllowed(daysOfWeek: number[] | undefined, day: number): boolean {
+  return !Array.isArray(daysOfWeek) || daysOfWeek.includes(day);
+}
+
 export function isInVisibilityWindow(
   window: VisibilityWindowInput,
   daysOfWeek: number[] | undefined,
@@ -776,10 +780,7 @@ export function isInVisibilityWindow(
   const ranges = normalizeWindow(window);
   if (ranges.length === 0) {
     // No hour restriction — apply only the global day filter.
-    if (Array.isArray(daysOfWeek)) {
-      if (!daysOfWeek.includes(now.getDay())) return false;
-    }
-    return true;
+    return dayAllowed(daysOfWeek, now.getDay());
   }
   const h = now.getHours();
   const today = now.getDay();
@@ -787,8 +788,8 @@ export function isInVisibilityWindow(
     // Per-range days override the global daysOfWeek for this range only.
     if (Array.isArray(r.days)) {
       if (!r.days.includes(today)) continue;
-    } else if (Array.isArray(daysOfWeek)) {
-      if (!daysOfWeek.includes(today)) return false;
+    } else if (!dayAllowed(daysOfWeek, today)) {
+      return false;
     }
     if (inSingleRange(r, h)) return true;
   }
