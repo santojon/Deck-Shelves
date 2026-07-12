@@ -121,6 +121,8 @@ type EditState = {
   allowDayOverrides: boolean
   visibility: any
   autoPin: any
+  autoCollapse: any
+  autoCollapseWhenEmpty: boolean
 }
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
@@ -227,6 +229,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     })(),
     visibility: (shelf as any).visibility,
     autoPin: (shelf as any).autoPin,
+    autoCollapse: (shelf as any).autoCollapse,
+    autoCollapseWhenEmpty: (shelf as any).autoCollapseWhenEmpty === true,
   })
   // Buffered text representation of the refresh-interval field — keeps the
   // user free to clear / partially edit the input without immediately
@@ -490,6 +494,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       ;(patch as any).visibility = (state.visibility && Array.isArray(state.visibility.rules) && state.visibility.rules.length > 0) ? state.visibility : undefined
       // Auto-pin predicate — same shape; empty = never pinned.
       ;(patch as any).autoPin = ((state as any).autoPin && Array.isArray((state as any).autoPin.rules) && (state as any).autoPin.rules.length > 0) ? (state as any).autoPin : undefined
+      // Auto-collapse predicate + collapse-when-empty flag.
+      ;(patch as any).autoCollapse = ((state as any).autoCollapse && Array.isArray((state as any).autoCollapse.rules) && (state as any).autoCollapse.rules.length > 0) ? (state as any).autoCollapse : undefined
+      ;(patch as any).autoCollapseWhenEmpty = (state as any).autoCollapseWhenEmpty ? true : undefined
       if (mode === 'create') {
         const draft: SmartShelf = { ...shelf, ...(patch as Partial<SmartShelf>) } as SmartShelf
         const created = await actions.commitSmartShelf(draft)
@@ -872,6 +879,17 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                       <VisibilityRulesEditor
                         value={(state as any).autoPin}
                         onChange={(v) => setState((prev) => ({ ...prev, autoPin: v } as any))}
+                        t={t as any}
+                      />
+                      <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
+                      <ToggleField
+                        label={t('visibility_autocollapse_empty' as any)}
+                        checked={(state as any).autoCollapseWhenEmpty === true}
+                        onChange={(v: boolean) => setState((prev) => ({ ...prev, autoCollapseWhenEmpty: v } as any))}
+                      />
+                      <VisibilityRulesEditor
+                        value={(state as any).autoCollapse}
+                        onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v } as any))}
                         t={t as any}
                       />
                     </FieldContainer>

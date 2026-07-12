@@ -318,6 +318,9 @@ export const SmartShelfSchema = z.object({
   // visibleDaysOfWeek when present with rules; the legacy fields still apply
   // when this is absent (see `evalVisibility` in steam/smartShelves.ts).
   visibility: VisibilitySchema.optional(),
+  autoPin: VisibilitySchema.optional(),
+  autoCollapse: VisibilitySchema.optional(),
+  autoCollapseWhenEmpty: z.boolean().optional(),
 });
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
@@ -496,6 +499,11 @@ export const ShelfSchema = z.object({
   // Auto-pin: when this predicate matches, the shelf floats to the top of the
   // home (reverts when it clears). Same tree shape as visibility.
   autoPin: VisibilitySchema.optional(),
+  // Auto-collapse: when this predicate matches (or, with autoCollapseWhenEmpty,
+  // when the shelf resolves to 0 games), the shelf renders collapsed to its
+  // header. Gated by the global `autoCollapseEnabled` toggle.
+  autoCollapse: VisibilitySchema.optional(),
+  autoCollapseWhenEmpty: z.boolean().optional(),
 });
 
 export type Shelf = z.infer<typeof ShelfSchema>;
@@ -623,6 +631,8 @@ export const SettingsSchema = z.object({
      must be enabled explicitly. Optional (not defaulted) to stay absent from
      existing settings blobs; consumers treat undefined as off. */
   profileTriggersEnabled: z.boolean().optional(),
+  autoCollapseEnabled: z.boolean().optional(),
+  notificationsDisabled: z.boolean().optional(),
   profiles: z.array(z.object({
     id: z.string(),
     name: z.string(),

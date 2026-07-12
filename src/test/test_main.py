@@ -741,6 +741,19 @@ def test_sanitize_autopin_round_trips_on_shelves():
     assert result["smartShelves"][0].get("autoPin") == _PIN
 
 
+def test_sanitize_autocollapse_round_trips_on_shelves():
+    _COL = {"mode": "any", "rules": [{"kind": "offline"}]}
+    result = _sanitize_settings({
+        "autoCollapseEnabled": True,
+        "notificationsDisabled": True,
+        "shelves": [{"id": "s1", "title": "T", "source": {"type": "tab", "tab": "all"}, "autoCollapse": _COL, "autoCollapseWhenEmpty": True}],
+    })
+    assert result["autoCollapseEnabled"] is True
+    assert result["notificationsDisabled"] is True
+    assert result["shelves"][0].get("autoCollapse") == _COL
+    assert result["shelves"][0].get("autoCollapseWhenEmpty") is True
+
+
 def test_sanitize_visibility_empty_rules_omitted():
     # No usable rules == no restriction: the field is dropped, not persisted empty.
     result = _sanitize_settings({

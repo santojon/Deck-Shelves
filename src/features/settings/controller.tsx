@@ -173,6 +173,16 @@ export function useSettingsController() {
       if (!s || ((s as any).profileTriggersEnabled ?? false) === profileTriggersEnabled) return;
       await persist({ ...s, profileTriggersEnabled } as any);
     },
+    async setAutoCollapseEnabled(autoCollapseEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).autoCollapseEnabled ?? false) === autoCollapseEnabled) return;
+      await persist({ ...s, autoCollapseEnabled } as any);
+    },
+    async setNotificationsDisabled(notificationsDisabled: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).notificationsDisabled ?? false) === notificationsDisabled) return;
+      await persist({ ...s, notificationsDisabled } as any);
+    },
     async setUpdateNotifyEnabled(updateNotifyEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s.updateNotifyEnabled ?? true) === updateNotifyEnabled) return;

@@ -1,6 +1,7 @@
-import { ConfirmModal, DialogButton, toaster } from '../../../runtime/host/decky'
+import { ConfirmModal, DialogButton } from '../../../runtime/host/decky'
 import { ModalShell } from '../../ui'
 import { restoreBackup, type BackupEntry } from '../../../store/settingsStore'
+import { notifyUser } from '../../../runtime/notify'
 import i18n from '../../../i18n'
 
 // Standalone t (this opens from the error boundary, which has no controller).
@@ -17,11 +18,7 @@ export function RestoreSnapshotModal({ closeModal, snapshots }: {
   const restore = (name: string) => {
     closeModal?.()
     void restoreBackup(name).then((next) => {
-      if (next) {
-        try {
-          toaster?.toast?.({ title: 'Deck Shelves', body: tr('snapshot_recovery_restored', 'Snapshot restored — reopen settings') })
-        } catch { /* toaster optional */ }
-      }
+      if (next) notifyUser('Deck Shelves', tr('snapshot_recovery_restored', 'Snapshot restored — reopen settings'))
     })
   }
   return (

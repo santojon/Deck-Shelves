@@ -2,6 +2,8 @@ import { getCurrentSettings, saveSettings, subscribeSettings } from '../store/se
 import { subscribeDeviceState } from './deviceState';
 import { subscribeSessionState } from './sessionState';
 import { resolveTriggeredProfile, nextProfileTriggerFlip } from '../steam/smartShelves';
+import { notifyUser } from './notify';
+import i18n from '../i18n';
 import type { Settings } from '../types';
 
 /* Profile auto-switch triggers, installed at boot so they run in the BACKGROUND
@@ -34,6 +36,9 @@ function applyByName(profiles: any[], name: string): void {
   const target = profiles.find((p: any) => p && p.name === name);
   if (target && target.id && target.snapshot) {
     void saveSettings({ ...(target.snapshot as any), profiles, activeProfileName: target.name } as Settings);
+    // User-visible indication of the auto-switch (Steam-toast, suppressible).
+    const msg = i18n.t('profile_trigger_toast', { name });
+    notifyUser('Deck Shelves', msg && msg !== 'profile_trigger_toast' ? msg : `Switched to profile: ${name}`);
   }
 }
 

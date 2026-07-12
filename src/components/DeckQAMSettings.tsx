@@ -970,14 +970,10 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         {settings.smartShelvesEnabled && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
-            {!lightMode && !isHid('smartShelvesAtBottom') && (
-            <ToggleField
-              label={t('smart_shelves_at_bottom')}
-              checked={settings.smartShelvesAtBottom === true}
-              disabled={mountCrashed}
-              onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)}
-            />
-            )}
+            {!lightMode && !isHid('smartShelvesAtBottom') && <ToggleField label={t('smart_shelves_at_bottom')} checked={settings.smartShelvesAtBottom === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)} />}
+            {!lightMode && !isHid('autoCollapseEnabled') && <ToggleField label={t('auto_collapse_enabled' as any)} checked={(settings as any).autoCollapseEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setAutoCollapseEnabled?.(value)} />}
+            {!isHid('notificationsDisabled') && <ToggleField label={t('notifications_disabled_label' as any)} checked={(settings as any).notificationsDisabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setNotificationsDisabled?.(value)} />}
+            {!isHid('notificationsDisabled') && <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{t('notifications_disabled_desc' as any)}</div>}
             {!lightMode && !isHid('smartSurpriseMe') && (
             <ToggleField
               label={t('smart_surprise_me')}
