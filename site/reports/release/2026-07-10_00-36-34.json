@@ -35,5 +35,12 @@
     67,
     5884
   ],
-  "total_duration_ms": 24719
+  "total_duration_ms": 24719,
+  "complexity": {
+    "level": 3277,
+    "count": 132,
+    "max": 165,
+    "avg": 24.8
+  },
+  "complexityEst": true
 }

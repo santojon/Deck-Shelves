@@ -129,7 +129,8 @@ export function ProfilesSection({ controller, hidden, headerExtra }: ProfilesSec
         body: t("settings_profiles_apply_confirm_message" as any),
         okText: t("settings_profiles_apply" as any),
         cancelText: t("cancel"),
-        onConfirm: () => (controller.actions as any).applyFactoryProfile?.(),
+        toggleLabel: t("settings_profiles_factory_reset_shelves" as any),
+        onConfirm: (resetShelves: boolean) => (controller.actions as any).applyFactoryProfile?.(resetShelves),
       });
       return;
     }

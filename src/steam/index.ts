@@ -3353,8 +3353,8 @@ const PRICE_SORT_KEYS = new Set(["price_low", "discount_high", "original_price_h
 
 async function applyWishlistChildFilter(ids: number[], childFilter: any, all: AppOverview[]): Promise<number[]> {
   if (!childFilter || !Array.isArray(childFilter.items) || childFilter.items.length === 0) return ids;
-  const hasDiscountFilter = childFilter.items.some((item: any) => item.type === "discount");
-  if (hasDiscountFilter) {
+  const hasPriceFilter = childFilter.items.some((item: any) => item.type === "discount" || item.type === "priceRange");
+  if (hasPriceFilter) {
     const { getPriceMap } = await import("../core/onlineStore");
     await getPriceMap(ids);
   }
@@ -3366,7 +3366,10 @@ async function applyWishlistChildFilter(ids: number[], childFilter: any, all: Ap
 }
 
 function evaluateWishlistChildItem(item: any, id: number, app: AppOverview | undefined): boolean {
-  if (item.type === "discount") return evaluateFilterItem(item, { appid: id } as any, undefined);
+  // Price-cache filters (discount / priceRange) only need the appid, so a store
+  // game absent from the local library must still be checked against the cache —
+  // never waved through, or unowned/free titles leak past a price bound.
+  if (item.type === "discount" || item.type === "priceRange") return evaluateFilterItem(item, { appid: id } as any, undefined);
   if (!app) return true;
   return evaluateFilterItem(item, app, undefined);
 }

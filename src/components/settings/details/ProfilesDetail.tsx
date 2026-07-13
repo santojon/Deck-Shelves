@@ -20,6 +20,7 @@ export interface ProfilesDetailProps {
 export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   const settings = controller.settings;
   const [newName, setNewName] = useState("");
+  const [linkShelves, setLinkShelves] = useState(false);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
 
@@ -50,7 +51,7 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
   const handleSave = async () => {
     const name = newName.trim();
     if (!name) return;
-    const created = await (controller.actions as any).createProfile?.(name);
+    const created = await (controller.actions as any).createProfile?.(name, linkShelves);
     if (created) setNewName("");
   };
 
@@ -62,8 +63,11 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
     body: profile.id === FACTORY_PROFILE_ID ? t("settings_profiles_factory_confirm_message") : t("settings_profiles_apply_confirm_message"),
     okText: t("settings_profiles_apply"),
     cancelText: t("settings_profiles_cancel"),
-    onConfirm: () => {
-      if (profile.id === FACTORY_PROFILE_ID) void (controller.actions as any).applyFactoryProfile?.();
+    ...(profile.id === FACTORY_PROFILE_ID ? {
+      toggleLabel: t("settings_profiles_factory_reset_shelves" as any),
+    } : {}),
+    onConfirm: (resetShelves: boolean) => {
+      if (profile.id === FACTORY_PROFILE_ID) void (controller.actions as any).applyFactoryProfile?.(resetShelves);
       else void (controller.actions as any).applyProfile?.(profile.id);
     },
   });
@@ -246,6 +250,12 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
       </CollapsibleSection>
 
       <SettingsSection title={t("settings_profiles_save_title")} description={t("settings_profiles_save_desc")}>
+        <ToggleField
+          label={t("profile_link_shelves_label" as any)}
+          description={t("profile_link_shelves_desc" as any)}
+          checked={linkShelves}
+          onChange={(v: boolean) => setLinkShelves(v)}
+        />
         <Focusable flow-children="row" style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <TextField

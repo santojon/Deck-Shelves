@@ -37,6 +37,13 @@
       5884
     ],
     "total_duration_ms": 24719,
+    "complexity": {
+      "level": 3277,
+      "count": 132,
+      "max": 165,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "release"
   },
   {
@@ -77,6 +84,13 @@
       5827
     ],
     "total_duration_ms": 23439,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
     "_scope": "release"
   },
   {
@@ -117,6 +131,13 @@
       5664
     ],
     "total_duration_ms": 24602,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
     "_scope": "release"
   },
   {
@@ -171,6 +192,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3423,
+      "count": 150,
+      "max": 136,
+      "avg": 22.8
+    },
+    "complexityEst": true,
     "_scope": "release"
   },
   {
@@ -225,6 +253,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3045,
+      "count": 144,
+      "max": 93,
+      "avg": 21.1
+    },
+    "complexityEst": true,
     "_scope": "release"
   },
   {
@@ -279,6 +314,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3082,
+      "count": 144,
+      "max": 93,
+      "avg": 21.4
+    },
+    "complexityEst": true,
     "_scope": "release"
   }
 ]

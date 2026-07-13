@@ -37,6 +37,13 @@
       5610
     ],
     "total_duration_ms": 25285,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -77,6 +84,13 @@
       5539
     ],
     "total_duration_ms": 24694,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -117,6 +131,13 @@
       5647
     ],
     "total_duration_ms": 24523,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -157,6 +178,13 @@
       5548
     ],
     "total_duration_ms": 24127,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -211,6 +239,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3045,
+      "count": 144,
+      "max": 93,
+      "avg": 21.1
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -265,6 +300,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3045,
+      "count": 144,
+      "max": 93,
+      "avg": 21.1
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -319,6 +361,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3045,
+      "count": 144,
+      "max": 93,
+      "avg": 21.1
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -373,6 +422,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3083,
+      "count": 145,
+      "max": 93,
+      "avg": 21.3
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -427,6 +483,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3083,
+      "count": 145,
+      "max": 93,
+      "avg": 21.3
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -481,6 +544,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -518,6 +588,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -555,6 +632,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -592,6 +676,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -629,6 +720,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 5232,
+      "count": 211,
+      "max": 192,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -666,6 +764,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 5232,
+      "count": 211,
+      "max": 192,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -703,6 +808,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 5232,
+      "count": 211,
+      "max": 192,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -740,6 +852,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -777,6 +896,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -814,6 +940,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "ci"
   },
   {
@@ -851,6 +984,13 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
     "_scope": "ci"
   }
 ]

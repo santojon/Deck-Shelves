@@ -3,6 +3,7 @@ import {
   ConfirmModal,
   DialogButton,
   DropdownItem,
+  Field,
   Focusable,
   Tabs,
   ToggleField,
@@ -28,6 +29,7 @@ import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { DecorationTab } from './editShelf/DecorationTab'
 import { VisualTabContent } from './editShelf/VisualTabContent'
 import { DisplayTabContent } from './editShelf/DisplayTabContent'
+import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
 import { FunnelIcon, EyeIcon, SteamIcon, OnlineIcon } from '../../icons'
 import { PreviewPanel } from './editShelf/PreviewPanel'
 import { useModalCollections } from './editShelf/useModalCollections'
@@ -84,6 +86,18 @@ function buildSavePatch(
   const cleanedSynth = state.syntheticCards.map(sanitizeSyntheticCard)
   return {
     title: ctx.title, limit: state.limit, matchNativeSize: state.matchNativeSize, highlightFirst: state.highlightFirst, highlightAll: state.highlightAll, highlightRandom: state.highlightRandom, enableLogo: state.enableLogo, enableIcon: state.enableIcon, enableDescription: state.enableDescription, descriptionBelowLogo: state.descriptionBelowLogo, logoPosition: state.logoPosition, descriptionPosition: state.descriptionPosition, logoSize: state.logoSize, logoTopOffset: state.logoTopOffset, iconVerticalAlign: state.iconVerticalAlign, shelfTitlePosition: state.shelfTitlePosition, gameNamePosition: state.gameNamePosition, playtimePosition: state.playtimePosition, descriptionHeight: state.descriptionHeight, descriptionLogoGap: state.descriptionLogoGap, descriptionScale: state.descriptionScale !== 100 ? state.descriptionScale : undefined, fullPageShelf: state.fullPageShelf || undefined, highlightedAppIds: gatedArray(ctx.highlightPickerOpen, state.highlightedAppIds), manualOrder: gatedArray(ctx.isManualSort, state.manualOrder), manualBaseSort: baseSort as any, sortReverse: state.sortReverse || undefined, manualBaseSortReverse: baseReverse as any, hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames, hideInstallIndicator: state.hideInstallIndicator, hideSeeMore: state.hideSeeMore, hideRefreshCard: state.hideRefreshCard, heroEnabled: state.heroEnabled, gameInfoAbove: state.gameInfoAbove || undefined, friendsPlayingOverlay: state.friendsPlayingOverlay || undefined, friendsPlayingOverlayRecent: state.friendsPlayingOverlayRecent || undefined, dedupeByExactName: state.dedupeByExactName || undefined, hiddenAppIds: gatedArray(ctx.hiddenPickerOpen, state.hiddenAppIds), syntheticCards: cleanedSynth.length ? cleanedSynth : undefined,
+    ...behaviourPatch(state),
+  } as any
+}
+
+// Context-aware behaviours (auto-pin / auto-collapse) — only persisted when a
+// rule tree is present, mirroring the smart-shelf editor.
+function behaviourPatch(state: EditableShelfState): Partial<Shelf> {
+  const hasRules = (v: any) => !!v && Array.isArray(v.rules) && v.rules.length > 0
+  return {
+    autoPin: hasRules(state.autoPin) ? state.autoPin : undefined,
+    autoCollapse: hasRules(state.autoCollapse) ? state.autoCollapse : undefined,
+    autoCollapseWhenEmpty: state.autoCollapseWhenEmpty ? true : undefined,
   } as any
 }
 
@@ -917,6 +931,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                 id: 'display',
                 title: (<TabLabel icon={<EyeIcon />} text={t('edit_tab_display')} />) as unknown as string,
                 content: (
+                  <>
                   <DisplayTabContent
                     t={t}
                     display={{ hideStatusLine: state.hideStatusLine, hideNewBadge: state.hideNewBadge, hideDiscountBadge: state.hideDiscountBadge, hideCompatIcons: state.hideCompatIcons, hideNonSteamBadge: state.hideNonSteamBadge, hideShelfTitle: state.hideShelfTitle, hideGameNames: state.hideGameNames === true, hideInstallIndicator: state.hideInstallIndicator === true, hideSeeMore: state.hideSeeMore === true, hideRefreshCard: state.hideRefreshCard === true }}
@@ -928,6 +943,12 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     hiddenPickerOpen={hiddenPickerOpen}
                     setHiddenPickerOpen={setHiddenPickerOpen}
                   />
+                  <Field label={t('visibility_autopin_label' as any)} description={t('visibility_autopin_desc' as any)} />
+                  <VisibilityRulesEditor value={state.autoPin} onChange={(v) => setState((prev) => ({ ...prev, autoPin: v }))} t={t as any} />
+                  <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
+                  <ToggleField label={t('visibility_autocollapse_empty' as any)} checked={state.autoCollapseWhenEmpty === true} onChange={(v: boolean) => setState((prev) => ({ ...prev, autoCollapseWhenEmpty: v }))} />
+                  <VisibilityRulesEditor value={state.autoCollapse} onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v }))} t={t as any} />
+                  </>
                 ),
               },
             ]}

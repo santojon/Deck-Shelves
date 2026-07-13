@@ -460,13 +460,17 @@ _DASH_JS = r"""
     const hasRuff=view.some(r=>r.ruff&&typeof r.ruff.issues==='number');
     const hasSup=view.some(r=>typeof r.suppressions==='number');
     const hasProb=view.some(r=>r.lint&&typeof r.lint.problems==='number');
+    const hasCx=view.some(r=>r.complexity&&typeof r.complexity.level==='number');
     const lintPanel=$('lint-panel');
-    if(lintPanel)lintPanel.style.display=(hasRuff||hasSup||hasProb)?'':'none';
+    if(lintPanel)lintPanel.style.display=(hasRuff||hasSup||hasProb||hasCx)?'':'none';
     const blk=(id,show)=>{const e=$(id);if(e)e.style.display=show?'':'none';};
-    blk('ruff-block',hasRuff);blk('sup-block',hasSup);blk('prob-block',hasProb);
+    blk('ruff-block',hasRuff);blk('sup-block',hasSup);blk('prob-block',hasProb);blk('cx-block',hasCx);
     if(hasRuff){const estR=r=>!!(r.ruff&&r.ruff.estimated),t=$('ruff-trend');if(t)t.innerHTML=svgMetricTrend(view,r=>r.ruff&&typeof r.ruff.issues==='number'?r.ruff.issues:null,{color:'#f59e0b',upGood:false,estFn:estR});}
     if(hasSup){const estS=r=>!!r.suppressionsEst,t=$('sup-trend');if(t)t.innerHTML=svgMetricTrend(view,r=>typeof r.suppressions==='number'?r.suppressions:null,{color:'#fb7185',upGood:false,estFn:estS});}
     if(hasProb){const estL=r=>!!(r.lint&&r.lint.estimated),t=$('prob-trend');if(t)t.innerHTML=svgMetricTrend(view,r=>r.lint&&typeof r.lint.problems==='number'?r.lint.problems:null,{color:'#fbbf24',upGood:false,estFn:estL});}
+    if(hasCx){const estC=r=>!!r.complexityEst;
+      const t1=$('cx-trend');if(t1)t1.innerHTML=svgMetricTrend(view,r=>r.complexity&&typeof r.complexity.level==='number'?r.complexity.level:null,{color:'#a78bfa',upGood:false,estFn:estC});
+      const t2=$('cxmax-trend');if(t2)t2.innerHTML=svgMetricTrend(view,r=>r.complexity&&typeof r.complexity.max==='number'?r.complexity.max:null,{color:'#c084fc',upGood:false,estFn:estC});}
     // Per-step duration trends — whenever the view has timed runs.
     const stHost=$('step-trends');
     if(stHost){const st=stepTrends(view),stPanel=$('steptrends-panel');
@@ -669,8 +673,14 @@ def _rebuild_dashboard(reports_root: Path) -> None:
       <h2 style="margin-top:18px">Lint problems per run (eslint + ruff)</h2>
       <div id="prob-trend"></div>
     </div>
+    <div id="cx-block" style="display:none">
+      <h2 style="margin-top:18px">Cyclomatic-complexity debt (level) over time &mdash; lower is better</h2>
+      <div id="cx-trend"></div>
+      <h2 style="margin-top:18px">Worst single complexity (max) over time &mdash; lower is better</h2>
+      <div id="cxmax-trend"></div>
+    </div>
     <div class="legend">
-      <span style="color:#64748b;font-size:10px">Fewer issues is better (&#9660; green = improving). Hollow points are <b>estimated</b>, backfilled per version from git (ruff run at each tag; suppressions from the eslint-suppressions.json total — the file was adopted at v2.4.1 with ~147 pre-existing problems). Per-run lint problems accrue from new runs.</span>
+      <span style="color:#64748b;font-size:10px">Fewer issues is better (&#9660; green = improving). Hollow points are <b>estimated</b>, backfilled per version from git (ruff run at each tag; suppressions from the eslint-suppressions.json total — the file was adopted at v2.4.1 with ~147 pre-existing problems). <b>Complexity debt</b> is the summed cyclomatic score of every function over the limit (the MAGNITUDE of complexity, not the offender count the suppressions chart shows); backfilled by archiving each tag's src and re-measuring.</span>
     </div>
   </div>
 

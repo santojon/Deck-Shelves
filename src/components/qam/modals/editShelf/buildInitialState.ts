@@ -160,6 +160,9 @@ function readVisualFlags(shelf: Shelf) {
     friendsPlayingOverlayRecent: s.friendsPlayingOverlayRecent === true,
     dedupeByExactName: s.dedupeByExactName === true,
     hiddenAppIds: s.hiddenAppIds ?? [],
+    autoPin: s.autoPin,
+    autoCollapse: s.autoCollapse,
+    autoCollapseWhenEmpty: s.autoCollapseWhenEmpty === true,
   };
 }
 

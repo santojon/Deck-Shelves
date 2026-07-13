@@ -32,5 +32,12 @@
   "lint": {
     "problems": 0,
     "estimated": true
-  }
+  },
+  "complexity": {
+    "level": 4585,
+    "count": 185,
+    "max": 174,
+    "avg": 24.8
+  },
+  "complexityEst": true
 }

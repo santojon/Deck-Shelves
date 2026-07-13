@@ -57,6 +57,10 @@ export type EditableShelfState = {
   friendsPlayingOverlayRecent: boolean
   dedupeByExactName: boolean
   hiddenAppIds: number[]
+  // Context-aware shelf behaviours (generic to every shelf, not smart-only).
+  autoPin?: any
+  autoCollapse?: any
+  autoCollapseWhenEmpty?: boolean
   childFilterGroup: FilterGroup
   excludeOwned: boolean
   excludeOwnedNonSteam: boolean

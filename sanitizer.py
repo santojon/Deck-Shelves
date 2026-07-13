@@ -701,6 +701,8 @@ def _sanitize_settings(settings: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C90
             entry = {"id": pid, "name": pname, "createdAt": pcreated, "snapshot": psnap}
             if p.get("hidden") is True:
                 entry["hidden"] = True
+            if p.get("linkShelves") is True:
+                entry["linkShelves"] = True
             # VisibilityRule predicate, round-tripped verbatim. The
             # dict-check guards against bad client writes without
             # enforcing the rule shape here.
