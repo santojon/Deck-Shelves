@@ -138,4 +138,34 @@ export default [
       'ds-local/comment-length': 'error',
     },
   },
+  {
+    // Tests + QA harness — excluded from the main block above (complexity /
+    // max-lines / comment-length would only churn naturally long, repetitive
+    // test code, and type-aware rules add cost). This block runs the
+    // zero-false-positive BUG CATCHERS only, so any hit is a real bug to fix,
+    // never suppressed.
+    files: ['src/test/**/*.{ts,tsx}', 'src/**/*.test.{ts,tsx}', 'src/qa/**/*.{ts,tsx}'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } },
+    },
+    rules: {
+      'no-var': 'error',
+      'prefer-const': 'error',
+      'eqeqeq': ['error', 'smart'],
+      'no-debugger': 'error',
+      'no-throw-literal': 'error',
+      'no-duplicate-imports': 'error',
+      'no-self-assign': 'error',
+      'no-unreachable': 'error',
+      'no-fallthrough': 'error',
+      'no-unsafe-optional-chaining': 'error',
+      'no-constant-binary-expression': 'error',
+      'use-isnan': 'error',
+      'valid-typeof': 'error',
+      'no-async-promise-executor': 'error',
+      'no-dupe-else-if': 'error',
+      'no-cond-assign': ['error', 'always'],
+    },
+  },
 ];

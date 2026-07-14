@@ -42,11 +42,6 @@
       "count": 1
     }
   },
-  "src/components/filter/FilterItemOptions.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/home/navPatches/edgeNavigation.ts": {
     "complexity": {
       "count": 2
@@ -226,7 +221,7 @@
   },
   "src/components/shelf/shelfStyles.ts": {
     "complexity": {
-      "count": 4
+      "count": 3
     }
   },
   "src/core/imageCache.ts": {

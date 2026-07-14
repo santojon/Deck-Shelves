@@ -354,21 +354,7 @@ function discoverViaBriefUnhide(steamDoc: Document): NativeCardDims | null {
 
 function ensureStyles() {
   try {
-    /* If the viewport fingerprint changed (resolution / DPI switch), discard
-       the in-memory dims immediately so the very next measurement applies
-       without waiting for the 2-poll stability cycle. Without this, the idle
-       poll interval (30 s) means a resolution change takes up to 60 s to
-       reflect on featured-card sizing when matchNativeSize is on. */
-    if (cachedNativeDims && cachedDimsFp) {
-      const fp = viewportFingerprint();
-      if (fp.vw >= 100 && fp.vh >= 100 &&
-          (fp.vw !== cachedDimsFp.vw || fp.vh !== cachedDimsFp.vh || Math.abs(fp.dpr - cachedDimsFp.dpr) > 0.05)) {
-        cachedNativeDims = null;
-        cachedDimsFp = null;
-        pendingDims = null;
-        pendingDimsCount = 0;
-      }
-    }
+    invalidateDimsOnFpChange();
     const newRadius = detectNativeCardRadius();
     const radiusChanged = newRadius !== cachedCardRadius;
     cachedCardRadius = newRadius;
@@ -376,98 +362,7 @@ function ensureStyles() {
     const newBadgeRadiusChanged = newBadgeRadius !== cachedNewBadgeRadius;
     cachedNewBadgeRadius = newBadgeRadius;
     const steamDoc = getPreferredSteamDocument();
-    let newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
-    /* Fallback: when hideRecents is active there are no measurable native
-       portraits on screen — discover by briefly un-hiding (sync block, no
-       visible flash). Without this, post-display-swap dims stay at fallback
-       constants until the user opens library and comes back. */
-    if (!newDims) newDims = discoverViaBriefUnhide(steamDoc);
-    // Sanity: discard measurements that don't make sense for the current
-    /* viewport — happens when Steam hasn't yet re-laid out after a display
-       swap and our brief-unhide reads cards still sized for the previous
-       viewport. Native portrait cards take roughly 8-15% of viewport width;
-       anything above ~22% is almost certainly leftover layout from the
-       previous resolution and would poison the per-fp cache. */
-    if (newDims) {
-      const fpNow = viewportFingerprint();
-      if (fpNow.vw >= 100 && newDims.width / fpNow.vw > 0.22) {
-        newDims = null;
-      }
-    }
-    // Only accept new dims when the change exceeds tolerance (avoids flicker
-    // from focus-scale, rounding, or animation mid-frame measurements).
-    // When newDims is null (e.g. recents hidden, or focus present), keep the cached dims.
-    const tol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > DIMS_TOL_PX;
-    /* When the new measurement lacks a field the cache already has (e.g. native
-       featured card is focused/hidden and was skipped by discovery), preserve
-       the cached value instead of treating the absence as a change. Otherwise
-       leaving the DS shelf would overwrite featuredWidth with undefined and
-       shrink the featured card back to the fallback size. */
-    if (newDims && cachedNativeDims) {
-      if (!newDims.featuredWidth && cachedNativeDims.featuredWidth) newDims.featuredWidth = cachedNativeDims.featuredWidth;
-      if (!newDims.featuredHeight && cachedNativeDims.featuredHeight) newDims.featuredHeight = cachedNativeDims.featuredHeight;
-      if (!newDims.featuredImgHeight && cachedNativeDims.featuredImgHeight) newDims.featuredImgHeight = cachedNativeDims.featuredImgHeight;
-      if (!newDims.imgHeight && cachedNativeDims.imgHeight) newDims.imgHeight = cachedNativeDims.imgHeight;
-    }
-    const dimsChanged = newDims !== null && (
-      !cachedNativeDims ||
-      tol(newDims.width, cachedNativeDims.width) ||
-      tol(newDims.height, cachedNativeDims.height) ||
-      tol(newDims.gap, cachedNativeDims.gap) ||
-      tol(newDims.featuredWidth, cachedNativeDims.featuredWidth) ||
-      tol(newDims.featuredHeight, cachedNativeDims.featuredHeight)
-    );
-    if (dimsChanged && newDims) {
-      // Fast path: when the cache has no featuredWidth but the new measurement does,
-      // accept immediately. The featured card would otherwise render at the fallback
-      /* landscape ratio for 6+ seconds (2 × poll interval) before resizing — visible
-         as a slow enlarge on cold boot when matchNativeSize is on.
-         Also accept immediately when a viewport change was just detected — the
-         stability cycle would otherwise hold cards at the wrong size for tens of
-         seconds after a display-resolution swap. */
-      const acquiredFeatured = !!newDims.featuredWidth && !cachedNativeDims?.featuredWidth;
-      if (acquiredFeatured || acceptNextMeasurementImmediately) {
-        acceptNextMeasurementImmediately = false;
-        cachedNativeDims = newDims;
-        cachedDimsFp = viewportFingerprint();
-        persistDims(newDims);
-        pendingDims = null;
-        pendingDimsCount = 0;
-        /* Always debounce — even on first acquisition (hadDims=false).
-           notifyDimsNow() on first measurement causes all DeckRows to
-           re-render mid-interaction ("prateleiras recarregam"), which is
-           jarring on the first navigation after a restart. The debounce
-           (~100ms) is imperceptible but prevents the full-screen reload. */
-        debouncedNotifyDims(newDims);
-      } else {
-      // Require 2 consecutive polls showing the same new values before accepting
-      const matchesPending = pendingDims &&
-        !tol(newDims.width, pendingDims.width) &&
-        !tol(newDims.height, pendingDims.height) &&
-        !tol(newDims.gap, pendingDims.gap);
-      if (matchesPending) {
-        pendingDimsCount++;
-        if (pendingDimsCount >= DIMS_STABLE_POLLS) {
-          cachedNativeDims = newDims;
-          cachedDimsFp = viewportFingerprint();
-          persistDims(newDims);
-          pendingDims = null;
-          pendingDimsCount = 0;
-          debouncedNotifyDims(newDims);
-        }
-      } else {
-        pendingDims = newDims;
-        pendingDimsCount = 1;
-      }
-      }
-    } else if (!cachedNativeDims && newDims) {
-      cachedNativeDims = newDims;
-      cachedDimsFp = viewportFingerprint();
-      persistDims(newDims);
-    } else {
-      pendingDims = null;
-      pendingDimsCount = 0;
-    }
+    const dimsChanged = updateNativeDims(steamDoc);
     // Runtime-hash-based focus ring suppression — injected/removed every
     // ensureStyles tick so it tracks theme toggle + classmap availability.
     ensureFocusRingSuppress();
@@ -475,117 +370,242 @@ function ensureStyles() {
     const docs = [document, steamDoc];
     for (const doc of docs) {
       if (!doc) continue;
-      if (!doc.getElementById(STYLE_ID)) {
-        const style = doc.createElement("style");
-        style.id = STYLE_ID;
-        style.textContent = buildStylesheet();
-        doc.head.appendChild(style);
-      } else if (radiusChanged || dimsChanged || newBadgeRadiusChanged) {
-        // Update CSS variables in-place instead of removing the stylesheet
-        doc.documentElement.style.setProperty('--ds-card-radius', cachedCardRadius);
-        if (cachedNewBadgeRadius) doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
-        else doc.documentElement.style.removeProperty('--ds-new-badge-radius');
-        for (const [k, v] of nativeDimVarEntries()) doc.documentElement.style.setProperty(k, v);
-      }
-      // Only persist a detected value — leaving the var unset lets the
-      // CSS fallback chain (var(--ds-new-badge-radius, var(--round-radius-size, 0))) pick up theme radius.
-      if (cachedNewBadgeRadius) doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
-      else doc.documentElement.style.removeProperty('--ds-new-badge-radius');
-
-      // Detect page background color from the scrollable viewport or body
-      try {
-        const mount = doc.getElementById('deck-shelves-home-root');
-        let pageBg = '';
-        if (mount) {
-          let el: HTMLElement | null = mount.parentElement;
-          for (let i = 0; i < 6 && el && el !== doc.body; i++) {
-            const bg = getComputedStyle(el).backgroundColor;
-            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { pageBg = bg; break; }
-            el = el.parentElement;
-          }
-        }
-        if (!pageBg) {
-          const bodyBg = getComputedStyle(doc.body).backgroundColor;
-          if (bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent') pageBg = bodyBg;
-        }
-        if (pageBg) doc.documentElement.style.setProperty('--ds-page-bg', pageBg);
-        else doc.documentElement.style.setProperty('--ds-page-bg', 'rgb(0, 0, 0)');
-      } catch {}
-
-      // Obsidian theme detection — the theme sets `--obsidian-main-color` on
-      // :root. Per-shelf hero images should inherit the same grayscale+contrast
-      // filter that Obsidian applies to native hero images so they match visually.
-      try {
-        const obs = getComputedStyle(doc.documentElement).getPropertyValue('--obsidian-main-color').trim();
-        if (obs !== '') doc.documentElement.setAttribute('data-ds-obsidian', '1');
-        else doc.documentElement.removeAttribute('data-ds-obsidian');
-      } catch {}
-
-      // SLH theme defense — that CSS Loader theme locks the home page to
-      // viewport height with absolutely-positioned containers, so our
-      /* shelves below the visible area become unreachable (no native page
-         scroll). Detected via the theme's `--SLH-lift-hero-px` custom
-         property; when present, mark the documentElement so the stylesheet
-         applies the layout overrides on the affected ancestor classes.
-         Marker is removed when the theme is no longer active. */
-      try {
-        const slh = getComputedStyle(doc.documentElement).getPropertyValue('--SLH-lift-hero-px').trim();
-        if (slh !== '') doc.documentElement.setAttribute('data-ds-slh', '1');
-        else doc.documentElement.removeAttribute('data-ds-slh');
-      } catch {}
-
-      /* Centered Home detection — the theme sets a padding/inset custom
-         property on :root to shift the home page content into a centered
-         column. Variable name varies across versions, so probe a known set
-         and copy the first non-empty value into our own `--ds-centered-pad`
-         so the CSS rule below has a single, stable variable to read from. */
-      try {
-        const root = doc.documentElement;
-        const cs = getComputedStyle(root);
-        const candidates = [
-          '--center-home-padding', '--centered-home-padding',
-          '--center-home-padding-x', '--center-home-x',
-          '--ch-padding', '--centered-padding',
-        ];
-        let chVal = '';
-        for (const name of candidates) {
-          const v = cs.getPropertyValue(name).trim();
-          if (v !== '') { chVal = v; break; }
-        }
-        if (chVal !== '') {
-          root.setAttribute('data-ds-centered', '1');
-          root.style.setProperty('--ds-centered-pad', chVal);
-        } else {
-          root.removeAttribute('data-ds-centered');
-          root.style.removeProperty('--ds-centered-pad');
-        }
-      } catch {}
-
-      try {
-        doc.documentElement.style.removeProperty('--ds-native-heading-color');
-        const headings = doc.querySelectorAll('h2[class], h3[class]');
-        for (const h of Array.from(headings)) {
-          const cls = (h as HTMLElement).className || '';
-          if (/_[A-Za-z0-9_-]{5,}/.test(cls)) {
-            const c = getComputedStyle(h as HTMLElement).color;
-            if (!c || c === 'rgb(0, 0, 0)' || c === 'rgba(0, 0, 0, 0)') continue;
-            const m = c.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-            if (m) {
-              const [r, g, b] = [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
-              const max = Math.max(r, g, b);
-              const sat = max > 0 ? (max - Math.min(r, g, b)) / max : 0;
-              if (sat < 0.25) continue;
-            }
-            doc.documentElement.style.setProperty('--ds-native-heading-color', c);
-            break;
-          }
-        }
-      } catch {
-        logInfo("HOME", "heading color detection failed");
-      }
+      applyStyleVars(doc, radiusChanged, dimsChanged, newBadgeRadiusChanged);
+      detectPageBg(doc);
+      detectObsidian(doc);
+      detectSlh(doc);
+      detectCenteredHome(doc);
+      detectNativeHeadingColor(doc);
     }
   } catch {
     logInfo("HOME", "ensureStyles failed");
+  }
+}
+
+// Discard cached native dims when the viewport fingerprint changed (resolution
+// / DPI switch) so the next measurement applies without the 2-poll wait.
+function invalidateDimsOnFpChange(): void {
+  if (!(cachedNativeDims && cachedDimsFp)) return;
+  const fp = viewportFingerprint();
+  if (fp.vw >= 100 && fp.vh >= 100 &&
+      (fp.vw !== cachedDimsFp.vw || fp.vh !== cachedDimsFp.vh || Math.abs(fp.dpr - cachedDimsFp.dpr) > 0.05)) {
+    cachedNativeDims = null;
+    cachedDimsFp = null;
+    pendingDims = null;
+    pendingDimsCount = 0;
+  }
+}
+
+const dimTol = (a: number | undefined, b: number | undefined) => Math.abs((a ?? 0) - (b ?? 0)) > DIMS_TOL_PX;
+
+/* Preserve fields the fresh measurement lacks but the cache already has (e.g.
+   the native featured card was focused/hidden and skipped by discovery) —
+   otherwise leaving the DS shelf would shrink the featured card to fallback. */
+function mergeCachedDimFields(newDims: NativeCardDims): void {
+  const c = cachedNativeDims;
+  if (!c) return;
+  if (!newDims.featuredWidth && c.featuredWidth) newDims.featuredWidth = c.featuredWidth;
+  if (!newDims.featuredHeight && c.featuredHeight) newDims.featuredHeight = c.featuredHeight;
+  if (!newDims.featuredImgHeight && c.featuredImgHeight) newDims.featuredImgHeight = c.featuredImgHeight;
+  if (!newDims.imgHeight && c.imgHeight) newDims.imgHeight = c.imgHeight;
+}
+
+/* Measure native card dims (brief-unhide fallback when recents are hidden),
+   discard nonsense (>22% viewport width = leftover pre-swap layout), and fold
+   in cached fields. Null when nothing measurable is on screen. */
+function discoverDims(steamDoc: Document): NativeCardDims | null {
+  let newDims = discoverNativeCardDimensions(steamDoc) ?? discoverNativeCardDimensions(document);
+  if (!newDims) newDims = discoverViaBriefUnhide(steamDoc);
+  if (newDims) {
+    const fpNow = viewportFingerprint();
+    if (fpNow.vw >= 100 && newDims.width / fpNow.vw > 0.22) newDims = null;
+  }
+  if (newDims && cachedNativeDims) mergeCachedDimFields(newDims);
+  return newDims;
+}
+
+// Change exceeds tolerance? (avoids flicker from focus-scale / rounding / mid-anim reads)
+function dimsDiffer(newDims: NativeCardDims): boolean {
+  const c = cachedNativeDims;
+  return !c ||
+    dimTol(newDims.width, c.width) ||
+    dimTol(newDims.height, c.height) ||
+    dimTol(newDims.gap, c.gap) ||
+    dimTol(newDims.featuredWidth, c.featuredWidth) ||
+    dimTol(newDims.featuredHeight, c.featuredHeight);
+}
+
+// Require 2 consecutive polls with the same new values before accepting.
+function advancePendingDims(newDims: NativeCardDims): void {
+  const matchesPending = pendingDims &&
+    !dimTol(newDims.width, pendingDims.width) &&
+    !dimTol(newDims.height, pendingDims.height) &&
+    !dimTol(newDims.gap, pendingDims.gap);
+  if (matchesPending) {
+    pendingDimsCount++;
+    if (pendingDimsCount >= DIMS_STABLE_POLLS) {
+      cachedNativeDims = newDims;
+      cachedDimsFp = viewportFingerprint();
+      persistDims(newDims);
+      pendingDims = null;
+      pendingDimsCount = 0;
+      debouncedNotifyDims(newDims);
+    }
+  } else {
+    pendingDims = newDims;
+    pendingDimsCount = 1;
+  }
+}
+
+/* Accept dims immediately on first featured acquisition or a just-detected
+   viewport change (otherwise the featured card holds the wrong size for tens of
+   seconds); else run the 2-poll stability gate. Debounce always — notifying on
+   the first measurement re-renders all DeckRows mid-interaction. */
+function commitDims(newDims: NativeCardDims | null, dimsChanged: boolean): void {
+  if (dimsChanged && newDims) {
+    const acquiredFeatured = !!newDims.featuredWidth && !cachedNativeDims?.featuredWidth;
+    if (acquiredFeatured || acceptNextMeasurementImmediately) {
+      acceptNextMeasurementImmediately = false;
+      cachedNativeDims = newDims;
+      cachedDimsFp = viewportFingerprint();
+      persistDims(newDims);
+      pendingDims = null;
+      pendingDimsCount = 0;
+      debouncedNotifyDims(newDims);
+    } else {
+      advancePendingDims(newDims);
+    }
+  } else if (!cachedNativeDims && newDims) {
+    cachedNativeDims = newDims;
+    cachedDimsFp = viewportFingerprint();
+    persistDims(newDims);
+  } else {
+    pendingDims = null;
+    pendingDimsCount = 0;
+  }
+}
+
+function updateNativeDims(steamDoc: Document): boolean {
+  const newDims = discoverDims(steamDoc);
+  const dimsChanged = newDims !== null && dimsDiffer(newDims);
+  commitDims(newDims, dimsChanged);
+  return dimsChanged;
+}
+
+// Inject the stylesheet once, then update CSS vars in place (no re-create → no
+// flicker) whenever radius / dims / badge-radius changed.
+function applyStyleVars(doc: Document, radiusChanged: boolean, dimsChanged: boolean, newBadgeRadiusChanged: boolean): void {
+  if (!doc.getElementById(STYLE_ID)) {
+    const style = doc.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = buildStylesheet();
+    doc.head.appendChild(style);
+  } else if (radiusChanged || dimsChanged || newBadgeRadiusChanged) {
+    doc.documentElement.style.setProperty('--ds-card-radius', cachedCardRadius);
+    if (cachedNewBadgeRadius) doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
+    else doc.documentElement.style.removeProperty('--ds-new-badge-radius');
+    for (const [k, v] of nativeDimVarEntries()) doc.documentElement.style.setProperty(k, v);
+  }
+  // Only persist a detected value — CSS fallback chain picks up theme radius.
+  if (cachedNewBadgeRadius) doc.documentElement.style.setProperty('--ds-new-badge-radius', cachedNewBadgeRadius);
+  else doc.documentElement.style.removeProperty('--ds-new-badge-radius');
+}
+
+function firstOpaqueAncestorBg(doc: Document): string {
+  const mount = doc.getElementById('deck-shelves-home-root');
+  if (!mount) return '';
+  let el: HTMLElement | null = mount.parentElement;
+  for (let i = 0; i < 6 && el && el !== doc.body; i++) {
+    const bg = getComputedStyle(el).backgroundColor;
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+    el = el.parentElement;
+  }
+  return '';
+}
+
+// Page background from the scrollable viewport (or body) → --ds-page-bg.
+function detectPageBg(doc: Document): void {
+  try {
+    let pageBg = firstOpaqueAncestorBg(doc);
+    if (!pageBg) {
+      const bodyBg = getComputedStyle(doc.body).backgroundColor;
+      if (bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent') pageBg = bodyBg;
+    }
+    doc.documentElement.style.setProperty('--ds-page-bg', pageBg || 'rgb(0, 0, 0)');
+  } catch {}
+}
+
+// Obsidian theme: mirror its grayscale+contrast onto per-shelf hero images.
+function detectObsidian(doc: Document): void {
+  try {
+    const obs = getComputedStyle(doc.documentElement).getPropertyValue('--obsidian-main-color').trim();
+    if (obs !== '') doc.documentElement.setAttribute('data-ds-obsidian', '1');
+    else doc.documentElement.removeAttribute('data-ds-obsidian');
+  } catch {}
+}
+
+// SLH theme locks the home to viewport height; mark documentElement so the
+// stylesheet applies layout overrides. Detected via --SLH-lift-hero-px.
+function detectSlh(doc: Document): void {
+  try {
+    const slh = getComputedStyle(doc.documentElement).getPropertyValue('--SLH-lift-hero-px').trim();
+    if (slh !== '') doc.documentElement.setAttribute('data-ds-slh', '1');
+    else doc.documentElement.removeAttribute('data-ds-slh');
+  } catch {}
+}
+
+// Centered Home shifts content into a centered column via a padding var whose
+// name varies; copy the first present one into --ds-centered-pad.
+function detectCenteredHome(doc: Document): void {
+  try {
+    const root = doc.documentElement;
+    const cs = getComputedStyle(root);
+    const candidates = [
+      '--center-home-padding', '--centered-home-padding',
+      '--center-home-padding-x', '--center-home-x',
+      '--ch-padding', '--centered-padding',
+    ];
+    let chVal = '';
+    for (const name of candidates) {
+      const v = cs.getPropertyValue(name).trim();
+      if (v !== '') { chVal = v; break; }
+    }
+    if (chVal !== '') {
+      root.setAttribute('data-ds-centered', '1');
+      root.style.setProperty('--ds-centered-pad', chVal);
+    } else {
+      root.removeAttribute('data-ds-centered');
+      root.style.removeProperty('--ds-centered-pad');
+    }
+  } catch {}
+}
+
+// A themed heading's colour (hashed class, valid + saturated rgb) or null.
+function headingColorOf(h: HTMLElement): string | null {
+  const cls = h.className || '';
+  if (!/_[A-Za-z0-9_-]{5,}/.test(cls)) return null;
+  const c = getComputedStyle(h).color;
+  if (!c || c === 'rgb(0, 0, 0)' || c === 'rgba(0, 0, 0, 0)') return null;
+  const m = c.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (m) {
+    const [r, g, b] = [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+    const max = Math.max(r, g, b);
+    const sat = max > 0 ? (max - Math.min(r, g, b)) / max : 0;
+    if (sat < 0.25) return null;
+  }
+  return c;
+}
+
+function detectNativeHeadingColor(doc: Document): void {
+  try {
+    doc.documentElement.style.removeProperty('--ds-native-heading-color');
+    const headings = doc.querySelectorAll('h2[class], h3[class]');
+    for (const h of Array.from(headings)) {
+      const c = headingColorOf(h as HTMLElement);
+      if (c) { doc.documentElement.style.setProperty('--ds-native-heading-color', c); break; }
+    }
+  } catch {
+    logInfo("HOME", "heading color detection failed");
   }
 }
 

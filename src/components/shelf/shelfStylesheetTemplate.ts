@@ -973,13 +973,19 @@ export function buildShelfStylesheet(ctx: ShelfStylesheetCtx): string {
       --ds-hero-top: 0px;
       --ds-hero-h: 100vh;
     }
-    /* First DS shelf pulled UP 56px only when recents are hidden (no
-       native content above) — covers the transparent header band without
-       overlapping native when it stays visible. Applies under a CSS Loader
-       fullscreen-hero theme OR DS's own fullscreen hero background. */
-    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child,
-    .deck-shelves-root[data-ds-hero-background="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
+    /* Hero-fullscreen THEME: the promoted first shelf is a full-page hero with
+       its cards anchored to the bottom, so pulling the whole box up -56 to fill
+       the transparent header band is correct here. */
+    .deck-shelves-root[data-ds-theme-hero-fullscreen="true"][data-ds-recents-hidden="true"] > .ds-shelf[data-ds-recents-slot="true"]:first-child {
       margin-top: -56px;
+    }
+    /* DS hero-background (compact promoted first shelf, recents hidden): bleed
+       only the ART up under the header (like the non-slot rule below) instead of
+       margin-top-ing the whole shelf — a whole-box pull glued the cards/title to
+       the very top; the cards/title now keep the native recents top spacing (#110). */
+    .deck-shelves-root[data-ds-hero-background="true"][data-ds-recents-hidden="true"]:not([data-ds-theme-hero-fullscreen="true"]) > .ds-shelf[data-ds-recents-slot="true"]:first-child [data-ds-per-shelf-hero="true"] {
+      --ds-hero-top: -56px;
+      --ds-hero-h: calc(100% + 56px);
     }
     /* Decoupled first shelf (recents hidden, DS hero art on, NOT the themed
        recents-slot): bleed the hero ART up 56px under the transparent Steam
