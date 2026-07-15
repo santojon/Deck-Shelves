@@ -15,11 +15,12 @@ import {
   InfoCircleIcon,
   RefreshIcon,
   CopyIcon,
+  PersonIcon,
 } from "./icons";
 
 export type NotificationType =
   | "update" | "suggestion" | "success" | "error"
-  | "warning" | "info" | "export" | "import" | "reset" | "copy";
+  | "warning" | "info" | "export" | "import" | "reset" | "copy" | "profile";
 
 type Glyph = React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 
@@ -36,6 +37,7 @@ export const NOTIFICATION_ICONS: Record<NotificationType, Glyph> = {
   import: DownloadIcon,
   reset: RefreshIcon,
   copy: CopyIcon,
+  profile: PersonIcon,
 };
 
 export interface NotifyOptions {

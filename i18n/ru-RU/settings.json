@@ -1073,5 +1073,18 @@
   "visibility_rule_offline": "Офлайн",
   "visibility_rule_resolution": "Разрешение",
   "visibility_battery_below": "Заряд ниже",
-  "visibility_resolution_min": "Минимальное разрешение"
+  "visibility_resolution_min": "Минимальное разрешение",
+  "visibility_cat_time": "Время и дата",
+  "visibility_cat_session": "Сеанс",
+  "visibility_cat_power": "Питание",
+  "visibility_cat_display": "Дисплей",
+  "visibility_cat_perf": "Производительность",
+  "visibility_rule_gameRunning_not": "Игра не запущена",
+  "visibility_rule_charging_not": "Не заряжается",
+  "visibility_rule_offline_not": "В сети",
+  "visibility_rule_externalDisplay_not": "Нет внешнего дисплея",
+  "visibility_rule_ultrawide_not": "Не сверхширокий",
+  "visibility_cat_connectivity": "Подключение",
+  "visibility_inverse_pair": "Одно из двух",
+  "profile_trigger_deactivated": "Профиль отключён: {{name}}"
 }

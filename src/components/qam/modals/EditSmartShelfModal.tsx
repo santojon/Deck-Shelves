@@ -662,6 +662,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         value={(state as any).autoPin}
                         onChange={(v) => setState((prev) => ({ ...prev, autoPin: v } as any))}
                         t={t as any}
+                        idPrefix="pin"
                       />
                       <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
                       <ToggleField
@@ -673,6 +674,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         value={(state as any).autoCollapse}
                         onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v } as any))}
                         t={t as any}
+                        idPrefix="col"
                       />
                     </FieldContainer>
                   ))(),

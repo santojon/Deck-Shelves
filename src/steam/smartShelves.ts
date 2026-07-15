@@ -842,7 +842,7 @@ function evalTimeWindowRule(rule: any, now: Date): boolean {
   return inSingleRange({ start, end }, now.getHours());
 }
 
-function evalVisibilityRule(rule: any, now: Date): boolean {
+function evalVisibilityRuleRaw(rule: any, now: Date): boolean {
   const kind = String(rule?.kind || "");
   switch (kind) {
     case "timeWindow": return evalTimeWindowRule(rule, now);
@@ -855,6 +855,14 @@ function evalVisibilityRule(rule: any, now: Date): boolean {
       if (isPerfRuleKind(kind)) return evalPerfRule(rule);
       return isDeviceRuleKind(kind) ? evalDeviceRule(rule) : true;
   }
+}
+
+/* A rule may carry `not: true` to invert its match — the basis for "inverse"
+   triggers (e.g. "stopped charging" = not charging, "went online" = not
+   offline). The editor never lets a kind and its inverse coexist. */
+function evalVisibilityRule(rule: any, now: Date): boolean {
+  const res = evalVisibilityRuleRaw(rule, now);
+  return rule?.not === true ? !res : res;
 }
 
 export function evalVisibilityRules(

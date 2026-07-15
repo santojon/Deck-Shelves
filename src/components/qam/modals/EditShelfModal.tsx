@@ -944,10 +944,10 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
                     setHiddenPickerOpen={setHiddenPickerOpen}
                   />
                   <Field label={t('visibility_autopin_label' as any)} description={t('visibility_autopin_desc' as any)} />
-                  <VisibilityRulesEditor value={state.autoPin} onChange={(v) => setState((prev) => ({ ...prev, autoPin: v }))} t={t as any} />
+                  <VisibilityRulesEditor value={state.autoPin} onChange={(v) => setState((prev) => ({ ...prev, autoPin: v }))} t={t as any} idPrefix="pin" />
                   <Field label={t('visibility_autocollapse_label' as any)} description={t('visibility_autocollapse_desc' as any)} />
                   <ToggleField label={t('visibility_autocollapse_empty' as any)} checked={state.autoCollapseWhenEmpty === true} onChange={(v: boolean) => setState((prev) => ({ ...prev, autoCollapseWhenEmpty: v }))} />
-                  <VisibilityRulesEditor value={state.autoCollapse} onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v }))} t={t as any} />
+                  <VisibilityRulesEditor value={state.autoCollapse} onChange={(v) => setState((prev) => ({ ...prev, autoCollapse: v }))} t={t as any} idPrefix="col" />
                   </>
                 ),
               },

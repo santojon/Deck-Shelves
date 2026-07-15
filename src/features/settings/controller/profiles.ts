@@ -26,7 +26,7 @@ export interface ProfileRecord {
 // unless the user opts in).
 const SHELF_LINK_FIELDS = ["shelves", "smartShelves", "allShelvesOrder"] as const;
 
-function keepShelfFields(next: Settings, from: Settings): void {
+export function keepShelfFields(next: Settings, from: Settings): void {
   for (const f of SHELF_LINK_FIELDS) (next as any)[f] = (from as any)[f];
 }
 
@@ -197,12 +197,18 @@ export function createProfileActions(deps: ProfilesDeps) {
     async setProfileTrigger(id: string, trigger: unknown): Promise<boolean> {
       const s = liveSettings();
       if (!s) return false;
-      const profiles: ProfileRecord[] = (s as any).profiles ?? [];
-      if (!profiles.some((p) => p.id === id)) return false;
       const t = trigger as any;
       const clean = (t && Array.isArray(t.rules) && t.rules.length > 0)
         ? { mode: t.mode === "all" ? "all" : "any", rules: t.rules }
         : undefined;
+      // The Default (factory) profile is synthetic — its trigger lives in a
+      // dedicated settings field instead of the profiles array.
+      if (id === FACTORY_PROFILE_ID) {
+        await persist({ ...s, factoryProfileTrigger: clean } as Settings);
+        return true;
+      }
+      const profiles: ProfileRecord[] = (s as any).profiles ?? [];
+      if (!profiles.some((p) => p.id === id)) return false;
       const nextProfiles = profiles.map((p) => p.id === id ? { ...p, trigger: clean } : p);
       await persist({ ...s, profiles: nextProfiles } as Settings);
       return true;

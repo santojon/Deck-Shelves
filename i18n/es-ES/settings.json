@@ -1073,5 +1073,18 @@
   "visibility_rule_offline": "Sin conexión",
   "visibility_rule_resolution": "Resolución",
   "visibility_battery_below": "Batería por debajo de",
-  "visibility_resolution_min": "Resolución mínima"
+  "visibility_resolution_min": "Resolución mínima",
+  "visibility_cat_time": "Hora y fecha",
+  "visibility_cat_session": "Sesión",
+  "visibility_cat_power": "Energía",
+  "visibility_cat_display": "Pantalla",
+  "visibility_cat_perf": "Rendimiento",
+  "visibility_rule_gameRunning_not": "Sin juego en ejecución",
+  "visibility_rule_charging_not": "Sin cargar",
+  "visibility_rule_offline_not": "En línea",
+  "visibility_rule_externalDisplay_not": "Sin pantalla externa",
+  "visibility_rule_ultrawide_not": "Sin ultrapanorámica",
+  "visibility_cat_connectivity": "Conectividad",
+  "visibility_inverse_pair": "Uno u otro",
+  "profile_trigger_deactivated": "Perfil desactivado: {{name}}"
 }

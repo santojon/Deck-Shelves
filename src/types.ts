@@ -631,6 +631,10 @@ export const SettingsSchema = z.object({
      must be enabled explicitly. Optional (not defaulted) to stay absent from
      existing settings blobs; consumers treat undefined as off. */
   profileTriggersEnabled: z.boolean().optional(),
+  /* Trigger predicate for the synthetic "Default" (factory) profile — it has
+     no entry in `profiles`, so its auto-apply condition lives here. Same tree
+     shape as a profile `trigger`; sanitizer round-trips it. */
+  factoryProfileTrigger: z.unknown().optional(),
   autoCollapseEnabled: z.boolean().optional(),
   notificationsDisabled: z.boolean().optional(),
   profiles: z.array(z.object({

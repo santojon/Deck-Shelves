@@ -1,5 +1,7 @@
 import { Focusable, DialogButton, Dropdown, ToggleField } from '../../../../runtime/host/decky'
 import { flowChildrenProps } from '../../../../core/steamOSVersion'
+import { CollapsibleSection } from '../../../ui'
+import { ClockIcon, CalendarIcon, GamepadIcon, PlayIcon, SteamIcon, BatteryIcon, OnlineIcon, MonitorIcon, GaugeIcon } from '../../../icons'
 import { optionData } from './utils'
 
 /* Self-contained editor for a Visibility Rules v2 tree
@@ -215,7 +217,8 @@ function RuleBody({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rul
 }
 
 function RuleRow({ rule, onUpdate, onRemove, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; onRemove: () => void; t: T }) {
-  const label = KNOWN_KINDS.includes(rule.kind) ? t(`visibility_rule_${rule.kind}`) : rule.kind
+  const key = rule.not ? `visibility_rule_${rule.kind}_not` : `visibility_rule_${rule.kind}`
+  const label = KNOWN_KINDS.includes(rule.kind) ? t(key) : rule.kind
   return (
     <div style={{ padding: '4px 0 8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
       <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -227,14 +230,125 @@ function RuleRow({ rule, onUpdate, onRemove, t }: { rule: Rule; onUpdate: (p: Pa
   )
 }
 
-export function VisibilityRulesEditor({ value, onChange, t }: {
+type Glyph = (p: { size?: number }) => any
+type CatEntry = { kind: string; Icon: Glyph; defaults?: Record<string, any>; invertible?: boolean }
+type Cat = { id: string; Icon: Glyph; title: string; entries: CatEntry[] }
+
+/* Add-rule catalogue, grouped by type into collapsible sections (mirrors the
+   shelf-template picker), each entry with its own icon. Invertible kinds render
+   as a paired control (kind ⇄ its inverse); the two share the `kind`, so only
+   one polarity can be added at a time. */
+const CATALOG: Cat[] = [
+  { id: 'time', Icon: ClockIcon, title: 'visibility_cat_time', entries: [
+    { kind: 'timeWindow', Icon: ClockIcon, defaults: { start: 9, end: 17 } },
+    { kind: 'timeOfDayPeriod', Icon: ClockIcon, defaults: { period: 'evening' } },
+    { kind: 'dayOfWeek', Icon: CalendarIcon, defaults: { days: [] } },
+    { kind: 'weekend', Icon: CalendarIcon, defaults: { value: 'weekend' } },
+    { kind: 'season', Icon: CalendarIcon, defaults: { season: 'summer' } },
+    { kind: 'holiday', Icon: CalendarIcon, defaults: { ranges: [{ start: '12-20', end: '12-31' }] } },
+  ] },
+  { id: 'session', Icon: GamepadIcon, title: 'visibility_cat_session', entries: [
+    { kind: 'lastGameSource', Icon: SteamIcon, defaults: { value: 'nonSteam' } },
+    { kind: 'gameRunning', Icon: PlayIcon, invertible: true },
+  ] },
+  { id: 'power', Icon: BatteryIcon, title: 'visibility_cat_power', entries: [
+    { kind: 'battery', Icon: BatteryIcon, defaults: { below: 20 } },
+    { kind: 'charging', Icon: BatteryIcon, invertible: true },
+  ] },
+  { id: 'connectivity', Icon: OnlineIcon, title: 'visibility_cat_connectivity', entries: [
+    { kind: 'offline', Icon: OnlineIcon, invertible: true },
+  ] },
+  { id: 'display', Icon: MonitorIcon, title: 'visibility_cat_display', entries: [
+    { kind: 'externalDisplay', Icon: MonitorIcon, invertible: true },
+    { kind: 'ultrawide', Icon: MonitorIcon, invertible: true },
+    { kind: 'resolution', Icon: MonitorIcon, defaults: { minWidth: 1920 } },
+  ] },
+  { id: 'perf', Icon: GaugeIcon, title: 'visibility_cat_perf', entries: [
+    { kind: 'highCpu', Icon: GaugeIcon, defaults: { above: 80 } },
+    { kind: 'lowMemory', Icon: GaugeIcon, defaults: { below: 15 } },
+    { kind: 'lowFrameBudget', Icon: GaugeIcon, defaults: { belowFps: 45 } },
+  ] },
+]
+const CAT_KINDS: Record<string, Set<string>> = Object.fromEntries(CATALOG.map((c) => [c.id, new Set(c.entries.map((e) => e.kind))]))
+
+const BTN_STYLE = { height: 44, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', overflow: 'hidden' } as const
+
+function IconLabel({ Icon, label }: { Icon: Glyph; label: string }) {
+  return (<>
+    <span style={{ flexShrink: 0, display: 'flex' }}><Icon size={14} /></span>
+    <span style={{ fontSize: 12, lineHeight: 1.15, overflow: 'hidden' }}>{label}</span>
+  </>)
+}
+
+function AddRuleButton({ label, Icon, disabled, onAdd }: { label: string; Icon: Glyph; disabled: boolean; onAdd: () => void }) {
+  return (
+    <DialogButton disabled={disabled} onClick={disabled ? undefined : onAdd} onOKButton={disabled ? undefined : onAdd}
+      style={{ ...BTN_STYLE, flex: '1 1 46%', minWidth: 130, opacity: disabled ? 0.4 : 1 }}>
+      <IconLabel Icon={Icon} label={label} />
+    </DialogButton>
+  )
+}
+
+/* Invertible kinds take their own full-width row: the two polarities side by
+   side with a ⇄ between them, so the "one OR the other" relationship is explicit
+   and the pair never wraps apart. Both buttons carry the kind's icon; adding
+   either disables both. */
+function InversePair({ entry, taken, addRule, t }: { entry: CatEntry; taken: boolean; addRule: (r: Rule) => void; t: T }) {
+  const Icon = entry.Icon
+  const mk = (not?: boolean) => () => addRule({ kind: entry.kind, ...(entry.defaults ?? {}), ...(not ? { not: true } : {}) })
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={{ flex: '1 1 100%', display: 'flex', alignItems: 'center', gap: 6, opacity: taken ? 0.4 : 1 }}>
+      <DialogButton disabled={taken} onClick={taken ? undefined : mk()} onOKButton={taken ? undefined : mk()} style={{ ...BTN_STYLE, flex: 1 }}>
+        <IconLabel Icon={Icon} label={t(`visibility_rule_${entry.kind}`)} />
+      </DialogButton>
+      <span style={{ opacity: 0.5, fontSize: 14, flexShrink: 0 }}>⇄</span>
+      <DialogButton disabled={taken} onClick={taken ? undefined : mk(true)} onOKButton={taken ? undefined : mk(true)} style={{ ...BTN_STYLE, flex: 1 }}>
+        <IconLabel Icon={Icon} label={t(`visibility_rule_${entry.kind}_not`)} />
+      </DialogButton>
+    </Focusable>
+  )
+}
+
+function Presets({ onChange, t }: { onChange: (v: Visibility | undefined) => void; t: T }) {
+  return (
+    <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', gap: 8, padding: '6px 0 2px' }}>
+      <DialogButton style={{ ...BTN_STYLE, flex: 1 }} onClick={() => onChange({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] })} onOKButton={() => onChange({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] })}>
+        <IconLabel Icon={ClockIcon} label={t('visibility_preset_evenings')} />
+      </DialogButton>
+      <DialogButton style={{ ...BTN_STYLE, flex: 1 }} onClick={() => onChange({ mode: 'any', rules: [{ kind: 'dayOfWeek', days: [0, 6] }] })} onOKButton={() => onChange({ mode: 'any', rules: [{ kind: 'dayOfWeek', days: [0, 6] }] })}>
+        <IconLabel Icon={CalendarIcon} label={t('visibility_preset_weekends')} />
+      </DialogButton>
+    </Focusable>
+  )
+}
+
+function TriggerSection({ cat, used, count, prefix, addRule, t, children }: { cat: Cat; used: Set<string>; count: number; prefix: string; addRule: (r: Rule) => void; t: T; children?: any }) {
+  return (
+    <CollapsibleSection id={`${prefix}-${cat.id}`} icon={<cat.Icon />} title={t(cat.title)} count={count}>
+      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0', alignItems: 'stretch' }}>
+        {cat.entries.map((e) => (
+          e.invertible
+            ? <InversePair key={e.kind} entry={e} taken={used.has(e.kind)} addRule={addRule} t={t} />
+            : <AddRuleButton key={e.kind} label={t(`visibility_rule_${e.kind}`)} Icon={e.Icon} disabled={used.has(e.kind)} onAdd={() => addRule({ kind: e.kind, ...(e.defaults ?? {}) })} />
+        ))}
+      </Focusable>
+      {children}
+    </CollapsibleSection>
+  )
+}
+
+export function VisibilityRulesEditor({ value, onChange, t, idPrefix = 'vis' }: {
   value: Visibility | undefined
   onChange: (v: Visibility | undefined) => void
   t: T
+  idPrefix?: string
 }) {
   const vis: Visibility = value && Array.isArray(value.rules) ? value : { mode: 'any', rules: [] }
   const setRules = (rules: Rule[]) => onChange(rules.length ? { mode: vis.mode, rules } : undefined)
-  const addRule = (r: Rule) => setRules([...vis.rules, r])
+  // One rule per kind: adding a kind (or its inverse) is blocked while that kind
+  // is already present, so a trigger and its inverse can never coexist.
+  const usedKinds = new Set(vis.rules.map((r) => r.kind))
+  const addRule = (r: Rule) => { if (!usedKinds.has(r.kind)) setRules([...vis.rules, r]) }
 
   return (
     <div style={{ paddingTop: 10 }}>
@@ -255,39 +369,19 @@ export function VisibilityRulesEditor({ value, onChange, t }: {
           t={t}
         />
       ))}
-      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', gap: 8, padding: '8px 0 2px' }}>
-        <DialogButton style={{ flex: 1 }} onClick={() => addRule({ kind: 'timeWindow', start: 9, end: 17 })} onOKButton={() => addRule({ kind: 'timeWindow', start: 9, end: 17 })}>+ {t('visibility_add_time')}</DialogButton>
-        <DialogButton style={{ flex: 1 }} onClick={() => addRule({ kind: 'dayOfWeek', days: [] })} onOKButton={() => addRule({ kind: 'dayOfWeek', days: [] })}>+ {t('visibility_add_days')}</DialogButton>
-      </Focusable>
-      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'weekend', value: 'weekend' })} onOKButton={() => addRule({ kind: 'weekend', value: 'weekend' })}>+ {t('visibility_rule_weekend')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'timeOfDayPeriod', period: 'evening' })} onOKButton={() => addRule({ kind: 'timeOfDayPeriod', period: 'evening' })}>+ {t('visibility_rule_timeOfDayPeriod')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'season', season: 'summer' })} onOKButton={() => addRule({ kind: 'season', season: 'summer' })}>+ {t('visibility_rule_season')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'holiday', ranges: [{ start: '12-20', end: '12-31' }] })} onOKButton={() => addRule({ kind: 'holiday', ranges: [{ start: '12-20', end: '12-31' }] })}>+ {t('visibility_rule_holiday')}</DialogButton>
-      </Focusable>
-      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'lastGameSource', value: 'nonSteam' })} onOKButton={() => addRule({ kind: 'lastGameSource', value: 'nonSteam' })}>+ {t('visibility_rule_lastGameSource')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'gameRunning' })} onOKButton={() => addRule({ kind: 'gameRunning' })}>+ {t('visibility_rule_gameRunning')}</DialogButton>
-      </Focusable>
-      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'battery', below: 20 })} onOKButton={() => addRule({ kind: 'battery', below: 20 })}>+ {t('visibility_rule_battery')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'charging' })} onOKButton={() => addRule({ kind: 'charging' })}>+ {t('visibility_rule_charging')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'offline' })} onOKButton={() => addRule({ kind: 'offline' })}>+ {t('visibility_rule_offline')}</DialogButton>
-      </Focusable>
-      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'externalDisplay' })} onOKButton={() => addRule({ kind: 'externalDisplay' })}>+ {t('visibility_rule_externalDisplay')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'ultrawide' })} onOKButton={() => addRule({ kind: 'ultrawide' })}>+ {t('visibility_rule_ultrawide')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'resolution', minWidth: 1920 })} onOKButton={() => addRule({ kind: 'resolution', minWidth: 1920 })}>+ {t('visibility_rule_resolution')}</DialogButton>
-      </Focusable>
-      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 0' }}>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'highCpu', above: 80 })} onOKButton={() => addRule({ kind: 'highCpu', above: 80 })}>+ {t('visibility_rule_highCpu')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'lowMemory', below: 15 })} onOKButton={() => addRule({ kind: 'lowMemory', below: 15 })}>+ {t('visibility_rule_lowMemory')}</DialogButton>
-        <DialogButton style={{ flex: 1, minWidth: 90 }} onClick={() => addRule({ kind: 'lowFrameBudget', belowFps: 45 })} onOKButton={() => addRule({ kind: 'lowFrameBudget', belowFps: 45 })}>+ {t('visibility_rule_lowFrameBudget')}</DialogButton>
-      </Focusable>
-      <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
-        <DialogButton style={{ flex: 1 }} onClick={() => onChange({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] })} onOKButton={() => onChange({ mode: 'any', rules: [{ kind: 'timeWindow', start: 18, end: 23 }] })}>{t('visibility_preset_evenings')}</DialogButton>
-        <DialogButton style={{ flex: 1 }} onClick={() => onChange({ mode: 'any', rules: [{ kind: 'dayOfWeek', days: [0, 6] }] })} onOKButton={() => onChange({ mode: 'any', rules: [{ kind: 'dayOfWeek', days: [0, 6] }] })}>{t('visibility_preset_weekends')}</DialogButton>
-      </Focusable>
+      {CATALOG.map((cat) => (
+        <TriggerSection
+          key={cat.id}
+          cat={cat}
+          used={usedKinds}
+          prefix={idPrefix}
+          addRule={addRule}
+          t={t}
+          count={vis.rules.filter((r) => CAT_KINDS[cat.id].has(r.kind)).length}
+        >
+          {cat.id === 'time' ? <Presets onChange={onChange} t={t} /> : null}
+        </TriggerSection>
+      ))}
     </div>
   )
 }

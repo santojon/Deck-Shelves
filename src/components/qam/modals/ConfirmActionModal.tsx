@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ConfirmModal, ToggleField } from '../../../runtime/host/decky'
+import { ConfirmModal, ToggleField, Focusable } from '../../../runtime/host/decky'
 import { openManagedModal } from '../common/openManagedModal'
 
 /* Generic, parametrized confirmation dialog. Wraps Decky's ConfirmModal so
@@ -31,23 +31,26 @@ export function ConfirmActionModal({
   toggleDefault?: boolean;
 }) {
   const [toggle, setToggle] = useState(toggleDefault);
+  const confirm = () => { closeModal?.(); onConfirm(toggle); };
   return (
     <ConfirmModal
       strTitle={title}
       strOKButtonText={okText}
       strCancelButtonText={cancelText}
-      onOK={() => { closeModal?.(); onConfirm(toggle); }}
+      onOK={confirm}
       onCancel={() => { closeModal?.(); onCancel?.(); }}
     >
-      <div style={{ fontSize: 13, lineHeight: 1.5 }}>{body}</div>
-      {toggleLabel ? (
-        <div style={{ marginTop: 10 }}>
-          <ToggleField label={toggleLabel} checked={toggle} onChange={(v: boolean) => setToggle(v)} />
-          {toggleDesc ? (
-            <div style={{ paddingLeft: 16, paddingRight: 8, paddingTop: 2, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{toggleDesc}</div>
-          ) : null}
-        </div>
-      ) : null}
+      <Focusable onMenuButton={confirm} onMenuActionDescription={okText}>
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>{body}</div>
+        {toggleLabel ? (
+          <div style={{ marginTop: 10 }}>
+            <ToggleField label={toggleLabel} checked={toggle} onChange={(v: boolean) => setToggle(v)} />
+            {toggleDesc ? (
+              <div style={{ paddingLeft: 16, paddingRight: 8, paddingTop: 2, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{toggleDesc}</div>
+            ) : null}
+          </div>
+        ) : null}
+      </Focusable>
     </ConfirmModal>
   )
 }

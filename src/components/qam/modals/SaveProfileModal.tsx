@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ConfirmModal, TextField, ToggleField } from "../../../runtime/host/decky";
+import { ConfirmModal, TextField, ToggleField, Focusable } from "../../../runtime/host/decky";
 import type { SettingsController } from "../../../features/settings/controller";
 
 export interface SaveProfileModalProps {
@@ -43,6 +43,7 @@ export function SaveProfileModal({ closeModal, controller }: SaveProfileModalPro
       onCancel={() => { try { closeModal?.(); } catch {} }}
       closeModal={closeModal}
     >
+      <Focusable onMenuButton={handleSave} onMenuActionDescription={controller.t("profile_save_action" as any) || "Save"}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "8px 0" }}>
         <div style={{ fontSize: 13, opacity: 0.8 }}>
           {controller.t("profile_save_description" as any) || "Captures every setting, every shelf, and every saved filter into a named snapshot you can restore later."}
@@ -65,6 +66,7 @@ export function SaveProfileModal({ closeModal, controller }: SaveProfileModalPro
           onChange={(v: boolean) => setLinkShelves(v)}
         />
       </div>
+      </Focusable>
     </ConfirmModal>
   );
 }

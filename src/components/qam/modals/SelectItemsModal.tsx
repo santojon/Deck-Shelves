@@ -74,7 +74,7 @@ export function SelectItemsModal({
         onEscKeypress={closeModal}
         onOK={handleOk}
       >
-        <Focusable flow-children="vertical" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "4px 16px" }}>
+        <Focusable flow-children="vertical" onMenuButton={handleOk} onMenuActionDescription={confirmLabel} style={{ display: "flex", flexDirection: "column", gap: 4, padding: "4px 16px" }}>
           {header}
           {visible.length > 0 && (
             <div style={{ borderBottom: "1px solid var(--ds-border, rgba(255,255,255,0.08))", paddingBottom: 4, marginBottom: 4 }}>

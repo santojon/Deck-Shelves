@@ -1073,5 +1073,18 @@
   "visibility_rule_offline": "Офлайн",
   "visibility_rule_resolution": "Роздільність",
   "visibility_battery_below": "Заряд нижче",
-  "visibility_resolution_min": "Мінімальна роздільність"
+  "visibility_resolution_min": "Мінімальна роздільність",
+  "visibility_cat_time": "Час і дата",
+  "visibility_cat_session": "Сеанс",
+  "visibility_cat_power": "Живлення",
+  "visibility_cat_display": "Дисплей",
+  "visibility_cat_perf": "Продуктивність",
+  "visibility_rule_gameRunning_not": "Гра не запущена",
+  "visibility_rule_charging_not": "Не заряджається",
+  "visibility_rule_offline_not": "У мережі",
+  "visibility_rule_externalDisplay_not": "Немає зовнішнього дисплея",
+  "visibility_rule_ultrawide_not": "Не надширокий",
+  "visibility_cat_connectivity": "Підключення",
+  "visibility_inverse_pair": "Одне з двох",
+  "profile_trigger_deactivated": "Профіль вимкнено: {{name}}"
 }

@@ -56,4 +56,20 @@ describe('installProfileTriggers', () => {
     expect(saved.list.length).toBe(0)
     un()
   })
+
+  it('reverts to the pre-trigger profile when the trigger is denied', () => {
+    const home = { id: 'p0', name: 'Home', snapshot: { enabled: true, shelves: [] } }
+    store.current = { profileTriggersEnabled: true, profiles: [home, profile], activeProfileName: 'Home' }
+    resolved.current = null
+    const un = installProfileTriggers() // initial: no trigger, no baseline captured
+    expect(saved.list.length).toBe(0)
+    resolved.current = 'Docked'
+    cb.settings!(store.current) // Home → Docked: capture baseline=Home, apply Docked
+    expect(saved.list[saved.list.length - 1].activeProfileName).toBe('Docked')
+    store.current = { ...store.current, activeProfileName: 'Docked' } // reflect the applied state
+    resolved.current = null
+    cb.settings!(store.current) // trigger denied → restore Home
+    expect(saved.list[saved.list.length - 1].activeProfileName).toBe('Home')
+    un()
+  })
 })

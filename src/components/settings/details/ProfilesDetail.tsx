@@ -35,9 +35,14 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
     createdAt: "",
     snapshot: {},
     readOnly: true as const,
+    // The Default profile's trigger lives in its own settings field (it has no
+    // entry in `profiles`); surface it here so the trigger button reads/writes it.
+    trigger: (settings as any).factoryProfileTrigger,
   };
   const profiles = [factoryEntry, ...savedProfiles];
   const activeName = (settings as any).activeProfileName as string | null;
+  // Trigger UI only exists while the master profile-triggers toggle is on.
+  const triggersOn = (settings as any).profileTriggersEnabled === true;
 
   const exportAll = async () => {
     const dest = joinDownloads("deck-shelves-profiles.json");
@@ -176,6 +181,16 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                       >
                         <PlayIcon size={14} />
                       </DialogButton>
+                      {triggersOn && (
+                        <DialogButton
+                          onClick={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}
+                          onOKButton={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}
+                          style={{ ...BTN_ICON_COMPACT_STYLE, ...(profile.trigger ? { color: "#4caf50" } : {}) }}
+                          aria-label={t("settings_profiles_set_trigger")}
+                        >
+                          <TargetIcon size={14} />
+                        </DialogButton>
+                      )}
                       {!isFactory ? (
                         <>
                           <DialogButton
@@ -201,14 +216,6 @@ export function ProfilesDetail({ controller, t }: ProfilesDetailProps) {
                             aria-label={t("settings_profiles_rename")}
                           >
                             <PencilIcon size={14} />
-                          </DialogButton>
-                          <DialogButton
-                            onClick={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}
-                            onOKButton={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}
-                            style={{ ...BTN_ICON_COMPACT_STYLE, ...(profile.trigger ? { color: "#4caf50" } : {}) }}
-                            aria-label={t("settings_profiles_set_trigger")}
-                          >
-                            <TargetIcon size={14} />
                           </DialogButton>
                           <DialogButton
                             onClick={() => (controller.actions as any).exportProfiles?.(joinDownloads(`profile-${profile.name}.json`.replace(/\s+/g, "-").toLowerCase()), profile.id)}

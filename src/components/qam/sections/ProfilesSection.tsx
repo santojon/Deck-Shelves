@@ -36,6 +36,7 @@ function ProfileLabel({ profile, active }: { profile: any; active: boolean }) {
 
 function ProfileActionsButton({ controller, profile }: { controller: SettingsController; profile: any }) {
   const { t, actions } = controller;
+  const triggersOn = (controller.settings as any)?.profileTriggersEnabled === true;
   const exportPath = joinDownloads(`profile-${profile.name}.json`.replace(/\s+/g, "-").toLowerCase());
   const onClick = () => showContextMenu(
     <Menu label={profile.name}>
@@ -43,7 +44,7 @@ function ProfileActionsButton({ controller, profile }: { controller: SettingsCon
       <MenuItem onSelected={() => (actions as any).updateProfileSnapshot?.(profile.id)}>{t("settings_profiles_update" as any)}</MenuItem>
       <MenuItem onSelected={() => (actions as any).duplicateProfile?.(profile.id)}>{t("settings_profiles_duplicate" as any)}</MenuItem>
       <MenuItem onSelected={() => openManagedModal((close) => <RenameProfileModal closeModal={close} controller={controller} profileId={profile.id} currentName={profile.name} />)}>{t("settings_profiles_rename" as any)}</MenuItem>
-      <MenuItem onSelected={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}>{t("settings_profiles_set_trigger" as any)}</MenuItem>
+      {triggersOn && <MenuItem onSelected={() => openManagedModal((close) => <SetProfileTriggerModal closeModal={close} controller={controller} profileId={profile.id} currentTrigger={profile.trigger} />)}>{t("settings_profiles_set_trigger" as any)}</MenuItem>}
       <MenuItem onSelected={() => (actions as any).toggleProfileHidden?.(profile.id)}>{profile.hidden ? t("qam_show" as any) : t("qam_hide" as any)}</MenuItem>
       <MenuItem onSelected={() => (actions as any).exportProfiles?.(exportPath, profile.id)}>{t("settings_profiles_export" as any)}</MenuItem>
       <MenuItem onSelected={() => confirmAction({

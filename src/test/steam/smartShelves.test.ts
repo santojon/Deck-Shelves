@@ -398,6 +398,15 @@ describe('evalVisibilityRules', () => {
     const v = { mode: 'all' as const, rules: [{ kind: 'someFutureKind', foo: 1 }] }
     expect(evalVisibilityRules(v, MON(3))).toBe(true)
   })
+
+  it('not:true inverts a rule (inverse trigger)', () => {
+    const tw = { mode: 'any' as const, rules: [{ kind: 'timeWindow', start: 9, end: 17, not: true }] }
+    expect(evalVisibilityRules(tw, MON(12))).toBe(false) // midday IS in window → inverted
+    expect(evalVisibilityRules(tw, MON(20))).toBe(true)  // evening is NOT → inverted
+    const dow = { mode: 'any' as const, rules: [{ kind: 'dayOfWeek', days: [1], not: true }] }
+    expect(evalVisibilityRules(dow, MON(12))).toBe(false) // Monday matches → inverted
+    expect(evalVisibilityRules(dow, SUN(12))).toBe(true)  // Sunday doesn't → inverted
+  })
 })
 
 describe('evalVisibility (routing)', () => {

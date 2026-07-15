@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ConfirmModal, Field } from '../../../runtime/host/decky'
+import { ConfirmModal, Field, Focusable } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import { ModalShell } from '../../ui'
 import { VisibilityRulesEditor } from './editShelf/VisibilityRulesEditor'
@@ -33,8 +33,10 @@ export function SetProfileTriggerModal({ closeModal, controller, profileId, curr
         onEscKeypress={closeModal}
         onOK={handleOK}
       >
-        <Field description={t('profile_trigger_modal_desc' as any)} bottomSeparator="none" />
-        <VisibilityRulesEditor value={trigger} onChange={setTrigger} t={t as any} />
+        <Focusable onMenuButton={handleOK} onMenuActionDescription={t('save')} style={{ paddingBottom: 8 }}>
+          <Field description={t('profile_trigger_modal_desc' as any)} bottomSeparator="none" />
+          <VisibilityRulesEditor value={trigger} onChange={setTrigger} t={t as any} idPrefix="trig" />
+        </Focusable>
       </ConfirmModal>
     </ModalShell>
   )

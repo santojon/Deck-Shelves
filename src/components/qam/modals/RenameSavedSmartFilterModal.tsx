@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ConfirmModal, Field, TextField } from '../../../runtime/host/decky'
+import { ConfirmModal, Field, TextField, Focusable } from '../../../runtime/host/decky'
 import type { SettingsController } from '../../../features/settings/controller'
 import type { SavedSmartFilter } from '../../../types'
 import { ModalShell } from '../../ui'
@@ -26,9 +26,11 @@ export function RenameSavedSmartFilterModal({ closeModal, controller, savedSmart
         onEscKeypress={closeModal}
         onOK={handleOK}
       >
-        <Field label={t('title')}>
-          <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
-        </Field>
+        <Focusable onMenuButton={handleOK} onMenuActionDescription={t('save')}>
+          <Field label={t('title')}>
+            <TextField value={name} onChange={(value: unknown) => setName(textFromDeckyChange(value))} />
+          </Field>
+        </Focusable>
       </ConfirmModal>
     </ModalShell>
   )

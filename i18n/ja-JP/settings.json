@@ -1073,5 +1073,18 @@
   "visibility_rule_offline": "オフライン",
   "visibility_rule_resolution": "解像度",
   "visibility_battery_below": "バッテリー残量（未満）",
-  "visibility_resolution_min": "最小解像度"
+  "visibility_resolution_min": "最小解像度",
+  "visibility_cat_time": "時刻と日付",
+  "visibility_cat_session": "セッション",
+  "visibility_cat_power": "電源",
+  "visibility_cat_display": "ディスプレイ",
+  "visibility_cat_perf": "パフォーマンス",
+  "visibility_rule_gameRunning_not": "ゲーム未実行",
+  "visibility_rule_charging_not": "充電していない",
+  "visibility_rule_offline_not": "オンライン",
+  "visibility_rule_externalDisplay_not": "外部ディスプレイなし",
+  "visibility_rule_ultrawide_not": "ウルトラワイドでない",
+  "visibility_cat_connectivity": "接続",
+  "visibility_inverse_pair": "どちらか一方",
+  "profile_trigger_deactivated": "プロファイル無効化: {{name}}"
 }

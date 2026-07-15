@@ -1073,5 +1073,18 @@
   "visibility_rule_offline": "Çevrimdışı",
   "visibility_rule_resolution": "Çözünürlük",
   "visibility_battery_below": "Pil şunun altında",
-  "visibility_resolution_min": "Minimum çözünürlük"
+  "visibility_resolution_min": "Minimum çözünürlük",
+  "visibility_cat_time": "Saat ve tarih",
+  "visibility_cat_session": "Oturum",
+  "visibility_cat_power": "Güç",
+  "visibility_cat_display": "Ekran",
+  "visibility_cat_perf": "Performans",
+  "visibility_rule_gameRunning_not": "Oyun çalışmıyor",
+  "visibility_rule_charging_not": "Şarj olmuyor",
+  "visibility_rule_offline_not": "Çevrimiçi",
+  "visibility_rule_externalDisplay_not": "Harici ekran yok",
+  "visibility_rule_ultrawide_not": "Ultrawide değil",
+  "visibility_cat_connectivity": "Bağlantı",
+  "visibility_inverse_pair": "Biri veya diğeri",
+  "profile_trigger_deactivated": "Profil devre dışı: {{name}}"
 }

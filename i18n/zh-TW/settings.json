@@ -1073,5 +1073,18 @@
   "visibility_rule_offline": "離線",
   "visibility_rule_resolution": "解析度",
   "visibility_battery_below": "電量低於",
-  "visibility_resolution_min": "最低解析度"
+  "visibility_resolution_min": "最低解析度",
+  "visibility_cat_time": "時間與日期",
+  "visibility_cat_session": "工作階段",
+  "visibility_cat_power": "電源",
+  "visibility_cat_display": "顯示",
+  "visibility_cat_perf": "效能",
+  "visibility_rule_gameRunning_not": "無遊戲執行",
+  "visibility_rule_charging_not": "未充電",
+  "visibility_rule_offline_not": "線上",
+  "visibility_rule_externalDisplay_not": "無外接顯示器",
+  "visibility_rule_ultrawide_not": "非超寬",
+  "visibility_cat_connectivity": "連線",
+  "visibility_inverse_pair": "二選一",
+  "profile_trigger_deactivated": "設定檔已停用：{{name}}"
 }

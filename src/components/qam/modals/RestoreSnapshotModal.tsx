@@ -18,7 +18,7 @@ export function RestoreSnapshotModal({ closeModal, snapshots }: {
   const restore = (name: string) => {
     closeModal?.()
     void restoreBackup(name).then((next) => {
-      if (next) notifyUser('Deck Shelves', tr('snapshot_recovery_restored', 'Snapshot restored — reopen settings'))
+      if (next) notifyUser('Deck Shelves', tr('snapshot_recovery_restored', 'Snapshot restored — reopen settings'), 'success')
     })
   }
   return (
