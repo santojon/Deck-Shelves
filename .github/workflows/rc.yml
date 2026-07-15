@@ -1,4 +1,4 @@
-name: RC → Store Submission
+name: "Release · RC → Store"
 
 # Fires only AFTER the Release workflow completes successfully. The chain
 # guarantees that the version bump + tag + GitHub Release are all in place

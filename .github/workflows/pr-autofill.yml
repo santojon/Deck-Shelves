@@ -1,4 +1,4 @@
-name: PR Autofill
+name: "PR · Autofill"
 
 # Fills the PR body's Changelog / Release Notes sections from the PR branch's
 # `## [Unreleased]` entries in CHANGELOG.md and RELEASE_NOTES.md.

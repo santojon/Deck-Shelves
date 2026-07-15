@@ -1,4 +1,4 @@
-name: Version Bump
+name: "Release · Version Bump"
 
 on:
   pull_request:
@@ -35,15 +35,18 @@ jobs:
         startsWith(github.event.pull_request.title, '[CLEANUP]') ||
         startsWith(github.event.pull_request.title, '[FEATURE]')))
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
           token: ${{ secrets.SUBMIT_TOKEN || github.token }}
 
-      - uses: pnpm/action-setup@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm

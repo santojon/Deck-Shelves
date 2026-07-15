@@ -1,4 +1,4 @@
-name: Enforce Repo Merge Settings
+name: "Ops · Enforce repo settings"
 
 on:
   workflow_dispatch:

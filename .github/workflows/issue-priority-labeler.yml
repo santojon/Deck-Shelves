@@ -1,4 +1,4 @@
-name: Auto-priority labels for issues
+name: "Triage · Label priority"
 
 on:
   issues:
@@ -12,12 +12,14 @@ jobs:
   label:
     runs-on: ubuntu-latest
     steps:
-      - name: Compute + apply priority label
+      - name: Compute priority
+        id: compute
         uses: actions/github-script@v7
         with:
+          result-encoding: string
           script: |
             const issue = context.payload.issue;
-            if (!issue) return;
+            if (!issue) return "";
             const labels = (issue.labels ?? []).map(l => (l.name || "").toLowerCase());
             const has = (...names) => names.some(n => labels.includes(n.toLowerCase()));
 
@@ -29,7 +31,7 @@ jobs:
             // rest of its life.
             const existingPrio = labels.find(l => /^priority::/.test(l)) || null;
             const allowReeval = existingPrio === "priority::low";
-            if (existingPrio && !allowReeval) return;
+            if (existingPrio && !allowReeval) return "";
 
             // Inline title/body fallback for OS / mode signals. The
             // OS labeler runs in parallel with this workflow on `opened`,
@@ -81,11 +83,22 @@ jobs:
               priority = "priority::low";
             }
 
-            if (!priority || priority === existingPrio) return;
+            if (!priority || priority === existingPrio) return "";
+            // Signal whether the auto-low must be removed first so the issue
+            // never carries two priority buckets.
+            const removeLow = existingPrio === "priority::low" && priority !== "priority::low";
+            return JSON.stringify({ priority, removeLow });
 
-            // When upgrading from auto-low, remove the old label first so
-            // the issue doesn't end up tagged with both buckets.
-            if (existingPrio === "priority::low" && priority !== "priority::low") {
+      - name: Apply priority label
+        if: steps.compute.outputs.result != ''
+        uses: actions/github-script@v7
+        env:
+          RESULT: ${{ steps.compute.outputs.result }}
+        with:
+          script: |
+            const { priority, removeLow } = JSON.parse(process.env.RESULT);
+            const issue = context.payload.issue;
+            if (removeLow) {
               try {
                 await github.rest.issues.removeLabel({
                   owner: context.repo.owner,
@@ -97,7 +110,6 @@ jobs:
                 core.warning(`removeLabel(priority::low) failed: ${e?.message ?? e}`);
               }
             }
-
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,

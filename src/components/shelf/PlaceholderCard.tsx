@@ -5,7 +5,7 @@ import i18n from "../../i18n";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
 import { type DeckRowItem, CARD_W, CARD_ART_H } from "./types";
 import { getCachedCardRadius } from "./shelfStyles";
-import { resolveNativeCardClass, retryWithIntervals } from "./cardUtils";
+import { resolveNativeCardClass, retryWithIntervals, applyNativeAfterAnimation } from "./cardUtils";
 import { toggleCardHighlight } from "./GameCard";
 
 export function PlaceholderCard({
@@ -38,9 +38,11 @@ export function PlaceholderCard({
 
   useEffect(() => {
     return retryWithIntervals(() => {
-      const cls = resolveNativeCardClass(getPreferredSteamDocument());
+      const doc = getPreferredSteamDocument();
+      const cls = resolveNativeCardClass(doc);
       if (cls === null) return false;
       setNativeCardClass(cls);
+      applyNativeAfterAnimation(doc, cardRef.current);
       return true;
     }, [250, 500, 800, 1200]);
   }, []);

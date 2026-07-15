@@ -53,6 +53,28 @@ export function resolveNativeCardClass(doc: Document | null): string | null {
   return Array.from(out).join(' ');
 }
 
+function findNativeCardSample(doc: Document | null): HTMLElement | null {
+  const map = doc ? getRuntimeClassMap(doc) : null;
+  if (!map?.nativeCard) return null;
+  const sel = buildSelectorFromToken(map.nativeCard);
+  return sel ? (doc?.querySelector(`${sel}:not(.ds-card)`) as HTMLElement | null) : null;
+}
+
+/* Copy the native card's ::after animation-name onto a DS card so the theme's
+   focus-glow pseudo-element animation replays on the DS card too. Best-effort;
+   used by cards that don't run GameCard's fuller native-class injection (e.g.
+   PlaceholderCard, which serves unowned store / wishlist covers whose local art
+   404s). */
+export function applyNativeAfterAnimation(doc: Document | null, target: HTMLElement | null): void {
+  if (!target) return;
+  try {
+    const sample = findNativeCardSample(doc);
+    if (!sample) return;
+    const animName = (getComputedStyle(sample, '::after').animationName || '').split(',')[0] || '';
+    if (animName && animName !== 'none') target.style.setProperty('--ds-native-after-animation', animName);
+  } catch {}
+}
+
 export function retryWithIntervals(fn: () => boolean, intervals: number[]): () => void {
   let attempts = 0;
   let timer: number | null = null;

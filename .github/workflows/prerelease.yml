@@ -1,4 +1,4 @@
-name: Pre-release
+name: "Release · Pre-release"
 
 # Cut an alpha/beta/rc pre-release from the current branch HEAD with a single
 # manual run — no tags to create by hand, no version committed to the repo.

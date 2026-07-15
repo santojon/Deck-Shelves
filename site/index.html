@@ -95,7 +95,7 @@
 
   <a id="top"></a>
 
-  <!-- FRESH-RELEASE CTA (shown by JS only when the latest release is <= 3 days old) -->
+  <!-- FRESH-RELEASE CTA (shown by JS only when the latest release is <= 7 days old) -->
   <section class="block" style="padding-top:14px;padding-bottom:0;margin-bottom:-34px" data-fresh-cta hidden>
     <div class="container">
       <div class="cta cta-top">
@@ -488,13 +488,13 @@
 
   <script>
     (function () {
-      // Fresh-release CTA: reveal only when the latest release is <= 3 days old.
+      // Fresh-release CTA: reveal only when the latest release is <= 7 days old.
       var freshCta = document.querySelector('[data-fresh-cta]');
       var rnDate = document.querySelector('[data-rn-date]');
       var rnVer = document.querySelector('[data-rn-version]');
       if (freshCta && rnDate) {
         var rd = new Date(rnDate.textContent.trim());
-        if (!isNaN(rd.getTime()) && (Date.now() - rd.getTime()) <= 3 * 86400000) {
+        if (!isNaN(rd.getTime()) && (Date.now() - rd.getTime()) <= 7 * 24 * 60 * 60 * 1000) {
           var ver = rnVer ? rnVer.textContent.trim() : '';
           // The version node is build-time content, but hard-validate it before
           // it flows into the download URL: only a plain vX.Y.Z(-suffix) string

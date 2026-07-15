@@ -94,17 +94,45 @@ function restoreRecentsByLabelSearch(): void {
     const { doc } = getHostContext();
     for (const el of Array.from(doc.querySelectorAll<HTMLElement>('*'))) {
       if (!elMatchesRecentsLabel(el)) continue;
-      try { el.style.visibility = ''; el.style.height = ''; el.style.overflow = ''; } catch {}
+      try { for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) el.style.removeProperty(p); } catch {}
     }
   } catch (e) { logInfo("HOME", "applyHideRecents: fallback restore failed", String(e)); }
+}
+
+/* Collapsed recents keeps its DOM (visibility:hidden + height:0, not
+   display:none) so recents-replace can repurpose it and the hero-bleed math
+   stays intact — but GamepadUI's nav tree ignores CSS visibility, so dpad-up
+   from the first DS shelf still lands on the hidden 0-height row (reads as a
+   black screen). Drop its focusables from the nav tree like the home-tabs hide. */
+function applyRecentsFocusSuppression(hidden: boolean): void {
+  if (!cachedRecentsEl) return;
+  const focusables = cachedRecentsEl.querySelectorAll<HTMLElement>('[tabindex], button, a, input, [role="button"], .Focusable');
+  for (const f of Array.from(focusables)) setFocusableTabindex(f, hidden);
+}
+
+/* Collapse styles set with `!important`: some CSS Loader themes force the
+   recents Panel's height (e.g. height/min-height with their own !important),
+   which beats a plain inline `height:0` — leaving a full-viewport invisible
+   block that reads as a black screen when dpad-up scrolls into it. Inline
+   !important wins the cascade; clear every prop on restore. */
+function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
+  const s = el.style;
+  if (hidden) {
+    s.setProperty("visibility", "hidden", "important");
+    s.setProperty("height", "0px", "important");
+    s.setProperty("min-height", "0px", "important");
+    s.setProperty("max-height", "0px", "important");
+    s.setProperty("overflow", "hidden", "important");
+  } else {
+    for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) s.removeProperty(p);
+  }
 }
 
 function applyRecentsCollapse(hidden: boolean): void {
   if (!cachedRecentsEl) return;
   try {
-    cachedRecentsEl.style.visibility = hidden ? "hidden" : "";
-    cachedRecentsEl.style.height     = hidden ? "0px" : "";
-    cachedRecentsEl.style.overflow   = hidden ? "hidden" : "";
+    setRecentsCollapsedStyle(cachedRecentsEl, hidden);
+    applyRecentsFocusSuppression(hidden);
   } catch (e) { logInfo("HOME", "applyHideRecents: style set failed", String(e)); }
 }
 
@@ -546,9 +574,8 @@ function clearMountFailureIfRecovered(): void {
 
 function applyPendingRecentsToFoundEl(mount: HTMLElement): void {
   try {
-    cachedRecentsEl!.style.visibility = pendingHideRecents ? "hidden" : "";
-    cachedRecentsEl!.style.height = pendingHideRecents ? "0px" : "";
-    cachedRecentsEl!.style.overflow = pendingHideRecents ? "hidden" : "";
+    setRecentsCollapsedStyle(cachedRecentsEl!, pendingHideRecents);
+    applyRecentsFocusSuppression(pendingHideRecents);
   } catch (e) { logInfo("HOME", "ensureMount: recents hide failed", String(e)); }
   try { mount.style.setProperty("margin-top", pendingHideRecents ? "56px" : "", "important"); }
   catch (e) { logInfo("HOME", "ensureMount: margin-top failed", String(e)); }

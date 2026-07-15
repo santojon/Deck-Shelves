@@ -1,4 +1,4 @@
-name: Auto-label issues by OS
+name: "Triage · Label OS/mode"
 
 on:
   issues:
@@ -12,7 +12,8 @@ jobs:
   label:
     runs-on: ubuntu-latest
     steps:
-      - name: Tag OS labels from issue title + body
+      - name: Detect OS/mode labels
+        id: detect
         uses: actions/github-script@v7
         with:
           script: |
@@ -88,15 +89,21 @@ jobs:
               }
             }
 
-            if (toAdd.size === 0) return;
+            if (toAdd.size === 0) return [];
 
             const current = (context.payload.issue.labels ?? []).map(l => l.name);
-            const missing = [...toAdd].filter(l => !current.includes(l));
-            if (missing.length === 0) return;
+            return [...toAdd].filter(l => !current.includes(l));
 
+      - name: Apply labels
+        if: steps.detect.outputs.result != '[]'
+        uses: actions/github-script@v7
+        env:
+          LABELS: ${{ steps.detect.outputs.result }}
+        with:
+          script: |
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.issue.number,
-              labels: missing,
+              labels: JSON.parse(process.env.LABELS),
             });

@@ -27,6 +27,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **The first shelf no longer sticks to the very top of the screen when you hide the native recents.** It now keeps the same top spacing the native recents row had, instead of gluing its title to the top edge.
 - **The price-range filter now works for the store games you don't own.** A store or wishlist price shelf is meant to show games you can buy — but it used to list **every** unowned game regardless of price, including free-to-play ones. Games you don't own now appear only when their real price falls in your chosen range, so the shelf stays a proper buy-list and free titles no longer show up in a paid range.
 - **Fixed a recurring stutter on the home.** Every ~30 seconds the interface could freeze for a couple of seconds — sometimes swallowing a button press so navigation felt stuck on a shelf. Deck Shelves now reuses the parsed price data instead of re-reading it for every game, so the home stays smooth.
 - **Profile auto-switch triggers now work on the home**, not only while the settings panel is open.

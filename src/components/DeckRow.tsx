@@ -743,6 +743,12 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
                transition. */
             scrollBehavior: "smooth",
             padding: `16px 0 ${_labelOverhangPx({ hideStatusLine, hideGameNames, enableIcon, enableDescription, descriptionBelowLogo })}px 2.8vw`,
+            /* Full-page shelves anchor this row to the shelf bottom (flex-end),
+               which put the card's below-art label under Steam's ~40px bottom
+               hint bar. Lift the row clear of it; margin (not padding) keeps the
+               hero full-height, and the row still drops back as the label band
+               (padding-bottom above) shrinks when those items are hidden. */
+            marginBottom: fullPageLayoutActive ? 48 : undefined,
           }}
           {...flowChildrenProps("horizontal")}
         >

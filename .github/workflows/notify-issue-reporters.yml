@@ -1,4 +1,4 @@
-name: Notify Issue Reporters
+name: "Release · Notify issue reporters"
 
 # Posts a comment on every issue referenced by the PRs included in a newly
 # published release, pinging the original reporter so they can verify whether
@@ -86,6 +86,11 @@ jobs:
           else
             echo "Previous release tag: $PREV"
             echo "prev_tag=$PREV" >> "$GITHUB_OUTPUT"
+            # Publish time of the previous release — the lower bound of this
+            # release's cycle. Used downstream to drop stale "Closes #N"
+            # references to issues that were already closed in an earlier cycle.
+            PREV_PUB=$(gh api "repos/$REPO/releases/tags/$PREV" --jq '.published_at // empty' 2>/dev/null || true)
+            echo "prev_published=$PREV_PUB" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Collect merged PRs included in this release
@@ -136,6 +141,7 @@ jobs:
           URL: ${{ steps.rel.outputs.url }}
           NAME: ${{ steps.rel.outputs.name }}
           PR_LIST: ${{ steps.prs.outputs.list }}
+          PREV_PUBLISHED: ${{ steps.prev.outputs.prev_published }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -155,6 +161,12 @@ jobs:
           for pr in $PR_LIST; do
             BODY=$(gh pr view "$pr" --repo "$REPO" --json body --jq '.body' 2>/dev/null || true)
             if [ -z "$BODY" ]; then continue; fi
+            # Strip HTML comments (<!-- ... -->, possibly multi-line) BEFORE
+            # scanning. The PR template ships an example reference inside a
+            # comment ("<!-- Example: Closes #42 -->"); authors routinely leave
+            # it in, and a raw scan would treat that placeholder as a real
+            # reference and re-ping #42 on every release.
+            BODY=$(printf '%s' "$BODY" | perl -0777 -pe 's/<!--.*?-->//gs')
             # Extract the issue numbers, normalize, dedupe per release.
             ISSUES=$(printf '%s' "$BODY" \
               | grep -oiE '(close[ds]?|fix(e[ds])?|resolve[ds]?|ref[s]?|related to)[: ]+#[0-9]+' \
@@ -181,6 +193,20 @@ jobs:
               REPORTER=$(echo "$ISSUE_JSON" | jq -r '.user.login // empty')
               if [ -z "$REPORTER" ]; then
                 echo "Issue #$issue: no reporter — skipping."
+                continue
+              fi
+
+              # Drop stale references. Authors routinely carry a "Closes #N" line
+              # in later PR bodies long after #N shipped, so an issue closed in an
+              # EARLIER release keeps getting re-pinged by every subsequent one.
+              # An issue closed before this release's cycle began (i.e. before the
+              # previous release was published) was not fixed by THIS release —
+              # skip it. Open issues, and issues closed within this cycle (the
+              # release that actually shipped the fix), are still notified.
+              STATE=$(echo "$ISSUE_JSON" | jq -r '.state // empty')
+              CLOSED_AT=$(echo "$ISSUE_JSON" | jq -r '.closed_at // empty')
+              if [ "$STATE" = "closed" ] && [ -n "$PREV_PUBLISHED" ] && [ -n "$CLOSED_AT" ] && [[ "$CLOSED_AT" < "$PREV_PUBLISHED" ]]; then
+                echo "Issue #$issue: closed $CLOSED_AT, before this cycle ($PREV_PUBLISHED) — stale reference, skipping."
                 continue
               fi
 

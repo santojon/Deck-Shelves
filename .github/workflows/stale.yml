@@ -1,4 +1,4 @@
-name: Stale Issues
+name: "Triage · Stale issues"
 
 # Phase 2 — acts on issues per the agreed tiered policy. Three buckets, run
 # one at a time over a shared `stale` label; the buckets are kept disjoint by

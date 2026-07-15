@@ -1,4 +1,4 @@
-name: Auto-label PRs
+name: "PR · Auto-label"
 
 on:
   pull_request_target:
@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false || github.event.action == 'ready_for_review'
     steps:
-      - name: Apply type + area labels
+      - name: Detect type + area labels
+        id: detect
         uses: actions/github-script@v7
         with:
           script: |
@@ -77,9 +78,18 @@ jobs:
             if (titleType) wanted.add(titleType);
 
             const current = (pr.labels ?? []).map(l => l.name);
-            const missing = [...wanted].filter(l => !current.includes(l));
-            if (missing.length === 0) return;
+            return [...wanted].filter(l => !current.includes(l));
 
+      - name: Apply PR labels
+        if: steps.detect.outputs.result != '[]'
+        uses: actions/github-script@v7
+        env:
+          LABELS: ${{ steps.detect.outputs.result }}
+        with:
+          script: |
             await github.rest.issues.addLabels({
-              owner, repo, issue_number: num, labels: missing,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: JSON.parse(process.env.LABELS),
             });

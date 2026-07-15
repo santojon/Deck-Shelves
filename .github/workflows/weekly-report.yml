@@ -1,4 +1,4 @@
-name: Weekly CI Report
+name: "Ops · Weekly CI report"
 
 # Runs the full CI report once a week so the repo always has a recent
 # baseline showing typecheck / build / tests / package / compat — useful

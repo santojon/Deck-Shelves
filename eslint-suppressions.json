@@ -3,12 +3,6 @@
     "@typescript-eslint/no-floating-promises": {
       "count": 1
     },
-    "@typescript-eslint/no-misused-promises": {
-      "count": 2
-    },
-    "complexity": {
-      "count": 6
-    },
     "react-hooks/rules-of-hooks": {
       "count": 3
     }
@@ -78,14 +72,6 @@
     },
     "complexity": {
       "count": 4
-    }
-  },
-  "src/components/qam/modals/EditSmartShelfModal.tsx": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 3
-    },
-    "complexity": {
-      "count": 3
     }
   },
   "src/components/qam/modals/ExportAndClearModal.tsx": {

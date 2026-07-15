@@ -12,12 +12,11 @@ import {
   type SingleDropdownOption,
 } from '../../../runtime/host/decky'
 import { flowChildrenProps } from '../../../core/steamOSVersion'
-import { SPARE_TIME_WINDOWS, TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } from '../../../steam/smartShelves'
+import { TIME_OF_DAY_WINDOWS, invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import type { SettingsController } from '../../../features/settings/controller'
-import type { FilterGroup, SmartShelf, SmartShelfMode } from '../../../types'
+import type { SmartShelf, SmartShelfMode } from '../../../types'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
-import { logInfo } from '../../../runtime/logger'
 import { resolveShelfAppIds, invalidateRandomSortCache } from '../../../steam'
 import { isNonSteamBadgesAvailable } from '../../../integrations'
 import { usePlatform } from '../../../runtime/platformContext'
@@ -38,11 +37,9 @@ import { SavedFiltersBar } from './editShelf/SavedFiltersBar'
 import { SavedSmartFiltersBar } from './editShelf/SavedSmartFiltersBar'
 import { textFromDeckyChange } from './modalUtils'
 import { SMART_PARAM_DEFAULTS, SMART_PARAM_META, paramKeysForMode, DEFAULT_SORT_FOR_MODE } from '../../../steam/smartParams'
+import { buildInitialSmartState, DEFAULT_REFRESH_MINUTES, type EditState } from './editShelf/buildSmartInitialState'
+import { persistSmartShelf } from './editShelf/buildSmartSavePatch'
 
-// Effective TTL when `refreshIntervalMinutes` is unset on a shelf — must
-// match `DEFAULT_SMART_TTL_MS` in `src/steam/smartShelves.ts`. Used to
-// pre-fill the edit field so users see the actual current cadence.
-const DEFAULT_REFRESH_MINUTES = 60
 
 /* Ordered list of every internal smart-shelf mode, used by the Source-tab
    mode dropdown + the composite-mixing picker. Order mirrors the catalogue
@@ -63,175 +60,21 @@ const SMART_MODE_OPTIONS: SmartShelfMode[] = [
 
 type Tab = 'source' | 'smart_filters' | 'overrides' | 'filters' | 'visual' | 'display'
 
-type EditState = {
-  title: string
-  mode: SmartShelfMode
-  compositeModes: SmartShelfMode[]
-  compositeCombine: 'union' | 'intersection'
-  limit: number
-  sort: string | string[]
-  sortReverse: boolean | boolean[]
-  manualBaseSort: string
-  manualBaseSortReverse: boolean
-  manualOrder: number[]
-  filterGroup: FilterGroup
-  matchNativeSize: boolean
-  highlightFirst: boolean
-  highlightAll: boolean
-  highlightRandom: boolean
-  enableLogo: boolean
-  enableIcon: boolean
-  enableDescription: boolean
-  descriptionScale: number
-  descriptionBelowLogo: boolean
-  logoPosition: 'left' | 'center' | 'right'
-  descriptionPosition: 'left' | 'center' | 'right'
-  logoSize: number
-  logoTopOffset: number
-  iconVerticalAlign: 'top' | 'center' | 'bottom'
-  shelfTitlePosition: 'left' | 'center' | 'right'
-  gameNamePosition: 'left' | 'center' | 'right'
-  playtimePosition: 'left' | 'center' | 'right'
-  descriptionHeight: number
-  descriptionLogoGap: number
-  fullPageShelf: boolean
-  highlightedAppIds: number[]
-  hideStatusLine: boolean
-  hideNewBadge: boolean
-  hideDiscountBadge: boolean
-  hideCompatIcons: boolean
-  hideNonSteamBadge: boolean
-  hideShelfTitle: boolean
-  hideGameNames: boolean
-  hideInstallIndicator: boolean
-  hideSeeMore: boolean
-  hideRefreshCard: boolean
-  heroEnabled: boolean
-  gameInfoAbove: boolean
-  friendsPlayingOverlay: boolean
-  friendsPlayingOverlayRecent: boolean
-  dedupeByExactName: boolean
-  hiddenAppIds: number[]
-  refreshIntervalMinutes: number
-  smartParams: Record<string, number>
-  visibleHoursEnabled: boolean
-  defaultHours: Array<{ start: number; end: number }>
-  dayOverrides: Record<string, Array<{ start: number; end: number }>>
-  visibleDaysOfWeek: number[]
-  allowDayOverrides: boolean
-  visibility: any
-  autoPin: any
-  autoCollapse: any
-  autoCollapseWhenEmpty: boolean
+// First element of a multi-key value (or the scalar itself), falling back
+// when absent — used when applying a saved smart filter whose sort fields
+// may be single or multi-key.
+function firstOr<T>(v: T | T[] | undefined, fallback: T): T {
+  return ((Array.isArray(v) ? v[0] : v) ?? fallback)
 }
+
+
 
 export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edit' }: { closeModal?: () => void; controller: SettingsController; shelf: SmartShelf; mode?: 'create' | 'edit' }) {
   const { t, actions } = controller
   const platform = usePlatform()
   const hasNonSteamBadges = useMemo(() => isNonSteamBadgesAvailable(), [])
   const [activeTab, setActiveTab] = useState<Tab>('source')
-  const [state, setState] = useState<EditState>({
-    title: shelf.title,
-    mode: shelf.mode,
-    compositeModes: Array.isArray((shelf as any).compositeModes) ? (shelf as any).compositeModes : [],
-    compositeCombine: (shelf as any).compositeCombine === 'intersection' ? 'intersection' : 'union',
-    limit: shelf.limit ?? 20,
-    sort: (shelf as any).sort ?? DEFAULT_SORT_FOR_MODE[shelf.mode] ?? 'alphabetical',
-    sortReverse: (shelf as any).sortReverse ?? false,
-    manualBaseSort: (shelf as any).manualBaseSort ?? 'alphabetical',
-    manualBaseSortReverse: (shelf as any).manualBaseSortReverse ?? false,
-    manualOrder: (shelf as any).manualOrder ?? [],
-    filterGroup: (shelf as any).filterGroup ?? { mode: 'and', items: [] },
-    matchNativeSize: (shelf as any).matchNativeSize ?? false,
-    highlightFirst: (shelf as any).highlightFirst ?? false,
-    highlightAll: (shelf as any).highlightAll ?? false,
-    highlightRandom: (shelf as any).highlightRandom ?? false,
-    enableLogo: (shelf as any).enableLogo === true,
-    enableIcon: (shelf as any).enableIcon === true,
-    enableDescription: (shelf as any).enableDescription === true,
-    descriptionScale: typeof (shelf as any).descriptionScale === 'number' ? (shelf as any).descriptionScale : 100,
-    descriptionBelowLogo: (shelf as any).descriptionBelowLogo === true,
-    logoPosition: ((shelf as any).logoPosition === 'center' || (shelf as any).logoPosition === 'right') ? (shelf as any).logoPosition : 'left',
-    descriptionPosition: ((shelf as any).descriptionPosition === 'center' || (shelf as any).descriptionPosition === 'right') ? (shelf as any).descriptionPosition : 'left',
-    logoSize: typeof (shelf as any).logoSize === 'number' ? Math.max(50, Math.min(200, (shelf as any).logoSize)) : 100,
-    logoTopOffset: typeof (shelf as any).logoTopOffset === 'number' ? Math.max(0, Math.min(100, (shelf as any).logoTopOffset)) : 20,
-    iconVerticalAlign: ((shelf as any).iconVerticalAlign === 'center' || (shelf as any).iconVerticalAlign === 'bottom') ? (shelf as any).iconVerticalAlign : 'top',
-    shelfTitlePosition: ((shelf as any).shelfTitlePosition === 'center' || (shelf as any).shelfTitlePosition === 'right') ? (shelf as any).shelfTitlePosition : 'left',
-    gameNamePosition: ((shelf as any).gameNamePosition === 'center' || (shelf as any).gameNamePosition === 'right') ? (shelf as any).gameNamePosition : 'left',
-    playtimePosition: ((shelf as any).playtimePosition === 'center' || (shelf as any).playtimePosition === 'right') ? (shelf as any).playtimePosition : 'left',
-    descriptionHeight: typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2,
-    descriptionLogoGap: typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 10,
-    fullPageShelf: (shelf as any).fullPageShelf === true,
-    highlightedAppIds: (shelf as any).highlightedAppIds ?? [],
-    hideStatusLine: (shelf as any).hideStatusLine ?? false,
-    hideNewBadge: (shelf as any).hideNewBadge ?? false,
-    hideDiscountBadge: (shelf as any).hideDiscountBadge ?? false,
-    hideCompatIcons: (shelf as any).hideCompatIcons ?? false,
-    hideNonSteamBadge: (shelf as any).hideNonSteamBadge ?? false,
-    hideShelfTitle: (shelf as any).hideShelfTitle ?? false,
-    hideGameNames: (shelf as any).hideGameNames ?? false,
-    hideInstallIndicator: (shelf as any).hideInstallIndicator ?? false,
-    hideSeeMore: (shelf as any).hideSeeMore ?? false,
-    hideRefreshCard: (shelf as any).hideRefreshCard ?? false,
-    heroEnabled: (shelf as any).heroEnabled ?? false,
-    gameInfoAbove: (shelf as any).gameInfoAbove ?? false,
-    friendsPlayingOverlay: (shelf as any).friendsPlayingOverlay ?? false,
-    friendsPlayingOverlayRecent: (shelf as any).friendsPlayingOverlayRecent ?? false,
-    dedupeByExactName: (shelf as any).dedupeByExactName ?? false,
-    hiddenAppIds: (shelf as any).hiddenAppIds ?? [],
-    refreshIntervalMinutes: (shelf as any).refreshIntervalMinutes ?? DEFAULT_REFRESH_MINUTES,
-    smartParams: { ...(SMART_PARAM_DEFAULTS[shelf.mode] ?? {}), ...((shelf as any).smartParams ?? {}) },
-    visibleHoursEnabled: (() => {
-      const v = (shelf as any).visibleHours
-      const has = Array.isArray(v) ? v.length > 0 : !!v
-      // For modes whose resolver applies hardcoded windows internally,
-      // default the toggle to ON so the user sees the constraint reflected.
-      if (!has && shelf.mode === 'spare_time') return true
-      return has
-    })(),
-    defaultHours: (() => {
-      const v = (shelf as any).visibleHours
-      if (Array.isArray(v) && v.length > 0) {
-        const defaults = v.filter((r: any) => !Array.isArray(r.days) || r.days.length === 0).map((r: any) => ({ start: Number(r.start) || 0, end: Number(r.end) || 0 }))
-        if (defaults.length > 0) return defaults
-      }
-      if (shelf.mode === 'spare_time') return SPARE_TIME_WINDOWS.map((r) => ({ ...r }))
-      return [{ start: 9, end: 17 }]
-    })(),
-    dayOverrides: (() => {
-      const v = (shelf as any).visibleHours
-      if (!Array.isArray(v)) return {}
-      const out: Record<string, Array<{ start: number; end: number }>> = {}
-      for (const r of v) {
-        if (Array.isArray(r.days) && r.days.length > 0) {
-          for (const day of r.days) {
-            const k = String(day)
-            if (!out[k]) out[k] = []
-            out[k].push({ start: Number(r.start) || 0, end: Number(r.end) || 0 })
-          }
-        }
-      }
-      return out
-    })(),
-    visibleDaysOfWeek: (() => {
-      const v = (shelf as any).visibleDaysOfWeek
-      if (Array.isArray(v)) return v.slice()
-      /* Undefined = no day restriction in the persisted model. Surface this
-         in the UI as "all 7 marked" so the user starts from the everyday case
-         and unchecks specific days. The save handler converts a fully-checked
-         selection back into `undefined` so storage stays minimal. */
-      return [0, 1, 2, 3, 4, 5, 6]
-    })(),
-    allowDayOverrides: (() => {
-      const v = (shelf as any).visibleHours
-      if (!Array.isArray(v)) return false
-      return v.some((r: any) => Array.isArray(r.days) && r.days.length > 0)
-    })(),
-    visibility: (shelf as any).visibility,
-    autoPin: (shelf as any).autoPin,
-    autoCollapse: (shelf as any).autoCollapse,
-    autoCollapseWhenEmpty: (shelf as any).autoCollapseWhenEmpty === true,
-  })
+  const [state, setState] = useState<EditState>(() => buildInitialSmartState(shelf))
   // Buffered text representation of the refresh-interval field — keeps the
   // user free to clear / partially edit the input without immediately
   // collapsing it back to the default. Committed to numeric state on blur.
@@ -378,7 +221,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
   useEffect(() => {
     let cancelled = false
     if (!resolvedIds.length) { setResolvedMeta(new Map()); return }
-    ;(async () => {
+    ;void (async () => {
       const results = await Promise.all(resolvedIds.map(async (id): Promise<[number, PlatformAppMeta]> => {
         try { const m = await platform.getAppMeta(id); return [id, m ?? { appid: id, name: `App ${id}` }] }
         catch { return [id, { appid: id, name: `App ${id}` }] }
@@ -397,7 +240,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
     const tail = state.manualOrder.filter((id) => !resolvedSet.has(id) && id > 0)
     if (!tail.length) return
     let cancelled = false
-    ;(async () => {
+    ;void (async () => {
       const results = await Promise.all(tail.map(async (id): Promise<[number, PlatformAppMeta]> => {
         try { const m = await platform.getAppMeta(id); return [id, m ?? { appid: id, name: `App ${id}` }] }
         catch { return [id, { appid: id, name: `App ${id}` }] }
@@ -416,96 +259,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
 
   const handleSave = () => {
     closeModal?.()
-    ;(async () => {
-      const title = state.title.trim() || shelf.title
-      const patch: Partial<SmartShelf> = { title, limit: state.limit }
-      ;(patch as any).sort = state.sort || undefined
-      ;(patch as any).sortReverse = state.sortReverse || undefined
-      ;(patch as any).manualBaseSort = (isManual && state.manualBaseSort !== 'alphabetical') ? state.manualBaseSort : undefined
-      ;(patch as any).manualBaseSortReverse = (isManual && state.manualBaseSortReverse) || undefined
-      ;(patch as any).manualOrder = (isManual && state.manualOrder.length) ? state.manualOrder : undefined
-      ;(patch as any).filterGroup = state.filterGroup.items.length > 0 ? state.filterGroup : undefined
-      ;(patch as any).matchNativeSize = state.matchNativeSize
-      ;(patch as any).highlightFirst = state.highlightFirst
-      ;(patch as any).highlightAll = state.highlightAll
-      ;(patch as any).highlightRandom = state.highlightRandom
-      ;(patch as any).enableLogo = state.enableLogo
-      ;(patch as any).enableIcon = state.enableIcon
-      ;(patch as any).enableDescription = state.enableDescription
-      ;(patch as any).descriptionScale = state.descriptionScale !== 100 ? state.descriptionScale : undefined
-      ;(patch as any).descriptionBelowLogo = state.descriptionBelowLogo
-      ;(patch as any).logoPosition = state.logoPosition
-      ;(patch as any).descriptionPosition = state.descriptionPosition
-      ;(patch as any).logoSize = state.logoSize
-      ;(patch as any).logoTopOffset = state.logoTopOffset
-      ;(patch as any).iconVerticalAlign = state.iconVerticalAlign
-      ;(patch as any).shelfTitlePosition = state.shelfTitlePosition
-      ;(patch as any).gameNamePosition = state.gameNamePosition
-      ;(patch as any).playtimePosition = state.playtimePosition
-      ;(patch as any).descriptionHeight = state.descriptionHeight
-      ;(patch as any).descriptionLogoGap = state.descriptionLogoGap
-      ;(patch as any).fullPageShelf = state.fullPageShelf || undefined
-      ;(patch as any).highlightedAppIds = (highlightPickerOpen && state.highlightedAppIds.length) ? state.highlightedAppIds : undefined
-      ;(patch as any).hideStatusLine = state.hideStatusLine
-      ;(patch as any).hideNewBadge = state.hideNewBadge
-      ;(patch as any).hideDiscountBadge = state.hideDiscountBadge
-      ;(patch as any).hideCompatIcons = state.hideCompatIcons
-      ;(patch as any).hideNonSteamBadge = state.hideNonSteamBadge
-      ;(patch as any).hideShelfTitle = state.hideShelfTitle
-      ;(patch as any).hideGameNames = state.hideGameNames
-      ;(patch as any).hideInstallIndicator = state.hideInstallIndicator
-      ;(patch as any).hideSeeMore = state.hideSeeMore
-      ;(patch as any).hideRefreshCard = state.hideRefreshCard
-      ;(patch as any).heroEnabled = state.heroEnabled || undefined
-      ;(patch as any).gameInfoAbove = state.gameInfoAbove || undefined
-      ;(patch as any).friendsPlayingOverlay = state.friendsPlayingOverlay || undefined
-      ;(patch as any).friendsPlayingOverlayRecent = state.friendsPlayingOverlayRecent || undefined
-      ;(patch as any).dedupeByExactName = state.dedupeByExactName || undefined
-      ;(patch as any).hiddenAppIds = (hiddenPickerOpen && state.hiddenAppIds.length) ? state.hiddenAppIds : undefined
-      // Only persist when the user diverged from the default cadence; otherwise
-      // omit so the shelf inherits whatever the resolver default ends up being.
-      ;(patch as any).refreshIntervalMinutes = (state.refreshIntervalMinutes > 0 && state.refreshIntervalMinutes !== DEFAULT_REFRESH_MINUTES)
-        ? state.refreshIntervalMinutes
-        : undefined
-      // Persist the (possibly changed) mode + composite mixing fields.
-      ;(patch as any).mode = state.mode
-      ;(patch as any).compositeModes = state.compositeModes.length > 0 ? state.compositeModes : undefined
-      ;(patch as any).compositeCombine = state.compositeModes.length > 0 ? state.compositeCombine : undefined
-      // Only persist params that diverge from the mode's defaults — keeps the
-      // settings JSON minimal and lets future default tweaks reach existing shelves.
-      const defaults = SMART_PARAM_DEFAULTS[state.mode] ?? {}
-      const overrides: Record<string, number> = {}
-      for (const k of paramKeys) {
-        if (state.smartParams[k] !== defaults[k]) overrides[k] = state.smartParams[k]
-      }
-      ;(patch as any).smartParams = Object.keys(overrides).length ? overrides : undefined
-      const allRanges = [
-        ...state.defaultHours,
-        ...Object.entries(state.dayOverrides).flatMap(([dayStr, ranges]) =>
-          ranges.map((r) => ({ ...r, days: [Number(dayStr)] }))
-        ),
-      ]
-      ;(patch as any).visibleHours = (state.visibleHoursEnabled && allRanges.length > 0) ? allRanges : undefined
-      // Days: drop the field entirely when all 7 are selected (no restriction);
-      // otherwise persist the (possibly empty) array. Empty array = never
-      // visible, distinct from undefined = always visible.
-      ;(patch as any).visibleDaysOfWeek = state.visibleDaysOfWeek.length === 7 ? undefined : state.visibleDaysOfWeek.slice().sort()
-      // Visibility Rules v2 — an empty/undefined tree persists as no restriction.
-      ;(patch as any).visibility = (state.visibility && Array.isArray(state.visibility.rules) && state.visibility.rules.length > 0) ? state.visibility : undefined
-      // Auto-pin predicate — same shape; empty = never pinned.
-      ;(patch as any).autoPin = ((state as any).autoPin && Array.isArray((state as any).autoPin.rules) && (state as any).autoPin.rules.length > 0) ? (state as any).autoPin : undefined
-      // Auto-collapse predicate + collapse-when-empty flag.
-      ;(patch as any).autoCollapse = ((state as any).autoCollapse && Array.isArray((state as any).autoCollapse.rules) && (state as any).autoCollapse.rules.length > 0) ? (state as any).autoCollapse : undefined
-      ;(patch as any).autoCollapseWhenEmpty = (state as any).autoCollapseWhenEmpty ? true : undefined
-      if (mode === 'create') {
-        const draft: SmartShelf = { ...shelf, ...(patch as Partial<SmartShelf>) } as SmartShelf
-        const created = await actions.commitSmartShelf(draft)
-        logInfo('SETTINGS', 'smart shelf created', { shelfId: created?.id })
-      } else {
-        const ok = await actions.patchSmartShelf(shelf.id, patch)
-        logInfo('SETTINGS', 'smart shelf updated', { shelfId: shelf.id, success: ok })
-      }
-    })()
+    void persistSmartShelf({ state, shelf, mode, isManual, highlightPickerOpen, hiddenPickerOpen, paramKeys, actions })
   }
 
   const hourOptions = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
@@ -521,6 +275,34 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
       <DialogButton style={{ minWidth: 36, width: 36, height: 36, padding: 0, marginLeft: 'auto', flex: 'none' }} onClick={onRemove} onOKButton={onRemove} disabled={!canRemove}>✕</DialogButton>
     </Focusable>
   )
+
+  /* Preview card-selection wiring — the preview doubles as the highlight
+     picker (Visual tab) and the hidden picker (Display tab). Which mode is
+     active, its current set, and the per-card toggle are derived together
+     from the open picker so the modal render stays flat. */
+  const previewSel = (() => {
+    const mode: 'highlight' | 'hidden' | undefined =
+      activeTab === 'visual' && highlightPickerOpen ? 'highlight'
+        : activeTab === 'display' && hiddenPickerOpen ? 'hidden'
+          : undefined
+    const set = mode === 'highlight' ? new Set(state.highlightedAppIds)
+      : mode === 'hidden' ? new Set(state.hiddenAppIds)
+        : undefined
+    const onToggle = mode === 'highlight'
+      ? (id: number) => setState((prev) => {
+          setAlternatingMode(null)
+          prePatternHighlightsRef.current = null
+          const has = prev.highlightedAppIds.includes(id)
+          return { ...prev, highlightedAppIds: has ? prev.highlightedAppIds.filter((x) => x !== id) : [...prev.highlightedAppIds, id] }
+        })
+      : mode === 'hidden'
+        ? (id: number) => setState((prev) => {
+            const has = prev.hiddenAppIds.includes(id)
+            return { ...prev, hiddenAppIds: has ? prev.hiddenAppIds.filter((x) => x !== id) : [...prev.hiddenAppIds, id] }
+          })
+        : undefined
+    return { mode, set, onToggle }
+  })()
 
   return (
     <ModalShell>
@@ -548,7 +330,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                 {
                   id: 'source',
                   title: t('edit_tab_source'),
-                  content: (
+                  content: (() => (
                     <FieldContainer scrollable>
                       {/* Smart-mode picker + inline saved-smart-filter dropdown.
                           The mode IS the smart shelf's "data source"; saved
@@ -668,8 +450,8 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                             mode: nextMode,
                             smartParams: { ...(SMART_PARAM_DEFAULTS[nextMode] ?? {}), ...(filter.smartParams ?? {}) },
                             filterGroup: filter.filterGroup ?? { mode: 'and', items: [] },
-                            sort: (Array.isArray(filter.sort) ? filter.sort[0] : filter.sort) ?? prev.sort,
-                            sortReverse: (Array.isArray(filter.sortReverse) ? filter.sortReverse[0] : filter.sortReverse) ?? false,
+                            sort: firstOr(filter.sort, prev.sort),
+                            sortReverse: firstOr(filter.sortReverse, false),
                             limit: filter.limit ?? prev.limit,
                             visibleHoursEnabled: incomingHours.length > 0,
                             defaultHours: defaults.length ? defaults : prev.defaultHours,
@@ -740,12 +522,12 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         </div>
                       </Field>
                     </FieldContainer>
-                  ),
+                  ))(),
                 },
                 {
                   id: 'smart_filters',
                   title: (<TabLabel icon={<SparkleIcon />} text={t('edit_tab_smart_filters' as any)} />) as unknown as string,
-                  content: (
+                  content: (() => (
                     <FieldContainer scrollable>
                       {shelf.mode === 'time_of_day' && (
                         <Field
@@ -893,7 +675,7 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
                         t={t as any}
                       />
                     </FieldContainer>
-                  ),
+                  ))(),
                 },
                 ...(state.allowDayOverrides ? [{
                   id: 'overrides',
@@ -1035,31 +817,9 @@ export function EditSmartShelfModal({ closeModal, controller, shelf, mode = 'edi
             shelfSource={previewSource}
             shelfSort={state.sort}
             onRefresh={refreshPreview}
-            selectionMode={
-              activeTab === 'visual' && highlightPickerOpen ? 'highlight'
-                : activeTab === 'display' && hiddenPickerOpen ? 'hidden'
-                : undefined
-            }
-            selectionSet={
-              activeTab === 'visual' && highlightPickerOpen ? new Set(state.highlightedAppIds)
-                : activeTab === 'display' && hiddenPickerOpen ? new Set(state.hiddenAppIds)
-                : undefined
-            }
-            onToggleSelection={
-              activeTab === 'visual' && highlightPickerOpen
-                ? (id: number) => setState((prev) => {
-                    setAlternatingMode(null)
-                    prePatternHighlightsRef.current = null
-                    const has = prev.highlightedAppIds.includes(id)
-                    return { ...prev, highlightedAppIds: has ? prev.highlightedAppIds.filter((x) => x !== id) : [...prev.highlightedAppIds, id] }
-                  })
-                : activeTab === 'display' && hiddenPickerOpen
-                  ? (id: number) => setState((prev) => {
-                      const has = prev.hiddenAppIds.includes(id)
-                      return { ...prev, hiddenAppIds: has ? prev.hiddenAppIds.filter((x) => x !== id) : [...prev.hiddenAppIds, id] }
-                    })
-                  : undefined
-            }
+            selectionMode={previewSel.mode}
+            selectionSet={previewSel.set}
+            onToggleSelection={previewSel.onToggle}
             removableSet={(() => {
               if (!state.manualOrder.length) return undefined
               const inSource = new Set(resolvedIds)
