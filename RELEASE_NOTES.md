@@ -17,6 +17,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **Recover from a crash with one tap.** If the settings screen ever fails to load and you have snapshots saved, it now offers **Restore a snapshot** so you can roll back to a working setup.
 - **The plugin version now appears on every settings page and in the Quick Access panel**, so it's always easy to find when filing a bug report.
 - **System information now shows your real CSS Loader themes** — the actual active theme names and how many are installed.
+- **A quick feature tour.** The first time you open Deck Shelves it walks you through the main features — shelves, smart shelves, filters, personalization, search, side navigation, profiles & triggers, online features and advanced tools. Skip it anytime, and replay it whenever you like from the **Replay feature tour** button on the About page.
+- **Discord and Reddit links** on the About page, next to the GitHub and report-issue buttons.
 
 ### Changed
 
@@ -24,6 +26,9 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 - **The "Default" profile is gentler.** It restores default settings but keeps the plugin turned on and, unless you tick **Also reset shelves**, leaves your shelves in place.
 - Auto-pin and auto-collapse rules are now available on every shelf, and the global **Auto-collapse** and **Disable notifications** toggles live under **Behaviour**.
 - **Store prices and featured games now use your country's Steam store** instead of always the US one.
+- **Auto-switch profiles now switch back.** When a trigger stops matching, the profile returns to whatever you had before it fired — it's a temporary override, not a one-way change. You can also use any condition inverted now ("stopped charging", "went online", "no external display"), the Default profile can have its own trigger too, and the notification only shows when the profile really changed.
+- **The condition editor is tidier** — conditions are grouped into collapsible sections by type (time & date, session, power, connectivity, display, performance), each with its own icon.
+- **Every confirmation can be confirmed with the Menu button**, and all of Deck Shelves' notifications now share the same branded look.
 
 ### Fixed
 

@@ -5,11 +5,15 @@ import pkg from '../../../package.json'
 import { DocSection } from './DocSection'
 import { flowChildrenProps } from '../../core/steamOSVersion'
 import { logInfo } from '../../runtime/logger'
+import { openManagedModal } from '../qam/common/openManagedModal'
+import { ShowcaseModal } from '../qam/modals/ShowcaseModal'
 
 const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
 const GITHUB_URL = 'https://github.com/santojon/Deck-Shelves'
 const ISSUES_URL = 'https://github.com/santojon/Deck-Shelves/issues'
 const RELEASES_URL = 'https://github.com/santojon/Deck-Shelves/releases'
+const DISCORD_URL = 'https://discord.gg/EChuVEDakk'
+const REDDIT_URL = 'https://www.reddit.com/r/DeckShelves/'
 
 /* Ko-fi QR encoded inline as a data URL — the asset itself lives in
    `assets/kofi-qr.png`. Inlining (1078 B → ~1440 B b64) sidesteps the
@@ -18,7 +22,6 @@ const RELEASES_URL = 'https://github.com/santojon/Deck-Shelves/releases'
 const KOFI_QR_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAuQAAALkCAIAAADIxrcyAAANRElEQVR42u3ZQY7kNhBFQaah+1/5e+HNADYGZeV0UVRG7AsSU5T6gV1JFgDAU/1lBACAWAEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAECsAABiBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECAIgVAACxAgCIFQAAsQIAIFYAALECACBWAADECgAgVgAAxAoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAACIFQBArAAAiBUAQKwAAIgVAACxAgCIFQAAsQIAiBUAALECACBWAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAAD/dk1bcFV56g+X5Li9seuep70L0+Z84ruAd2E5WQEAln8DAQCIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAGuIzgc0kM4UNVZb325KPm3JnVruv6TtrPLCcrAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAAA802UE31FVx91zEnP+wqw69zxtvbv25K71en99J1lOVgAAsQIAIFYAALECACBWAADECgAgVgAAxAoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAeKbLCOAfSY67blUdd137ypxhOVkBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAECsAABiBQBArAAAYgUAQKwAAIgVAOB0lxEA/1eS27+tqi2/7dxzx4n3DMvJCgCAWAEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAA/N5lBN+RxBAerqo83xe/C7uer71hViwnKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAvM9lBJ+rKkN4sSRb9kbnuie+CyfOedp1fSdZTlYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAOD3rmkLTuKp85+qyn7mj8/ZvoLlZAUAECsAAGIFAECsAABiBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECAIgVAACxAgCIFQAAsQIAIFYAgPepJLMWXHX7t51Zda47jT1pVmZ17px9r1hOVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAmKCSzFpw1ZbrduZ84j1P2xsnzmrXvjpxT+7aGyc+o2l7wzdnOVkBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAGCmywieL8nt31bVlnvedd0TdWbV2Rtm9fw5n/juT9uTZrWcrAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAALECACBWAADECgAgVgAAxAoAMFMlmbXgqlHr9Xzf/Yx2rXfXPZ+4n63XO+j7vJysAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAALECACBWAADECgDwPpVk1oKrbv+2M6vOdXm+E/eGe3bPP3HPJ37bp81qOVkBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAAGLFCAAAsQIAIFYAALECACBWAADECgAgVgAA+irJrAVXjVqv5/v8WZ14zye+g9Oer2+d79VysgIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQAQKwAAYgUAECsAAD+nksxacNWW6544512zOlHn+XbmPO393bWffSexN5aTFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAALECACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEA+FUlMYVPh1W15brTntG0OXfWO+2ep81qmhO/dSfuyeVkBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECAIgVAACxAgCIFSMAAMQKAIBYAQDECgCAWAEAECsAgFgBAOirJKbw6bCqbv/2xDl31tvRmdWJ98zzn6+9YW94vsvJCgCAWAEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAA/KqSzFpw1aj1nvh8O8+os94T94b1+l7Zk667nKwAAIgVAACxAgCIFQAAsQIAiBUAALECACBWAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgCAWAEAxAoAgFgBAMQKAMD3XUbwuSS3f1tVW+5513V3zXna851m15x37clp3zpzZjlZAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQBArAAAYgUAQKwAAGIFAECsAACIFQDgFJcRfEeS27+tquPuuaOz3l1z3jWrafv5xD3pm2NWvhvLyQoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAO9TSWYtuOr2bzuz2nXdXbPaxayev59PfL7T9saJTtzP096F5WQFABArAABiBQBArAAAYgUAQKwAAGIFAECsAACIFQBArAAAiBUAQKwAAIgVAACxAgCIFQAAsQIAiBUAALECACBWAIA3qSSmwHs2dNXt33behc51O058f83q+ft52t440bS/3U5WAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQB4nGvagqvKU3+4JFt+y/Of7653v3PPJ35zds3KfmY5WQEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAgFgBABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUA4BSXEXwuiSF8qKpGXXfavurMubNe17Unn3bPu/bGcrICACBWAADECgAgVgAAxAoAIFYAAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAAB7XUbwHVV13D0nGfWMdq13197orHfa3vDNMaufeBd2XXc5WQEAECsAgFgBABArAABiBQAQKwAAYgUAECsAAGIFAECsAABiBQBArAAAYsUIAACxAgAgVgAAsQIAIFYAAMQKACBWAAD6LiOAf1TV7d8m2fLbzj3vmlXHtFl11uv9fT7PdzlZAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAAGIFAECsAACIFQDgXJcRQF9V3f5tklH33Llu57cd09bLu9/95WQFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVIwAAxAoAgFgBAMQKAIBYAQAQKwCAWAEA6LuM4DuSGMLD51xVo67r+dobP3Fd7y/LyQoAIFYAAMQKAIBYAQDECgCAWAEAxAoAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAABNcRvC5qjIEz+iPXzeJe/4Cc373nDvXnfaMlpMVAACxAgCIFQAAsQIAIFYAALECACBWAACxAgAgVgAAxAoAIFYAAMQKACBWjAAAECsAAGIFABArAABiBQBArAAAYgUAoK+SmAIAsJysAACIFQBArAAAiBUAALECAIgVAACxAgCIFQAAsQIAIFYAALECACBWAACxAgAgVgAAxAoAIFYAAMQKACBWAADECgCAWAEAxAoAgFgBAMQKAIBYAQAQKwCAWAEAECsAAGIFABArAABiBQAQKwAAYgUAQKwAAGIFAECsAABiBQBArAAAiBUAQKwAAIgVAECsAACIFQAAsQIAiBUAALECAIgVAACxAgAgVgAAsQIAIFYAAMQKACBWAADECgAgVgAAxAoAgFgBAMQKAIBYAQDECgCAWAEAECsAgFgBABArAIBYAQAQKwAAYgUAECsAAGIFABArAABiBQBArAAAYgUAQKwAAIgVAECsAACIFQBArAAAiBUAALECABzkb8NBQq2BVSslAAAAAElFTkSuQmCC'
 const labelStyle: React.CSSProperties = { fontSize: 13, color: 'var(--ds-text-dim, #b8bcbf)', lineHeight: '19px' }
 const headingStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: 'var(--ds-text, #fff)' }
-const subheadingStyle: React.CSSProperties = { fontSize: 15, fontWeight: 700, color: 'var(--ds-text, #dcdedf)' }
 
 const openInBrowser = (url: string) => {
   try { (window as any).SteamClient?.System?.OpenInSystemBrowser?.(url) }
@@ -31,7 +34,9 @@ export function SupportPage() {
   const openGitHub = () => openInBrowser(GITHUB_URL)
   const openIssues = () => openInBrowser(ISSUES_URL)
   const openReleases = () => openInBrowser(RELEASES_URL)
-  const limitations = [t('about_limitation_deck_only'), t('about_limitation_decky'), t('about_limitation_home')]
+  const openDiscord = () => openInBrowser(DISCORD_URL)
+  const openReddit = () => openInBrowser(REDDIT_URL)
+  const openShowcase = () => openManagedModal((close) => <ShowcaseModal closeModal={close} />)
   return (
     <DocSection>
       <Field focusable={true} bottomSeparator="none" label={<span style={headingStyle}>{t('about_learn_more_title')}</span>} />
@@ -58,6 +63,27 @@ export function SupportPage() {
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
           >
             {t('about_report_issue')}
+          </DialogButton>
+          <DialogButton
+            onClick={openShowcase}
+            onOKButton={openShowcase}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('showcase_replay')}
+          </DialogButton>
+          <DialogButton
+            onClick={openDiscord}
+            onOKButton={openDiscord}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_discord')}
+          </DialogButton>
+          <DialogButton
+            onClick={openReddit}
+            onOKButton={openReddit}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
+          >
+            {t('about_reddit')}
           </DialogButton>
         </Focusable>
       </Field>
@@ -125,10 +151,6 @@ export function SupportPage() {
           </div>
         </div>
       </div>
-      <Field focusable={true} bottomSeparator="none" label={<span style={subheadingStyle}>{t('about_limitations_title')}</span>} />
-      {limitations.map((l, i) => (
-        <Field key={i} focusable={true} bottomSeparator="none" label={<span style={labelStyle}>• {l}</span>} />
-      ))}
       <Field
         focusable={true}
         bottomSeparator="none"

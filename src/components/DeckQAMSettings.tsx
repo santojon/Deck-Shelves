@@ -29,6 +29,7 @@ import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFilte
 import { ImportModal } from './qam/modals/ImportModal'
 import { CreateShelfModal } from './qam/modals/CreateShelfModal'
 import { FirstRunBanner } from './qam/modals/FirstRunBanner'
+import { useFirstRunShowcase } from './qam/useFirstRunShowcase'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
@@ -560,6 +561,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     setQamExpanded(false);
     return () => setQamExpanded(false);
   }, [setQamExpanded]);
+  // First-run feature showcase (opens once; replayable from the AboutPage).
+  useFirstRunShowcase(settings, actions);
   /* Dev-only screenshot hook: opens/closes the sidecar the same way a
      dpad-right chord does (`fireQamExpand` widens the QAM compositor window
      via the opener postMessage AND flips the store) — the store flag alone
@@ -630,6 +633,26 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       doc.removeEventListener("resume", onResume);
     };
   }, [setQamExpanded]);
+
+  /* General "lost focus = close" contract: while the sidecar is open, watch
+     gamepad focus (`.gpfocus`) and collapse the moment it leaves the DS scope
+     entirely. Covers the paths the visibility/window-focus signals miss —
+     pressing B back to the plugin list, or the QAM reopening on another tab —
+     which used to leave the sidecar wide but empty. */
+  useEffect(() => {
+    if (!qamExpanded) return;
+    const scope = dsScopeRef.current;
+    const doc = scope?.ownerDocument ?? document;
+    const win = doc.defaultView ?? window;
+    let raf = 0;
+    const check = () => {
+      const f = doc.querySelector(".gpfocus") as HTMLElement | null;
+      if (scope && f && !scope.contains(f)) fireQamExpand(win, false, setQamExpanded);
+    };
+    const obs = new MutationObserver(() => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(check); });
+    obs.observe(doc.documentElement, { attributes: true, attributeFilter: ["class"], subtree: true });
+    return () => { obs.disconnect(); if (raf) cancelAnimationFrame(raf); };
+  }, [qamExpanded, setQamExpanded]);
 
   // Authoritative signal for "QAM is no longer the active side menu":
   // `SteamUIStore.WindowStore.GamepadUIMainWindowInstance.m_MenuStore

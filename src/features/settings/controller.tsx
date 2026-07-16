@@ -183,6 +183,11 @@ export function useSettingsController() {
       if (!s || ((s as any).notificationsDisabled ?? false) === notificationsDisabled) return;
       await persist({ ...s, notificationsDisabled } as any);
     },
+    async setShowcaseSeen(showcaseSeen: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).showcaseSeen ?? false) === showcaseSeen) return;
+      await persist({ ...s, showcaseSeen } as any);
+    },
     async setUpdateNotifyEnabled(updateNotifyEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s.updateNotifyEnabled ?? true) === updateNotifyEnabled) return;

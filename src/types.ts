@@ -637,6 +637,9 @@ export const SettingsSchema = z.object({
   factoryProfileTrigger: z.unknown().optional(),
   autoCollapseEnabled: z.boolean().optional(),
   notificationsDisabled: z.boolean().optional(),
+  // Set once the first-run feature showcase has been seen/dismissed; the
+  // AboutPage "replay" button clears it back so the tour can be shown again.
+  showcaseSeen: z.boolean().optional(),
   profiles: z.array(z.object({
     id: z.string(),
     name: z.string(),
