@@ -125,10 +125,23 @@ function migrate(s: Settings): Settings {
   return mutated ? { ...s, shelves } : s;
 }
 
+/* A single invalid field must NEVER nuke the whole config to defaults: that
+   silently wipes the user's shelves and, once the empty state is saved back,
+   destroys them on disk. Preserve the real data by merging the candidate over
+   defaults so every field is present, and log the offending issues loudly. */
+function preserveOnParseFailure(candidate: unknown, error: unknown): Settings {
+  try { logError("STORAGE", "settings failed schema validation — preserving data (not resetting)", JSON.stringify((error as any)?.issues?.slice(0, 6))); } catch {}
+  if (candidate && typeof candidate === "object") {
+    try { return migrate({ ...defaultSettings(), ...(candidate as any) } as Settings); }
+    catch (e) { try { logError("STORAGE", "settings merge fallback failed", String(e)); } catch {} }
+  }
+  return current ?? defaultSettings();
+}
+
 function normalize(raw: unknown): Settings {
   const candidate = (raw && typeof raw === "object" && "state" in (raw as any)) ? (raw as any).state : raw;
   const parsed = SettingsSchema.safeParse(candidate);
-  return migrate(parsed.success ? parsed.data : defaultSettings());
+  return parsed.success ? migrate(parsed.data) : preserveOnParseFailure(candidate, parsed.error);
 }
 
 export async function refreshSettings(): Promise<Settings> {

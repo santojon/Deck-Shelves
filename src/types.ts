@@ -640,7 +640,7 @@ export const SettingsSchema = z.object({
   // Per-area notification opt-outs (e.g. "shelves", "profiles", "filters",
   // "triggers"); an area listed here is suppressed while global notifications
   // are still on. Absent = every area notifies.
-  notificationsDisabledAreas: z.array(z.string()).optional(),
+  notificationsDisabledAreas: z.array(z.string()).nullish(),
   // Set once the first-run feature showcase has been seen/dismissed; the
   // AboutPage "replay" button clears it back so the tour can be shown again.
   showcaseSeen: z.boolean().optional(),

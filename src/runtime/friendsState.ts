@@ -23,6 +23,7 @@ let _playingByApp = new Map<number, FriendBrief[]>();
 let _recentByApp = new Map<number, FriendBrief[]>();
 let _pollTimer: number | null = null;
 let _gameChangeReg: { Unregister?: () => void } | null = null;
+let _refreshDebounce: number | null = null;
 
 function avatarUrl(hash: unknown): string {
   const h = typeof hash === "string" ? hash : "";
@@ -39,18 +40,30 @@ function getFriendStore(): any {
   return (globalThis as any).friendStore ?? (window as any).friendStore;
 }
 
-/* Subscribe to Steam's live "friend changed game" event and prime persona
-   states once, so the shelf updates the moment a friend starts/stops a game
-   instead of on the next poll, and friends whose state was never requested
-   this session still report m_unGamePlayedAppID. Event-driven, adds no timer;
-   AddPlayerGameChangedCallback returns an { Unregister } handle (on-device). */
+/* Steam's friend-game-change event fires many times per second (persona / rich
+   presence churn), so refresh() must never run per-event — coalesce a burst
+   into a single trailing refresh. Debouncing frequent triggers is mandatory
+   here; without it triggerShelfRefresh storms and the home stalls. */
+function scheduleRefresh(): void {
+  if (_refreshDebounce !== null) return;
+  _refreshDebounce = window.setTimeout(() => {
+    _refreshDebounce = null;
+    try { refresh(); } catch {}
+  }, 3000);
+}
+
+/* Subscribe to the live "friend changed game" event and prime persona states
+   once, so the shelf reflects who is playing seconds after it changes (not on
+   the next 90s poll) and friends whose state was never requested this session
+   still report m_unGamePlayedAppID. AddPlayerGameChangedCallback returns an
+   { Unregister } handle (verified on-device). */
 function subscribeGameChanges(): void {
   const inner = getFriendStore()?.m_FriendsUIFriendStore;
   if (!inner) return;
   try { inner.RequestFriendPersonaStates?.(); } catch {}
   try {
     if (typeof inner.AddPlayerGameChangedCallback === 'function') {
-      _gameChangeReg = inner.AddPlayerGameChangedCallback(() => { try { refresh(); } catch {} });
+      _gameChangeReg = inner.AddPlayerGameChangedCallback(() => scheduleRefresh());
     }
   } catch {}
 }
@@ -58,6 +71,10 @@ function subscribeGameChanges(): void {
 function unsubscribeGameChanges(): void {
   try { _gameChangeReg?.Unregister?.(); } catch {}
   _gameChangeReg = null;
+  if (_refreshDebounce !== null) {
+    try { clearTimeout(_refreshDebounce); } catch {}
+    _refreshDebounce = null;
+  }
 }
 
 function refresh(): void {
