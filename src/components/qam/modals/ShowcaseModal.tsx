@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConfirmModal, DialogButton, Focusable } from '../../../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 import { ModalShell } from '../../ui'
-import { DeckShelvesLogo, StackIcon, SparkleIcon, FunnelIcon, WandIcon, SearchIcon, SlidersIcon, TargetIcon, OnlineIcon, ToolsIcon } from '../../icons'
+import { DeckShelvesLogo, StackIcon, SparkleIcon, FunnelIcon, WandIcon, SearchIcon, SideNavIcon, TargetIcon, OnlineIcon, ToolsIcon } from '../../icons'
 
 type Glyph = (p: { size?: number }) => any
 type Step = { Icon: Glyph; title: string; body: string }
@@ -14,7 +14,7 @@ const STEPS: Step[] = [
   { Icon: FunnelIcon, title: 'showcase_filters_title', body: 'showcase_filters_body' },
   { Icon: WandIcon, title: 'showcase_customization_title', body: 'showcase_customization_body' },
   { Icon: SearchIcon, title: 'showcase_search_title', body: 'showcase_search_body' },
-  { Icon: SlidersIcon, title: 'showcase_sidenav_title', body: 'showcase_sidenav_body' },
+  { Icon: SideNavIcon, title: 'showcase_sidenav_title', body: 'showcase_sidenav_body' },
   { Icon: TargetIcon, title: 'showcase_profiles_title', body: 'showcase_profiles_body' },
   { Icon: OnlineIcon, title: 'showcase_online_title', body: 'showcase_online_body' },
   { Icon: ToolsIcon, title: 'showcase_tools_title', body: 'showcase_tools_body' },

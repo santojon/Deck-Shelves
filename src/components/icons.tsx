@@ -112,6 +112,18 @@ export function SlidersIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function SideNavIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <line x1="9" y1="4" x2="9" y2="20" />
+      <line x1="5.4" y1="8" x2="6.6" y2="8" />
+      <line x1="5.4" y1="12" x2="6.6" y2="12" />
+      <line x1="5.4" y1="16" x2="6.6" y2="16" />
+    </svg>
+  );
+}
+
 export function StackIcon({ size = 14, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)}>

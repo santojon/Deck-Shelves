@@ -118,13 +118,19 @@ function applyRecentsFocusSuppression(hidden: boolean): void {
 function setRecentsCollapsedStyle(el: HTMLElement, hidden: boolean): void {
   const s = el.style;
   if (hidden) {
+    /* display:none is the only collapse GamepadUI's nav tree honours (it ignores
+       visibility/height/tabindex) — required so dpad-up can't get trapped on the
+       invisible recents row. Skip it only while recents-replace repurposes the
+       element (DS content injected there), keeping the visibility collapse. */
+    const repurposed = !!el.querySelector('.ds-shelf, .deck-shelves-root, #' + ROOT_ID);
+    if (!repurposed) s.setProperty("display", "none", "important");
     s.setProperty("visibility", "hidden", "important");
     s.setProperty("height", "0px", "important");
     s.setProperty("min-height", "0px", "important");
     s.setProperty("max-height", "0px", "important");
     s.setProperty("overflow", "hidden", "important");
   } else {
-    for (const p of ["visibility", "height", "min-height", "max-height", "overflow"]) s.removeProperty(p);
+    for (const p of ["display", "visibility", "height", "min-height", "max-height", "overflow"]) s.removeProperty(p);
   }
 }
 
