@@ -19,7 +19,7 @@ export function createSavedFilterActions(deps: SavedFilterDeps) {
       const entry: SavedFilter = { id, name: trimmed, group };
       const existing = s.savedFilters ?? [];
       await persist({ ...s, savedFilters: [...existing, entry] });
-      notify("success", { body: i18next.t("toast_saved"), area: "filters" });
+      notify("success", { body: i18next.t("toast_filter_saved"), area: "filters" });
       return entry;
     },
     async deleteSavedFilter(id: string) {
@@ -27,7 +27,7 @@ export function createSavedFilterActions(deps: SavedFilterDeps) {
       if (!s) return;
       const next = (s.savedFilters ?? []).filter((f) => f.id !== id);
       await persist({ ...s, savedFilters: next });
-      notify("reset", { body: i18next.t("toast_deleted"), area: "filters" });
+      notify("delete", { body: i18next.t("toast_filter_deleted"), area: "filters" });
     },
     async renameSavedFilter(id: string, name: string) {
       const s = liveSettings();
@@ -36,7 +36,7 @@ export function createSavedFilterActions(deps: SavedFilterDeps) {
       if (!trimmed) return;
       const next = (s.savedFilters ?? []).map((f) => (f.id === id ? { ...f, name: trimmed } : f));
       await persist({ ...s, savedFilters: next });
-      notify("success", { body: i18next.t("toast_renamed"), area: "filters" });
+      notify("success", { body: i18next.t("toast_filter_renamed"), area: "filters" });
     },
     // Mirrors saveFilter / deleteSavedFilter / renameSavedFilter shape so
     // the QAM list and EditSmartShelfModal can manage the saved-smart-

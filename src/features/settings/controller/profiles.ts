@@ -107,7 +107,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       };
       const next = { ...s, profiles: [...existing, profile], activeProfileName: trimmed } as Settings;
       await persist(next);
-      notify("success", { body: i18next.t("toast_created"), area: "profiles" });
+      notify("success", { body: i18next.t("toast_profile_created"), area: "profiles" });
       return profile;
     },
     async applyProfile(id: string): Promise<boolean> {
@@ -141,7 +141,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         profiles: nextProfiles,
         activeProfileName: wasActive ? null : (s as any).activeProfileName,
       } as Settings);
-      notify("reset", { body: i18next.t("toast_deleted"), area: "profiles" });
+      notify("delete", { body: i18next.t("toast_profile_deleted"), area: "profiles" });
       return true;
     },
     async duplicateProfile(id: string): Promise<ProfileRecord | null> {
@@ -166,7 +166,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         ...(source.linkShelves ? { linkShelves: true } : {}),
       };
       await persist({ ...s, profiles: [...profiles, profile] } as Settings);
-      notify("success", { body: i18next.t("toast_duplicated"), area: "profiles" });
+      notify("success", { body: i18next.t("toast_profile_duplicated"), area: "profiles" });
       return profile;
     },
     async renameProfile(id: string, newName: string): Promise<boolean> {
@@ -185,7 +185,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         profiles: nextProfiles,
         activeProfileName: wasActive ? trimmed : (s as any).activeProfileName,
       } as Settings);
-      notify("success", { body: i18next.t("toast_renamed"), area: "profiles" });
+      notify("success", { body: i18next.t("toast_profile_renamed"), area: "profiles" });
       return true;
     },
     async updateProfileSnapshot(id: string): Promise<boolean> {
@@ -196,7 +196,7 @@ export function createProfileActions(deps: ProfilesDeps) {
       if (!target) return false;
       const nextProfiles = profiles.map((p) => p.id === id ? { ...p, snapshot: takeSnapshot(s) } : p);
       await persist({ ...s, profiles: nextProfiles } as Settings);
-      notify("success", { body: i18next.t("toast_saved"), area: "profiles" });
+      notify("success", { body: i18next.t("toast_profile_saved"), area: "profiles" });
       return true;
     },
     // Set (or clear) a profile's Visibility Rules v2 trigger predicate. An

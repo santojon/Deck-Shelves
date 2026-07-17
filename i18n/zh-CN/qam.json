@@ -49,5 +49,17 @@
   "toast_saved": "已保存",
   "toast_deleted": "已删除",
   "toast_duplicated": "已复制",
-  "toast_renamed": "已重命名"
+  "toast_renamed": "已重命名",
+  "toast_shelf_created": "书架已创建",
+  "toast_shelf_saved": "书架已保存",
+  "toast_shelf_deleted": "书架已删除",
+  "toast_shelf_duplicated": "书架已复制",
+  "toast_profile_created": "配置已创建",
+  "toast_profile_saved": "配置已保存",
+  "toast_profile_deleted": "配置已删除",
+  "toast_profile_duplicated": "配置已复制",
+  "toast_profile_renamed": "配置已重命名",
+  "toast_filter_saved": "筛选器已保存",
+  "toast_filter_deleted": "筛选器已删除",
+  "toast_filter_renamed": "筛选器已重命名"
 }

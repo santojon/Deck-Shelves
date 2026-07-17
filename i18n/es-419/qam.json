@@ -49,5 +49,17 @@
   "toast_saved": "Guardado",
   "toast_deleted": "Eliminado",
   "toast_duplicated": "Duplicado",
-  "toast_renamed": "Renombrado"
+  "toast_renamed": "Renombrado",
+  "toast_shelf_created": "Estante creada",
+  "toast_shelf_saved": "Estante guardada",
+  "toast_shelf_deleted": "Estante eliminada",
+  "toast_shelf_duplicated": "Estante duplicada",
+  "toast_profile_created": "Perfil creado",
+  "toast_profile_saved": "Perfil guardado",
+  "toast_profile_deleted": "Perfil eliminado",
+  "toast_profile_duplicated": "Perfil duplicado",
+  "toast_profile_renamed": "Perfil renombrado",
+  "toast_filter_saved": "Filtro guardado",
+  "toast_filter_deleted": "Filtro eliminado",
+  "toast_filter_renamed": "Filtro renombrado"
 }

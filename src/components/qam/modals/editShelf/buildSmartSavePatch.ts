@@ -180,6 +180,6 @@ export async function persistSmartShelf(args: SaveArgs): Promise<void> {
   } else {
     const ok = await args.actions.patchSmartShelf(args.shelf.id, patch)
     logInfo('SETTINGS', 'smart shelf updated', { shelfId: args.shelf.id, success: ok })
-    notify('success', { body: i18next.t('toast_saved'), area: 'shelves' })
+    notify('success', { body: i18next.t('toast_shelf_saved'), area: 'shelves' })
   }
 }

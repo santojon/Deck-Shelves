@@ -17,11 +17,12 @@ import {
   RefreshIcon,
   CopyIcon,
   PersonIcon,
+  TrashIcon,
 } from "./icons";
 
 export type NotificationType =
   | "update" | "suggestion" | "success" | "error"
-  | "warning" | "info" | "export" | "import" | "reset" | "copy" | "profile";
+  | "warning" | "info" | "export" | "import" | "reset" | "copy" | "profile" | "delete";
 
 type Glyph = React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 
@@ -39,6 +40,7 @@ export const NOTIFICATION_ICONS: Record<NotificationType, Glyph> = {
   reset: RefreshIcon,
   copy: CopyIcon,
   profile: PersonIcon,
+  delete: TrashIcon,
 };
 
 export interface NotifyOptions {

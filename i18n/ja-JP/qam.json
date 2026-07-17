@@ -49,5 +49,17 @@
   "toast_saved": "保存しました",
   "toast_deleted": "削除しました",
   "toast_duplicated": "複製しました",
-  "toast_renamed": "名前を変更しました"
+  "toast_renamed": "名前を変更しました",
+  "toast_shelf_created": "シェルフを作成しました",
+  "toast_shelf_saved": "シェルフを保存しました",
+  "toast_shelf_deleted": "シェルフを削除しました",
+  "toast_shelf_duplicated": "シェルフを複製しました",
+  "toast_profile_created": "プロファイルを作成しました",
+  "toast_profile_saved": "プロファイルを保存しました",
+  "toast_profile_deleted": "プロファイルを削除しました",
+  "toast_profile_duplicated": "プロファイルを複製しました",
+  "toast_profile_renamed": "プロファイルの名前を変更しました",
+  "toast_filter_saved": "フィルターを保存しました",
+  "toast_filter_deleted": "フィルターを削除しました",
+  "toast_filter_renamed": "フィルターの名前を変更しました"
 }

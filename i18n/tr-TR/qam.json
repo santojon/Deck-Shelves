@@ -49,5 +49,17 @@
   "toast_saved": "Kaydedildi",
   "toast_deleted": "Silindi",
   "toast_duplicated": "Çoğaltıldı",
-  "toast_renamed": "Yeniden adlandırıldı"
+  "toast_renamed": "Yeniden adlandırıldı",
+  "toast_shelf_created": "Raf oluşturuldu",
+  "toast_shelf_saved": "Raf kaydedildi",
+  "toast_shelf_deleted": "Raf silindi",
+  "toast_shelf_duplicated": "Raf çoğaltıldı",
+  "toast_profile_created": "Profil oluşturuldu",
+  "toast_profile_saved": "Profil kaydedildi",
+  "toast_profile_deleted": "Profil silindi",
+  "toast_profile_duplicated": "Profil çoğaltıldı",
+  "toast_profile_renamed": "Profil yeniden adlandırıldı",
+  "toast_filter_saved": "Filtre kaydedildi",
+  "toast_filter_deleted": "Filtre silindi",
+  "toast_filter_renamed": "Filtre yeniden adlandırıldı"
 }

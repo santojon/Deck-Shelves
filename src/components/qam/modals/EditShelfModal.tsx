@@ -425,7 +425,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         const ok = await actions.patchShelf(shelf.id, patch);
         logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
-        notify("success", { body: t("toast_saved"), area: "shelves" });
+        notify("success", { body: t("toast_shelf_saved"), area: "shelves" });
       }
     })();
   }

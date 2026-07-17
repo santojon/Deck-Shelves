@@ -22,8 +22,6 @@ let _recentlyPlayed = new Set<number>();
 let _playingByApp = new Map<number, FriendBrief[]>();
 let _recentByApp = new Map<number, FriendBrief[]>();
 let _pollTimer: number | null = null;
-let _gameChangeReg: { Unregister?: () => void } | null = null;
-let _refreshDebounce: number | null = null;
 
 function avatarUrl(hash: unknown): string {
   const h = typeof hash === "string" ? hash : "";
@@ -38,43 +36,6 @@ function pushFriend(map: Map<number, FriendBrief[]>, appId: number, brief: Frien
 
 function getFriendStore(): any {
   return (globalThis as any).friendStore ?? (window as any).friendStore;
-}
-
-/* Steam's friend-game-change event fires many times per second (persona / rich
-   presence churn), so refresh() must never run per-event — coalesce a burst
-   into a single trailing refresh. Debouncing frequent triggers is mandatory
-   here; without it triggerShelfRefresh storms and the home stalls. */
-function scheduleRefresh(): void {
-  if (_refreshDebounce !== null) return;
-  _refreshDebounce = window.setTimeout(() => {
-    _refreshDebounce = null;
-    try { refresh(); } catch {}
-  }, 3000);
-}
-
-/* Subscribe to the live "friend changed game" event and prime persona states
-   once, so the shelf reflects who is playing seconds after it changes (not on
-   the next 90s poll) and friends whose state was never requested this session
-   still report m_unGamePlayedAppID. AddPlayerGameChangedCallback returns an
-   { Unregister } handle (verified on-device). */
-function subscribeGameChanges(): void {
-  const inner = getFriendStore()?.m_FriendsUIFriendStore;
-  if (!inner) return;
-  try { inner.RequestFriendPersonaStates?.(); } catch {}
-  try {
-    if (typeof inner.AddPlayerGameChangedCallback === 'function') {
-      _gameChangeReg = inner.AddPlayerGameChangedCallback(() => scheduleRefresh());
-    }
-  } catch {}
-}
-
-function unsubscribeGameChanges(): void {
-  try { _gameChangeReg?.Unregister?.(); } catch {}
-  _gameChangeReg = null;
-  if (_refreshDebounce !== null) {
-    try { clearTimeout(_refreshDebounce); } catch {}
-    _refreshDebounce = null;
-  }
 }
 
 function refresh(): void {
@@ -133,11 +94,10 @@ export function installFriendsState(): () => void {
     try { clearInterval(_pollTimer); } catch {}
     _pollTimer = null;
   }
-  unsubscribeGameChanges();
   // First refresh deferred to idle so the boot path stays responsive.
   // The friend list isn't usually ready yet at plugin boot anyway.
   const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-  schedule(() => { try { subscribeGameChanges(); refresh(); } catch {} });
+  schedule(() => { try { refresh(); } catch {} });
   _pollTimer = window.setInterval(() => {
     try { refresh(); } catch {}
   }, POLL_INTERVAL_MS);
@@ -147,7 +107,6 @@ export function installFriendsState(): () => void {
       try { clearInterval(_pollTimer); } catch {}
       _pollTimer = null;
     }
-    unsubscribeGameChanges();
     _currentlyPlaying = new Set();
     _recentlyPlayed = new Set();
     _playingByApp = new Map();
