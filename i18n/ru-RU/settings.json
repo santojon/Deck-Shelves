@@ -1022,7 +1022,7 @@
   "visibility_mem_below": "Свободной памяти меньше",
   "visibility_rule_lowFrameBudget": "Низкий FPS",
   "visibility_fps_below": "FPS ниже",
-  "visibility_rule_lastGameSource": "Источник последней игры",
+  "visibility_rule_lastGameSource": "Last game: Steam",
   "visibility_rule_gameRunning": "Игра запущена",
   "visibility_source_steam": "Steam",
   "visibility_source_nonsteam": "Не Steam",
@@ -1115,5 +1115,13 @@
   "showcase_sidenav_title": "Side navigation",
   "showcase_sidenav_body": "A quick side menu lets you jump between sections without scrolling the whole home screen.",
   "showcase_tools_title": "Advanced tools",
-  "showcase_tools_body": "Turn on Developer mode for advanced tools — diagnostics, versioned snapshots, cache controls and more. Open the side panel with dpad-right twice."
+  "showcase_tools_body": "Turn on Developer mode for advanced tools — diagnostics, versioned snapshots, cache controls and more. Open the side panel with dpad-right twice.",
+  "visibility_rule_lastGameSource_not": "Last game: non-Steam",
+  "visibility_rule_highCpu_not": "Normal CPU",
+  "visibility_rule_lowMemory_not": "Enough memory",
+  "visibility_rule_lowFrameBudget_not": "Smooth frame rate",
+  "notifications_area_shelves": "Полки",
+  "notifications_area_profiles": "Профили",
+  "notifications_area_filters": "Фильтры",
+  "notifications_area_triggers": "Триггеры"
 }

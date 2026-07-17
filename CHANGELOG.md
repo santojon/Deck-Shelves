@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Inverse triggers.** Any invertible condition can now be used negated — "stopped charging", "went online", "no game running", "no external display", "not ultrawide" — carried as a `not` flag on the rule ([`evalVisibilityRule`](src/steam/smartShelves.ts)). The editor never lets a condition and its inverse coexist.
 - **A trigger on the Default profile.** The synthetic Default profile can carry its own auto-switch trigger (stored in `factoryProfileTrigger`), applied — non-destructively, keeping your shelves — when it matches ([`profileTriggers.ts`](src/runtime/profileTriggers.ts)). The trigger editor also opens from the Default profile row.
 - **Community links on the About page** — quick buttons for Discord and Reddit next to the existing GitHub / report-issue links ([`SupportPage.tsx`](src/components/about/SupportPage.tsx)).
+- **Per-area notification toggles.** Beneath the master "disable notifications" toggle, sub-toggles let you silence just Shelves, Profiles, Filters or Triggers notifications while keeping the rest — all on by default, shown only while notifications are enabled ([`NotificationAreaToggles.tsx`](src/components/qam/NotificationAreaToggles.tsx), `notificationsDisabledAreas`).
 
 ### Changed
 
@@ -37,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The trigger / visibility editor is grouped and iconified.** Conditions are now organised into collapsible sections by type — Time & date, Session, Power, Connectivity, Display, Performance — each condition with its own icon; invertible conditions render as a paired "one or the other" control ([`VisibilityRulesEditor.tsx`](src/components/qam/modals/editShelf/VisibilityRulesEditor.tsx)). The trigger menu / button only appears while auto-switch is enabled.
 - **Every confirmation dialog accepts the Menu button to confirm**, matching the shelf editors — a project-wide standard applied to the profile-trigger, rename, save, delete and generic confirm dialogs.
 - **All notifications share one look** — the branded logo plus a small per-type icon ([`notify.ts`](src/runtime/notify.ts) / [`notify.tsx`](src/components/notify.tsx)), so profile switches and other plugin toasts read consistently.
+- **Leaner snapshot retention.** Automatic snapshots now age out after 7 days, and the backups folder is capped at **10 snapshots total** (auto + manual + imported) — over the cap the oldest are pruned, **auto snapshots first**, so your manual and imported backups are kept longest ([`storage.py`](storage.py)). Import / export are unaffected.
+- **Create / save / delete / duplicate / rename actions now confirm with a notification** (shelves, smart shelves, profiles and saved filters), honouring the master and per-area notification toggles.
+- **Trigger / visibility editor polish:** pick a condition's inverse directly and it swaps in place (no remove-and-re-add); CPU, memory, frame-rate and last-played-source conditions gained inverses; and resolution options read as friendly labels (Full HD / QHD / 4K …).
 
 ### Fixed
 

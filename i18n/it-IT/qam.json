@@ -44,5 +44,10 @@
   "toast_settings_reset": "Impostazioni ripristinate",
   "toast_shelves_reset": "Scaffali reimpostati",
   "toast_smart_shelves_reset": "Scaffali intelligenti reimpostati",
-  "sidenav_recents_fallback_label": "Recenti"
+  "sidenav_recents_fallback_label": "Recenti",
+  "toast_created": "Creato",
+  "toast_saved": "Salvato",
+  "toast_deleted": "Eliminato",
+  "toast_duplicated": "Duplicato",
+  "toast_renamed": "Rinominato"
 }

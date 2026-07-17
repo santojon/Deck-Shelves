@@ -44,5 +44,10 @@
   "toast_settings_reset": "設定をリセットしました",
   "toast_shelves_reset": "棚をリセットしました",
   "toast_smart_shelves_reset": "スマート棚をリセットしました",
-  "sidenav_recents_fallback_label": "最近のプレイ"
+  "sidenav_recents_fallback_label": "最近のプレイ",
+  "toast_created": "作成しました",
+  "toast_saved": "保存しました",
+  "toast_deleted": "削除しました",
+  "toast_duplicated": "複製しました",
+  "toast_renamed": "名前を変更しました"
 }

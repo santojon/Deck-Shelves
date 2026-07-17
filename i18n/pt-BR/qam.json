@@ -44,5 +44,10 @@
   "toast_settings_reset": "Configurações redefinidas",
   "toast_shelves_reset": "Prateleiras redefinidas",
   "toast_smart_shelves_reset": "Prateleiras inteligentes redefinidas",
-  "sidenav_recents_fallback_label": "Recentes"
+  "sidenav_recents_fallback_label": "Recentes",
+  "toast_created": "Criado",
+  "toast_saved": "Salvo",
+  "toast_deleted": "Excluído",
+  "toast_duplicated": "Duplicado",
+  "toast_renamed": "Renomeado"
 }

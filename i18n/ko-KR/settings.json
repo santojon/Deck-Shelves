@@ -1022,7 +1022,7 @@
   "visibility_mem_below": "여유 메모리 미만",
   "visibility_rule_lowFrameBudget": "낮은 프레임레이트",
   "visibility_fps_below": "FPS 미만",
-  "visibility_rule_lastGameSource": "마지막 플레이 출처",
+  "visibility_rule_lastGameSource": "Last game: Steam",
   "visibility_rule_gameRunning": "게임 실행 중",
   "visibility_source_steam": "Steam",
   "visibility_source_nonsteam": "비-Steam",
@@ -1115,5 +1115,13 @@
   "showcase_sidenav_title": "Side navigation",
   "showcase_sidenav_body": "A quick side menu lets you jump between sections without scrolling the whole home screen.",
   "showcase_tools_title": "Advanced tools",
-  "showcase_tools_body": "Turn on Developer mode for advanced tools — diagnostics, versioned snapshots, cache controls and more. Open the side panel with dpad-right twice."
+  "showcase_tools_body": "Turn on Developer mode for advanced tools — diagnostics, versioned snapshots, cache controls and more. Open the side panel with dpad-right twice.",
+  "visibility_rule_lastGameSource_not": "Last game: non-Steam",
+  "visibility_rule_highCpu_not": "Normal CPU",
+  "visibility_rule_lowMemory_not": "Enough memory",
+  "visibility_rule_lowFrameBudget_not": "Smooth frame rate",
+  "notifications_area_shelves": "셸프",
+  "notifications_area_profiles": "프로필",
+  "notifications_area_filters": "필터",
+  "notifications_area_triggers": "트리거"
 }

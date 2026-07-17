@@ -18,7 +18,14 @@ const HOURS = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
 const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget']
 const BATTERY_LEVELS = [10, 15, 20, 25, 30, 40, 50].map((n) => ({ data: n, label: `${n}%` }))
-const RESOLUTION_WIDTHS = [1280, 1600, 1920, 2560, 3440, 3840].map((n) => ({ data: n, label: `${n}px` }))
+const RESOLUTION_WIDTHS = [
+  { data: 1280, label: '1280 · HD' },
+  { data: 1600, label: '1600 · HD+' },
+  { data: 1920, label: '1920 · Full HD' },
+  { data: 2560, label: '2560 · QHD' },
+  { data: 3440, label: '3440 · UW' },
+  { data: 3840, label: '3840 · 4K' },
+]
 
 function BatteryRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
   return (
@@ -148,15 +155,6 @@ function HolidayRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<R
   )
 }
 
-function LastGameSourceRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
-  const opts = [{ data: 'steam', label: t('visibility_source_steam') }, { data: 'nonSteam', label: t('visibility_source_nonsteam') }]
-  return (
-    <Focusable {...flowChildrenProps('horizontal')} style={rowStyle}>
-      <EnumDropdown value={rule.value} fallback="steam" options={opts} onPick={(v) => onUpdate({ value: v })} />
-    </Focusable>
-  )
-}
-
 function TimeWindowRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
   const setHour = (k: 'start' | 'end', opt: unknown) => {
     const n = Number(optionData(opt) ?? 0)
@@ -203,7 +201,6 @@ const RULE_BODIES: Record<string, (p: { rule: Rule; onUpdate: (p: Partial<Rule>)
   timeOfDayPeriod: PeriodRow,
   season: SeasonRow,
   holiday: HolidayRow,
-  lastGameSource: LastGameSourceRow,
   battery: BatteryRow,
   resolution: ResolutionRow,
   highCpu: HighCpuRow,
@@ -248,7 +245,7 @@ const CATALOG: Cat[] = [
     { kind: 'holiday', Icon: CalendarIcon, defaults: { ranges: [{ start: '12-20', end: '12-31' }] } },
   ] },
   { id: 'session', Icon: GamepadIcon, title: 'visibility_cat_session', entries: [
-    { kind: 'lastGameSource', Icon: SteamIcon, defaults: { value: 'nonSteam' } },
+    { kind: 'lastGameSource', Icon: SteamIcon, invertible: true },
     { kind: 'gameRunning', Icon: PlayIcon, invertible: true },
   ] },
   { id: 'power', Icon: BatteryIcon, title: 'visibility_cat_power', entries: [
@@ -264,9 +261,9 @@ const CATALOG: Cat[] = [
     { kind: 'resolution', Icon: MonitorIcon, defaults: { minWidth: 1920 } },
   ] },
   { id: 'perf', Icon: GaugeIcon, title: 'visibility_cat_perf', entries: [
-    { kind: 'highCpu', Icon: GaugeIcon, defaults: { above: 80 } },
-    { kind: 'lowMemory', Icon: GaugeIcon, defaults: { below: 15 } },
-    { kind: 'lowFrameBudget', Icon: GaugeIcon, defaults: { belowFps: 45 } },
+    { kind: 'highCpu', Icon: GaugeIcon, defaults: { above: 80 }, invertible: true },
+    { kind: 'lowMemory', Icon: GaugeIcon, defaults: { below: 15 }, invertible: true },
+    { kind: 'lowFrameBudget', Icon: GaugeIcon, defaults: { belowFps: 45 }, invertible: true },
   ] },
 ]
 const CAT_KINDS: Record<string, Set<string>> = Object.fromEntries(CATALOG.map((c) => [c.id, new Set(c.entries.map((e) => e.kind))]))
@@ -290,21 +287,25 @@ function AddRuleButton({ label, Icon, disabled, onAdd }: { label: string; Icon: 
 }
 
 /* Invertible kinds take their own full-width row: the two polarities side by
-   side with a ⇄ between them, so the "one OR the other" relationship is explicit
-   and the pair never wraps apart. Both buttons carry the kind's icon; adding
-   either disables both. */
-function InversePair({ entry, taken, addRule, t }: { entry: CatEntry; taken: boolean; addRule: (r: Rule) => void; t: T }) {
+   side with a ⇄ between them, acting as a selector. The active polarity is
+   highlighted; picking the other swaps the existing rule's direction in place
+   (no need to remove and re-add) — picking either when none is set adds it. */
+function InversePair({ entry, active, onPick, t }: { entry: CatEntry; active: 'base' | 'inverse' | null; onPick: (not: boolean) => void; t: T }) {
   const Icon = entry.Icon
-  const mk = (not?: boolean) => () => addRule({ kind: entry.kind, ...(entry.defaults ?? {}), ...(not ? { not: true } : {}) })
+  const btn = (label: string, pol: 'base' | 'inverse') => {
+    const on = active === pol
+    return (
+      <DialogButton onClick={() => onPick(pol === 'inverse')} onOKButton={() => onPick(pol === 'inverse')}
+        style={{ ...BTN_STYLE, flex: 1, ...(on ? { background: 'var(--ds-accent, #4a9eff)', color: '#fff' } : {}) }}>
+        <IconLabel Icon={Icon} label={label} />
+      </DialogButton>
+    )
+  }
   return (
-    <Focusable {...flowChildrenProps('horizontal')} style={{ flex: '1 1 100%', display: 'flex', alignItems: 'center', gap: 6, opacity: taken ? 0.4 : 1 }}>
-      <DialogButton disabled={taken} onClick={taken ? undefined : mk()} onOKButton={taken ? undefined : mk()} style={{ ...BTN_STYLE, flex: 1 }}>
-        <IconLabel Icon={Icon} label={t(`visibility_rule_${entry.kind}`)} />
-      </DialogButton>
+    <Focusable {...flowChildrenProps('horizontal')} style={{ flex: '1 1 100%', display: 'flex', alignItems: 'center', gap: 6 }}>
+      {btn(t(`visibility_rule_${entry.kind}`), 'base')}
       <span style={{ opacity: 0.5, fontSize: 14, flexShrink: 0 }}>⇄</span>
-      <DialogButton disabled={taken} onClick={taken ? undefined : mk(true)} onOKButton={taken ? undefined : mk(true)} style={{ ...BTN_STYLE, flex: 1 }}>
-        <IconLabel Icon={Icon} label={t(`visibility_rule_${entry.kind}_not`)} />
-      </DialogButton>
+      {btn(t(`visibility_rule_${entry.kind}_not`), 'inverse')}
     </Focusable>
   )
 }
@@ -322,15 +323,18 @@ function Presets({ onChange, t }: { onChange: (v: Visibility | undefined) => voi
   )
 }
 
-function TriggerSection({ cat, used, count, prefix, addRule, t, children }: { cat: Cat; used: Set<string>; count: number; prefix: string; addRule: (r: Rule) => void; t: T; children?: any }) {
+function TriggerSection({ cat, rules, count, prefix, addRule, applyPolarity, t, children }: { cat: Cat; rules: Rule[]; count: number; prefix: string; addRule: (r: Rule) => void; applyPolarity: (kind: string, defaults: Record<string, any> | undefined, not: boolean) => void; t: T; children?: any }) {
   return (
     <CollapsibleSection id={`${prefix}-${cat.id}`} icon={<cat.Icon />} title={t(cat.title)} count={count}>
       <Focusable {...flowChildrenProps('horizontal')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0', alignItems: 'stretch' }}>
-        {cat.entries.map((e) => (
-          e.invertible
-            ? <InversePair key={e.kind} entry={e} taken={used.has(e.kind)} addRule={addRule} t={t} />
-            : <AddRuleButton key={e.kind} label={t(`visibility_rule_${e.kind}`)} Icon={e.Icon} disabled={used.has(e.kind)} onAdd={() => addRule({ kind: e.kind, ...(e.defaults ?? {}) })} />
-        ))}
+        {cat.entries.map((e) => {
+          if (e.invertible) {
+            const existing = rules.find((r) => r.kind === e.kind)
+            const active = existing ? (existing.not ? 'inverse' : 'base') : null
+            return <InversePair key={e.kind} entry={e} active={active} onPick={(not) => applyPolarity(e.kind, e.defaults, not)} t={t} />
+          }
+          return <AddRuleButton key={e.kind} label={t(`visibility_rule_${e.kind}`)} Icon={e.Icon} disabled={rules.some((r) => r.kind === e.kind)} onAdd={() => addRule({ kind: e.kind, ...(e.defaults ?? {}) })} />
+        })}
       </Focusable>
       {children}
     </CollapsibleSection>
@@ -345,10 +349,20 @@ export function VisibilityRulesEditor({ value, onChange, t, idPrefix = 'vis' }: 
 }) {
   const vis: Visibility = value && Array.isArray(value.rules) ? value : { mode: 'any', rules: [] }
   const setRules = (rules: Rule[]) => onChange(rules.length ? { mode: vis.mode, rules } : undefined)
-  // One rule per kind: adding a kind (or its inverse) is blocked while that kind
-  // is already present, so a trigger and its inverse can never coexist.
+  // One rule per kind (a kind and its inverse are the SAME rule, just flipped).
   const usedKinds = new Set(vis.rules.map((r) => r.kind))
   const addRule = (r: Rule) => { if (!usedKinds.has(r.kind)) setRules([...vis.rules, r]) }
+  // Pick a polarity for an invertible kind: flip the existing rule's direction
+  // in place (no remove/re-add), or add it with the chosen polarity if absent.
+  const applyPolarity = (kind: string, defaults: Record<string, any> | undefined, not: boolean) => {
+    const idx = vis.rules.findIndex((r) => r.kind === kind)
+    if (idx < 0) { setRules([...vis.rules, { kind, ...(defaults ?? {}), ...(not ? { not: true } : {}) }]); return }
+    setRules(vis.rules.map((r, i) => {
+      if (i !== idx) return r
+      const { not: _drop, ...rest } = r
+      return not ? { ...rest, not: true } : rest
+    }))
+  }
 
   return (
     <div style={{ paddingTop: 10 }}>
@@ -373,9 +387,10 @@ export function VisibilityRulesEditor({ value, onChange, t, idPrefix = 'vis' }: 
         <TriggerSection
           key={cat.id}
           cat={cat}
-          used={usedKinds}
+          rules={vis.rules}
           prefix={idPrefix}
           addRule={addRule}
+          applyPolarity={applyPolarity}
           t={t}
           count={vis.rules.filter((r) => CAT_KINDS[cat.id].has(r.kind)).length}
         >

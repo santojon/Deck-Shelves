@@ -52,6 +52,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       try { trackFeature("shelf_create"); } catch {}
+      notify("success", { body: t("toast_created"), area: "shelves" });
       return shelf;
     },
     createDraftShelf(): Shelf {
@@ -63,6 +64,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       try { trackFeature("shelf_create"); } catch {}
+      notify("success", { body: t("toast_created"), area: "shelves" });
       return shelf;
     },
     async exportShelves(destPath: string): Promise<boolean> {
@@ -145,7 +147,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       if (!s) return;
       await persist({ ...s, shelves: [] });
       setSelectedId(null);
-      notify("reset", { body: t("toast_shelves_reset") });
+      notify("reset", { body: t("toast_shelves_reset"), area: "shelves" });
     },
     async createDefaultShelves() {
       const s = liveSettings();
@@ -165,6 +167,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(addShelfToSettings(s, shelf));
       setSelectedId(shelf.id);
       try { trackFeature("shelf_create"); } catch {}
+      notify("success", { body: t("toast_created"), area: "shelves" });
       return shelf;
     },
     patchShelf: patchShelfFn,
@@ -179,6 +182,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       await persist(addShelfToSettings(s, duplicate, id));
       setSelectedId(duplicate.id);
       try { trackFeature("shelf_create"); } catch {}
+      notify("success", { body: t("toast_duplicated"), area: "shelves" });
     },
     async removeShelf(id: string) {
       const s = liveSettings();
@@ -186,6 +190,7 @@ export function createShelfActions(deps: ShelvesDeps) {
       const next = deleteShelfFromSettings(s, id);
       await persist(next);
       try { trackFeature("shelf_delete"); } catch {}
+      notify("reset", { body: t("toast_deleted"), area: "shelves" });
       // selectedId is captured per-render so the caller passes the
       // current value through `deps`. Snapshot semantics preserved.
       if (deps.selectedId === id) setSelectedId(next.shelves[0]?.id ?? null);

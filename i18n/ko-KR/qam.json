@@ -44,5 +44,10 @@
   "toast_settings_reset": "설정이 초기화되었습니다",
   "toast_shelves_reset": "선반이 초기화되었습니다",
   "toast_smart_shelves_reset": "스마트 선반이 초기화되었습니다",
-  "sidenav_recents_fallback_label": "최근 항목"
+  "sidenav_recents_fallback_label": "최근 항목",
+  "toast_created": "생성됨",
+  "toast_saved": "저장됨",
+  "toast_deleted": "삭제됨",
+  "toast_duplicated": "복제됨",
+  "toast_renamed": "이름 변경됨"
 }

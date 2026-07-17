@@ -188,6 +188,15 @@ export function useSettingsController() {
       if (!s || ((s as any).showcaseSeen ?? false) === showcaseSeen) return;
       await persist({ ...s, showcaseSeen } as any);
     },
+    async setNotificationAreaEnabled(area: string, enabled: boolean) {
+      const s = liveSettings();
+      if (!s) return;
+      const cur: string[] = (s as any).notificationsDisabledAreas ?? [];
+      const isDisabled = cur.includes(area);
+      if ((!enabled) === isDisabled) return; // already in the desired state
+      const next = enabled ? cur.filter((a) => a !== area) : [...cur, area];
+      await persist({ ...s, notificationsDisabledAreas: next.length ? next : undefined } as any);
+    },
     async setUpdateNotifyEnabled(updateNotifyEnabled: boolean) {
       const s = liveSettings();
       if (!s || (s.updateNotifyEnabled ?? true) === updateNotifyEnabled) return;

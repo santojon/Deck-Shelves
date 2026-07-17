@@ -16,6 +16,7 @@ import { consumePendingShelfModalTab } from '../../../core/shelfActions'
 import { FilterPanel } from '../../FilterPanel'
 import { FieldContainer, ModalShell , DSSliderField} from '../../ui'
 import { logInfo } from '../../../runtime/logger'
+import { notify } from '../../notify'
 import { invalidateRandomSortCache } from '../../../steam'
 import { invalidateSmartShelfCache } from '../../../steam/smartShelves'
 import { getExternalSources } from '../../../core/pluginApi'
@@ -424,6 +425,7 @@ export function EditShelfModal({ closeModal, controller, shelf, mode = 'edit' }:
       } else {
         const ok = await actions.patchShelf(shelf.id, patch);
         logInfo("SETTINGS", "shelf updated", { shelfId: shelf.id, success: ok });
+        notify("success", { body: t("toast_saved"), area: "shelves" });
       }
     })();
   }

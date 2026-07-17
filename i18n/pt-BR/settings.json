@@ -1022,7 +1022,7 @@
   "visibility_mem_below": "Memória livre abaixo de",
   "visibility_rule_lowFrameBudget": "FPS baixo",
   "visibility_fps_below": "FPS abaixo de",
-  "visibility_rule_lastGameSource": "Fonte do último jogo",
+  "visibility_rule_lastGameSource": "Último jogo: Steam",
   "visibility_rule_gameRunning": "Jogo em execução",
   "visibility_source_steam": "Steam",
   "visibility_source_nonsteam": "Não-Steam",
@@ -1115,5 +1115,13 @@
   "showcase_sidenav_title": "Navegação lateral",
   "showcase_sidenav_body": "Um menu lateral rápido para pular entre seções sem rolar a tela inicial toda.",
   "showcase_tools_title": "Ferramentas avançadas",
-  "showcase_tools_body": "Ative o modo Desenvolvedor para ferramentas avançadas — diagnósticos, snapshots versionados, controle de cache e mais. Abra o painel lateral com o direcional para a direita duas vezes."
+  "showcase_tools_body": "Ative o modo Desenvolvedor para ferramentas avançadas — diagnósticos, snapshots versionados, controle de cache e mais. Abra o painel lateral com o direcional para a direita duas vezes.",
+  "visibility_rule_lastGameSource_not": "Último jogo: não-Steam",
+  "visibility_rule_highCpu_not": "CPU normal",
+  "visibility_rule_lowMemory_not": "Memória suficiente",
+  "visibility_rule_lowFrameBudget_not": "Framerate suave",
+  "notifications_area_shelves": "Prateleiras",
+  "notifications_area_profiles": "Perfis",
+  "notifications_area_filters": "Filtros",
+  "notifications_area_triggers": "Gatilhos"
 }

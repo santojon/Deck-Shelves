@@ -44,5 +44,10 @@
   "toast_settings_reset": "Paramètres réinitialisés",
   "toast_shelves_reset": "Étagères réinitialisées",
   "toast_smart_shelves_reset": "Étagères intelligentes réinitialisées",
-  "sidenav_recents_fallback_label": "Recents"
+  "sidenav_recents_fallback_label": "Recents",
+  "toast_created": "Créé",
+  "toast_saved": "Enregistré",
+  "toast_deleted": "Supprimé",
+  "toast_duplicated": "Dupliqué",
+  "toast_renamed": "Renommé"
 }

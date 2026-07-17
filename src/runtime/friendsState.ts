@@ -22,6 +22,7 @@ let _recentlyPlayed = new Set<number>();
 let _playingByApp = new Map<number, FriendBrief[]>();
 let _recentByApp = new Map<number, FriendBrief[]>();
 let _pollTimer: number | null = null;
+let _gameChangeReg: { Unregister?: () => void } | null = null;
 
 function avatarUrl(hash: unknown): string {
   const h = typeof hash === "string" ? hash : "";
@@ -36,6 +37,27 @@ function pushFriend(map: Map<number, FriendBrief[]>, appId: number, brief: Frien
 
 function getFriendStore(): any {
   return (globalThis as any).friendStore ?? (window as any).friendStore;
+}
+
+/* Subscribe to Steam's live "friend changed game" event and prime persona
+   states once, so the shelf updates the moment a friend starts/stops a game
+   instead of on the next poll, and friends whose state was never requested
+   this session still report m_unGamePlayedAppID. Event-driven, adds no timer;
+   AddPlayerGameChangedCallback returns an { Unregister } handle (on-device). */
+function subscribeGameChanges(): void {
+  const inner = getFriendStore()?.m_FriendsUIFriendStore;
+  if (!inner) return;
+  try { inner.RequestFriendPersonaStates?.(); } catch {}
+  try {
+    if (typeof inner.AddPlayerGameChangedCallback === 'function') {
+      _gameChangeReg = inner.AddPlayerGameChangedCallback(() => { try { refresh(); } catch {} });
+    }
+  } catch {}
+}
+
+function unsubscribeGameChanges(): void {
+  try { _gameChangeReg?.Unregister?.(); } catch {}
+  _gameChangeReg = null;
 }
 
 function refresh(): void {
@@ -94,10 +116,11 @@ export function installFriendsState(): () => void {
     try { clearInterval(_pollTimer); } catch {}
     _pollTimer = null;
   }
+  unsubscribeGameChanges();
   // First refresh deferred to idle so the boot path stays responsive.
   // The friend list isn't usually ready yet at plugin boot anyway.
   const schedule = (globalThis as any).requestIdleCallback ?? ((cb: any) => setTimeout(cb, 2000));
-  schedule(() => { try { refresh(); } catch {} });
+  schedule(() => { try { subscribeGameChanges(); refresh(); } catch {} });
   _pollTimer = window.setInterval(() => {
     try { refresh(); } catch {}
   }, POLL_INTERVAL_MS);
@@ -107,6 +130,7 @@ export function installFriendsState(): () => void {
       try { clearInterval(_pollTimer); } catch {}
       _pollTimer = null;
     }
+    unsubscribeGameChanges();
     _currentlyPlaying = new Set();
     _recentlyPlayed = new Set();
     _playingByApp = new Map();

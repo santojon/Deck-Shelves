@@ -30,6 +30,7 @@ import { ImportModal } from './qam/modals/ImportModal'
 import { CreateShelfModal } from './qam/modals/CreateShelfModal'
 import { FirstRunBanner } from './qam/modals/FirstRunBanner'
 import { useFirstRunShowcase } from './qam/useFirstRunShowcase'
+import { NotificationAreaToggles } from './qam/NotificationAreaToggles'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
@@ -634,26 +635,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     };
   }, [setQamExpanded]);
 
-  /* General "lost focus = close" contract: while the sidecar is open, watch
-     gamepad focus (`.gpfocus`) and collapse the moment it leaves the DS scope
-     entirely. Covers the paths the visibility/window-focus signals miss —
-     pressing B back to the plugin list, or the QAM reopening on another tab —
-     which used to leave the sidecar wide but empty. */
-  useEffect(() => {
-    if (!qamExpanded) return;
-    const scope = dsScopeRef.current;
-    const doc = scope?.ownerDocument ?? document;
-    const win = doc.defaultView ?? window;
-    let raf = 0;
-    const check = () => {
-      const f = doc.querySelector(".gpfocus") as HTMLElement | null;
-      if (scope && f && !scope.contains(f)) fireQamExpand(win, false, setQamExpanded);
-    };
-    const obs = new MutationObserver(() => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(check); });
-    obs.observe(doc.documentElement, { attributes: true, attributeFilter: ["class"], subtree: true });
-    return () => { obs.disconnect(); if (raf) cancelAnimationFrame(raf); };
-  }, [qamExpanded, setQamExpanded]);
-
   // Authoritative signal for "QAM is no longer the active side menu":
   // `SteamUIStore.WindowStore.GamepadUIMainWindowInstance.m_MenuStore
   // .m_eOpenSideMenu`. This MobX-backed enum flips between None / MainMenu
@@ -885,6 +866,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!lightMode && !isHid('autoCollapseEnabled') && <ToggleField label={t('auto_collapse_enabled' as any)} checked={(settings as any).autoCollapseEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setAutoCollapseEnabled?.(value)} />}
         {!isHid('notificationsDisabled') && <ToggleField label={t('notifications_disabled_label' as any)} checked={(settings as any).notificationsDisabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setNotificationsDisabled?.(value)} />}
         {!isHid('notificationsDisabled') && <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{t('notifications_disabled_desc' as any)}</div>}
+        {!isHid('notificationsDisabled') && <NotificationAreaToggles settings={settings} actions={actions} t={t as any} disabled={mountCrashed} />}
         </>))()}
       </CollapsibleSection>
         );

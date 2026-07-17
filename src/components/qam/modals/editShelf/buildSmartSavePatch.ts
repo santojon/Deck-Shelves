@@ -6,6 +6,8 @@ import type { SmartShelf } from '../../../../types'
 import type { SettingsController } from '../../../../features/settings/controller'
 import { SMART_PARAM_DEFAULTS } from '../../../../steam/smartParams'
 import { logInfo } from '../../../../runtime/logger'
+import { notify } from '../../../notify'
+import i18next from 'i18next'
 import { DEFAULT_REFRESH_MINUTES, type EditState } from './buildSmartInitialState'
 
 export type SaveArgs = {
@@ -178,5 +180,6 @@ export async function persistSmartShelf(args: SaveArgs): Promise<void> {
   } else {
     const ok = await args.actions.patchSmartShelf(args.shelf.id, patch)
     logInfo('SETTINGS', 'smart shelf updated', { shelfId: args.shelf.id, success: ok })
+    notify('success', { body: i18next.t('toast_saved'), area: 'shelves' })
   }
 }

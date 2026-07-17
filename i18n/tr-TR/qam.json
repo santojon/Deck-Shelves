@@ -44,5 +44,10 @@
   "toast_settings_reset": "Ayarlar sıfırlandı",
   "toast_shelves_reset": "Raflar sıfırlandı",
   "toast_smart_shelves_reset": "Akıllı raflar sıfırlandı",
-  "sidenav_recents_fallback_label": "Son oynanan"
+  "sidenav_recents_fallback_label": "Son oynanan",
+  "toast_created": "Oluşturuldu",
+  "toast_saved": "Kaydedildi",
+  "toast_deleted": "Silindi",
+  "toast_duplicated": "Çoğaltıldı",
+  "toast_renamed": "Yeniden adlandırıldı"
 }

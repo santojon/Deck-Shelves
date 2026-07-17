@@ -40,7 +40,7 @@ function currentContext(): { profiles: any[]; active: unknown } | null {
 
 function triggerToast(name: string): void {
   const msg = i18n.t('profile_trigger_toast', { name });
-  notifyUser(i18n.t('plugin_name'), msg && msg !== 'profile_trigger_toast' ? msg : `Switched to profile: ${name}`, 'profile');
+  notifyUser(i18n.t('plugin_name'), msg && msg !== 'profile_trigger_toast' ? msg : `Switched to profile: ${name}`, 'profile', 'triggers');
 }
 
 // Key-order-independent serialization, so a restored/applied settings object
@@ -104,7 +104,7 @@ function revertToBaseline(deactivated: string): void {
   const live = getCurrentSettings() as any;
   saveIfChanged({ ...baseline, profiles: live?.profiles ?? (baseline as any).profiles } as Settings, () => {
     const msg = i18n.t('profile_trigger_deactivated', { name: deactivated });
-    notifyUser(i18n.t('plugin_name'), (msg && msg !== 'profile_trigger_deactivated') ? msg : `Profile deactivated: ${deactivated}`, 'profile');
+    notifyUser(i18n.t('plugin_name'), (msg && msg !== 'profile_trigger_deactivated') ? msg : `Profile deactivated: ${deactivated}`, 'profile', 'triggers');
   });
 }
 

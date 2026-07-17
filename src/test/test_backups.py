@@ -3,6 +3,7 @@ restore RPC guards (main.Plugin). `decky` is mocked before importing."""
 import json
 import os
 import sys
+import time
 import types as pytypes
 
 decky_mock = pytypes.ModuleType("decky")
@@ -40,20 +41,40 @@ def test_rotation_prunes_autos_keeps_manual(monkeypatch, tmp_path):
     _use_dir(monkeypatch, tmp_path)
     bdir = storage._backups_dir()
     os.makedirs(bdir, exist_ok=True)
-    for i in range(storage.AUTO_BACKUP_CAP + 5):
+    for i in range(storage.TOTAL_BACKUP_CAP + 5):
         with open(os.path.join(bdir, f"settings-201801{i:02d}-000000.json"), "w") as f:
             f.write("{}")
-    # Manual + imported snapshots must survive the auto prune.
+    # Manual + imported snapshots must survive: the total cap trims autos first.
     with open(os.path.join(bdir, "settings-20170101-000000-manual.json"), "w") as f:
         f.write("{}")
     with open(os.path.join(bdir, "settings-20170101-000000-import.json"), "w") as f:
         f.write("{}")
     storage._prune_auto_backups(bdir)
     remaining = os.listdir(bdir)
-    autos = [x for x in remaining if storage._is_auto_backup(x)]
-    assert len(autos) == storage.AUTO_BACKUP_CAP
+    # Total capped at 10; manual + imported kept, autos trimmed to make room.
+    assert len(remaining) == storage.TOTAL_BACKUP_CAP
     assert "settings-20170101-000000-manual.json" in remaining
     assert "settings-20170101-000000-import.json" in remaining
+
+
+def test_rotation_ages_out_old_autos(monkeypatch, tmp_path):
+    _use_dir(monkeypatch, tmp_path)
+    bdir = storage._backups_dir()
+    os.makedirs(bdir, exist_ok=True)
+    fresh = os.path.join(bdir, "settings-20250101-000000.json")
+    stale = os.path.join(bdir, "settings-20180101-000000.json")
+    stale_manual = os.path.join(bdir, "settings-20180101-000000-manual.json")
+    for p in (fresh, stale, stale_manual):
+        with open(p, "w") as f:
+            f.write("{}")
+    old = time.time() - (storage.AUTO_MAX_AGE_SECONDS + 3600)
+    os.utime(stale, (old, old))
+    os.utime(stale_manual, (old, old))
+    storage._prune_auto_backups(bdir)
+    remaining = os.listdir(bdir)
+    assert os.path.basename(fresh) in remaining          # recent auto kept
+    assert os.path.basename(stale) not in remaining      # old auto aged out
+    assert os.path.basename(stale_manual) in remaining   # old manual never aged out
 
 
 def test_summarize_handles_wrapped_and_bare():

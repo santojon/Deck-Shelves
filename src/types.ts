@@ -637,6 +637,10 @@ export const SettingsSchema = z.object({
   factoryProfileTrigger: z.unknown().optional(),
   autoCollapseEnabled: z.boolean().optional(),
   notificationsDisabled: z.boolean().optional(),
+  // Per-area notification opt-outs (e.g. "shelves", "profiles", "filters",
+  // "triggers"); an area listed here is suppressed while global notifications
+  // are still on. Absent = every area notifies.
+  notificationsDisabledAreas: z.array(z.string()).optional(),
   // Set once the first-run feature showcase has been seen/dismissed; the
   // AboutPage "replay" button clears it back so the tour can be shown again.
   showcaseSeen: z.boolean().optional(),

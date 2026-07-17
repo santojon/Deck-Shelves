@@ -44,5 +44,10 @@
   "toast_settings_reset": "设置已重置",
   "toast_shelves_reset": "书架已重置",
   "toast_smart_shelves_reset": "智能书架已重置",
-  "sidenav_recents_fallback_label": "最近游玩"
+  "sidenav_recents_fallback_label": "最近游玩",
+  "toast_created": "已创建",
+  "toast_saved": "已保存",
+  "toast_deleted": "已删除",
+  "toast_duplicated": "已复制",
+  "toast_renamed": "已重命名"
 }

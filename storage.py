@@ -48,7 +48,8 @@ def _safe_read_json(path: str) -> Dict[str, Any]:
 # ("-import") ones are user-initiated and kept until the user deletes them. Every
 # helper is best-effort and never raises, so a backup problem can never block or
 # corrupt a settings save.
-AUTO_BACKUP_CAP = 12          # max automatic snapshots kept (oldest pruned)
+TOTAL_BACKUP_CAP = 10          # max snapshots kept in total (auto + manual + import)
+AUTO_MAX_AGE_SECONDS = 7 * 86400  # auto snapshots older than 7 days are dropped
 AUTO_THROTTLE_SECONDS = 86400  # min gap between automatic snapshots (24 h)
 
 
@@ -82,17 +83,38 @@ def _summarize_settings(data: Dict[str, Any]) -> Dict[str, int]:
     }
 
 
-def _prune_auto_backups(bdir: str, cap: int = AUTO_BACKUP_CAP) -> None:
-    """Keep only the newest `cap` automatic snapshots (oldest pruned first).
-    Manual/imported snapshots are never touched here."""
+def _prune_auto_backups(bdir: str, cap: int = TOTAL_BACKUP_CAP) -> None:
+    """Two-stage prune, best-effort:
+    1. Drop automatic snapshots older than AUTO_MAX_AGE_SECONDS (7 days).
+    2. Cap the TOTAL (auto + manual + import) at `cap`, deleting the oldest —
+       but preferring to delete auto snapshots first so manual / imported ones
+       are kept as long as possible."""
+    def _mtime(name: str) -> float:
+        try:
+            return os.path.getmtime(os.path.join(bdir, name))
+        except Exception:
+            return 0.0
     try:
-        autos = sorted(f for f in os.listdir(bdir) if _is_auto_backup(f))
-        while len(autos) > cap:
-            old = autos.pop(0)
-            try:
-                os.remove(os.path.join(bdir, old))
-            except Exception:
-                pass
+        now = time.time()
+        # Stage 1: age out old automatic snapshots.
+        for f in list(os.listdir(bdir)):
+            if _is_auto_backup(f) and (now - _mtime(f)) > AUTO_MAX_AGE_SECONDS:
+                try:
+                    os.remove(os.path.join(bdir, f))
+                except Exception:
+                    pass
+        # Stage 2: enforce the total cap, deleting auto (then oldest) first.
+        files = [f for f in os.listdir(bdir) if _is_backup_file(f)]
+        excess = len(files) - cap
+        if excess > 0:
+            # Sort so auto snapshots come before manual/imported, oldest first
+            # within each group — deleting from the front keeps manuals longest.
+            ordered = sorted(files, key=lambda f: (0 if _is_auto_backup(f) else 1, _mtime(f)))
+            for f in ordered[:excess]:
+                try:
+                    os.remove(os.path.join(bdir, f))
+                except Exception:
+                    pass
     except Exception:
         pass
 
@@ -108,9 +130,9 @@ def _newest_auto_mtime(bdir: str) -> float:
 
 def _write_versioned_backup(src_path: str, throttle_seconds: int = 0, tag: str = "") -> None:
     """Snapshot the current settings file into backups/ (timestamped). Automatic
-    snapshots (no tag) are throttled vs the newest auto snapshot and pruned to
-    AUTO_BACKUP_CAP; a `tag` ("manual"/"import") marks user-initiated ones, which
-    are exempt from the auto cap. Best-effort — never raises."""
+    snapshots (no tag) are throttled vs the newest auto snapshot, aged out after
+    AUTO_MAX_AGE_SECONDS, and — with manual/imported ones — kept within a total
+    of TOTAL_BACKUP_CAP (autos deleted first). Best-effort — never raises."""
     try:
         if not src_path or not os.path.exists(src_path):
             return

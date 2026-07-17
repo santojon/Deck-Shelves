@@ -44,5 +44,10 @@
   "toast_settings_reset": "Ustawienia zresetowane",
   "toast_shelves_reset": "Półki zresetowane",
   "toast_smart_shelves_reset": "Inteligentne półki zresetowane",
-  "sidenav_recents_fallback_label": "Ostatnie"
+  "sidenav_recents_fallback_label": "Ostatnie",
+  "toast_created": "Utworzono",
+  "toast_saved": "Zapisano",
+  "toast_deleted": "Usunięto",
+  "toast_duplicated": "Zduplikowano",
+  "toast_renamed": "Zmieniono nazwę"
 }
