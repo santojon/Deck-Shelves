@@ -212,6 +212,13 @@ export function __resetUpdateCheckCache(): void {
    the behaviour stays in one place (open the release notes in the system
    browser, falling back to window.open). No-op when the URL is missing. */
 export function openReleaseUrl(url: string | null | undefined): void {
+  openExternalUrl(url);
+}
+
+/* Open any URL in the system browser (falling back to window.open). Best-effort
+   and no-op on a missing URL — shared by the release action and the diagnostics
+   "report an issue" button. */
+export function openExternalUrl(url: string | null | undefined): void {
   if (!url) return;
   try {
     const sc: any = (globalThis as any).SteamClient;

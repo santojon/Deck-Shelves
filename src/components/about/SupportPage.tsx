@@ -7,10 +7,10 @@ import { flowChildrenProps } from '../../core/steamOSVersion'
 import { logInfo } from '../../runtime/logger'
 import { openManagedModal } from '../qam/common/openManagedModal'
 import { ShowcaseModal } from '../qam/modals/ShowcaseModal'
+import { openBugReport } from '../../core/issueReport'
 
 const KOFI_URL = 'https://ko-fi.com/F2F61WE76V'
 const GITHUB_URL = 'https://github.com/santojon/Deck-Shelves'
-const ISSUES_URL = 'https://github.com/santojon/Deck-Shelves/issues'
 const RELEASES_URL = 'https://github.com/santojon/Deck-Shelves/releases'
 const DISCORD_URL = 'https://discord.gg/EChuVEDakk'
 const REDDIT_URL = 'https://www.reddit.com/r/DeckShelves/'
@@ -32,7 +32,7 @@ export function SupportPage() {
   const { t } = useTranslation()
   const openKofi = () => openInBrowser(KOFI_URL)
   const openGitHub = () => openInBrowser(GITHUB_URL)
-  const openIssues = () => openInBrowser(ISSUES_URL)
+  const reportIssue = () => { void openBugReport() }
   const openReleases = () => openInBrowser(RELEASES_URL)
   const openDiscord = () => openInBrowser(DISCORD_URL)
   const openReddit = () => openInBrowser(REDDIT_URL)
@@ -58,8 +58,8 @@ export function SupportPage() {
             {t('about_learn_more_github')}
           </DialogButton>
           <DialogButton
-            onClick={openIssues}
-            onOKButton={openIssues}
+            onClick={reportIssue}
+            onOKButton={reportIssue}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', width: 'auto' }}
           >
             {t('about_report_issue')}
