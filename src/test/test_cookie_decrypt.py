@@ -20,10 +20,27 @@ def test_non_v10_value_passthrough():
     assert plugin._decrypt_chromium_cookie(b"") == ""
 
 
-def test_windows_falls_back_to_public(monkeypatch):
+def test_windows_gcm_dispatch(monkeypatch):
     monkeypatch.setattr(main.sys, "platform", "win32")
-    # v10 on Windows is AES-GCM/DPAPI (unimplemented) → '' (public path).
-    assert plugin._decrypt_chromium_cookie(b"v10somecipher") == ""
+    # v10 + nonce(12) + ciphertext(10) + tag(16) — a valid Windows structure.
+    ev = b"v10" + b"N" * 12 + b"C" * 10 + b"T" * 16
+    # No DPAPI key available → '' (public fallback), no crypto attempted.
+    monkeypatch.setattr(main.Plugin, "_windows_aes_key", staticmethod(lambda: b""))
+    assert plugin._decrypt_chromium_cookie(ev) == ""
+    # Key present → GCM path is invoked with the parsed nonce/ct/tag.
+    seen = {}
+    def fake_gcm(key, nonce, ct, tag):
+        seen.update(key=key, nonce=nonce, ct=ct, tag=tag)
+        return b"WIN_DECRYPTED"
+    monkeypatch.setattr(main.Plugin, "_windows_aes_key", staticmethod(lambda: b"k" * 32))
+    monkeypatch.setattr(main.Plugin, "_bcrypt_aes_gcm_decrypt", staticmethod(fake_gcm))
+    assert plugin._decrypt_chromium_cookie(ev) == "WIN_DECRYPTED"
+    assert seen["nonce"] == b"N" * 12 and seen["ct"] == b"C" * 10 and seen["tag"] == b"T" * 16
+
+
+def test_windows_short_value_is_safe(monkeypatch):
+    monkeypatch.setattr(main.sys, "platform", "win32")
+    assert plugin._decrypt_chromium_cookie(b"v10tooShort") == ""  # < nonce+tag → ''
 
 
 def test_linux_uses_cbc_with_peanuts_key(monkeypatch):
