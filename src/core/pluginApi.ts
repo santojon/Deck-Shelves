@@ -13,6 +13,9 @@ import {
   isNonSteamBadgesInstalled,
   isUnifiDeckInstalled,
 } from "../integrations/registry";
+import { TRIGGER_CATALOG } from "../domain/triggerCatalog";
+import { SHELF_TEMPLATES, ONLINE_SHELF_TEMPLATES } from "../domain/templates";
+import { DEFAULT_BINDINGS } from "../runtime/buttonBindings";
 import pkg from "../../package.json";
 import type {
   Unsubscribe as ApiUnsubscribe,
@@ -342,6 +345,36 @@ export interface FocusedCardInfo {
 
 export type AssetType = "hero" | "heroBlur" | "portrait" | "landscape" | "logo" | "icon" | "storeBackground";
 
+/* ---- Built-in catalogues (read-only discovery of what DS ships) ---------- */
+export interface PublicTriggerKind {
+  /** Rule kind id, e.g. "battery", "weekend", "gameRunning". */
+  kind: string;
+  /** Category id: "time" | "session" | "power" | "connectivity" | "display" | "perf". */
+  category: string;
+  /** i18n key for the category label. */
+  categoryTitleKey: string;
+  /** Default params seeded when the rule is added. */
+  defaults?: Readonly<Record<string, unknown>>;
+  /** True when the kind can be inverted (kind ⇄ its negation). */
+  invertible: boolean;
+}
+export interface PublicShelfTemplate {
+  id: string;
+  titleKey: string;
+  category: string;
+  requiresOnline: boolean;
+  defaultSort?: string;
+  source: PublicShelfSource;
+}
+export interface PublicShortcut {
+  /** Action id, e.g. "navSearch", "cardQuickLaunch". */
+  action: string;
+  /** Default gamepad combo, e.g. "L1+R1", "DPAD_RIGHT+DPAD_RIGHT"; null if unbound. */
+  defaultCombo: string | null;
+  /** Current user-configured combo (falls back to the default). */
+  combo: string | null;
+}
+
 export interface DeckShelvesIntegration {
   name: string;
   version?: string;
@@ -370,6 +403,12 @@ export interface DeckShelvesPublicAPI {
   getRegisteredSortOptions(): ReadonlyArray<ExternalSortOptionDescriptor>;
   getRegisteredImportTypes(): ReadonlyArray<ExternalImportTypeDescriptor>;
   getRegisteredImportTypesForTarget(target: ImportTarget): ReadonlyArray<ExternalImportTypeDescriptor>;
+
+  // Built-in catalogues — discover the trigger kinds, shelf templates and
+  // gamepad shortcuts DS ships, so integrations can build on them.
+  listTriggerCatalog(): ReadonlyArray<PublicTriggerKind>;
+  listShelfTemplates(): ReadonlyArray<PublicShelfTemplate>;
+  listShortcuts(): ReadonlyArray<PublicShortcut>;
 
   getShelves(): ReadonlyArray<PublicShelf>;
   getSmartShelves(): ReadonlyArray<PublicSmartShelf>;
@@ -910,6 +949,30 @@ export function makeApi(): DeckShelvesPublicAPI {
     getRegisteredRecommendationProviders() { return getExternalRecommendationProviders(); },
 
     registerTranslations(locale, dict) { registerTranslations(locale, dict); },
+
+    listTriggerCatalog() {
+      const out: PublicTriggerKind[] = [];
+      for (const cat of TRIGGER_CATALOG) {
+        for (const e of cat.entries) {
+          out.push({ kind: e.kind, category: cat.id, categoryTitleKey: cat.titleKey, defaults: e.defaults, invertible: e.invertible === true });
+        }
+      }
+      return out;
+    },
+    listShelfTemplates() {
+      return [...SHELF_TEMPLATES, ...ONLINE_SHELF_TEMPLATES].map((t) => ({
+        id: t.id, titleKey: t.titleKey, category: t.category,
+        requiresOnline: t.requiresOnline === true, defaultSort: t.defaultSort,
+        source: t.source as unknown as PublicShelfSource,
+      }));
+    },
+    listShortcuts() {
+      const bindings = ((getCurrentSettings() as any)?.buttonBindings ?? {}) as Record<string, string>;
+      return (Object.keys(DEFAULT_BINDINGS) as Array<keyof typeof DEFAULT_BINDINGS>).map((action) => ({
+        action, defaultCombo: DEFAULT_BINDINGS[action],
+        combo: typeof bindings[action] === "string" && bindings[action] ? bindings[action] : DEFAULT_BINDINGS[action],
+      }));
+    },
 
     getShelves() { return projectShelves(getCurrentSettings()); },
     getSmartShelves() { return projectSmartShelves(getCurrentSettings()); },
