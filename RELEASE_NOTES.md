@@ -37,7 +37,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
-- **The Quick Access sidecar stays open.** It no longer closes on its own when a notification appears or a controller reconnects while you're using it.
+- **The Quick Access sidecar stays open.** It no longer collapses on its own a moment after you open it (or when a notification appears or a controller reconnects) — it now tracks whether the Quick Access menu itself is still open instead of an unreliable focus check.
 - **Your settings are safer.** A single bad value can no longer reset everything to defaults — the plugin keeps what it can read and leaves the rest of your setup intact.
 - **The first shelf no longer sticks to the very top of the screen when you hide the native recents.** It now keeps the same top spacing the native recents row had, instead of gluing its title to the top edge.
 - **The price-range filter now works for the store games you don't own.** A store or wishlist price shelf is meant to show games you can buy — but it used to list **every** unowned game regardless of price, including free-to-play ones. Games you don't own now appear only when their real price falls in your chosen range, so the shelf stays a proper buy-list and free titles no longer show up in a paid range.

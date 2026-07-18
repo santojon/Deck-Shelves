@@ -615,13 +615,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
       } catch {}
     };
-    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright
-       AND arm `sawHide`. The return-side signals (focus / resume) fire on focus
-       GAIN — which Steam raises spuriously (a notification toast dismissing, a
-       controller / dock event) while the QAM is still visible, collapsing the
-       sidecar under the user. Gate those on a real hide having happened first;
-       the m_eOpenSideMenu poll below stays the authoritative leave-detector for
-       the paths these DOM events miss. */
+    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright AND
+       arm `sawHide`. The return-side signals (focus / resume) fire on focus GAIN,
+       which Steam raises spuriously while the QAM is still visible — gate those on
+       a real hide first so they don't collapse the sidecar under the user. The
+       m_eOpenSideMenu poll below is the authoritative leave-detector otherwise. */
     let sawHide = false;
     const collapseNow = (label: string) => { trace(label); sawHide = true; setQamExpanded(false); };
     const collapseOnReturn = (label: string) => { trace(label); if (sawHide) { sawHide = false; setQamExpanded(false); } };
@@ -678,15 +676,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         lastTick = now;
         const menuState = getMenuState();
         const menuChanged = refValue !== null && menuState !== null && menuState !== refValue;
-        const noFocus = !doc.hasFocus();
-        /* A >1.5s timer gap means either the popup was throttled in the
-           background OR a heavy foreground re-render (large libraries) just
-           blocked the main thread. Only the former should collapse — require
-           the document to be non-visible so a slow render mid-interaction
-           (e.g. toggling an eye) doesn't empty the sidecar. */
+        /* `doc.hasFocus()` is unusable in GamepadUI — the QAM popup document never
+           holds DOM focus even while its sidecar is in use, so the old `noFocus`
+           term collapsed on the first tick (~300 ms after open; see
+           __ds_sidecar_signals). m_eOpenSideMenu is the authoritative signal —
+           keep it + the background-resume guard (>1.5 s gap while non-visible). */
         const resumedFromBackground = gap > 1500 && doc.visibilityState !== "visible";
-        if (menuChanged || noFocus || resumedFromBackground) {
-          traceSidecarCollapse(now, menuChanged, noFocus, refValue, menuState, gap);
+        if (menuChanged || resumedFromBackground) {
+          traceSidecarCollapse(now, menuChanged, false, refValue, menuState, gap);
           setQamExpanded(false);
           window.clearInterval(id);
         }
