@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Prateleiras",
   "notifications_area_profiles": "Perfis",
   "notifications_area_filters": "Filtros",
-  "notifications_area_triggers": "Gatilhos"
+  "notifications_area_triggers": "Gatilhos",
+  "visibility_cat_peripherals": "Periféricos",
+  "visibility_rule_controllerConnected": "Comando ligado",
+  "visibility_rule_controllerConnected_not": "Sem comando",
+  "visibility_rule_headphonesConnected": "Auscultadores ligados",
+  "visibility_rule_headphonesConnected_not": "Sem auscultadores",
+  "visibility_rule_bluetoothConnected": "Dispositivo Bluetooth ligado",
+  "visibility_rule_bluetoothConnected_not": "Dispositivo Bluetooth desligado",
+  "visibility_bt_device": "Dispositivo",
+  "visibility_bt_none": "Nenhum dispositivo emparelhado"
 }

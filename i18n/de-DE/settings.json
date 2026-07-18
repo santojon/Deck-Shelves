@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Regale",
   "notifications_area_profiles": "Profile",
   "notifications_area_filters": "Filter",
-  "notifications_area_triggers": "Auslöser"
+  "notifications_area_triggers": "Auslöser",
+  "visibility_cat_peripherals": "Peripheriegeräte",
+  "visibility_rule_controllerConnected": "Controller verbunden",
+  "visibility_rule_controllerConnected_not": "Kein Controller",
+  "visibility_rule_headphonesConnected": "Kopfhörer verbunden",
+  "visibility_rule_headphonesConnected_not": "Keine Kopfhörer",
+  "visibility_rule_bluetoothConnected": "Bluetooth-Gerät verbunden",
+  "visibility_rule_bluetoothConnected_not": "Bluetooth-Gerät getrennt",
+  "visibility_bt_device": "Gerät",
+  "visibility_bt_none": "Keine gekoppelten Geräte"
 }

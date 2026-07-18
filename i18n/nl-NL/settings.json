@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Schappen",
   "notifications_area_profiles": "Profielen",
   "notifications_area_filters": "Filters",
-  "notifications_area_triggers": "Triggers"
+  "notifications_area_triggers": "Triggers",
+  "visibility_cat_peripherals": "Randapparatuur",
+  "visibility_rule_controllerConnected": "Controller verbonden",
+  "visibility_rule_controllerConnected_not": "Geen controller",
+  "visibility_rule_headphonesConnected": "Koptelefoon verbonden",
+  "visibility_rule_headphonesConnected_not": "Geen koptelefoon",
+  "visibility_rule_bluetoothConnected": "Bluetooth-apparaat verbonden",
+  "visibility_rule_bluetoothConnected_not": "Bluetooth-apparaat losgekoppeld",
+  "visibility_bt_device": "Apparaat",
+  "visibility_bt_none": "Geen gekoppelde apparaten"
 }

@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { Focusable, DialogButton, Dropdown, ToggleField } from '../../../../runtime/host/decky'
 import { flowChildrenProps } from '../../../../core/steamOSVersion'
 import { CollapsibleSection } from '../../../ui'
-import { ClockIcon, CalendarIcon, GamepadIcon, PlayIcon, SteamIcon, BatteryIcon, OnlineIcon, MonitorIcon, GaugeIcon } from '../../../icons'
+import { ClockIcon, CalendarIcon, GamepadIcon, PlayIcon, SteamIcon, BatteryIcon, OnlineIcon, MonitorIcon, GaugeIcon, HeadphonesIcon, BluetoothIcon } from '../../../icons'
+import { getBluetoothPaired, requestPeripheralsRefresh, subscribePeripheralsState, type BtDevice } from '../../../../runtime/peripheralsState'
 import { optionData } from './utils'
 
 /* Self-contained editor for a Visibility Rules v2 tree
@@ -16,7 +18,7 @@ type T = (k: string, opts?: any) => string
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ data: h, label: `${String(h).padStart(2, '0')}:00` }))
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget']
+const KNOWN_KINDS = ['timeWindow', 'dayOfWeek', 'weekend', 'timeOfDayPeriod', 'season', 'holiday', 'lastGameSource', 'gameRunning', 'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide', 'highCpu', 'lowMemory', 'lowFrameBudget', 'controllerConnected', 'headphonesConnected', 'bluetoothConnected']
 const BATTERY_LEVELS = [10, 15, 20, 25, 30, 40, 50].map((n) => ({ data: n, label: `${n}%` }))
 const RESOLUTION_WIDTHS = [
   { data: 1280, label: '1280 · HD' },
@@ -194,6 +196,36 @@ function DayOfWeekRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial
 }
 
 // Kind → the extra param editor row (kinds with no params render nothing).
+/* Per-device Bluetooth picker. Paired devices come from the backend on demand
+   (bluetoothctl) — request a refresh on mount and re-render when it lands. */
+function BluetoothRow({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
+  const [devices, setDevices] = useState<BtDevice[]>(() => getBluetoothPaired())
+  useEffect(() => {
+    requestPeripheralsRefresh()
+    const un = subscribePeripheralsState(() => setDevices(getBluetoothPaired()))
+    return un
+  }, [])
+  const opts = devices.map((d) => ({ data: d.mac, label: d.name }))
+  return (
+    <div style={{ padding: '2px 0 4px' }}>
+      <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 4 }}>
+        {devices.length ? t('visibility_bt_device') : t('visibility_bt_none')}
+      </div>
+      {devices.length > 0 && (
+        <Dropdown
+          rgOptions={opts}
+          selectedOption={String((rule as any).mac ?? '')}
+          onChange={(o: unknown) => {
+            const mac = String(optionData(o) ?? '')
+            const dev = devices.find((d) => d.mac === mac)
+            onUpdate({ mac, name: dev?.name ?? mac } as Partial<Rule>)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 const RULE_BODIES: Record<string, (p: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) => any> = {
   timeWindow: TimeWindowRow,
   dayOfWeek: DayOfWeekRow,
@@ -206,6 +238,7 @@ const RULE_BODIES: Record<string, (p: { rule: Rule; onUpdate: (p: Partial<Rule>)
   highCpu: HighCpuRow,
   lowMemory: LowMemoryRow,
   lowFrameBudget: FrameBudgetRow,
+  bluetoothConnected: BluetoothRow,
 }
 
 function RuleBody({ rule, onUpdate, t }: { rule: Rule; onUpdate: (p: Partial<Rule>) => void; t: T }) {
@@ -264,6 +297,11 @@ const CATALOG: Cat[] = [
     { kind: 'highCpu', Icon: GaugeIcon, defaults: { above: 80 }, invertible: true },
     { kind: 'lowMemory', Icon: GaugeIcon, defaults: { below: 15 }, invertible: true },
     { kind: 'lowFrameBudget', Icon: GaugeIcon, defaults: { belowFps: 45 }, invertible: true },
+  ] },
+  { id: 'peripherals', Icon: GamepadIcon, title: 'visibility_cat_peripherals', entries: [
+    { kind: 'controllerConnected', Icon: GamepadIcon, invertible: true },
+    { kind: 'headphonesConnected', Icon: HeadphonesIcon, invertible: true },
+    { kind: 'bluetoothConnected', Icon: BluetoothIcon, invertible: true },
   ] },
 ]
 const CAT_KINDS: Record<string, Set<string>> = Object.fromEntries(CATALOG.map((c) => [c.id, new Set(c.entries.map((e) => e.kind))]))

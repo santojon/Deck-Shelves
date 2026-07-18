@@ -56,6 +56,7 @@
     "verify:package": "node scripts/build/py.mjs scripts/build/verify-package.py",
     "deploy:deck": "bash scripts/deploy/deploy-deck.sh",
     "deploy:deck:hard": "bash scripts/deploy/deploy-deck.sh --hard",
+    "deploy:deck:release": "bash scripts/deploy/deploy-deck.sh --release --hard",
     "deploy:deck:win": "powershell -ExecutionPolicy Bypass -File scripts/deploy/deploy-deck.ps1",
     "deploy:deck:win:hard": "powershell -ExecutionPolicy Bypass -File scripts/deploy/deploy-deck.ps1 -Hard",
     "deploy:local": "node scripts/deploy/deploy-local.mjs",

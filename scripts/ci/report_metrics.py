@@ -161,6 +161,64 @@ def _read_complexity(root: str) -> Optional[dict]:
     return _run_complexity_metric(str(Path(root) / "src"), root)
 
 
+def _run_decoupling_metric(src_dir: str, root: str) -> Optional[dict]:
+    """Run the decoupling metric (scripts/ci/decoupling-metric.mjs) and return
+    {leaks, adapter, ratio, top}. None on any failure."""
+    script = Path(root) / "scripts" / "ci" / "decoupling-metric.mjs"
+    if not script.exists():
+        return None
+    try:
+        res = subprocess.run(["node", str(script), src_dir], cwd=root,
+                             capture_output=True, text=True, timeout=120)
+    except Exception:
+        return None
+    out = (res.stdout or "").strip()
+    if not out:
+        return None
+    try:
+        d = json.loads(out)
+    except Exception:
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def _read_decoupling(root: str) -> Optional[dict]:
+    """Decoupling DEBT for the current tree: the number of direct @decky import
+    call sites OUTSIDE the isolation layer (`leaks`, LOWER is better) plus the
+    adapter-import count and the leak `ratio` %. Drops as call sites are routed
+    through the single host-adapter seam."""
+    return _run_decoupling_metric(str(Path(root) / "src"), root)
+
+
+def _run_portability_metric(backend_dir: str, root: str) -> Optional[dict]:
+    """Run the platform-portability metric (scripts/ci/platform-portability-metric.py)
+    and return {coupled, guarded, unguarded, top}. None on any failure."""
+    script = Path(root) / "scripts" / "ci" / "platform-portability-metric.py"
+    if not script.exists():
+        return None
+    try:
+        res = subprocess.run(["python3", str(script), backend_dir], cwd=root,
+                             capture_output=True, text=True, timeout=120)
+    except Exception:
+        return None
+    out = (res.stdout or "").strip()
+    if not out:
+        return None
+    try:
+        d = json.loads(out)
+    except Exception:
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def _read_portability(root: str) -> Optional[dict]:
+    """Platform-portability DEBT for the current tree: OS-coupled backend call
+    sites (Linux paths, OS tools/APIs) that are NOT fail-soft (`unguarded`,
+    LOWER is better; target 0 — every OS touch must be guarded). `coupled` and
+    `guarded` are informational. Backend modules live at the repo root."""
+    return _run_portability_metric(str(root), root)
+
+
 def _complexity_at_tag(version: str, root: str) -> Optional[dict]:
     """Complexity metric for a released version, computed by archiving that
     tag's src/ tree and running the syntax-only metric against it. None when the
@@ -234,6 +292,161 @@ def _backfill_complexity(reports_root: Path, root: str) -> int:
                 continue
             m["complexity"] = metric
             m["complexityEst"] = True
+            p.write_text(json.dumps(m, indent=2), encoding="utf-8")
+            n += 1
+    return n
+
+
+def _decoupling_at_tag(version: str, root: str) -> Optional[dict]:
+    """Decoupling metric for a released version, measured by extracting that
+    tag's src/ tree (git archive — never touches the working tree) and running
+    the import-scan metric against it. None when the tag is missing or anything
+    fails. `top` is dropped (paths are tag-local)."""
+    tag = f"v{version}"
+    try:
+        chk = subprocess.run(["git", "rev-parse", "--verify", "--quiet", tag],
+                            cwd=root, capture_output=True, text=True)
+        if chk.returncode != 0:
+            return None
+        arch = subprocess.run(["git", "archive", tag, "src"], cwd=root,
+                             capture_output=True, timeout=60)
+        if arch.returncode != 0 or not arch.stdout:
+            return None
+    except Exception:
+        return None
+    with tempfile.TemporaryDirectory(dir=root) as tmp:
+        try:
+            with tarfile.open(fileobj=io.BytesIO(arch.stdout)) as tf:
+                try:
+                    tf.extractall(tmp, filter="data")
+                except TypeError:
+                    tf.extractall(tmp)
+        except Exception:
+            return None
+        m = _run_decoupling_metric(str(Path(tmp) / "src"), root)
+    if m:
+        m.pop("top", None)
+    return m
+
+
+def _reports_needing_decoupling(reports_root: Path) -> dict:
+    """version -> [run JSON paths] for runs that carry a version but no measured
+    decoupling metric yet (used by the backfill)."""
+    need: dict = {}
+    for sd in ("local", "ci", "release"):
+        sp = reports_root / sd
+        if not sp.exists():
+            continue
+        for p in sp.glob("*.json"):
+            if p.name == "runs-manifest.json" or p.name.startswith((".", "_")):
+                continue
+            try:
+                m = json.loads(p.read_text())
+            except Exception:
+                continue
+            ver = m.get("version")
+            if ver and not isinstance(m.get("decoupling"), dict):
+                need.setdefault(ver, []).append(p)
+    return need
+
+
+def _backfill_decoupling(reports_root: Path, root: str) -> int:
+    """Stamp historical `decoupling` (marked estimated) onto version-tagged runs
+    that lack it — one metric run per unique tagged version. Older tags predate
+    the isolation layer, so their leak count is legitimately high; the series
+    then falls as the host-adapter seam was adopted."""
+    need = _reports_needing_decoupling(reports_root)
+    if not need:
+        return 0
+    n = 0
+    for ver, paths in need.items():
+        metric = _decoupling_at_tag(ver, root)
+        if not metric:
+            continue
+        for p in paths:
+            try:
+                m = json.loads(p.read_text())
+            except Exception:
+                continue
+            m["decoupling"] = metric
+            m["decouplingEst"] = True
+            p.write_text(json.dumps(m, indent=2), encoding="utf-8")
+            n += 1
+    return n
+
+
+def _portability_at_tag(version: str, root: str) -> Optional[dict]:
+    """Portability metric for a released version, measured by extracting that
+    tag's top-level *.py (the backend modules; `git archive` — never touches the
+    working tree) and re-running the scan. None if the tag is missing/fails."""
+    tag = f"v{version}"
+    try:
+        chk = subprocess.run(["git", "rev-parse", "--verify", "--quiet", tag],
+                            cwd=root, capture_output=True, text=True)
+        if chk.returncode != 0:
+            return None
+        arch = subprocess.run(["git", "archive", tag], cwd=root,
+                             capture_output=True, timeout=60)
+        if arch.returncode != 0 or not arch.stdout:
+            return None
+    except Exception:
+        return None
+    with tempfile.TemporaryDirectory(dir=root) as tmp:
+        try:
+            with tarfile.open(fileobj=io.BytesIO(arch.stdout)) as tf:
+                members = [m for m in tf.getmembers()
+                           if "/" not in m.name and m.name.endswith(".py")]
+                try:
+                    tf.extractall(tmp, members=members, filter="data")
+                except TypeError:
+                    tf.extractall(tmp, members=members)
+        except Exception:
+            return None
+        m = _run_portability_metric(str(tmp), root)
+    if m:
+        m.pop("top", None)
+    return m
+
+
+def _reports_needing_portability(reports_root: Path) -> dict:
+    """version -> [run JSON paths] for version-tagged runs with no portability
+    metric yet (used by the backfill)."""
+    need: dict = {}
+    for sd in ("local", "ci", "release"):
+        sp = reports_root / sd
+        if not sp.exists():
+            continue
+        for p in sp.glob("*.json"):
+            if p.name == "runs-manifest.json" or p.name.startswith((".", "_")):
+                continue
+            try:
+                m = json.loads(p.read_text())
+            except Exception:
+                continue
+            ver = m.get("version")
+            if ver and not isinstance(m.get("portability"), dict):
+                need.setdefault(ver, []).append(p)
+    return need
+
+
+def _backfill_portability(reports_root: Path, root: str) -> int:
+    """Stamp historical `portability` (marked estimated) onto version-tagged runs
+    that lack it — one metric run per unique tagged version."""
+    need = _reports_needing_portability(reports_root)
+    if not need:
+        return 0
+    n = 0
+    for ver, paths in need.items():
+        metric = _portability_at_tag(ver, root)
+        if not metric:
+            continue
+        for p in paths:
+            try:
+                m = json.loads(p.read_text())
+            except Exception:
+                continue
+            m["portability"] = metric
+            m["portabilityEst"] = True
             p.write_text(json.dumps(m, indent=2), encoding="utf-8")
             n += 1
     return n

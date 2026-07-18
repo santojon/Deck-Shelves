@@ -39,5 +39,17 @@
     "max": 192,
     "avg": 24.8
   },
-  "complexityEst": true
+  "complexityEst": true,
+  "decoupling": {
+    "leaks": 81,
+    "adapter": 0,
+    "ratio": 100
+  },
+  "decouplingEst": true,
+  "portability": {
+    "coupled": 1,
+    "guarded": 1,
+    "unguarded": 0
+  },
+  "portabilityEst": true
 }

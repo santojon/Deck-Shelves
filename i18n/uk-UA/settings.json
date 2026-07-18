@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Полиці",
   "notifications_area_profiles": "Профілі",
   "notifications_area_filters": "Фільтри",
-  "notifications_area_triggers": "Тригери"
+  "notifications_area_triggers": "Тригери",
+  "visibility_cat_peripherals": "Периферія",
+  "visibility_rule_controllerConnected": "Контролер підключено",
+  "visibility_rule_controllerConnected_not": "Немає контролера",
+  "visibility_rule_headphonesConnected": "Навушники підключено",
+  "visibility_rule_headphonesConnected_not": "Немає навушників",
+  "visibility_rule_bluetoothConnected": "Bluetooth-пристрій підключено",
+  "visibility_rule_bluetoothConnected_not": "Bluetooth-пристрій відключено",
+  "visibility_bt_device": "Пристрій",
+  "visibility_bt_none": "Немає спарених пристроїв"
 }

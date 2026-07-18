@@ -461,16 +461,24 @@ _DASH_JS = r"""
     const hasSup=view.some(r=>typeof r.suppressions==='number');
     const hasProb=view.some(r=>r.lint&&typeof r.lint.problems==='number');
     const hasCx=view.some(r=>r.complexity&&typeof r.complexity.level==='number');
+    const hasDec=view.some(r=>r.decoupling&&typeof r.decoupling.leaks==='number');
+    const hasPort=view.some(r=>r.portability&&typeof r.portability.unguarded==='number');
     const lintPanel=$('lint-panel');
-    if(lintPanel)lintPanel.style.display=(hasRuff||hasSup||hasProb||hasCx)?'':'none';
+    if(lintPanel)lintPanel.style.display=(hasRuff||hasSup||hasProb||hasCx||hasDec||hasPort)?'':'none';
     const blk=(id,show)=>{const e=$(id);if(e)e.style.display=show?'':'none';};
-    blk('ruff-block',hasRuff);blk('sup-block',hasSup);blk('prob-block',hasProb);blk('cx-block',hasCx);
+    blk('ruff-block',hasRuff);blk('sup-block',hasSup);blk('prob-block',hasProb);blk('cx-block',hasCx);blk('decouple-block',hasDec);blk('portability-block',hasPort);
     if(hasRuff){const estR=r=>!!(r.ruff&&r.ruff.estimated),t=$('ruff-trend');if(t)t.innerHTML=svgMetricTrend(view,r=>r.ruff&&typeof r.ruff.issues==='number'?r.ruff.issues:null,{color:'#f59e0b',upGood:false,estFn:estR});}
     if(hasSup){const estS=r=>!!r.suppressionsEst,t=$('sup-trend');if(t)t.innerHTML=svgMetricTrend(view,r=>typeof r.suppressions==='number'?r.suppressions:null,{color:'#fb7185',upGood:false,estFn:estS});}
     if(hasProb){const estL=r=>!!(r.lint&&r.lint.estimated),t=$('prob-trend');if(t)t.innerHTML=svgMetricTrend(view,r=>r.lint&&typeof r.lint.problems==='number'?r.lint.problems:null,{color:'#fbbf24',upGood:false,estFn:estL});}
     if(hasCx){const estC=r=>!!r.complexityEst;
       const t1=$('cx-trend');if(t1)t1.innerHTML=svgMetricTrend(view,r=>r.complexity&&typeof r.complexity.level==='number'?r.complexity.level:null,{color:'#a78bfa',upGood:false,estFn:estC});
       const t2=$('cxmax-trend');if(t2)t2.innerHTML=svgMetricTrend(view,r=>r.complexity&&typeof r.complexity.max==='number'?r.complexity.max:null,{color:'#c084fc',upGood:false,estFn:estC});}
+    if(hasDec){const estD=r=>!!r.decouplingEst;
+      const d1=$('decouple-trend');if(d1)d1.innerHTML=svgMetricTrend(view,r=>r.decoupling&&typeof r.decoupling.leaks==='number'?r.decoupling.leaks:null,{color:'#f472b6',upGood:false,estFn:estD});
+      const d2=$('decratio-trend');if(d2)d2.innerHTML=svgMetricTrend(view,r=>r.decoupling&&typeof r.decoupling.ratio==='number'?r.decoupling.ratio:null,{pct:true,color:'#e879f9',upGood:false,estFn:estD});}
+    if(hasPort){const estPo=r=>!!r.portabilityEst;
+      const po1=$('portability-trend');if(po1)po1.innerHTML=svgMetricTrend(view,r=>r.portability&&typeof r.portability.unguarded==='number'?r.portability.unguarded:null,{color:'#2dd4bf',upGood:false,estFn:estPo});
+      const po2=$('portability-coupled-trend');if(po2)po2.innerHTML=svgMetricTrend(view,r=>r.portability&&typeof r.portability.coupled==='number'?r.portability.coupled:null,{color:'#5eead4',upGood:true,estFn:estPo,fmt:v=>Math.round(v)+' sites'});}
     // Per-step duration trends — whenever the view has timed runs.
     const stHost=$('step-trends');
     if(stHost){const st=stepTrends(view),stPanel=$('steptrends-panel');
@@ -679,8 +687,20 @@ def _rebuild_dashboard(reports_root: Path) -> None:
       <h2 style="margin-top:18px">Worst single complexity (max) over time &mdash; lower is better</h2>
       <div id="cxmax-trend"></div>
     </div>
+    <div id="decouple-block" style="display:none">
+      <h2 style="margin-top:18px">Decoupling debt (direct &#64;decky imports) over time &mdash; lower is better</h2>
+      <div id="decouple-trend"></div>
+      <h2 style="margin-top:18px">Direct-import ratio (leaks vs adapter) over time &mdash; lower is better</h2>
+      <div id="decratio-trend"></div>
+    </div>
+    <div id="portability-block" style="display:none">
+      <h2 style="margin-top:18px">Platform-portability debt (unguarded OS calls) over time &mdash; lower is better</h2>
+      <div id="portability-trend"></div>
+      <h2 style="margin-top:18px">OS-coupled backend call sites over time</h2>
+      <div id="portability-coupled-trend"></div>
+    </div>
     <div class="legend">
-      <span style="color:#64748b;font-size:10px">Fewer issues is better (&#9660; green = improving). Hollow points are <b>estimated</b>, backfilled per version from git (ruff run at each tag; suppressions from the eslint-suppressions.json total — the file was adopted at v2.4.1 with ~147 pre-existing problems). <b>Complexity debt</b> is the summed cyclomatic score of every function over the limit (the MAGNITUDE of complexity, not the offender count the suppressions chart shows); backfilled by archiving each tag's src and re-measuring.</span>
+      <span style="color:#64748b;font-size:10px">Fewer issues is better (&#9660; green = improving). Hollow points are <b>estimated</b>, backfilled per version from git (ruff run at each tag; suppressions from the eslint-suppressions.json total — the file was adopted at v2.4.1 with ~147 pre-existing problems). <b>Complexity debt</b> is the summed cyclomatic score of every function over the limit (the MAGNITUDE of complexity, not the offender count the suppressions chart shows); backfilled by archiving each tag's src and re-measuring. <b>Decoupling debt</b> is the number of import sites that reach for &#64;decky directly instead of the host-adapter seam (older tags predate the seam, so the count starts high and falls); backfilled the same way. <b>Platform-portability debt</b> is the number of OS-coupled backend call sites (Linux paths, OS tools/APIs) that are NOT fail-soft and would crash off their native OS — target <b>0</b>; the second chart tracks total OS-coupled sites (rises as multi-OS support grows).</span>
     </div>
   </div>
 

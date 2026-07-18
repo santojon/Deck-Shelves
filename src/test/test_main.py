@@ -852,11 +852,24 @@ def test_read_display_state_internal_only(tmp_path):
     assert out == {"external": False, "supported": True}
 
 
-def test_read_display_state_unsupported_off_linux(tmp_path):
-    from display_state import read_display_state
-    # No DRM sysfs present (Windows / macOS): supported False, never mis-classifies.
-    out = read_display_state(str(tmp_path / "nope"))
+def test_read_display_state_unsupported_when_nothing_detectable(tmp_path, monkeypatch):
+    # No DRM sysfs and an unrecognised platform (no monitor-count fallback):
+    # supported False, never mis-classifies. (Windows/macOS ARE supported via
+    # the monitor-count fallback — that path is exercised on those platforms.)
+    import display_state
+    monkeypatch.setattr(display_state.platform, "system", lambda: "Linux")
+    out = display_state.read_display_state(str(tmp_path / "nope"))
     assert out == {"external": False, "supported": False}
+
+
+def test_read_display_state_monitor_count_fallback(tmp_path, monkeypatch):
+    # No DRM → per-OS monitor-count fallback answers (Windows/macOS): more than
+    # one active display means an external one is attached.
+    import display_state
+    monkeypatch.setattr(display_state.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(display_state, "_monitors_windows", lambda: True)
+    out = display_state.read_display_state(str(tmp_path / "nope"))
+    assert out == {"external": True, "supported": True}
 
 
 def test_perf_cpu_percent_math():
@@ -874,7 +887,12 @@ def test_perf_read_mem_available_percent(tmp_path):
     assert read_mem_available_percent(str(p)) == 25.0
 
 
-def test_perf_snapshot_unsupported_off_linux(tmp_path):
-    from perf_probe import read_perf_snapshot
-    out = read_perf_snapshot(str(tmp_path / "nostat"), str(tmp_path / "nomem"))
+def test_perf_snapshot_linux_proc_absent_is_unsupported(tmp_path, monkeypatch):
+    # With psutil unavailable and forced onto the Linux /proc path, absent
+    # /proc files yield an inert (unsupported) snapshot. (psutil / the Windows
+    # + macOS fallbacks keep it supported on their platforms — see test_perf_probe.)
+    import perf_probe
+    monkeypatch.setattr(perf_probe, "psutil", None)
+    monkeypatch.setattr(perf_probe.platform, "system", lambda: "Linux")
+    out = perf_probe.read_perf_snapshot(str(tmp_path / "nostat"), str(tmp_path / "nomem"))
     assert out == {"cpuPercent": None, "memAvailablePercent": None, "supported": False}

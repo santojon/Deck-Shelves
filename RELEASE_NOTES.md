@@ -7,6 +7,11 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Added
 
+- **Conditions for your peripherals.** Show a shelf — or switch a profile — when a controller is connected, when headphones are plugged in, or when a specific Bluetooth device is connected, plus the inverse of each.
+- **Works across your devices.** The battery, CPU, memory and external-display conditions now also work on Windows and macOS, not just the Steam Deck.
+- **System information now shows your real operating system** — SteamOS, your Linux distribution, Windows or macOS, with version and architecture — so the one-tap bug report is accurate wherever you run it.
+- **Online features authenticate on macOS too**, not only on Linux; on other systems they fall back to the public data.
+- **Report a problem in one tap.** The About page's report button now fills in a bug report for you — your device details and recent logs included — so filing an issue takes seconds.
 - **Smarter shelf visibility.** A shelf can now show up only when the conditions you choose are true — time of day, day of week, and now your device's state: low battery, charging, offline, docked / on an external display, or a given screen resolution or ultrawide display. Mix several with "match any" or "match all", or start from an Evenings / Weekends preset.
 - **Even more visibility conditions.** Weekend vs weekday, part of the day (morning / afternoon / evening / night), season, and your own holiday date ranges; whether the last game you played was a Steam or non-Steam game, or whether a game is currently running; and — read only when a shelf actually needs it — high CPU or low memory.
 - **Profiles that switch themselves.** Give a saved profile a trigger (the same conditions as above) and turn on auto-switch: Deck Shelves applies that profile on its own when the trigger matches — a "Docked" profile when you dock, a "Battery saver" profile when the battery runs low. The auto-switch toggle is in the Quick Access panel, the sidecar and Settings → Profiles, and each profile sets its own triggers.
@@ -32,6 +37,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
+- **The Quick Access sidecar stays open.** It no longer closes on its own when a notification appears or a controller reconnects while you're using it.
+- **Your settings are safer.** A single bad value can no longer reset everything to defaults — the plugin keeps what it can read and leaves the rest of your setup intact.
 - **The first shelf no longer sticks to the very top of the screen when you hide the native recents.** It now keeps the same top spacing the native recents row had, instead of gluing its title to the top edge.
 - **The price-range filter now works for the store games you don't own.** A store or wishlist price shelf is meant to show games you can buy — but it used to list **every** unowned game regardless of price, including free-to-play ones. Games you don't own now appear only when their real price falls in your chosen range, so the shelf stays a proper buy-list and free titles no longer show up in a paid range.
 - **Fixed a recurring stutter on the home.** Every ~30 seconds the interface could freeze for a couple of seconds — sometimes swallowing a button press so navigation felt stuck on a shelf. Deck Shelves now reuses the parsed price data instead of re-reading it for every game, so the home stays smooth.

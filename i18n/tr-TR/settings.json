@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Raflar",
   "notifications_area_profiles": "Profiller",
   "notifications_area_filters": "Filtreler",
-  "notifications_area_triggers": "Tetikleyiciler"
+  "notifications_area_triggers": "Tetikleyiciler",
+  "visibility_cat_peripherals": "Çevre birimleri",
+  "visibility_rule_controllerConnected": "Kumanda bağlı",
+  "visibility_rule_controllerConnected_not": "Kumanda yok",
+  "visibility_rule_headphonesConnected": "Kulaklık bağlı",
+  "visibility_rule_headphonesConnected_not": "Kulaklık yok",
+  "visibility_rule_bluetoothConnected": "Bluetooth cihazı bağlı",
+  "visibility_rule_bluetoothConnected_not": "Bluetooth cihazı bağlı değil",
+  "visibility_bt_device": "Cihaz",
+  "visibility_bt_none": "Eşleşmiş cihaz yok"
 }

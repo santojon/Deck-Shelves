@@ -10,19 +10,33 @@
 import { call } from "../shims/decky-api";
 
 let cachedDownloadsDir: string | null = null;
+let cachedPicturesDir: string | null = null;
 
 export async function prewarmUserPaths(): Promise<void> {
-  if (cachedDownloadsDir) return;
-  try {
-    const dir = await call<[], string>("get_user_desktop");
-    if (typeof dir === "string" && dir) cachedDownloadsDir = dir;
-  } catch {
-    // Backend not ready yet — keep falling back to ~/Downloads.
+  if (!cachedDownloadsDir) {
+    try {
+      const dir = await call<[], string>("get_user_desktop");
+      if (typeof dir === "string" && dir) cachedDownloadsDir = dir;
+    } catch {
+      // Backend not ready yet — keep falling back to ~/Downloads.
+    }
+  }
+  if (!cachedPicturesDir) {
+    try {
+      const dir = await call<[], string>("get_user_pictures");
+      if (typeof dir === "string" && dir) cachedPicturesDir = dir;
+    } catch {
+      // Backend not ready yet — keep falling back to ~/Pictures.
+    }
   }
 }
 
 export function getUserDownloadsDir(): string {
   return cachedDownloadsDir ?? "~/Downloads";
+}
+
+export function getUserPicturesDir(): string {
+  return cachedPicturesDir ?? "~/Pictures";
 }
 
 export function joinDownloads(filename: string): string {

@@ -124,6 +124,24 @@ export function SideNavIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function HeadphonesIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+      <rect x="3" y="13" width="4" height="7" rx="1.5" />
+      <rect x="17" y="13" width="4" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+export function BluetoothIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <path d="M6.5 8 18 16 12 20.5V3.5L18 8 6.5 16" />
+    </svg>
+  );
+}
+
 export function StackIcon({ size = 14, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)}>

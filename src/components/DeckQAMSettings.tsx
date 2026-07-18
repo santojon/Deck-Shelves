@@ -615,15 +615,24 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
       } catch {}
     };
-    const collapse = (label: string) => () => { trace(label); setQamExpanded(false); };
-    const onVis = () => { if (doc.hidden) { trace("visibilitychange:hidden"); setQamExpanded(false); } };
+    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright
+       AND arm `sawHide`. The return-side signals (focus / resume) fire on focus
+       GAIN — which Steam raises spuriously (a notification toast dismissing, a
+       controller / dock event) while the QAM is still visible, collapsing the
+       sidecar under the user. Gate those on a real hide having happened first;
+       the m_eOpenSideMenu poll below stays the authoritative leave-detector for
+       the paths these DOM events miss. */
+    let sawHide = false;
+    const collapseNow = (label: string) => { trace(label); sawHide = true; setQamExpanded(false); };
+    const collapseOnReturn = (label: string) => { trace(label); if (sawHide) { sawHide = false; setQamExpanded(false); } };
+    const onVis = () => { if (doc.hidden) collapseNow("visibilitychange:hidden"); };
     doc.addEventListener("visibilitychange", onVis);
-    const onFocus = collapse("window.focus");
+    const onFocus = () => collapseOnReturn("window.focus");
     win.addEventListener("focus", onFocus);
-    const onPageHide = collapse("pagehide");
+    const onPageHide = () => collapseNow("pagehide");
     win.addEventListener("pagehide", onPageHide);
-    const onFreeze = collapse("freeze");
-    const onResume = collapse("resume");
+    const onFreeze = () => collapseNow("freeze");
+    const onResume = () => collapseOnReturn("resume");
     doc.addEventListener("freeze", onFreeze);
     doc.addEventListener("resume", onResume);
     return () => {

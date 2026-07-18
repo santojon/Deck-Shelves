@@ -22,9 +22,11 @@ const DASH = "—";
 const CONTEXT_BUDGET = 3000;
 
 function osLine(sys: SystemInfo | null, steamOS: string | null): string {
-  if (sys?.osName) return sys.osVersion ? `${sys.osName} ${sys.osVersion}` : sys.osName;
-  if (steamOS) return `SteamOS ${steamOS}`;
-  return DASH;
+  const base = sys?.osName
+    ? (sys.osVersion ? `${sys.osName} ${sys.osVersion}` : sys.osName)
+    : (steamOS ? `SteamOS ${steamOS}` : null);
+  if (!base) return DASH;
+  return sys?.machine ? `${base} (${sys.machine})` : base;
 }
 
 function diagnosticsText(runtime: RuntimeInfo, sys: SystemInfo | null): string {
@@ -65,7 +67,31 @@ function setIf(p: URLSearchParams, key: string, val: string | null | undefined):
 }
 
 function isSteamOs(runtime: RuntimeInfo, sys: SystemInfo | null): boolean {
+  if (typeof sys?.isSteamOS === "boolean") return sys.isSteamOS;
   return !!(runtime.steamOS || /steamos/i.test(sys?.osName ?? ""));
+}
+
+// Distro id (os-release ID) -> bug-report OS dropdown option, for the
+// SteamOS-like Linuxes that have their own option.
+const OS_BY_DISTRO: Record<string, string> = {
+  bazzite: "Bazzite", holoiso: "HoloISO", chimeraos: "ChimeraOS",
+};
+
+function osFromName(name: string, hasDistro: boolean): string | null {
+  if (name.includes("windows")) return "Windows";
+  if (name.includes("mac")) return "macOS";
+  if (name.includes("linux") || hasDistro) return "Other Linux";
+  return null;
+}
+
+/* Map the detected host to a bug-report OS dropdown option (must match the
+   template verbatim). Distro id distinguishes the SteamOS-like Linuxes. */
+function osDropdown(runtime: RuntimeInfo, sys: SystemInfo | null): string | null {
+  if (isSteamOs(runtime, sys)) return "SteamOS (Steam Deck)";
+  const distro = (sys?.distroId ?? "").toLowerCase();
+  if (OS_BY_DISTRO[distro]) return OS_BY_DISTRO[distro];
+  const named = osFromName((sys?.osName ?? "").toLowerCase(), !!distro);
+  return named ?? (sys?.osName ? "Other / Unknown" : null);
 }
 
 /* Best-effort prefill of the bug form's dropdown/input fields. Dropdown values
@@ -73,12 +99,12 @@ function isSteamOs(runtime: RuntimeInfo, sys: SystemInfo | null): boolean {
 function fillEnvironment(p: URLSearchParams, runtime: RuntimeInfo, sys: SystemInfo | null): void {
   const beta = (getCurrentSettings() as any)?.betaChannelEnabled === true;
   const osv = osLine(sys, runtime.steamOS);
-  setIf(p, "os", isSteamOs(runtime, sys) ? "SteamOS (Steam Deck)" : null);
+  setIf(p, "os", osDropdown(runtime, sys));
   setIf(p, "os_version", osv !== DASH ? osv : null);
   setIf(p, "steam_client", sys?.steamVersion);
   setIf(p, "version", runtime.version);
   p.set("release_channel", beta ? "Beta / Pre-release" : "Stable");
-  p.set("steam_mode", "Game Mode (Steam Deck home / GamepadUI)");
+  p.set("steam_mode", isSteamOs(runtime, sys) ? "Game Mode (Steam Deck home / GamepadUI)" : "Big Picture Mode");
 }
 
 export async function openBugReport(): Promise<void> {

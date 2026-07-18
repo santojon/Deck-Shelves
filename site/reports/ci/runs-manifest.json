@@ -44,6 +44,18 @@
       "avg": 23.4
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -91,6 +103,18 @@
       "avg": 23.4
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -138,6 +162,18 @@
       "avg": 23.4
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -185,6 +221,18 @@
       "avg": 23.4
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -246,6 +294,18 @@
       "avg": 21.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 81,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -307,6 +367,18 @@
       "avg": 21.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 81,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -368,6 +440,18 @@
       "avg": 21.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 81,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -429,6 +513,18 @@
       "avg": 21.3
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 80,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -490,6 +586,18 @@
       "avg": 21.3
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 80,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -551,6 +659,18 @@
       "avg": 25.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -595,6 +715,18 @@
       "avg": 25.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -639,6 +771,18 @@
       "avg": 25.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -683,6 +827,18 @@
       "avg": 25.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -727,6 +883,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -771,6 +939,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -815,6 +995,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -859,6 +1051,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -903,6 +1107,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -947,6 +1163,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -991,6 +1219,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   }
 ]

@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "货架",
   "notifications_area_profiles": "配置",
   "notifications_area_filters": "筛选器",
-  "notifications_area_triggers": "触发器"
+  "notifications_area_triggers": "触发器",
+  "visibility_cat_peripherals": "外设",
+  "visibility_rule_controllerConnected": "手柄已连接",
+  "visibility_rule_controllerConnected_not": "无手柄",
+  "visibility_rule_headphonesConnected": "耳机已连接",
+  "visibility_rule_headphonesConnected_not": "无耳机",
+  "visibility_rule_bluetoothConnected": "蓝牙设备已连接",
+  "visibility_rule_bluetoothConnected_not": "蓝牙设备已断开",
+  "visibility_bt_device": "设备",
+  "visibility_bt_none": "无已配对设备"
 }

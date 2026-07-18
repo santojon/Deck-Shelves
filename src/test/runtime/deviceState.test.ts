@@ -105,7 +105,27 @@ describe('evalDeviceRule', () => {
     expect(isDeviceRuleKind('externalDisplay')).toBe(true)
     expect(isDeviceRuleKind('resolution')).toBe(true)
     expect(isDeviceRuleKind('ultrawide')).toBe(true)
+    expect(isDeviceRuleKind('controllerConnected')).toBe(true)
     expect(isDeviceRuleKind('timeWindow')).toBe(false)
+  })
+
+  it('controllerConnected: true when a controller beyond the built-in is present (device-agnostic)', () => {
+    const g = globalThis as any
+    const prev = g.ControllerStore
+    try {
+      // Built-in only → no external
+      g.ControllerStore = { GetControllers: () => [{}], GetUnboundControllers: () => [] }
+      installDeviceState()()
+      expect(evalDeviceRule({ kind: 'controllerConnected' })).toBe(false)
+      // A second bound controller → external present
+      g.ControllerStore = { GetControllers: () => [{}, {}], GetUnboundControllers: () => [] }
+      installDeviceState()()
+      expect(getDeviceState().controllerConnected).toBe(true)
+      // An unbound (freshly connected) controller → external present
+      g.ControllerStore = { GetControllers: () => [{}], GetUnboundControllers: () => [{}] }
+      installDeviceState()()
+      expect(evalDeviceRule({ kind: 'controllerConnected' })).toBe(true)
+    } finally { g.ControllerStore = prev }
   })
 
   it('getDeviceState snapshot reflects battery + offline', () => {

@@ -1,4 +1,4 @@
-import { Navigation } from "@decky/ui";
+import { Navigation } from "./host/decky";
 import { getPreferredSteamDocument } from "./steamHost";
 
 // Mutex between Quick Search and Side Nav: when one combo fires, the

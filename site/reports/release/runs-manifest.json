@@ -44,6 +44,18 @@
       "avg": 24.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 110,
+      "ratio": 5.2
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "release"
   },
   {
@@ -91,6 +103,18 @@
       "avg": 23.4
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "release"
   },
   {
@@ -138,6 +162,18 @@
       "avg": 23.4
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "release"
   },
   {
@@ -199,6 +235,18 @@
       "avg": 22.8
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 104,
+      "ratio": 5.5
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "release"
   },
   {
@@ -260,6 +308,18 @@
       "avg": 21.1
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 81,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "release"
   },
   {
@@ -321,6 +381,18 @@
       "avg": 21.4
     },
     "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 80,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "release"
   }
 ]

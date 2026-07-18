@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Scaffali",
   "notifications_area_profiles": "Profili",
   "notifications_area_filters": "Filtri",
-  "notifications_area_triggers": "Trigger"
+  "notifications_area_triggers": "Trigger",
+  "visibility_cat_peripherals": "Periferiche",
+  "visibility_rule_controllerConnected": "Controller connesso",
+  "visibility_rule_controllerConnected_not": "Nessun controller",
+  "visibility_rule_headphonesConnected": "Cuffie connesse",
+  "visibility_rule_headphonesConnected_not": "Nessuna cuffia",
+  "visibility_rule_bluetoothConnected": "Dispositivo Bluetooth connesso",
+  "visibility_rule_bluetoothConnected_not": "Dispositivo Bluetooth disconnesso",
+  "visibility_bt_device": "Dispositivo",
+  "visibility_bt_none": "Nessun dispositivo associato"
 }

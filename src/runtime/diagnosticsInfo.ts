@@ -3,6 +3,7 @@
    Steam or plugin state. Advanced-mode only. */
 
 import pkg from "../../package.json";
+import { call } from "./host/decky";
 import { getSteamOSVersion } from "../core/steamOSVersion";
 import {
   isCssLoaderActive,
@@ -63,6 +64,9 @@ export interface SystemInfo {
   steamVersion: string | null;
   osName: string | null;
   osVersion: string | null;
+  machine?: string | null;
+  isSteamOS?: boolean;
+  distroId?: string | null;
 }
 
 function strOrNull(v: unknown): string | null {
@@ -81,15 +85,30 @@ function uaOsName(ua: string): string | null {
 
 function fromSystemInfo(info: any, out: SystemInfo): void {
   if (!info) return;
-  out.osName = strOrNull(info.sOSName) ?? strOrNull(info.sOSType);
-  out.osVersion = strOrNull(info.sOSVersionId) ?? strOrNull(info.sKernelVersion);
-  out.steamVersion = strOrNull(info.sSteamUIVersion) ?? strOrNull(info.nSteamVersion) ?? strOrNull(info.sClientVersion);
+  // Fill only gaps — the backend host identity (below) is authoritative for the
+  // OS name/version, so Steam's sparse GetSystemInfo never clobbers it.
+  out.osName ??= strOrNull(info.sOSName) ?? strOrNull(info.sOSType);
+  out.osVersion ??= strOrNull(info.sOSVersionId) ?? strOrNull(info.sKernelVersion);
+  out.steamVersion ??= strOrNull(info.sSteamUIVersion) ?? strOrNull(info.nSteamVersion) ?? strOrNull(info.sClientVersion);
 }
 
-/** Steam client + OS detection (async, platform-agnostic — not SteamOS-only).
-    Reads SteamClient.System.GetSystemInfo when present, then the user agent. */
+function fromHostOs(host: any, out: SystemInfo): void {
+  if (!host || host.supported === false) return;
+  out.osName = strOrNull(host.name);
+  out.osVersion = strOrNull(host.version);
+  out.machine = strOrNull(host.machine);
+  out.isSteamOS = host.isSteamOS === true;
+  out.distroId = strOrNull(host.distroId);
+}
+
+/** Steam client + OS detection (async, cross-OS — not SteamOS-only). Prefers the
+    backend host identity (Python `platform` + os-release, authoritative on every
+    OS), then fills gaps from SteamClient.System.GetSystemInfo and the user agent. */
 export async function collectSystemInfo(): Promise<SystemInfo> {
   const out: SystemInfo = { steamVersion: null, osName: null, osVersion: null };
+  try {
+    fromHostOs(await call("get_host_os"), out);
+  } catch { /* backend unavailable — fall back to the frontend sources below */ }
   try {
     const sc: any = (globalThis as any).SteamClient;
     fromSystemInfo(await sc?.System?.GetSystemInfo?.(), out);

@@ -40,6 +40,8 @@ from sanitizer import _sanitize_settings
 from css_themes import read_css_loader_themes
 from display_state import read_display_state
 from perf_probe import read_perf_snapshot
+from host_os import get_host_os as _host_os
+from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
@@ -135,10 +137,25 @@ class Plugin:
         # Off-thread + fail-soft; `supported` is False off SteamOS/Linux.
         return await asyncio.to_thread(read_display_state)
 
+    async def get_host_os(self, *args, **kwargs) -> Dict[str, Any]:
+        # Authoritative cross-OS host identity (Python `platform` + os-release) so
+        # System information and the bug report name the real OS on every platform.
+        return await asyncio.to_thread(_host_os)
+
     async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
         # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
         # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
         return await asyncio.to_thread(read_perf_snapshot)
+
+    async def get_bluetooth_state(self, *args, **kwargs) -> Dict[str, Any]:
+        # Paired + connected Bluetooth devices via bluetoothctl (read-only,
+        # off-thread, fail-soft off Linux). On-demand — no background poll.
+        return await asyncio.to_thread(_bt_state)
+
+    async def get_audio_state(self, *args, **kwargs) -> Dict[str, Any]:
+        # Whether the active output sink is a headphone/headset port via wpctl
+        # (read-only, off-thread, fail-soft). On-demand — no background poll.
+        return await asyncio.to_thread(_audio_state)
 
     def _save_pipeline(self, data: Dict[str, Any]) -> bool:
         # Whole save pipeline runs in a single worker thread so neither the
@@ -306,6 +323,15 @@ class Plugin:
                 return candidate
         return os.path.expanduser("~")
 
+    async def get_user_pictures(self) -> str:
+        # Default folder for the image picker. Prefer ~/Pictures, then home —
+        # resolved to an absolute path so it works on any OS / account (replaces
+        # the old /home/deck/Pictures hardcode).
+        for candidate in [os.path.expanduser("~/Pictures"), os.path.expanduser("~")]:
+            if os.path.exists(candidate):
+                return candidate
+        return os.path.expanduser("~")
+
     async def list_launcher_games(self, launcher_id: str = "", *args, **kwargs) -> List[Dict[str, Any]]:
         _ = (args, kwargs)
         if not isinstance(launcher_id, str) or not launcher_id:
@@ -441,10 +467,9 @@ class Plugin:
 
     def _get_steam_cookie(self, name: str) -> str:
         """Read and decrypt a named cookie from Steam's Chromium cookie store.
-
-        Chromium on Linux stores cookies with AES-128-CBC (v10 prefix),
-        key derived via PBKDF2-SHA1 from b"peanuts" + salt b"saltysalt", 1 iteration.
-        """
+        Decryption is OS-dispatched in `_decrypt_chromium_cookie` (Linux + macOS
+        implemented; Windows falls back to the public path). Fail-soft — returns
+        '' when nothing is readable so callers use the unauthenticated path."""
         # Path discovery is centralised in `_steam_install_candidates()` so
         # adding a new platform (Windows / macOS / new Flatpak variant) is a
         # one-line change in that helper.
@@ -465,25 +490,73 @@ class Plugin:
                 con.close()
                 if not row or not row[0]:
                     continue
-                ev = bytes(row[0])
-                if ev[:3] != b"v10":
-                    return ev.decode("utf-8", errors="replace")
-                key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
-                iv = b" " * 16
-                result = _sp_run(
-                    ["openssl", "enc", "-aes-128-cbc", "-d",
-                     "-K", key.hex(), "-iv", iv.hex(), "-nopad"],
-                    input=ev[3:], capture_output=True, timeout=5,
-                )
-                if result.returncode == 0:
-                    dec = result.stdout
-                    pad = dec[-1] if dec else 0
-                    if 0 < pad <= 16:
-                        dec = dec[:-pad]
-                    return dec.decode("utf-8", errors="replace")
+                dec = self._decrypt_chromium_cookie(bytes(row[0]))
+                if dec:
+                    return dec
             except Exception:
                 pass
         return ""
+
+    def _decrypt_chromium_cookie(self, ev: bytes) -> str:
+        """Decrypt a Chromium `encrypted_value`, dispatched by OS (Steam's CEF
+        stores cookies exactly like Chrome). Linux (SteamOS / Deck) is the
+        primary path; macOS derives the key from the Keychain "Safe Storage"
+        password; Windows (v10 = AES-256-GCM with a DPAPI-wrapped key in Local
+        State — a different scheme) is not yet implemented and returns '' so the
+        caller uses the public, unauthenticated path. Always fail-soft."""
+        try:
+            if not ev:
+                return ""
+            if ev[:3] not in (b"v10", b"v11"):
+                return ev.decode("utf-8", errors="replace")  # not encrypted
+            body = ev[3:]
+            if sys.platform.startswith("linux"):
+                # Linux Chromium without a keyring: PBKDF2(b"peanuts", …, 1 iter).
+                key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
+                return self._aes_128_cbc(key, body)
+            if sys.platform == "darwin":
+                pw = self._macos_safe_storage_password()
+                if not pw:
+                    return ""
+                # macOS Chromium: PBKDF2(keychain password, …, 1003 iters).
+                key = hashlib.pbkdf2_hmac("sha1", pw, b"saltysalt", 1003, 16)
+                return self._aes_128_cbc(key, body)
+            return ""  # Windows: DPAPI + AES-GCM — public fallback for now.
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _aes_128_cbc(key: bytes, body: bytes) -> str:
+        try:
+            iv = b" " * 16
+            result = _sp_run(
+                ["openssl", "enc", "-aes-128-cbc", "-d",
+                 "-K", key.hex(), "-iv", iv.hex(), "-nopad"],
+                input=body, capture_output=True, timeout=5,
+            )
+            if result.returncode != 0:
+                return ""
+            dec = result.stdout
+            pad = dec[-1] if dec else 0
+            if 0 < pad <= 16:
+                dec = dec[:-pad]
+            return dec.decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _macos_safe_storage_password() -> Optional[bytes]:
+        """The Chromium "Safe Storage" password from the login Keychain. The
+        service name varies by app, so try the likely ones fail-soft."""
+        for service in ("Steam Safe Storage", "Chromium Safe Storage", "Chrome Safe Storage"):
+            try:
+                r = _sp_run(["security", "find-generic-password", "-w", "-s", service],
+                            capture_output=True, timeout=4)
+                if r.returncode == 0 and r.stdout.strip():
+                    return r.stdout.strip()
+            except Exception:
+                pass
+        return None
 
     def _get_steam_id64(self) -> Optional[str]:
         """Derive the user's SteamID64 from the Steam userdata directory.

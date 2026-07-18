@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "셸프",
   "notifications_area_profiles": "프로필",
   "notifications_area_filters": "필터",
-  "notifications_area_triggers": "트리거"
+  "notifications_area_triggers": "트리거",
+  "visibility_cat_peripherals": "주변기기",
+  "visibility_rule_controllerConnected": "컨트롤러 연결됨",
+  "visibility_rule_controllerConnected_not": "컨트롤러 없음",
+  "visibility_rule_headphonesConnected": "헤드폰 연결됨",
+  "visibility_rule_headphonesConnected_not": "헤드폰 없음",
+  "visibility_rule_bluetoothConnected": "블루투스 기기 연결됨",
+  "visibility_rule_bluetoothConnected_not": "블루투스 기기 연결 안 됨",
+  "visibility_bt_device": "기기",
+  "visibility_bt_none": "페어링된 기기 없음"
 }

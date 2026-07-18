@@ -16,9 +16,11 @@ function BoolCell({ on }: { on: boolean }) {
 }
 
 function osLine(sys: SystemInfo | null, steamOS: string | null): string {
-  if (sys?.osName) return sys.osVersion ? `${sys.osName} ${sys.osVersion}` : sys.osName;
-  if (steamOS) return `SteamOS ${steamOS}`;
-  return DASH;
+  const base = sys?.osName
+    ? (sys.osVersion ? `${sys.osName} ${sys.osVersion}` : sys.osName)
+    : (steamOS ? `SteamOS ${steamOS}` : null);
+  if (!base) return DASH;
+  return sys?.machine ? `${base} (${sys.machine})` : base;
 }
 
 /** Advanced → Diagnostics: read-only runtime detection. Refresh re-reads the

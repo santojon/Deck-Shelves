@@ -84,17 +84,59 @@ function subscribeDisplayManager(): void {
   } catch {}
 }
 
+/* External controller ("controller connected", invertible). Device-agnostic so
+   it works on every handheld, not just the Deck: the built-in gamepad is always
+   the single primary entry, so any EXTRA bound controller — or any unbound
+   (freshly connected, not yet assigned) one — means an external pad. Event-driven
+   off SteamClient.Input register callbacks — no polling. */
+let _externalController = false;
+const _controllerUnsub: Array<() => void> = [];
+
+function toControllerArray(v: any): any[] {
+  if (Array.isArray(v)) return v;
+  if (v && typeof v.values === 'function') { try { return [...v.values()]; } catch {} }
+  return [];
+}
+
+function readExternalController(): boolean {
+  try {
+    const cs = (globalThis as any).ControllerStore;
+    if (!cs) return _externalController;
+    const bound = toControllerArray(cs.GetControllers?.());
+    const unbound = toControllerArray(cs.GetUnboundControllers?.());
+    return bound.length > 1 || unbound.length > 0;
+  } catch { return _externalController; }
+}
+
+function refreshController(): void {
+  const next = readExternalController();
+  if (next !== _externalController) { _externalController = next; notify(); }
+}
+
+function subscribeControllers(): void {
+  const input = (globalThis as any).SteamClient?.Input;
+  for (const name of ['RegisterForUnboundControllerListChanges', 'RegisterForActiveControllerChanges'] as const) {
+    try {
+      const reg = input?.[name]?.(() => refreshController());
+      if (reg && typeof reg.unregister === 'function') _controllerUnsub.push(() => { try { reg.unregister(); } catch {} });
+    } catch {}
+  }
+  refreshController();
+}
+
 export function installDeviceState(): () => void {
   // Battery changes re-notify listeners so battery/charging rules re-evaluate
   // (subscribeBattery is fed by batteryState's own Steam subscription — no
   // polling). Display changes come through DisplayManager, debounced.
   const unsubBattery = subscribeBattery(notify);
   subscribeDisplayManager();
+  subscribeControllers();
   void refreshDisplay();
   return () => {
     try { unsubBattery(); } catch {}
     if (_displayUnsub) { try { _displayUnsub(); } catch {} _displayUnsub = null; }
     if (_displayDebounce) { clearTimeout(_displayDebounce); _displayDebounce = null; }
+    for (const u of _controllerUnsub.splice(0)) { try { u(); } catch {} }
   };
 }
 
@@ -104,6 +146,7 @@ export type DeviceState = {
   offline: boolean;
   external: boolean | null; // external display / docked; null = unknown (non-Linux)
   screen: { w: number; h: number } | null; // real display dims, null = unknown
+  controllerConnected: boolean; // an external gamepad beyond the built-in one
 };
 
 export function getDeviceState(): DeviceState {
@@ -114,6 +157,7 @@ export function getDeviceState(): DeviceState {
     offline: isOfflineModeOn(),
     external: _external,
     screen: _screen,
+    controllerConnected: _externalController,
   };
 }
 
@@ -148,11 +192,13 @@ export function evalDeviceRule(rule: any): boolean {
   if (kind === 'battery') return evalBattery(rule);
   if (kind === 'charging') return getDeviceState().charging;
   if (kind === 'offline') return getDeviceState().offline;
+  if (kind === 'controllerConnected') return getDeviceState().controllerConnected;
   return evalDisplayRule(rule); // externalDisplay/resolution/ultrawide + unknown→true
 }
 
 export const DEVICE_RULE_KINDS = [
   'battery', 'charging', 'offline', 'externalDisplay', 'resolution', 'ultrawide',
+  'controllerConnected',
 ] as const;
 export function isDeviceRuleKind(kind: string): boolean {
   return (DEVICE_RULE_KINDS as readonly string[]).includes(kind);

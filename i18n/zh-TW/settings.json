@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "貨架",
   "notifications_area_profiles": "設定檔",
   "notifications_area_filters": "篩選器",
-  "notifications_area_triggers": "觸發器"
+  "notifications_area_triggers": "觸發器",
+  "visibility_cat_peripherals": "週邊裝置",
+  "visibility_rule_controllerConnected": "控制器已連接",
+  "visibility_rule_controllerConnected_not": "無控制器",
+  "visibility_rule_headphonesConnected": "耳機已連接",
+  "visibility_rule_headphonesConnected_not": "無耳機",
+  "visibility_rule_bluetoothConnected": "藍牙裝置已連接",
+  "visibility_rule_bluetoothConnected_not": "藍牙裝置已中斷",
+  "visibility_bt_device": "裝置",
+  "visibility_bt_none": "無已配對裝置"
 }

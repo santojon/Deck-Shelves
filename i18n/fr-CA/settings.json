@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Étagères",
   "notifications_area_profiles": "Profils",
   "notifications_area_filters": "Filtres",
-  "notifications_area_triggers": "Déclencheurs"
+  "notifications_area_triggers": "Déclencheurs",
+  "visibility_cat_peripherals": "Périphériques",
+  "visibility_rule_controllerConnected": "Manette connectée",
+  "visibility_rule_controllerConnected_not": "Aucune manette",
+  "visibility_rule_headphonesConnected": "Casque connecté",
+  "visibility_rule_headphonesConnected_not": "Aucun casque",
+  "visibility_rule_bluetoothConnected": "Appareil Bluetooth connecté",
+  "visibility_rule_bluetoothConnected_not": "Appareil Bluetooth déconnecté",
+  "visibility_bt_device": "Appareil",
+  "visibility_bt_none": "Aucun appareil associé"
 }

@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Shelves",
   "notifications_area_profiles": "Profiles",
   "notifications_area_filters": "Filters",
-  "notifications_area_triggers": "Triggers"
+  "notifications_area_triggers": "Triggers",
+  "visibility_cat_peripherals": "Peripherals",
+  "visibility_rule_controllerConnected": "Controller connected",
+  "visibility_rule_controllerConnected_not": "No controller",
+  "visibility_rule_headphonesConnected": "Headphones connected",
+  "visibility_rule_headphonesConnected_not": "No headphones",
+  "visibility_rule_bluetoothConnected": "Bluetooth device connected",
+  "visibility_rule_bluetoothConnected_not": "Bluetooth device disconnected",
+  "visibility_bt_device": "Device",
+  "visibility_bt_none": "No paired devices"
 }

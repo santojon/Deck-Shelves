@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Полки",
   "notifications_area_profiles": "Профили",
   "notifications_area_filters": "Фильтры",
-  "notifications_area_triggers": "Триггеры"
+  "notifications_area_triggers": "Триггеры",
+  "visibility_cat_peripherals": "Периферия",
+  "visibility_rule_controllerConnected": "Контроллер подключён",
+  "visibility_rule_controllerConnected_not": "Нет контроллера",
+  "visibility_rule_headphonesConnected": "Наушники подключены",
+  "visibility_rule_headphonesConnected_not": "Нет наушников",
+  "visibility_rule_bluetoothConnected": "Bluetooth-устройство подключено",
+  "visibility_rule_bluetoothConnected_not": "Bluetooth-устройство отключено",
+  "visibility_bt_device": "Устройство",
+  "visibility_bt_none": "Нет сопряжённых устройств"
 }

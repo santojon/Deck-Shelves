@@ -27,6 +27,7 @@ import { evalVisibility, nextVisibilityFlip, getModeVisibilityWindows, invalidat
 import { subscribeDeviceState } from "../runtime/deviceState";
 import { subscribeSessionState } from "../runtime/sessionState";
 import { subscribePerfState, stopFrameSampler } from "../runtime/perfState";
+import { subscribePeripheralsState } from "../runtime/peripheralsState";
 import { flowChildrenProps } from "../core/steamOSVersion";
 import { isCssLoaderActive, getNativeRecentsClassName, isArtHeroActive, isNoHeroGradientActive, isHeroFullscreenActive, isNoHomeTextActive, isFocusRoundCompatActive, isTiltedHomeActive, getTiltedHomeMode } from "../core/cssLoaderDetect";
 import { BadgeFocusOverlay } from "./shelf/BadgeFocusOverlay";
@@ -361,7 +362,8 @@ export function HomeShelves() {
     const unDevice = subscribeDeviceState(bump);
     const unSession = subscribeSessionState(bump);
     const unPerf = subscribePerfState(bump);
-    return () => { unDevice(); unSession(); unPerf(); stopFrameSampler(); };
+    const unPeripherals = subscribePeripheralsState(bump);
+    return () => { unDevice(); unSession(); unPerf(); unPeripherals(); stopFrameSampler(); };
   }, []);
 
   if (!mountEl) return null;

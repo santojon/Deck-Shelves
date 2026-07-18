@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Półki",
   "notifications_area_profiles": "Profile",
   "notifications_area_filters": "Filtry",
-  "notifications_area_triggers": "Wyzwalacze"
+  "notifications_area_triggers": "Wyzwalacze",
+  "visibility_cat_peripherals": "Urządzenia peryferyjne",
+  "visibility_rule_controllerConnected": "Kontroler podłączony",
+  "visibility_rule_controllerConnected_not": "Brak kontrolera",
+  "visibility_rule_headphonesConnected": "Słuchawki podłączone",
+  "visibility_rule_headphonesConnected_not": "Brak słuchawek",
+  "visibility_rule_bluetoothConnected": "Urządzenie Bluetooth podłączone",
+  "visibility_rule_bluetoothConnected_not": "Urządzenie Bluetooth odłączone",
+  "visibility_bt_device": "Urządzenie",
+  "visibility_bt_none": "Brak sparowanych urządzeń"
 }

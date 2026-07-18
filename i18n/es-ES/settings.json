@@ -1123,5 +1123,14 @@
   "notifications_area_shelves": "Estantes",
   "notifications_area_profiles": "Perfiles",
   "notifications_area_filters": "Filtros",
-  "notifications_area_triggers": "Disparadores"
+  "notifications_area_triggers": "Disparadores",
+  "visibility_cat_peripherals": "Periféricos",
+  "visibility_rule_controllerConnected": "Mando conectado",
+  "visibility_rule_controllerConnected_not": "Sin mando",
+  "visibility_rule_headphonesConnected": "Auriculares conectados",
+  "visibility_rule_headphonesConnected_not": "Sin auriculares",
+  "visibility_rule_bluetoothConnected": "Dispositivo Bluetooth conectado",
+  "visibility_rule_bluetoothConnected_not": "Dispositivo Bluetooth desconectado",
+  "visibility_bt_device": "Dispositivo",
+  "visibility_bt_none": "Sin dispositivos emparejados"
 }
