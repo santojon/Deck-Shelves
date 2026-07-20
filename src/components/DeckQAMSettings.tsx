@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ConfirmModal,
   Field,
@@ -23,6 +23,7 @@ import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
 import { subscribeControllerInput } from '../runtime/controllerInput'
+import { sidecarCancelHandler, absorbCancelButton, mainCancelButtonDown } from './qam/sidecarCancel'
 import { getCurrentSettings } from '../store/settingsStore'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
@@ -205,6 +206,7 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
     <Focusable
       className='deck-shelves-qam-sidecar'
       onCancelButton={onCollapse}
+      onButtonDown={(evt: any) => absorbCancelButton(evt, onCollapse)}
       noFocusRing
     >
       <div className='ds-sidecar-title'>
@@ -552,6 +554,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useQamCompositorSync(qamExpanded);
   const dsScopeRef = useRef<HTMLDivElement>(null);
   useDpadExpandBridge(dsScopeRef, setQamExpanded);
+  /* Close the sidecar the way the dpad-left / Steam-menu paths do — narrow the
+     compositor via fireQamExpand (not just setQamExpanded) so it never leaves a
+     stale-wide empty panel. Shared by the B button (onCancelButton) below. */
+  const closeSidecar = useCallback(() => {
+    // Use the sidecar's OWN window (as the working dpad-left / Steam-return paths
+    // do) so the QamFriendsHidden narrow actually reaches the compositor —
+    // getQamWindow() can resolve a window whose opener doesn't post through.
+    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
+    fireQamExpand(win, false, setQamExpanded);
+  }, [setQamExpanded]);
   /* Hard reset on mount: wipe both the live ref and the sessionStorage
      flag so a freshly-mounted DS QAM tab never inherits a stale expanded
      state. Doing this OUTSIDE the React setter avoids racing the
@@ -620,16 +632,25 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
        which Steam raises spuriously while the QAM is still visible — gate those on
        a real hide first so they don't collapse the sidecar under the user. The
        m_eOpenSideMenu poll below is the authoritative leave-detector otherwise. */
-    let sawHide = false;
-    const collapseNow = (label: string) => { trace(label); sawHide = true; setQamExpanded(false); };
-    const collapseOnReturn = (label: string) => { trace(label); if (sawHide) { sawHide = false; setQamExpanded(false); } };
-    const onVis = () => { if (doc.hidden) collapseNow("visibilitychange:hidden"); };
+    /* The leave (Steam overlaying the QAM) fires NO event and m_eOpenSideMenu stays
+       QuickAccess (see __ds_sidecar_signals); the reliable RETURN signal is focus /
+       resume regained while the doc is still flagged hidden. Do NOT collapse on
+       `visibilitychange:visible` — that fed a compositor⇄visibility loop (collapse →
+       notifyCompositor → visible again) that pegged the renderer; focus doesn't. */
+    const collapse = (label: string) => { trace(label); setQamExpanded(false); };
+    /* On RETURN, re-assert the NARROW via fireQamExpand (posts QamFriendsHidden
+       unconditionally): the poll already set qamExpanded=false when the Steam
+       menu opened, but that narrow was dropped while the QAM hid, so it re-shows
+       stale-WIDE with no content ("open + empty"). setQamExpanded(false) is a
+       no-op here; fireQamExpand always posts. On `focus` — no resize re-fire. */
+    const collapseOnReturn = (label: string) => { trace(label); if (doc.hidden) fireQamExpand(win, false, setQamExpanded); };
+    const onVis = () => { if (doc.hidden) collapse("visibilitychange:hidden"); else trace("visibilitychange:visible"); };
     doc.addEventListener("visibilitychange", onVis);
     const onFocus = () => collapseOnReturn("window.focus");
     win.addEventListener("focus", onFocus);
-    const onPageHide = () => collapseNow("pagehide");
+    const onPageHide = () => collapse("pagehide");
     win.addEventListener("pagehide", onPageHide);
-    const onFreeze = () => collapseNow("freeze");
+    const onFreeze = () => collapse("freeze");
     const onResume = () => collapseOnReturn("resume");
     doc.addEventListener("freeze", onFreeze);
     doc.addEventListener("resume", onResume);
@@ -821,7 +842,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     <div ref={dsScopeRef} className='deck-shelves-qam-scope' data-ds-qam-expanded={qamExpanded ? '1' : '0'}>
       <DeckQAMStyles />
       <Focusable className='deck-shelves-qam-flex' flow-children='row' noFocusRing>
-      <Focusable className='deck-shelves-qam-main' noFocusRing>
+      <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar)}>
       <UpdateBanner controller={controller} />
 
       <ToggleField
@@ -1164,7 +1185,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       <VersionFooter />
       </Focusable>
       {qamExpanded && (
-        <SidecarPanel controller={controller} onCollapse={() => setQamExpanded(false)} />
+        <SidecarPanel controller={controller} onCollapse={closeSidecar} />
       )}
       </Focusable>
     </div>

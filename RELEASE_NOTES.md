@@ -37,7 +37,7 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Fixed
 
-- **The Quick Access sidecar stays open.** It no longer collapses on its own a moment after you open it (or when a notification appears or a controller reconnects) — it now tracks whether the Quick Access menu itself is still open instead of an unreliable focus check.
+- **The Quick Access sidecar behaves properly.** It no longer collapses on its own a moment after you open it, it comes back **closed** after you open the Steam menu and return, and pressing **B** now closes it (staying on the Deck Shelves tab, like the left-D-pad) instead of jumping back to the plugin list.
 - **Your settings are safer.** A single bad value can no longer reset everything to defaults — the plugin keeps what it can read and leaves the rest of your setup intact.
 - **The first shelf no longer sticks to the very top of the screen when you hide the native recents.** It now keeps the same top spacing the native recents row had, instead of gluing its title to the top edge.
 - **The price-range filter now works for the store games you don't own.** A store or wishlist price shelf is meant to show games you can buy — but it used to list **every** unowned game regardless of price, including free-to-play ones. Games you don't own now appear only when their real price falls in your chosen range, so the shelf stays a proper buy-list and free titles no longer show up in a paid range.

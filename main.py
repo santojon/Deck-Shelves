@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import ssl
 from subprocess import run as _sp_run
@@ -45,6 +46,14 @@ from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _au
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
+
+
+def _redact_secrets(text: str) -> str:
+    """Strip auth tokens before a string is logged or returned to the frontend —
+    some urllib / SSL errors stringify the full request URL, which carries the
+    wishlist `access_token`; that must never reach the logs a bug report bundles."""
+    return re.sub(r"(access_token|token|jwt)=[^&\s\"'}]+", r"\1=REDACTED", text,
+                  flags=re.IGNORECASE)
 
 
 class Plugin:
@@ -769,11 +778,12 @@ class Plugin:
         except urllib.error.HTTPError as e:
             return {"ok": False, "error": f"HTTP {e.code}"}
         except Exception as e:
+            msg = _redact_secrets(str(e))
             try:
-                decky.logger.error(f"get_wishlist failed: {e}")
+                decky.logger.error(f"get_wishlist failed: {msg}")
             except Exception:
                 pass
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": msg}
 
     async def _main(self):
         self._ensure_dirs()

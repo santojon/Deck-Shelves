@@ -1,4 +1,5 @@
 import { call } from './host/decky';
+import { logInfo } from './logger';
 
 /* Bluetooth + audio-output context for Visibility Rules, on-demand with NO
    background timer (mirrors perfState). `evalPeripheralRule` reads the last
@@ -16,6 +17,7 @@ let _bt: BtState | null = null;
 let _audio: AudioState | null = null;
 let _at = 0;
 let _inflight = false;
+let _loggedFail = false;
 
 function notify(): void {
   for (const l of _listeners) { try { l(); } catch {} }
@@ -35,6 +37,13 @@ async function refresh(): Promise<void> {
     ]);
     if (bt) _bt = bt;
     if (audio) _audio = audio;
+    if (!bt && !audio) {
+      // Both RPCs failed — surface once (deduped) so a broken peripheral signal
+      // shows in verbose diagnostics / bug reports without spamming on-demand.
+      if (!_loggedFail) { _loggedFail = true; logInfo('RUNTIME', 'peripherals backend unreachable (bluetooth/audio RPC)'); }
+    } else {
+      _loggedFail = false;
+    }
     _at = Date.now();
     notify();
   } catch { /* keep previous snapshot on RPC failure */ } finally {

@@ -63,6 +63,16 @@ def test_macos_uses_keychain_key_or_falls_back(monkeypatch):
     assert plugin._decrypt_chromium_cookie(b"v10cipher") == "MAC_DECRYPTED"
 
 
+def test_redact_secrets_strips_tokens():
+    # An error that stringified the request URL must not leak the token.
+    leaked = "<urlopen error https://api.steampowered.com/x?cc=us&access_token=eyJABC.def-GHI>"
+    out = main._redact_secrets(leaked)
+    assert "eyJABC.def-GHI" not in out
+    assert "access_token=REDACTED" in out
+    # Non-secret text is untouched.
+    assert main._redact_secrets("HTTP 500 timeout") == "HTTP 500 timeout"
+
+
 def test_decrypt_is_fail_soft(monkeypatch):
     monkeypatch.setattr(main.sys, "platform", "linux")
     def boom(key, body):

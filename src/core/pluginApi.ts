@@ -811,6 +811,21 @@ function detectLocale(): string {
   return "en-US";
 }
 
+// Best-effort synchronous host OS from the user agent (the precise backend
+// identity lives behind get_host_os / collectSystemInfo; this is the cheap hint
+// exposed via getEnvironment). undefined when it can't be determined.
+function detectOs(): string | undefined {
+  try {
+    const ua = (globalThis as any).navigator?.userAgent as string | undefined;
+    if (!ua) return undefined;
+    if (/SteamOS/i.test(ua)) return "SteamOS";
+    if (/Windows/i.test(ua)) return "Windows";
+    if (/Mac OS X|Macintosh/i.test(ua)) return "macOS";
+    if (/Linux/i.test(ua)) return "Linux";
+  } catch { /* no navigator */ }
+  return undefined;
+}
+
 function detectGamepadUi(): boolean {
   try {
     const doc = (globalThis as any).document;
@@ -1060,6 +1075,7 @@ export function makeApi(): DeckShelvesPublicAPI {
         apiVersion: 4,
         locale: detectLocale(),
         isGamepadUi: detectGamepadUi(),
+        os: detectOs(),
       };
     },
 
