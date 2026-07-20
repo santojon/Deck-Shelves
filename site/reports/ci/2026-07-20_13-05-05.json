@@ -1,0 +1,119 @@
+{
+  "ts": "2026-07-20_13-05-05",
+  "stress": false,
+  "subdir": "ci",
+  "version": "3.1.0",
+  "overall": "PASS",
+  "passed": 6,
+  "failed": 0,
+  "skipped": 0,
+  "total": 6,
+  "per_suite": {},
+  "unit": {
+    "passed": 657,
+    "failed": 0,
+    "skipped": 0,
+    "total": 657
+  },
+  "pytest": {},
+  "ruff": {},
+  "lint": {},
+  "suppressions": 143,
+  "complexity": {
+    "level": 2469,
+    "count": 98,
+    "max": 140,
+    "avg": 25.2,
+    "top": [
+      {
+        "file": "src/components/Shelf.tsx",
+        "line": 99,
+        "fn": "ShelfViewImpl",
+        "score": 140
+      },
+      {
+        "file": "src/components/shelf/GameCard.tsx",
+        "line": 172,
+        "fn": "GameCard",
+        "score": 104
+      },
+      {
+        "file": "src/components/DeckRow.tsx",
+        "line": 74,
+        "fn": "DeckRowImpl",
+        "score": 94
+      },
+      {
+        "file": "src/components/shelf/PerShelfHero.tsx",
+        "line": 275,
+        "fn": "PerShelfHero",
+        "score": 84
+      },
+      {
+        "file": "src/components/HomeInject.tsx",
+        "line": 46,
+        "fn": "HomeShelves",
+        "score": 52
+      },
+      {
+        "file": "src/components/home/navPatches/reparent.ts",
+        "line": 3,
+        "fn": "reparentNavTreeNodes",
+        "score": 50
+      },
+      {
+        "file": "src/components/shelf/PlaceholderCard.tsx",
+        "line": 11,
+        "fn": "PlaceholderCard",
+        "score": 50
+      },
+      {
+        "file": "src/components/qam/modals/EditShelfModal.tsx",
+        "line": 149,
+        "fn": "EditShelfModal",
+        "score": 48
+      },
+      {
+        "file": "src/components/qam/modals/editShelf/ShelfPreview.tsx",
+        "line": 355,
+        "fn": "(anonymous)",
+        "score": 46
+      },
+      {
+        "file": "src/components/shelf/GameCard.tsx",
+        "line": 354,
+        "fn": "injectNativeClasses",
+        "score": 45
+      }
+    ]
+  },
+  "decoupling": {
+    "leaks": 0,
+    "adapter": 124,
+    "ratio": 0,
+    "top": []
+  },
+  "portability": {
+    "coupled": 73,
+    "guarded": 73,
+    "unguarded": 0,
+    "top": []
+  },
+  "step_names": [
+    "TypeScript typecheck",
+    "Build (production)",
+    "Unit tests (vitest)",
+    "Package (.zip)",
+    "Verify package",
+    "Compat validation"
+  ],
+  "step_durations_ms": [
+    10574,
+    1625,
+    7547,
+    1989,
+    71,
+    6677
+  ],
+  "total_duration_ms": 28483
+}
