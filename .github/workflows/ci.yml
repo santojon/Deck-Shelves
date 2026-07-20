@@ -31,14 +31,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        # persist-credentials default (true) so the report-commit step can
-        # push without re-authenticating. All other steps are read-only.
+        # persist-credentials default (true) so the report-commit step can push.
+        # It MUST persist SUBMIT_TOKEN (maintainer PAT), not the default
+        # github-actions[bot] token: the `lock-main` ruleset only bypasses for the
+        # Admin role, so a bot-token push is rejected with GH013. checkout's
+        # persisted auth header overrides any later `git remote set-url`, so the
+        # token has to be set HERE (same as version-dropdown / release.yml).
         # submodules: recursive pulls api/ + deckprobe/ on every run — api
         # exports the `PublicAppMeta` types `src/core/pluginApi.ts` imports
         # via `../../api/src/types`; without it tsc fails with TS2307.
         with:
           fetch-depth: 0
           submodules: recursive
+          token: ${{ secrets.SUBMIT_TOKEN || github.token }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

@@ -29,6 +29,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive   # api/ provides ../../api/src/types for typecheck
+          # Persist SUBMIT_TOKEN (Admin PAT) so commit-report.sh's push bypasses
+          # the `lock-main` ruleset — the default bot token gets rejected (GH013).
+          token: ${{ secrets.SUBMIT_TOKEN || github.token }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
