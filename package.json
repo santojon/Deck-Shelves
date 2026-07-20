@@ -1,6 +1,6 @@
 {
   "name": "deck-shelves",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "description": "A plugin that injects configurable shelves into Steam Deck Home and provides a Steam Deck focused QAM editor.",
   "type": "module",
   "scripts": {

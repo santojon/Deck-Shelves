@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-20
+
 ### Added
 
 - **Peripheral context signals** ([`peripheralsState.ts`](src/runtime/peripheralsState.ts), [`peripherals.py`](peripherals.py), [`deviceState.ts`](src/runtime/deviceState.ts)). A new **Peripherals** category of visibility / trigger conditions: **a controller is connected** (any controller beyond the built-in one), **headphones are connected** (the default audio output is a headset) and **a specific Bluetooth device is connected** (chosen from your paired devices by name). All three invert ("no controller connected", and so on). The Bluetooth and headphone readings hit the backend only when a shelf that uses them resolves — no polling — and stay inert when the platform can't report them.

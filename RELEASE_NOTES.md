@@ -5,6 +5,8 @@ changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-20
+
 ### Added
 
 - **Conditions for your peripherals.** Show a shelf — or switch a profile — when a controller is connected, when headphones are plugged in, or when a specific Bluetooth device is connected, plus the inverse of each.
