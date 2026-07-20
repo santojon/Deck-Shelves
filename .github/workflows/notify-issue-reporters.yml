@@ -234,7 +234,10 @@ jobs:
             done
           done
 
-          if [ ${#SEEN_ISSUES[@]} -eq 0 ]; then
+          # `${#SEEN_ISSUES[@]}` on an EMPTY associative array trips `set -u`
+          # ("unbound variable") — which is exactly the no-issues-referenced case.
+          # `${arr[*]:+x}` is the set-u-safe emptiness test.
+          if [ -z "${SEEN_ISSUES[*]:+x}" ]; then
             echo "No issues referenced by any PR in this release — nothing to comment."
           else
             echo "Posted reporter notifications for ${#SEEN_ISSUES[@]} issue(s)."

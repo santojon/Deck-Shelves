@@ -7,11 +7,21 @@ name: "Release · Refresh version dropdown"
 
 on:
   release:
-    types: [published, deleted, released]
+    # `published` already fires for every release (incl. pre-releases); a
+    # non-pre-release ALSO fires `released`, so listing both ran this workflow
+    # twice concurrently and the second push lost the race (`[rejected] … fetch
+    # first`). `published` + `deleted` covers add/remove without the double-run.
+    types: [published, deleted]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+# Serialise runs (and with any other release-triggered job) so two of them never
+# race to push the default branch.
+concurrency:
+  group: version-dropdown
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -63,4 +73,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/ISSUE_TEMPLATE/bug_report.yml
           git commit -m "chore: refresh issue-template version dropdown [skip ci]"
-          git push
+          # The default branch may have moved (a concurrent report/version-bump
+          # commit); rebase + retry instead of failing the run on a push race.
+          branch="${{ github.event.repository.default_branch }}"
+          for attempt in 1 2 3 4 5; do
+            if git push origin "HEAD:${branch}"; then exit 0; fi
+            echo "push rejected (attempt ${attempt}) — rebasing on origin/${branch}"
+            git pull --rebase origin "${branch}"
+          done
+          echo "push still failing after retries" >&2
+          exit 1
