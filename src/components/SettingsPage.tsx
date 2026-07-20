@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
-import { Tabs, Focusable } from "../runtime/host/decky";
-import { Navigation } from "@decky/ui";
+import { Tabs, Focusable, Navigation } from "../runtime/host/decky";
 import { useSettingsController } from "../features/settings/controller";
 import { PageHeader } from "./ui/PageHeader";
 import { VersionFooter } from "./ui/VersionFooter";

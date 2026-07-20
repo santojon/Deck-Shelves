@@ -11,7 +11,7 @@ import { subscribeControllerInput } from "../../runtime/controllerInput";
 import { trackFeature } from "../../steam/usageTracking";
 import { isHomeRoute } from "../../components/home/mountUtils";
 import { getPreferredSteamDocument } from "../../runtime/steamHost";
-import { isInVisibilityWindow } from "../../steam/smartShelves";
+import { evalVisibility } from "../../steam/smartShelves";
 import { interleaveSmartShelves, pickFirstVisibleShelfId } from "../../domain/shelfOrder";
 import { closeAmbientOverlays, lockOverlay, isOverlayLocked } from "../../runtime/closeOverlays";
 
@@ -20,6 +20,14 @@ type Anchor = {
   focusedAppid: number | null;
 };
 
+// Light mode strips advanced features (battery); the master "enabled" off
+// makes the home behave as if the plugin isn't there. Both suppress the nav.
+function sideNavGate(settings: Settings | null): { lightMode: boolean; enabled: boolean } {
+  const s = settings as any;
+  const lightMode = s?.lightModeEnabled === true;
+  return { lightMode, enabled: s?.enabled === true && !lightMode && s?.sideNavEnabled === true };
+}
+
 export function ShelfSideNav() {
   try { (globalThis as any).__ds_sidenav_mounted = (((globalThis as any).__ds_sidenav_mounted ?? 0) + 1); } catch {}
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -27,12 +35,8 @@ export function ShelfSideNav() {
 
   useEffect(() => subscribeSettings(setSettings), []);
 
-  // Light mode strips advanced features for simplicity / battery — the
-  // side nav is one of them. User toggle stays untouched.
-  const lightMode = (settings as any)?.lightModeEnabled === true;
-  // Gate on the master "enabled" too — when the plugin is off, the home should
-  // behave as if it isn't there (no side nav), like shelves + recents already do.
-  const enabled = (settings as any)?.enabled === true && !lightMode && (settings as any)?.sideNavEnabled === true;
+  // Light mode / master-off both hide the side nav (see sideNavGate).
+  const { enabled } = sideNavGate(settings);
 
   const lastFirstCardRef = useRef<{ shelfId: string; appid: number | null } | null>(null);
   const lastOpenAtRef = useRef(0);
@@ -194,11 +198,11 @@ function appidForFocused(focused: HTMLElement): number | null {
 
 function firstVisibleShelfFromSettings(): string | null {
   const s = getCurrentSettings();
-  const visibleRegular = (s?.shelves ?? []).filter((x: any) => x.enabled && !x.hidden);
+  const visibleRegular = (s?.shelves ?? []).filter((x: any) => x.enabled && !x.hidden && evalVisibility(x));
   if (visibleRegular.length > 0) return visibleRegular[0].id;
   const visibleSmart = s?.smartShelvesEnabled
     ? (s?.smartShelves ?? []).filter((x: any) =>
-        x.enabled !== false && !x.hidden && isInVisibilityWindow(x.visibleHours, x.visibleDaysOfWeek))
+        x.enabled !== false && !x.hidden && evalVisibility(x))
     : [];
   return visibleSmart.length > 0 ? visibleSmart[0].id : null;
 }
@@ -225,7 +229,7 @@ function visibleSmartShelves(settings: Settings): SmartShelf[] {
   if (!settings.smartShelvesEnabled) return [];
   return (settings.smartShelves ?? []).filter((s: SmartShelf) =>
     (s as any).enabled !== false && !(s as any).hidden
-    && isInVisibilityWindow((s as any).visibleHours, (s as any).visibleDaysOfWeek));
+    && evalVisibility(s as any));
 }
 
 function shelvesFromSettings(settings: Settings): UnifiedShelf[] {

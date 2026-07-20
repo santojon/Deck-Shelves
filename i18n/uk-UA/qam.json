@@ -44,5 +44,22 @@
   "toast_settings_reset": "Налаштування скинуто",
   "toast_shelves_reset": "Полиці скинуто",
   "toast_smart_shelves_reset": "Розумні полиці скинуто",
-  "sidenav_recents_fallback_label": "Останні"
+  "sidenav_recents_fallback_label": "Останні",
+  "toast_created": "Створено",
+  "toast_saved": "Збережено",
+  "toast_deleted": "Видалено",
+  "toast_duplicated": "Дубльовано",
+  "toast_renamed": "Перейменовано",
+  "toast_shelf_created": "Полицю створено",
+  "toast_shelf_saved": "Полицю збережено",
+  "toast_shelf_deleted": "Полицю видалено",
+  "toast_shelf_duplicated": "Полицю дубльовано",
+  "toast_profile_created": "Профіль створено",
+  "toast_profile_saved": "Профіль збережено",
+  "toast_profile_deleted": "Профіль видалено",
+  "toast_profile_duplicated": "Профіль дубльовано",
+  "toast_profile_renamed": "Профіль перейменовано",
+  "toast_filter_saved": "Фільтр збережено",
+  "toast_filter_deleted": "Фільтр видалено",
+  "toast_filter_renamed": "Фільтр перейменовано"
 }

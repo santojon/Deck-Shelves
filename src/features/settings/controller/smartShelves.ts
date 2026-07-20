@@ -51,6 +51,7 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       if (!s) return;
       const shelf = createDefaultSmartShelf(mode, title);
       await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
+      notify("success", { body: t("toast_shelf_created"), area: "shelves" });
       return shelf;
     },
     createDraftSmartShelf(mode: SmartShelfMode, title: string): SmartShelf {
@@ -60,12 +61,14 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       const s = liveSettings();
       if (!s) return;
       await persist({ ...s, smartShelves: [shelf, ...(s.smartShelves ?? [])] });
+      notify("success", { body: t("toast_created"), area: "shelves" });
       return shelf;
     },
     async removeSmartShelf(id: string) {
       const s = liveSettings();
       if (!s) return;
       await persist({ ...s, smartShelves: (s.smartShelves ?? []).filter((sh) => sh.id !== id) });
+      notify("delete", { body: t("toast_shelf_deleted"), area: "shelves" });
     },
     async toggleSmartShelfHidden(id: string) {
       const s = liveSettings();
@@ -109,7 +112,7 @@ export function createSmartShelfActions(deps: SmartShelfDeps) {
       const s = liveSettings();
       if (!s) return;
       await persist({ ...s, smartShelves: [], smartShelvesEnabled: false, smartSurpriseMe: false, smartSurpriseMeCount: 0, savedFilters: [] });
-      notify("reset", { body: t("toast_smart_shelves_reset") });
+      notify("reset", { body: t("toast_smart_shelves_reset"), area: "shelves" });
     },
     async exportSmartShelves(destPath: string): Promise<boolean> {
       const s = liveSettings();

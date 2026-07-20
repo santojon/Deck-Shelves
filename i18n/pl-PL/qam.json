@@ -44,5 +44,22 @@
   "toast_settings_reset": "Ustawienia zresetowane",
   "toast_shelves_reset": "Półki zresetowane",
   "toast_smart_shelves_reset": "Inteligentne półki zresetowane",
-  "sidenav_recents_fallback_label": "Ostatnie"
+  "sidenav_recents_fallback_label": "Ostatnie",
+  "toast_created": "Utworzono",
+  "toast_saved": "Zapisano",
+  "toast_deleted": "Usunięto",
+  "toast_duplicated": "Zduplikowano",
+  "toast_renamed": "Zmieniono nazwę",
+  "toast_shelf_created": "Utworzono półkę",
+  "toast_shelf_saved": "Zapisano półkę",
+  "toast_shelf_deleted": "Usunięto półkę",
+  "toast_shelf_duplicated": "Zduplikowano półkę",
+  "toast_profile_created": "Utworzono profil",
+  "toast_profile_saved": "Zapisano profil",
+  "toast_profile_deleted": "Usunięto profil",
+  "toast_profile_duplicated": "Zduplikowano profil",
+  "toast_profile_renamed": "Zmieniono nazwę profilu",
+  "toast_filter_saved": "Zapisano filtr",
+  "toast_filter_deleted": "Usunięto filtr",
+  "toast_filter_renamed": "Zmieniono nazwę filtra"
 }

@@ -1,6 +1,8 @@
 import type { Settings } from "../../../types";
 import { writeJsonFile, readJsonFile } from "../../../settingsStore";
 import { trackFeature } from "../../../steam/usageTracking";
+import { notify } from "../../../components/notify";
+import i18next from "i18next";
 
 export const FACTORY_PROFILE_ID = "__factory__";
 export const FACTORY_PROFILE_NAME = "Padrão";
@@ -16,6 +18,18 @@ export interface ProfileRecord {
   createdAt: string;
   snapshot: Record<string, unknown>;
   trigger?: unknown;
+  // When true, switching to this profile also swaps the displayed shelves;
+  // otherwise the current shelves are kept and only the rest is applied.
+  linkShelves?: boolean;
+}
+
+// Settings fields that make up "the shelves shown on the home". Kept out of a
+// profile switch unless the profile is shelf-linked (and out of a factory reset
+// unless the user opts in).
+const SHELF_LINK_FIELDS = ["shelves", "smartShelves", "allShelvesOrder"] as const;
+
+export function keepShelfFields(next: Settings, from: Settings): void {
+  for (const f of SHELF_LINK_FIELDS) (next as any)[f] = (from as any)[f];
 }
 
 function randomProfileId(): string {
@@ -52,6 +66,7 @@ function normalizeImportedProfile(p: any, seenNames: Set<string>): ProfileRecord
     createdAt: typeof p.createdAt === "string" ? p.createdAt : new Date().toISOString(),
     snapshot: p.snapshot,
     trigger: p.trigger,
+    ...(p.linkShelves === true ? { linkShelves: true } : {}),
   };
 }
 
@@ -76,7 +91,7 @@ function applyProfileImport(s: Settings, incoming: any[], mode: "merge" | "repla
 export function createProfileActions(deps: ProfilesDeps) {
   const { liveSettings, persist } = deps;
   return {
-    async createProfile(name: string): Promise<ProfileRecord | null> {
+    async createProfile(name: string, linkShelves = false): Promise<ProfileRecord | null> {
       const s = liveSettings();
       if (!s) return null;
       const trimmed = (name || "").trim().slice(0, 64);
@@ -88,9 +103,11 @@ export function createProfileActions(deps: ProfilesDeps) {
         name: trimmed,
         createdAt: new Date().toISOString(),
         snapshot: takeSnapshot(s),
+        ...(linkShelves ? { linkShelves: true } : {}),
       };
       const next = { ...s, profiles: [...existing, profile], activeProfileName: trimmed } as Settings;
       await persist(next);
+      notify("success", { body: i18next.t("toast_profile_created"), area: "profiles" });
       return profile;
     },
     async applyProfile(id: string): Promise<boolean> {
@@ -105,6 +122,8 @@ export function createProfileActions(deps: ProfilesDeps) {
         profiles,
         activeProfileName: profile.name,
       };
+      // Shelf-link opt-in: unlinked profiles change everything BUT the shelves.
+      if (!profile.linkShelves) keepShelfFields(next, s);
       await persist(next);
       return true;
     },
@@ -122,6 +141,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         profiles: nextProfiles,
         activeProfileName: wasActive ? null : (s as any).activeProfileName,
       } as Settings);
+      notify("delete", { body: i18next.t("toast_profile_deleted"), area: "profiles" });
       return true;
     },
     async duplicateProfile(id: string): Promise<ProfileRecord | null> {
@@ -143,8 +163,10 @@ export function createProfileActions(deps: ProfilesDeps) {
         name,
         createdAt: new Date().toISOString(),
         snapshot: source.snapshot,
+        ...(source.linkShelves ? { linkShelves: true } : {}),
       };
       await persist({ ...s, profiles: [...profiles, profile] } as Settings);
+      notify("success", { body: i18next.t("toast_profile_duplicated"), area: "profiles" });
       return profile;
     },
     async renameProfile(id: string, newName: string): Promise<boolean> {
@@ -163,6 +185,7 @@ export function createProfileActions(deps: ProfilesDeps) {
         profiles: nextProfiles,
         activeProfileName: wasActive ? trimmed : (s as any).activeProfileName,
       } as Settings);
+      notify("success", { body: i18next.t("toast_profile_renamed"), area: "profiles" });
       return true;
     },
     async updateProfileSnapshot(id: string): Promise<boolean> {
@@ -172,6 +195,28 @@ export function createProfileActions(deps: ProfilesDeps) {
       const target = profiles.find((p) => p.id === id);
       if (!target) return false;
       const nextProfiles = profiles.map((p) => p.id === id ? { ...p, snapshot: takeSnapshot(s) } : p);
+      await persist({ ...s, profiles: nextProfiles } as Settings);
+      notify("success", { body: i18next.t("toast_profile_saved"), area: "profiles" });
+      return true;
+    },
+    // Set (or clear) a profile's Visibility Rules v2 trigger predicate. An
+    // empty/undefined tree clears the trigger (the profile stops auto-applying).
+    async setProfileTrigger(id: string, trigger: unknown): Promise<boolean> {
+      const s = liveSettings();
+      if (!s) return false;
+      const t = trigger as any;
+      const clean = (t && Array.isArray(t.rules) && t.rules.length > 0)
+        ? { mode: t.mode === "all" ? "all" : "any", rules: t.rules }
+        : undefined;
+      // The Default (factory) profile is synthetic — its trigger lives in a
+      // dedicated settings field instead of the profiles array.
+      if (id === FACTORY_PROFILE_ID) {
+        await persist({ ...s, factoryProfileTrigger: clean } as Settings);
+        return true;
+      }
+      const profiles: ProfileRecord[] = (s as any).profiles ?? [];
+      if (!profiles.some((p) => p.id === id)) return false;
+      const nextProfiles = profiles.map((p) => p.id === id ? { ...p, trigger: clean } : p);
       await persist({ ...s, profiles: nextProfiles } as Settings);
       return true;
     },
@@ -302,18 +347,22 @@ export function createProfileActions(deps: ProfilesDeps) {
         return added.length;
       } catch { return 0; }
     },
-    async applyFactoryProfile() {
+    async applyFactoryProfile(resetShelves = false) {
       const s = liveSettings();
       if (!s) return;
       // Import here to avoid a circular dependency at module load.
       const { defaultSettings } = await import("../../../domain/defaults");
       const defaults = defaultSettings();
-      // Preserve saved profiles; reset everything else.
-      await persist({
+      // Reset config to defaults but keep the plugin ON (master toggle) and
+      // preserve saved profiles. Shelves stay unless the user opts to reset them.
+      const next = {
         ...defaults,
+        enabled: true,
         profiles: (s as any).profiles ?? [],
         activeProfileName: null,
-      } as Settings);
+      } as Settings;
+      if (!resetShelves) keepShelfFields(next, s);
+      await persist(next);
     },
     // per-integration enable. Stored only when the user
     // explicitly opts out; `undefined` means enabled.

@@ -1,4 +1,4 @@
-name: Refresh version dropdown
+name: "Release · Refresh version dropdown"
 
 # Keeps the bug-report issue template's "Plugin version" dropdown in sync with
 # the actual releases. GitHub issue forms only support STATIC options, so we

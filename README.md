@@ -7,8 +7,8 @@
 
 [![CI](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/ci.yml)
 [![Release](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml/badge.svg)](https://github.com/santojon/Deck-Shelves/actions/workflows/release.yml)
-[![Tests](https://img.shields.io/badge/vitest-585%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
-[![pytest](https://img.shields.io/badge/pytest-80%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
+[![Tests](https://img.shields.io/badge/vitest-655%20passed-brightgreen?logo=vitest&logoColor=white)](src/test/)
+[![pytest](https://img.shields.io/badge/pytest-107%20passed-brightgreen?logo=pytest&logoColor=white)](src/test/test_main.py)
 [![TypeCheck](https://img.shields.io/badge/typecheck-clean-brightgreen?logo=typescript&logoColor=white)](tsconfig.json)
 [![Compatibility](https://img.shields.io/badge/checks-39%2F39-brightgreen?logo=steamdeck&logoColor=white)](scripts/build/validate-compat.mjs)
 [![Platform](https://img.shields.io/badge/platform-SteamOS%20%C2%B7%20Linux%20%C2%B7%20Windows-purple?logo=steamdeck&logoColor=white)](https://github.com/ValveSoftware/SteamOS)
@@ -68,6 +68,11 @@
   - **Friends playing now** — matches games at least one Steam friend is in-game on right now (online features required)
   - **Friends played recently** — matches games any Steam friend played within the last N days (1–30, default 14; online features required)
   - **Discount range** — matches games whose Steam store discount sits in a chosen min/max % range (online features required)
+  - **Price range** — matches games whose Steam store price falls in a chosen min/max range, in your own store currency (online features required)
+  - **Remote Play location** — matches by where a game is installed: locally, on another device, remote-only, or both — powers a "play from another Deck / PC" shelf
+  - **System compatibility** — keeps only the games available on the platform you're currently running
+  - **Recently active** — games you've played in the last two weeks (your current rotation)
+  - **Neglected** — games you played before but haven't launched in the last N days
 - Sort shelves alphabetically, by recent play, total playtime, release date, size on disk, Metacritic score, review score, discount %, price, original price — each direction (asc / desc) togglable per shelf via an icon button next to the sort dropdown
 - **Multi-key sort** — chain a primary sort with one or more tiebreakers (e.g. *biggest discount → metacritic score* breaks ties between games at the same discount). Each row has its own asc/desc toggle. Stable chain — secondary keys only kick in when the primary genuinely ties.
 - Library tab selection shows your actual runtime tabs, including those created by other plugins
@@ -89,6 +94,14 @@
 - **App ID list filter** — whitelist an explicit set of app IDs to pin specific games to a shelf
 - **Mouse hover support** — cards show labels and brightness on hover, same as gamepad focus
 - **Per-day time-window overrides for smart shelves** — a Smart Filters toggle opens a dedicated Overrides tab where each weekday can have its own hour ranges, on top of the shelf-level default hours and day filter
+- **Advanced visibility rules** — show a shelf (regular, smart, or saved filter) only when custom conditions match, combined with **match any** or **match all** (Evenings / Weekends presets):
+  - **Time** — hour-of-day and day-of-week windows, weekend vs weekday, part of the day (morning / afternoon / evening / night), season (hemisphere-aware), and your own holiday date ranges
+  - **Device** — low battery, charging, offline, docked / external display, minimum screen resolution, ultrawide
+  - **Session** — whether the last game you played was Steam or non-Steam, or whether a game is currently running
+  - **Performance** — high CPU, low memory, or low frame rate — read on demand only when a shelf actually uses them (no background polling)
+
+  Fully backwards-compatible with the existing hour / day windows; conditions re-evaluate on hardware / session events (no polling) and degrade gracefully off SteamOS
+- **Auto-pin & auto-collapse shelves** — give any shelf (regular or smart, from the editor's Display tab) the same kind of condition tree to **auto-pin** it to the top of the home while the condition holds (reverts when it clears), or **auto-collapse** it to just its header when a condition matches or the shelf is empty. Both opt-in; a home with neither configured is unchanged
 - **Live shelf preview in the editor** — the preview area shows real cards as they appear on the home (title, name, status line, compat / new / non-Steam badges, See more / Refresh tiles) and reflects every Display-tab toggle in real time
 - **Smart Shelves** — 30+ heuristic-driven shelf types that appear automatically when conditions are met and disappear when no games match. Game-focused: Daily Pick, Deck Picks, On Deck, Recently Played, Long Sessions, Roulette, Not Started, Best Unplayed, Quick Play, Interrupted, Non-Steam, Spare Time, Time of Day, Rediscover, Forgotten. Heuristic templates: Backlog Rescue, Forgotten Gems, Hidden Gems, Travel Mode, Never Touched Classics, Recent Hidden Installs, Weekly Rotation, Monthly Spotlight, Seasonal Rotation (each with tunable cooldown / staleness / review-floor / rotation knobs). Media-focused: Soundtracks, Videos, Demos, Cloud games. Runtime-aware (best-effort against Steam runtime data): Low Battery Mode, Almost Finished, Couch Gaming, Co-op Ready, Party Games. Online-gated: Friends Playing. Ordered by probability of results in the picker
 - **Saved smart shelf templates** — persist a fully-tuned smart shelf config and reuse it from the template picker; exposed to plugins via the public API
@@ -97,7 +110,9 @@
 - **Quick Search overlay** — L1+R1 on a card pops a centered translucent search pill that fuzzy-matches against every game in your visible shelves (covers cards below the fold and items still loading metadata). NFD normalisation handles diacritics (e.g. café ⇄ cafe). After a brief pause the top hit scrolls into view and gets focused. Two toggles: "Open virtual keyboard" (default on, controls the auto-popup) and "Search only on Enter" (default off, swaps the debounce for an explicit-trigger flow). L1, R1, or B closes the overlay regardless of whether a physical or virtual keyboard has focus.
 - **Side Nav overlay** — L1 twice on any card slides in a left panel listing every visible shelf in the order they render on the home (uses CSS `order` for accurate visual order). Steam-themed left edge bar marks the focused row; the panel auto-focuses the shelf you came from, not the first one. R1+L1 / B / dpad-right close it; selecting a row jumps focus to that shelf's first card. Plugins can contribute extra rows via the public API.
 - **Dedicated Settings page** — opened from the gear icon in the QAM title bar: a full-page route with seven tabs (Quick settings, Shelves, Profiles, Integrations, Shortcuts, Backup, Advanced tools) backed by the same actions as the QAM and sidecar
-- **Usage profiles** — save the entire setup (every toggle, shelf, saved filter) as a named profile, switch in one tap, import / export to JSON, with a read-only **Default** profile that resets to factory
+- **Version everywhere + richer System information** — the exact plugin version shows in a standard footer on every settings page and the QAM (handy for bug reports); Advanced → System information lists your real active CSS Loader theme names and installed count instead of a heuristic
+- **Usage profiles** — save the setup (every toggle, saved filter, and — if you tick **Link shelves to profile** — your shelves) as a named profile, switch in one tap, import / export to JSON. A **Default** profile restores factory settings while keeping the plugin on; it only clears your shelves if you opt in
+- **Profile auto-switch triggers** — give a saved profile a trigger (the same visibility conditions above) and turn on **auto-switch** so it applies itself when the trigger matches — a *Docked* profile when you dock, a *Battery saver* profile when the battery runs low. Each profile sets its own triggers; the master toggle sits in the QAM, the sidecar and Settings → Profiles, and triggers round-trip through export / import and the System information summary
 - **Customizable button shortcuts** — remap or disable the gamepad triggers for hide / highlight / quick-launch, and remap the chords for Quick Search and Side Navigation. Single, chord, and double-tap inputs are supported, including back-grip and stick-click buttons (`L3` / `R3` / `L4` / `R4` / `L5` / `R5`); reserved system buttons are rejected
 - **Unified shelf list + drag-and-drop reorder** — opt in to merge regular and smart shelves into a single ordered list and drag rows directly in the Shelves panel (gamepad `↑` / `↓` buttons stay as a fallback)
 - **External launcher discovery** — EmuDeck, RetroDECK, Heroic, Lutris, Moonlight, and Chiaki games surface through dedicated shelf sources; read-only, refreshed every 15 minutes in the background

@@ -147,6 +147,11 @@ export function useSettingsController() {
   const shelfActions = createShelfActions({ liveSettings, persist, setSelectedId, selectedId, collections, tabs, shelves, t });
   const profileActions = createProfileActions({ liveSettings, persist });
 
+  /* Profile auto-switch triggers run in a boot-installed module
+     (`runtime/profileTriggers`) so they fire in the BACKGROUND on the home — this
+     controller only mounts while the QAM/settings panel is open, so the effect
+     used to never run there. The controller just exposes the write actions. */
+
   const actions = {
     persist,
     selectShelf(id: string) {
@@ -162,6 +167,35 @@ export function useSettingsController() {
       const s = liveSettings();
       if (!s || s.enabled === enabled) return;
       await persist({ ...s, enabled });
+    },
+    async setProfileTriggersEnabled(profileTriggersEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).profileTriggersEnabled ?? false) === profileTriggersEnabled) return;
+      await persist({ ...s, profileTriggersEnabled } as any);
+    },
+    async setAutoCollapseEnabled(autoCollapseEnabled: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).autoCollapseEnabled ?? false) === autoCollapseEnabled) return;
+      await persist({ ...s, autoCollapseEnabled } as any);
+    },
+    async setNotificationsDisabled(notificationsDisabled: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).notificationsDisabled ?? false) === notificationsDisabled) return;
+      await persist({ ...s, notificationsDisabled } as any);
+    },
+    async setShowcaseSeen(showcaseSeen: boolean) {
+      const s = liveSettings();
+      if (!s || ((s as any).showcaseSeen ?? false) === showcaseSeen) return;
+      await persist({ ...s, showcaseSeen } as any);
+    },
+    async setNotificationAreaEnabled(area: string, enabled: boolean) {
+      const s = liveSettings();
+      if (!s) return;
+      const cur: string[] = (s as any).notificationsDisabledAreas ?? [];
+      const isDisabled = cur.includes(area);
+      if ((!enabled) === isDisabled) return; // already in the desired state
+      const next = enabled ? cur.filter((a) => a !== area) : [...cur, area];
+      await persist({ ...s, notificationsDisabledAreas: next.length ? next : undefined } as any);
     },
     async setUpdateNotifyEnabled(updateNotifyEnabled: boolean) {
       const s = liveSettings();

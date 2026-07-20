@@ -2,7 +2,7 @@ import { definePlugin } from "@decky/api";
 // Build sentinel — bumped each iteration so CDP probes can confirm the
 // running JS matches the latest source. Read via `window.__ds_build`.
 // Dev-only; stripped from release via `if (__DEV__)`.
-if (__DEV__) { try { (globalThis as any).__ds_build = "2026-06-27-friends"; } catch {} }
+if (__DEV__) { try { (globalThis as any).__ds_build = __BUILD_ID__; } catch {} }
 import i18next from "i18next";
 import { initI18n } from "./i18n";
 import { SettingsView } from "./components/Settings";
@@ -16,6 +16,9 @@ import { installRecentsReplace } from "./runtime/recentsReplace";
 import { installShelfRefreshEmitter } from "./core/shelfRefresh";
 import { installSystemEvents } from "./runtime/systemEvents";
 import { installBatteryState } from "./runtime/batteryState";
+import { installDeviceState, getDeviceState } from "./runtime/deviceState";
+import { installSessionState } from "./runtime/sessionState";
+import { installProfileTriggers } from "./runtime/profileTriggers";
 import { installFriendsState } from "./runtime/friendsState";
 import { installPluginApi } from "./core/pluginApi";
 import { installLauncherCachePoll } from "./runtime/launcherCache";
@@ -142,6 +145,11 @@ export default definePlugin((serverAPI?: any) => {
   const uninstallRefresh = installShelfRefreshEmitter();
   const uninstallSystemEvents = installSystemEvents();
   const uninstallBatteryState = installBatteryState();
+  const uninstallDeviceState = installDeviceState();
+  const uninstallSessionState = installSessionState();
+  const uninstallProfileTriggers = installProfileTriggers();
+  // Dev-only: expose the live device snapshot for on-device CDP inspection.
+  if (__DEV__) { try { (globalThis as any).__ds_device = getDeviceState; } catch {} }
   const uninstallFriendsState = installFriendsState();
   const uninstallPluginApi = installPluginApi();
   const uninstallLauncherCache = installLauncherCachePoll();
@@ -316,6 +324,9 @@ export default definePlugin((serverAPI?: any) => {
         uninstallRefresh();
         uninstallSystemEvents();
         uninstallBatteryState();
+        uninstallDeviceState();
+        uninstallSessionState();
+        uninstallProfileTriggers();
         uninstallFriendsState();
         uninstallPluginApi();
         uninstallLauncherCache();

@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { afterPatch, findInReactTree } from "./host/decky";
 import { getCurrentSettings, subscribeSettings } from "../settingsStore";
-import { isInVisibilityWindow } from "../steam/smartShelves";
+import { evalVisibility } from "../steam/smartShelves";
 import { applyManualOrder } from "../steam";
 import { isOnlineSource } from "../domain/sourceUtils";
 import { getPlatform } from "./platformContext";
@@ -106,6 +106,10 @@ function getOwnedAppIdSet(): Set<number> | null {
   return out.size > 0 ? out : null;
 }
 
+function validAppIds(ids: number[]): number[] {
+  return Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
+}
+
 function filterKnownAppIds(ids: number[]): number[] {
   const store: any = (globalThis as any).appStore;
   if (!store || typeof store.GetAppOverviewByAppID !== "function") return [];
@@ -152,13 +156,13 @@ function smartShelfToCandidate(s: any) {
 function visibleCandidateShelves(): any[] {
   const s = getCurrentSettings();
   if (!s) return [];
-  const normals = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden && !isOnlineSource(sh.source));
+  const normals = (s.shelves ?? []).filter((sh: any) => sh.enabled && !sh.hidden && !isOnlineSource(sh.source) && evalVisibility(sh));
   const smartEnabled = s.smartShelvesEnabled === true;
   const smarts = !smartEnabled
     ? []
     : (s.smartShelves ?? [])
         .filter((sm: any) => sm.enabled !== false && !sm.hidden)
-        .filter((sm: any) => isInVisibilityWindow(sm.visibleHours, sm.visibleDaysOfWeek))
+        .filter((sm: any) => evalVisibility(sm))
         .map(smartShelfToCandidate)
         .filter(Boolean) as any[];
   return [...normals, ...smarts];
@@ -233,7 +237,7 @@ function scheduleResolve(shelf: any) {
     .then((ids: number[]) => isManual ? applyManualOrder(ids, manualOrder, hiddenAppIds) : ids)
     .then((ids: number[]) => {
       const prev = cachedAppIds;
-      const valid = Array.isArray(ids) ? ids.filter((n) => typeof n === "number" && n > 0) : [];
+      const valid = validAppIds(ids);
       const known = filterKnownAppIds(valid);
       if (known.length === 0) {
         if (valid.length > 0 && !getOwnedAppIdSet()) {

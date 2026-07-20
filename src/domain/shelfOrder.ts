@@ -19,6 +19,17 @@ export function pickFirstVisibleShelfId(
   return null;
 }
 
+/* Auto-pin: stable partition that floats every shelf whose `autoPin` predicate
+   currently matches to the front, preserving relative order within each group.
+   Returns the SAME array reference when nothing is pinned, so a home with no
+   auto-pinned shelves is byte-for-byte unchanged (opt-in, zero regression). */
+export function applyAutoPin<T>(shelves: readonly T[], isPinned: (s: T) => boolean): readonly T[] {
+  const pinned: T[] = [];
+  const rest: T[] = [];
+  for (const s of shelves) (isPinned(s) ? pinned : rest).push(s);
+  return pinned.length ? [...pinned, ...rest] : shelves;
+}
+
 export function interleaveSmartShelves<T extends ShelfLike>(
   shelves: readonly T[],
   firstVisibleId: string | null,

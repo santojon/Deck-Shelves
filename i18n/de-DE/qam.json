@@ -44,5 +44,22 @@
   "toast_settings_reset": "Einstellungen zurückgesetzt",
   "toast_shelves_reset": "Regale zurückgesetzt",
   "toast_smart_shelves_reset": "Smarte Regale zurückgesetzt",
-  "sidenav_recents_fallback_label": "Zuletzt gespielt"
+  "sidenav_recents_fallback_label": "Zuletzt gespielt",
+  "toast_created": "Erstellt",
+  "toast_saved": "Gespeichert",
+  "toast_deleted": "Gelöscht",
+  "toast_duplicated": "Dupliziert",
+  "toast_renamed": "Umbenannt",
+  "toast_shelf_created": "Regal erstellt",
+  "toast_shelf_saved": "Regal gespeichert",
+  "toast_shelf_deleted": "Regal gelöscht",
+  "toast_shelf_duplicated": "Regal dupliziert",
+  "toast_profile_created": "Profil erstellt",
+  "toast_profile_saved": "Profil gespeichert",
+  "toast_profile_deleted": "Profil gelöscht",
+  "toast_profile_duplicated": "Profil dupliziert",
+  "toast_profile_renamed": "Profil umbenannt",
+  "toast_filter_saved": "Filter gespeichert",
+  "toast_filter_deleted": "Filter gelöscht",
+  "toast_filter_renamed": "Filter umbenannt"
 }

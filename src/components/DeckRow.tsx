@@ -27,6 +27,20 @@ import { trackFeature } from "../steam/usageTracking";
 import { patchShelfInSettings } from "../domain/settings";
 import { PerShelfHero } from "./shelf/PerShelfHero";
 
+function isScrollableEl(el: HTMLElement): boolean {
+  try {
+    const oy = (getComputedStyle(el).overflowY || '').toLowerCase();
+    return (oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight;
+  } catch (e) {
+    logInfo("HOME", "isScrollableEl: getComputedStyle failed", String(e));
+    return false;
+  }
+}
+
+function smoothScrollTo(el: HTMLElement, top: number): void {
+  try { el.scrollTo({ top, behavior: "smooth" }); } catch { el.scrollTop = top; }
+}
+
 function readCollapsed(shelfId: string): boolean {
   try { return localStorage.getItem(`ds-collapsed-${shelfId}`) === '1'; } catch (e) { logInfo("HOME", "readCollapsed failed", String(e)); return false; }
 }
@@ -57,7 +71,7 @@ export function _labelOverhangPx(args: {
   return Math.max(total, 60);
 }
 
-function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoBelowShelf = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 10, descriptionScale = 1, forceExpanded = false, fullPageLayoutOnly = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false, infoAbove = false, friendsOverlay = false, friendsOverlayRecent = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoBelowShelf?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; descriptionScale?: number; forceExpanded?: boolean; fullPageLayoutOnly?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean; infoAbove?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean }) {
+function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = false, highlightFirst = false, highlightAll = false, highlightedAppIds, hideStatusLine = false, hideNewBadge = false, hideDiscountBadge = false, hideCompatIcons = false, hideNonSteamBadge = false, hideShelfTitle = false, hideGameNames = false, hideInstallIndicator = false, enableLogo = false, enableIcon = false, enableDescription = false, descriptionBelowLogo = false, logoBelowShelf = false, logoPosition = 'left', descriptionPosition = 'left', logoSize = 100, logoTopOffset = 20, iconVerticalAlign = 'top', shelfTitlePosition = 'left', gameNamePosition = 'left', playtimePosition = 'left', descriptionHeight = 2, descriptionLogoGap = 10, descriptionScale = 1, forceExpanded = false, fullPageLayoutOnly = false, pinScrollTop = false, forceLayoutAsRecents = false, heroEnabled = false, heroLabelMount = false, infoAbove = false, friendsOverlay = false, friendsOverlayRecent = false, forceCollapsed = false, autoCollapseWhenEmpty = false }: { title?: string; items: DeckRowItem[]; shelfId?: string; removableSet?: Set<number>; matchNativeSize?: boolean; highlightFirst?: boolean; highlightAll?: boolean; highlightedAppIds?: number[]; hideStatusLine?: boolean; hideNewBadge?: boolean; hideDiscountBadge?: boolean; hideCompatIcons?: boolean; hideNonSteamBadge?: boolean; hideShelfTitle?: boolean; hideGameNames?: boolean; hideInstallIndicator?: boolean; enableLogo?: boolean; enableIcon?: boolean; enableDescription?: boolean; descriptionBelowLogo?: boolean; logoBelowShelf?: boolean; logoPosition?: 'left' | 'center' | 'right'; descriptionPosition?: 'left' | 'center' | 'right'; logoSize?: number; logoTopOffset?: number; iconVerticalAlign?: 'top' | 'center' | 'bottom'; shelfTitlePosition?: 'left' | 'center' | 'right'; gameNamePosition?: 'left' | 'center' | 'right'; playtimePosition?: 'left' | 'center' | 'right'; descriptionHeight?: number; descriptionLogoGap?: number; descriptionScale?: number; forceExpanded?: boolean; fullPageLayoutOnly?: boolean; pinScrollTop?: boolean; forceLayoutAsRecents?: boolean; heroEnabled?: boolean; heroLabelMount?: boolean; infoAbove?: boolean; friendsOverlay?: boolean; friendsOverlayRecent?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
   const visuallyForced = forceExpanded || forceLayoutAsRecents;
   /* 100vh layout fires for BOTH real recents-replacement (`forceExpanded`)
      and per-shelf full-page intent (`fullPageLayoutOnly`). Only the real
@@ -127,7 +141,11 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
      it should return to whatever state the user had chosen. We intentionally
      do NOT overwrite `collapsedState` or the persisted `ds-collapsed-{id}`
      key while `forceExpanded` is active. */
-  const collapsed = visuallyForced ? false : collapsedState;
+  // Auto-collapse forces the collapsed render (off-context predicate matched, or
+  // the shelf is empty) on top of the manual `collapsedState`; a promoted/recents
+  // shelf (visuallyForced) is never auto-collapsed.
+  const autoCollapsed = forceCollapsed || (autoCollapseWhenEmpty && items.length === 0);
+  const collapsed = visuallyForced ? false : (collapsedState || autoCollapsed);
   const [nativeRowClass, setNativeRowClass] = useState('');
 
   // Effective dimensions, computed once at mount from whatever native dims are
@@ -333,7 +351,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
           if (scr === lastScrollable && lastTarget === 0) return;
           lastScrollable = scr;
           lastTarget = 0;
-          try { scr.scrollTo({ top: 0, behavior: "smooth" }); } catch { scr.scrollTop = 0; }
+          smoothScrollTo(scr, 0);
           return;
         }
         const currentCenterOffset = (elRect.top + elRect.height / 2) - (scrRect.top + scrRect.height / 2);
@@ -346,7 +364,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         if (scr === lastScrollable && Math.abs(clamped - lastTarget) < 2) return;
         lastScrollable = scr;
         lastTarget = clamped;
-        try { scr.scrollTo({ top: clamped, behavior: "smooth" }); } catch { scr.scrollTop = clamped; }
+        smoothScrollTo(scr, clamped);
       } catch { /* ignore */ }
     };
     let verifyTimer: number | null = null;
@@ -449,13 +467,7 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
         function getScrollableAncestor(node: HTMLElement | null): HTMLElement | null {
           let cur = node?.parentElement ?? null;
           while (cur && cur !== document.body) {
-            try {
-              const cs = getComputedStyle(cur);
-              const oy = (cs.overflowY || '').toLowerCase();
-              if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && cur.scrollHeight > cur.clientHeight) return cur;
-            } catch (e) {
-              logInfo("HOME", "getScrollableAncestor: getComputedStyle failed", String(e));
-            }
+            if (isScrollableEl(cur)) return cur;
             cur = cur.parentElement;
           }
           return null;
@@ -595,14 +607,13 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
     setCollapsed(next);
     if (shelfId) writeCollapsed(shelfId, next);
     if (!focusedInside) return;
+    const findCollapseTarget = (): HTMLElement | null => {
+      if (!next) return rowRef.current?.querySelector<HTMLElement>('.ds-card') ?? null;
+      const all = Array.from(shelf?.ownerDocument?.querySelectorAll<HTMLElement>('.ds-shelf .ds-card') ?? []);
+      return all.find((el) => !shelf?.contains(el)) ?? null;
+    };
     const tryFocus = (attempt: number) => {
-      let target: HTMLElement | null = null;
-      if (!next) {
-        target = rowRef.current?.querySelector<HTMLElement>('.ds-card') ?? null;
-      } else {
-        const all = Array.from(shelf?.ownerDocument?.querySelectorAll<HTMLElement>('.ds-shelf .ds-card') ?? []);
-        target = all.find((el) => !shelf?.contains(el)) ?? null;
-      }
+      const target = findCollapseTarget();
       if (target && focusElement(target)) return;
       if (attempt < 20) setTimeout(() => tryFocus(attempt + 1), 50);
     };
@@ -732,6 +743,12 @@ function DeckRowImpl({ title, items, shelfId, removableSet, matchNativeSize = fa
                transition. */
             scrollBehavior: "smooth",
             padding: `16px 0 ${_labelOverhangPx({ hideStatusLine, hideGameNames, enableIcon, enableDescription, descriptionBelowLogo })}px 2.8vw`,
+            /* Full-page shelves anchor this row to the shelf bottom (flex-end),
+               which put the card's below-art label under Steam's ~40px bottom
+               hint bar. Lift the row clear of it; margin (not padding) keeps the
+               hero full-height, and the row still drops back as the label band
+               (padding-bottom above) shrinks when those items are hidden. */
+            marginBottom: fullPageLayoutActive ? 48 : undefined,
           }}
           {...flowChildrenProps("horizontal")}
         >

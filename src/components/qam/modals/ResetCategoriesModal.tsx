@@ -1,4 +1,3 @@
-import { toaster } from "../../../runtime/host/decky";
 import { notify } from "../../notify";
 import type { SettingsController } from "../../../features/settings/controller";
 import { SelectItemsModal } from "./SelectItemsModal";

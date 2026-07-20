@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Focusable } from "../../runtime/host/decky";
-import { Navigation } from "@decky/ui";
+import { Focusable, Navigation } from "../../runtime/host/decky";
 import { ChevronLeftIcon, DocsIcon, GearIcon, DownloadIcon } from "../icons";
 import { checkForUpdate, openReleaseUrl, type UpdateCheckResult } from "../../core/updateNotifier";
 

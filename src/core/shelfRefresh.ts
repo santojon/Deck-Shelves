@@ -8,7 +8,16 @@ let suspended = false;
 
 import { mark, measure } from './perf';
 
-function emit(opts?: RefreshOptions): void {
+/* Global emit coalescing. Steam fires overview/download-tick events in bursts,
+   and re-resolving shelves can itself provoke more of them — without a floor
+   the resolver storms (dozens of re-resolves/sec, metadata refetches, visible
+   flicker). Non-manual emits coalesce to at most one per window with a trailing
+   emit so the final state always lands; manual (user) refreshes fire at once. */
+const EMIT_COALESCE_MS = 700;
+let lastEmitAt = 0;
+let coalesceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function runEmit(opts?: RefreshOptions): void {
   if (suspended) return;
   try {
     mark('shelfRefresh.emit:start');
@@ -17,6 +26,16 @@ function emit(opts?: RefreshOptions): void {
     }
   } finally {
     measure('shelfRefresh.emit', 'shelfRefresh.emit:start');
+  }
+}
+
+function emit(opts?: RefreshOptions): void {
+  if (suspended) return;
+  if (opts?.manual) { lastEmitAt = Date.now(); runEmit(opts); return; }
+  const elapsed = Date.now() - lastEmitAt;
+  if (elapsed >= EMIT_COALESCE_MS) { lastEmitAt = Date.now(); runEmit(opts); return; }
+  if (coalesceTimer === null) {
+    coalesceTimer = setTimeout(() => { coalesceTimer = null; lastEmitAt = Date.now(); runEmit(); }, EMIT_COALESCE_MS - elapsed);
   }
 }
 
@@ -123,6 +142,7 @@ export function installShelfRefreshEmitter(): () => void {
 
   return () => {
     for (const fn of cleanups) fn();
+    if (coalesceTimer !== null) { clearTimeout(coalesceTimer); coalesceTimer = null; }
     listeners.clear();
     suspended = false;
   };

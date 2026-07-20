@@ -3,11 +3,12 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 vi.mock('../../core/steamOSVersion', () => ({ getSteamOSVersion: () => '3.6.20' }))
 vi.mock('../../core/cssLoaderDetect', () => ({
   isCssLoaderActive: () => true,
+  getActiveCssLoaderThemes: () => [],
   isArtHeroActive: () => false,
   isTiltedHomeActive: () => true,
   isHeroFullscreenActive: () => false,
   isNoHomeTextActive: () => false,
-  listCssLoaderThemeNames: () => [],
+  cssLoaderStyleCount: () => 0,
 }))
 vi.mock('../../integrations/registry', () => ({
   isTabMasterInstalled: () => true,

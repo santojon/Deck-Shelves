@@ -21,21 +21,7 @@ import { getCurrentSettings } from "../store/settingsStore";
 import { publishShelf, unpublishShelf } from "../features/search/shelfRegistry";
 
 function openSteamStorePage(appid: number) {
-  try {
-    const sc = (globalThis as any).SteamClient;
-    if (typeof sc?.URL?.ExecuteSteamURL === 'function') {
-      sc.URL.ExecuteSteamURL(`steam://store/${appid}`);
-      return;
-    }
-    if (typeof sc?.System?.OpenInSystemBrowser === 'function') {
-      sc.System.OpenInSystemBrowser(`https://store.steampowered.com/app/${appid}/`);
-      return;
-    }
-    if (typeof sc?.WebChat?.OpenURLInClient === 'function') {
-      sc.WebChat.OpenURLInClient(`https://store.steampowered.com/app/${appid}/`);
-      return;
-    }
-  } catch {}
+  openSteamStoreUrl(`https://store.steampowered.com/app/${appid}/`, `steam://store/${appid}`);
 }
 
 function openSteamStoreUrl(url: string, steamUrl?: string) {
@@ -54,6 +40,14 @@ function openSteamStoreUrl(url: string, steamUrl?: string) {
       return;
     }
   } catch {}
+}
+
+// Cross-source name key: same normalisation as the wishlist compare so
+// "Kingdom Come Deliverance" (non-Steam) matches "Kingdom Come: Deliverance".
+function ownedNameKey(a: any): string | null {
+  const n = (a as any)?.display_name ?? (a as any)?.name;
+  if (typeof n !== 'string' || !n) return null;
+  return normalizeTitleForMatch(n) || null;
 }
 
 function getCachedDiscount(appid: number): number | null {
@@ -102,7 +96,7 @@ function computeEffectiveHighlightedAppIds(
   return Array.from(picked);
 }
 
-function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean }) {
+function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFirst = false, globalHighlightAll = false, globalHighlightRandom = false, globalHideStatusLine = false, globalHideNewBadge = false, globalHideDiscountBadge = false, globalHideCompatIcons = false, globalHideNonSteamBadge = false, globalHideShelfTitle = false, globalHideGameNames = false, globalHideInstallIndicator = false, globalHideSeeMore = false, globalHideRefreshCard = false, globalHeroEnabled = false, globalGameInfoAbove = false, globalFriendsPlayingOverlay = false, globalFriendsPlayingOverlayRecent = false, globalDedupeByName = false, globalEnableLogo = false, globalEnableIcon = false, globalEnableDescription = false, globalDescriptionBelowLogo = false, globalLogoBelowShelf = false, globalLogoPosition = 'left', globalDescriptionPosition = 'left', globalLogoSize = 100, globalLogoTopOffset = 20, globalFullPageShelf = false, globalIconVerticalAlign, globalShelfTitlePosition, globalGameNamePosition, globalPlaytimePosition, globalDescriptionHeight, heroForced = false, heroLabelMount = false, forceExpanded = false, forceLayoutAsRecents = false, forceCollapsed = false, autoCollapseWhenEmpty = false }: { shelf: Shelf; globalMatchNativeSize?: boolean; globalHighlightFirst?: boolean; globalHighlightAll?: boolean; globalHighlightRandom?: boolean; globalHideStatusLine?: boolean; globalHideNewBadge?: boolean; globalHideDiscountBadge?: boolean; globalHideCompatIcons?: boolean; globalHideNonSteamBadge?: boolean; globalHideShelfTitle?: boolean; globalHideGameNames?: boolean; globalHideInstallIndicator?: boolean; globalHideSeeMore?: boolean; globalHideRefreshCard?: boolean; globalHeroEnabled?: boolean; globalGameInfoAbove?: boolean; globalFriendsPlayingOverlay?: boolean; globalFriendsPlayingOverlayRecent?: boolean; globalDedupeByName?: boolean; globalEnableLogo?: boolean; globalEnableIcon?: boolean; globalEnableDescription?: boolean; globalDescriptionBelowLogo?: boolean; globalLogoBelowShelf?: boolean; globalLogoPosition?: 'left' | 'center' | 'right'; globalDescriptionPosition?: 'left' | 'center' | 'right'; globalLogoSize?: number; globalLogoTopOffset?: number; globalFullPageShelf?: boolean; globalIconVerticalAlign?: 'top' | 'center' | 'bottom' | null; globalShelfTitlePosition?: 'left' | 'center' | 'right' | null; globalGameNamePosition?: 'left' | 'center' | 'right' | null; globalPlaytimePosition?: 'left' | 'center' | 'right' | null; globalDescriptionHeight?: number | null; heroForced?: boolean; heroLabelMount?: boolean; forceExpanded?: boolean; forceLayoutAsRecents?: boolean; forceCollapsed?: boolean; autoCollapseWhenEmpty?: boolean }) {
   const { t } = useTranslation();
   const platform = usePlatform();
   const cacheKey = `ds-shelf-cache-${shelf.id}-${shelf.sort ?? ''}-${(shelf as any).manualBaseSort ?? ''}-${(shelf as any).sortReverse ? 'r1' : 'r0'}-${(shelf as any).manualBaseSortReverse ? 'r1' : 'r0'}`;
@@ -400,16 +394,8 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
       for (const a of apps) {
         const id = Number((a as any)?.appid);
         if (!ownedSetForNames.has(id)) continue;
-        const n = (a as any)?.display_name ?? (a as any)?.name;
-        /* Cross-source name matching: same normalisation as the wishlist
-           compare below so "Kingdom Come Deliverance" (non-Steam local)
-           matches "Kingdom Come: Deliverance" (Steam wishlist). The
-           previous `n.trim().toLowerCase()` left punctuation intact and
-           silently leaked owned titles through to the row. */
-        if (typeof n === 'string' && n) {
-          const key = normalizeTitleForMatch(n);
-          if (key) names.add(key);
-        }
+        const key = ownedNameKey(a);
+        if (key) names.add(key);
       }
       setOwnedNames(names);
     }).catch(() => {});
@@ -776,7 +762,6 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
      Only the first one should drive PerShelfHero's `isFirstShelf`
      (controls fade vs opaque-top). The second only changes layout. */
   const fullPageLayout = globalFullPageShelf === true || (shelf as any).fullPageShelf === true;
-  const effectiveForceExpanded = forceExpanded || fullPageLayout;
   const isValidVAlign = (v: any): v is 'top' | 'center' | 'bottom' => v === 'top' || v === 'center' || v === 'bottom';
   const effectiveIconVerticalAlign: 'top' | 'center' | 'bottom' = isValidVAlign(globalIconVerticalAlign) ? globalIconVerticalAlign : (isValidVAlign((shelf as any).iconVerticalAlign) ? (shelf as any).iconVerticalAlign : 'top');
   const effectiveShelfTitlePosition: 'left' | 'center' | 'right' = isValidPos(globalShelfTitlePosition) ? globalShelfTitlePosition : (isValidPos((shelf as any).shelfTitlePosition) ? (shelf as any).shelfTitlePosition : 'left');
@@ -785,7 +770,7 @@ function ShelfViewImpl({ shelf, globalMatchNativeSize = false, globalHighlightFi
   const effectiveDescriptionHeight: number = typeof globalDescriptionHeight === 'number' ? Math.max(1, Math.min(3, globalDescriptionHeight)) : (typeof (shelf as any).descriptionHeight === 'number' ? Math.max(1, Math.min(3, (shelf as any).descriptionHeight)) : 2);
   const globalDescriptionLogoGap = (getCurrentSettings() as any)?.globalDescriptionLogoGap as number | null | undefined;
   const effectiveDescriptionLogoGap: number = typeof globalDescriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, globalDescriptionLogoGap)) : (typeof (shelf as any).descriptionLogoGap === 'number' ? Math.max(-40, Math.min(80, (shelf as any).descriptionLogoGap)) : 10);
-  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoBelowShelf={effectiveLogoBelowShelf} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} descriptionScale={effectiveDescriptionScale} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={forceExpanded && !fullPageLayout} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={lightMode ? (forceExpanded || forceLayoutAsRecents) : (heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true)} heroLabelMount={heroLabelMount} infoAbove={globalGameInfoAbove || (shelf as any).gameInfoAbove === true} friendsOverlay={globalFriendsPlayingOverlay || (shelf as any).friendsPlayingOverlay === true} friendsOverlayRecent={globalFriendsPlayingOverlayRecent || (shelf as any).friendsPlayingOverlayRecent === true} />;
+  const row = <DeckRow title={shelf.title} items={rowItems} shelfId={shelf.id} removableSet={removableSet} matchNativeSize={globalMatchNativeSize || shelf.matchNativeSize} highlightFirst={globalHighlightFirst || shelf.highlightFirst} highlightAll={globalHighlightAll || shelf.highlightAll} highlightedAppIds={effectiveHighlightedAppIds} hideStatusLine={effectiveHide} hideNewBadge={effectiveHideNewBadge} hideDiscountBadge={effectiveHideDiscountBadge} hideCompatIcons={effectiveHideCompatIcons} hideNonSteamBadge={effectiveHideNonSteamBadge} hideShelfTitle={effectiveHideShelfTitle} hideGameNames={effectiveHideGameNames} hideInstallIndicator={effectiveHideInstallIndicator} enableLogo={effectiveEnableLogo} enableIcon={effectiveEnableIcon} enableDescription={effectiveEnableDescription} descriptionBelowLogo={effectiveDescriptionBelowLogo} logoBelowShelf={effectiveLogoBelowShelf} logoPosition={effectiveLogoPosition} descriptionPosition={effectiveDescriptionPosition} logoSize={effectiveLogoSize} logoTopOffset={effectiveLogoTopOffset} iconVerticalAlign={effectiveIconVerticalAlign} shelfTitlePosition={effectiveShelfTitlePosition} gameNamePosition={effectiveGameNamePosition} playtimePosition={effectivePlaytimePosition} descriptionHeight={effectiveDescriptionHeight} descriptionLogoGap={effectiveDescriptionLogoGap} descriptionScale={effectiveDescriptionScale} forceExpanded={forceExpanded} fullPageLayoutOnly={fullPageLayout} pinScrollTop={forceExpanded && !fullPageLayout} forceLayoutAsRecents={forceLayoutAsRecents} heroEnabled={lightMode ? (forceExpanded || forceLayoutAsRecents) : (heroForced || globalHeroEnabled || (shelf as any).heroEnabled === true)} heroLabelMount={heroLabelMount} infoAbove={globalGameInfoAbove || (shelf as any).gameInfoAbove === true} friendsOverlay={globalFriendsPlayingOverlay || (shelf as any).friendsPlayingOverlay === true} friendsOverlayRecent={globalFriendsPlayingOverlayRecent || (shelf as any).friendsPlayingOverlayRecent === true} forceCollapsed={forceCollapsed} autoCollapseWhenEmpty={autoCollapseWhenEmpty} />;
   /* Brief opacity dip while a user-triggered refresh is in flight so the
      click is never ambiguous — even when the resolver returns identical
      data, the shelf visibly fades and recovers, signalling that the

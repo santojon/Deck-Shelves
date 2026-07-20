@@ -1,7 +1,7 @@
 {
   "src/components/DeckQAMSettings.tsx": {
-    "complexity": {
-      "count": 7
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
     },
     "react-hooks/rules-of-hooks": {
       "count": 3
@@ -9,25 +9,29 @@
   },
   "src/components/DeckRow.tsx": {
     "complexity": {
-      "count": 8
+      "count": 5
     }
   },
   "src/components/HomeInject.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 2
+    },
     "complexity": {
-      "count": 8
+      "count": 6
     }
   },
   "src/components/Shelf.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 3
+    },
     "complexity": {
-      "count": 7
+      "count": 5
     }
   },
   "src/components/ShelfManageRoute.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/filter/FilterItemOptions.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 4
+    },
     "complexity": {
       "count": 1
     }
@@ -39,7 +43,7 @@
   },
   "src/components/home/navPatches/menuButton.ts": {
     "complexity": {
-      "count": 3
+      "count": 2
     }
   },
   "src/components/home/navPatches/reparent.ts": {
@@ -52,14 +56,77 @@
       "count": 1
     }
   },
+  "src/components/qam/UpdateBanner.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 2
+    }
+  },
+  "src/components/qam/modals/DeleteConfirmSmartModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
   "src/components/qam/modals/EditShelfModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    },
     "complexity": {
       "count": 4
     }
   },
-  "src/components/qam/modals/EditSmartShelfModal.tsx": {
-    "complexity": {
-      "count": 3
+  "src/components/qam/modals/ExportAndClearModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/ExportModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/ImportAllModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/ImportFromCustomFiltersModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/ImportModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/RenameProfileModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/RenameSavedFilterModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/RenameSavedSmartFilterModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/ResetAllModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/SelectItemsModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/qam/modals/SetProfileTriggerModal.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
     }
   },
   "src/components/qam/modals/editShelf/DecorationTab.tsx": {
@@ -78,12 +145,25 @@
     }
   },
   "src/components/qam/modals/editShelf/ShelfPreview.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    },
     "complexity": {
       "count": 4
     }
   },
-  "src/components/qam/sidecar/GeneralTab.tsx": {
-    "complexity": {
+  "src/components/qam/modals/editShelf/usePreviewResolution.ts": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 2
+    }
+  },
+  "src/components/settings/details/StatisticsDetail.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "src/components/settings/details/SuggestionsDetail.tsx": {
+    "@typescript-eslint/no-floating-promises": {
       "count": 1
     }
   },
@@ -119,25 +199,23 @@
   },
   "src/components/shelf/shelfStyles.ts": {
     "complexity": {
-      "count": 4
+      "count": 3
     }
   },
-  "src/core/cssLoaderDetect.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
-  "src/core/focusRestore.ts": {
-    "complexity": {
+  "src/core/imageCache.ts": {
+    "@typescript-eslint/no-floating-promises": {
       "count": 2
     }
   },
   "src/core/onlineStore.ts": {
     "complexity": {
-      "count": 4
+      "count": 3
     }
   },
   "src/core/pluginApi.ts": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    },
     "complexity": {
       "count": 2
     }
@@ -164,7 +242,7 @@
   },
   "src/core/updateNotifier.ts": {
     "complexity": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/search/SearchOverlay.tsx": {
@@ -173,18 +251,21 @@
     }
   },
   "src/features/sidenav/ShelfSideNav.tsx": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 2
+    },
     "complexity": {
-      "count": 5
+      "count": 4
+    }
+  },
+  "src/i18n.ts": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 3
     }
   },
   "src/index.tsx": {
     "complexity": {
       "count": 2
-    }
-  },
-  "src/integrations/domtabs.ts": {
-    "complexity": {
-      "count": 1
     }
   },
   "src/integrations/registry.ts": {
@@ -194,12 +275,12 @@
   },
   "src/integrations/tabmaster.ts": {
     "complexity": {
-      "count": 3
+      "count": 1
     }
   },
   "src/integrations/unifideck.ts": {
     "complexity": {
-      "count": 2
+      "count": 1
     }
   },
   "src/runtime/buttonBindings.ts": {
@@ -219,7 +300,7 @@
   },
   "src/runtime/recentsReplace.tsx": {
     "complexity": {
-      "count": 4
+      "count": 3
     }
   },
   "src/shims/react-dom-client.ts": {
@@ -237,7 +318,12 @@
   },
   "src/steam/smartShelves.ts": {
     "complexity": {
-      "count": 3
+      "count": 2
+    }
+  },
+  "src/store/settingsStore.ts": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 2
     }
   }
 }

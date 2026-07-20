@@ -36,6 +36,12 @@ from report_metrics import (
     _extract_metrics,
     _read_version,
     _read_suppressions,
+    _read_complexity,
+    _read_decoupling,
+    _read_portability,
+    _backfill_complexity,
+    _backfill_decoupling,
+    _backfill_portability,
     _backfill_versions,
     _backfill_html_versions,
 )
@@ -998,6 +1004,9 @@ def generate(
         "ruff": metrics["ruff"],
         "lint": metrics["lint"],
         "suppressions": _read_suppressions(root),
+        "complexity": _read_complexity(root),
+        "decoupling": _read_decoupling(root),
+        "portability": _read_portability(root),
         "step_names": names,
         "step_durations_ms": durations_ms,
         "total_duration_ms": total_duration_ms,
@@ -1068,6 +1077,9 @@ def main() -> int:
             rr = legacy if legacy.is_dir() else Path(args.root)
         _backfill_versions(rr, args.root)
         _backfill_html_versions(rr)
+        _backfill_complexity(rr, args.root)
+        _backfill_decoupling(rr, args.root)
+        _backfill_portability(rr, args.root)
         rebuild_aggregates(rr, scope_only=args.scope_only)
         return 0
 

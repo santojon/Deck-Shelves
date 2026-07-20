@@ -1,5 +1,6 @@
 declare const __DECK_SHELVES_ENABLE_HOME_PATCH__: boolean;
 declare const __DEV__: boolean;
+declare const __BUILD_ID__: string;
 /* Vite ships an ESM bundle, so `require` is undefined at runtime — but a
    handful of dev-only QA harness loaders use `try { require(...) } catch {}`
    as a guarded import that's silently no-op'd in production. The ambient

@@ -5,6 +5,7 @@
    it through the toaster. */
 import i18next from "i18next";
 import { toaster } from "../shims/decky-api";
+import { getCurrentSettings } from "../store/settingsStore";
 import {
   DeckShelvesLogo,
   DownloadIcon,
@@ -15,11 +16,13 @@ import {
   InfoCircleIcon,
   RefreshIcon,
   CopyIcon,
+  PersonIcon,
+  TrashIcon,
 } from "./icons";
 
 export type NotificationType =
   | "update" | "suggestion" | "success" | "error"
-  | "warning" | "info" | "export" | "import" | "reset" | "copy";
+  | "warning" | "info" | "export" | "import" | "reset" | "copy" | "profile" | "delete";
 
 type Glyph = React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 
@@ -36,6 +39,8 @@ export const NOTIFICATION_ICONS: Record<NotificationType, Glyph> = {
   import: DownloadIcon,
   reset: RefreshIcon,
   copy: CopyIcon,
+  profile: PersonIcon,
+  delete: TrashIcon,
 };
 
 export interface NotifyOptions {
@@ -43,6 +48,21 @@ export interface NotifyOptions {
   title?: string;
   onClick?: () => void;
   durationMs?: number;
+  // Optional notification area ("shelves" | "profiles" | "filters" |
+  // "triggers" | "updates"); suppressed when that area is disabled.
+  area?: string;
+}
+
+/* Suppressed when the master "disable notifications" toggle is on, or when the
+   notification's area is in the per-area disabled list. Fail-open on any error. */
+function isSuppressed(area?: string): boolean {
+  try {
+    const s = getCurrentSettings() as any;
+    if (!s) return false;
+    if (s.notificationsDisabled === true) return true;
+    if (area && Array.isArray(s.notificationsDisabledAreas) && s.notificationsDisabledAreas.includes(area)) return true;
+    return false;
+  } catch { return false; }
 }
 
 export interface NotificationPayload {
@@ -71,6 +91,7 @@ export function buildNotification(type: NotificationType, opts: NotifyOptions): 
 
 // Fire a notification. Title defaults to the plugin name (the branded sender).
 export function notify(type: NotificationType, opts: NotifyOptions): void {
+  if (isSuppressed(opts.area)) return;
   const payload = buildNotification(type, { ...opts, title: opts.title ?? i18next.t("plugin_name") });
   try { (toaster as any)?.toast?.(payload); } catch { /* no toaster in this context */ }
 }

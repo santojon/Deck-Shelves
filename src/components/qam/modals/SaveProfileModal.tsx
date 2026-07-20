@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ConfirmModal, TextField } from "../../../runtime/host/decky";
+import { ConfirmModal, TextField, ToggleField, Focusable } from "../../../runtime/host/decky";
 import type { SettingsController } from "../../../features/settings/controller";
 
 export interface SaveProfileModalProps {
@@ -9,6 +9,7 @@ export interface SaveProfileModalProps {
 
 export function SaveProfileModal({ closeModal, controller }: SaveProfileModalProps) {
   const [name, setName] = useState("");
+  const [linkShelves, setLinkShelves] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const existing: any[] = (controller.settings as any)?.profiles ?? [];
 
@@ -25,7 +26,7 @@ export function SaveProfileModal({ closeModal, controller }: SaveProfileModalPro
   const handleSave = async () => {
     const e = validate(name);
     if (e) { setError(e); return; }
-    const created = await (controller.actions as any).createProfile?.(name.trim());
+    const created = await (controller.actions as any).createProfile?.(name.trim(), linkShelves);
     if (!created) {
       setError(controller.t("profile_save_failed" as any) || "Failed to save profile.");
       return;
@@ -42,6 +43,7 @@ export function SaveProfileModal({ closeModal, controller }: SaveProfileModalPro
       onCancel={() => { try { closeModal?.(); } catch {} }}
       closeModal={closeModal}
     >
+      <Focusable onMenuButton={handleSave} onMenuActionDescription={controller.t("profile_save_action" as any) || "Save"}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "8px 0" }}>
         <div style={{ fontSize: 13, opacity: 0.8 }}>
           {controller.t("profile_save_description" as any) || "Captures every setting, every shelf, and every saved filter into a named snapshot you can restore later."}
@@ -57,7 +59,14 @@ export function SaveProfileModal({ closeModal, controller }: SaveProfileModalPro
         {error ? (
           <div style={{ color: "rgba(255, 110, 110, 0.95)", fontSize: 12 }}>{error}</div>
         ) : null}
+        <ToggleField
+          label={controller.t("profile_link_shelves_label" as any)}
+          description={controller.t("profile_link_shelves_desc" as any)}
+          checked={linkShelves}
+          onChange={(v: boolean) => setLinkShelves(v)}
+        />
       </div>
+      </Focusable>
     </ConfirmModal>
   );
 }

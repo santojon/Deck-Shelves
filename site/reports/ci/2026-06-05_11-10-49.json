@@ -49,5 +49,24 @@
   "lint": {
     "problems": 0,
     "estimated": true
-  }
+  },
+  "complexity": {
+    "level": 6167,
+    "count": 246,
+    "max": 238,
+    "avg": 25.1
+  },
+  "complexityEst": true,
+  "decoupling": {
+    "leaks": 87,
+    "adapter": 4,
+    "ratio": 95.6
+  },
+  "decouplingEst": true,
+  "portability": {
+    "coupled": 1,
+    "guarded": 1,
+    "unguarded": 0
+  },
+  "portabilityEst": true
 }

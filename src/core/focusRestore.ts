@@ -8,6 +8,14 @@ let pendingTimestamp = 0;
 // other DS card, so a long TTL doesn't cause stale restores in practice.
 const FOCUS_RESTORE_TIMEOUT = 600_000;
 
+function findDsCard(appid: number, shelfId?: string | null): HTMLElement | null {
+  const doc = getPreferredSteamDocument();
+  const sel = shelfId
+    ? `.ds-card[data-appid="${appid}"][data-shelfid="${shelfId}"]`
+    : `.ds-card[data-appid="${appid}"]`;
+  return (doc?.querySelector(sel) as HTMLElement | null) ?? null;
+}
+
 export function saveFocusTarget(appid: number, shelfId?: string): void {
   pendingAppid = appid;
   pendingShelfId = shelfId ?? null;
@@ -16,11 +24,7 @@ export function saveFocusTarget(appid: number, shelfId?: string): void {
   // navigation pushes history. Steam's native popstate restoration reads
   // m_lastFocusNode, so landing becomes deterministic — no post-hoc race.
   try {
-    const doc = getPreferredSteamDocument();
-    const sel = shelfId
-      ? `.ds-card[data-appid="${appid}"][data-shelfid="${shelfId}"]`
-      : `.ds-card[data-appid="${appid}"]`;
-    const card = doc?.querySelector(sel) as HTMLElement | null;
+    const card = findDsCard(appid, shelfId);
     if (!card) return;
     const navNode = findNavNodeForElement(card);
     if (!navNode) return;
@@ -117,6 +121,10 @@ function clearPending(): void {
   pendingShelfId = null;
 }
 
+function isCardFocused(card: HTMLElement): boolean {
+  return card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement;
+}
+
 export function tryRestoreFocus(): boolean {
   if (!pendingAppid) return false;
   if (Date.now() - pendingTimestamp > FOCUS_RESTORE_TIMEOUT) {
@@ -127,7 +135,7 @@ export function tryRestoreFocus(): boolean {
   const card = findPendingCard();
   if (!card) return false;
 
-  if (card.classList.contains("gpfocus") || card === card.ownerDocument?.activeElement) {
+  if (isCardFocused(card)) {
     clearPending();
     return true;
   }

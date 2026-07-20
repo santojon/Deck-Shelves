@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { evaluateFilterGroup, type AppOverview } from '../../steam'
 import type { FilterGroup, FilterItem } from '../../types'
 
@@ -365,6 +365,108 @@ describe('evaluateFilterGroup — appStatus on non-Steam (synthesized display_st
   it('Steam apps keep their real display_status (no synthesis)', () => {
     const apps = [app({ appid: 1, display_status: 9 } as any), app({ appid: 2, display_status: 11 } as any)]
     const g = group([{ type: 'appStatus', params: { groups: ['not_installed'] } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+})
+
+describe('systemCompatibility filter', () => {
+  it('keeps apps available on the current platform (and unknown), drops incompatible', () => {
+    const apps = [
+      app({ appid: 1, available_on_current_platform: true } as any),
+      app({ appid: 2, available_on_current_platform: false } as any),
+      app({ appid: 3 } as any), // no data (non-Steam) → kept
+    ]
+    const g = group([{ type: 'systemCompatibility', params: {} }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1, 3])
+  })
+
+  it('inverts to keep only incompatible apps', () => {
+    const apps = [
+      app({ appid: 1, available_on_current_platform: true } as any),
+      app({ appid: 2, available_on_current_platform: false } as any),
+    ]
+    const g = group([{ type: 'systemCompatibility', inverted: true, params: {} }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([2])
+  })
+})
+
+describe('remotePlayLocation filter', () => {
+  const apps = () => [
+    app({ appid: 1, installed: true, installed_remote: false } as any),  // local only
+    app({ appid: 2, installed: false, installed_remote: true } as any),  // remote only
+    app({ appid: 3, installed: true, installed_remote: true } as any),   // both
+    app({ appid: 4, installed: false, installed_remote: false } as any), // neither
+  ]
+  const run = (mode: string) =>
+    evaluateFilterGroup(group([{ type: 'remotePlayLocation', params: { mode } }]), apps()).map((a) => a.appid)
+
+  it('local = installed here', () => expect(run('local')).toEqual([1, 3]))
+  it('remote = installed on another client', () => expect(run('remote')).toEqual([2, 3]))
+  it('remote-only = elsewhere and not here (play-from-remote shelf)', () => expect(run('remote-only')).toEqual([2]))
+  it('both = installed here and elsewhere', () => expect(run('both')).toEqual([3]))
+})
+
+describe('priceRange filter', () => {
+  const seedPrices = (m: Record<number, { price?: number; unpriced?: boolean }>) => {
+    const cache: Record<number, any> = {}
+    for (const [id, d] of Object.entries(m)) cache[Number(id)] = { ts: Date.now(), data: { currency: 'BRL', ...d } }
+    const store = new Map<string, string>([['ds-price-cache-v1', JSON.stringify(cache)]])
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v) },
+      removeItem: (k: string) => { store.delete(k) },
+    })
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('keeps games within [min,max] currency units; excludes unpriced', () => {
+    // prices are cents: 5.00 / 25.00 / 99.00 / free
+    seedPrices({ 1: { price: 500 }, 2: { price: 2500 }, 3: { price: 9900 }, 4: { unpriced: true } })
+    const g = group([{ type: 'priceRange', params: { minPrice: 10, maxPrice: 50 } }])
+    const apps = [app({ appid: 1 }), app({ appid: 2 }), app({ appid: 3 }), app({ appid: 4 })]
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([2])
+  })
+
+  it('open-ended min only', () => {
+    seedPrices({ 1: { price: 500 }, 2: { price: 9900 } })
+    const g = group([{ type: 'priceRange', params: { minPrice: 10 } }])
+    expect(evaluateFilterGroup(g, [app({ appid: 1 }), app({ appid: 2 })]).map((a) => a.appid)).toEqual([2])
+  })
+
+  it('open-ended max only', () => {
+    seedPrices({ 1: { price: 500 }, 2: { price: 9900 } })
+    const g = group([{ type: 'priceRange', params: { maxPrice: 10 } }])
+    expect(evaluateFilterGroup(g, [app({ appid: 1 }), app({ appid: 2 })]).map((a) => a.appid)).toEqual([1])
+  })
+})
+
+describe('recentlyActive filter', () => {
+  it('matches games with recent 2-week playtime >= minMinutes; excludes idle', () => {
+    const apps = [
+      app({ appid: 1, playtime_last_two_weeks: 120 }),
+      app({ appid: 2, playtime_last_two_weeks: 0 }),
+      app({ appid: 3, playtime_last_two_weeks: 5 }),
+    ]
+    const g = group([{ type: 'recentlyActive', params: { minMinutes: 10 } }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+
+  it('default minMinutes 1 = played at all in the last two weeks', () => {
+    const apps = [app({ appid: 1, playtime_last_two_weeks: 1 }), app({ appid: 2, playtime_last_two_weeks: 0 })]
+    const g = group([{ type: 'recentlyActive', params: {} }])
+    expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
+  })
+})
+
+describe('neglected filter', () => {
+  const now = Math.floor(Date.now() / 1000)
+  it('matches played-but-not-in-N-days; never-played never matches', () => {
+    const apps = [
+      app({ appid: 1, last_played: now - 60 * 86400 }), // 60 days ago → neglected
+      app({ appid: 2, last_played: now - 5 * 86400 }), // 5 days ago → recent
+      app({ appid: 3, last_played: 0 }), // never played → untouched, not neglected
+    ]
+    const g = group([{ type: 'neglected', params: { days: 30 } }])
     expect(evaluateFilterGroup(g, apps).map((a) => a.appid)).toEqual([1])
   })
 })

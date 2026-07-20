@@ -9,8 +9,7 @@ import {
   getEffectiveFilterGroup,
   normalizeFilter,
 } from '../../domain/settings'
-import { ShelfSchema } from '../../types'
-import type { Settings, Shelf } from '../../types'
+import { ShelfSchema, type Settings, type Shelf } from '../../types'
 
 function makeShelf(id: string, overrides: Partial<Shelf> = {}): Shelf {
   return {

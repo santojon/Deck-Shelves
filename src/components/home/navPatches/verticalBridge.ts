@@ -19,7 +19,6 @@ export function installVerticalFocusBridge(mountEl: HTMLElement): void {
       const before = doc.querySelector<HTMLElement>(".gpfocus");
       if (!before) return;
       const beforeRect = before.getBoundingClientRect();
-      const mountRect = mount.getBoundingClientRect();
 
       let redirectTarget: HTMLElement | null = null;
 

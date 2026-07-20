@@ -44,5 +44,22 @@
   "toast_settings_reset": "Settings reset",
   "toast_shelves_reset": "Shelves reset",
   "toast_smart_shelves_reset": "Smart shelves reset",
-  "sidenav_recents_fallback_label": "Recents"
+  "sidenav_recents_fallback_label": "Recents",
+  "toast_created": "Created",
+  "toast_saved": "Saved",
+  "toast_deleted": "Deleted",
+  "toast_duplicated": "Duplicated",
+  "toast_renamed": "Renamed",
+  "toast_shelf_created": "Shelf created",
+  "toast_shelf_saved": "Shelf saved",
+  "toast_shelf_deleted": "Shelf deleted",
+  "toast_shelf_duplicated": "Shelf duplicated",
+  "toast_profile_created": "Profile created",
+  "toast_profile_saved": "Profile saved",
+  "toast_profile_deleted": "Profile deleted",
+  "toast_profile_duplicated": "Profile duplicated",
+  "toast_profile_renamed": "Profile renamed",
+  "toast_filter_saved": "Filter saved",
+  "toast_filter_deleted": "Filter deleted",
+  "toast_filter_renamed": "Filter renamed"
 }

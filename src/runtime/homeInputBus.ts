@@ -5,7 +5,7 @@
    registered from SharedJSContext (where DS runs) never fire, even when
    the registration succeeds. */
 
-import { GamepadButton } from "@decky/ui";
+import { GamepadButton } from "./host/decky";
 /* Side-effect import: forces controllerInput.ts to load, which boots
    the BP-context keydown listener used by Quick Search. Without this
    nothing imports the module, its top-level `pollUntilInstalled` never

@@ -2,15 +2,6 @@ import { showContextMenu, findModuleChild, findModuleByExport, fakeRenderCompone
 import { getPreferredSteamDocument, getPreferredSteamWindow, getAllSteamDocuments } from "../runtime/steamHost";
 import { isSteamOS38OrLater } from "./steamOSVersion";
 import i18n from "../i18n";
-import { getCurrentSettings, saveSettings } from "../store/settingsStore";
-import {
-  toggleShelfHiddenById,
-  moveShelfById,
-  duplicateShelfById,
-  setShelfCollapsed,
-  dispatchShelfModal,
-  clearOnlineShelfCache,
-} from "./shelfActions";
 import { saveFocusTarget } from "./focusRestore";
 import {
   buildDeckShelvesMenuItems as buildDeckShelvesMenuItemsBase,
@@ -28,6 +19,10 @@ function buildDeckShelvesMenuItems(shelfId: string, dfl: any, R: any, appid?: nu
   return buildDeckShelvesMenuItemsBase(shelfId, dfl, R, appid, _activeAppIdForMenu, _activeCardIndexForMenu);
 }
 
+/* Only a SteamOS build confirmed older than 3.8 uses the legacy menu flow.
+   Unknown / non-SteamOS hosts (Windows, macOS, desktop-Linux Steam —
+   getSteamOSVersion() is null there, so isSteamOS38OrLater() is null, not false)
+   fall through to the MODERN flow, which is correct for every current client. */
 function isLegacyMenuFlow(): boolean {
   return isSteamOS38OrLater() === false;
 }

@@ -1,4 +1,4 @@
-name: PR Checklist
+name: "PR · Checklist"
 
 # Validates that the PR body's checklist + type-of-change boxes are filled
 # correctly before the PR can merge:

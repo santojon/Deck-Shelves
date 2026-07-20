@@ -1,5 +1,6 @@
 import { getPreferredSteamDocument, getAllSteamDocuments } from "../runtime/steamHost";
 import { getRuntimeClassMap } from "./webpackCompat";
+import { call } from "../runtime/host/decky";
 
 // Fallback for the heroInner token if the runtime classmap hasn't been
 // populated yet — same value as `classmap.json` ships with.
@@ -33,6 +34,13 @@ export function cssLoaderStyleCount(): number {
   return getCssLoaderStyleNodes().length;
 }
 
+function nodeMatchesArtHero(node: Element, heroToken: string): boolean {
+  try {
+    const text = node.textContent || "";
+    return text.includes(heroToken) && /mask-image/i.test(text);
+  } catch { return false; }
+}
+
 export function isArtHeroActive(): boolean {
   let heroToken = FALLBACK_HERO_INNER;
   try {
@@ -40,14 +48,7 @@ export function isArtHeroActive(): boolean {
     const map = doc ? getRuntimeClassMap(doc) : null;
     if (map?.heroInner && typeof map.heroInner === "string") heroToken = map.heroInner;
   } catch {}
-  const nodes = getCssLoaderStyleNodes();
-  for (const node of nodes) {
-    try {
-      const text = node.textContent || "";
-      if (text.includes(heroToken) && /mask-image/i.test(text)) return true;
-    } catch {}
-  }
-  return false;
+  return getCssLoaderStyleNodes().some((node) => nodeMatchesArtHero(node, heroToken));
 }
 
 // Aggregated CSS Loader style text — cached briefly so multiple `is*Active`
@@ -149,15 +150,19 @@ export function getTiltedHomeConfig(): {
     if (!root) return null;
     const cs = (doc?.defaultView ?? window).getComputedStyle(root);
     return {
-      tiltAngle: cs.getPropertyValue("--ren-tilt-angle").trim() || "-5deg",
-      imageZoom: cs.getPropertyValue("--ren-image-zoom").trim() || "1.15",
-      mostRecentOffset: cs.getPropertyValue("--ren-most-recent-offset").trim() || "2%",
-      viewMoreOffset: cs.getPropertyValue("--ren-view-more-offset").trim() || "-7%",
-      viewMoreFocusScale: cs.getPropertyValue("--ren-view-more-focus-scale").trim() || "0.88",
+      tiltAngle: readTiltVar(cs, "--ren-tilt-angle", "-5deg"),
+      imageZoom: readTiltVar(cs, "--ren-image-zoom", "1.15"),
+      mostRecentOffset: readTiltVar(cs, "--ren-most-recent-offset", "2%"),
+      viewMoreOffset: readTiltVar(cs, "--ren-view-more-offset", "-7%"),
+      viewMoreFocusScale: readTiltVar(cs, "--ren-view-more-focus-scale", "0.88"),
     };
   } catch {
     return null;
   }
+}
+
+function readTiltVar(cs: CSSStyleDeclaration, name: string, fallback: string): string {
+  return cs.getPropertyValue(name).trim() || fallback;
 }
 
 export function isNoHomeTextActive(): boolean {
@@ -181,4 +186,45 @@ export function getNativeRecentsClassName(mountEl: HTMLElement): string | null {
   } catch {
     return null;
   }
+}
+
+// --- Actual theme names (from the Python backend) ---
+/* The injected style nodes carry only per-block UUID ids and CSS Loader exposes
+   no frontend store, so the actual active theme names come from disk via the
+   backend (reads each theme folder's theme.json + config_USER.json). Fetched on
+   demand and gated by `isCssLoaderActive()` so a user without CSS Loader never
+   hits the backend; fail-soft keeps the prior cache on error. */
+let _themesCache: { active: string[]; installed: number } | null = null;
+
+/* CSS Loader (SDH-CssLoader) present in the Decky plugin list — the gate for the
+   backend theme read. Checked by INSTALL (not just active styles) so the disk
+   read never runs on a Deck without CSS Loader. Self-contained (reads the loader
+   globals directly) to keep core free of an integrations import. */
+export function isCssLoaderInstalled(): boolean {
+  try {
+    const g: any = globalThis as any;
+    const loader = g.DeckyPluginLoader ?? g.deckyPluginLoader
+      ?? (typeof window !== "undefined" ? (window as any).DeckyPluginLoader : null);
+    const raw = loader?.plugins ?? loader?.pluginList;
+    const arr: any[] = raw instanceof Map ? Array.from(raw.values()) : (Array.isArray(raw) ? raw : []);
+    return arr.some((p: any) => typeof p?.name === "string" && p.name.toLowerCase() === "css loader");
+  } catch { return false; }
+}
+
+export async function refreshCssLoaderThemes(): Promise<void> {
+  if (!isCssLoaderInstalled()) { _themesCache = { active: [], installed: 0 }; return; }
+  try {
+    const res = await call<[], { active?: unknown; installed?: unknown }>("get_css_loader_themes");
+    const active = Array.isArray(res?.active) ? res.active.filter((x): x is string => typeof x === "string") : [];
+    const installed = typeof res?.installed === "number" ? res.installed : 0;
+    _themesCache = { active, installed };
+  } catch { /* keep the prior cache (fail-soft) */ }
+}
+
+export function getActiveCssLoaderThemes(): string[] {
+  return _themesCache?.active ?? [];
+}
+
+export function getInstalledCssLoaderThemeCount(): number {
+  return _themesCache?.installed ?? 0;
 }

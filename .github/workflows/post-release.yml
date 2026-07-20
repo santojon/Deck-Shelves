@@ -1,4 +1,4 @@
-name: Post Release (Discord + Reddit)
+name: "Release · Announce (Discord + Reddit)"
 
 # On every published release (also runnable manually via workflow_dispatch):
 #   Discord — auto-posts an embed to a webhook. Secret: DISCORD_WEBHOOK_URL

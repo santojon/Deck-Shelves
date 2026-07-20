@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Tabs, Focusable } from '../runtime/host/decky'
-import { Navigation } from '@decky/ui'
+import { Tabs, Focusable, Navigation } from '../runtime/host/decky'
 import { useTranslation } from 'react-i18next'
 import { OverviewPage } from './about/OverviewPage'
 import { HowToPage } from './about/HowToPage'

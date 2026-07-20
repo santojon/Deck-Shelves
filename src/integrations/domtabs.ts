@@ -2,6 +2,13 @@ import { getPreferredSteamDocument } from '../runtime/steamHost';
 
 export type PlatformTab = { id: string; name: string };
 
+function tabLabel(el: Element): string {
+  return (el as HTMLElement).innerText?.trim()
+    || el.getAttribute('aria-label')
+    || el.getAttribute('title')
+    || '';
+}
+
 export function getTabsFromDOM(): PlatformTab[] {
   try {
     const doc = getPreferredSteamDocument();
@@ -12,10 +19,7 @@ export function getTabsFromDOM(): PlatformTab[] {
     for (const el of Array.from(tabEls)) {
       const id = el.getAttribute('data-tab-id') ?? '';
       if (!id) continue;
-      const name = (el as HTMLElement).innerText?.trim()
-        || el.getAttribute('aria-label')
-        || el.getAttribute('title')
-        || '';
+      const name = tabLabel(el);
       if (name && !seen.has(id)) { seen.add(id); tabs.push({ id, name }); }
     }
     return tabs;

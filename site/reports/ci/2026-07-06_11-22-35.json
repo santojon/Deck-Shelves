@@ -35,5 +35,24 @@
     70,
     5548
   ],
-  "total_duration_ms": 24127
+  "total_duration_ms": 24127,
+  "complexity": {
+    "level": 3771,
+    "count": 161,
+    "max": 159,
+    "avg": 23.4
+  },
+  "complexityEst": true,
+  "decoupling": {
+    "leaks": 6,
+    "adapter": 106,
+    "ratio": 5.4
+  },
+  "decouplingEst": true,
+  "portability": {
+    "coupled": 3,
+    "guarded": 3,
+    "unguarded": 0
+  },
+  "portabilityEst": true
 }

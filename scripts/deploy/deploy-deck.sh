@@ -11,10 +11,17 @@ if [[ -f "${PROJECT_ROOT}/.env" ]]; then
 fi
 
 HARD=0
-if [[ "${1:-}" == "--hard" ]]; then
-  HARD=1
-  shift
-fi
+RELEASE=0
+# Leading flags in any order: --hard (restart plugin_loader + reload Steam),
+# --release (ship the minified production build with __DEV__ stripped and no
+# debug flag, for daily use instead of the default dev build).
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --hard) HARD=1; shift ;;
+    --release) RELEASE=1; shift ;;
+    *) break ;;
+  esac
+done
 
 HOST="${1:-${DECK_HOST:-}}"
 USER_NAME="${2:-${DECK_USER:-deck}}"
@@ -39,7 +46,11 @@ SSH_OPTS_STR="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o Log
 # (systemctl restart plugin_loader takes ~8 s).
 SSH_ALIVE=(-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -o "LogLevel ERROR" -o "ServerAliveInterval 10" -o "ServerAliveCountMax 6")
 
-pnpm run build 2>&1 | grep -E "built in|error|warning" || true
+if [[ "$RELEASE" == "1" ]]; then
+  pnpm run build:release 2>&1 | grep -E "built in|error|warning" || true
+else
+  pnpm run build 2>&1 | grep -E "built in|error|warning" || true
+fi
 
 rm -rf .deploy
 mkdir -p "${STAGE_DIR}/dist"
@@ -53,8 +64,11 @@ for pyf in *.py; do
   [[ "$pyf" == "main.py" ]] && continue
   cp "$pyf" "${STAGE_DIR}/"
 done
-# Inject debug flag for dev deploy (not present in source plugin.json for store submission)
-node -e 'const fs=require("fs"),p=JSON.parse(fs.readFileSync(process.argv[1]));if(!p.flags.includes("debug"))p.flags.push("debug");fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+"\n")' "${STAGE_DIR}/plugin.json"
+# Inject debug flag for dev deploy (not present in source plugin.json for store
+# submission). Skipped for --release so the deployed plugin matches a store build.
+if [[ "$RELEASE" != "1" ]]; then
+  node -e 'const fs=require("fs"),p=JSON.parse(fs.readFileSync(process.argv[1]));if(!p.flags.includes("debug"))p.flags.push("debug");fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+"\n")' "${STAGE_DIR}/plugin.json"
+fi
 rsync -a dist/ "${STAGE_DIR}/dist/"
 if [[ -d assets ]]; then mkdir -p "${STAGE_DIR}/assets" && rsync -a assets/ "${STAGE_DIR}/assets/"; fi
 if [[ -d i18n ]]; then mkdir -p "${STAGE_DIR}/i18n" && rsync -a i18n/ "${STAGE_DIR}/i18n/"; fi

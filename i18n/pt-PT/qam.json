@@ -44,5 +44,22 @@
   "toast_settings_reset": "Configurações repostas",
   "toast_shelves_reset": "Prateleiras repostas",
   "toast_smart_shelves_reset": "Prateleiras inteligentes repostas",
-  "sidenav_recents_fallback_label": "Recentes"
+  "sidenav_recents_fallback_label": "Recentes",
+  "toast_created": "Criado",
+  "toast_saved": "Guardado",
+  "toast_deleted": "Eliminado",
+  "toast_duplicated": "Duplicado",
+  "toast_renamed": "Renomeado",
+  "toast_shelf_created": "Prateleira criada",
+  "toast_shelf_saved": "Prateleira guardada",
+  "toast_shelf_deleted": "Prateleira eliminada",
+  "toast_shelf_duplicated": "Prateleira duplicada",
+  "toast_profile_created": "Perfil criado",
+  "toast_profile_saved": "Perfil guardado",
+  "toast_profile_deleted": "Perfil eliminado",
+  "toast_profile_duplicated": "Perfil duplicado",
+  "toast_profile_renamed": "Perfil renomeado",
+  "toast_filter_saved": "Filtro guardado",
+  "toast_filter_deleted": "Filtro eliminado",
+  "toast_filter_renamed": "Filtro renomeado"
 }

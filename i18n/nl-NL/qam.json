@@ -44,5 +44,22 @@
   "toast_settings_reset": "Instellingen gereset",
   "toast_shelves_reset": "Planken gereset",
   "toast_smart_shelves_reset": "Slimme planken gereset",
-  "sidenav_recents_fallback_label": "Recent"
+  "sidenav_recents_fallback_label": "Recent",
+  "toast_created": "Aangemaakt",
+  "toast_saved": "Opgeslagen",
+  "toast_deleted": "Verwijderd",
+  "toast_duplicated": "Gedupliceerd",
+  "toast_renamed": "Hernoemd",
+  "toast_shelf_created": "Plank gemaakt",
+  "toast_shelf_saved": "Plank opgeslagen",
+  "toast_shelf_deleted": "Plank verwijderd",
+  "toast_shelf_duplicated": "Plank gedupliceerd",
+  "toast_profile_created": "Profiel gemaakt",
+  "toast_profile_saved": "Profiel opgeslagen",
+  "toast_profile_deleted": "Profiel verwijderd",
+  "toast_profile_duplicated": "Profiel gedupliceerd",
+  "toast_profile_renamed": "Profiel hernoemd",
+  "toast_filter_saved": "Filter opgeslagen",
+  "toast_filter_deleted": "Filter verwijderd",
+  "toast_filter_renamed": "Filter hernoemd"
 }

@@ -1,4 +1,4 @@
-import { call } from "@decky/api";
+import { call } from "./host/decky";
 
 export interface LauncherGame {
   name: string;

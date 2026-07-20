@@ -23,6 +23,11 @@ export function subscribeDiagnostics(listener: (entries: DiagnosticEntry[]) => v
   return () => listeners.delete(listener);
 }
 
+/** Current log buffer (most-recent first), e.g. for the bug-report attachment. */
+export function getDiagnostics(): DiagnosticEntry[] {
+  return entries;
+}
+
 export function clearDiagnostics() {
   entries = [];
   emit();

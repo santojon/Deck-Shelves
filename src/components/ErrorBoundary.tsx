@@ -1,6 +1,7 @@
 import React from "react";
 import { logDiagnostic } from "../runtime/diagnostics";
 import { logError } from "../runtime/logger";
+import { SnapshotRecovery } from "./SnapshotRecovery";
 
 export class ErrorBoundary extends React.Component<
   { title?: string; children: React.ReactNode },
@@ -36,6 +37,7 @@ export class ErrorBoundary extends React.Component<
               {this.state.message}
             </div>
           ) : null}
+          <SnapshotRecovery />
         </div>
       );
     }

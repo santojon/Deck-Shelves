@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentSettings } from "../settingsStore";
 import { getAllSteamDocuments } from "../runtime/steamHost";
+import { getDeviceState } from "../runtime/deviceState";
+import { getSessionState } from "../runtime/sessionState";
+import { getPerfSnapshot, requestPerfRefresh } from "../runtime/perfState";
 
 interface PerShelf { id: string; title: string; nodes: number }
 interface Stats { fps: number; frameMs: number; shelves: number; nodes: number; focusables: number; perShelf: PerShelf[] }
@@ -161,15 +164,40 @@ function FocusBlock({ info, vertical }: { info: FocusInfo; vertical: boolean }) 
   );
 }
 
+// Live Visibility Rules v2 context signals (device / perf / session) — the same
+// state the rules read, surfaced for on-device debugging.
+function deviceParts(): string[] {
+  const dev = getDeviceState();
+  const parts: string[] = [];
+  if (dev.screen) parts.push(`${dev.screen.w}×${dev.screen.h}`);
+  if (dev.external) parts.push("docked");
+  if (dev.batteryLevel != null) parts.push(`bat ${Math.round(dev.batteryLevel * 100)}%${dev.charging ? "⚡" : ""}`);
+  return parts;
+}
+
+function perfSessionParts(): string[] {
+  requestPerfRefresh(); // 30 s-cached; populates cpu/mem for the readout
+  const perf = getPerfSnapshot();
+  const sess = getSessionState();
+  const parts: string[] = [];
+  if (perf && perf.cpuPercent != null) parts.push(`cpu ${perf.cpuPercent}%`);
+  if (perf && perf.memAvailablePercent != null) parts.push(`mem ${perf.memAvailablePercent}%↑`);
+  if (sess.gameRunning) parts.push("in-game");
+  if (sess.lastApp != null) parts.push(sess.lastNonSteam ? "last:non-steam" : "last:steam");
+  return parts;
+}
+
 function DebugPanel({ stats, focusInfo }: { stats: Stats; focusInfo: FocusInfo }) {
   const o = (getCurrentSettings() as any) ?? {};
   const corner = ["tl", "tr", "bl", "br"].includes(o.debugOverlayCorner) ? o.debugOverlayCorner : "br";
   const vertical = o.debugOverlayVertical !== false;
+  const ctx = o.debugOverlayStats !== false ? [...deviceParts(), ...perfSessionParts()].join(" · ") : "";
   return (
     <div style={panelStyle(corner, vertical, o.debugOverlayTransparent === true)}>
       <div style={{ fontWeight: 700, opacity: 0.7 }}>DS·debug</div>
       {o.debugOverlayFps !== false ? <div>{stats.fps} fps · {stats.frameMs} ms</div> : null}
       {o.debugOverlayStats !== false ? <div>shelves {stats.shelves} · nodes {stats.nodes} · focus {stats.focusables}</div> : null}
+      {ctx ? <div style={{ opacity: 0.85 }}>{ctx}</div> : null}
       {o.debugOverlayPerShelf !== false && stats.perShelf.length > 0 ? <PerShelfBlock rows={stats.perShelf} vertical={vertical} /> : null}
       {o.debugOverlayFocus === true ? <FocusBlock info={focusInfo} vertical={vertical} /> : null}
     </div>

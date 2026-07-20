@@ -34,7 +34,7 @@ function hydrateCompositeChildren(shelf: Shelf): any[] {
   });
 }
 
-function deriveInitialTab(shelf: Shelf, mode: 'create' | 'edit', primarySource: any, platformTabs: ReadonlyArray<{ id: string }>): string {
+function deriveInitialTab(_shelf: Shelf, mode: 'create' | 'edit', primarySource: any, platformTabs: ReadonlyArray<{ id: string }>): string {
   if (mode === 'create') return '';
   if (primarySource?.type === 'tab') return String(primarySource.tab);
   return String(platformTabs[0]?.id ?? 'all');
@@ -160,6 +160,9 @@ function readVisualFlags(shelf: Shelf) {
     friendsPlayingOverlayRecent: s.friendsPlayingOverlayRecent === true,
     dedupeByExactName: s.dedupeByExactName === true,
     hiddenAppIds: s.hiddenAppIds ?? [],
+    autoPin: s.autoPin,
+    autoCollapse: s.autoCollapse,
+    autoCollapseWhenEmpty: s.autoCollapseWhenEmpty === true,
   };
 }
 

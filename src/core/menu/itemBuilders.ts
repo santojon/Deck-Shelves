@@ -153,7 +153,7 @@ function runRefreshAction(ctx: Ctx): void {
 }
 
 function buildMgmt(ctx: Ctx, mk: Mk): any[] {
-  const { shelfId, isSmart, idx, listLen, isCollapsed, isHidden, isRandomOrSmart, isOnline } = ctx;
+  const { shelfId, idx, listLen, isCollapsed, isHidden, isRandomOrSmart, isOnline } = ctx;
   const { item } = mk;
   const refreshLabel = isOnline ? tLabel("refresh_cache", "Refresh cache") : tLabel("refresh", "Refresh");
   return [

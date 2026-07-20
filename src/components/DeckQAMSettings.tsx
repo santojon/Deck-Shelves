@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ConfirmModal,
-  Dropdown,
   Field,
   Focusable,
   ToggleField,
@@ -24,12 +23,15 @@ import { openManagedModal } from './qam/common/openManagedModal'
 import { getExternalImportTypesForTarget, registerInternalImportType } from '../core/pluginApi'
 import { formatComboForDisplay, resolveBindings, parseRawCombo, matchEvent, createMatcherState, DEFAULT_BINDINGS } from '../runtime/buttonBindings'
 import { subscribeControllerInput } from '../runtime/controllerInput'
+import { sidecarCancelHandler, absorbCancelButton, mainCancelButtonDown } from './qam/sidecarCancel'
 import { getCurrentSettings } from '../store/settingsStore'
 import { ExportModal } from './qam/modals/ExportModal'
 import { ImportFromCustomFiltersModal } from './qam/modals/ImportFromCustomFiltersModal'
 import { ImportModal } from './qam/modals/ImportModal'
 import { CreateShelfModal } from './qam/modals/CreateShelfModal'
 import { FirstRunBanner } from './qam/modals/FirstRunBanner'
+import { useFirstRunShowcase } from './qam/useFirstRunShowcase'
+import { NotificationAreaToggles } from './qam/NotificationAreaToggles'
 import { MountCrashBanner } from './qam/modals/MountCrashBanner'
 import { RecentsReplaceErrorBanner } from './qam/modals/RecentsReplaceErrorBanner'
 import { getRecentsReplaceFailed, getRecentsReplaceError, subscribeRecentsReplaceFailed } from '../runtime/recentsReplace'
@@ -40,18 +42,22 @@ import { UnifiedShelvesPanelSection } from './qam/list/UnifiedShelvesPanelSectio
 import { SavedFilterRow } from './qam/list/SavedFilterRow'
 import { SavedSmartFilterRow } from './qam/list/SavedSmartFilterRow'
 import { SmartShelvesFirstRunBanner } from './qam/modals/SmartShelvesFirstRunBanner'
-import { CollapsibleSection, DSSliderField, PositionField, VersionFooter, type HorizontalPosition } from './ui'
-import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, WandIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon } from './icons'
+import { CollapsibleSection, DSSliderField, VersionFooter } from './ui'
+import { GearIcon, SlidersIcon, StackIcon, SparkleIcon, BookmarkIcon, PlusCircleIcon, OnlineIcon } from './icons'
 import { UpdateBanner } from './qam/UpdateBanner'
 import { useQamExpanded, resetQamExpanded } from './qam/qamExpandedStore'
 import { trackFeature } from '../steam/usageTracking'
 import { GeneralTab } from './qam/sidecar/GeneralTab'
-import { applyGameInfoAboveToggle, applyHideTitleToggle } from './qam/common/gameInfoCoupling'
 import { confirmAction } from './qam/modals/ConfirmActionModal'
 import { ProfilesSection } from './qam/sections/ProfilesSection'
+import { VisualGlobalSection } from './qam/sections/VisualGlobalSection'
 import { ErrorBoundary } from './ErrorBoundary'
 
 const DPAD_RIGHT = 23;
+
+function rectEdges(rect: DOMRect | undefined, win: Window): { right: number; bottom: number } {
+  return { right: rect?.right ?? win.innerWidth, bottom: rect?.bottom ?? win.innerHeight };
+}
 try {
   (globalThis as unknown as Record<string, unknown>).__ds_module_loaded__ = 'DeckQAMSettings@' + Date.now();
   if (typeof window !== 'undefined') {
@@ -76,17 +82,52 @@ function findNavNodeForElement(node: NavNode | undefined, target: HTMLElement): 
   return null;
 }
 
+function activeNavRoot(el: HTMLElement): NavNode | undefined {
+  const opener = (el.ownerDocument.defaultView?.opener ?? null) as {
+    SteamUIStore?: { NavigationManager?: { m_ActiveContext?: { m_LastActiveNavTree?: { m_Root?: NavNode } } } };
+  } | null;
+  return opener?.SteamUIStore?.NavigationManager?.m_ActiveContext?.m_LastActiveNavTree?.m_Root;
+}
+
 function takeNavTreeFocus(el: HTMLElement): boolean {
   try {
-    const opener = (el.ownerDocument.defaultView?.opener ?? null) as {
-      SteamUIStore?: { NavigationManager?: { m_ActiveContext?: { m_LastActiveNavTree?: { m_Root?: NavNode } } } };
-    } | null;
-    const root = opener?.SteamUIStore?.NavigationManager?.m_ActiveContext?.m_LastActiveNavTree?.m_Root;
+    const root = activeNavRoot(el);
     if (!root) return false;
     const node = findNavNodeForElement(root, el);
     if (!node?.BTakeFocus) return false;
     return !!node.BTakeFocus(0);
   } catch { return false; }
+}
+
+/* Eye-column vertical nav: when Steam moves focus off an eye button to a
+   non-eye element on a DIFFERENT visual row, redirect to the adjacent eye so
+   up/down keeps traversing the eye column. Extracted from the sidecar
+   MutationObserver to keep that callback flat. */
+function redirectEyeNav(doc: Document, prev: HTMLElement | null, f: HTMLElement | null): void {
+  if (!prev || !f || prev === f) return;
+  const prevIsEye = prev.classList.contains('ds-eye-btn');
+  const fIsEye = f.classList.contains('ds-eye-btn');
+  const inSidecar = !!f.closest('.deck-shelves-qam-sidecar');
+  if (inSidecar && prevIsEye && !fIsEye) focusAdjacentEye(doc, prev, f);
+}
+
+function focusAdjacentEye(doc: Document, prev: HTMLElement, f: HTMLElement): void {
+  // Only redirect on a row change (vertical nav); horizontal nav stays put.
+  const prevRow = prev.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
+  const curRow = f.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
+  const movedRow = !!prevRow && !!curRow && prevRow !== curRow;
+  if (!movedRow) return;
+  const dy = f.getBoundingClientRect().y - prev.getBoundingClientRect().y;
+  const eyes = Array.from(doc.querySelectorAll('.deck-shelves-qam-sidecar .ds-eye-btn')) as HTMLElement[];
+  const idx = eyes.indexOf(prev);
+  const target = eyes[dy > 0 ? idx + 1 : idx - 1];
+  if (target && target !== f) {
+    takeNavTreeFocus(target);
+    window.setTimeout(() => {
+      const cur = doc.querySelector('.gpfocus') as HTMLElement | null;
+      if (cur !== target) takeNavTreeFocus(target);
+    }, 30);
+  }
 }
 
 function SidecarPanel({ controller, onCollapse }: { controller: SettingsController; onCollapse: () => void }) {
@@ -140,8 +181,7 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
         // adapt if the main tab width ever changes.
         sideEl.style.left = `${Math.round(mainRect.width)}px`;
       }
-      const targetRight = panelRect?.right ?? win.innerWidth;
-      const targetBottom = panelRect?.bottom ?? win.innerHeight;
+      const { right: targetRight, bottom: targetBottom } = rectEdges(panelRect, win);
       const w = Math.max(280, Math.round(targetRight - sRect.left));
       const h = Math.max(320, Math.round(targetBottom - sRect.top + 8));
       sideEl.style.width = `${w}px`;
@@ -166,6 +206,7 @@ function SidecarPanel({ controller, onCollapse }: { controller: SettingsControll
     <Focusable
       className='deck-shelves-qam-sidecar'
       onCancelButton={onCollapse}
+      onButtonDown={(evt: any) => absorbCancelButton(evt, onCollapse)}
       noFocusRing
     >
       <div className='ds-sidecar-title'>
@@ -235,13 +276,19 @@ function setAttr(el: HTMLElement | null, name: string, value: string): void {
   try { el?.setAttribute(name, value); } catch {}
 }
 
-function getInputApiFromScope(scope: HTMLElement | null): NonNullable<NonNullable<OpenerWithInput['SteamClient']>['Input']> | null {
-  const realWin = (scope?.ownerDocument?.defaultView ?? null) as (Window & OpenerWithInput) | null;
+type InputApi = NonNullable<NonNullable<OpenerWithInput['SteamClient']>['Input']>;
+
+function traceInputApi(scope: HTMLElement | null, realWin: unknown, opener: OpenerWithInput | null, Input: InputApi | null): void {
   setAttr(scope, 'data-ds-real-win', realWin ? 'yes' : 'no');
-  const opener = (realWin?.opener ?? null) as OpenerWithInput | null;
   setAttr(scope, 'data-ds-opener', opener ? 'yes' : 'no');
-  const Input = opener?.SteamClient?.Input ?? null;
   setAttr(scope, 'data-ds-register', Input?.RegisterForControllerInputMessages ? 'yes' : 'no');
+}
+
+function getInputApiFromScope(scope: HTMLElement | null): InputApi | null {
+  const realWin = (scope?.ownerDocument?.defaultView ?? null) as (Window & OpenerWithInput) | null;
+  const opener = (realWin?.opener ?? null) as OpenerWithInput | null;
+  const Input = opener?.SteamClient?.Input ?? null;
+  traceInputApi(scope, realWin, opener, Input);
   return Input;
 }
 
@@ -297,39 +344,7 @@ function useDpadExpandBridge(
       if (f && f.closest('.deck-shelves-qam-sidecar')) {
         lastFocusWasInSidecar = true;
       }
-      /* Eye-column vertical nav: when Steam moves focus from an eye
-         button to a non-eye element on a different visual row (i.e. the
-         user pressed dpad-up / dpad-down while on the eye), redirect to
-         the adjacent eye instead. */
-      if (prev && f && prev !== f) {
-        const prevIsEye = prev.classList.contains('ds-eye-btn');
-        const fIsEye = f.classList.contains('ds-eye-btn');
-        const inSidecar = !!f.closest('.deck-shelves-qam-sidecar');
-        if (inSidecar && prevIsEye && !fIsEye) {
-          /* Only redirect when the focus moved to a DIFFERENT row
-             (vertical nav). Horizontal nav stays in the same row so
-             dpad-left from the eye should reach the toggle / header to
-             its left untouched. */
-          const prevRow = prev.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
-          const curRow = f.closest('.ds-hide-row, .ds-collapsible-row') as HTMLElement | null;
-          const movedRow = !!prevRow && !!curRow && prevRow !== curRow;
-          if (movedRow) {
-            const prevRect = prev.getBoundingClientRect();
-            const curRect = f.getBoundingClientRect();
-            const dy = curRect.y - prevRect.y;
-            const eyes = Array.from(doc.querySelectorAll('.deck-shelves-qam-sidecar .ds-eye-btn')) as HTMLElement[];
-            const idx = eyes.indexOf(prev);
-            const target = eyes[dy > 0 ? idx + 1 : idx - 1];
-            if (target && target !== f) {
-              takeNavTreeFocus(target);
-              window.setTimeout(() => {
-                const cur = doc.querySelector('.gpfocus') as HTMLElement | null;
-                if (cur !== target) takeNavTreeFocus(target);
-              }, 30);
-            }
-          }
-        }
-      }
+      redirectEyeNav(doc, prev, f);
       prev = f;
     });
     obs.observe(doc.documentElement, {
@@ -375,38 +390,37 @@ export function isToggleHiddenWithAncestors(key: string, hidden: ReadonlyArray<s
 let lastFocusWasInSidecar = false;
 let lastRightTarget: HTMLElement | null = null;
 
-function handleDpadInput(
-  scope: HTMLElement,
-  button: number,
-  pressed: boolean,
-  setQamExpanded: (v: boolean) => void,
-): void {
-  if (!pressed) return;
-  try { scope.setAttribute('data-ds-last-btn', String(button)); } catch {}
-  if (button !== DPAD_RIGHT && button !== DPAD_LEFT && button !== DPAD_UP && button !== DPAD_DOWN) return;
-  const doc = scope.ownerDocument;
-  const win = doc.defaultView;
-  const focused = doc.querySelector('.gpfocus') as HTMLElement | null;
-  if (!focused) return;
-  const insideSidecar = !!focused.closest('.deck-shelves-qam-sidecar');
-  /* Eye-column vertical nav is handled in the MutationObserver in
-     `useDpadExpandBridge` — once Steam moves focus off the eye, the
-     observer redirects to the adjacent eye. That's more reliable than
-     racing here because Steam's nav has already updated `.gpfocus` by
-     the time this callback fires. */
-  if (button === DPAD_UP || button === DPAD_DOWN) return;
-  const main = scope.querySelector('.deck-shelves-qam-main');
-  const insideMain = !!(main && main.contains(focused));
-  // The nav-aware positional open/close only runs while its binding is the
-  // default dpad combo (and enabled). Remapped to anything else → the global
-  // raw-combo listener handles it, and dpad nav stays untouched here.
+function traceSidecarCollapse(now: number, menuChanged: boolean, noFocus: boolean, refValue: number | null, menuState: number | null, gap: number): void {
+  try {
+    const g = globalThis as any;
+    if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
+    g.__ds_sidecar_signals.push({ t: now, label: "poll-collapse", reason: menuChanged ? `menu:${refValue}->${menuState}` : noFocus ? "noFocus" : `gap:${gap}` });
+    if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
+  } catch {}
+}
+
+function isDpadButton(button: number): boolean {
+  return button === DPAD_RIGHT || button === DPAD_LEFT || button === DPAD_UP || button === DPAD_DOWN;
+}
+
+function currentPositionalBindings(): { open: boolean; close: boolean } {
+  // Positional open/close only runs while its binding is the default dpad
+  // combo (and enabled). Remapped away → the global raw-combo listener owns
+  // it and dpad nav stays untouched here.
   const b = resolveBindings(getCurrentSettings()?.buttonBindings as any, (getCurrentSettings() as any)?.buttonBindingsDisabled);
-  const positionalOpen = b.navSidecarOpen === DEFAULT_BINDINGS.navSidecarOpen;
-  const positionalClose = b.navSidecarClose === DEFAULT_BINDINGS.navSidecarClose;
-  if (button === DPAD_LEFT && positionalClose && insideSidecar) {
+  return {
+    open: b.navSidecarOpen === DEFAULT_BINDINGS.navSidecarOpen,
+    close: b.navSidecarClose === DEFAULT_BINDINGS.navSidecarClose,
+  };
+}
+
+// Nav-aware positional CLOSE (dpad-left at the sidecar's left edge). Returns
+// true when the press was consumed so the caller stops processing.
+function handleDpadClose(doc: Document, win: Window | null, button: number, positionalClose: boolean, insideSidecar: boolean, setQamExpanded: (v: boolean) => void): boolean {
+  if (button !== DPAD_LEFT || !positionalClose) return false;
+  if (insideSidecar) {
     // Only collapse if Steam's nav couldn't move focus left within the
-    // sidecar — i.e. user is already at the leftmost focusable. We detect
-    // that by checking 80ms later if focus has left the sidecar.
+    // sidecar — detected by checking 80ms later if focus left the sidecar.
     setTimeout(() => {
       const f = doc.querySelector('.gpfocus') as HTMLElement | null;
       const stillInSidecar = !!(f && f.closest('.deck-shelves-qam-sidecar'));
@@ -415,42 +429,68 @@ function handleDpadInput(
         fireQamExpand(win, false, setQamExpanded);
       }
     }, 80);
-    return;
+    return true;
   }
-  if (button === DPAD_LEFT && positionalClose && lastFocusWasInSidecar) {
+  if (lastFocusWasInSidecar) {
     // Steam already moved focus back to QAM main before our handler ran.
     lastFocusWasInSidecar = false;
     fireQamExpand(win, false, setQamExpanded);
+    return true;
+  }
+  return false;
+}
+
+// Nav-aware positional OPEN (two dpad-rights on the rightmost focusable of the
+// main column). Called only when button === DPAD_RIGHT.
+function handleDpadOpen(doc: Document, win: Window | null, positionalOpen: boolean, insideMain: boolean, main: Element | null, focused: HTMLElement, setQamExpanded: (v: boolean) => void): void {
+  if (!(positionalOpen && insideMain && main)) { lastRightTarget = null; return; }
+  /* Sliders consume horizontal dpad to change their value; bail so holding
+     right on a slider doesn't pop the sidecar open mid-adjustment. */
+  if (focused.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]')) return;
+  /* Only expand when the focused element is already at (or near) the right
+     edge of the main panel — otherwise a mid-row dpad-right where Steam
+     can't move horizontally would falsely trigger the expand. */
+  const fRect = focused.getBoundingClientRect();
+  const mRect = main.getBoundingClientRect();
+  if (mRect.right - fRect.right > 40) return;
+  // Require two dpad-rights on the *same* rightmost focusable: the first just
+  // navigates onto it, the second confirms the intent to expand.
+  if (lastRightTarget !== focused) {
+    lastRightTarget = focused;
     return;
   }
-  if (button === DPAD_RIGHT && positionalOpen && insideMain && main) {
-    /* Sliders consume horizontal dpad to change their value (the focus
-       stays on the slider track) — without this bail, holding right on
-       a slider would trip the "focus didn't move" check and pop the
-       sidecar open mid-adjustment. */
-    if (focused.closest('[class*="slider" i], [role="slider"], .gpfocus[class*="slider" i]')) return;
-    /* Only expand when the focused element is already at (or very near)
-       the right edge of the main panel. Otherwise a dpad-right from a
-       mid-row button (where Steam can't move horizontally) would falsely
-       trigger the expand. */
-    const fRect = focused.getBoundingClientRect();
-    const mRect = main.getBoundingClientRect();
-    if (mRect.right - fRect.right > 40) return;
-    // Require two dpad-right presses on the *same* rightmost focusable to
-    // open the sidecar: the first press just navigates onto the element,
-    // the second confirms the intent to expand.
-    if (lastRightTarget !== focused) {
-      lastRightTarget = focused;
-      return;
-    }
-    lastRightTarget = null;
-    const before = focusKeyForExpand(doc);
-    setTimeout(() => {
-      if (focusKeyForExpand(doc) === before) fireQamExpand(win, true, setQamExpanded);
-    }, 80);
-  } else if (button === DPAD_RIGHT) {
-    lastRightTarget = null;
-  }
+  lastRightTarget = null;
+  const before = focusKeyForExpand(doc);
+  setTimeout(() => {
+    if (focusKeyForExpand(doc) === before) fireQamExpand(win, true, setQamExpanded);
+  }, 80);
+}
+
+function handleDpadInput(
+  scope: HTMLElement,
+  button: number,
+  pressed: boolean,
+  setQamExpanded: (v: boolean) => void,
+): void {
+  if (!pressed) return;
+  try { scope.setAttribute('data-ds-last-btn', String(button)); } catch {}
+  if (!isDpadButton(button)) return;
+  const doc = scope.ownerDocument;
+  const win = doc.defaultView;
+  const focused = doc.querySelector('.gpfocus') as HTMLElement | null;
+  if (!focused) return;
+  const insideSidecar = !!focused.closest('.deck-shelves-qam-sidecar');
+  /* Eye-column vertical nav is handled in the MutationObserver in
+     `useDpadExpandBridge` — once Steam moves focus off the eye, the observer
+     redirects to the adjacent eye. That's more reliable than racing here
+     because Steam's nav has already updated `.gpfocus` by the time this
+     callback fires. */
+  if (button === DPAD_UP || button === DPAD_DOWN) return;
+  const main = scope.querySelector('.deck-shelves-qam-main');
+  const insideMain = !!(main && main.contains(focused));
+  const { open: positionalOpen, close: positionalClose } = currentPositionalBindings();
+  if (handleDpadClose(doc, win, button, positionalClose, insideSidecar, setQamExpanded)) return;
+  if (button === DPAD_RIGHT) handleDpadOpen(doc, win, positionalOpen, insideMain, main, focused, setQamExpanded);
   lastFocusWasInSidecar = insideSidecar;
 }
 
@@ -514,6 +554,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   useQamCompositorSync(qamExpanded);
   const dsScopeRef = useRef<HTMLDivElement>(null);
   useDpadExpandBridge(dsScopeRef, setQamExpanded);
+  /* Close the sidecar the way the dpad-left / Steam-menu paths do — narrow the
+     compositor via fireQamExpand (not just setQamExpanded) so it never leaves a
+     stale-wide empty panel. Shared by the B button (onCancelButton) below. */
+  const closeSidecar = useCallback(() => {
+    // Use the sidecar's OWN window (as the working dpad-left / Steam-return paths
+    // do) so the QamFriendsHidden narrow actually reaches the compositor —
+    // getQamWindow() can resolve a window whose opener doesn't post through.
+    const win = dsScopeRef.current?.ownerDocument?.defaultView ?? getQamWindow();
+    fireQamExpand(win, false, setQamExpanded);
+  }, [setQamExpanded]);
   /* Hard reset on mount: wipe both the live ref and the sessionStorage
      flag so a freshly-mounted DS QAM tab never inherits a stale expanded
      state. Doing this OUTSIDE the React setter avoids racing the
@@ -524,6 +574,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     setQamExpanded(false);
     return () => setQamExpanded(false);
   }, [setQamExpanded]);
+  // First-run feature showcase (opens once; replayable from the AboutPage).
+  useFirstRunShowcase(settings, actions);
   /* Dev-only screenshot hook: opens/closes the sidecar the same way a
      dpad-right chord does (`fireQamExpand` widens the QAM compositor window
      via the opener postMessage AND flips the store) — the store flag alone
@@ -575,15 +627,31 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
       } catch {}
     };
-    const collapse = (label: string) => () => { trace(label); setQamExpanded(false); };
-    const onVis = () => { if (doc.hidden) { trace("visibilitychange:hidden"); setQamExpanded(false); } };
+    /* Genuine hide signals (doc hidden / pagehide / freeze) collapse outright AND
+       arm `sawHide`. The return-side signals (focus / resume) fire on focus GAIN,
+       which Steam raises spuriously while the QAM is still visible — gate those on
+       a real hide first so they don't collapse the sidecar under the user. The
+       m_eOpenSideMenu poll below is the authoritative leave-detector otherwise. */
+    /* The leave (Steam overlaying the QAM) fires NO event and m_eOpenSideMenu stays
+       QuickAccess (see __ds_sidecar_signals); the reliable RETURN signal is focus /
+       resume regained while the doc is still flagged hidden. Do NOT collapse on
+       `visibilitychange:visible` — that fed a compositor⇄visibility loop (collapse →
+       notifyCompositor → visible again) that pegged the renderer; focus doesn't. */
+    const collapse = (label: string) => { trace(label); setQamExpanded(false); };
+    /* On RETURN, re-assert the NARROW via fireQamExpand (posts QamFriendsHidden
+       unconditionally): the poll already set qamExpanded=false when the Steam
+       menu opened, but that narrow was dropped while the QAM hid, so it re-shows
+       stale-WIDE with no content ("open + empty"). setQamExpanded(false) is a
+       no-op here; fireQamExpand always posts. On `focus` — no resize re-fire. */
+    const collapseOnReturn = (label: string) => { trace(label); if (doc.hidden) fireQamExpand(win, false, setQamExpanded); };
+    const onVis = () => { if (doc.hidden) collapse("visibilitychange:hidden"); else trace("visibilitychange:visible"); };
     doc.addEventListener("visibilitychange", onVis);
-    const onFocus = collapse("window.focus");
+    const onFocus = () => collapseOnReturn("window.focus");
     win.addEventListener("focus", onFocus);
-    const onPageHide = collapse("pagehide");
+    const onPageHide = () => collapse("pagehide");
     win.addEventListener("pagehide", onPageHide);
-    const onFreeze = collapse("freeze");
-    const onResume = collapse("resume");
+    const onFreeze = () => collapse("freeze");
+    const onResume = () => collapseOnReturn("resume");
     doc.addEventListener("freeze", onFreeze);
     doc.addEventListener("resume", onResume);
     return () => {
@@ -629,20 +697,14 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         lastTick = now;
         const menuState = getMenuState();
         const menuChanged = refValue !== null && menuState !== null && menuState !== refValue;
-        const noFocus = !doc.hasFocus();
-        /* A >1.5s timer gap means either the popup was throttled in the
-           background OR a heavy foreground re-render (large libraries) just
-           blocked the main thread. Only the former should collapse — require
-           the document to be non-visible so a slow render mid-interaction
-           (e.g. toggling an eye) doesn't empty the sidecar. */
+        /* `doc.hasFocus()` is unusable in GamepadUI — the QAM popup document never
+           holds DOM focus even while its sidecar is in use, so the old `noFocus`
+           term collapsed on the first tick (~300 ms after open; see
+           __ds_sidecar_signals). m_eOpenSideMenu is the authoritative signal —
+           keep it + the background-resume guard (>1.5 s gap while non-visible). */
         const resumedFromBackground = gap > 1500 && doc.visibilityState !== "visible";
-        if (menuChanged || noFocus || resumedFromBackground) {
-          try {
-            const g = globalThis as any;
-            if (!Array.isArray(g.__ds_sidecar_signals)) g.__ds_sidecar_signals = [];
-            g.__ds_sidecar_signals.push({ t: now, label: "poll-collapse", reason: menuChanged ? `menu:${refValue}->${menuState}` : noFocus ? "noFocus" : `gap:${gap}` });
-            if (g.__ds_sidecar_signals.length > 40) g.__ds_sidecar_signals.shift();
-          } catch {}
+        if (menuChanged || resumedFromBackground) {
+          traceSidecarCollapse(now, menuChanged, false, refValue, menuState, gap);
           setQamExpanded(false);
           window.clearInterval(id);
         }
@@ -758,7 +820,6 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
   const handleExportSmart = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='smart' />)
   const handleImportAll = () => openManagedModal((close) => <ImportModal closeModal={close} controller={controller} initialPath={joinDownloads('deck-shelves.json')} scope='all' />)
   const handleExportAll = () => openManagedModal((close) => <ExportModal closeModal={close} controller={controller} folderPath={getUserDownloadsDir()} scope='all' />)
-  const handleImportFromTabMaster = () => openManagedModal((close) => <ImportFromCustomFiltersModal closeModal={close} controller={controller} />)
   const buildImportEntries = (target: 'shelves' | 'smart_shelves'): ImportEntry[] => {
     void importsBump // re-evaluate on registry changes
     return getExternalImportTypesForTarget(target).map((d) => ({
@@ -781,7 +842,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
     <div ref={dsScopeRef} className='deck-shelves-qam-scope' data-ds-qam-expanded={qamExpanded ? '1' : '0'}>
       <DeckQAMStyles />
       <Focusable className='deck-shelves-qam-flex' flow-children='row' noFocusRing>
-      <Focusable className='deck-shelves-qam-main' noFocusRing>
+      <Focusable className='deck-shelves-qam-main' noFocusRing onCancelButton={sidecarCancelHandler(qamExpanded, closeSidecar)} onButtonDown={(evt: any) => mainCancelButtonDown(evt, qamExpanded, closeSidecar)}>
       <UpdateBanner controller={controller} />
 
       <ToggleField
@@ -790,21 +851,26 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         disabled={mountCrashed}
         onChange={(value: boolean) => actions.setEnabled(value)}
       />
-      {mountCrashed && (
+      {(() => mountCrashed && (
         <MountCrashBanner controller={controller} error={crashError} onDismiss={() => { setMountCrashed(false); setCrashError(null) }} />
-      )}
-      {isFirstRun ? <FirstRunBanner controller={controller} /> : null}
+      ))()}
+      {(() => isFirstRun ? <FirstRunBanner controller={controller} /> : null)()}
 
       {/* Profiles section sits ABOVE Behavior; the component hides itself
           when the user has zero shelves (regular + smart combined). */}
       <ProfilesSection controller={controller} hidden={isSecHid('profiles')} />
 
-      {!isSecHid('behavior') && (
+      {(() => {
+        if (isSecHid('behavior')) return null;
+        return (
       <CollapsibleSection id='behavior' icon={<SlidersIcon />} title={t('section_behavior')} count={[settings.hideRecents === true, settings.hideHomeTabs === true, settings.shelfHeroBackground === true, settings.recentsReplaceSource === true].filter(Boolean).length}>
+        {(() => (<>
         {settings.enabled && !isHid('hideRecents') && (
           <ToggleField label={t('hide_recents')} checked={settings.hideRecents === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setHideRecents(value)} />
         )}
-        {settings.enabled && settings.hideRecents === true && (
+        </>))()}
+        {(() => (
+        settings.enabled && settings.hideRecents === true && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             {!isHid('shelfHeroBackground') && (
               <ToggleField label={t('shelf_hero_background')} checked={settings.shelfHeroBackground === true} disabled={mountCrashed || disableHideRecents} onChange={(value: boolean) => actions.setShelfHeroBackground(value)} />
@@ -818,15 +884,26 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               </>
             )}
           </div>
-        )}
+        )
+        ))()}
+        {(() => (<>
         {!isHid('hideHomeTabs') && (
           <ToggleField label={t('hide_home_tabs')} checked={settings.hideHomeTabs === true} onChange={(value: boolean) => actions.setHideHomeTabs(value)} />
         )}
+        {!lightMode && !isHid('autoCollapseEnabled') && <ToggleField label={t('auto_collapse_enabled' as any)} checked={(settings as any).autoCollapseEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setAutoCollapseEnabled?.(value)} />}
+        {!isHid('notificationsDisabled') && <ToggleField label={t('notifications_disabled_label' as any)} checked={(settings as any).notificationsDisabled === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setNotificationsDisabled?.(value)} />}
+        {!isHid('notificationsDisabled') && <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{t('notifications_disabled_desc' as any)}</div>}
+        {!isHid('notificationsDisabled') && <NotificationAreaToggles settings={settings} actions={actions} t={t as any} disabled={mountCrashed} />}
+        </>))()}
       </CollapsibleSection>
-      )}
+        );
+      })()}
 
-      {!isSecHid('additional') && (
+      {(() => {
+        if (isSecHid('additional')) return null;
+        return (
       <CollapsibleSection id='additional' icon={<PlusCircleIcon />} title={t('section_additional_features')} count={[settings.updateNotifyEnabled !== false, (settings as any).contextSearchEnabled === true, (settings as any).sideNavEnabled === true, settings.onlineFeaturesEnabled === true, settings.forceCssLoaderThemes === true].filter(Boolean).length}>
+        {(() => (<>
         {!isHid('updateNotifyEnabled') && (
           <ToggleField label={t('check_for_updates')} checked={settings.updateNotifyEnabled !== false} onChange={(value: boolean) => actions.setUpdateNotifyEnabled(value)} />
         )}
@@ -844,28 +921,41 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         {!isHid('offlineModeEnabled') && (
           <ToggleField label={t('offline_mode_enabled' as any)} checked={(settings as any).offlineModeEnabled === true} onChange={(v: boolean) => (actions as any).setOfflineModeEnabled?.(v)} />
         )}
-        {!lightMode && !isHid('contextSearchEnabled') && (
+        </>))()}
+        {(() => {
+          const showCtx = !lightMode && !isHid('contextSearchEnabled');
+          const ctxSub = showCtx && (settings as any).contextSearchEnabled === true;
+          return (<>
+        {showCtx && (
           <ToggleField label={t('context_search_toggle' as any)} checked={(settings as any).contextSearchEnabled === true} onChange={(v: boolean) => (actions as any).setContextSearchEnabled(v)} />
         )}
-        {!lightMode && !isHid('contextSearchEnabled') && (
+        {showCtx && (
           <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
             {t('context_search_combo' as any, { combo: formatComboForDisplay(resolveBindings((settings as any).buttonBindings).navSearch) })}
           </div>
         )}
-        {!lightMode && !isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
+        {ctxSub && (
           <ToggleField label={t('context_search_keyboard' as any)} checked={(settings as any).contextSearchKeyboardEnabled !== false} onChange={(v: boolean) => (actions as any).setContextSearchKeyboardEnabled(v)} />
         )}
-        {!lightMode && !isHid('contextSearchEnabled') && (settings as any).contextSearchEnabled === true && (
+        {ctxSub && (
           <ToggleField label={t('context_search_on_enter' as any)} checked={(settings as any).contextSearchOnEnter === true} onChange={(v: boolean) => (actions as any).setContextSearchOnEnter(v)} />
         )}
-        {!lightMode && !isHid('sideNavEnabled') && (
+          </>);
+        })()}
+        {(() => {
+          const showSideNav = !lightMode && !isHid('sideNavEnabled');
+          return (<>
+        {showSideNav && (
           <ToggleField label={t('side_nav_toggle' as any)} checked={(settings as any).sideNavEnabled === true} onChange={(v: boolean) => (actions as any).setSideNavEnabled(v)} />
         )}
-        {!lightMode && !isHid('sideNavEnabled') && (
+        {showSideNav && (
           <div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>
             {t('side_nav_combo' as any, { combo: formatComboForDisplay(resolveBindings((settings as any).buttonBindings).navSideNav) })}
           </div>
         )}
+          </>);
+        })()}
+        {(() => (<>
         {!isHid('onlineFeaturesEnabled') && (
         <ToggleField
           label={t('online_features')}
@@ -890,7 +980,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           <OnlineIcon size={12} /><span>{t('online_features_desc')}</span>
         </div>
         )}
-        {settings.onlineFeaturesEnabled === true && (
+        </>))()}
+        {(() => (
+        settings.onlineFeaturesEnabled === true && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             {!isHid('onlineWishlistEnabled') && <ToggleField label={t('online_wishlist')} checked={settings.onlineWishlistEnabled !== false} onChange={(value: boolean) => void actions.setOnlineWishlistEnabled(value)} />}
             {(settings as any).advancedModeEnabled === true && !isHid('onlineMetadataEnabled') && (<><ToggleField label={t('online_metadata')} checked={settings.onlineMetadataEnabled === true} onChange={(value: boolean) => void actions.setOnlineMetadataEnabled(value)} /><div style={{ paddingLeft: 16, paddingRight: 8, paddingBottom: 4, fontSize: 11, opacity: 0.65, lineHeight: 1.4 }}>{t('online_metadata_desc')}</div></>)}
@@ -900,7 +992,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             {!isHid('onlineHideOwnedGames') && (
               <ToggleField label={t('online_hide_owned')} checked={settings.onlineHideOwnedGames !== false} onChange={(value: boolean) => { void actions.setOnlineHideOwnedGames(value); if (!value) void actions.setOnlineHideOwnedNonSteam(false); }} />
             )}
-            {settings.onlineHideOwnedGames !== false && (
+            {(() => (
+            settings.onlineHideOwnedGames !== false && (
               <div style={{ paddingLeft: 16 }}>
                 {!isHid('onlineHideOwnedNonSteam') && (
                   <ToggleField label={t('hide_owned_non_steam')} checked={settings.onlineHideOwnedNonSteam === true} onChange={(value: boolean) => void actions.setOnlineHideOwnedNonSteam(value)} />
@@ -913,14 +1006,19 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
                   </div>
                 )}
               </div>
-            )}
+            )
+            ))()}
           </div>
-        )}
-        {hasCssLoader && !lightMode && !isHid('forceCssLoaderThemes') && (
+        )
+        ))()}
+        {(() => (
+        hasCssLoader && !lightMode && !isHid('forceCssLoaderThemes') && (
           <ToggleField label={t('force_themes_label')} checked={settings.forceCssLoaderThemes === true} onChange={(value: boolean) => void actions.setForceCssLoaderThemes(value)} />
-        )}
+        )
+        ))()}
       </CollapsibleSection>
-      )}
+        );
+      })()}
 
       {replaceFailed && (
         <RecentsReplaceErrorBanner controller={controller} error={replaceError} onDismiss={() => { setReplaceFailed(false); setReplaceError(null) }} />
@@ -958,8 +1056,11 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
           : <ShelvesPanelSection controller={controller} />}
       </CollapsibleSection>
 
-      {settings.enabled && !isSecHid('smart') && (settings as any).unifiedListEnabled !== true && (
+      {(() => {
+        if (!(settings.enabled && !isSecHid('smart') && (settings as any).unifiedListEnabled !== true)) return null;
+        return (
       <CollapsibleSection id='smart' icon={<SparkleIcon />} title={t('smart_section_header')} count={settings.smartShelvesEnabled ? (settings.smartShelves ?? []).filter((s: any) => !s.hidden).length : 0}>
+        {(() => (<>
         {!isHid('smartShelvesEnabled') && (
         <ToggleField
           label={t('smart_shelves_enabled')}
@@ -970,14 +1071,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
         )}
         {settings.smartShelvesEnabled && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
-            {!lightMode && !isHid('smartShelvesAtBottom') && (
-            <ToggleField
-              label={t('smart_shelves_at_bottom')}
-              checked={settings.smartShelvesAtBottom === true}
-              disabled={mountCrashed}
-              onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)}
-            />
-            )}
+            {!lightMode && !isHid('smartShelvesAtBottom') && <ToggleField label={t('smart_shelves_at_bottom')} checked={settings.smartShelvesAtBottom === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setSmartShelvesAtBottom(value)} />}
             {!lightMode && !isHid('smartSurpriseMe') && (
             <ToggleField
               label={t('smart_surprise_me')}
@@ -988,7 +1082,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             )}
           </div>
         )}
-        {settings.smartShelvesEnabled && settings.smartSurpriseMe && (
+        </>))()}
+        {(() => (
+        settings.smartShelvesEnabled && settings.smartSurpriseMe && (
           <div style={{ paddingLeft: 14, fontSize: 12 }}>
             <DSSliderField
               label={t('smart_surprise_count')}
@@ -1004,7 +1100,9 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
               </div>
             )}
           </div>
-        )}
+        )
+        ))()}
+        {(() => (<>
         {settings.smartShelvesEnabled && !settings.smartSurpriseMe && (settings.smartShelves ?? []).length === 0 && (
           <SmartShelvesFirstRunBanner controller={controller} onAdd={handleAddSmart} />
         )}
@@ -1037,98 +1135,16 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
             <SmartShelvesPanelSection controller={controller} />
           </>
         )}
+        </>))()}
       </CollapsibleSection>
-      )}
+        );
+      })()}
 
-      {settings.enabled && !isSecHid('visual_global') && (
-      <CollapsibleSection
-        id='visual_global'
-        icon={<WandIcon />}
-        title={t('section_visual_global')}
-        count={[settings.globalMatchNativeSize, settings.globalHighlightFirst, settings.globalHighlightAll, (settings as any).globalHighlightRandom, (settings as any).globalEnableLogo, (settings as any).globalEnableIcon, (settings as any).globalEnableDescription, ((settings as any).globalDescriptionScale ?? 100) > 100, (settings as any).globalDescriptionBelowLogo, (settings as any).globalHeroEnabled, (settings as any).globalGameInfoAbove, (settings as any).globalFriendsPlayingOverlay, (settings as any).globalFriendsPlayingOverlayRecent, (settings as any).globalFullPageShelf, settings.globalHideShelfTitle, settings.globalHideGameNames, settings.globalHideStatusLine, settings.globalHideInstallIndicator, settings.globalHideNewBadge, (settings as any).globalHideDiscountBadge, settings.globalHideCompatIcons, settings.globalHideNonSteamBadge, settings.globalHideSeeMore, settings.globalHideRefreshCard, (settings as any).globalDedupeByName].filter(Boolean).length}
-      >
-        {!isHid('globalMatchNativeSize') && <ToggleField label={t('match_native_size')} checked={settings.globalMatchNativeSize === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalMatchNativeSize(value)} />}
-        {!isHid('globalHighlightFirst') && <ToggleField label={t('highlight_first')} checked={settings.globalHighlightFirst === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightFirst(value)} />}
-        {!isHid('globalHighlightAll') && <ToggleField label={t('highlight_all')} checked={settings.globalHighlightAll === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHighlightAll(value)} />}
-        {!isHid('globalHighlightRandom') && <ToggleField label={t('highlight_random')} checked={(settings as any).globalHighlightRandom === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalHighlightRandom(value)} />}
-        {/* Decorations are stripped on the home in light mode — hide here too. */}
-        {!lightMode && (<>
-        {!isHid('globalEnableLogo') && <ToggleField label={t('enable_logo')} checked={(settings as any).globalEnableLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableLogo(value)} />}
-        {(settings as any).globalEnableLogo === true && !isHid('globalLogoPosition') && (
-          <PositionField labelKey='logo_position_label' value={(settings as any).globalLogoPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalLogoPosition(v)} />
-        )}
-        {(settings as any).globalEnableLogo === true && !isHid('globalLogoSize') && (
-          <DSSliderField label={t('logo_size_label' as any)} value={(settings as any).globalLogoSize ?? 100} min={50} max={200} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoSize(v)} />
-        )}
-        {(settings as any).globalEnableLogo === true && !isHid('globalLogoTopOffset') && (
-          <DSSliderField label={t('logo_top_offset_label' as any)} value={(settings as any).globalLogoTopOffset ?? 20} min={-50} max={100} step={5} unit='%' onChange={(v: number) => (actions as any).setGlobalLogoTopOffset(v)} />
-        )}
+      <VisualGlobalSection controller={controller} hidden={isSecHid('visual_global')} isHid={isHid} lightMode={lightMode} mountCrashed={mountCrashed} hasNonSteamBadges={hasNonSteamBadges} />
 
-        {/* Group: Icon + vertical align */}
-        {!isHid('globalEnableIcon') && <ToggleField label={t('enable_icon')} checked={(settings as any).globalEnableIcon === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableIcon(value)} />}
-        {(settings as any).globalEnableIcon === true && !isHid('globalIconVerticalAlign') && (
-          <Field label={t('icon_vertical_align_label' as any)} childrenContainerWidth='min'>
-            <Dropdown
-              rgOptions={[
-                { data: 'top', label: t('icon_vertical_align_top' as any) },
-                { data: 'center', label: t('icon_vertical_align_center' as any) },
-                { data: 'bottom', label: t('icon_vertical_align_bottom' as any) },
-              ]}
-              selectedOption={(settings as any).globalIconVerticalAlign ?? 'top'}
-              onChange={(opt: any) => (actions as any).setGlobalIconVerticalAlign(opt?.data ?? 'top')}
-            />
-          </Field>
-        )}
-
-        {/* Group: Description + position + (paired) below-logo + height */}
-        {!isHid('globalEnableDescription') && <ToggleField label={t('enable_description')} checked={(settings as any).globalEnableDescription === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalEnableDescription(value)} />}
-        {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionScale') && <DSSliderField label={t('description_size_label')} value={(settings as any).globalDescriptionScale ?? 100} min={100} max={200} step={10} unit='%' onChange={(v: number) => (actions as any).setGlobalDescriptionScale(v)} />}
-        {(settings as any).globalEnableDescription === true && !isHid('globalDescriptionPosition') && (
-          <PositionField labelKey='description_position_label' value={(settings as any).globalDescriptionPosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalDescriptionPosition(v)} />
-        )}
-        {(settings as any).globalEnableLogo === true && (settings as any).globalEnableDescription === true && !isHid('globalDescriptionBelowLogo') && <ToggleField label={t('description_below_logo' as any)} checked={(settings as any).globalDescriptionBelowLogo === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDescriptionBelowLogo(value)} />}
-        {(settings as any).globalEnableLogo === true && !isHid('globalLogoBelowShelf') && (
-          <ToggleField label={t('logo_below_shelf_label' as any)} checked={(settings as any).globalLogoBelowShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalLogoBelowShelf(value)} />
-        )}
-        {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionHeight') && (
-          <DSSliderField label={t('description_height_label' as any)} value={(settings as any).globalDescriptionHeight ?? 2} min={1} max={3} step={1} onChange={(v: number) => (actions as any).setGlobalDescriptionHeight(v)} />
-        )}
-        {(settings as any).globalEnableDescription === true && (settings as any).globalDescriptionBelowLogo === true && !isHid('globalDescriptionLogoGap') && (
-          <DSSliderField label={t('description_logo_gap_label' as any)} value={(settings as any).globalDescriptionLogoGap ?? 8} min={-40} max={80} step={5} unit='px' onChange={(v: number) => (actions as any).setGlobalDescriptionLogoGap(v)} />
-        )}
-        </>)}
-
-        {!isHid('globalShelfTitlePosition') && (
-          <PositionField labelKey='shelf_title_position_label' value={(settings as any).globalShelfTitlePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalShelfTitlePosition(v)} />
-        )}
-        {!isHid('globalGameNamePosition') && (
-          <PositionField labelKey='game_name_position_label' value={(settings as any).globalGameNamePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalGameNamePosition(v)} />
-        )}
-        {!isHid('globalPlaytimePosition') && (
-          <PositionField labelKey='playtime_position_label' value={(settings as any).globalPlaytimePosition ?? 'left'} t={t} onChange={(v: HorizontalPosition) => (actions as any).setGlobalPlaytimePosition(v)} />
-        )}
-        {!isHid('globalHideShelfTitle') && <ToggleField label={t('hide_shelf_titles')} checked={settings.globalHideShelfTitle === true} disabled={mountCrashed} onChange={(value: boolean) => applyHideTitleToggle({ next: value, infoAbove: (settings as any).globalGameInfoAbove === true, t, setHideTitle: (v) => actions.setGlobalHideShelfTitle(v), setGameInfoAbove: (v) => void (actions as any).setGlobalGameInfoAbove(v) })} />}
-        {!isHid('globalHideGameNames') && <ToggleField label={t('hide_game_names')} checked={settings.globalHideGameNames === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideGameNames(value)} />}
-        {!isHid('globalHideStatusLine') && <ToggleField label={t('hide_status_line')} checked={settings.globalHideStatusLine === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideStatusLine(value)} />}
-        {!isHid('globalHideInstallIndicator') && <ToggleField label={t('hide_install_indicators')} checked={settings.globalHideInstallIndicator === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideInstallIndicator(value)} />}
-        {!isHid('globalHideNewBadge') && <ToggleField label={t('hide_new_badge')} checked={settings.globalHideNewBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNewBadge(value)} />}
-        {!isHid('globalHideDiscountBadge') && <ToggleField label={t('hide_discount_badge')} checked={(settings as any).globalHideDiscountBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideDiscountBadge(value)} />}
-        {!isHid('globalHideCompatIcons') && <ToggleField label={t('hide_compat_icons')} checked={settings.globalHideCompatIcons === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideCompatIcons(value)} />}
-        {hasNonSteamBadges && !isHid('globalHideNonSteamBadge') && (
-          <ToggleField label={t('hide_non_steam_badge')} checked={settings.globalHideNonSteamBadge === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideNonSteamBadge(value)} />
-        )}
-        {!isHid('globalHideSeeMore') && <ToggleField label={t('hide_see_more_card')} checked={settings.globalHideSeeMore === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideSeeMore(value)} />}
-        {!isHid('globalHideRefreshCard') && <ToggleField label={t('hide_refresh_card')} checked={settings.globalHideRefreshCard === true} disabled={mountCrashed} onChange={(value: boolean) => actions.setGlobalHideRefreshCard(value)} />}
-        {!isHid('globalDedupeByName') && <ToggleField label={t('global_dedupe_by_name' as any)} checked={(settings as any).globalDedupeByName === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalDedupeByName(value)} />}
-        {!lightMode && !isHid('globalHeroEnabled') && <ToggleField label={t('global_hero_enabled' as any)} checked={(settings as any).globalHeroEnabled === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalHeroEnabled(value)} />}
-        {!isHid('globalGameInfoAbove') && <ToggleField label={t('global_game_info_above' as any)} checked={(settings as any).globalGameInfoAbove === true} disabled={mountCrashed} onChange={(value: boolean) => applyGameInfoAboveToggle({ next: value, hideTitle: settings.globalHideShelfTitle === true, t, setGameInfoAbove: (v) => void (actions as any).setGlobalGameInfoAbove(v), setHideTitle: (v) => actions.setGlobalHideShelfTitle(v) })} />}
-        {!isHid('globalFriendsPlayingOverlay') && <ToggleField label={t('friends_overlay_label' as any)} checked={(settings as any).globalFriendsPlayingOverlay === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlay(value)} />}
-        {!isHid('globalFriendsPlayingOverlay') && (settings as any).globalFriendsPlayingOverlay === true && <div style={{ paddingLeft: 14 }}><ToggleField label={t('friends_overlay_recent_label' as any)} checked={(settings as any).globalFriendsPlayingOverlayRecent === true} disabled={mountCrashed} onChange={(value: boolean) => void (actions as any).setGlobalFriendsPlayingOverlayRecent(value)} /></div>}
-        {!isHid('globalFullPageShelf') && <ToggleField label={t('full_page_shelves_label' as any)} checked={(settings as any).globalFullPageShelf === true} disabled={mountCrashed} onChange={(value: boolean) => (actions as any).setGlobalFullPageShelf(value)} />}
-      </CollapsibleSection>
-      )}
-
-      {settings.enabled && (settings.savedFilters?.length ?? 0) > 0 && !isSecHid('saved_filters') && (
+      {(() => {
+        if (!(settings.enabled && (settings.savedFilters?.length ?? 0) > 0 && !isSecHid('saved_filters'))) return null;
+        return (
       <CollapsibleSection
         id='saved_filters'
         icon={<BookmarkIcon />}
@@ -1137,9 +1153,12 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       >
         <SavedFiltersList controller={controller} />
       </CollapsibleSection>
-      )}
+        );
+      })()}
 
-      {settings.enabled && (settings.savedSmartFilters?.length ?? 0) > 0 && !isSecHid('saved_smart_filters') && (
+      {(() => {
+        if (!(settings.enabled && (settings.savedSmartFilters?.length ?? 0) > 0 && !isSecHid('saved_smart_filters'))) return null;
+        return (
       <CollapsibleSection
         id='saved_smart_filters'
         icon={<BookmarkIcon />}
@@ -1148,7 +1167,8 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       >
         <SavedSmartFiltersList controller={controller} />
       </CollapsibleSection>
-      )}
+        );
+      })()}
 
       <Field className='no-sep' childrenLayout='below' childrenContainerWidth='max'>
         {/* `padding: 0 16px` matches the per-section action rows above
@@ -1165,7 +1185,7 @@ export function DeckQAMSettings({ controller }: { controller: SettingsController
       <VersionFooter />
       </Focusable>
       {qamExpanded && (
-        <SidecarPanel controller={controller} onCollapse={() => setQamExpanded(false)} />
+        <SidecarPanel controller={controller} onCollapse={closeSidecar} />
       )}
       </Focusable>
     </div>

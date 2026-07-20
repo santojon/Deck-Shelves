@@ -44,5 +44,22 @@
   "toast_settings_reset": "Impostazioni ripristinate",
   "toast_shelves_reset": "Scaffali reimpostati",
   "toast_smart_shelves_reset": "Scaffali intelligenti reimpostati",
-  "sidenav_recents_fallback_label": "Recenti"
+  "sidenav_recents_fallback_label": "Recenti",
+  "toast_created": "Creato",
+  "toast_saved": "Salvato",
+  "toast_deleted": "Eliminato",
+  "toast_duplicated": "Duplicato",
+  "toast_renamed": "Rinominato",
+  "toast_shelf_created": "Scaffale creato",
+  "toast_shelf_saved": "Scaffale salvato",
+  "toast_shelf_deleted": "Scaffale eliminato",
+  "toast_shelf_duplicated": "Scaffale duplicato",
+  "toast_profile_created": "Profilo creato",
+  "toast_profile_saved": "Profilo salvato",
+  "toast_profile_deleted": "Profilo eliminato",
+  "toast_profile_duplicated": "Profilo duplicato",
+  "toast_profile_renamed": "Profilo rinominato",
+  "toast_filter_saved": "Filtro salvato",
+  "toast_filter_deleted": "Filtro eliminato",
+  "toast_filter_renamed": "Filtro rinominato"
 }

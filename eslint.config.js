@@ -1,4 +1,5 @@
 import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 const MAX_LINE_COMMENT_LINES = 3;
@@ -70,11 +71,14 @@ export default [
     ignores: ['src/test/**', 'src/**/*.test.{ts,tsx}', 'src/qa/**'],
     languageOptions: {
       parser: tsParser,
-      parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } },
+      // `projectService` enables type-aware rules (below). Slower than
+      // syntax-only linting, but required for the async-safety catchers.
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true }, projectService: true, tsconfigRootDir: import.meta.dirname },
     },
     plugins: {
       'react-hooks': reactHooks,
       'ds-local': commentLengthPlugin,
+      '@typescript-eslint': tsPlugin,
     },
     linterOptions: {
       reportUnusedDisableDirectives: 'off',
@@ -110,9 +114,58 @@ export default [
       // switch case must end with break/return — fallthroughs are a
       // common source of silent bugs.
       'no-fallthrough': 'error',
+      // Recommended bug catchers: unsafe `?.` short-circuit
+      // into arithmetic/spread, always-true/false binary exprs (`a ?? b || c`
+      // precedence), NaN misuse, bad typeof strings, async promise executors,
+      // duplicate else-if branches, assignment inside a condition.
+      'no-unsafe-optional-chaining': 'error',
+      'no-constant-binary-expression': 'error',
+      'use-isnan': 'error',
+      'valid-typeof': 'error',
+      'no-async-promise-executor': 'error',
+      'no-dupe-else-if': 'error',
+      'no-cond-assign': ['error', 'always'],
+      // Type-aware async safety: a promise left unhandled (no await / .then /
+      // .catch / void) swallows errors and races; passing an async fn where a
+      // void callback is expected (event handlers, useEffect) misfires.
+      '@typescript-eslint/no-floating-promises': 'error',
+      // `attributes: false` allows async JSX handlers (`onClick={async…}`,
+      // benign fire-and-forget) while still catching async fns in `if`/`&&`,
+      // `forEach`, and other spots that silently drop the promise.
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
       // Consecutive `//` comments capped at 3 lines; `/* */` blocks at 5
       // lines. Long-form notes belong in docs/.
-      'ds-local/comment-length': 'warn',
+      'ds-local/comment-length': 'error',
+    },
+  },
+  {
+    // Tests + QA harness — excluded from the main block above (complexity /
+    // max-lines / comment-length would only churn naturally long, repetitive
+    // test code, and type-aware rules add cost). This block runs the
+    // zero-false-positive BUG CATCHERS only, so any hit is a real bug to fix,
+    // never suppressed.
+    files: ['src/test/**/*.{ts,tsx}', 'src/**/*.test.{ts,tsx}', 'src/qa/**/*.{ts,tsx}'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } },
+    },
+    rules: {
+      'no-var': 'error',
+      'prefer-const': 'error',
+      'eqeqeq': ['error', 'smart'],
+      'no-debugger': 'error',
+      'no-throw-literal': 'error',
+      'no-duplicate-imports': 'error',
+      'no-self-assign': 'error',
+      'no-unreachable': 'error',
+      'no-fallthrough': 'error',
+      'no-unsafe-optional-chaining': 'error',
+      'no-constant-binary-expression': 'error',
+      'use-isnan': 'error',
+      'valid-typeof': 'error',
+      'no-async-promise-executor': 'error',
+      'no-dupe-else-if': 'error',
+      'no-cond-assign': ['error', 'always'],
     },
   },
 ];

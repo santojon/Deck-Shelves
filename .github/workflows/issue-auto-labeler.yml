@@ -1,4 +1,4 @@
-name: Auto-label issues by title
+name: "Triage · Label type (title)"
 
 on:
   issues:
@@ -12,28 +12,36 @@ jobs:
   label:
     runs-on: ubuntu-latest
     steps:
-      - name: Apply type label from issue title
+      - name: Detect type from title
+        id: detect
         uses: actions/github-script@v7
         with:
+          result-encoding: string
           script: |
             const issue = context.payload.issue;
-            if (!issue) return;
+            if (!issue) return "";
             const title = (issue.title ?? "").toLowerCase();
 
             const titleType =
               /^\s*\[?\s*(fix|bug|hotfix)\b/.test(title)            ? "type::bug" :
               /^\s*\[?\s*(feat|feature)\b/.test(title)            ? "type::feature" :
               /^\s*\[?\s*(enh|enhance|enhancement|improve)\b/.test(title) ? "type::enhancement" :
-              null;
+              "";
 
-            if (!titleType) return;
-
+            if (!titleType) return "";
             const current = (issue.labels ?? []).map(l => l.name || "");
-            if (current.includes(titleType)) return;
+            return current.includes(titleType) ? "" : titleType;
 
+      - name: Apply type label
+        if: steps.detect.outputs.result != ''
+        uses: actions/github-script@v7
+        env:
+          LABEL: ${{ steps.detect.outputs.result }}
+        with:
+          script: |
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: issue.number,
-              labels: [titleType],
+              issue_number: context.payload.issue.number,
+              labels: [process.env.LABEL],
             });

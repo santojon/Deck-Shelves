@@ -3,6 +3,11 @@ import type { SmartShelfMode } from "../types";
 import { getParam, type SmartParams } from "./smartParams";
 import { weightedRank, multiFactorRank, timeDecayScore, applyCooldown, rotateWindow } from "./heuristics";
 import { getBatteryState } from "../runtime/batteryState";
+import { evalDeviceRule, isDeviceRuleKind } from "../runtime/deviceState";
+import { evalTimeContextRule, isTimeContextKind } from "../domain/timeContext";
+import { evalSessionRule, isSessionRuleKind } from "../runtime/sessionState";
+import { evalPerfRule, isPerfRuleKind } from "../runtime/perfState";
+import { evalPeripheralRule, isPeripheralRuleKind } from "../runtime/peripheralsState";
 import { getFriendsPlayingAppIds, getFriendsRecentlyPlayedAppIds } from "../runtime/friendsState";
 import { appHasAnyCategory, getAppAchievementPct, preloadAppDetailsSummaries } from "./appDetailsCache";
 import { getCurrentSettings } from "../store/settingsStore";
@@ -764,6 +769,10 @@ function inSingleRange(r: VisibilityRange, h: number): boolean {
   return h >= start || h < end;
 }
 
+function dayAllowed(daysOfWeek: number[] | undefined, day: number): boolean {
+  return !Array.isArray(daysOfWeek) || daysOfWeek.includes(day);
+}
+
 export function isInVisibilityWindow(
   window: VisibilityWindowInput,
   daysOfWeek: number[] | undefined,
@@ -772,10 +781,7 @@ export function isInVisibilityWindow(
   const ranges = normalizeWindow(window);
   if (ranges.length === 0) {
     // No hour restriction — apply only the global day filter.
-    if (Array.isArray(daysOfWeek)) {
-      if (!daysOfWeek.includes(now.getDay())) return false;
-    }
-    return true;
+    return dayAllowed(daysOfWeek, now.getDay());
   }
   const h = now.getHours();
   const today = now.getDay();
@@ -783,8 +789,8 @@ export function isInVisibilityWindow(
     // Per-range days override the global daysOfWeek for this range only.
     if (Array.isArray(r.days)) {
       if (!r.days.includes(today)) continue;
-    } else if (Array.isArray(daysOfWeek)) {
-      if (!daysOfWeek.includes(today)) return false;
+    } else if (!dayAllowed(daysOfWeek, today)) {
+      return false;
     }
     if (inSingleRange(r, h)) return true;
   }
@@ -821,6 +827,147 @@ export function nextVisibilityBoundary(
 export function getModeVisibilityWindows(mode: SmartShelfMode): ReadonlyArray<{ start: number; end: number }> | undefined {
   if (mode === 'spare_time') return SPARE_TIME_WINDOWS;
   return undefined;
+}
+
+// --- Visibility Rules v2 ---
+/* `evalVisibility` is the single entry every call site uses: it walks the rule
+   tree when `visibility.rules` is present, else delegates to the untouched legacy
+   `isInVisibilityWindow` (existing shelves behave EXACTLY as before). Unknown rule
+   kinds (e.g. a device rule from a newer build) evaluate as true — fail-open. */
+type VisibilityLike = { visibility?: any; visibleHours?: any; visibleDaysOfWeek?: number[] } | undefined;
+
+function evalTimeWindowRule(rule: any, now: Date): boolean {
+  if (Array.isArray(rule.days) && !rule.days.includes(now.getDay())) return false;
+  const start = Number(rule.start), end = Number(rule.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return true;
+  return inSingleRange({ start, end }, now.getHours());
+}
+
+/* Time-context kinds are pure date math; session kinds read live session state;
+   perf/peripheral kinds read on-demand backend state; device kinds read
+   hardware; unknown kinds are neutral (fail-open). */
+function evalContextKind(kind: string, rule: any, now: Date): boolean {
+  if (isTimeContextKind(kind)) return evalTimeContextRule(rule, now);
+  if (isSessionRuleKind(kind)) return evalSessionRule(rule);
+  if (isPerfRuleKind(kind)) return evalPerfRule(rule);
+  if (isPeripheralRuleKind(kind)) return evalPeripheralRule(rule);
+  return isDeviceRuleKind(kind) ? evalDeviceRule(rule) : true;
+}
+
+function evalVisibilityRuleRaw(rule: any, now: Date): boolean {
+  const kind = String(rule?.kind || "");
+  switch (kind) {
+    case "timeWindow": return evalTimeWindowRule(rule, now);
+    case "dayOfWeek":  return Array.isArray(rule.days) ? rule.days.includes(now.getDay()) : true;
+    default:           return evalContextKind(kind, rule, now);
+  }
+}
+
+/* A rule may carry `not: true` to invert its match — the basis for "inverse"
+   triggers (e.g. "stopped charging" = not charging, "went online" = not
+   offline). The editor never lets a kind and its inverse coexist. */
+function evalVisibilityRule(rule: any, now: Date): boolean {
+  const res = evalVisibilityRuleRaw(rule, now);
+  return rule?.not === true ? !res : res;
+}
+
+export function evalVisibilityRules(
+  visibility: { mode?: "any" | "all"; rules?: any[] } | undefined,
+  now: Date = new Date(),
+): boolean {
+  const rules = Array.isArray(visibility?.rules) ? visibility!.rules : [];
+  if (rules.length === 0) return true; // no restriction
+  const results = rules.map((r) => evalVisibilityRule(r, now));
+  return visibility!.mode === "all" ? results.every(Boolean) : results.some(Boolean);
+}
+
+/* Single entry point used by every call site. New `visibility.rules` win;
+   otherwise the legacy window fields drive it (zero behaviour change). */
+export function evalVisibility(entry: VisibilityLike, now: Date = new Date()): boolean {
+  if (!entry) return true;
+  const rules = Array.isArray(entry.visibility?.rules) ? entry.visibility.rules : [];
+  if (rules.length > 0) return evalVisibilityRules(entry.visibility, now);
+  return isInVisibilityWindow(entry.visibleHours, entry.visibleDaysOfWeek, now);
+}
+
+/* True when the entry has any time/day rule (or legacy window) that flips on a
+   clock boundary; device rules flip on hardware events, not the clock. */
+function hasClockRule(entry: VisibilityLike): boolean {
+  const rules = Array.isArray(entry?.visibility?.rules) ? entry!.visibility.rules : [];
+  if (rules.length > 0) {
+    return rules.some((r: any) => r?.kind === "timeWindow" || r?.kind === "dayOfWeek" || isTimeContextKind(String(r?.kind || "")));
+  }
+  return normalizeWindow(entry?.visibleHours).length > 0 || ((entry?.visibleDaysOfWeek?.length ?? 0) > 0);
+}
+
+/* Next epoch-ms at which `evalVisibility` would change, or null when nothing
+   clock-based restricts the entry. */
+export function nextVisibilityFlip(entry: VisibilityLike, now: Date = new Date()): number | null {
+  if (!entry || !hasClockRule(entry)) return null;
+  const cur = evalVisibility(entry, now);
+  const probe = new Date(now.getTime());
+  probe.setMinutes(0, 0, 0);
+  for (let i = 1; i <= 24 * 8; i++) {
+    probe.setTime(probe.getTime() + 60 * 60 * 1000);
+    if (evalVisibility(entry, probe) !== cur) return probe.getTime();
+  }
+  return null;
+}
+
+/* Convert the legacy window fields into an editable rule list (for the
+   Visibility tab when a shelf has no `visibility` yet). Not used for eval —
+   legacy shelves eval through `isInVisibilityWindow` unchanged. */
+export function legacyToVisibility(
+  visibleHours: any,
+  visibleDaysOfWeek: number[] | undefined,
+): { mode: "any" | "all"; rules: Array<{ kind: string } & Record<string, unknown>> } {
+  const rules: Array<{ kind: string } & Record<string, unknown>> = [];
+  const ranges = normalizeWindow(visibleHours);
+  const globalDays = Array.isArray(visibleDaysOfWeek) && visibleDaysOfWeek.length ? visibleDaysOfWeek : undefined;
+  for (const r of ranges) {
+    const days = Array.isArray(r.days) ? r.days : globalDays;
+    rules.push({ kind: "timeWindow", start: r.start, end: r.end, ...(days ? { days } : {}) });
+  }
+  if (ranges.length === 0 && globalDays) rules.push({ kind: "dayOfWeek", days: globalDays });
+  return { mode: "any", rules };
+}
+
+// --- Profile triggers (auto-apply a settings profile when its predicate is true) ---
+/* A profile's `trigger` is a Visibility tree (same shape as shelf visibility).
+   Unlike shelf visibility, an EMPTY trigger never fires — there is nothing to
+   auto-apply, so an unconfigured profile is inert. */
+export function evalProfileTrigger(trigger: unknown, now: Date = new Date()): boolean {
+  const t = trigger as any;
+  if (!t || !Array.isArray(t.rules) || t.rules.length === 0) return false;
+  return evalVisibilityRules(t, now);
+}
+
+/* Name of the first profile whose trigger is currently active, or null.
+   First-match wins so ordering in the profiles list is the tie-break. */
+export function resolveTriggeredProfile(
+  profiles: ReadonlyArray<{ name: string; trigger?: unknown }> | undefined,
+  now: Date = new Date(),
+): string | null {
+  if (!Array.isArray(profiles)) return null;
+  for (const p of profiles) if (evalProfileTrigger(p.trigger, now)) return p.name;
+  return null;
+}
+
+/* Earliest clock boundary at which any profile trigger would flip, for one-shot
+   re-arm scheduling (no polling). null when no trigger is clock-based. */
+export function nextProfileTriggerFlip(
+  profiles: ReadonlyArray<{ name: string; trigger?: unknown }> | undefined,
+  now: Date = new Date(),
+): number | null {
+  if (!Array.isArray(profiles)) return null;
+  let earliest: number | null = null;
+  for (const p of profiles) {
+    const t = p.trigger as any;
+    if (!t || !Array.isArray(t.rules) || t.rules.length === 0) continue;
+    const next = nextVisibilityFlip({ visibility: t }, now);
+    if (next != null && (earliest == null || next < earliest)) earliest = next;
+  }
+  return earliest;
 }
 
 export const INTERNAL_SMART_MODES: ReadonlySet<string> = new Set([

@@ -11,6 +11,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "shortcutType",
   "playedWithinDays",
   "playtimeRange",
+  "recentlyActive",
+  "neglected",
   "nameIncludes",
   "nameRegex",
   "developer",
@@ -18,6 +20,8 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "appIdList",
   "cloudAvailable",
   "controllerSupport",
+  "systemCompatibility",
+  "remotePlayLocation",
   "friends",
   "friendsPlayingNow",
   "friendsPlayedRecently",
@@ -27,6 +31,7 @@ export const ALL_FILTER_TYPES: FilterItemType[] = [
   "merge",
   "appStatus",
   "discount",
+  "priceRange",
 ];
 
 export const COMPAT_LEVELS = ["verified", "playable", "unsupported", "unknown"] as const;
@@ -46,6 +51,8 @@ const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>>
   deckCompatibility: () => ({ levels: ["verified", "playable"] }),
   playedWithinDays: () => ({ days: 30 }),
   playtimeRange: () => ({ minHours: undefined, maxHours: undefined }),
+  recentlyActive: () => ({ minMinutes: 1 }),
+  neglected: () => ({ days: 30 }),
   nameIncludes: () => ({ text: "" }),
   nameRegex: () => ({ pattern: "" }),
   friends: () => ({ friends: [] }),
@@ -59,10 +66,12 @@ const DEFAULT_PARAMS: Partial<Record<FilterItemType, () => Record<string, any>>>
   appIdList: () => ({ appIds: [] }),
   cloudAvailable: () => ({}),
   controllerSupport: () => ({ min: 1 }),
+  remotePlayLocation: () => ({ mode: "remote-only" }),
   merge: () => ({ mode: "and", items: [] }),
   shortcutType: () => ({ kinds: ["game"] }),
   appStatus: () => ({ groups: ["downloading", "queued"] }),
   discount: () => ({ minDiscount: 10, maxDiscount: 100 }),
+  priceRange: () => ({ minPrice: undefined, maxPrice: undefined }),
 };
 
 export function defaultParams(type: FilterItemType): Record<string, any> {
@@ -116,6 +125,8 @@ export function getTypeLabel(type: FilterItemType): string {
     deckCompatibility: t("filter_type_deck_compatibility"),
     playedWithinDays: t("filter_type_played_within_days"),
     playtimeRange: t("filter_type_playtime_range"),
+    recentlyActive: t("filter_type_recently_active"),
+    neglected: t("filter_type_neglected"),
     nameIncludes: t("filter_type_name_includes"),
     nameRegex: t("filter_type_name_regex"),
     friends: t("filter_type_friends"),
@@ -129,16 +140,19 @@ export function getTypeLabel(type: FilterItemType): string {
     appIdList: t("filter_type_app_id_list"),
     cloudAvailable: t("filter_type_cloud_available"),
     controllerSupport: t("filter_type_controller_support"),
+    systemCompatibility: t("filter_type_system_compatibility"),
+    remotePlayLocation: t("filter_type_remote_play"),
     merge: t("filter_type_merge"),
     shortcutType: t("filter_type_shortcut_type"),
     appStatus: t("filter_type_app_status"),
     discount: t("filter_type_discount"),
+    priceRange: t("filter_type_price_range"),
   };
   return map[type] ?? type;
 }
 
 export function isOnlineFilterType(type: FilterItemType): boolean {
-  return type === "discount" || type === "friendsPlayingNow" || type === "friendsPlayedRecently";
+  return type === "discount" || type === "priceRange" || type === "friendsPlayingNow" || type === "friendsPlayedRecently";
 }
 
 export function capitalizeFirst(s: string): string {

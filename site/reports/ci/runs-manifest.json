@@ -37,6 +37,25 @@
       5610
     ],
     "total_duration_ms": 25285,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -77,6 +96,25 @@
       5539
     ],
     "total_duration_ms": 24694,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -117,6 +155,25 @@
       5647
     ],
     "total_duration_ms": 24523,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -157,6 +214,25 @@
       5548
     ],
     "total_duration_ms": 24127,
+    "complexity": {
+      "level": 3771,
+      "count": 161,
+      "max": 159,
+      "avg": 23.4
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 6,
+      "adapter": 106,
+      "ratio": 5.4
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 3,
+      "guarded": 3,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -211,6 +287,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3045,
+      "count": 144,
+      "max": 93,
+      "avg": 21.1
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 81,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -265,6 +360,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3045,
+      "count": 144,
+      "max": 93,
+      "avg": 21.1
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 81,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -319,6 +433,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3045,
+      "count": 144,
+      "max": 93,
+      "avg": 21.1
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 81,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -373,6 +506,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3083,
+      "count": 145,
+      "max": 93,
+      "avg": 21.3
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 80,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -427,6 +579,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 3083,
+      "count": 145,
+      "max": 93,
+      "avg": 21.3
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 0,
+      "adapter": 80,
+      "ratio": 0
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -481,6 +652,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -518,6 +708,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -555,6 +764,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -592,6 +820,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 6167,
+      "count": 246,
+      "max": 238,
+      "avg": 25.1
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 87,
+      "adapter": 4,
+      "ratio": 95.6
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -629,6 +876,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 5232,
+      "count": 211,
+      "max": 192,
+      "avg": 24.8
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -666,6 +932,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 5232,
+      "count": 211,
+      "max": 192,
+      "avg": 24.8
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -703,6 +988,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 5232,
+      "count": 211,
+      "max": 192,
+      "avg": 24.8
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 1,
+      "guarded": 1,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -740,6 +1044,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -777,6 +1100,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -814,6 +1156,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   },
   {
@@ -851,6 +1212,25 @@
       "problems": 0,
       "estimated": true
     },
+    "complexity": {
+      "level": 4585,
+      "count": 185,
+      "max": 174,
+      "avg": 24.8
+    },
+    "complexityEst": true,
+    "decoupling": {
+      "leaks": 81,
+      "adapter": 0,
+      "ratio": 100
+    },
+    "decouplingEst": true,
+    "portability": {
+      "coupled": 0,
+      "guarded": 0,
+      "unguarded": 0
+    },
+    "portabilityEst": true,
     "_scope": "ci"
   }
 ]

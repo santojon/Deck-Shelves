@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import ssl
 from subprocess import run as _sp_run
@@ -37,9 +38,22 @@ import decky
 from paths import _steam_install_candidates, _normalize_path
 from storage import _settings_dir, _primary_file, _safe_read_json, _backups_dir, _write_versioned_backup, _list_backups, _is_safe_backup_name, _export_backup, _import_backup, _delete_backup, _clear_backups, AUTO_THROTTLE_SECONDS
 from sanitizer import _sanitize_settings
+from css_themes import read_css_loader_themes
+from display_state import read_display_state
+from perf_probe import read_perf_snapshot
+from host_os import get_host_os as _host_os
+from peripherals import get_bluetooth_state as _bt_state, get_audio_state as _audio_state
 from launchers import list_launcher_games as _list_launcher_games, list_available_launchers as _list_available_launchers
 
 DEFAULT_SETTINGS: Dict[str, Any] = {"enabled": False, "hideRecents": False, "recentsReplaceSource": False, "hideHomeTabs": False, "shelfHeroBackground": False, "globalMatchNativeSize": False, "globalHighlightFirst": False, "globalHighlightAll": False, "globalHideStatusLine": False, "globalHideNewBadge": False, "globalHideDiscountBadge": False, "globalHideCompatIcons": False, "globalHideNonSteamBadge": False, "globalHideShelfTitle": False, "globalHideGameNames": False, "globalHideInstallIndicator": False, "globalHideSeeMore": False, "globalHideRefreshCard": False, "shelves": [], "smartShelvesEnabled": False, "smartShelvesAtBottom": False, "smartShelves": [], "smartSurpriseMe": False, "smartSurpriseMeCount": 0}
+
+
+def _redact_secrets(text: str) -> str:
+    """Strip auth tokens before a string is logged or returned to the frontend —
+    some urllib / SSL errors stringify the full request URL, which carries the
+    wishlist `access_token`; that must never reach the logs a bug report bundles."""
+    return re.sub(r"(access_token|token|jwt)=[^&\s\"'}]+", r"\1=REDACTED", text,
+                  flags=re.IGNORECASE)
 
 
 class Plugin:
@@ -121,6 +135,36 @@ class Plugin:
         # it off the event loop so a slow read doesn't block every other
         # plugin RPC behind it.
         return await asyncio.to_thread(self._read_state)
+
+    async def get_css_loader_themes(self, *args, **kwargs) -> Dict[str, Any]:
+        # Actual active/installed CSS Loader theme names off disk (read-only).
+        # Off-thread: it walks ~/homebrew/themes and reads small JSON files.
+        return await asyncio.to_thread(read_css_loader_themes)
+
+    async def get_display_state(self, *args, **kwargs) -> Dict[str, Any]:
+        # External-display / dock state via the Linux DRM connectors (read-only).
+        # Off-thread + fail-soft; `supported` is False off SteamOS/Linux.
+        return await asyncio.to_thread(read_display_state)
+
+    async def get_host_os(self, *args, **kwargs) -> Dict[str, Any]:
+        # Authoritative cross-OS host identity (Python `platform` + os-release) so
+        # System information and the bug report name the real OS on every platform.
+        return await asyncio.to_thread(_host_os)
+
+    async def get_perf_snapshot(self, *args, **kwargs) -> Dict[str, Any]:
+        # On-demand CPU / memory snapshot from /proc (read-only). Off-thread (the
+        # CPU read sleeps ~100 ms between /proc/stat samples). No background poll.
+        return await asyncio.to_thread(read_perf_snapshot)
+
+    async def get_bluetooth_state(self, *args, **kwargs) -> Dict[str, Any]:
+        # Paired + connected Bluetooth devices via bluetoothctl (read-only,
+        # off-thread, fail-soft off Linux). On-demand — no background poll.
+        return await asyncio.to_thread(_bt_state)
+
+    async def get_audio_state(self, *args, **kwargs) -> Dict[str, Any]:
+        # Whether the active output sink is a headphone/headset port via wpctl
+        # (read-only, off-thread, fail-soft). On-demand — no background poll.
+        return await asyncio.to_thread(_audio_state)
 
     def _save_pipeline(self, data: Dict[str, Any]) -> bool:
         # Whole save pipeline runs in a single worker thread so neither the
@@ -288,6 +332,15 @@ class Plugin:
                 return candidate
         return os.path.expanduser("~")
 
+    async def get_user_pictures(self) -> str:
+        # Default folder for the image picker. Prefer ~/Pictures, then home —
+        # resolved to an absolute path so it works on any OS / account (replaces
+        # the old /home/deck/Pictures hardcode).
+        for candidate in [os.path.expanduser("~/Pictures"), os.path.expanduser("~")]:
+            if os.path.exists(candidate):
+                return candidate
+        return os.path.expanduser("~")
+
     async def list_launcher_games(self, launcher_id: str = "", *args, **kwargs) -> List[Dict[str, Any]]:
         _ = (args, kwargs)
         if not isinstance(launcher_id, str) or not launcher_id:
@@ -423,10 +476,9 @@ class Plugin:
 
     def _get_steam_cookie(self, name: str) -> str:
         """Read and decrypt a named cookie from Steam's Chromium cookie store.
-
-        Chromium on Linux stores cookies with AES-128-CBC (v10 prefix),
-        key derived via PBKDF2-SHA1 from b"peanuts" + salt b"saltysalt", 1 iteration.
-        """
+        Decryption is OS-dispatched in `_decrypt_chromium_cookie` (Linux + macOS
+        implemented; Windows falls back to the public path). Fail-soft — returns
+        '' when nothing is readable so callers use the unauthenticated path."""
         # Path discovery is centralised in `_steam_install_candidates()` so
         # adding a new platform (Windows / macOS / new Flatpak variant) is a
         # one-line change in that helper.
@@ -447,25 +499,213 @@ class Plugin:
                 con.close()
                 if not row or not row[0]:
                     continue
-                ev = bytes(row[0])
-                if ev[:3] != b"v10":
-                    return ev.decode("utf-8", errors="replace")
-                key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
-                iv = b" " * 16
-                result = _sp_run(
-                    ["openssl", "enc", "-aes-128-cbc", "-d",
-                     "-K", key.hex(), "-iv", iv.hex(), "-nopad"],
-                    input=ev[3:], capture_output=True, timeout=5,
-                )
-                if result.returncode == 0:
-                    dec = result.stdout
-                    pad = dec[-1] if dec else 0
-                    if 0 < pad <= 16:
-                        dec = dec[:-pad]
-                    return dec.decode("utf-8", errors="replace")
+                dec = self._decrypt_chromium_cookie(bytes(row[0]))
+                if dec:
+                    return dec
             except Exception:
                 pass
         return ""
+
+    def _decrypt_chromium_cookie(self, ev: bytes) -> str:
+        """Decrypt a Chromium `encrypted_value`, dispatched by OS (Steam's CEF
+        stores cookies exactly like Chrome). Linux (SteamOS / Deck) is the
+        primary path; macOS derives the key from the Keychain "Safe Storage"
+        password; Windows (v10 = AES-256-GCM with a DPAPI-wrapped key in Local
+        State — a different scheme) is not yet implemented and returns '' so the
+        caller uses the public, unauthenticated path. Always fail-soft."""
+        try:
+            if not ev:
+                return ""
+            if ev[:3] not in (b"v10", b"v11"):
+                return ev.decode("utf-8", errors="replace")  # not encrypted
+            body = ev[3:]
+            if sys.platform.startswith("linux"):
+                # Linux Chromium without a keyring: PBKDF2(b"peanuts", …, 1 iter).
+                key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
+                return self._aes_128_cbc(key, body)
+            if sys.platform == "darwin":
+                pw = self._macos_safe_storage_password()
+                if not pw:
+                    return ""
+                # macOS Chromium: PBKDF2(keychain password, …, 1003 iters).
+                key = hashlib.pbkdf2_hmac("sha1", pw, b"saltysalt", 1003, 16)
+                return self._aes_128_cbc(key, body)
+            if sys.platform == "win32":
+                # Windows v10 = AES-256-GCM with a DPAPI-wrapped key in Local State.
+                return self._decrypt_windows_gcm(body)
+            return ""  # unknown OS — public fallback.
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _aes_128_cbc(key: bytes, body: bytes) -> str:
+        try:
+            iv = b" " * 16
+            result = _sp_run(
+                ["openssl", "enc", "-aes-128-cbc", "-d",
+                 "-K", key.hex(), "-iv", iv.hex(), "-nopad"],
+                input=body, capture_output=True, timeout=5,
+            )
+            if result.returncode != 0:
+                return ""
+            dec = result.stdout
+            pad = dec[-1] if dec else 0
+            if 0 < pad <= 16:
+                dec = dec[:-pad]
+            return dec.decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _macos_safe_storage_password() -> Optional[bytes]:
+        """The Chromium "Safe Storage" password from the login Keychain. The
+        service name varies by app, so try the likely ones fail-soft."""
+        for service in ("Steam Safe Storage", "Chromium Safe Storage", "Chrome Safe Storage"):
+            try:
+                r = _sp_run(["security", "find-generic-password", "-w", "-s", service],
+                            capture_output=True, timeout=4)
+                if r.returncode == 0 and r.stdout.strip():
+                    return r.stdout.strip()
+            except Exception:
+                pass
+        return None
+
+    @staticmethod
+    def _decrypt_windows_gcm(body: bytes) -> str:
+        """Windows v10 cookie = AES-256-GCM: nonce(12) + ciphertext + tag(16),
+        keyed by a DPAPI-wrapped key in the profile's Local State. Uses native CNG
+        via ctypes (no crypto dependency). Fail-soft — '' → public path. NOTE:
+        implemented from the Chromium spec but not verified on a real Windows Steam
+        install; the '' fallback keeps online features safe if anything is off."""
+        try:
+            if len(body) < 12 + 16:
+                return ""
+            key = Plugin._windows_aes_key()
+            if not key:
+                return ""
+            nonce, ciphertext, tag = body[:12], body[12:-16], body[-16:]
+            pt = Plugin._bcrypt_aes_gcm_decrypt(key, nonce, ciphertext, tag)
+            return pt.decode("utf-8", errors="replace") if pt else ""
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _windows_aes_key() -> bytes:
+        """AES key from the CEF profile's Local State: base64 `os_crypt.
+        encrypted_key`, minus the b'DPAPI' prefix, unwrapped via CryptUnprotectData."""
+        try:
+            import base64
+            for root in _steam_install_candidates():
+                local_state = os.path.join(root, "config", "htmlcache", "Local State")
+                if not os.path.exists(local_state):
+                    continue
+                try:
+                    with open(local_state, encoding="utf-8") as f:
+                        enc = json.load(f).get("os_crypt", {}).get("encrypted_key")
+                    if not enc:
+                        continue
+                    raw = base64.b64decode(enc)
+                    if raw[:5] != b"DPAPI":
+                        continue
+                    key = Plugin._dpapi_unprotect(raw[5:])
+                    if key:
+                        return key
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return b""
+
+    @staticmethod
+    def _dpapi_unprotect(data: bytes) -> bytes:
+        """User-scoped DPAPI unwrap via crypt32 CryptUnprotectData. b'' on failure."""
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class _BLOB(ctypes.Structure):
+                _fields_ = [("cbData", wintypes.DWORD),
+                            ("pbData", ctypes.POINTER(ctypes.c_char))]
+
+            src = ctypes.create_string_buffer(data, len(data))
+            blob_in = _BLOB(len(data), ctypes.cast(src, ctypes.POINTER(ctypes.c_char)))
+            blob_out = _BLOB()
+            ok = ctypes.windll.crypt32.CryptUnprotectData(
+                ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out))
+            if not ok:
+                return b""
+            try:
+                return ctypes.string_at(blob_out.pbData, blob_out.cbData)
+            finally:
+                ctypes.windll.kernel32.LocalFree(blob_out.pbData)
+        except Exception:
+            return b""
+
+    @staticmethod
+    def _bcrypt_aes_gcm_decrypt(key: bytes, nonce: bytes, ciphertext: bytes, tag: bytes) -> bytes:
+        """AES-256-GCM decrypt via CNG/bcrypt (ctypes). b'' on any error / bad tag."""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            bcrypt = ctypes.windll.bcrypt
+
+            class _AUTH_INFO(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.ULONG), ("dwInfoVersion", wintypes.ULONG),
+                    ("pbNonce", ctypes.c_void_p), ("cbNonce", wintypes.ULONG),
+                    ("pbAuthData", ctypes.c_void_p), ("cbAuthData", wintypes.ULONG),
+                    ("pbTag", ctypes.c_void_p), ("cbTag", wintypes.ULONG),
+                    ("pbMacContext", ctypes.c_void_p), ("cbMacContext", wintypes.ULONG),
+                    ("cbAAD", wintypes.ULONG), ("cbData", ctypes.c_ulonglong),
+                    ("dwFlags", wintypes.ULONG),
+                ]
+
+            h_alg = ctypes.c_void_p()
+            h_key = ctypes.c_void_p()
+            if bcrypt.BCryptOpenAlgorithmProvider(
+                    ctypes.byref(h_alg), ctypes.c_wchar_p("AES"), None, 0) != 0:
+                return b""
+            try:
+                gcm = "ChainingModeGCM\0".encode("utf-16-le")
+                if bcrypt.BCryptSetProperty(
+                        h_alg, ctypes.c_wchar_p("ChainingMode"), gcm, len(gcm), 0) != 0:
+                    return b""
+                obj_len = wintypes.ULONG(0)
+                got = wintypes.ULONG(0)
+                if bcrypt.BCryptGetProperty(
+                        h_alg, ctypes.c_wchar_p("ObjectLength"),
+                        ctypes.byref(obj_len), ctypes.sizeof(obj_len), ctypes.byref(got), 0) != 0:
+                    return b""
+                key_obj = ctypes.create_string_buffer(obj_len.value)
+                if bcrypt.BCryptGenerateSymmetricKey(
+                        h_alg, ctypes.byref(h_key), key_obj, obj_len.value,
+                        key, len(key), 0) != 0:
+                    return b""
+                nonce_buf = ctypes.create_string_buffer(nonce, len(nonce))
+                tag_buf = ctypes.create_string_buffer(tag, len(tag))
+                ct_buf = ctypes.create_string_buffer(ciphertext, len(ciphertext))
+                info = _AUTH_INFO()
+                ctypes.memset(ctypes.byref(info), 0, ctypes.sizeof(info))
+                info.cbSize = ctypes.sizeof(info)
+                info.dwInfoVersion = 1  # BCRYPT_INIT_AUTH_MODE_INFO_VERSION
+                info.pbNonce = ctypes.cast(nonce_buf, ctypes.c_void_p)
+                info.cbNonce = len(nonce)
+                info.pbTag = ctypes.cast(tag_buf, ctypes.c_void_p)
+                info.cbTag = len(tag)
+                out = ctypes.create_string_buffer(len(ciphertext) or 1)
+                out_len = wintypes.ULONG(0)
+                status = bcrypt.BCryptDecrypt(
+                    h_key, ct_buf, len(ciphertext), ctypes.byref(info), None, 0,
+                    out, len(ciphertext), ctypes.byref(out_len), 0)
+                if status != 0:
+                    return b""
+                return out.raw[:out_len.value]
+            finally:
+                if h_key:
+                    bcrypt.BCryptDestroyKey(h_key)
+                bcrypt.BCryptCloseAlgorithmProvider(h_alg, 0)
+        except Exception:
+            return b""
 
     def _get_steam_id64(self) -> Optional[str]:
         """Derive the user's SteamID64 from the Steam userdata directory.
@@ -538,11 +778,12 @@ class Plugin:
         except urllib.error.HTTPError as e:
             return {"ok": False, "error": f"HTTP {e.code}"}
         except Exception as e:
+            msg = _redact_secrets(str(e))
             try:
-                decky.logger.error(f"get_wishlist failed: {e}")
+                decky.logger.error(f"get_wishlist failed: {msg}")
             except Exception:
                 pass
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": msg}
 
     async def _main(self):
         self._ensure_dirs()

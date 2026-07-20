@@ -1,5 +1,6 @@
 import React from "react";
 import type { Settings, Shelf, SmartShelf, SavedFilter } from "../types";
+import type { BackupEntry } from "../store/settingsStore";
 
 const firstRun = __DEV__ && typeof __QA_FIRST_RUN__ !== "undefined" && __QA_FIRST_RUN__;
 const qamError = __DEV__ && typeof __QA_QAM_ERROR__ !== "undefined" && __QA_QAM_ERROR__;
@@ -567,16 +568,17 @@ export function isQAUpdateOffline(): boolean {
 }
 
 export function wrapQAMSettings<P extends { controller: any }>(Component: React.ComponentType<P>): React.ComponentType<P> {
-  if (!firstRun && !qamError) return Component;
+  // Prod: only wrap when a build flag is set. Dev: always wrap so the localStorage
+  // runtime flags (qa:qam-error / qa:first-run) can toggle the scenario live.
+  if (!__DEV__ && !firstRun && !qamError) return Component;
   return function QAMSettingsQA(props: P) {
-    if (qamError) throw new Error("QA: forced QAM render error");
-    const c: any = props.controller;
-    const patched = {
-      ...c,
-      shelves: [],
-      settings: c?.settings ? { ...c.settings, enabled: false } : c?.settings,
-    };
-    return <Component {...props} controller={patched} />;
+    if (qamError || qaLocalFlag("qa:qam-error")) throw new Error("QA: forced QAM render error");
+    if (firstRun || qaLocalFlag("qa:first-run")) {
+      const c: any = props.controller;
+      const patched = { ...c, shelves: [], settings: c?.settings ? { ...c.settings, enabled: false } : c?.settings };
+      return <Component {...props} controller={patched} />;
+    }
+    return <Component {...props} />;
   };
 }
 
@@ -589,4 +591,19 @@ export function wrapHomeShelves<P extends object>(Component: React.ComponentType
 
 export function isReplaceFailedForced(): boolean {
   return !!forceReplaceFailed;
+}
+
+/* Snapshot-recovery harness: with the `qa:snapshot-recovery` runtime flag set,
+   the error-boundary recovery UI lists these fixture snapshots so the full
+   error → "Restore a snapshot" → picker flow is previewable without a real
+   backup on disk. Pair with `qa:qam-error` to force the boundary into its error
+   state. Dev-only + stripped in prod (the fixtures never leave a dev bundle). */
+export function qaForcedSnapshots(): BackupEntry[] | null {
+  if (!qaLocalFlag("qa:snapshot-recovery")) return null;
+  const now = Math.floor(Date.now() / 1000);
+  return [
+    { name: "settings-qa-1.json", mtime: now - 3600, size: 4096, summary: { shelves: 6, smartShelves: 3, profiles: 2, filters: 1 } },
+    { name: "settings-qa-2.json", mtime: now - 86400, size: 3800, summary: { shelves: 5, smartShelves: 2, profiles: 1, filters: 0 } },
+    { name: "settings-qa-3.json", mtime: now - 3 * 86400, size: 3600, summary: { shelves: 4, smartShelves: 1, profiles: 0, filters: 0 } },
+  ];
 }

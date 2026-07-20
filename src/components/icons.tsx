@@ -112,6 +112,36 @@ export function SlidersIcon({ size = 14, style }: IconProps) {
   );
 }
 
+export function SideNavIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <line x1="9" y1="4" x2="9" y2="20" />
+      <line x1="5.4" y1="8" x2="6.6" y2="8" />
+      <line x1="5.4" y1="12" x2="6.6" y2="12" />
+      <line x1="5.4" y1="16" x2="6.6" y2="16" />
+    </svg>
+  );
+}
+
+export function HeadphonesIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+      <rect x="3" y="13" width="4" height="7" rx="1.5" />
+      <rect x="17" y="13" width="4" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+export function BluetoothIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg {...baseProps(size, style)}>
+      <path d="M6.5 8 18 16 12 20.5V3.5L18 8 6.5 16" />
+    </svg>
+  );
+}
+
 export function StackIcon({ size = 14, style }: IconProps) {
   return (
     <svg {...baseProps(size, style)}>
@@ -313,6 +343,62 @@ export function TargetIcon({ size = 14, style }: IconProps) {
       <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="12" r="5" />
       <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+export function SearchIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" />
+    </svg>
+  );
+}
+
+export function CalendarIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 9h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+export function GaugeIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <path d="M4 19a8 8 0 1 1 16 0" />
+      <path d="M12 15l4-4" />
+      <circle cx="12" cy="15" r="1.4" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function BatteryIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <rect x="2" y="8" width="16" height="9" rx="2" />
+      <path d="M21 11v3" />
+      <path d="M5 11v3" />
+    </svg>
+  );
+}
+
+export function MonitorIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, ...style }}>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
     </svg>
   );
 }

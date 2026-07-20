@@ -10,6 +10,8 @@ export const FilterItemTypeSchema = z.enum([
   "deckCompatibility",
   "playedWithinDays",
   "playtimeRange",
+  "recentlyActive",
+  "neglected",
   "nameIncludes",
   "nameRegex",
   "friends",
@@ -23,10 +25,13 @@ export const FilterItemTypeSchema = z.enum([
   "appIdList",
   "cloudAvailable",
   "controllerSupport",
+  "systemCompatibility",
+  "remotePlayLocation",
   "merge",
   "shortcutType",
   "appStatus",
   "discount",
+  "priceRange",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
@@ -42,6 +47,23 @@ export const FilterGroupSchema = z.object({
   items: z.array(FilterItemSchema).default([]),
 });
 export type FilterGroup = z.infer<typeof FilterGroupSchema>;
+
+// --- Visibility Rules v2 ---
+/* A predicate tree generalising the legacy `visibleHours`/`visibleDaysOfWeek`
+   windows: each rule is one condition, combined per `mode` ('any'=OR, 'all'=AND).
+   Ships time/day kinds; device kinds slot into the same union later. The schema
+   is permissive (`kind` + passthrough) so a newer build's rule round-trips through
+   an older sanitizer. Legacy fields still apply when `visibility` is absent. */
+export const VisibilityRuleSchema = z.object({
+  kind: z.string().min(1).max(40),
+}).passthrough();
+export type VisibilityRule = { kind: string } & Record<string, unknown>;
+
+export const VisibilitySchema = z.object({
+  mode: z.enum(["any", "all"]).default("any"),
+  rules: z.array(VisibilityRuleSchema).default([]),
+});
+export type Visibility = z.infer<typeof VisibilitySchema>;
 
 export const SavedFilterSchema = z.object({
   id: z.string().min(1).max(64),
@@ -73,6 +95,8 @@ export const SavedSmartFilterSchema = z.object({
     days: z.array(z.number().int().min(0).max(6)).optional(),
   })).optional(),
   visibleDaysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  // Round-trips the Visibility Rules v2 tree (same shape as SmartShelf.visibility).
+  visibility: VisibilitySchema.optional(),
 });
 export type SavedSmartFilter = z.infer<typeof SavedSmartFilterSchema>;
 
@@ -290,6 +314,13 @@ export const SmartShelfSchema = z.object({
   // Empty array is treated as "no restriction" (same as undefined). Duplicates
   // are stripped by the sanitizer.
   visibleDaysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  // Visibility Rules v2 — a predicate tree that supersedes visibleHours /
+  // visibleDaysOfWeek when present with rules; the legacy fields still apply
+  // when this is absent (see `evalVisibility` in steam/smartShelves.ts).
+  visibility: VisibilitySchema.optional(),
+  autoPin: VisibilitySchema.optional(),
+  autoCollapse: VisibilitySchema.optional(),
+  autoCollapseWhenEmpty: z.boolean().optional(),
 });
 export type SmartShelf = z.infer<typeof SmartShelfSchema>;
 
@@ -462,6 +493,17 @@ export const ShelfSchema = z.object({
       return out;
     })
   ).optional(),
+  // Visibility Rules v2 — per-shelf predicate tree (see evalVisibility). Regular
+  // shelves gain visibility windows here; absent = always visible (unchanged).
+  visibility: VisibilitySchema.optional(),
+  // Auto-pin: when this predicate matches, the shelf floats to the top of the
+  // home (reverts when it clears). Same tree shape as visibility.
+  autoPin: VisibilitySchema.optional(),
+  // Auto-collapse: when this predicate matches (or, with autoCollapseWhenEmpty,
+  // when the shelf resolves to 0 games), the shelf renders collapsed to its
+  // header. Gated by the global `autoCollapseEnabled` toggle.
+  autoCollapse: VisibilitySchema.optional(),
+  autoCollapseWhenEmpty: z.boolean().optional(),
 });
 
 export type Shelf = z.infer<typeof ShelfSchema>;
@@ -584,6 +626,24 @@ export const SettingsSchema = z.object({
   offlineModeEnabled: z.boolean().nullable().optional().transform((v) => v ?? false),
   featureToggles: z.record(z.string(), z.boolean()).nullable().optional().transform((v) => v ?? {}),
   activeProfileName: z.string().nullable().optional(),
+  /* Master opt-in for Visibility Rules v2 profile triggers. Off by default
+     (absent == off): auto-applying a profile mutates global settings, so it
+     must be enabled explicitly. Optional (not defaulted) to stay absent from
+     existing settings blobs; consumers treat undefined as off. */
+  profileTriggersEnabled: z.boolean().optional(),
+  /* Trigger predicate for the synthetic "Default" (factory) profile — it has
+     no entry in `profiles`, so its auto-apply condition lives here. Same tree
+     shape as a profile `trigger`; sanitizer round-trips it. */
+  factoryProfileTrigger: z.unknown().optional(),
+  autoCollapseEnabled: z.boolean().optional(),
+  notificationsDisabled: z.boolean().optional(),
+  // Per-area notification opt-outs (e.g. "shelves", "profiles", "filters",
+  // "triggers"); an area listed here is suppressed while global notifications
+  // are still on. Absent = every area notifies.
+  notificationsDisabledAreas: z.array(z.string()).nullish(),
+  // Set once the first-run feature showcase has been seen/dismissed; the
+  // AboutPage "replay" button clears it back so the tour can be shown again.
+  showcaseSeen: z.boolean().optional(),
   profiles: z.array(z.object({
     id: z.string(),
     name: z.string(),

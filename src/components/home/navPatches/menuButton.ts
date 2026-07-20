@@ -25,14 +25,19 @@ function findFocusedDsCard(): HTMLElement | null {
   return null;
 }
 
+function readCardIds(el: HTMLElement): { appid: number; shelfId?: string } {
+  const appid = Number(el.getAttribute("data-appid") ?? 0);
+  const shelfId = el.getAttribute("data-shelfid") ?? undefined;
+  return { appid, shelfId: shelfId || undefined };
+}
+
 function interceptMenuBtn(button: number): boolean {
   if (button !== OPTIONS_BUTTON) return false;
   try {
     const focused = findFocusedDsCard();
     if (focused) {
-      const appid = Number(focused.getAttribute("data-appid") ?? 0);
-      const shelfId = focused.getAttribute("data-shelfid") ?? undefined;
-      if (appid > 0) { showGameMenu(appid, shelfId || undefined); return true; }
+      const { appid, shelfId } = readCardIds(focused);
+      if (appid > 0) { showGameMenu(appid, shelfId); return true; }
     }
     // Recents overlay: intercept unconditionally — native handler crashes on
     // replaced cards. Use tracked focused appid, falling back to first cached.

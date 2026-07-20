@@ -7,6 +7,36 @@ const PRICE_KEY = "ds-price-cache-v1";
 const WISHLIST_TTL = 24 * 60 * 60 * 1000;
 const PRICE_TTL = 6 * 60 * 60 * 1000;
 
+/* User's Steam store country for the specials/featured search — so the cached
+   price hints come back in the same currency as the per-app appdetails path
+   (which is localised by the session cookie) instead of forcing USD. Best-effort
+   detection from the store cookie / current user; falls back to "us". Memoised. */
+let _storeCC: string | null = null;
+function ccFromCookie(g: any): string | null {
+  try {
+    const m = String(g?.document?.cookie ?? "").match(/steamCountry=([A-Za-z]{2})/);
+    return m ? m[1].toLowerCase() : null;
+  } catch { return null; }
+}
+function pickUserCountry(g: any): unknown {
+  const app = g && g.App;
+  const user = (app && app.GetCurrentUser) ? app.GetCurrentUser() : null;
+  return (user && (user.strCountryCode || user.strCountry)) || (g && g.g_strCountryCode);
+}
+function ccFromUser(g: any): string | null {
+  try {
+    const raw = pickUserCountry(g);
+    if (typeof raw !== "string" || !/^[A-Za-z]{2}$/.test(raw)) return null;
+    return raw.toLowerCase();
+  } catch { return null; }
+}
+export function getStoreCountryCode(): string {
+  if (_storeCC) return _storeCC;
+  const g: any = globalThis as any;
+  _storeCC = ccFromCookie(g) || ccFromUser(g) || "us";
+  return _storeCC;
+}
+
 const backoffUntil: Record<string, number> = {};
 
 function readCache<T>(key: string, ttl: number): T | null {
@@ -120,23 +150,19 @@ type StoreCacheV2 = {
 
 let storeInFlight: Promise<number[] | null> | null = null;
 
+function replayOneHint(h: { id: number; original: number; final: number }): void {
+  if (!h || typeof h.id !== "number" || h.id <= 0) return;
+  const op = Number(h.original) || 0;
+  const fp = Number(h.final) || 0;
+  if (op <= 0) return;
+  const discount = Math.max(0, Math.min(100, Math.round(((op - fp) / op) * 100)));
+  const price: PriceData = { price: fp, originalPrice: op, discount, currency: "USD", isFree: false };
+  try { writePriceCacheEntry(h.id, price); } catch {}
+}
+
 function replayPriceHints(hints: Array<{ id: number; original: number; final: number }> | undefined): void {
   if (!Array.isArray(hints) || !hints.length) return;
-  for (const h of hints) {
-    if (!h || typeof h.id !== "number" || h.id <= 0) continue;
-    const op = Number(h.original) || 0;
-    const fp = Number(h.final) || 0;
-    if (op <= 0) continue;
-    const discPct = Math.max(0, Math.min(100, Math.round(((op - fp) / op) * 100)));
-    const price: PriceData = {
-      price: fp,
-      originalPrice: op,
-      discount: discPct,
-      currency: "USD",
-      isFree: false,
-    };
-    try { writePriceCacheEntry(h.id, price); } catch {}
-  }
+  for (const h of hints) replayOneHint(h);
 }
 
 export async function getStoreGameIds(): Promise<number[] | null> {
@@ -163,18 +189,19 @@ export async function getStoreGameIds(): Promise<number[] | null> {
       };
       // Coverage: parallel fetch across seven endpoints because no
       // single one catches every currently-free title.
+      const cc = getStoreCountryCode();
       const [
         specialsP1Resp, specialsP2Resp, specialsP3Resp,
         freeResp, freeWeekendIntersectionResp, freeWeekendCategoryResp,
         popularResp,
       ] = await Promise.allSettled([
-        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=0&cc=us"),
-        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=100&cc=us"),
-        withTimeout("https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=200&cc=us"),
-        withTimeout("https://store.steampowered.com/search/results/?maxprice=free&json=1&count=200&cc=us"),
-        withTimeout("https://store.steampowered.com/search/results/?specials=1&maxprice=free&json=1&count=200&cc=us"),
-        withTimeout("https://store.steampowered.com/search/results/?category2=18&json=1&count=200&cc=us"),
-        withTimeout("https://store.steampowered.com/search/results/?json=1&count=100&cc=us"),
+        withTimeout(`https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=0&cc=${cc}`),
+        withTimeout(`https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=100&cc=${cc}`),
+        withTimeout(`https://store.steampowered.com/search/results/?specials=1&json=1&count=100&start=200&cc=${cc}`),
+        withTimeout(`https://store.steampowered.com/search/results/?maxprice=free&json=1&count=200&cc=${cc}`),
+        withTimeout(`https://store.steampowered.com/search/results/?specials=1&maxprice=free&json=1&count=200&cc=${cc}`),
+        withTimeout(`https://store.steampowered.com/search/results/?category2=18&json=1&count=200&cc=${cc}`),
+        withTimeout(`https://store.steampowered.com/search/results/?json=1&count=100&cc=${cc}`),
       ]);
 
       const ids = new Set<number>();
@@ -263,14 +290,24 @@ export interface PriceData {
 
 type PriceCache = Record<number, { ts: number; data: PriceData }>;
 
+/* Parsing the whole price cache per app made shelf resolution O(apps × cache) —
+   with 100+ cards it blocked the UI ~2 s on every refresh. Memoise the parse
+   keyed on the raw string: one resolution pass parses once, and any write (raw
+   string changes) self-invalidates it — no staleness. */
+let _priceCacheRaw: string | null = null;
+let _priceCacheParsed: PriceCache | null = null;
+
+function getPriceCache(): PriceCache {
+  const raw = localStorage.getItem(PRICE_KEY);
+  if (raw === _priceCacheRaw && _priceCacheParsed) return _priceCacheParsed;
+  try { _priceCacheParsed = raw ? JSON.parse(raw) : {}; } catch { _priceCacheParsed = {}; }
+  _priceCacheRaw = raw;
+  return _priceCacheParsed as PriceCache;
+}
+
 function readPriceCache(appid: number): PriceData | null {
-  try {
-    const raw = localStorage.getItem(PRICE_KEY);
-    if (!raw) return null;
-    const cache: PriceCache = JSON.parse(raw);
-    const entry = cache[appid];
-    if (entry && Date.now() - entry.ts < PRICE_TTL) return entry.data;
-  } catch {}
+  const entry = getPriceCache()[appid];
+  if (entry && Date.now() - entry.ts < PRICE_TTL) return entry.data;
   return null;
 }
 
@@ -284,7 +321,10 @@ function writePriceCacheEntry(appid: number, data: PriceData): void {
     for (const k of Object.keys(cache)) {
       if ((cache[Number(k)]?.ts ?? 0) < cutoff) delete cache[Number(k)];
     }
-    localStorage.setItem(PRICE_KEY, JSON.stringify(cache));
+    const next = JSON.stringify(cache);
+    localStorage.setItem(PRICE_KEY, next);
+    _priceCacheRaw = next; // keep the memo consistent with the just-written cache
+    _priceCacheParsed = cache;
   } catch {}
 }
 

@@ -40,6 +40,22 @@ smart sources, filters, sorts, importers, search, side-menu, context, widget,
 shelf-renderer, metadata, statistics, recommendation) with a BUILT-IN chip on
 first-party entries.
 
+## Built-in catalogues
+
+Discover what Deck Shelves ships so an integration can build on the same
+vocabulary instead of hard-coding ids:
+
+- `api.listTriggerCatalog()` — every built-in visibility / profile-trigger rule
+  kind (`PublicTriggerKind[]`): `kind`, `category`, `categoryTitleKey`,
+  `defaults`, and whether it is `invertible`.
+- `api.listShelfTemplates()` — every built-in shelf template
+  (`PublicShelfTemplate[]`): `id`, `titleKey`, `category`, `requiresOnline`,
+  `defaultSort`, and its `source`.
+- `api.listShortcuts()` — every built-in gamepad shortcut (`PublicShortcut[]`):
+  `action`, `defaultCombo`, and the user's current `combo`.
+
+All three are read-only snapshots — call them again for the latest state.
+
 ## Runtime translations
 
 `api.registerTranslations(locale, dict)` deep-merges your strings into the

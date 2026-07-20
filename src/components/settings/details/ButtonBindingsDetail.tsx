@@ -6,7 +6,7 @@ import { DEFAULT_BINDINGS, findCollisions, resolveBindings, validateCombo } from
 import type { ButtonBindings } from "../../../types";
 import { CollapsibleSection } from "../../ui/CollapsibleSection";
 import { BanIcon, CheckIcon, RefreshIcon, TargetIcon, TrashIcon, GamepadIcon } from "../../icons";
-import { BTN_COMPACT_STYLE, BTN_ICON_STYLE } from "../../ui/buttonStyles";
+import { BTN_ICON_STYLE } from "../../ui/buttonStyles";
 import { confirmAction } from "../../qam/modals/ConfirmActionModal";
 
 // Maps the raw controller event button id (from `controllerInput`) to
