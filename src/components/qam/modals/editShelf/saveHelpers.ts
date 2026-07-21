@@ -80,6 +80,7 @@ const SOURCE_BUILDERS: Record<string, SourceBuilder> = {
     return childFilter ? { ...baseSource, childFilter } : baseSource;
   },
   external: ({ state }) => ({ type: 'external', sourceId: state.externalSourceId }),
+  builtin: ({ state }) => ({ type: 'builtin', sourceId: state.builtinSourceId }),
   wishlist: ({ state, childFilter }) => buildOnlineSource('wishlist', state, childFilter),
   store: ({ state, childFilter }) => buildOnlineSource('store', state, childFilter),
 };

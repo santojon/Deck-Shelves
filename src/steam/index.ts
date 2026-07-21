@@ -3687,7 +3687,10 @@ export async function resolveShelfAppIds(
      to ids + apply sort + finish overshoot trimming. */
   try {
     const { SOURCE_V3_RESOLVERS } = require("./v3Extensions") as typeof import("./v3Extensions");
-    const v3 = SOURCE_V3_RESOLVERS[source.type];
+    // `builtin` wraps a v3 source id (the picker's shape); a bare v3 `type`
+    // is also honoured for power-users editing JSON directly.
+    const v3id = source.type === "builtin" ? String((source as any).sourceId ?? "") : source.type;
+    const v3 = SOURCE_V3_RESOLVERS[v3id];
     if (v3) {
       const filtered = v3(all);
       const ids = filtered.map((a) => appIdOf(a)).filter(Number.isFinite);

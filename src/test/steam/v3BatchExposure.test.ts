@@ -1,14 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { FilterItemTypeSchema } from '../../types'
+import { FilterItemTypeSchema, ShelfSourceSchema } from '../../types'
 import { ALL_FILTER_TYPES, canBeInverted } from '../../components/filter/utils'
-import { FILTER_V3_EVALUATORS, SORT_V3_COMPARATORS } from '../../steam/v3Extensions'
-import { SORT_OPTIONS } from '../../components/qam/modals/editShelf/constants'
+import { FILTER_V3_EVALUATORS, SORT_V3_COMPARATORS, SOURCE_V3_RESOLVERS } from '../../steam/v3Extensions'
+import { SORT_OPTIONS, V3_SOURCE_OPTIONS } from '../../components/qam/modals/editShelf/constants'
 
-// The param-free Filter v3 predicates exposed in this batch.
+// The Filter v3 predicates exposed in these batches — param-free + parameterized.
 const BATCH_FILTERS = [
+  // param-free
   'vrSupport', 'soundtrackOwned', 'neverCompleted', 'installedNeverPlayed',
   'compatDataQuality', 'emuDeckSystem', 'retroDeckSystem', 'heroicLauncher',
   'lutrisApp', 'chiakiApp', 'moonlightApp', 'hiddenLauncherShortcuts',
+  // parameterized
+  'genres', 'categories', 'franchise', 'multiplayerType', 'dlcOwned', 'launchCount',
+  'avgSessionMinutes', 'recentlyAbandoned', 'playedOnce', 'achievementPercentRange',
+  'storageDevice', 'installedSizeRange', 'executableType', 'launchOptionTags',
+  'customTags', 'parserCategories',
 ]
 
 // The real (non-stub) Sort v3 comparators exposed in this batch.
@@ -42,5 +48,22 @@ describe('Sort v3 batch — real sorts exposed, stubs hidden', () => {
 
   it('does not expose the no-op random stubs', () => {
     for (const id of STUB_SORTS) expect(sortValues).not.toContain(id)
+  })
+})
+
+describe('Source v3 batch — builtin sources exposed and wired', () => {
+  it('exposes 19 picker options, each with a real resolver', () => {
+    expect(V3_SOURCE_OPTIONS.length).toBe(19)
+    for (const o of V3_SOURCE_OPTIONS) {
+      expect(typeof SOURCE_V3_RESOLVERS[o.value]).toBe('function')
+      // Every option has a label source (proper-noun literal or an i18n key).
+      expect(Boolean(o.label) || Boolean(o.labelKey)).toBe(true)
+    }
+  })
+
+  it('ShelfSourceSchema accepts a builtin source and requires a sourceId', () => {
+    expect(ShelfSourceSchema.safeParse({ type: 'builtin', sourceId: 'pinned_games' }).success).toBe(true)
+    expect(ShelfSourceSchema.safeParse({ type: 'builtin', sourceId: '' }).success).toBe(false)
+    expect(ShelfSourceSchema.safeParse({ type: 'builtin' }).success).toBe(false)
   })
 })

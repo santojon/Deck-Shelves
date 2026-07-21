@@ -46,6 +46,23 @@ export const FilterItemTypeSchema = z.enum([
   "chiakiApp",
   "moonlightApp",
   "hiddenLauncherShortcuts",
+  // Filter v3 — parameterized predicates (editors in FilterItemOptions.tsx).
+  "genres",
+  "categories",
+  "franchise",
+  "multiplayerType",
+  "dlcOwned",
+  "launchCount",
+  "avgSessionMinutes",
+  "recentlyAbandoned",
+  "playedOnce",
+  "achievementPercentRange",
+  "storageDevice",
+  "installedSizeRange",
+  "executableType",
+  "launchOptionTags",
+  "customTags",
+  "parserCategories",
 ]);
 export type FilterItemType = z.infer<typeof FilterItemTypeSchema>;
 
@@ -351,6 +368,7 @@ export type ShelfSource =
   | { type: "tab"; tab: string; childFilter?: FilterGroup }
   | { type: "filter"; filter: ShelfFilter }
   | { type: "external"; sourceId: string }
+  | { type: "builtin"; sourceId: string }
   | { type: "smart"; mode: SmartShelfMode }
   | { type: "wishlist"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
   | { type: "store"; childFilter?: FilterGroup; excludeOwned?: boolean; excludeOwnedNonSteam?: boolean; hideOwnedNonSteamCloud?: boolean }
@@ -361,6 +379,7 @@ export const ShelfSourceSchema: z.ZodType<ShelfSource> = z.lazy(() => z.union([
   z.object({ type: z.literal("tab"), tab: z.string().min(1), childFilter: FilterGroupSchema.optional() }),
   z.object({ type: z.literal("filter"), filter: FilterSchema.default({}) }),
   z.object({ type: z.literal("external"), sourceId: z.string().min(1) }),
+  z.object({ type: z.literal("builtin"), sourceId: z.string().min(1) }),
   z.object({ type: z.literal("smart"), mode: SmartShelfModeSchema }),
   z.object({ type: z.literal("wishlist"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),
   z.object({ type: z.literal("store"), childFilter: FilterGroupSchema.optional(), excludeOwned: z.boolean().optional(), excludeOwnedNonSteam: z.boolean().optional(), hideOwnedNonSteamCloud: z.boolean().optional() }),

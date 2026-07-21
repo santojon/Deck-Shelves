@@ -1,4 +1,29 @@
-export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store'
+export type SourceType = 'collection' | 'tab' | 'filter' | 'external' | 'wishlist' | 'store' | 'builtin'
+
+// Built-in Shelf Source v3 options — resolvers in steam/v3Extensions.ts. Each
+// is parameter-less; the picker stores `{ type: 'builtin', sourceId: value }`.
+// The launcher ones use their proper-noun name directly (no translation).
+export const V3_SOURCE_OPTIONS: { value: string; labelKey?: string; label?: string }[] = [
+  { value: 'dynamic_collections', labelKey: 'source_v3_dynamic_collections' },
+  { value: 'followed_games', labelKey: 'source_v3_followed_games' },
+  { value: 'ignored_games', labelKey: 'source_v3_ignored_games' },
+  { value: 'dlc_source', labelKey: 'source_v3_dlc' },
+  { value: 'soundtrack_source', labelKey: 'source_v3_soundtracks' },
+  { value: 'pinned_games', labelKey: 'source_v3_pinned' },
+  { value: 'history_source', labelKey: 'source_v3_history' },
+  { value: 'session_queue_source', labelKey: 'source_v3_session_queue' },
+  { value: 'temporary_queue_source', labelKey: 'source_v3_temporary_queue' },
+  { value: 'recently_updated', labelKey: 'source_v3_recently_updated' },
+  { value: 'with_events', labelKey: 'source_v3_with_events' },
+  { value: 'with_workshop_updates', labelKey: 'source_v3_with_workshop_updates' },
+  { value: 'controller_specific_source', labelKey: 'source_v3_controller_specific' },
+  { value: 'emudeck_collections', label: 'EmuDeck' },
+  { value: 'retrodeck_collections', label: 'RetroDECK' },
+  { value: 'heroic_library', label: 'Heroic' },
+  { value: 'lutris_library', label: 'Lutris' },
+  { value: 'moonlight_sessions', label: 'Moonlight' },
+  { value: 'chiaki_sessions', label: 'Chiaki' },
+]
 export type EditTab = 'source' | 'filters' | 'childFilters' | 'visual' | 'display' | 'decoration'
 
 // `composite` is implicit: the user picks a primary source then adds

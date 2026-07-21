@@ -98,6 +98,21 @@ function daysSlider(label: string, days: number, min: number, max: number, commi
   );
 }
 
+// Comma-separated text → trimmed, de-blanked string list (genres / tags / …).
+const splitList = (raw: string): string[] => raw.split(",").map((s) => s.trim()).filter(Boolean);
+
+// A min/max numeric slider pair. The max slider at 0 means "no upper bound" and
+// commits `undefined` so the evaluator's `?? Infinity` fallback applies.
+function rangeRows(t: Tfn, min: number, max: any, lo: number, hi: number, step: number, unit: string, commit: (min: number, max: number | undefined) => void): ReactNode {
+  const maxVal = typeof max === "number" && max > 0 ? max : 0;
+  return (
+    <>
+      <DSSliderField label={t("filter_min")} value={min} unit={unit || undefined} min={lo} max={hi} step={step} bottomSeparator="none" onChange={(v: number) => commit(v, maxVal > 0 ? maxVal : undefined)} />
+      <DSSliderField label={t("filter_max")} value={maxVal} valueLabel={maxVal > 0 ? `${maxVal}${unit}` : t("filter_playtime_any")} min={lo} max={hi} step={step} bottomSeparator="none" onChange={(v: number) => commit(min, v > 0 ? v : undefined)} />
+    </>
+  );
+}
+
 function collectionOptions(ctx: OptCtx): ReactNode {
   const { t, p, patchParams, controller } = ctx;
   const collections = controller?.collections ?? [];
@@ -208,6 +223,61 @@ const RENDERERS: Record<string, (c: OptCtx) => ReactNode> = {
   ),
   priceRange,
   discount: discountRange,
+  // ---- Filter v3 parameterized editors ------------------------------------
+  genres: ({ t, p, patchParams }) => textRow(t("filter_type_genres"), t("filter_comma_hint"), (Array.isArray(p.genres) ? p.genres : []).join(", "), (raw) => patchParams({ genres: splitList(raw) })),
+  categories: ({ t, p, patchParams }) => textRow(t("filter_type_categories"), t("filter_comma_hint"), (Array.isArray(p.categories) ? p.categories : []).join(", "), (raw) => patchParams({ categories: splitList(raw) })),
+  franchise: ({ t, p, patchParams }) => textRow(t("filter_type_franchise"), undefined, String(p.franchise ?? ""), (raw) => patchParams({ franchise: raw })),
+  multiplayerType: ({ t, p, patchParams }) => dropdownRow(
+    t("filter_type_multiplayer_type"), undefined,
+    [
+      { data: "any", label: t("filter_mp_any") },
+      { data: "single", label: t("filter_mp_single") },
+      { data: "multi", label: t("filter_mp_multi") },
+      { data: "coop", label: t("filter_mp_coop") },
+      { data: "online", label: t("filter_mp_online") },
+    ],
+    String(p.kind ?? "any"), (v) => patchParams({ kind: v })),
+  dlcOwned: ({ t, p, patchParams }) => (
+    <DSSliderField label={t("filter_dlc_min_count")} value={Number(p.minCount ?? 1)} min={1} max={20} step={1} bottomSeparator="none" onChange={(v: number) => patchParams({ minCount: v })} />
+  ),
+  launchCount: ({ t, p, patchParams }) => rangeRows(t, Number(p.min ?? 0), p.max, 0, 500, 5, "", (min, max) => patchParams({ min, max })),
+  avgSessionMinutes: ({ t, p, patchParams }) => rangeRows(t, Number(p.min ?? 0), p.max, 0, 240, 5, "min", (min, max) => patchParams({ min, max })),
+  achievementPercentRange: ({ t, p, patchParams }) => (
+    <>
+      <DSSliderField label={t("filter_min")} value={Number(p.min ?? 0)} unit="%" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ min: v, max: Math.max(v, Number(p.max ?? 100)) })} />
+      <DSSliderField label={t("filter_max")} value={Number(p.max ?? 100)} unit="%" min={0} max={100} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ max: v, min: Math.min(v, Number(p.min ?? 0)) })} />
+    </>
+  ),
+  recentlyAbandoned: ({ t, p, patchParams }) => (
+    <>
+      {daysSlider(t("filter_abandoned_min_days"), Number(p.minDaysAgo ?? 7), 1, 365, (v) => patchParams({ minDaysAgo: v }))}
+      {daysSlider(t("filter_abandoned_max_days"), Number(p.maxDaysAgo ?? 60), 1, 365, (v) => patchParams({ maxDaysAgo: v }))}
+    </>
+  ),
+  playedOnce: ({ t, p, patchParams }) => (
+    <DSSliderField label={t("filter_played_once_max")} value={Number(p.maxMinutes ?? 60)} unit="min" min={1} max={300} step={1} bottomSeparator="none" onChange={(v: number) => patchParams({ maxMinutes: v })} />
+  ),
+  storageDevice: ({ t, p, patchParams }) => dropdownRow(
+    t("filter_type_storage_device"), undefined,
+    [
+      { data: "ssd", label: t("filter_storage_internal") },
+      { data: "sd", label: t("filter_storage_sd") },
+    ],
+    String(p.device ?? "ssd"), (v) => patchParams({ device: v })),
+  installedSizeRange: ({ t, p, patchParams }) => {
+    const toGb = (mb: any) => (typeof mb === "number" && mb > 0 ? Math.round(mb / 1024) : 0);
+    const fromGb = (gb: number) => (gb > 0 ? gb * 1024 : undefined);
+    return (
+      <>
+        <DSSliderField label={t("filter_min")} value={toGb(p.minMB)} unit="GB" min={0} max={500} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ minMB: fromGb(v) ?? 0 })} />
+        <DSSliderField label={t("filter_max")} value={toGb(p.maxMB)} valueLabel={toGb(p.maxMB) > 0 ? `${toGb(p.maxMB)}GB` : t("filter_playtime_any")} min={0} max={500} step={5} bottomSeparator="none" onChange={(v: number) => patchParams({ maxMB: fromGb(v) })} />
+      </>
+    );
+  },
+  executableType: ({ t, p, patchParams }) => textRow(t("filter_type_executable_type"), t("filter_executable_hint"), String(p.ext ?? ""), (raw) => patchParams({ ext: raw.trim() })),
+  launchOptionTags: ({ t, p, patchParams }) => textRow(t("filter_type_launch_option_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
+  customTags: ({ t, p, patchParams }) => textRow(t("filter_type_custom_tags"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
+  parserCategories: ({ t, p, patchParams }) => textRow(t("filter_type_parser_categories"), t("filter_comma_hint"), (Array.isArray(p.tags) ? p.tags : []).join(", "), (raw) => patchParams({ tags: splitList(raw) })),
   merge: ({ item, onChange, controller, allowOnlineFilters }) => <MergeFilterOptions item={item} onChange={onChange} controller={controller} allowOnlineFilters={allowOnlineFilters} />,
 };
 
